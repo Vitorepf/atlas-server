@@ -146,6 +146,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 8784b69e5 — **L113 brain:provenance read command (pétreo)**: tail da L112 com --source-finding filter. "Quais packets este finding pariu?" one-shot. Pétreo. 2 tests verdes.
 - 4cf2e6eca — **L114 state.provenance.count**: tamanho da L112 ledger surfaced em brain:state. 10 surface tests verdes.
 - 0ecaeac8d — **L115 doctor: provenance_unwired (info)**: served>0 + L112 vazio ⇒ "organ existe mas não está sendo alimentado". Wire gap detector. Adviser map → comprehension-deepening. 14 surface tests verdes.
+- bda4ff5f2 — **L116 stale scope detector (pétreo organ novo)**: multi-scope freshness buckets {fresh, stale, silent} sobre threshold. Compõe L94 sobre N scopes. Pétreo. 2 tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
