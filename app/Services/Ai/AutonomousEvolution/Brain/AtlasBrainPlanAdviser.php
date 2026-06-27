@@ -46,6 +46,7 @@ final class AtlasBrainPlanAdviser
         'frontier_shallow' => 'frontier-harvest',
         'origination_gap_wide' => 'adversarial-critique',
         'evidence_clock_skew' => 'comprehension-deepening',
+        'top_churn_hint_dominant' => 'pattern-design',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */

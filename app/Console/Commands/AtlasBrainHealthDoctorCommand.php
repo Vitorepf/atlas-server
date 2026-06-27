@@ -27,6 +27,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStaleScopeDetector;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTopChurnHintDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
@@ -318,6 +319,17 @@ final class AtlasBrainHealthDoctorCommand extends Command
         $gap = app(AtlasBrainOriginationGapDetector::class)->inspect($ledger);
         if ((int) $gap['total_cycles'] >= 20 && (int) $gap['gap'] >= 20) {
             $findings[] = ['severity' => 'info', 'code' => 'origination_gap_wide', 'advice' => "no served seed in last {$gap['gap']} cycles (of {$gap['total_cycles']} total) — brain is iterating but not delivering; review gates/specs"];
+        }
+
+        // INFO: top churn hint — one action_hint accumulated ≥15 refused cycles. Different from
+        // cascade_rule_low_yield (which is ratio-based) — this is RAW pain count regardless of total.
+        if ($reflectionEnabled) {
+            $stream = app(AtlasBrainReflectionStream::class);
+            $analyzer = app(AtlasBrainCascadeRuleOutcomeAnalyzer::class)->analyze($scope, $stream, $ledger);
+            $churn = app(AtlasBrainTopChurnHintDetector::class)->detect($analyzer);
+            if ($churn['top_hint'] !== null && $churn['refused_count'] >= 15) {
+                $findings[] = ['severity' => 'info', 'code' => 'top_churn_hint_dominant', 'advice' => "action_hint '{$churn['top_hint']}' has accumulated {$churn['refused_count']} refused cycles — stop trying this; rotate to a different cascade rule"];
+            }
         }
 
         // Severity counts BEFORE filter — operator sees the global picture even when narrowing the list.
