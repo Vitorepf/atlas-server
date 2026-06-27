@@ -82,4 +82,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 50ae80d23 — **L50 doctor warns served_ratio_low**: warn quando ratio < 50 sobre ≥10 cycles (anti-noise threshold). Sugere switch scope ou fix path. 3 doctor tests verdes.
 - 7deabeff5 — **L51 brief rotate_path cita served_ratio_pct**: rationale agora inclui ratio% quando metric presente. Trigger + magnitude + eficiência em 1 linha. 17 brief tests verdes.
 - 532d37a37 — **L52 state.done_set.recent_ratio_pct**: dashboard expõe origination efficiency direto sem brain:next. 4 state tests verdes.
+- 626817765 — **L53 brain:state --raw**: single-line JSON pra log/dashboard pipes. Default pretty-print preservado. 4 state tests verdes.
 
