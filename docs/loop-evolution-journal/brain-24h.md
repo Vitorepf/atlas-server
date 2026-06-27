@@ -145,6 +145,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - f1d31cbe9 — **L112 provenance ledger (pétreo organ novo — 3rd writer)**: NDJSON per-seed lineage (cycle_id, task_packet_id, action_hint, recommended_path, source_finding). Audit "de onde veio este packet" sem grep cross-stream. Pétreo. 3 tests verdes.
 - 8784b69e5 — **L113 brain:provenance read command (pétreo)**: tail da L112 com --source-finding filter. "Quais packets este finding pariu?" one-shot. Pétreo. 2 tests verdes.
 - 4cf2e6eca — **L114 state.provenance.count**: tamanho da L112 ledger surfaced em brain:state. 10 surface tests verdes.
+- 0ecaeac8d — **L115 doctor: provenance_unwired (info)**: served>0 + L112 vazio ⇒ "organ existe mas não está sendo alimentado". Wire gap detector. Adviser map → comprehension-deepening. 14 surface tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
