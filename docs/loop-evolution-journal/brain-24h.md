@@ -64,4 +64,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 9df5df688 — **L32 metric +worst_refusal_streak**: nova métrica declarada (minimize) no MetricSnapshot. Causal selector + brief têm acesso à magnitude do bad spell além do count atual. 161 brain tests verdes.
 - e63b0f680 — **L33 rotate_path cites streak**: brief rotate_path rationale agora inclui `worst_refusal_streak`. Brain vê trigger + magnitude histórica em 1 linha. 178 brain tests verdes.
 - b6fe2507d — **L34 router.signal_strength**: count de axes não-vazios (0..3) na recomendação do PortfolioRouter. Brain lê confiança da rota: 3=forte, 1=fraco. 169 brain tests verdes (1 novo).
+- 2be1a2080 — **L35 frontier.count em brain:state**: `AtlasBrainFrontierSourceRegistry::count()` + payload `state.frontier.count`. Dashboard mostra quantos curated candidates aguardam. 163 brain tests verdes (1 novo).
 
