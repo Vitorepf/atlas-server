@@ -109,6 +109,31 @@ final class AtlasBrainStateCommandTest extends TestCase
         self::assertContains('muscle', $slugs);
     }
 
+    public function test_cascade_outcomes_block_joins_reflection_and_done_set(): void
+    {
+        config()->set('atlas.brain.reflection_enabled', true);
+        $base = sys_get_temp_dir().'/atlas-brain-state-cascade-'.bin2hex(random_bytes(4));
+        @mkdir($base, 0o775, true);
+        $stream = $base.'/reflection.ndjson';
+        config()->set('atlas.brain.reflection_root', $stream);
+
+        foreach (['snap-A', 'snap-B'] as $cycle) {
+            $row = ['schema' => 'x', 'scope' => 'loop', 'cycle_id' => $cycle, 'result_kind' => 'note', 'reflection' => 'leverage_brief: use_drafted_candidate — t', 'signals' => ['action_hint' => 'use_drafted_candidate'], 'recorded_at' => 0];
+            file_put_contents($stream, json_encode($row).PHP_EOL, FILE_APPEND);
+        }
+
+        $ledger = new AtlasBrainDoneSetLedger('loop', $this->doneSetRoot);
+        $ledger->record(['snapshot_id' => 'snap-A', 'status' => 'served', 'produced' => true]);
+        $ledger->record(['snapshot_id' => 'snap-B', 'status' => 'refused', 'produced' => false]);
+
+        Artisan::call('atlas:brain:state', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame(2, $payload['cascade_outcomes']['joined_cycles']);
+        self::assertSame('use_drafted_candidate', $payload['cascade_outcomes']['by_hint'][0]['hint']);
+        self::assertSame(50, $payload['cascade_outcomes']['by_hint'][0]['served_rate_pct']);
+    }
+
     public function test_state_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(

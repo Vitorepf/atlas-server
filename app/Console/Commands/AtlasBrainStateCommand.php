@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
@@ -103,6 +104,17 @@ final class AtlasBrainStateCommand extends Command
             'brief_histogram' => app(AtlasBrainBriefHistogram::class)->histogram(
                 $reflection->recallTexts($scope, ['signals' => ['action_hint' => '']], 20),
             ),
+            // CASCADE OUTCOMES — per-action_hint served/refused/served_rate_pct joined from reflection +
+            // done-set. Top 5 by served_rate so the dashboard line stays small but the operator can see
+            // which cascade rules pay off vs which churn. (L75 analyzer; pétreo organ.)
+            'cascade_outcomes' => (function () use ($scope, $reflection, $ledger): array {
+                $report = app(AtlasBrainCascadeRuleOutcomeAnalyzer::class)->analyze($scope, $reflection, $ledger);
+
+                return [
+                    'joined_cycles' => $report['joined_cycles'],
+                    'by_hint' => array_slice($report['by_hint'], 0, 5),
+                ];
+            })(),
             'frontier' => [
                 'count' => app(AtlasBrainFrontierSourceRegistry::class)->count($scope),
             ],
