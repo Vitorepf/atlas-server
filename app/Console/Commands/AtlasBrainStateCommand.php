@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
@@ -97,6 +98,9 @@ final class AtlasBrainStateCommand extends Command
             'last_brief' => $lastBrief,
             'frontier' => [
                 'count' => app(AtlasBrainFrontierSourceRegistry::class)->count($scope),
+            ],
+            'paths' => [
+                'count' => count(app(AtlasBrainPathCatalog::class)->all()),
             ],
             // GATE HEALTH — runtime adversarial audit hole counts (same as scope_signals.gate_health in
             // brain:next, computed here without origination). zero=airtight; non-zero=regression to fix.
