@@ -33,7 +33,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainStateCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:state {--scope= : scope slug (default: configured default_scope)} {--tail=50 : how many done-set rows to summarize} {--json}';
+    protected $signature = 'atlas:brain:state {--scope= : scope slug (default: configured default_scope)} {--tail=50 : how many done-set rows to summarize} {--all : also emit a per-scope cohort summary for every configured scope} {--json}';
 
     /** @var string */
     protected $description = 'READ-ONLY brain state snapshot: master switch, scope, done-set tail, reflection tail (no origination).';
@@ -105,6 +105,28 @@ final class AtlasBrainStateCommand extends Command
                 'seed_gate_holes' => count(app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class))['holes']),
             ],
         ];
+
+        if ($this->option('all')) {
+            $cohorts = [];
+            $registry = app(AtlasBrainScopeRegistry::class);
+            foreach (array_keys((array) config('atlas.brain.scopes', [])) as $slug) {
+                $slug = (string) $slug;
+                if ($slug === '') {
+                    continue;
+                }
+                $def = $registry->resolve($slug);
+                $cohortScope = (string) $def['slug'];
+                $cohortLedger = new AtlasBrainDoneSetLedger($cohortScope, (string) config('atlas.brain.done_set_root'));
+                $cohorts[] = [
+                    'slug' => $cohortScope,
+                    'meta_harness' => (bool) $def['meta_harness'],
+                    'done_set_recent' => count($cohortLedger->recentCycles($tail)),
+                    'reflection_total' => count($reflection->forScope($cohortScope)),
+                    'frontier_count' => app(AtlasBrainFrontierSourceRegistry::class)->count($cohortScope),
+                ];
+            }
+            $payload['cohorts'] = $cohorts;
+        }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 

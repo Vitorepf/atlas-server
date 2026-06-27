@@ -90,6 +90,24 @@ final class AtlasBrainStateCommandTest extends TestCase
         @unlink($path);
     }
 
+    public function test_all_flag_enumerates_every_configured_scope_in_cohorts(): void
+    {
+        config()->set('atlas.brain.scopes.muscle', [
+            'label' => 'test-muscle',
+            'roots' => ['app/Models'],
+            'docs_roots' => [],
+            'meta_harness' => false,
+        ]);
+
+        Artisan::call('atlas:brain:state', ['--all' => true, '--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertArrayHasKey('cohorts', $payload);
+        $slugs = array_column($payload['cohorts'], 'slug');
+        self::assertContains('loop', $slugs);
+        self::assertContains('muscle', $slugs);
+    }
+
     public function test_state_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(
