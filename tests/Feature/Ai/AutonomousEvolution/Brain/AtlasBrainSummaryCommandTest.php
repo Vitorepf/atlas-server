@@ -64,6 +64,20 @@ final class AtlasBrainSummaryCommandTest extends TestCase
         self::assertStringContainsString('gap=', $out);
     }
 
+    public function test_compact_mode_emits_3_field_line(): void
+    {
+        $buf = new BufferedOutput;
+        Artisan::call('atlas:brain:summary', ['--compact' => true], $buf);
+        $out = trim($buf->fetch());
+
+        self::assertStringContainsString('brain[score=', $out);
+        self::assertStringContainsString('gates=', $out);
+        self::assertStringContainsString('next=', $out);
+        // Compact line shouldn't contain the long-form fields.
+        self::assertStringNotContainsString('starv=', $out);
+        self::assertStringNotContainsString('starved_paths', $out);
+    }
+
     public function test_summary_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainSummaryCommand.php', true);

@@ -39,7 +39,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 final class AtlasBrainSummaryCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:summary {--scope= : scope slug (default: configured default_scope)}';
+    protected $signature = 'atlas:brain:summary {--scope= : scope slug (default: configured default_scope)} {--compact : short 3-field line for status widgets}';
 
     /** @var string */
     protected $description = 'Single-line plain-text brain summary (gates, ratio, finding counts) — terminal/status-line friendly.';
@@ -116,7 +116,11 @@ final class AtlasBrainSummaryCommand extends Command
         $ledgerScores = array_map(static fn (array $r): int => (int) ($r['score'] ?? 0), app(AtlasBrainHealthScoreLedger::class)->tail($scope, 10));
         $ledgerSig = $ledgerScores === [] ? 'none' : ($ledgerScores[0].'→'.end($ledgerScores));
 
-        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, starved_paths={$starvedPaths}/7, gap={$gap}, findings={$c}c/{$w}w/{$i}i, next={$next}, path={$nextPath}]");
+        if ($this->option('compact')) {
+            $this->line("brain[score={$score}/100 gates={$gates} next={$next}]");
+        } else {
+            $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, starved_paths={$starvedPaths}/7, gap={$gap}, findings={$c}c/{$w}w/{$i}i, next={$next}, path={$nextPath}]");
+        }
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
