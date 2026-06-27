@@ -44,7 +44,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainHealthDoctorCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--severity= : filter findings to one severity (critical|warn|info)} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
+    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--severity= : filter findings to one severity (critical|warn|info)} {--top= : after severity filter, keep only the top-K by adviser priority} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
 
     /** @var string */
     protected $description = 'First-aid checks over brain state — emits actionable findings (gate holes, dormant flags, dead memory, etc).';
@@ -327,6 +327,24 @@ final class AtlasBrainHealthDoctorCommand extends Command
         $surfaced = $findings;
         if ($severityFilter !== '' && in_array($severityFilter, ['critical', 'warn', 'info'], true)) {
             $surfaced = array_values(array_filter($findings, static fn (array $f): bool => (string) $f['severity'] === $severityFilter));
+        }
+
+        // Apply --top=K AFTER severity filter: critical → warn → info-by-priority order, then take K.
+        $topK = (int) ($this->option('top') ?? 0);
+        if ($topK > 0) {
+            $sev_rank = ['critical' => 2, 'warn' => 1, 'info' => 0];
+            $priority = [
+                'result_kind_starvation' => 90, 'starvation_trend_worsening' => 85, 'score_ledger_regressing' => 80,
+                'frontier_empty' => 75, 'cascade_rule_low_yield' => 70, 'health_score_low' => 65, 'evidence_stale' => 60,
+                'brief_histogram_skewed' => 50, 'hint_self_loop_dominant' => 45, 'reflection_empty' => 30, 'scope_signal_digest_dormant' => 20,
+            ];
+            usort($surfaced, static function (array $a, array $b) use ($sev_rank, $priority): int {
+                $ra = $sev_rank[(string) $a['severity']] ?? 0;
+                $rb = $sev_rank[(string) $b['severity']] ?? 0;
+
+                return [$rb, $priority[(string) $b['code']] ?? 0] <=> [$ra, $priority[(string) $a['code']] ?? 0];
+            });
+            $surfaced = array_slice($surfaced, 0, $topK);
         }
 
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).

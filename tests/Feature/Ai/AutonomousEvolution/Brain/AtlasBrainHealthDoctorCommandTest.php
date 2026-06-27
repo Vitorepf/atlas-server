@@ -201,6 +201,14 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         self::assertContains('score_ledger_regressing', array_column($payload['findings'], 'code'));
     }
 
+    public function test_top_k_keeps_only_k_findings_by_priority(): void
+    {
+        Artisan::call('atlas:brain:health-doctor', ['--json' => true, '--top' => 1]);
+        $payload = json_decode(trim(Artisan::output()), true);
+        // Default state has multiple findings; --top=1 narrows to one.
+        self::assertCount(1, $payload['findings']);
+    }
+
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainHealthDoctorCommand.php', true);
