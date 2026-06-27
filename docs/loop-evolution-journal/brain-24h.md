@@ -398,3 +398,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 6 assertions green; pint green
 - next: metrics-optimization or pattern-design (both still at 2)
+
+## L185 — HHI concentration (metrics-optimization, routed by coverage)
+- path: metrics-optimization — routed via coverage (was 2, now 3)
+- organ: AtlasBrainConcentrationHhi — Herfindahl-Hirschman; bidirectional check vs entropy
+- coverage matrix: metrics-optimization=3
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: pattern-design (only path still at 2 organs)
