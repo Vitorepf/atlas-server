@@ -35,6 +35,15 @@ final class AtlasBrainEvidenceFreshnessTest extends TestCase
         self::assertNull($r['age_seconds']);
     }
 
+    public function test_future_dated_reflection_surfaces_clock_skew(): void
+    {
+        $now = 1_000;
+        $rows = [['recorded_at' => $now + 300]];
+        $r = (new AtlasBrainEvidenceFreshness)->inspect($rows, $now);
+        self::assertSame(0, $r['age_seconds'], 'age clamps to 0 when newest is in the future');
+        self::assertSame(300, $r['future_skew_seconds']);
+    }
+
     public function test_freshness_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(
