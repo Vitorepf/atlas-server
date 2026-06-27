@@ -58,6 +58,21 @@ final class AtlasBrainStateCommand extends Command
 
         $reflection = app(AtlasBrainReflectionStream::class);
         $reflectionCount = count($reflection->forScope($scope));
+        // Parse the newest leverage_brief reflection (L14 time series) into a {hint, rationale} snapshot —
+        // shows the last recommendation without running brain:next.
+        $lastBrief = null;
+        $newest = $reflection->recallTexts($scope, ['signals' => ['action_hint' => '']], 1);
+        if ($newest !== []) {
+            $text = (string) ($newest[0]['reflection'] ?? '');
+            if (str_starts_with($text, 'leverage_brief: ')) {
+                $rest = substr($text, strlen('leverage_brief: '));
+                $cut = strpos($rest, ' — ');
+                $lastBrief = [
+                    'hint' => trim($cut === false ? $rest : substr($rest, 0, $cut)),
+                    'rationale' => $cut === false ? '' : trim(substr($rest, $cut + strlen(' — '))),
+                ];
+            }
+        }
 
         $payload = [
             'brain_enabled' => AtlasBrainMasterSwitch::enabled(),
@@ -74,6 +89,7 @@ final class AtlasBrainStateCommand extends Command
             'reflection' => [
                 'recent_count' => $reflectionCount,
             ],
+            'last_brief' => $lastBrief,
             // GATE HEALTH — runtime adversarial audit hole counts (same as scope_signals.gate_health in
             // brain:next, computed here without origination). zero=airtight; non-zero=regression to fix.
             'gate_health' => [

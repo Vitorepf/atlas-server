@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\AutonomousEvolution\Brain;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -68,6 +69,25 @@ final class AtlasBrainStateCommandTest extends TestCase
         self::assertArrayHasKey('reflection', $payload);
         self::assertSame(0, $payload['gate_health']['inspector_holes']);
         self::assertSame(0, $payload['gate_health']['seed_gate_holes']);
+    }
+
+    public function test_last_brief_parses_newest_action_hint_reflection(): void
+    {
+        config()->set('atlas.brain.reflection_enabled', true);
+        // Use a temp reflection path so the stream doesn't write to the live ndjson.
+        $path = sys_get_temp_dir().'/atlas-brain-state-rflx-'.bin2hex(random_bytes(6)).'.ndjson';
+        config()->set('atlas.brain.reflection_root', $path);
+        $stream = new AtlasBrainReflectionStream($path);
+        $stream->record(['scope' => 'loop', 'reflection' => 'leverage_brief: use_drafted_candidate — 2 drafts ready-to-seed', 'signals' => ['action_hint' => 'use_drafted_candidate']], 1);
+        // re-bind so the command uses the same path
+        $this->app->instance(AtlasBrainReflectionStream::class, $stream);
+
+        Artisan::call('atlas:brain:state', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame('use_drafted_candidate', $payload['last_brief']['hint']);
+        self::assertStringContainsString('2 drafts', $payload['last_brief']['rationale']);
+        @unlink($path);
     }
 
     public function test_state_command_is_a_petreo_forbidden_self_target(): void
