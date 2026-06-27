@@ -81,7 +81,27 @@ final class AtlasBrainMetricsCommand extends Command
             "atlas_brain_origination_gap_cycles{$label}" => $gap,
         ];
 
+        // HELP/TYPE comments — proper Prometheus textfile format. Static dict so the help text stays
+        // identical across runs (scrapers cache type hints).
+        $help = [
+            'atlas_brain_score' => ['gauge', 'Composite health score 0..100'],
+            'atlas_brain_gates_holes' => ['gauge', 'Adversarial gate hole count (inspector + seed)'],
+            'atlas_brain_served_ratio_pct' => ['gauge', 'served/decisive ratio over last 50 done-set rows'],
+            'atlas_brain_decisive_cycles' => ['gauge', 'served + refused over last 50 done-set rows'],
+            'atlas_brain_starvation_pct' => ['gauge', 'Starvation outcome share over last 50 reflections'],
+            'atlas_brain_entropy_normalized' => ['gauge', 'Normalized Shannon entropy over hint distribution [0..1]'],
+            'atlas_brain_evidence_age_seconds' => ['gauge', 'Seconds since newest reflection (-1 if none)'],
+            'atlas_brain_origination_gap_cycles' => ['gauge', 'Cycles since last served|seeded done-set row'],
+        ];
+        $emitted = [];
         foreach ($metrics as $key => $val) {
+            $base = (string) strstr($key, '{', true) ?: $key;
+            if (! isset($emitted[$base])) {
+                $hint = $help[$base] ?? ['gauge', ''];
+                $this->line("# HELP {$base} {$hint[1]}");
+                $this->line("# TYPE {$base} {$hint[0]}");
+                $emitted[$base] = true;
+            }
             $this->line($key.' '.$val);
         }
 

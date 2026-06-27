@@ -29,6 +29,8 @@ final class AtlasBrainMetricsCommandTest extends TestCase
         self::assertStringContainsString('atlas_brain_served_ratio_pct{scope="loop"} ', $out);
         self::assertStringContainsString('atlas_brain_origination_gap_cycles{scope="loop"} ', $out);
         self::assertStringContainsString('atlas_brain_evidence_age_seconds{scope="loop"} -1', $out);
+        self::assertStringContainsString('# TYPE atlas_brain_score gauge', $out);
+        self::assertStringContainsString('# HELP atlas_brain_score Composite', $out);
     }
 
     public function test_metrics_command_is_a_petreo_forbidden_self_target(): void
