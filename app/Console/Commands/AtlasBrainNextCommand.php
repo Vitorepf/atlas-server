@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -117,7 +118,7 @@ final class AtlasBrainNextCommand extends Command
             if ($recalled !== []) {
                 $payload['reflections'] = $recalled;
             }
-            $payload += $this->scopeSignalsFor($model);
+            $payload += $this->scopeSignalsFor($scope, $model);
 
             return $this->emit($payload);
         }
@@ -200,7 +201,7 @@ final class AtlasBrainNextCommand extends Command
             'scope' => $scope,
             'journal' => $journalPath,
             'packet' => ['specs' => ['packets' => [$spec]]],
-        ] + $this->scopeSignalsFor($model));
+        ] + $this->scopeSignalsFor($scope, $model));
     }
 
     /**
@@ -209,13 +210,18 @@ final class AtlasBrainNextCommand extends Command
      *
      * @return array<string,mixed>
      */
-    private function scopeSignalsFor(AtlasLoopScopeComprehensionModel $model): array
+    private function scopeSignalsFor(string $scope, AtlasLoopScopeComprehensionModel $model): array
     {
         if (! (bool) config('atlas.brain.scope_signal_digest_enabled', false)) {
             return [];
         }
         $digest = app(AtlasBrainStructuralSignalDigest::class)->digest($model);
-        if ($digest['orphans'] === [] && $digest['clone_clusters'] === [] && $digest['doc_stated_gaps'] === []) {
+        // FRONTIER-HARVEST source: top-K curated candidates the operator (or a future ingestion organ) has
+        // appended for THIS scope. Read at the same wiring seam so frontier shows up alongside structural
+        // signals in one payload key — the brain doesn't need a separate fetch.
+        $frontier = app(AtlasBrainFrontierSourceRegistry::class)->topK($scope);
+
+        if ($digest['orphans'] === [] && $digest['clone_clusters'] === [] && $digest['doc_stated_gaps'] === [] && $frontier === []) {
             return []; // nothing to surface ⇒ stay quiet rather than emit an empty key
         }
 
@@ -232,6 +238,7 @@ final class AtlasBrainNextCommand extends Command
                 'recommended_path' => $route['recommended_path'],
                 'recommended_path_reason' => $route['reason'],
                 'signal_class' => $route['signal_class'],
+                'frontier_candidates' => $frontier,
             ],
         ];
     }

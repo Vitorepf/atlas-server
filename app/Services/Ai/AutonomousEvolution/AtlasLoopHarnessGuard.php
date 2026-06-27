@@ -78,6 +78,10 @@ final class AtlasLoopHarnessGuard
         // else it'd hand-prune attacks until "no holes" was structurally guaranteed (the classic
         // self-confirmation trap the cert-chain pétreo block was created to prevent).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainGateAdversarialAuditor.php',
+        // The FRONTIER SOURCE REGISTRY — pure-read substrate for the frontier-harvest path. Editable input
+        // ⇒ the réu could pre-seed itself with whichever frontier idea it wanted to "win", collapsing the
+        // path's discriminating power. Same principle as the comprehension model + reflection stream.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainFrontierSourceRegistry.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
