@@ -31,10 +31,13 @@ final class AtlasBrainPerceptionBundle
         private readonly AtlasBrainPathDiversityScore $diversityScore,
         private readonly AtlasBrainConcentrationHhi $concentrationHhi,
         private readonly AtlasBrainPathYieldMomentum $pathYieldMomentum,
+        private readonly AtlasBrainPathOscillationDetector $oscillationDetector,
+        private readonly AtlasBrainHintBurstDetector $burstDetector,
+        private readonly AtlasBrainRepeatedRefusalAntiPattern $repeatedRefusal,
     ) {}
 
     /**
-     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array, path_diversity_score:array, concentration_hhi:array, path_yield_momentum:array}
+     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array, path_diversity_score:array, concentration_hhi:array, path_yield_momentum:array, path_oscillation:array, hint_bursts:array, repeated_refusal_anti_patterns:array}
      */
     public function build(string $scope): array
     {
@@ -59,6 +62,9 @@ final class AtlasBrainPerceptionBundle
             'path_diversity_score' => $this->diversityScore->compute($tail, $this->translator),
             'concentration_hhi' => $this->concentrationHhi->compute($tail, $this->translator),
             'path_yield_momentum' => $this->pathYieldMomentum->compute($tail, $this->translator),
+            'path_oscillation' => $this->oscillationDetector->detect($tail, $this->translator),
+            'hint_bursts' => $this->burstDetector->detect($tail),
+            'repeated_refusal_anti_patterns' => $this->repeatedRefusal->detect($tail),
         ];
     }
 }

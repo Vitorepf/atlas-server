@@ -16,7 +16,7 @@ final class AtlasBrainPerceptionBundleTest extends TestCase
         $r = $bundle->build('loop');
 
         self::assertSame('loop', $r['scope']);
-        foreach (['brief_histogram', 'result_kind_histogram', 'hint_entropy', 'hint_transitions', 'starvation_trend', 'evidence_freshness', 'path_starvation', 'cascade_outcomes', 'path_diversity_score', 'concentration_hhi', 'path_yield_momentum'] as $key) {
+        foreach (['brief_histogram', 'result_kind_histogram', 'hint_entropy', 'hint_transitions', 'starvation_trend', 'evidence_freshness', 'path_starvation', 'cascade_outcomes', 'path_diversity_score', 'concentration_hhi', 'path_yield_momentum', 'path_oscillation', 'hint_bursts', 'repeated_refusal_anti_patterns'] as $key) {
             self::assertArrayHasKey($key, $r);
         }
     }

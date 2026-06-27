@@ -47,6 +47,9 @@ final class AtlasBrainOrganDependencyGraph
             AtlasBrainPathDiversityScore::class,
             AtlasBrainConcentrationHhi::class,
             AtlasBrainPathYieldMomentum::class,
+            AtlasBrainPathOscillationDetector::class,
+            AtlasBrainHintBurstDetector::class,
+            AtlasBrainRepeatedRefusalAntiPattern::class,
         ],
         AtlasBrainSchemaContractRegistry::class => [
             // virtual edge: registry references every owner schema constant; not iterated here
