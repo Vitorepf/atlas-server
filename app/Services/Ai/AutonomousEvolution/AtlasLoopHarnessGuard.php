@@ -141,6 +141,8 @@ final class AtlasLoopHarnessGuard
         // The HEALTH SCORE — 0..100 composite. Editable ⇒ the réu would re-tune weights so its current
         // state always scores high (the lying-mirror trap).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHealthScore.php',
+        // The EVIDENCE FRESHNESS — age of newest reflection. Editable ⇒ the réu would fake recency.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainEvidenceFreshness.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
