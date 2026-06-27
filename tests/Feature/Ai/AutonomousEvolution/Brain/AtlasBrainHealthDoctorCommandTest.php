@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\AutonomousEvolution\Brain;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScoreLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -182,6 +183,22 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         $payload = json_decode(trim(Artisan::output()), true);
 
         self::assertContains('starvation_trend_worsening', array_column($payload['findings'], 'code'));
+    }
+
+    public function test_ledger_regression_emits_info_finding(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-brain-doctor-ledger-'.bin2hex(random_bytes(4));
+        config()->set('atlas.brain.health_score_root', $root);
+        // 5 snapshots dropping 80 → 50 (Δ -30 < -10).
+        $ledger = new AtlasBrainHealthScoreLedger($root);
+        foreach ([80, 75, 65, 55, 50] as $i => $s) {
+            $ledger->append('loop', $s, 1000 + $i);
+        }
+
+        Artisan::call('atlas:brain:health-doctor', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertContains('score_ledger_regressing', array_column($payload['findings'], 'code'));
     }
 
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void

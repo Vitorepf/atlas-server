@@ -11,6 +11,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScoreLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
@@ -221,6 +222,17 @@ final class AtlasBrainHealthDoctorCommand extends Command
             if ($freshness['has_evidence'] && (int) $freshness['age_seconds'] > 3600) {
                 $hours = (int) round($freshness['age_seconds'] / 3600);
                 $findings[] = ['severity' => 'info', 'code' => 'evidence_stale', 'advice' => "newest reflection is ~{$hours}h old — brain origination has gone silent; check the worker / master switch / cron"];
+            }
+        }
+
+        // INFO: long-term score regression — ≥5 snapshots in the L99 ledger and last - first < -10.
+        // Detects multi-day deterioration the short-window trend (L85) misses.
+        $ledgerRows = app(AtlasBrainHealthScoreLedger::class)->tail($scope, 30);
+        if (count($ledgerRows) >= 5) {
+            $scoresArr = array_map(static fn (array $r): int => (int) ($r['score'] ?? 0), $ledgerRows);
+            $delta = (int) end($scoresArr) - (int) $scoresArr[0];
+            if ($delta < -10) {
+                $findings[] = ['severity' => 'info', 'code' => 'score_ledger_regressing', 'advice' => "health_score moved {$scoresArr[0]} → ".end($scoresArr).' over '.count($scoresArr)." snapshots (Δ {$delta}) — multi-snapshot regression; review what changed since the high"];
             }
         }
 
