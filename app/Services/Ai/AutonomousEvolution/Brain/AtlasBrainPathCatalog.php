@@ -81,6 +81,25 @@ final class AtlasBrainPathCatalog
     }
 
     /**
+     * Filter paths by `intent` (currently every portfolio path is 'self_improvement', but the registry
+     * may grow). Mirror of byObjectiveKind on the orthogonal axis.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function byIntent(string $intent): array
+    {
+        $intent = trim($intent);
+        if ($intent === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $this->all(),
+            static fn (array $entry): bool => trim((string) ($entry['intent'] ?? '')) === $intent,
+        ));
+    }
+
+    /**
      * Human-readable lens (purpose description) for the path, or null when unknown.
      */
     public function lensFor(string $pathId): ?string

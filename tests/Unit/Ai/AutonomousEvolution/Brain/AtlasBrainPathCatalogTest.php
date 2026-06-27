@@ -65,6 +65,19 @@ final class AtlasBrainPathCatalogTest extends TestCase
         self::assertSame([], $catalog->byObjectiveKind('   '));
     }
 
+    public function test_by_intent_filters_matching_entries(): void
+    {
+        config()->set('atlas.brain.paths', [
+            ['id' => 'a', 'intent' => 'self_improvement'],
+            ['id' => 'b', 'intent' => 'self_improvement'],
+            ['id' => 'c', 'intent' => 'maintenance'],
+        ]);
+
+        self::assertCount(2, (new AtlasBrainPathCatalog)->byIntent('self_improvement'));
+        self::assertCount(1, (new AtlasBrainPathCatalog)->byIntent('maintenance'));
+        self::assertSame([], (new AtlasBrainPathCatalog)->byIntent(''));
+    }
+
     public function test_catalog_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCatalog.php', true);
