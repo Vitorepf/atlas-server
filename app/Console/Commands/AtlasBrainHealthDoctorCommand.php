@@ -13,6 +13,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScoreLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
@@ -256,6 +257,34 @@ final class AtlasBrainHealthDoctorCommand extends Command
             if ($cohort['stale'] !== []) {
                 $names = implode(', ', array_map(static fn (array $r): string => $r['scope'], $cohort['stale']));
                 $findings[] = ['severity' => 'info', 'code' => 'cohort_scope_stale', 'advice' => "sibling scope(s) stale (>1h since newest reflection): {$names} — cohort-wide rotation may be starving"];
+            }
+        }
+
+        // INFO: portfolio path concentration — one PATH covers >60% of the recent hints (after L121
+        // hint→path attribution). Distinct from brief_histogram_skewed (per-hint): a path covers
+        // multiple hints, so it can dominate even when no single hint does.
+        if ($reflectionEnabled) {
+            $brief = app(AtlasBrainBriefHistogram::class)->histogram(array_slice(app(AtlasBrainReflectionStream::class)->forScope($scope), -50));
+            $translator = app(AtlasBrainHintToPathTranslator::class);
+            $pathCounts = [];
+            $totalAttributed = 0;
+            foreach ($brief['by_hint'] as $row) {
+                $p = $translator->pathFor((string) $row['hint']);
+                if ($p === null) {
+                    continue;
+                }
+                $pathCounts[$p] = ($pathCounts[$p] ?? 0) + (int) ($row['count'] ?? 0);
+                $totalAttributed += (int) ($row['count'] ?? 0);
+            }
+            if ($totalAttributed >= 5) {
+                arsort($pathCounts);
+                $top = array_key_first($pathCounts);
+                if ($top !== null) {
+                    $pct = (int) round(($pathCounts[$top] * 100) / $totalAttributed);
+                    if ($pct > 60) {
+                        $findings[] = ['severity' => 'info', 'code' => 'path_concentration', 'advice' => "portfolio path '{$top}' covers {$pct}% of {$totalAttributed} recent attributed hints — rotation is concentrating; pick a sibling path next cycle"];
+                    }
+                }
             }
         }
 

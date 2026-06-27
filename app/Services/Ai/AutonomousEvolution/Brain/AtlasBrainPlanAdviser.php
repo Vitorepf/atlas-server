@@ -41,6 +41,7 @@ final class AtlasBrainPlanAdviser
         'served_ratio_low' => 'simulation-twin',
         'provenance_unwired' => 'comprehension-deepening',
         'cohort_scope_stale' => 'comprehension-deepening',
+        'path_concentration' => 'pattern-design',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
