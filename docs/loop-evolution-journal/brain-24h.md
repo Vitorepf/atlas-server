@@ -184,6 +184,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 
 - ec25f7a63 — **L150 perception bundle façade (pétreo organ novo)**: SINGLE call retorna toda perception suite consolidada. Downstream consumers (briefer/workflow/export) puxam "tudo que o cérebro vê" sem stitchar 10+ services. Pétreo. 2 tests verdes. **150-slice mark.**
 - e4bbd4d6c — **L151 brain:perception command (pétreo)**: dump operator-friendly da L150 bundle. 2 tests verdes. 14 commands totais.
+- 47984fa5c — **L152 freshness future_skew + doctor evidence_clock_skew (warn)**: detecta reflection future-dated (clock skew). Adviser→comprehension-deepening. 33 surface tests verdes.
 
 ### Placar @ L149 — 150-slice mark approaching (cadência)
 - **Brain test suite**: 278 verde; gates AIRTIGHT continuous.
