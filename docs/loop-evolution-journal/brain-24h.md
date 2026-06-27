@@ -89,4 +89,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 26f8d1ea6 — **L57 catalog.byIntent**: paralelo no axis intent. Ambos axes filterable. 6 catalog tests verdes.
 - f8eba20ca / 42fb69899 — **L58 atlas:brain:audit (one-shot consolidated)**: novo command wrappa state + doctor + raw adversarial em UM payload pra CI/dashboard. Pétreo. 2 audit tests verdes (sub-call streams isoladas via BufferedOutput).
 - 62c8617ef — **L59 doctor --all (cohorts)**: paridade com state --all. Payload ganha cohorts[] com {slug, frontier_empty, reflection_empty} pra cada scope. 3 doctor tests verdes.
+- 57fd23fd0 — **L60 audit.gate_health_status**: top-level `airtight` | `regression` + `gate_health_total_holes`. CI grep-friendly. 2 audit tests verdes.
 
