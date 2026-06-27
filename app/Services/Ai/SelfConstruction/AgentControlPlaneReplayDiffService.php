@@ -2,9 +2,10 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Deterministic diff between two Agent Control Plane chain replays.

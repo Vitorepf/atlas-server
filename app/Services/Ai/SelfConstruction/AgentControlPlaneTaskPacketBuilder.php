@@ -7,6 +7,7 @@ use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketS
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Builds a deterministic, dry-run task packet for a single agent inside the
@@ -22,6 +23,7 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
  */
 final class AgentControlPlaneTaskPacketBuilder
 {
+    use RecursivelyKsortsArrays;
     use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = AtlasMaestroPacketSchemaVersioning::CANONICAL_V1;
 
@@ -338,23 +340,5 @@ final class AgentControlPlaneTaskPacketBuilder
         return $workspacePolicy;
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 
 }

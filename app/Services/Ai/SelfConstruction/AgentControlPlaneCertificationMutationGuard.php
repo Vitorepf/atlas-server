@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Proves the certification stack is read-only by snapshotting the
@@ -19,6 +20,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneCertificationMutationGuard
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_certification_mutation_guard.v1';
 
     public const MODE = 'read_only_agent_control_plane_certification_mutation_guard';
@@ -277,24 +279,6 @@ final class AgentControlPlaneCertificationMutationGuard
         ], null);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload

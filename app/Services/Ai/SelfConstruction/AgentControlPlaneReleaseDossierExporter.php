@@ -2,10 +2,11 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Exports a release dossier in JSON + Markdown so an operator can
