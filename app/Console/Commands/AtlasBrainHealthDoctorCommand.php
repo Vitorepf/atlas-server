@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyz
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -149,6 +150,21 @@ final class AtlasBrainHealthDoctorCommand extends Command
             foreach ($report['by_hint'] as $row) {
                 if ($row['total'] >= 5 && $row['served_rate_pct'] < 30) {
                     $findings[] = ['severity' => 'info', 'code' => 'cascade_rule_low_yield', 'advice' => "action_hint '{$row['hint']}' serves {$row['served_rate_pct']}% over {$row['total']} cycles — low-yield rule; the brief cascade should weight it down or reroute via a different path"];
+                }
+            }
+        }
+
+        // INFO: hint transition self-loop dominance. When ≥5 transitions and >50% are self-loops, the
+        // cascade is repeating its OWN hint cycle-after-cycle — perseveration via DYNAMICS (orthogonal
+        // to the histogram skew which is just distribution). Uses L78 matrix over last 50 reflections.
+        if ($reflectionEnabled) {
+            $stream = app(AtlasBrainReflectionStream::class);
+            $tail = array_slice($stream->forScope($scope), -50);
+            $matrix = app(AtlasBrainHintTransitionMatrix::class)->build($tail);
+            if ($matrix['transitions'] >= 5) {
+                $selfPct = (int) round(($matrix['self_loop_count'] * 100) / $matrix['transitions']);
+                if ($selfPct > 50) {
+                    $findings[] = ['severity' => 'info', 'code' => 'hint_self_loop_dominant', 'advice' => "{$selfPct}% of the last {$matrix['transitions']} hint transitions are self-loops — cascade is stuck on its own previous hint; rotate path or originate fresh"];
                 }
             }
         }

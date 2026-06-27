@@ -85,7 +85,10 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         Artisan::call('atlas:brain:health-doctor', ['--json' => true]);
         $payload = json_decode(trim(Artisan::output()), true);
 
-        self::assertContains('brief_histogram_skewed', array_column($payload['findings'], 'code'));
+        $codes = array_column($payload['findings'], 'code');
+        self::assertContains('brief_histogram_skewed', $codes);
+        // Same fixture (6 identical hints → 5 transitions, all self-loops) ⇒ self-loop dominance fires too.
+        self::assertContains('hint_self_loop_dominant', $codes);
     }
 
     public function test_severity_filter_narrows_findings_and_drives_exit_code(): void
