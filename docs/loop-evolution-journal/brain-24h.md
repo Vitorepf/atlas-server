@@ -294,3 +294,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green; one false test caught (decelerating math != naive intuition)
 - next: harvest another unharvested catalog method
+
+## L172 — hint frequency drift alarm (frontier-harvest, 2nd rotation)
+- path: frontier-harvest (harvested another unharvested entry)
+- organ: AtlasBrainHintFrequencyDriftAlarm — current/baseline freq per hint; surge/collapse direction
+- catalog: marked hint_frequency_drift_alarm as implemented (8/12 now)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: another unharvested entry (projection_calibration_score, cross_scope_pattern_xref, reflection_provenance_chain, gate_false_positive_estimator)
