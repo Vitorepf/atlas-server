@@ -59,6 +59,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainPathKlDivergence::SCHEMA => AtlasBrainPathKlDivergence::class,
         AtlasBrainHorizonDiversityForecast::SCHEMA => AtlasBrainHorizonDiversityForecast::class,
         AtlasBrainComposedHealthGrade::SCHEMA => AtlasBrainComposedHealthGrade::class,
+        AtlasBrainCriticIndependenceScore::SCHEMA => AtlasBrainCriticIndependenceScore::class,
     ];
 
     public function ownerOf(string $schema): ?string
