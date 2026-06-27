@@ -597,3 +597,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 5 assertions green; pint green
 - next: paths at 6 (frontier, metrics, pattern, simulation)
+
+## L209 — WIRING (not new organ): perception bundle now invokes 3 library organs
+- path: comprehension-deepening (wiring leverage, not yet-another-organ)
+- change: AtlasBrainPerceptionBundle::build() now calls PathDiversityScore + ConcentrationHhi + PathYieldMomentum on every brain:perception call
+- impact: 3 organs that sat library-only since L168/L185/L166 are now LIVE on every scope query
+- dep graph updated with 3 new edges; bundle test asserts new keys + previously-untested cascade_outcomes
+- proof: 8 tests / 59 assertions green; pint green
+- direction shift: stopped stacking pure organs; started **circulating** what was already built
+- next: wire adversarial-critique organs (RedTeam/ConsensusGate/AuthorJudgeOverlap) into actual gate
