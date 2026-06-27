@@ -438,3 +438,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 8 assertions green; pint green
 - next: compounding or simulation-twin (only 2 paths still at 3)
+
+## L190 — path streak tracker (compounding)
+- path: compounding (now 4 organs)
+- organ: AtlasBrainPathStreakTracker — per-path longest accepted/refused streaks
+- coverage matrix: compounding=4
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- placar 5h: L164..L190 = 27 slices, ~26 organs, schema reg 26, every path now >=3, several at 4
+- next: simulation-twin (last at 3)
