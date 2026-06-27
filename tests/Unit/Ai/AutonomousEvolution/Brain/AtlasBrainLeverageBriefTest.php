@@ -29,6 +29,37 @@ final class AtlasBrainLeverageBriefTest extends TestCase
         self::assertStringContainsString('5', $brief['rationale']);
     }
 
+    public function test_gate_regression_beats_every_other_signal_including_perseveration(): void
+    {
+        $priorBriefs = [
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — x'],
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — x'],
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — x'],
+        ];
+
+        $brief = (new AtlasBrainLeverageBrief)->brief([
+            'gate_health' => ['inspector_holes' => 1, 'seed_gate_holes' => 0],
+            'recommended_path' => 'comprehension-deepening',
+            'drafted_candidates' => [['task_packet_id' => 'x']],
+            'compounding' => ['success_streak' => 9],
+            'metrics' => [['id' => 'recent_refusal_count', 'value' => 99]],
+        ], $priorBriefs);
+
+        self::assertSame(AtlasBrainLeverageBrief::HINT_FIX_GATE_REGRESSION, $brief['action_hint']);
+        self::assertStringContainsString('1 inspector hole', $brief['rationale']);
+    }
+
+    public function test_gate_health_zero_holes_does_not_trigger_regression_hint(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief([
+            'gate_health' => ['inspector_holes' => 0, 'seed_gate_holes' => 0],
+            'recommended_path' => 'pattern-design',
+            'metrics' => [['id' => 'recent_refusal_count', 'value' => 0]],
+        ]);
+
+        self::assertNotSame(AtlasBrainLeverageBrief::HINT_FIX_GATE_REGRESSION, $brief['action_hint']);
+    }
+
     public function test_perseveration_streak_beats_every_other_signal(): void
     {
         $priorBriefs = [

@@ -32,6 +32,8 @@ final class AtlasBrainLeverageBrief
 {
     public const SCHEMA = 'atlas.brain.leverage_brief.v1';
 
+    public const HINT_FIX_GATE_REGRESSION = 'fix_gate_regression';
+
     public const HINT_ROTATE_PATH = 'rotate_path';
 
     public const HINT_ESCALATE_PERSEVERATION = 'escalate_perseveration';
@@ -67,6 +69,20 @@ final class AtlasBrainLeverageBrief
      */
     public function brief(array $signals, array $priorBriefs = []): array
     {
+        // RULE -1 — GATE REGRESSION (foundational): if the runtime adversarial auditors found ANY hole, the
+        // gate that protects the muscle is broken. Every other recommendation is moot until the wall is
+        // restored. Trumps perseveration (which is about strategy) because this is about structural safety.
+        $gateHealth = is_array($signals['gate_health'] ?? null) ? $signals['gate_health'] : [];
+        $inspectorHoles = (int) ($gateHealth['inspector_holes'] ?? 0);
+        $seedGateHoles = (int) ($gateHealth['seed_gate_holes'] ?? 0);
+        if ($inspectorHoles > 0 || $seedGateHoles > 0) {
+            return $this->result(
+                self::HINT_FIX_GATE_REGRESSION,
+                ['inspector_holes='.$inspectorHoles, 'seed_gate_holes='.$seedGateHoles],
+                "gate_health reports {$inspectorHoles} inspector hole(s) and {$seedGateHoles} seed-gate hole(s) — the wall the muscle relies on is broken; originate a fix for the failing audit attack(s) BEFORE any other leap",
+            );
+        }
+
         // RULE 0 — PERSEVERATION (highest priority, meta-signal): if the time series of recent briefs shows
         // the SAME action_hint K times in a row, the brain has been recommending the same dead path; escalate
         // to abstain/operator rather than recommend it again. Reads the L14-populated prior_briefs prefix
