@@ -33,7 +33,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainStateCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:state {--scope= : scope slug (default: configured default_scope)} {--json}';
+    protected $signature = 'atlas:brain:state {--scope= : scope slug (default: configured default_scope)} {--tail=50 : how many done-set rows to summarize} {--json}';
 
     /** @var string */
     protected $description = 'READ-ONLY brain state snapshot: master switch, scope, done-set tail, reflection tail (no origination).';
@@ -44,8 +44,9 @@ final class AtlasBrainStateCommand extends Command
         $scopeDef = app(AtlasBrainScopeRegistry::class)->resolve($scopeOpt);
         $scope = (string) $scopeDef['slug'];
 
+        $tail = max(1, (int) ($this->option('tail') ?? 50));
         $ledger = new AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
-        $recent = $ledger->recentCycles(50);
+        $recent = $ledger->recentCycles($tail);
         $served = 0;
         $refused = 0;
         foreach ($recent as $row) {
