@@ -122,18 +122,23 @@ final class AtlasBrainLeverageBrief
         $metrics = is_array($signals['metrics'] ?? null) ? $signals['metrics'] : [];
 
         $recentRefusals = 0;
+        $worstRefusalStreak = 0;
         foreach ($metrics as $m) {
-            if (is_array($m) && ($m['id'] ?? null) === 'recent_refusal_count') {
+            if (! is_array($m)) {
+                continue;
+            }
+            if (($m['id'] ?? null) === 'recent_refusal_count') {
                 $recentRefusals = (int) ($m['value'] ?? 0);
-                break;
+            } elseif (($m['id'] ?? null) === 'worst_refusal_streak') {
+                $worstRefusalStreak = (int) ($m['value'] ?? 0);
             }
         }
 
         if ($recentRefusals > self::REFUSAL_SURGE_THRESHOLD) {
             return $this->result(
                 self::HINT_ROTATE_PATH,
-                $this->evidenceFor($signals, ['recent_refusals' => $recentRefusals]),
-                "recent_refusal_count={$recentRefusals} > ".self::REFUSAL_SURGE_THRESHOLD.' — origination is misfiring on the current path; rotate before authoring again',
+                $this->evidenceFor($signals, ['recent_refusals' => $recentRefusals, 'worst_streak' => $worstRefusalStreak]),
+                "recent_refusal_count={$recentRefusals} > ".self::REFUSAL_SURGE_THRESHOLD." (worst_refusal_streak={$worstRefusalStreak}) — origination is misfiring; rotate before authoring again",
             );
         }
 
