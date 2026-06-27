@@ -60,4 +60,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - e53b77503 — **L28 brief.continuity** ∈ {first|held|changed}: derivado da comparação previous_action_hint × action_hint. Brain lê 1 word pra saber se cycle continuou, mudou ou é primeiro. 177 testes verdes (3 novos).
 - 3de85a28c — **L29 battery 11 attacks**: +1 `test_evidence_without_test_in_allowed_files`. Inspector continua ZERO holes — coverage cresce, contrato anti-regression mantido. 160 brain tests verdes.
 - 73cbd1ff1 — **L30 seed-gate battery +1**: `blind_orphan_wiring_proxy` (3ª promoção advisory→blocking que faltava). Seed gate continua ZERO holes — todas as 3 promoções agora vigiadas. 3 auditor tests verdes.
+- 74f2e6f30 — **L31 compounding.worst_refusal_streak**: simétrico a success_streak — max consecutive refusal run em todo o tail-window. Brain compara "histórico do pior" vs "atual" pra calibrar escalada. 8 compounding tests verdes.
 
