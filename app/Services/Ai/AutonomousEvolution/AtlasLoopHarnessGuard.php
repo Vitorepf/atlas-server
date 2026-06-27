@@ -169,6 +169,9 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainNextPathSuggester.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainOriginationGapDetector.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainProvenanceAttributionAnalyzer.php',
+        // The PERCEPTION BUNDLE — single façade calling every perception organ. Editable ⇒ réu could
+        // re-order or omit signals to hide its own weaknesses from downstream consumers.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPerceptionBundle.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
