@@ -55,6 +55,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainConcentrationHhi::class,
             AtlasBrainPathInactivityAlarm::class,
             AtlasBrainPortfolioBudgetAllocator::class,
+            AtlasBrainPathKlDivergence::class,
         ],
         'pattern-design' => [
             AtlasBrainPathOscillationDetector::class,
