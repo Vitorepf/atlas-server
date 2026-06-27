@@ -30,3 +30,5 @@ Deadline: 24h a partir de 2026-06-27. Mandato: 7 das 8 dimensões do cérebro ex
 
 Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado ainda). Hipótese de maior alavanca: `AtlasLoopOriginationPipeline` + `FrontierGapModel` originam ideias granulares (single-file edits) — o salto é ampliar o vocabulário de origination pra capturar **lacunas estruturais multi-file** (organ órfão sem wiring, padrão duplicado, interface não-extraída) como ÚNICA proposta high-leverage. Sem isso o cérebro fica preso em micro-melhorias mesmo com S0-S5 sólidos.
 
+- 217e256dc — **comprehension-deepening L1** (path: comprehension-deepening): novo organ pétreo `AtlasBrainStructuralSignalDigest` (top-K orphans + clone clusters + doc-stated gaps). Wired em `brain:next` com flag `scope_signal_digest_enabled` default OFF (byte-identical). Quando ON, payload de served+abstain+refused inclui `scope_signals` — o cérebro pasted vê pela 1ª vez os multi-file structural gaps (antes invisíveis). 103 testes verdes (4 novos). Próximo: rotear esses signals pelo portfólio router pra escolha de path baseada em sintoma estrutural detectado.
+
