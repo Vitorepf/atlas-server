@@ -513,3 +513,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 7 tests / 9 assertions green; pint green
 - placar 6h: 35 organs across 7 paths, schema reg 34, all paths balanced at >=5
 - next: raise threshold to 6 — start with weakest-at-5 path
+
+## L199 — composed self-knowledge report (comprehension-deepening @6)
+- path: comprehension-deepening (now 6 organs — first path to hit 6)
+- organ: AtlasBrainComposedSelfKnowledgeReport — 4-layer composition (coverage + deps + frontier + schemas)
+- coverage matrix: comprehension-deepening=6
+- dependency graph: registered new consumer with 4 deps
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 8 batch tests / 42 assertions green; pint green
+- next: paths still at 5
