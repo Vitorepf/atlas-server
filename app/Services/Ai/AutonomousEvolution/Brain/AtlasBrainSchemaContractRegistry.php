@@ -40,6 +40,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainConcentrationHhi::SCHEMA => AtlasBrainConcentrationHhi::class,
         AtlasBrainHintBurstDetector::SCHEMA => AtlasBrainHintBurstDetector::class,
         AtlasBrainPathInactivityAlarm::SCHEMA => AtlasBrainPathInactivityAlarm::class,
+        AtlasBrainAuthorJudgeOverlapCheck::SCHEMA => AtlasBrainAuthorJudgeOverlapCheck::class,
     ];
 
     public function ownerOf(string $schema): ?string

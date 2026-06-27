@@ -198,6 +198,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainConcentrationHhi.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintBurstDetector.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathInactivityAlarm.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainAuthorJudgeOverlapCheck.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

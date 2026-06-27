@@ -28,6 +28,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainPlanAdviserRedTeam::class,
             AtlasBrainCriticalConsensusGate::class,
             AtlasBrainStaleEvidenceVeto::class,
+            AtlasBrainAuthorJudgeOverlapCheck::class,
         ],
         'compounding' => [
             AtlasBrainPathYieldMomentum::class,
