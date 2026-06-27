@@ -85,4 +85,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 626817765 — **L53 brain:state --raw**: single-line JSON pra log/dashboard pipes. Default pretty-print preservado. 4 state tests verdes.
 - 54fb42930 — **L54 brain:health-doctor --raw**: paridade com state. Mesmo flag, mesmo shape. 3 doctor tests verdes.
 - 872f14076 — **L55 state.paths.ids[]**: dashboard mostra lista de path ids além de count. 4 state tests verdes.
+- 2deeb9086 — **L56 catalog.byObjectiveKind**: filter helper pra downstream consumers (scope rotation por kind). 5 catalog tests verdes (1 novo).
 
