@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScoreLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -96,7 +97,11 @@ final class AtlasBrainSummaryCommand extends Command
             $totalHoles === 0, $ratio, $starv, (float) $entropy['normalized'], $direction
         )['score'];
 
-        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, findings={$c}c/{$w}w/{$i}i]");
+        // Long-window score history from L99 ledger (last 10 snapshots).
+        $ledgerScores = array_map(static fn (array $r): int => (int) ($r['score'] ?? 0), app(AtlasBrainHealthScoreLedger::class)->tail($scope, 10));
+        $ledgerSig = $ledgerScores === [] ? 'none' : ($ledgerScores[0].'→'.end($ledgerScores));
+
+        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, findings={$c}c/{$w}w/{$i}i]");
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
