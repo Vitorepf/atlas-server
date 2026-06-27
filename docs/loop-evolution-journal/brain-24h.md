@@ -117,4 +117,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 7a2f8b2ae — **L85 trend analyzer (pétreo organ novo) + state.starvation_trend**: split-window (older 25 vs newer 25) — delta + direction {worsening/recovering/flat/insufficient_data}. Diz se está STUCKING ou RECUPERANDO (eixo temporal). 4 tests verdes.
 - 8e64f1fb8 — **L86 doctor: starvation_trend_worsening (info)**: direção=worsening ⇒ info "moment to rotate". Distinto do starvation snapshot — esse flagga o MOMENTO de agir antes do fundo cair. 8 doctor tests verdes.
 - a20735c4b — **L87 cohort scope comparator (pétreo organ novo)**: multi-scope ranking via composite health=ratio-starvation. Operator vê "qual scope mais saudável agora" num só read. 2 tests verdes.
+- 12b1bc71e — **L88 state --all surfaces cohort_health_ranking**: wire da L87; operator vê {rows, top} alongside cohort rows. 6 state tests verdes.
 
