@@ -17,6 +17,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
 
@@ -179,6 +180,17 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $kindHist = app(AtlasBrainResultKindHistogram::class)->histogram($tail);
             if ($kindHist['total'] >= 10 && $kindHist['starvation_pct'] > 70) {
                 $findings[] = ['severity' => 'info', 'code' => 'result_kind_starvation', 'advice' => "{$kindHist['starvation_pct']}% of the last {$kindHist['total']} cycles are blocked/exhausted/stagnated/clean_no_op — queue is dry-by-walls; check sources, rotate scope, or originate against a fresh signal"];
+            }
+        }
+
+        // INFO: starvation trend worsening — split-window delta says queue health is degrading. Distinct
+        // from the snapshot starvation finding (which can fire when state is bad but stable). Uses L85
+        // trend analyzer over the reflection stream.
+        if ($reflectionEnabled) {
+            $stream = app(AtlasBrainReflectionStream::class);
+            $trend = app(AtlasBrainTrendAnalyzer::class)->starvation($stream->forScope($scope));
+            if ($trend['direction'] === 'worsening') {
+                $findings[] = ['severity' => 'info', 'code' => 'starvation_trend_worsening', 'advice' => "starvation_pct moved {$trend['older_starvation_pct']}% → {$trend['newer_starvation_pct']}% (Δ +{$trend['delta_pct']}) over the last {$trend['window']}+{$trend['window']} cycles — queue health degrading; act now (rotate path, harvest frontier, or originate fresh)"];
             }
         }
 
