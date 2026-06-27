@@ -406,3 +406,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: pattern-design (only path still at 2 organs)
+
+## L186 — hint burst detector (pattern-design, routed by coverage)
+- path: pattern-design — last under-built path; now 3 organs
+- organ: AtlasBrainHintBurstDetector — runs of N+ consecutive same hint
+- coverage matrix: ALL 7 PATHS NOW >=3 ORGANS (frontier-harvest=4, comprehension-deepening=4, adversarial-critique=3, compounding=3, simulation-twin=3, metrics-optimization=3, pattern-design=3)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 7 assertions green; pint fixed blank lines
+- next: every path balanced — raise threshold to 4, route to whoever is below
