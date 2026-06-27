@@ -103,4 +103,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - fbffcd066 — **L71 catalog --check + class_exists**: além de field-set, valida que cada executor_organ FQCN existe (`class_exists`). Catches config typos/refactors. 4 catalog tests verdes.
 - c01709e74 — **L72 drafter.draftAll + brain:next refactor**: batch helper substitui loop manual em scopeSignalsFor. Mesmo comportamento externo. 7 drafter tests verdes (1 novo).
 - 33ad3dc93 — **L73 doctor: brief_histogram_skewed (info)**: ≥5 priors + top hint >70% ⇒ info finding "cascade colapsou numa regra; rotate path". Usa L69 histogram. 4 doctor tests verdes (1 novo).
+- 0591f5f82 — **L74 doctor --severity filter + severity_counts**: cron pode `--severity=critical || alert` sem parsear JSON; severity_counts mostra breakdown global mesmo com filtro. 5 doctor tests verdes (1 novo).
 
