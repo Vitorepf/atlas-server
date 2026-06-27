@@ -78,4 +78,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 0a2d013f7 — **L46 doctor warns missing executor**: warn `portfolio_path_missing_executor` listando ids sem executor_organ. Detecta config drift mais sutil (path adicionado sem binding). 3 doctor tests verdes.
 - 835cd81bc — **L47 doctor warns canonical paths missing**: warn `portfolio_canonical_paths_missing` lista os 7 ids esperados que não estão em config. Pega "7 entries mas ids errados". 3 doctor tests verdes.
 - 552081567 — **L48 state.gate_health + attacks_tried**: dashboard agora mostra coverage (N attacks tried) além de holes. Anti-shrink contract visible. 4 state tests verdes.
+- cb6567f37 — **L49 metric +served_ratio_pct**: nova métrica (maximize) — origination efficiency 0-100 = served/(served+refused). Brain vê eficiência em 1 valor. 6 metric tests verdes (1 novo).
 
