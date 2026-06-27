@@ -180,6 +180,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - e5219e528 — **L146 brain:metrics adds HELP/TYPE Prometheus comments**: full textfile format compliance. 2 tests verdes.
 - 5aa0801f8 — **L147 brain:metrics --format=json**: JSON output alternative (cron pipe-to-jq). 3 metrics tests verdes.
 - bde58c4c5 — **L148 brain:metrics score_breakdown_***: 5 novos gauges (gates/ratio/starv/entropy/trend pts) — drill-down de qual componente afunda o score. 3 metrics tests verdes.
+- b8aa0b4c4 — **L149 brain:metrics starved_paths gauge**: count de canonical paths starved (L125). Dashboard chartable. 3 metrics tests verdes.
 
 ### Placar @ L141 (cadência)
 - **Organs pétreos novos nesta run**: ~22 (briefHistogram via prior, +21 originated since L72).
