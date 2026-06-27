@@ -32,6 +32,7 @@ final class AtlasBrainCoverageMatrix
         'compounding' => [
             AtlasBrainPathYieldMomentum::class,
             AtlasBrainCompoundingVelocity::class,
+            AtlasBrainPathYieldEwma::class,
         ],
         'simulation-twin' => [
             AtlasBrainNextCycleProjector::class,
