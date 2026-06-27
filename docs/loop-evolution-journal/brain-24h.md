@@ -643,3 +643,14 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 10 certifier tests green (3 new: ON-refuse, control-no-false-reject, OFF-byte-identical); pint + phpstan clean.
 - correction logged: stopped the micro-organ/dead-wiring drift the operator called out; this is circulation (changes what the brain DOES), not substrate.
 - NEXT (runner-up grafts from the workflow): open the rest of the adversarial-critique suite through the SAME cert socket — replace the self-refereed judge_verdicts synthesis (certifier:354-385, fabricates judges from the certifier's own panel) with CriticalConsensusGate + ContrarianRequirement + RubberStampDetector + CriticIndependenceScore + StaleEvidenceVeto + GateFalsePositiveEstimator. That is the next real leap, and S213 is its keystone.
+
+## L214 — judge SOURCE-CLASS independence floor (verdict-side twin of S213; workflow-projected)
+- path: adversarial-critique / WIRING — 2nd focused projection (3 designs → adversarial verdict each → synth)
+- honest finding from the projection: S213 took the one default-ON keep/drop leap; ALL remaining gate-side leaps are CONDITIONAL (only bite behind already-OFF gates). Scores were 4.5/4.5/5.5 — no big default-ON lever left at the gate. The genuine remaining frontier is the Discovery→Brain origination-coupling obra (Discovery imports zero Brain), a multi-slice obra.
+- chosen: LEAP C core (the floor), the structural twin of S213. S213 = author can't EDIT the judge; S214 = author can't BE the judge.
+- change: AtlasLoopJudgeConsensusGate GATE 1b — source-class (in_process|external) independence floor; certifier stamps its fabricated judges in_process / refuters external. A consensus carried only by cert-internal engines fails when armed (min_distinct_source_classes>=2), even though they present 2 distinct provider strings.
+- default-inert: floor 0 by default; only blocks when armed AND consensus gate armed. Verdicts without source_class never penalized → byte-identical. (Bug caught + fixed during impl: initial min-1 default broke 3 pre-existing tests; corrected to opt-in 0.)
+- honest scope: conditional leverage (bites only when armed) — landed armed-ready per the governance-spine observe→gate progression; NOT claimed as a default-ON behavior flip.
+- DEFERRED arming follow-up: grinder wires ATLAS_LOOP_INDEPENDENT_JUDGE_CMD to spawn a real external judge (provider cost) — separate config-time slice.
+- proof: 5 new frozen gate tests + 24 gate/certifier total green; pint + phpstan clean.
+- META-NOTE for next session: the gate layer is now structurally complete (S213 diff-side + S214 verdict-side author≠judge). The next BIG leap is the Discovery→Brain origination coupling (make the brain's per-target refusal memory load-bearing on WHAT gets originated) — the genuine endgame both workflows converged on. That is a multi-slice obra, not a one-commit slice.
