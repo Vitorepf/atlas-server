@@ -256,3 +256,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 6 tests / 7 assertions green; pint green
 - next: rotate to simulation-twin or metrics-optimization
+
+## L167 — next-cycle projector (simulation-twin)
+- path: simulation-twin (rotated from compounding)
+- organ: AtlasBrainNextCycleProjector — fuses adviser + red-team + momentum into projected_path + confidence
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 8 assertions green; pint green
+- placar (L162-L167): bundle → flag-auditor → red-team → momentum → projector; 5 paths rotated
+- next: metrics-optimization or pattern-design
