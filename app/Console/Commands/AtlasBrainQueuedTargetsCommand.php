@@ -33,10 +33,20 @@ final class AtlasBrainQueuedTargetsCommand extends Command
     {
         $scopeDef = app(AtlasBrainScopeRegistry::class)->resolve((string) $this->option('scope'));
         $slug = (string) $scopeDef['slug'];
+        $roots = array_values((array) ($scopeDef['roots'] ?? []));
 
-        $targets = self::scopedTargets($this->liveQueuedTargets(), array_values((array) ($scopeDef['roots'] ?? [])));
+        $targetPackets = $this->liveTargetPackets();
+        $targets = self::scopedTargets(array_keys($targetPackets), $roots);
+        $collisions = self::collisionsIn($targetPackets, $roots);
 
-        $payload = ['scope' => $slug, 'live_statuses' => self::LIVE_STATUSES, 'count' => count($targets), 'targets' => $targets];
+        $payload = [
+            'scope' => $slug,
+            'live_statuses' => self::LIVE_STATUSES,
+            'count' => count($targets),
+            'targets' => $targets,
+            'collision_count' => count($collisions),
+            'collisions' => $collisions,
+        ];
 
         if ($this->option('json')) {
             $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -51,21 +61,30 @@ final class AtlasBrainQueuedTargetsCommand extends Command
         if ($targets === []) {
             $this->line('  (none — every scope target is free to originate)');
         }
+        if ($collisions !== []) {
+            $this->warn(count($collisions).' COLLISION(S) — a target has >1 LIVE packet (they will conflict at merge):');
+            foreach ($collisions as $target => $ids) {
+                $this->line('  ! '.$target.' <- '.implode(', ', $ids));
+            }
+        }
 
         return self::SUCCESS;
     }
 
     /**
-     * Normalized target paths of every LIVE task packet. Fail-OPEN: any queue-read error returns [].
+     * Map of normalized target path => list of LIVE task_packet_ids that target it. Fail-OPEN: [] on any
+     * queue-read error. One packet's allowed_files (target + its test) each map to that packet's id, so a
+     * target carried by >1 DISTINCT packet is a collision (two live packets editing the same file).
      *
-     * @return list<string>
+     * @return array<string, list<string>>
      */
-    private function liveQueuedTargets(): array
+    private function liveTargetPackets(): array
     {
-        $keys = [];
+        $map = [];
         try {
             foreach (self::LIVE_STATUSES as $status) {
                 foreach (AtlasTaskServingStack::queueRepo()->list(['status' => $status]) as $record) {
+                    $id = (string) ($record['task_packet_id'] ?? '');
                     $scope = (array) (data_get($record, 'task_packet.normalized_scope') ?? []);
                     $paths = (array) ($scope['allowed_files'] ?? []);
                     if ($paths === []) {
@@ -74,7 +93,7 @@ final class AtlasBrainQueuedTargetsCommand extends Command
                     foreach ($paths as $path) {
                         $key = self::normKey((string) $path);
                         if ($key !== '') {
-                            $keys[$key] = true;
+                            $map[$key][] = $id;
                         }
                     }
                 }
@@ -83,7 +102,28 @@ final class AtlasBrainQueuedTargetsCommand extends Command
             return [];
         }
 
-        return array_keys($keys);
+        return $map;
+    }
+
+    /**
+     * Pure collision detector: in-scope targets carried by MORE THAN ONE distinct live packet (they will
+     * conflict at merge — the multi-session hazard the operator hit). Public+static for direct unit testing.
+     *
+     * @param  array<string, list<string>>  $targetPackets  normalized target => live packet ids
+     * @param  list<string>  $roots
+     * @return array<string, list<string>> in-scope colliding target => its distinct packet ids
+     */
+    public static function collisionsIn(array $targetPackets, array $roots): array
+    {
+        $collisions = [];
+        foreach (self::scopedTargets(array_keys($targetPackets), $roots) as $target) {
+            $ids = array_values(array_unique($targetPackets[$target] ?? []));
+            if (count($ids) > 1) {
+                $collisions[$target] = $ids;
+            }
+        }
+
+        return $collisions;
     }
 
     /**

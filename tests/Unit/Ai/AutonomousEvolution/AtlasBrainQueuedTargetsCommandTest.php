@@ -47,4 +47,29 @@ final class AtlasBrainQueuedTargetsCommandTest extends TestCase
         );
         self::assertSame(['app/A.php', 'app/Z.php'], $out);
     }
+
+    public function test_collision_is_a_target_with_more_than_one_distinct_packet(): void
+    {
+        $collisions = AtlasBrainQueuedTargetsCommand::collisionsIn([
+            'app/Inspector.php' => ['pkt-a', 'pkt-b'], // two live packets editing the same file → collision
+            'app/Solo.php' => ['pkt-c'],               // one packet → fine
+        ], []);
+        self::assertSame(['app/Inspector.php' => ['pkt-a', 'pkt-b']], $collisions);
+    }
+
+    public function test_same_packet_listed_twice_is_not_a_collision(): void
+    {
+        // one packet whose allowed_files repeats a path must NOT register as a collision (distinct ids only).
+        $collisions = AtlasBrainQueuedTargetsCommand::collisionsIn(['app/X.php' => ['pkt-a', 'pkt-a']], []);
+        self::assertSame([], $collisions);
+    }
+
+    public function test_collision_respects_scope_roots(): void
+    {
+        $collisions = AtlasBrainQueuedTargetsCommand::collisionsIn([
+            'app/InScope/Foo.php' => ['pkt-a', 'pkt-b'],
+            'app/OutOfScope/Bar.php' => ['pkt-c', 'pkt-d'],
+        ], ['app/InScope']);
+        self::assertSame(['app/InScope/Foo.php' => ['pkt-a', 'pkt-b']], $collisions);
+    }
 }
