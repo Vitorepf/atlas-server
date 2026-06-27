@@ -556,3 +556,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 23 assertions green; pint green
 - next: metrics or simulation @5
+
+## L204 — path KL divergence (metrics-optimization @6)
+- path: metrics-optimization (now 6 organs)
+- organ: AtlasBrainPathKlDivergence — D_KL(observed||target); harvested from v2 seed
+- coverage: metrics-optimization=6; 6 of 7 paths now at 6; simulation-twin still at 5
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 6 assertions green; pint green
+- next: simulation-twin (last @5)
