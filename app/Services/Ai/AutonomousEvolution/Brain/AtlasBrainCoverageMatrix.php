@@ -27,6 +27,7 @@ final class AtlasBrainCoverageMatrix
         'adversarial-critique' => [
             AtlasBrainPlanAdviserRedTeam::class,
             AtlasBrainCriticalConsensusGate::class,
+            AtlasBrainStaleEvidenceVeto::class,
         ],
         'compounding' => [
             AtlasBrainPathYieldMomentum::class,

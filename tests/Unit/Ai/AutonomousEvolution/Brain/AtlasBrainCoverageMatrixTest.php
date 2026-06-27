@@ -22,11 +22,12 @@ final class AtlasBrainCoverageMatrixTest extends TestCase
     public function test_underbuilt_paths_returns_those_below_threshold(): void
     {
         $under = (new AtlasBrainCoverageMatrix)->underbuiltPaths(3);
-        // adversarial-critique=2, compounding=2, metrics-optimization=2, pattern-design=2 should be flagged at threshold 3
-        self::assertContains('adversarial-critique', $under);
+        // compounding=2, metrics-optimization=2, pattern-design=2 should be flagged at threshold 3
         self::assertContains('compounding', $under);
         self::assertContains('metrics-optimization', $under);
         self::assertContains('pattern-design', $under);
+        self::assertNotContains('frontier-harvest', $under);  // has 4
+        self::assertNotContains('comprehension-deepening', $under);  // has 4
     }
 
     public function test_matrix_classes_all_exist(): void
