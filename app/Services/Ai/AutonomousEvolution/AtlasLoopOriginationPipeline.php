@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Throwable;
@@ -147,6 +148,14 @@ final class AtlasLoopOriginationPipeline
 
         $this->appendLeverageDroppedCandidates($dropped);
 
+        // QUEUE-AWARE ORIGINATION: consider CODE *and* the live TASK QUEUE. Demote any candidate whose target
+        // already has a LIVE task packet (seeded by ANY brain/session) below fresh ones, so the brain stops
+        // re-proposing work that already exists in the queue. Binary signal, fail-OPEN. OFF => never reads the
+        // queue => byte-identical. Composes BEFORE refusalAwarePick so both demotions stack.
+        if ((bool) config('atlas.loop.origination_queue_dedup_enabled', false)) {
+            $valid = self::queueAwareDemote($valid, $this->liveQueuedKeys());
+        }
+
         // ORIGINATION REFUSAL MEMORY (S215 — Discovery→Brain coupling): demote targets the brain has
         // already refused >=N times below fresh ones, so it ORIGINATES a new target instead of
         // re-proposing a failed one. OFF/empty => head of the ranked set (byte-identical first-valid pick).
@@ -192,6 +201,85 @@ final class AtlasLoopOriginationPipeline
         $ordered = array_merge($fresh, $refused);
 
         return $ordered[0];
+    }
+
+    /**
+     * Pure queue-aware demotion: targets that already have a LIVE task packet fall to the back in stable
+     * leverage order (DEMOTE, never exclude — an all-queued set still yields its best candidate, which
+     * isDone()/the dry-probe drive to an honest stop, never a dead-stall). Public+static so the keying is
+     * directly unit-testable. Binary membership only — never a scalar (anti-Goodhart). Empty keys => no-op.
+     *
+     * @param  list<array{0:string,1:string}>  $valid  [objective, rel] in leverage-ranked order
+     * @param  array<string,bool>  $queuedKeys  set of normKey(rel) for every live-queued target
+     * @return list<array{0:string,1:string}>
+     */
+    public static function queueAwareDemote(array $valid, array $queuedKeys): array
+    {
+        if ($valid === [] || $queuedKeys === []) {
+            return $valid;
+        }
+        $fresh = [];
+        $queued = [];
+        foreach ($valid as $pair) {
+            if (isset($queuedKeys[self::normKey((string) $pair[1])])) {
+                $queued[] = $pair;
+            } else {
+                $fresh[] = $pair;
+            }
+        }
+
+        return array_merge($fresh, $queued);
+    }
+
+    /**
+     * Canonical path key both the candidate side and the queue side reduce to, so the membership test can
+     * never silently miss on a leading slash / backslash / './' prefix / surrounding whitespace. NO case-fold
+     * (both sides derive case from the same real filesystem walk — folding would only risk a false collision).
+     */
+    private static function normKey(string $s): string
+    {
+        $s = ltrim(str_replace('\\', '/', trim($s)), '/');
+        if (str_starts_with($s, './')) {
+            $s = substr($s, 2);
+        }
+
+        return ltrim($s, '/');
+    }
+
+    /**
+     * Set of normKey(target) over every LIVE task packet in the serving queue (the brain's view of "work that
+     * already exists"). list(['status'=>$s]) filters on the REGISTRY entry status — the live lifecycle status;
+     * record['task_packet']['status'] is frozen at build-time ('planned') and is NOT read. Fail-OPEN: any
+     * queue-read error returns [] so a disk hiccup never blocks origination (isDone() still catches served
+     * targets). ponytail: N small-file reads per cycle at live volume; if live count ever hits thousands,
+     * index allowed_files in one registry pass instead.
+     *
+     * @return array<string,bool>
+     */
+    private function liveQueuedKeys(): array
+    {
+        $keys = [];
+        try {
+            foreach (['queued', 'claimable', 'claimed', 'lease_expired', 'released', 'blocked'] as $status) {
+                foreach (AtlasTaskServingStack::queueRepo()->list(['status' => $status]) as $record) {
+                    $scope = (array) (data_get($record, 'task_packet.normalized_scope') ?? []);
+                    $paths = (array) ($scope['allowed_files'] ?? []);
+                    if ($paths === []) {
+                        $paths = (array) ($scope['scope_in'] ?? []);
+                    }
+                    foreach ($paths as $path) {
+                        $key = self::normKey((string) $path);
+                        if ($key !== '') {
+                            $keys[$key] = true;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable) {
+            return [];
+        }
+
+        return $keys;
     }
 
     /**

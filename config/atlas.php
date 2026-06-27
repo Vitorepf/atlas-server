@@ -2004,6 +2004,14 @@ return [
         'origination_refusal_memory_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_REFUSAL_MEMORY_ENABLED', false),
         'origination_refusal_memory_min' => max(1, (int) env('ATLAS_LOOP_ORIGINATION_REFUSAL_MEMORY_MIN', 2)),
 
+        // QUEUE-AWARE ORIGINATION: the brain considers CODE *and* the live TASK QUEUE — leverage-first
+        // origination DEMOTES a candidate whose target already has a LIVE task packet (seeded by ANY
+        // brain/session), so it stops re-proposing work that already exists in the queue ("onipresente no
+        // escopo"). Binary signal (target queued? y/n), never a scalar (anti-Goodhart). Fail-OPEN on a queue
+        // read error. Default OFF => the live-queue is never read => byte-identical first-valid pick. Stacks
+        // under leverage_first_origination_enabled + ATLAS_LOOP_MASTER_ENABLED + AtlasBrainMasterSwitch.
+        'origination_queue_dedup_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_QUEUE_DEDUP_ENABLED', false),
+
         // AUTHOR≠JUDGE runtime cert predicate: se o diff de uma proposta tocar QUALQUER arquivo
         // dono de juízo/gate (HarnessGuard::FORBIDDEN_SELF_TARGETS), a cert é RECUSADA — não só
         // edit-bloqueada. Converte author≠judge de perímetro (blocklist de edição) em predicado
