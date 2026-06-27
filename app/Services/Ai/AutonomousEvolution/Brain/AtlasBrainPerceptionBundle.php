@@ -34,10 +34,13 @@ final class AtlasBrainPerceptionBundle
         private readonly AtlasBrainPathOscillationDetector $oscillationDetector,
         private readonly AtlasBrainHintBurstDetector $burstDetector,
         private readonly AtlasBrainRepeatedRefusalAntiPattern $repeatedRefusal,
+        private readonly AtlasBrainCompoundingVelocity $compoundingVelocity,
+        private readonly AtlasBrainPathYieldEwma $pathYieldEwma,
+        private readonly AtlasBrainPathStreakTracker $pathStreakTracker,
     ) {}
 
     /**
-     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array, path_diversity_score:array, concentration_hhi:array, path_yield_momentum:array, path_oscillation:array, hint_bursts:array, repeated_refusal_anti_patterns:array}
+     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array, path_diversity_score:array, concentration_hhi:array, path_yield_momentum:array, path_oscillation:array, hint_bursts:array, repeated_refusal_anti_patterns:array, compounding_velocity:array, path_yield_ewma:array, path_streaks:array}
      */
     public function build(string $scope): array
     {
@@ -65,6 +68,9 @@ final class AtlasBrainPerceptionBundle
             'path_oscillation' => $this->oscillationDetector->detect($tail, $this->translator),
             'hint_bursts' => $this->burstDetector->detect($tail),
             'repeated_refusal_anti_patterns' => $this->repeatedRefusal->detect($tail),
+            'compounding_velocity' => $this->compoundingVelocity->compute($tail, $this->translator),
+            'path_yield_ewma' => $this->pathYieldEwma->compute($tail, $this->translator),
+            'path_streaks' => $this->pathStreakTracker->track($tail, $this->translator),
         ];
     }
 }
