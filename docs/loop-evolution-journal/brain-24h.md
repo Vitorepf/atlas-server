@@ -364,3 +364,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 14 batch tests / 73 assertions green; pint green
 - next: only reflection_provenance_chain left in catalog; or branch out beyond catalog (faculdade de ambição)
+
+## L181 — reflection provenance chain (comprehension-deepening, 3rd rotation)
+- path: comprehension-deepening
+- organ: AtlasBrainReflectionProvenanceChain — walks cycle_id→parent_cycle_id backward; cycle-safe
+- catalog: 12/12 ALL IMPLEMENTED (every entry now points to a real organ)
+- schema registry: 17 entries
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: faculdade de ambição — branch beyond catalog (originate fresh frontier)
