@@ -136,4 +136,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 340789861 — **L104 summary ganha ledger=<first>→<last>**: long-window score history (L99) lado-a-lado com short-window trend. 'ledger=none' quando ainda 0 snapshots. 2 summary tests verdes.
 - 2ab676162 — **L105 state.frontier surfaces top_titles[3]**: operator vê o que está enfileirado no frontier sem jq + topK. 10 surface tests verdes.
 - dfb2537d7 — **L106 plan adviser (pétreo organ novo)**: síntese pura sobre findings — critical>warn>info com tabela de prioridade explícita por código. SINGLE next-action pra operator. Pétreo. 4 tests verdes.
+- e78207e6b — **L107 doctor surfaces recommended_action**: wire da L106 no payload da doctor. Computado sobre UNFILTERED set (--severity não estreita a recomendação). 11 doctor tests verdes.
 
