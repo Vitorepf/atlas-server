@@ -826,7 +826,10 @@ final class AtlasLoopTaskGrinder
         $acceptance = is_array($explorerTask['acceptance'] ?? null) ? $explorerTask['acceptance'] : [];
         $baseWorkspace = (string) ($explorerTask['base_workspace'] ?? '');
         $sealedHoldouts = $this->sealedHoldoutCommands($payload);
-        $refuterCommands = $this->semanticRefuterCommands($payload);
+        $refuterCommands = self::withIndependentJudge(
+            $this->semanticRefuterCommands($payload),
+            (string) config('atlas.loop.independent_judge_cmd', ''),
+        );
         $consumerCommands = $this->crossFileConsumerCommands($payload);
         $kept = [];
         $gateReports = [];
@@ -1140,6 +1143,26 @@ final class AtlasLoopTaskGrinder
      * no-burn rule) / a provider equal to the weak engine the prior rounds already used (anti-theatre — an
      * "escalation" to the same engine is not an escalation).
      */
+    /**
+     * S216 — append the operator-configured INDEPENDENT-engine judge command to the semantic refuter set,
+     * so its verdict enters judge_verdicts stamped source_class='external' (certifier) and can satisfy the
+     * S214 source-class independence floor. Pure + public-static for direct testing. Empty cmd or an exact
+     * duplicate => the list is returned unchanged (byte-identical: no extra judge spawned).
+     *
+     * @param  list<string>  $refuterCommands
+     * @return list<string>
+     */
+    public static function withIndependentJudge(array $refuterCommands, string $independentJudgeCmd): array
+    {
+        $cmd = trim($independentJudgeCmd);
+        if ($cmd === '' || in_array($cmd, $refuterCommands, true)) {
+            return $refuterCommands;
+        }
+        $refuterCommands[] = $cmd;
+
+        return $refuterCommands;
+    }
+
     public static function resolveStrongProvider(string $strong, string $weakDefault): string
     {
         $strong = trim($strong);

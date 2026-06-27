@@ -2580,6 +2580,13 @@ return [
         // lens-judge panel (dedicated provider judges per lens) feeds diverse verdicts. quorum: policy
         // (unanimous|n_of_m), min_pass, required_lenses, min_distinct_providers (independence).
         'judge_consensus_gate_enabled' => (bool) env('ATLAS_LOOP_JUDGE_CONSENSUS_GATE_ENABLED', false),
+        // S216 — arms the S214 source-class independence floor with a REAL second source. A shell command
+        // for an INDEPENDENT-engine judge (a DIFFERENT engine than the author); when set, the grinder
+        // appends it as a semantic refuter so its verdict enters judge_verdicts stamped source_class=
+        // 'external'. Empty (default) => no extra judge spawned => byte-identical, zero provider spend.
+        // Arm together with judge_consensus_gate_enabled + min_distinct_source_classes>=2 for real
+        // cross-source consensus (the author can no longer BE the only judge).
+        'independent_judge_cmd' => (string) env('ATLAS_LOOP_INDEPENDENT_JUDGE_CMD', ''),
         // PHASE 1 (Bloco 2.1 + 3.1) — Arbor-as-engine under governance. Both default-OFF + armed-only:
         // - iterate_to_metric: the grind runs edit->measure->keep-if-better->repeat (Arbor algo) per
         //   scenario when the task carries a held_out block; OFF => the loop's one-shot best-of-N is byte-identical.
