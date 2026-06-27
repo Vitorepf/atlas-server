@@ -2,10 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionCompletionEvidenceHashComposerService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.completion_evidence_hash_composer.v1';
 
     public const MODE = 'read_only_completion_evidence_hash_composer';
@@ -201,8 +205,4 @@ final class AtlasSelfConstructionCompletionEvidenceHashComposerService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }

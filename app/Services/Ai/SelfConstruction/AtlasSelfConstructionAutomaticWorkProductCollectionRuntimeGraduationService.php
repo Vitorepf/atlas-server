@@ -3,11 +3,15 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionAutomaticWorkProductCollectionRuntimeGraduationService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
 
@@ -15,12 +19,6 @@ final class AtlasSelfConstructionAutomaticWorkProductCollectionRuntimeGraduation
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-    private function ksortRecursive(array $value): array
-    {
-        $this->ksortRecursiveByReference($value);
-
-        return $value;
-    }
     public const SCHEMA_VERSION = 'atlas.self_construction.automatic_work_product_collection_runtime_graduation.v1';
 
     public const MODE = 'read_only_automatic_work_product_collection_runtime_graduation';

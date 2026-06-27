@@ -2,10 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRealProviderSmokeOperatorChecklistService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_operator_checklist.v1';
 
     public const MODE = 'read_only_real_provider_smoke_operator_checklist';
@@ -284,8 +288,4 @@ final class AtlasSelfConstructionRealProviderSmokeOperatorChecklistService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }
