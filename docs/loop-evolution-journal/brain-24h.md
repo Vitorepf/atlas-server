@@ -175,6 +175,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 
 - 47a78ceba — **L142 brain:summary --compact mode**: 3-field line `[score gates next]` pra status bars/minimal cron. 3 summary tests verdes.
 - 077b3800d — **L143 doctor --top=K**: filter por prioridade depois de --severity. Cron pode pegar só top-K alerts. 10 doctor tests verdes.
+- 89109b3b5 — **L144 brain:findings --by-path grouping**: agrupa codes por portfolio path. Operator vê catch-all paths. 2 findings tests verdes.
 
 ### Placar @ L141 (cadência)
 - **Organs pétreos novos nesta run**: ~22 (briefHistogram via prior, +21 originated since L72).
