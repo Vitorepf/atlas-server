@@ -62,6 +62,25 @@ final class AtlasBrainPathCatalog
     }
 
     /**
+     * Filter paths by objective_kind (e.g. 'self_improvement', 'research', 'optimization'). Returns the
+     * matching entries. Useful when a downstream consumer wants to scope rotation to a specific kind.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function byObjectiveKind(string $kind): array
+    {
+        $kind = trim($kind);
+        if ($kind === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $this->all(),
+            static fn (array $entry): bool => trim((string) ($entry['objective_kind'] ?? '')) === $kind,
+        ));
+    }
+
+    /**
      * Human-readable lens (purpose description) for the path, or null when unknown.
      */
     public function lensFor(string $pathId): ?string

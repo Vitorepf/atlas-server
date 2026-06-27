@@ -49,6 +49,22 @@ final class AtlasBrainPathCatalogTest extends TestCase
         self::assertNull($catalog->executorOrganFor('nonexistent'));
     }
 
+    public function test_by_objective_kind_filters_matching_entries(): void
+    {
+        config()->set('atlas.brain.paths', [
+            ['id' => 'frontier-harvest', 'objective_kind' => 'research'],
+            ['id' => 'metrics-optimization', 'objective_kind' => 'optimization'],
+            ['id' => 'simulation-twin', 'objective_kind' => 'optimization'],
+            ['id' => 'pattern-design', 'objective_kind' => 'refactor'],
+        ]);
+        $catalog = new AtlasBrainPathCatalog;
+
+        self::assertCount(2, $catalog->byObjectiveKind('optimization'));
+        self::assertCount(1, $catalog->byObjectiveKind('research'));
+        self::assertSame([], $catalog->byObjectiveKind('nonexistent'));
+        self::assertSame([], $catalog->byObjectiveKind('   '));
+    }
+
     public function test_catalog_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCatalog.php', true);
