@@ -68,4 +68,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - b71b79991 — **L36 brain:state surface flag matrix**: payload inclui `scope_signal_digest_enabled` / `reflection_enabled` / `causal_selector_enabled`. Operator vê arming switches sem diff de config. 3 state tests verdes.
 - b97952039 — **L37 brain:state --tail=N**: option default 50, min 1. Dashboard escala window sem code change. 3 state tests verdes.
 - c9310c964 — **L38 brain:state --all (cohort summary)**: itera todos `atlas.brain.scopes.*` emitindo per-scope {slug, meta_harness, done_set_recent, reflection_total, frontier_count}. Dashboard multi-scope em 1 call. 4 state tests verdes (1 novo).
+- ed14de082 — **L39 atlas:brain:health-doctor**: novo command emite {severity, code, advice} findings (critical gate_regression / warn master_switch_off / info digest_dormant / info reflection_empty). Symptom-to-action first-aid. Pétreo. 3 doctor tests verdes.
 
