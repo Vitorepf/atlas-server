@@ -112,6 +112,9 @@ final class AtlasLoopHarnessGuard
         // The SPEC REPAIR HINTS — deficiency→repair map. Editable ⇒ the réu would map a deficiency to
         // "ignore it", weakening the inspector's discriminating power.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSpecRepairHints.php',
+        // The BRIEF HISTOGRAM — pure read over prior_briefs emitting the action_hint distribution.
+        // Editable ⇒ the réu would shape its own distribution to "look balanced", masking perseveration.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainBriefHistogram.php',
         // The SEED-GATE ADVERSARIAL AUDITOR — adversarial vetting of the seed gate's promote-set. Editable ⇒
         // the réu would drop attacks until "no holes" was structurally guaranteed (same self-confirmation trap
         // the inspector auditor's pétreo entry was created for, here applied to the seed boundary).
