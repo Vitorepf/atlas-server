@@ -74,6 +74,10 @@ final class AtlasLoopHarnessGuard
         // never edits the organ that recommends which self-improvement path to take (else it'd always route
         // toward whichever path it wanted to "win" next, collapsing the portfolio rotation).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPortfolioRouter.php',
+        // The ADVERSARIAL AUDITOR — the réu NEVER edits the battery that grades its own gate's coverage,
+        // else it'd hand-prune attacks until "no holes" was structurally guaranteed (the classic
+        // self-confirmation trap the cert-chain pétreo block was created to prevent).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainGateAdversarialAuditor.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
