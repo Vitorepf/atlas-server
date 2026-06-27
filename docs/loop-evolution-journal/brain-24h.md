@@ -79,4 +79,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 835cd81bc — **L47 doctor warns canonical paths missing**: warn `portfolio_canonical_paths_missing` lista os 7 ids esperados que não estão em config. Pega "7 entries mas ids errados". 3 doctor tests verdes.
 - 552081567 — **L48 state.gate_health + attacks_tried**: dashboard agora mostra coverage (N attacks tried) além de holes. Anti-shrink contract visible. 4 state tests verdes.
 - cb6567f37 — **L49 metric +served_ratio_pct**: nova métrica (maximize) — origination efficiency 0-100 = served/(served+refused). Brain vê eficiência em 1 valor. 6 metric tests verdes (1 novo).
+- 50ae80d23 — **L50 doctor warns served_ratio_low**: warn quando ratio < 50 sobre ≥10 cycles (anti-noise threshold). Sugere switch scope ou fix path. 3 doctor tests verdes.
 
