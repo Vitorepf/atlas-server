@@ -390,3 +390,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 6 assertions green (coverage test updated); pint green
 - next: route to remaining under-built (compounding, metrics-optimization, pattern-design — all 2)
+
+## L184 — path yield EWMA (compounding, routed by coverage)
+- path: compounding — routed via coverage matrix (was 2 organs, now 3)
+- organ: AtlasBrainPathYieldEwma — EWMA per path with alpha (default 0.3); smooths noise
+- coverage matrix: compounding=3, no longer under-built at threshold 3
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 6 assertions green; pint green
+- next: metrics-optimization or pattern-design (both still at 2)
