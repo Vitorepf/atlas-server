@@ -74,4 +74,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 2289b528d — **L42 AtlasBrainPathCatalog**: extraído organ single-source pra lookups em config('atlas.brain.paths') (all/find/executorOrganFor/lensFor). Brief migra pra delegar. Pétreo. 17 brief tests verdes.
 - e49bd374e — **L43 frozen tests for catalog**: 4 tests (all filters non-arrays, find by id, executor+lens lookups, pétreo). 4 catalog tests verdes.
 - 1edca6a91 — **L44 brain:state paths.count via catalog**: dashboard mostra portfolio size (7 esperados). 4 state tests verdes.
+- 15970e9c2 — **L45 doctor warns portfolio drift**: warn `portfolio_paths_unexpected_count` quando count != 7. Detector de config drift. 3 doctor tests verdes.
 
