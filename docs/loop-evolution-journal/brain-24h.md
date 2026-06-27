@@ -170,6 +170,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 942ea7c45 — **L137 doctor: origination_gap_wide (info)**: ≥20 cycles + gap ≥20 ⇒ info "iterating but not delivering". Distinto de evidence_stale (cycle-axis). Adviser→adversarial-critique. 14 surface tests verdes.
 - 327d45596 — **L138 summary one-liner adds gap=N**: cycle-axis companion ao age (wall-clock). 2 summary tests verdes.
 - b758314e5 — **L139 provenance attribution analyzer (pétreo organ novo)**: conta seeds per source_finding code sobre L112 ledger. "Qual finding originou mais packets?" sem grep. Pétreo. 3 tests verdes.
+- 47d7538b9 — **L140 brain:provenance --attribution flag**: wire da L139 — operator opt-in pra ver per-finding counts. 2 tests verdes. **140-slice mark.**
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
