@@ -589,3 +589,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: paths still at 6 — frontier-harvest, metrics, pattern, simulation, compounding
+
+## L208 — EWMA crossover (compounding @7)
+- path: compounding (now 7 organs)
+- organ: AtlasBrainPathYieldEwmaCrossover — short minus long EWMA per path; crossover label
+- coverage: compounding=7 (3 paths at 7 now: compounding, comprehension, adversarial)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 5 assertions green; pint green
+- next: paths at 6 (frontier, metrics, pattern, simulation)
