@@ -56,4 +56,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 5ad0bfa45 — **L24 brain:state + gate_health**: state command agora também emite gate_health {inspector_holes, seed_gate_holes}. Dashboard surface completo — operator monitora integridade do wall sem comprehension build. 154 testes verdes.
 - 2c65c92e3 — **L25 brain:state + last_brief**: parse do mais recente leverage_brief reflection (L14 time series) em `{hint, rationale}` no state payload. Dashboard mostra última recomendação sem rodar next. 3 state tests verdes (1 novo).
 - 06d5da041 — **L26 docs canon**: novo `docs/brain-architecture-v2.md` — organ map L1-L25, payload shape, rule cascade, pétreo floor, flag matrix, end-state goal. Operator-readable artifact durável.
+- 76570af61 — **L27 brief.previous_action_hint**: brief sai com previous_action_hint extraído de priorBriefs[0]. Cérebro vê continuity/drift em 1 campo sem parsear lista. 171 testes verdes (2 novos).
 
