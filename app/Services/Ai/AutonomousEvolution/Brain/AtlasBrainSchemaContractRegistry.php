@@ -60,6 +60,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainHorizonDiversityForecast::SCHEMA => AtlasBrainHorizonDiversityForecast::class,
         AtlasBrainComposedHealthGrade::SCHEMA => AtlasBrainComposedHealthGrade::class,
         AtlasBrainCriticIndependenceScore::SCHEMA => AtlasBrainCriticIndependenceScore::class,
+        AtlasBrainPathYieldEwmaCrossover::SCHEMA => AtlasBrainPathYieldEwmaCrossover::class,
     ];
 
     public function ownerOf(string $schema): ?string
