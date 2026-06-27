@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\AutonomousEvolution\Brain;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
 final class AtlasBrainAuditCommandTest extends TestCase
@@ -36,8 +37,9 @@ final class AtlasBrainAuditCommandTest extends TestCase
 
     public function test_audit_combines_state_doctor_and_adversarial(): void
     {
-        Artisan::call('atlas:brain:audit', ['--json' => true]);
-        $payload = json_decode(trim(Artisan::output()), true);
+        $buf = new BufferedOutput;
+        Artisan::call('atlas:brain:audit', ['--json' => true], $buf);
+        $payload = json_decode(trim($buf->fetch()), true);
 
         self::assertArrayHasKey('state', $payload);
         self::assertArrayHasKey('doctor', $payload);
