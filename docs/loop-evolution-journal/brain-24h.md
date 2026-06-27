@@ -63,4 +63,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 74f2e6f30 — **L31 compounding.worst_refusal_streak**: simétrico a success_streak — max consecutive refusal run em todo o tail-window. Brain compara "histórico do pior" vs "atual" pra calibrar escalada. 8 compounding tests verdes.
 - 9df5df688 — **L32 metric +worst_refusal_streak**: nova métrica declarada (minimize) no MetricSnapshot. Causal selector + brief têm acesso à magnitude do bad spell além do count atual. 161 brain tests verdes.
 - e63b0f680 — **L33 rotate_path cites streak**: brief rotate_path rationale agora inclui `worst_refusal_streak`. Brain vê trigger + magnitude histórica em 1 linha. 178 brain tests verdes.
+- b6fe2507d — **L34 router.signal_strength**: count de axes não-vazios (0..3) na recomendação do PortfolioRouter. Brain lê confiança da rota: 3=forte, 1=fraco. 169 brain tests verdes (1 novo).
 
