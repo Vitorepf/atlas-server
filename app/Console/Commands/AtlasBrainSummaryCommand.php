@@ -82,6 +82,8 @@ final class AtlasBrainSummaryCommand extends Command
         $recItem = $rec['recommended'] ?? null;
         $next = is_array($recItem) ? (string) ($recItem['code'] ?? 'none') : 'none';
         $next = $next === '' ? 'none' : $next;
+        $nextPath = (string) ($rec['recommended_path'] ?? '');
+        $nextPath = $nextPath === '' ? 'none' : $nextPath;
 
         // Perception slice — read-only over the reflection stream.
         $stream = app(AtlasBrainReflectionStream::class);
@@ -105,7 +107,7 @@ final class AtlasBrainSummaryCommand extends Command
         $ledgerScores = array_map(static fn (array $r): int => (int) ($r['score'] ?? 0), app(AtlasBrainHealthScoreLedger::class)->tail($scope, 10));
         $ledgerSig = $ledgerScores === [] ? 'none' : ($ledgerScores[0].'→'.end($ledgerScores));
 
-        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, findings={$c}c/{$w}w/{$i}i, next={$next}]");
+        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, findings={$c}c/{$w}w/{$i}i, next={$next}, path={$nextPath}]");
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
