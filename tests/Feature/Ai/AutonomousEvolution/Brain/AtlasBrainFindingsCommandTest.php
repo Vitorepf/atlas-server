@@ -25,6 +25,19 @@ final class AtlasBrainFindingsCommandTest extends TestCase
         self::assertContains('frontier_empty', $codes);
     }
 
+    public function test_findings_csv_format_outputs_header_and_rows(): void
+    {
+        $buf = new BufferedOutput;
+        Artisan::call('atlas:brain:findings', ['--csv' => true], $buf);
+        $out = trim($buf->fetch());
+
+        $lines = explode("\n", $out);
+        self::assertSame('code,recommended_path', $lines[0]);
+        self::assertGreaterThan(10, count($lines), 'should have header + many rows');
+        // Spot-check format on a known mapping line.
+        self::assertNotFalse(strpos($out, 'gate_regression,adversarial-critique'));
+    }
+
     public function test_findings_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainFindingsCommand.php', true);
