@@ -148,6 +148,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 0ecaeac8d — **L115 doctor: provenance_unwired (info)**: served>0 + L112 vazio ⇒ "organ existe mas não está sendo alimentado". Wire gap detector. Adviser map → comprehension-deepening. 14 surface tests verdes.
 - bda4ff5f2 — **L116 stale scope detector (pétreo organ novo)**: multi-scope freshness buckets {fresh, stale, silent} sobre threshold. Compõe L94 sobre N scopes. Pétreo. 2 tests verdes.
 - 5c8962631 — **L117 state --all surfaces cohort_freshness**: wire da L116 no cohort block. Stale/fresh/silent visíveis num único read. 10 surface tests verdes.
+- ee0544127 — **L118 doctor: cohort_scope_stale (info)**: qualquer sibling scope stale>1h ⇒ info "cohort-wide rotation pode estar starving". Doctor não fica mais per-scope-blind. Adviser→comprehension-deepening. 15 surface tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
