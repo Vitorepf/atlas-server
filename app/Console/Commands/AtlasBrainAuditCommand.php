@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
  * BRAIN AUDIT — one-shot consolidated read of the brain's observable surface for CI / dashboard /
@@ -31,11 +32,15 @@ final class AtlasBrainAuditCommand extends Command
         $scope = trim((string) ($this->option('scope') ?? ''));
         $scopeArg = $scope !== '' ? ['--scope' => $scope] : [];
 
-        Artisan::call('atlas:brain:state', $scopeArg + ['--json' => true]);
-        $state = json_decode(trim(Artisan::output()), true) ?: [];
+        // Use dedicated BufferedOutput per sub-call so the audit command's own JSON emit isn't polluted
+        // by the sub-commands' streams (Artisan::output() is shared and concatenates).
+        $stateBuf = new BufferedOutput;
+        Artisan::call('atlas:brain:state', $scopeArg + ['--json' => true], $stateBuf);
+        $state = json_decode(trim($stateBuf->fetch()), true) ?: [];
 
-        Artisan::call('atlas:brain:health-doctor', $scopeArg + ['--json' => true]);
-        $doctor = json_decode(trim(Artisan::output()), true) ?: [];
+        $doctorBuf = new BufferedOutput;
+        Artisan::call('atlas:brain:health-doctor', $scopeArg + ['--json' => true], $doctorBuf);
+        $doctor = json_decode(trim($doctorBuf->fetch()), true) ?: [];
 
         $inspector = app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector);
         $seedGate = app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class));
