@@ -190,6 +190,34 @@ final class AtlasBrainLeverageBriefTest extends TestCase
         self::assertNull($brief['previous_action_hint']);
     }
 
+    public function test_brief_continuity_is_first_with_no_priors(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief(['metrics' => [['id' => 'recent_refusal_count', 'value' => 0]]]);
+        self::assertSame('first', $brief['continuity']);
+    }
+
+    public function test_brief_continuity_is_held_when_previous_matches(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief(
+            ['frontier_candidates' => [['title' => 'X', 'source' => 'g']], 'metrics' => [['id' => 'recent_refusal_count', 'value' => 0]]],
+            [['kind' => 'note', 'reflection' => 'leverage_brief: harvest_frontier — x']],
+        );
+
+        self::assertSame('harvest_frontier', $brief['action_hint']);
+        self::assertSame('held', $brief['continuity']);
+    }
+
+    public function test_brief_continuity_is_changed_when_previous_differs(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief(
+            ['frontier_candidates' => [['title' => 'X', 'source' => 'g']], 'metrics' => [['id' => 'recent_refusal_count', 'value' => 0]]],
+            [['kind' => 'note', 'reflection' => 'leverage_brief: compound — x']],
+        );
+
+        self::assertSame('harvest_frontier', $brief['action_hint']);
+        self::assertSame('changed', $brief['continuity']);
+    }
+
     public function test_brief_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(

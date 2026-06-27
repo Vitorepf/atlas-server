@@ -70,7 +70,13 @@ final class AtlasBrainLeverageBrief
     public function brief(array $signals, array $priorBriefs = []): array
     {
         $base = $this->computeHint($signals, $priorBriefs);
-        $base['previous_action_hint'] = $this->previousActionHintOf($priorBriefs);
+        $previous = $this->previousActionHintOf($priorBriefs);
+        $base['previous_action_hint'] = $previous;
+        $base['continuity'] = match (true) {
+            $previous === null => 'first',
+            $previous === $base['action_hint'] => 'held',
+            default => 'changed',
+        };
 
         return $base;
     }
