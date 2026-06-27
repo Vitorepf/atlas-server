@@ -51,6 +51,7 @@ final class AtlasBrainMetricSnapshot
     ): array {
         $rows = $ledgerWindow > 0 ? $ledger->recentCycles($ledgerWindow) : [];
         $recentRefusals = 0;
+        $recentServed = 0;
         $worstRefusal = 0;
         $cur = 0;
         $refusalStatuses = ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'];
@@ -63,9 +64,15 @@ final class AtlasBrainMetricSnapshot
                     $worstRefusal = $cur;
                 }
             } else {
+                if ($status === 'served' || $status === 'seeded') {
+                    $recentServed++;
+                }
                 $cur = 0;
             }
         }
+        $servedRatio = ($recentServed + $recentRefusals) > 0
+            ? (int) round(($recentServed * 100) / ($recentServed + $recentRefusals))
+            : 0;
         $streak = 0;
         for ($i = count($rows) - 1; $i >= 0; $i--) {
             $s = trim((string) ($rows[$i]['status'] ?? ''));
@@ -86,6 +93,7 @@ final class AtlasBrainMetricSnapshot
                 $this->metric('recent_refusal_count', $recentRefusals, self::DIRECTION_MINIMIZE, 'Refusals/abstains in the tail-window (high ⇒ origination is weak).'),
                 $this->metric('worst_refusal_streak', $worstRefusal, self::DIRECTION_MINIMIZE, 'Longest consecutive refusal run anywhere in the tail (bad-spell magnitude).'),
                 $this->metric('recent_served_streak', $streak, self::DIRECTION_MAXIMIZE, 'Consecutive served/seeded rows from the tail (compounding signal).'),
+                $this->metric('served_ratio_pct', $servedRatio, self::DIRECTION_MAXIMIZE, 'Percentage of decisive cycles (served + refused) that served — origination efficiency 0-100.'),
             ],
         ];
     }

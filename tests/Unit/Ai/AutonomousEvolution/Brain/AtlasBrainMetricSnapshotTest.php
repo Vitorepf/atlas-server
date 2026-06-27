@@ -113,6 +113,24 @@ final class AtlasBrainMetricSnapshotTest extends TestCase
         self::assertSame(2, $by['recent_served_streak']['value']);
     }
 
+    public function test_served_ratio_pct_is_percentage_of_decisive_cycles(): void
+    {
+        $l = $this->ledger();
+        $rec = fn (string $status) => $l->record([
+            'snapshot_id' => 's', 'status' => $status, 'produced' => $status === 'served',
+            'action' => 'origin', 'target_path' => 'X.php', 'task_packet_id' => 'pkt-'.bin2hex(random_bytes(3)),
+            'refusal' => $status !== 'served',
+        ]);
+        $rec('served');
+        $rec('served');
+        $rec('refused');
+        $rec('served');
+        // served=3, refused=1 ⇒ 75%
+        $by = $this->byId((new AtlasBrainMetricSnapshot)->snapshot($this->model(), $l)['metrics']);
+        self::assertSame(75, $by['served_ratio_pct']['value']);
+        self::assertSame(AtlasBrainMetricSnapshot::DIRECTION_MAXIMIZE, $by['served_ratio_pct']['direction']);
+    }
+
     public function test_snapshot_is_byte_stable_across_invocations(): void
     {
         $snap = new AtlasBrainMetricSnapshot;
