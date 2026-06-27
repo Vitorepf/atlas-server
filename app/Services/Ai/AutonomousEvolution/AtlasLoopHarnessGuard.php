@@ -161,6 +161,7 @@ final class AtlasLoopHarnessGuard
         // exclude its own silent scope from the stale list.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainStaleScopeDetector.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeCatalogSnapshot.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintToPathTranslator.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
