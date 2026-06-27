@@ -126,4 +126,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 0b8dd5d7b — **L94 evidence freshness (pétreo organ novo)**: age (seconds) do reflection mais novo. Detecta "brain silenciado" (gates ok + ratio ok mas 0 evidence) — ortogonal aos outros sinais. Pétreo. 3 tests verdes.
 - 3d5dd2168 — **L95 state.evidence_freshness + doctor evidence_stale**: wire da L94 no state + doctor flagga age>1h. Cobre wedged-worker que gates+ratio mascaram. 18 surface tests verdes.
 - 4415f9024 — **L96 brain:summary ganha age=Xs**: silence-detect visível na cron line; 'age=none' quando 0 reflections. 2 tests verdes.
+- 7c63a7f1f — **L97 brain:history command (pétreo)**: tail operator-friendly do reflection stream (cycle_id+kind+hint+head). 2 tests verdes.
 
