@@ -157,6 +157,9 @@ final class AtlasLoopHarnessGuard
         // The PROVENANCE LEDGER — append-only NDJSON of per-seed lineage. Editable ⇒ the réu would
         // rewrite history to credit itself for seeds it didn't actually originate.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainProvenanceLedger.php',
+        // The STALE SCOPE DETECTOR — multi-scope freshness over threshold. Editable ⇒ the réu would
+        // exclude its own silent scope from the stale list.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainStaleScopeDetector.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
