@@ -11,6 +11,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecRepairHints;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
@@ -106,7 +107,8 @@ final class AtlasBrainSeedCommand extends Command
 
             [$ok, $stage, $reasons] = $this->gate($spec, $guard, $classifier, $seedGate, $progress, $emptyModel, $metaHarness);
             if (! $ok) {
-                $results[] = ['task_packet_id' => $id, 'status' => 'blocked', 'stage' => $stage, 'reasons' => $reasons];
+                $hints = app(AtlasBrainSpecRepairHints::class)->repair($reasons);
+                $results[] = ['task_packet_id' => $id, 'status' => 'blocked', 'stage' => $stage, 'reasons' => $reasons, 'repair_hints' => $hints['hints']];
                 $counts['blocked']++;
 
                 continue;
