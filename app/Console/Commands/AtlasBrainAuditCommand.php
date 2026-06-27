@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPerceptionBundle;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
@@ -22,7 +24,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 final class AtlasBrainAuditCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:audit {--scope= : scope slug (default: configured default_scope)} {--json} {--raw : single-line JSON}';
+    protected $signature = 'atlas:brain:audit {--scope= : scope slug (default: configured default_scope)} {--include-perception : also include the L150 perception bundle as a top-level block} {--json} {--raw : single-line JSON}';
 
     /** @var string */
     protected $description = 'One-shot consolidated brain observability: state + health-doctor findings + raw adversarial audits.';
@@ -56,6 +58,11 @@ final class AtlasBrainAuditCommand extends Command
                 'seed_gate' => $seedGate,
             ],
         ];
+
+        if ($this->option('include-perception')) {
+            $resolvedScope = (string) app(AtlasBrainScopeRegistry::class)->resolve($scope)['slug'];
+            $payload['perception'] = app(AtlasBrainPerceptionBundle::class)->build($resolvedScope);
+        }
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
