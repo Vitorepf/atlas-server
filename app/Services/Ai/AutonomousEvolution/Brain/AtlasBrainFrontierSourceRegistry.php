@@ -96,6 +96,31 @@ final class AtlasBrainFrontierSourceRegistry
      *
      * @return list<array<string,mixed>>
      */
+    /**
+     * Count the number of candidate rows recorded for a scope (cheap; reads + parses the NDJSON). Returns
+     * 0 when the file doesn't exist (frontier-harvest gracefully has nothing yet for new scopes).
+     */
+    public function count(string $scope): int
+    {
+        $path = $this->pathFor($this->slugify($scope));
+        if (! is_file($path)) {
+            return 0;
+        }
+
+        $n = 0;
+        foreach (preg_split('/\R/', (string) @file_get_contents($path)) ?: [] as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+            $decoded = json_decode($line, true);
+            if (is_array($decoded) && trim((string) ($decoded['title'] ?? '')) !== '') {
+                $n++;
+            }
+        }
+
+        return $n;
+    }
+
     public function topK(string $scope, int $k = self::DEFAULT_K): array
     {
         if ($k <= 0) {

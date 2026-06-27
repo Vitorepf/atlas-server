@@ -88,6 +88,16 @@ final class AtlasBrainFrontierSourceRegistryTest extends TestCase
         self::assertSame([], $reg->topK('loop', 0));
     }
 
+    public function test_count_returns_total_entries_for_a_scope(): void
+    {
+        $reg = $this->reg();
+        self::assertSame(0, $reg->count('loop'));
+        $reg->append('loop', ['title' => 'A', 'source' => 'g']);
+        $reg->append('loop', ['title' => 'B', 'source' => 'g']);
+        $reg->append('loop', ['title' => '', 'source' => 'g']); // refused (empty title)
+        self::assertSame(2, $reg->count('loop'));
+    }
+
     public function test_registry_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(

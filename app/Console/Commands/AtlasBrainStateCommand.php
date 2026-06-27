@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -90,6 +91,9 @@ final class AtlasBrainStateCommand extends Command
                 'recent_count' => $reflectionCount,
             ],
             'last_brief' => $lastBrief,
+            'frontier' => [
+                'count' => app(AtlasBrainFrontierSourceRegistry::class)->count($scope),
+            ],
             // GATE HEALTH — runtime adversarial audit hole counts (same as scope_signals.gate_health in
             // brain:next, computed here without origination). zero=airtight; non-zero=regression to fix.
             'gate_health' => [
