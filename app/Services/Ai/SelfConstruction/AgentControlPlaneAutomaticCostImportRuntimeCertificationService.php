@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 /**
@@ -10,6 +12,8 @@ use Carbon\CarbonImmutable;
  */
 final class AgentControlPlaneAutomaticCostImportRuntimeCertificationService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_automatic_cost_import_runtime.v1';
 
     public const MODE = 'read_only_agent_control_plane_automatic_cost_import_runtime_certification';
@@ -178,17 +182,4 @@ final class AgentControlPlaneAutomaticCostImportRuntimeCertificationService
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function ksortRecursive(array $value): array
-    {
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->ksortRecursive($entry);
-            }
-        }
-        if ($value !== [] && array_keys($value) !== range(0, count($value) - 1)) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 }

@@ -2,10 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRealProviderSmokeReplayDiffService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_replay_diff.v1';
 
     public const MODE = 'read_only_real_provider_smoke_replay_diff';
@@ -73,8 +77,4 @@ final class AtlasSelfConstructionRealProviderSmokeReplayDiffService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }

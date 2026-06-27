@@ -2,10 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_evidence_dossier.v1';
 
     public const MODE = 'read_only_runtime_promotion_evidence_dossier';
@@ -158,8 +162,4 @@ final class AtlasSelfConstructionRuntimePromotionEvidenceDossierService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }
