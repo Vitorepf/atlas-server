@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
@@ -69,6 +70,12 @@ final class AtlasBrainHealthDoctorCommand extends Command
         // INFO: frontier source has no curated candidates for this scope (the frontier-harvest path has no fuel).
         if (app(AtlasBrainFrontierSourceRegistry::class)->count($scope) === 0) {
             $findings[] = ['severity' => 'info', 'code' => 'frontier_empty', 'advice' => "scope '{$scope}' has 0 curated frontier candidates — append entries via the registry to give the frontier-harvest path material"];
+        }
+
+        // WARN: portfolio path count diverges from the canonical 7. Indicates config drift / abridgment.
+        $pathsCount = count(app(AtlasBrainPathCatalog::class)->all());
+        if ($pathsCount !== 7) {
+            $findings[] = ['severity' => 'warn', 'code' => 'portfolio_paths_unexpected_count', 'advice' => "atlas.brain.paths has {$pathsCount} entries (expected 7 — frontier-harvest, metrics-optimization, pattern-design, simulation-twin, comprehension-deepening, adversarial-critique, compounding); rotation will be incomplete"];
         }
 
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
