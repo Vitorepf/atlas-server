@@ -435,4 +435,45 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
         $this->assertNotContains('acceptance_not_runnable', $r['deficiencies']);
         $this->assertNotContains('content_truncated', $r['deficiencies']);
     }
+
+    // S5 anti-fake: ADEQUACY beyond PRESENCE. A packet with a generic runnable hook ("phpunit passes") that
+    // never names ANY of its code allowed_files is surfaced as an ADVISORY deficiency — the judge can SEE the
+    // criteria don't bind to the change. Kept OUT of BLOCKING_DEFICIENCIES on purpose (a generic hook is still
+    // legitimate for many internal/minimal packets; promotion is a measured follow-up — see Checkpoint A).
+    public function test_acceptance_that_never_names_any_code_allowed_file_is_advisory(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasFooBar.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/AtlasFooBar.php'],
+            'acceptance_criteria' => ['phpunit passes'], // runnable but does NOT mention AtlasFooBar
+        ]));
+
+        $this->assertContains('acceptance_coverage_mismatch', $r['deficiencies'], 'adequacy gate must surface the mismatch');
+        $this->assertNotContains('acceptance_coverage_mismatch', $r['blocking_deficiencies'], 'must stay ADVISORY (not blocking)');
+        $this->assertTrue($r['self_sufficient'], 'advisory must not flip self_sufficient — a generic hook is still proof for many tasks');
+    }
+
+    public function test_acceptance_that_names_the_allowed_file_basename_does_not_trigger_coverage_mismatch(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasFooBar.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/AtlasFooBar.php'],
+            'acceptance_criteria' => ['phpunit tests/Unit/AtlasFooBarTest.php green'], // names AtlasFooBar
+        ]));
+
+        $this->assertNotContains('acceptance_coverage_mismatch', $r['deficiencies']);
+    }
+
+    public function test_test_only_allowed_files_are_skipped_by_coverage_check(): void
+    {
+        // A pure test-authoring packet self-proves via the test file — the coverage check must NOT fire even
+        // when the acceptance is a generic "phpunit passes" (otherwise we'd false-positive every test bundle).
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'allowed_files' => ['tests/Unit/Ai/SelfConstruction/AtlasFooBarTest.php'],
+            'scope_in' => ['tests/Unit/Ai/SelfConstruction/AtlasFooBarTest.php'],
+            'acceptance_criteria' => ['phpunit passes'],
+        ]));
+
+        $this->assertNotContains('acceptance_coverage_mismatch', $r['deficiencies']);
+    }
 }

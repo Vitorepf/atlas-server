@@ -29,6 +29,7 @@ use App\Services\Ai\SelfConstruction\Support\NormalizesToStringList;
 final class AtlasTaskPacketQualityInspector
 {
     use NormalizesToStringList;
+
     public const SCHEMA = 'atlas.task_serving.packet_quality.v1';
 
     public const BLOCKING_DEFICIENCIES = [
@@ -185,6 +186,14 @@ final class AtlasTaskPacketQualityInspector
         // proxy packet it previously waved through. Promotion to BLOCKING is a measured follow-up.
         if ($blindOrphanWiringProxy) {
             $deficiencies[] = 'blind_orphan_wiring_proxy';
+        }
+        // PRESENCE → ADEQUACY: missing_acceptance_criteria catches an EMPTY list, but a non-empty list that
+        // never names any code allowed_file is just as fake — a packet writing to FooService.php can clear the
+        // "presence" gate with acceptance="phpunit passes" while the criteria never bind to the change at all.
+        // Surface it as an ADVISORY signal (kept OUT of BLOCKING_DEFICIENCIES on purpose: a generic runnable
+        // hook is still legitimate proof for many internal/minimal packets) — anti-fake without false-blocking.
+        if ($acceptance !== [] && $this->acceptanceFailsToCoverAnyAllowed($acceptance, $allowed)) {
+            $deficiencies[] = 'acceptance_coverage_mismatch';
         }
 
         $blocking = array_values(array_intersect($deficiencies, self::BLOCKING_DEFICIENCIES));
@@ -506,6 +515,51 @@ final class AtlasTaskPacketQualityInspector
     }
 
     /**
+     * Adequacy check (vs. presence): does the acceptance text mention ANY allowed_file? An adequate criterion
+     * binds to the thing being changed — naming the basename (with or without `.php`) is the cheapest, false-
+     * positive-resistant signal. Skipped when allowed contains only test paths (the test file is its own proof)
+     * or when there is no acceptance text yet (already caught by `missing_acceptance_criteria`).
+     *
+     * @param  list<string>  $acceptance
+     * @param  list<string>  $allowed
+     */
+    private function acceptanceFailsToCoverAnyAllowed(array $acceptance, array $allowed): bool
+    {
+        if ($allowed === [] || $this->allowedFilesAreOnlyTests($allowed)) {
+            return false; // empty allowed is BLOCKING elsewhere; test-only packets self-prove via the test file.
+        }
+
+        $basenames = [];
+        foreach ($allowed as $p) {
+            $norm = ltrim(str_replace('\\', '/', trim($p)), '/');
+            if ($norm === '' || str_starts_with($norm, 'tests/') || str_contains($norm, '/tests/')) {
+                continue; // a non-test packet that happens to also touch tests/ still proves via the non-test target.
+            }
+            $base = basename($norm);
+            if ($base === '') {
+                continue;
+            }
+            $basenames[] = strtolower($base);
+            $stem = (string) preg_replace('/\.php$/i', '', $base);
+            if ($stem !== '' && $stem !== $base) {
+                $basenames[] = strtolower($stem);
+            }
+        }
+        if ($basenames === []) {
+            return false; // nothing non-test to bind against (e.g., a docs-only packet).
+        }
+
+        $haystack = strtolower(implode("\n", $acceptance));
+        foreach ($basenames as $name) {
+            if (str_contains($haystack, $name)) {
+                return false; // at least one acceptance criterion binds to a real allowed_file.
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * @param  list<string>  $allowed
      */
     private function allowedFilesIncludeTestPath(array $allowed): bool
@@ -681,5 +735,4 @@ final class AtlasTaskPacketQualityInspector
 
         return $uncovered;
     }
-
 }
