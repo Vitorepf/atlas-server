@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainFindingsCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:findings {--by-path : group codes under their portfolio path} {--json} {--raw}';
+    protected $signature = 'atlas:brain:findings {--by-path : group codes under their portfolio path} {--csv : emit CSV (code,path) instead of JSON} {--json} {--raw}';
 
     /** @var string */
     protected $description = 'Dump the adviser code→path mapping for every known doctor finding.';
@@ -27,6 +27,15 @@ final class AtlasBrainFindingsCommand extends Command
             $rows[] = ['code' => $code, 'recommended_path' => $path];
         }
         usort($rows, static fn (array $a, array $b): int => $a['code'] <=> $b['code']);
+
+        if ($this->option('csv')) {
+            $this->line('code,recommended_path');
+            foreach ($rows as $r) {
+                $this->line($r['code'].','.$r['recommended_path']);
+            }
+
+            return self::SUCCESS;
+        }
 
         $payload = ['count' => count($rows), 'mapping' => $rows];
 
