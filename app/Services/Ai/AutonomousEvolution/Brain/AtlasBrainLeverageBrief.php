@@ -34,6 +34,8 @@ final class AtlasBrainLeverageBrief
 
     public const HINT_ROTATE_PATH = 'rotate_path';
 
+    public const HINT_USE_DRAFTED_CANDIDATE = 'use_drafted_candidate';
+
     public const HINT_USE_ROUTED_PATH = 'use_routed_path';
 
     public const HINT_COMPOUND = 'compound';
@@ -74,6 +76,19 @@ final class AtlasBrainLeverageBrief
                 self::HINT_ROTATE_PATH,
                 $this->evidenceFor($signals, ['recent_refusals' => $recentRefusals]),
                 "recent_refusal_count={$recentRefusals} > ".self::REFUSAL_SURGE_THRESHOLD.' — origination is misfiring on the current path; rotate before authoring again',
+            );
+        }
+
+        // RULE 2 — when the drafter has already shaped ready-to-seed specs from the digest's orphans, those
+        // are MORE concrete than any abstract path recommendation: the brain can pick one + go straight to
+        // brain:seed. The router's recommendation still ships in scope_signals; the brief just elevates the
+        // drafted candidates because they're a smaller next-step (lower friction = higher leverage now).
+        $drafts = is_array($signals['drafted_candidates'] ?? null) ? $signals['drafted_candidates'] : [];
+        if ($drafts !== []) {
+            return $this->result(
+                self::HINT_USE_DRAFTED_CANDIDATE,
+                $this->evidenceFor($signals, ['drafted_candidates' => count($drafts)]),
+                count($drafts).' draft(s) ready-to-seed from the orphan digest — pick the best and brain:seed it instead of authoring fresh',
             );
         }
 

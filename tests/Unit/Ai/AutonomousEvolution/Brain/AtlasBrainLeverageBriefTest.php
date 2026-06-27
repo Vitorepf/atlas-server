@@ -29,6 +29,19 @@ final class AtlasBrainLeverageBriefTest extends TestCase
         self::assertStringContainsString('5', $brief['rationale']);
     }
 
+    public function test_drafted_candidates_beat_router_recommendation(): void
+    {
+        $brief = (new AtlasBrainLeverageBrief)->brief([
+            'recommended_path' => 'pattern-design',
+            'drafted_candidates' => [['task_packet_id' => 'brain:drafter:abc']],
+            'compounding' => ['success_streak' => 0],
+            'metrics' => [['id' => 'recent_refusal_count', 'value' => 1]],
+        ]);
+
+        self::assertSame(AtlasBrainLeverageBrief::HINT_USE_DRAFTED_CANDIDATE, $brief['action_hint']);
+        self::assertStringContainsString('1', $brief['rationale']);
+    }
+
     public function test_router_recommendation_wins_when_no_refusal_surge(): void
     {
         $brief = (new AtlasBrainLeverageBrief)->brief([
