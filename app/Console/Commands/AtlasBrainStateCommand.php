@@ -17,6 +17,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainNextPathSuggester;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOriginationGapDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
@@ -113,6 +114,9 @@ final class AtlasBrainStateCommand extends Command
             'reflection' => [
                 'recent_count' => $reflectionCount,
             ],
+            // ORIGINATION GAP — L135 cycle-distance since last served. Cron-paused-aware companion
+            // to evidence_freshness (wall-clock).
+            'origination_gap' => app(AtlasBrainOriginationGapDetector::class)->inspect($ledger),
             // EVIDENCE FRESHNESS — age of newest reflection (L94). Detects "brain silenced" state where
             // gates+ratio are fine but origination has stopped writing entirely.
             'evidence_freshness' => app(AtlasBrainEvidenceFreshness::class)->inspect($reflection->forScope($scope)),
