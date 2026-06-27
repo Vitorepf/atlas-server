@@ -186,6 +186,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - e4bbd4d6c — **L151 brain:perception command (pétreo)**: dump operator-friendly da L150 bundle. 2 tests verdes. 14 commands totais.
 - 47984fa5c — **L152 freshness future_skew + doctor evidence_clock_skew (warn)**: detecta reflection future-dated (clock skew). Adviser→comprehension-deepening. 33 surface tests verdes.
 - 97b556a51 — **L153 freshness future-skew test case**: frozen proof do clamp + new field. 4 freshness tests verdes.
+- 5bb2002db — **L154 brain:plan --reasons**: explainability flag — operator vê starved_paths + path_rollup que o suggester usou. 2 plan tests verdes.
 
 ### Placar @ L149 — 150-slice mark approaching (cadência)
 - **Brain test suite**: 278 verde; gates AIRTIGHT continuous.
