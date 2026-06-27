@@ -23,6 +23,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStaleScopeDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
@@ -244,6 +245,17 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $provCount = count(app(AtlasBrainProvenanceLedger::class)->tail($scope, PHP_INT_MAX));
             if ($provCount === 0) {
                 $findings[] = ['severity' => 'info', 'code' => 'provenance_unwired', 'advice' => "{$served} served seeds in done-set but L112 provenance ledger is empty — lineage organ exists but no recorder is feeding it; wire brain:seed to append on success"];
+            }
+        }
+
+        // INFO: cohort-wide silence — any sibling scope is stale (>1h) or silent (no evidence yet).
+        // Catches "the loop scope is fine but muscle hasn't recorded anything in 2h" without --all.
+        $cohortSlugs = array_keys((array) config('atlas.brain.scopes', []));
+        if (count($cohortSlugs) > 1) {
+            $cohort = app(AtlasBrainStaleScopeDetector::class)->detect(array_map('strval', $cohortSlugs), app(AtlasBrainReflectionStream::class), 3600);
+            if ($cohort['stale'] !== []) {
+                $names = implode(', ', array_map(static fn (array $r): string => $r['scope'], $cohort['stale']));
+                $findings[] = ['severity' => 'info', 'code' => 'cohort_scope_stale', 'advice' => "sibling scope(s) stale (>1h since newest reflection): {$names} — cohort-wide rotation may be starving"];
             }
         }
 
