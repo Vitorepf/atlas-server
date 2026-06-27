@@ -51,10 +51,19 @@ final class AtlasBrainMetricSnapshot
     ): array {
         $rows = $ledgerWindow > 0 ? $ledger->recentCycles($ledgerWindow) : [];
         $recentRefusals = 0;
+        $worstRefusal = 0;
+        $cur = 0;
+        $refusalStatuses = ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'];
         foreach ($rows as $row) {
             $status = trim((string) ($row['status'] ?? ''));
-            if (in_array($status, ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'], true)) {
+            if (in_array($status, $refusalStatuses, true)) {
                 $recentRefusals++;
+                $cur++;
+                if ($cur > $worstRefusal) {
+                    $worstRefusal = $cur;
+                }
+            } else {
+                $cur = 0;
             }
         }
         $streak = 0;
@@ -75,6 +84,7 @@ final class AtlasBrainMetricSnapshot
                 $this->metric('clone_cluster_count', count((array) $model->cloneClusters), self::DIRECTION_MINIMIZE, 'Duplicated implementation clusters detected in the scope.'),
                 $this->metric('doc_stated_gap_count', count((array) $model->docStatedGaps), self::DIRECTION_MINIMIZE, 'Gaps the canonical docs themselves call out.'),
                 $this->metric('recent_refusal_count', $recentRefusals, self::DIRECTION_MINIMIZE, 'Refusals/abstains in the tail-window (high ⇒ origination is weak).'),
+                $this->metric('worst_refusal_streak', $worstRefusal, self::DIRECTION_MINIMIZE, 'Longest consecutive refusal run anywhere in the tail (bad-spell magnitude).'),
                 $this->metric('recent_served_streak', $streak, self::DIRECTION_MAXIMIZE, 'Consecutive served/seeded rows from the tail (compounding signal).'),
             ],
         ];
