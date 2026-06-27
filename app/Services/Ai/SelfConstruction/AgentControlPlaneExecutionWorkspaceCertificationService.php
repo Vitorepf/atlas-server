@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 /**
@@ -9,6 +11,8 @@ use Carbon\CarbonImmutable;
  */
 final class AgentControlPlaneExecutionWorkspaceCertificationService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_execution_workspace_certification.v1';
 
     public const MODE = 'read_only_agent_control_plane_execution_workspace_certification';
@@ -126,8 +130,4 @@ final class AgentControlPlaneExecutionWorkspaceCertificationService
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }

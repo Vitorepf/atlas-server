@@ -3,6 +3,8 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
@@ -10,6 +12,8 @@ use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
 
@@ -17,12 +21,6 @@ final class AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-    private function ksortRecursive(array $value): array
-    {
-        $this->ksortRecursiveByReference($value);
-
-        return $value;
-    }
     public const SCHEMA_VERSION = 'atlas.self_construction.forge_self_improvement_integration_smoke.v1';
 
     public const MODE = 'read_only_forge_self_improvement_integration_smoke';
