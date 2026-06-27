@@ -53,6 +53,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainPathStreakRatio::SCHEMA => AtlasBrainPathStreakRatio::class,
         AtlasBrainComposedSelfKnowledgeReport::SCHEMA => AtlasBrainComposedSelfKnowledgeReport::class,
         AtlasBrainContrarianRequirement::SCHEMA => AtlasBrainContrarianRequirement::class,
+        AtlasBrainPathCadenceVariance::SCHEMA => AtlasBrainPathCadenceVariance::class,
     ];
 
     public function ownerOf(string $schema): ?string

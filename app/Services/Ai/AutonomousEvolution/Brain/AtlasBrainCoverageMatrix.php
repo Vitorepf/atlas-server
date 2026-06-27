@@ -61,6 +61,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainHintBurstDetector::class,
             AtlasBrainRepeatedRefusalAntiPattern::class,
             AtlasBrainPathCadenceDetector::class,
+            AtlasBrainPathCadenceVariance::class,
         ],
         'frontier-harvest' => [
             AtlasBrainFrontierMethodCatalog::class,
