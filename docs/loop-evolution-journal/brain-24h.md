@@ -99,4 +99,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 08f788d9f — **L67 audit exit code**: 0 airtight / 1 regression. Trio doctor+catalog+audit todos com exit codes alinhados. 2 audit tests verdes.
 - cd1931693 / 7c4656dbc — **L68 state exit code**: paridade — state também emite 0/1. Quartet completo (state/doctor/audit/catalog) cron-friendly. 4 state tests verdes.
 - b15fd272a — **L69 AtlasBrainBriefHistogram**: pure read sobre prior_briefs emite {total, by_hint:[{hint,count,pct}], top}. Distribuição do comportamento; brain detecta over-use de 1 path. Pétreo. 4 histogram tests verdes.
+- c465d5fdb — **L70 state.brief_histogram**: dashboard expõe a distribuição (top hint + % cada) ao lado de last_brief. 4 state tests verdes.
 
