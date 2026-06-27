@@ -51,4 +51,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 941b31506 — **L19 prompt → recommended_draft**: linha do step 1 do worker prompt agora aponta `leverage_brief.action_hint + recommended_draft` (ready-to-seed). Fecha consume seam pro L18. Prompt 3975 chars (cabe). 10 contract+altitude verdes.
 - 444ebde09 — **L20 estende battery do auditor**: +1 attack `permanent_human_dependency` (objetivo crafted pra hit pattern operator+approval + permanent marker). 10 attacks total no inspector adversarial. 150 testes verdes.
 - ef16948cf — **L21 gate_health runtime**: scope_signals.gate_health corre os 2 adversarial auditors (L3 inspector + L12 seed-gate) a cada brain:next + surface hole counts. CI red é depois; brain agora vê regressão NA HORA. zero holes é contrato visível, non-zero é candidato a próxima slice. 150 testes verdes.
+- ec9c7e59a — **L22 gate_regression é top rule**: nova rule -1 no LeverageBrief — `gate_health` hole > 0 → `fix_gate_regression`. Vence até perseveration. Gate regression é fundacional; toda recomendação estratégica é muta enquanto a parede está quebrada. 164 testes verdes (2 novos).
 
