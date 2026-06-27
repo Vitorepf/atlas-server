@@ -271,3 +271,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 10 assertions green; pint green
 - next: pattern-design or frontier-harvest
+
+## L169 — path oscillation detector (pattern-design)
+- path: pattern-design (rotated from metrics-optimization)
+- organ: AtlasBrainPathOscillationDetector — ABABAB run-length>=6 → ping-pong; pair+run_length returned
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: frontier-harvest (closes 7-path cycle)
