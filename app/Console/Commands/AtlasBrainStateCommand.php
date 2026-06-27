@@ -18,6 +18,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
 
@@ -132,6 +133,9 @@ final class AtlasBrainStateCommand extends Command
                     'by_kind' => $h['by_kind'],
                 ];
             })(),
+            // STARVATION TREND — split-window delta (older 25 vs newer 25). direction ∈
+            // {worsening, recovering, flat, insufficient_data}.
+            'starvation_trend' => app(AtlasBrainTrendAnalyzer::class)->starvation($reflection->forScope($scope)),
             'hint_transitions' => (function () use ($scope, $reflection): array {
                 $tail = array_slice($reflection->forScope($scope), -50);
                 $m = app(AtlasBrainHintTransitionMatrix::class)->build($tail);

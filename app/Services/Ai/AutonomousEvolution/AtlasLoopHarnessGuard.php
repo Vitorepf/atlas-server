@@ -132,6 +132,9 @@ final class AtlasLoopHarnessGuard
         // The RESULT-KIND HISTOGRAM — distribution of cycle outcomes (blocked/exhausted/stagnated/note/...).
         // Editable ⇒ the réu would mislabel kinds to mask starvation.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainResultKindHistogram.php',
+        // The TREND ANALYZER — split-window deltas. Editable ⇒ the réu would flip the delta sign to mask
+        // a worsening trend, hiding the moment to rotate.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainTrendAnalyzer.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
