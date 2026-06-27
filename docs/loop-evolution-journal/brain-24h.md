@@ -54,4 +54,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - ec9c7e59a — **L22 gate_regression é top rule**: nova rule -1 no LeverageBrief — `gate_health` hole > 0 → `fix_gate_regression`. Vence até perseveration. Gate regression é fundacional; toda recomendação estratégica é muta enquanto a parede está quebrada. 164 testes verdes (2 novos).
 - d0c8845e5 — **L23 atlas:brain:state**: novo command read-only emite snapshot JSON (master switch + scope + done-set tail counts + reflection tail count) SEM origination ou comprehension build. Útil pra dashboard/babysit/sanity-check rápido. Pétreo (observability seam). 154 testes verdes (2 novos).
 - 5ad0bfa45 — **L24 brain:state + gate_health**: state command agora também emite gate_health {inspector_holes, seed_gate_holes}. Dashboard surface completo — operator monitora integridade do wall sem comprehension build. 154 testes verdes.
+- 2c65c92e3 — **L25 brain:state + last_brief**: parse do mais recente leverage_brief reflection (L14 time series) em `{hint, rationale}` no state payload. Dashboard mostra última recomendação sem rodar next. 3 state tests verdes (1 novo).
 
