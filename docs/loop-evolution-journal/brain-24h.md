@@ -488,3 +488,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: 3 paths still at 4 (adversarial, compounding, simulation)
+
+## L196 — tail alternate-history (simulation-twin @5)
+- path: simulation-twin (now 5 organs)
+- organ: AtlasBrainTailAlternateHistory — counterfactual rewrite of K-th row's result_kind
+- coverage: simulation-twin=5; 5 of 7 paths now at 5
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 7 assertions green; pint green
+- next: adversarial-critique and compounding remain at 4
