@@ -60,6 +60,7 @@ final class AtlasLoopHarnessGuard
         'app/Console/Commands/AtlasBrainTrendCommand.php',
         'app/Console/Commands/AtlasBrainPlanCommand.php',
         'app/Console/Commands/AtlasBrainProvenanceCommand.php',
+        'app/Console/Commands/AtlasBrainScopesCommand.php',
         'app/Console/Commands/AtlasBrainCatalogCommand.php',
         'app/Console/Commands/AtlasBrainWorkerPromptCommand.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
