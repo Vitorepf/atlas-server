@@ -29,7 +29,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainHealthDoctorCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
+    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
 
     /** @var string */
     protected $description = 'First-aid checks over brain state — emits actionable findings (gate holes, dormant flags, dead memory, etc).';
@@ -135,11 +135,35 @@ final class AtlasBrainHealthDoctorCommand extends Command
         if (! $this->option('raw')) {
             $flags |= JSON_PRETTY_PRINT;
         }
-        $this->line((string) json_encode([
+        $payload = [
             'scope' => $scope,
             'findings' => $findings,
             'status' => $blocking === [] ? 'healthy' : 'has_findings',
-        ], $flags));
+        ];
+
+        if ($this->option('all')) {
+            // Per-scope cohort: enumerate every configured scope and report its per-scope findings (a thin
+            // count summary — full findings would explode the payload). Useful for dashboards that watch
+            // every cohort at once.
+            $registry = app(AtlasBrainScopeRegistry::class);
+            $cohorts = [];
+            foreach (array_keys((array) config('atlas.brain.scopes', [])) as $slug) {
+                $slug = (string) $slug;
+                if ($slug === '' || $slug === $scope) {
+                    continue;
+                }
+                $other = (string) $registry->resolve($slug)['slug'];
+                $reflectionCount = (int) ($reflectionEnabled ? count(app(AtlasBrainReflectionStream::class)->forScope($other)) : 0);
+                $cohorts[] = [
+                    'slug' => $other,
+                    'frontier_empty' => app(AtlasBrainFrontierSourceRegistry::class)->count($other) === 0,
+                    'reflection_empty' => $reflectionEnabled && $reflectionCount === 0,
+                ];
+            }
+            $payload['cohorts'] = $cohorts;
+        }
+
+        $this->line((string) json_encode($payload, $flags));
 
         return self::SUCCESS;
     }
