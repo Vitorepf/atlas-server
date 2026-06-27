@@ -134,6 +134,26 @@ final class AtlasBrainStateCommandTest extends TestCase
         self::assertSame(50, $payload['cascade_outcomes']['by_hint'][0]['served_rate_pct']);
     }
 
+    public function test_hint_transitions_block_counts_adjacent_pairs(): void
+    {
+        config()->set('atlas.brain.reflection_enabled', true);
+        $stream = sys_get_temp_dir().'/atlas-brain-state-transitions-'.bin2hex(random_bytes(4)).'.ndjson';
+        config()->set('atlas.brain.reflection_root', $stream);
+
+        // Sequence: A, A, B, A ⇒ transitions: A→A (1), A→B (1), B→A (1) ⇒ self_loops=1.
+        foreach (['A', 'A', 'B', 'A'] as $i => $hint) {
+            $row = ['schema' => 'x', 'scope' => 'loop', 'cycle_id' => "s{$i}", 'result_kind' => 'note', 'reflection' => "leverage_brief: {$hint} — t", 'signals' => ['action_hint' => $hint], 'recorded_at' => 0];
+            file_put_contents($stream, json_encode($row).PHP_EOL, FILE_APPEND);
+        }
+
+        Artisan::call('atlas:brain:state', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame(3, $payload['hint_transitions']['transitions']);
+        self::assertSame(1, $payload['hint_transitions']['self_loops']);
+        self::assertNotEmpty($payload['hint_transitions']['top_pairs']);
+    }
+
     public function test_state_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(

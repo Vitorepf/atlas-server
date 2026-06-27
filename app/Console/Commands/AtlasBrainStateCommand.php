@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyz
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -107,6 +108,18 @@ final class AtlasBrainStateCommand extends Command
             // CASCADE OUTCOMES — per-action_hint served/refused/served_rate_pct joined from reflection +
             // done-set. Top 5 by served_rate so the dashboard line stays small but the operator can see
             // which cascade rules pay off vs which churn. (L75 analyzer; pétreo organ.)
+            // HINT TRANSITIONS — markov top-3 over the last 50 reflections in WRITE order (chronological).
+            // Surfaces cascade dynamics (coupling/self-loops) — orthogonal to histogram + outcomes.
+            'hint_transitions' => (function () use ($scope, $reflection): array {
+                $tail = array_slice($reflection->forScope($scope), -50);
+                $m = app(AtlasBrainHintTransitionMatrix::class)->build($tail);
+
+                return [
+                    'transitions' => $m['transitions'],
+                    'self_loops' => $m['self_loop_count'],
+                    'top_pairs' => array_slice($m['by_pair'], 0, 3),
+                ];
+            })(),
             'cascade_outcomes' => (function () use ($scope, $reflection, $ledger): array {
                 $report = app(AtlasBrainCascadeRuleOutcomeAnalyzer::class)->analyze($scope, $reflection, $ledger);
 
