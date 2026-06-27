@@ -138,4 +138,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - dfb2537d7 — **L106 plan adviser (pétreo organ novo)**: síntese pura sobre findings — critical>warn>info com tabela de prioridade explícita por código. SINGLE next-action pra operator. Pétreo. 4 tests verdes.
 - e78207e6b — **L107 doctor surfaces recommended_action**: wire da L106 no payload da doctor. Computado sobre UNFILTERED set (--severity não estreita a recomendação). 11 doctor tests verdes.
 - 753367166 — **L108 summary one-liner termina com next=<code>**: top recommended action visível na cron line. 'next=none' quando saudável. 2 summary tests verdes.
+- 9a8c28f3f — **L109 brain:plan single-purpose command (pétreo)**: wrapper one-shot do recommended_action. "O que fazer agora" sem grep nos findings. 2 plan tests verdes; 240+ brain tests total.
 
