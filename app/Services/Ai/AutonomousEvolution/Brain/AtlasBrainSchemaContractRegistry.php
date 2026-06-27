@@ -57,6 +57,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainCompoundingSuperposition::SCHEMA => AtlasBrainCompoundingSuperposition::class,
         AtlasBrainFrontierIdeaSeed::SCHEMA => AtlasBrainFrontierIdeaSeed::class,
         AtlasBrainPathKlDivergence::SCHEMA => AtlasBrainPathKlDivergence::class,
+        AtlasBrainHorizonDiversityForecast::SCHEMA => AtlasBrainHorizonDiversityForecast::class,
     ];
 
     public function ownerOf(string $schema): ?string

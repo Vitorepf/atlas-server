@@ -48,6 +48,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainProjectionCalibrationScore::class,
             AtlasBrainGreedyRotationProjector::class,
             AtlasBrainTailAlternateHistory::class,
+            AtlasBrainHorizonDiversityForecast::class,
         ],
         'metrics-optimization' => [
             AtlasBrainPathDiversityScore::class,
