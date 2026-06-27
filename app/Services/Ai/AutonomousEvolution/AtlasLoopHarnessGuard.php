@@ -182,6 +182,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathOscillationDetector.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainFrontierMethodCatalog.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCompoundingVelocity.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintFrequencyDriftAlarm.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
