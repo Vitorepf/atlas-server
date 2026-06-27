@@ -104,4 +104,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - c01709e74 — **L72 drafter.draftAll + brain:next refactor**: batch helper substitui loop manual em scopeSignalsFor. Mesmo comportamento externo. 7 drafter tests verdes (1 novo).
 - 33ad3dc93 — **L73 doctor: brief_histogram_skewed (info)**: ≥5 priors + top hint >70% ⇒ info finding "cascade colapsou numa regra; rotate path". Usa L69 histogram. 4 doctor tests verdes (1 novo).
 - 0591f5f82 — **L74 doctor --severity filter + severity_counts**: cron pode `--severity=critical || alert` sem parsear JSON; severity_counts mostra breakdown global mesmo com filtro. 5 doctor tests verdes (1 novo).
+- 1918f2047 — **L75 cascade-rule outcome analyzer (pétreo organ novo)**: junta reflection stream + done-set ledger via snapshot_id===cycle_id → per-action_hint served/refused/served_rate_pct. Read-only, sem writes novos. Substrato pra compounding-path futura ler. Pétreo. 3 tests verdes.
 
