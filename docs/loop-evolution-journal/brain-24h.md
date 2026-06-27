@@ -76,4 +76,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 1edca6a91 — **L44 brain:state paths.count via catalog**: dashboard mostra portfolio size (7 esperados). 4 state tests verdes.
 - 15970e9c2 — **L45 doctor warns portfolio drift**: warn `portfolio_paths_unexpected_count` quando count != 7. Detector de config drift. 3 doctor tests verdes.
 - 0a2d013f7 — **L46 doctor warns missing executor**: warn `portfolio_path_missing_executor` listando ids sem executor_organ. Detecta config drift mais sutil (path adicionado sem binding). 3 doctor tests verdes.
+- 835cd81bc — **L47 doctor warns canonical paths missing**: warn `portfolio_canonical_paths_missing` lista os 7 ids esperados que não estão em config. Pega "7 entries mas ids errados". 3 doctor tests verdes.
 
