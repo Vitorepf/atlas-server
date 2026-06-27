@@ -70,4 +70,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - c9310c964 — **L38 brain:state --all (cohort summary)**: itera todos `atlas.brain.scopes.*` emitindo per-scope {slug, meta_harness, done_set_recent, reflection_total, frontier_count}. Dashboard multi-scope em 1 call. 4 state tests verdes (1 novo).
 - ed14de082 — **L39 atlas:brain:health-doctor**: novo command emite {severity, code, advice} findings (critical gate_regression / warn master_switch_off / info digest_dormant / info reflection_empty). Symptom-to-action first-aid. Pétreo. 3 doctor tests verdes.
 - f3b28bc34 / e4e4becd4 — **L40 doctor +frontier_empty**: info check pra scope sem frontier candidates. `healthy` agora ignora info-only (nudges, não problemas). 3 doctor tests verdes.
+- fc8c34c3d — **L41 use_routed_path → executor_organ FQCN**: rule do brief agora lookupa config('atlas.brain.paths') e cita o executor concreto (AtlasLoopScopeComprehensionModelBuilder etc) no rationale + evidence. Brain vê alvo, não só nome. 17 brief tests verdes.
 
