@@ -273,6 +273,17 @@ final class AtlasBrainNextCommand extends Command
         // deciding the next leap.
         $signals['leverage_brief'] = app(AtlasBrainLeverageBrief::class)->brief($signals);
 
+        // TIME-SERIES of recommendations: record the brief as a Reflexion note so the next cycle can
+        // recall "what we recommended for this scope last time" and see whether it converged. Flag-gated
+        // by reflection_enabled inside the stream itself (OFF ⇒ no-op, byte-identical).
+        app(AtlasBrainReflectionStream::class)->record([
+            'scope' => $scope,
+            'reflection' => 'leverage_brief: '.((string) ($signals['leverage_brief']['action_hint'] ?? '')).' — '.((string) ($signals['leverage_brief']['rationale'] ?? '')),
+            'cycle_id' => $model->snapshotId,
+            'result_kind' => AtlasBrainReflectionStream::KIND_NOTE,
+            'signals' => ['action_hint' => (string) ($signals['leverage_brief']['action_hint'] ?? '')],
+        ]);
+
         return ['scope_signals' => $signals];
     }
 
