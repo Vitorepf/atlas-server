@@ -16,6 +16,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPlanAdviser;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -265,6 +266,9 @@ final class AtlasBrainHealthDoctorCommand extends Command
             'severity_counts' => $severityCounts,
             'severity_filter' => $severityFilter !== '' ? $severityFilter : null,
             'status' => $blocking === [] ? 'healthy' : 'has_findings',
+            // RECOMMENDED ACTION — L106 adviser picks the top finding by explicit priority. Always
+            // includes the full unfiltered set so the recommendation isn't narrowed by --severity.
+            'recommended_action' => app(AtlasBrainPlanAdviser::class)->advise(array_map(static fn (array $f): array => ['severity' => (string) $f['severity'], 'code' => (string) $f['code'], 'advice' => (string) $f['advice']], $findings)),
         ];
 
         if ($this->option('all')) {
