@@ -151,6 +151,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - ee0544127 — **L118 doctor: cohort_scope_stale (info)**: qualquer sibling scope stale>1h ⇒ info "cohort-wide rotation pode estar starving". Doctor não fica mais per-scope-blind. Adviser→comprehension-deepening. 15 surface tests verdes.
 - 53531f3a1 — **L119 scope catalog snapshot (pétreo organ novo)**: enumeração ordenada de scopes configurados com shape (label/meta_harness/roots/docs_roots) + default. Pétreo. 2 tests verdes.
 - 6ba01a2d4 — **L120 state surfaces scope_catalog**: wire da L119 — cohort shape visível em brain:state. 10 surface tests verdes. **120-slice mark.**
+- f51015486 — **L121 hint→path translator (pétreo organ novo)**: const-table action_hint → portfolio path. Atribui per-hint outcome a path. Pétreo. 3 tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
