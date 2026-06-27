@@ -346,3 +346,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 34 assertions green (every owner class verified); pint green
 - next: frontier-harvest (4 unharvested catalog entries remain: reflection_provenance_chain, gate_false_positive_estimator, projection_calibration_score)
+
+## L179 — gate FP estimator (frontier-harvest, 4th harvest)
+- path: frontier-harvest — harvested 10th catalog entry
+- organ: AtlasBrainGateFalsePositiveEstimator — refused/real-hindsight pairs → FP rate + status
+- catalog: 10/12 implemented
+- schema registry: 15 entries
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 14 tests / 70 assertions across batch green; pint green
+- next: rotate (simulation-twin or adversarial-critique)
