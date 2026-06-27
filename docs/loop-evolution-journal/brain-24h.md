@@ -66,4 +66,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - b6fe2507d — **L34 router.signal_strength**: count de axes não-vazios (0..3) na recomendação do PortfolioRouter. Brain lê confiança da rota: 3=forte, 1=fraco. 169 brain tests verdes (1 novo).
 - 2be1a2080 — **L35 frontier.count em brain:state**: `AtlasBrainFrontierSourceRegistry::count()` + payload `state.frontier.count`. Dashboard mostra quantos curated candidates aguardam. 163 brain tests verdes (1 novo).
 - b71b79991 — **L36 brain:state surface flag matrix**: payload inclui `scope_signal_digest_enabled` / `reflection_enabled` / `causal_selector_enabled`. Operator vê arming switches sem diff de config. 3 state tests verdes.
+- b97952039 — **L37 brain:state --tail=N**: option default 50, min 1. Dashboard escala window sem code change. 3 state tests verdes.
 
