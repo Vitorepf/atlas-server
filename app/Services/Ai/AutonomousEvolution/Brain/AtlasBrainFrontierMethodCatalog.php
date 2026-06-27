@@ -31,7 +31,7 @@ final class AtlasBrainFrontierMethodCatalog
         ['id' => 'gate_false_positive_estimator', 'summary' => 'estimate gate FP rate by sampling refused-but-author-believes-real', 'organ_class' => null],
         ['id' => 'projection_calibration_score', 'summary' => 'compare past projector outputs vs actual next-cycle picks', 'organ_class' => null],
         ['id' => 'hint_to_path_drift_alarm', 'summary' => 'alarm when hint frequency drifts >2σ from rolling baseline', 'organ_class' => null],
-        ['id' => 'compounding_velocity', 'summary' => 'd(yield)/d(cycle) per path; rate of improvement, not level', 'organ_class' => null],
+        ['id' => 'compounding_velocity', 'summary' => 'd(yield)/d(cycle) per path; rate of improvement, not level', 'organ_class' => AtlasBrainCompoundingVelocity::class],
     ];
 
     /**
