@@ -165,6 +165,7 @@ final class AtlasBrainHealthDoctorCommand extends Command
 
         $this->line((string) json_encode($payload, $flags));
 
-        return self::SUCCESS;
+        // Exit code mirrors status — cron-friendly: `health-doctor || alert`.
+        return $blocking === [] ? self::SUCCESS : self::FAILURE;
     }
 }
