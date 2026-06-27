@@ -70,6 +70,10 @@ final class AtlasBrainStateCommandTest extends TestCase
         self::assertArrayHasKey('reflection', $payload);
         self::assertSame(0, $payload['gate_health']['inspector_holes']);
         self::assertSame(0, $payload['gate_health']['seed_gate_holes']);
+        // health_score is computed from the surfaced inputs — gates airtight + ratio 50 + no reflections
+        // ⇒ starvation 0% + entropy 0 (alphabet=0) + trend insufficient_data.
+        // 40 (gates) + 10 (ratio*0.2) + 20 (100-0)*0.2 + 0 (entropy) + 5 (insufficient_data) = 75.
+        self::assertSame(75, $payload['health_score']['score']);
     }
 
     public function test_last_brief_parses_newest_action_hint_reflection(): void

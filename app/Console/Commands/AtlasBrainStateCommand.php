@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCohortScopeComparator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
@@ -176,6 +177,16 @@ final class AtlasBrainStateCommand extends Command
                 ];
             })(),
         ];
+
+        // HEALTH SCORE — 0..100 composite over the perception suite. Computed AFTER the payload is built
+        // so the weights derive from the same values surfaced upstream (no double-compute drift).
+        $payload['health_score'] = app(AtlasBrainHealthScore::class)->compute(
+            ($payload['gate_health']['inspector_holes'] + $payload['gate_health']['seed_gate_holes']) === 0,
+            (int) $payload['done_set']['recent_ratio_pct'],
+            (int) $payload['result_kind_histogram']['starvation_pct'],
+            (float) $payload['hint_entropy']['normalized'],
+            (string) $payload['starvation_trend']['direction'],
+        );
 
         if ($this->option('all')) {
             $cohorts = [];
