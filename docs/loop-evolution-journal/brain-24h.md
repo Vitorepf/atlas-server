@@ -318,3 +318,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 5 tests / 8 assertions green; pint green
 - placar 2h: L164..L174 = 11 slices, ~10 organs, all paths rotated at least once
 - next: pattern-design or simulation-twin
+
+## L175 — hypothetical tail appender (simulation-twin, 2nd rotation)
+- path: simulation-twin
+- organ: AtlasBrainHypotheticalTailAppender — append synthetic reflections to real tail; composable with momentum/diversity/oscillation
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 7 assertions green; pint fixed import order; composition test green with diversity score
+- next: comprehension-deepening or metrics-optimization
