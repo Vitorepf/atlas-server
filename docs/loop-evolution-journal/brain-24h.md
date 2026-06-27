@@ -143,6 +143,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - c1f00ce7b — **L111 summary ganha path=<portfolio-path>**: cron one-liner inclui o path recomendado pelo adviser. Operator vê WHAT broke + WHERE rotacionar num só read. 2 summary tests verdes.
 
 - f1d31cbe9 — **L112 provenance ledger (pétreo organ novo — 3rd writer)**: NDJSON per-seed lineage (cycle_id, task_packet_id, action_hint, recommended_path, source_finding). Audit "de onde veio este packet" sem grep cross-stream. Pétreo. 3 tests verdes.
+- 8784b69e5 — **L113 brain:provenance read command (pétreo)**: tail da L112 com --source-finding filter. "Quais packets este finding pariu?" one-shot. Pétreo. 2 tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
