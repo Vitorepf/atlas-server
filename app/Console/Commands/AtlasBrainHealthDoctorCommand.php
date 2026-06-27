@@ -72,7 +72,7 @@ final class AtlasBrainHealthDoctorCommand extends Command
         }
 
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
-        $blocking = array_values(array_filter($findings, static fn (array $f): bool => in_array((string) ($f['severity'] ?? ''), ['critical', 'warn'], true)));
+        $blocking = array_values(array_filter($findings, static fn (array $f): bool => in_array((string) $f['severity'], ['critical', 'warn'], true)));
 
         $this->line((string) json_encode([
             'scope' => $scope,

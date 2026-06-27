@@ -60,8 +60,11 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         Artisan::call('atlas:brain:health-doctor', ['--json' => true]);
         $payload = json_decode(trim(Artisan::output()), true);
 
+        // Healthy = no critical/warn findings; info-only nudges (e.g. frontier_empty) coexist with healthy.
         self::assertSame('healthy', $payload['status']);
-        self::assertSame([], $payload['findings']);
+        foreach ($payload['findings'] as $finding) {
+            self::assertNotContains($finding['severity'], ['critical', 'warn']);
+        }
     }
 
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void
