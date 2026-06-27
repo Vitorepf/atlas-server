@@ -19,13 +19,13 @@ final class AtlasBrainEvidenceFreshness
 
     /**
      * @param  list<array<string,mixed>>  $reflectionRows  oldest-first
-     * @return array{schema:string, newest_recorded_at:?int, age_seconds:?int, has_evidence:bool}
+     * @return array{schema:string, newest_recorded_at:?int, age_seconds:?int, has_evidence:bool, future_skew_seconds:int}
      */
     public function inspect(array $reflectionRows, ?int $now = null): array
     {
         $now ??= time();
         if ($reflectionRows === []) {
-            return ['schema' => self::SCHEMA, 'newest_recorded_at' => null, 'age_seconds' => null, 'has_evidence' => false];
+            return ['schema' => self::SCHEMA, 'newest_recorded_at' => null, 'age_seconds' => null, 'has_evidence' => false, 'future_skew_seconds' => 0];
         }
 
         $newest = null;
@@ -37,14 +37,19 @@ final class AtlasBrainEvidenceFreshness
         }
 
         if ($newest === null) {
-            return ['schema' => self::SCHEMA, 'newest_recorded_at' => null, 'age_seconds' => null, 'has_evidence' => false];
+            return ['schema' => self::SCHEMA, 'newest_recorded_at' => null, 'age_seconds' => null, 'has_evidence' => false, 'future_skew_seconds' => 0];
         }
+
+        $rawAge = $now - $newest;
 
         return [
             'schema' => self::SCHEMA,
             'newest_recorded_at' => $newest,
-            'age_seconds' => max(0, $now - $newest),
+            'age_seconds' => max(0, $rawAge),
             'has_evidence' => true,
+            // Negative raw age = future-dated reflection ⇒ clock skew or seeded bad row. Surface so
+            // a doctor finding (or operator) can catch it.
+            'future_skew_seconds' => $rawAge < 0 ? abs($rawAge) : 0,
         ];
     }
 }

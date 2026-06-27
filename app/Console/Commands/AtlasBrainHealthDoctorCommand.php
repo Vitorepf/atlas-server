@@ -228,6 +228,10 @@ final class AtlasBrainHealthDoctorCommand extends Command
         // the gate + ratio checks miss (those can be green for stale data).
         if ($reflectionEnabled) {
             $freshness = app(AtlasBrainEvidenceFreshness::class)->inspect(app(AtlasBrainReflectionStream::class)->forScope($scope));
+            if ($freshness['has_evidence'] && (int) ($freshness['future_skew_seconds'] ?? 0) > 60) {
+                $skew = (int) $freshness['future_skew_seconds'];
+                $findings[] = ['severity' => 'warn', 'code' => 'evidence_clock_skew', 'advice' => "newest reflection is {$skew}s in the future — clock skew between worker and host; check NTP / container time"];
+            }
             if ($freshness['has_evidence'] && (int) $freshness['age_seconds'] > 3600) {
                 $hours = (int) round($freshness['age_seconds'] / 3600);
                 $findings[] = ['severity' => 'info', 'code' => 'evidence_stale', 'advice' => "newest reflection is ~{$hours}h old — brain origination has gone silent; check the worker / master switch / cron"];

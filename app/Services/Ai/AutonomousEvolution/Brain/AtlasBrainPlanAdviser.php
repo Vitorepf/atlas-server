@@ -45,6 +45,7 @@ final class AtlasBrainPlanAdviser
         'path_starvation' => 'frontier-harvest',
         'frontier_shallow' => 'frontier-harvest',
         'origination_gap_wide' => 'adversarial-critique',
+        'evidence_clock_skew' => 'comprehension-deepening',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
