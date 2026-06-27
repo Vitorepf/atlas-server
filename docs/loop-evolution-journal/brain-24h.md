@@ -173,6 +173,15 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 47d7538b9 — **L140 brain:provenance --attribution flag**: wire da L139 — operator opt-in pra ver per-finding counts. 2 tests verdes. **140-slice mark.**
 - 005b5c624 — **L141 state.provenance.top_findings**: top-3 source_finding codes surfaced em state. 10 surface tests verdes.
 
+### Placar @ L141 (cadência)
+- **Organs pétreos novos nesta run**: ~22 (briefHistogram via prior, +21 originated since L72).
+- **Commands pétreos**: 12 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings).
+- **Doctor findings**: 21 (gates/master/digest/reflection/frontier×2/paths×3/ratio/skewed/lowyield/selfloop/starv/trend/score×2/stale/regression/prov_unwired/cohort_stale/path_conc/path_starv/origination_gap).
+- **Adviser code→path**: 21 codes.
+- **Ledger writers**: 3 (reflection-stream + L99 health_score + L112 provenance).
+- **Brain test suite**: 273 verde; gates AIRTIGHT continuous.
+- **Anéis fechados**: 9+ (organ→state→doctor/summary/plan loops para L75/L78/L82/L83/L85/L90/L99/L112/L125/L135).
+
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
 - **Commands pétreos novos**: 9 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan).
