@@ -87,4 +87,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 872f14076 — **L55 state.paths.ids[]**: dashboard mostra lista de path ids além de count. 4 state tests verdes.
 - 2deeb9086 — **L56 catalog.byObjectiveKind**: filter helper pra downstream consumers (scope rotation por kind). 5 catalog tests verdes (1 novo).
 - 26f8d1ea6 — **L57 catalog.byIntent**: paralelo no axis intent. Ambos axes filterable. 6 catalog tests verdes.
+- f8eba20ca / 42fb69899 — **L58 atlas:brain:audit (one-shot consolidated)**: novo command wrappa state + doctor + raw adversarial em UM payload pra CI/dashboard. Pétreo. 2 audit tests verdes (sub-call streams isoladas via BufferedOutput).
 
