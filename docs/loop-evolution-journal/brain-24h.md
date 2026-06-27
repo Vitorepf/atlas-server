@@ -278,3 +278,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: frontier-harvest (closes 7-path cycle)
+
+## L170 — frontier method catalog (frontier-harvest)
+- path: frontier-harvest — closes the 7-path rotation cycle
+- organ: AtlasBrainFrontierMethodCatalog — 12 methods (6 built, 6 unharvested) with class pointers
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 18 assertions green; pint green
+- cycle complete: L164..L170 hit all 7 portfolio paths (comprehension-deepening, adversarial-critique, compounding, simulation-twin, metrics-optimization, pattern-design, frontier-harvest)
+- next: second rotation — comprehension-deepening or compounding upgrade
