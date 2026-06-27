@@ -129,6 +129,9 @@ final class AtlasLoopHarnessGuard
         // The HINT ENTROPY — Shannon-bits scalar over the action_hint distribution. Editable ⇒ the réu
         // would dampen the metric (e.g. log-base swap, clipping) to mask perseveration with a high number.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintEntropy.php',
+        // The RESULT-KIND HISTOGRAM — distribution of cycle outcomes (blocked/exhausted/stagnated/note/...).
+        // Editable ⇒ the réu would mislabel kinds to mask starvation.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainResultKindHistogram.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

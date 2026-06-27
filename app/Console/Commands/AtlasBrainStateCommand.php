@@ -14,6 +14,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
@@ -118,6 +119,19 @@ final class AtlasBrainStateCommand extends Command
             // which cascade rules pay off vs which churn. (L75 analyzer; pétreo organ.)
             // HINT TRANSITIONS — markov top-3 over the last 50 reflections in WRITE order (chronological).
             // Surfaces cascade dynamics (coupling/self-loops) — orthogonal to histogram + outcomes.
+            // RESULT-KIND HISTOGRAM — distribution of cycle outcomes (blocked/exhausted/stagnated/note/...).
+            // Different axis from hint distribution: this is OUTCOMES, not RECOMMENDATIONS.
+            'result_kind_histogram' => (function () use ($scope, $reflection): array {
+                $h = app(AtlasBrainResultKindHistogram::class)->histogram(
+                    array_slice($reflection->forScope($scope), -50)
+                );
+
+                return [
+                    'total' => $h['total'],
+                    'starvation_pct' => $h['starvation_pct'],
+                    'by_kind' => $h['by_kind'],
+                ];
+            })(),
             'hint_transitions' => (function () use ($scope, $reflection): array {
                 $tail = array_slice($reflection->forScope($scope), -50);
                 $m = app(AtlasBrainHintTransitionMatrix::class)->build($tail);
