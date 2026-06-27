@@ -52,6 +52,7 @@ use App\Console\Commands\AtlasApplyLearningCommand;
 use App\Console\Commands\AtlasBridgeEvidenceCommand;
 use App\Console\Commands\AtlasBlogEditorialPlanCommand;
 use App\Console\Commands\AtlasBrainNextCommand;
+use App\Console\Commands\AtlasBrainQueuedTargetsCommand;
 use App\Console\Commands\AtlasBrainSeedCommand;
 use App\Console\Commands\AtlasBrainWorkerPromptCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
@@ -269,6 +270,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasBridgeEvidenceCommand::class,
         AtlasBlogEditorialPlanCommand::class,
         AtlasBrainNextCommand::class,
+        AtlasBrainQueuedTargetsCommand::class,
         AtlasBrainSeedCommand::class,
         AtlasBrainWorkerPromptCommand::class,
         AtlasCliBootstrapCommand::class,
