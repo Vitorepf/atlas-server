@@ -332,3 +332,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 6 tests / 7 assertions green; pint green
 - next: metrics-optimization or pattern-design
+
+## L177 — path priority rank (metrics-optimization, 2nd rotation)
+- path: metrics-optimization
+- organ: AtlasBrainPathPriorityRank — agreement + starvation → ranked path list
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 8 assertions green; pint green
+- next: pattern-design or frontier-harvest
