@@ -95,4 +95,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 385dbf7e4 — **L63 AtlasBrainSpecRepairHints** (inverse do simulator): organ pétreo deficiency→repair concreto pra 16 inspector keys. Brain autoriza um spec ruim, vê hints e arruma. Unknown deficiencies degrade graceful. 4 frozen tests verdes.
 - a13b74f49 — **L64 brain:seed blocked + repair_hints inline**: ao blocar um spec, payload inclui repair_hints (L63 organ delegado). Brain vê "porque blocou" + "como arrumar" em 1 round-trip. 184 testes verdes.
 - d97f39c85 — **L65 architecture-v2.md L26-L64 addendum**: doc canônico atualizado com novos commands (state/doctor/audit/catalog), organs (PathCatalog/SpecRepairHints), brief enrichments, auditor battery growth (11+4 attacks).
+- c8d637d4f — **L66 doctor exit code (cron-friendly)**: 0 healthy / 1 has_findings. Paridade com catalog --check. 3 doctor tests verdes.
 
