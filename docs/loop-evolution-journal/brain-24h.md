@@ -573,3 +573,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 3 tests / 4 assertions green; pint green
 - placar 8h: 42 organs across 7 paths, schema reg 41, all >=6
+
+## L206 — composed health grade (comprehension-deepening @7)
+- path: comprehension-deepening (now 7 — first to hit 7)
+- organ: AtlasBrainComposedHealthGrade — 3-input A-F single grade
+- coverage: comprehension-deepening=7; others at 6
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 7 assertions green; pint green
+- next: any path at 6
