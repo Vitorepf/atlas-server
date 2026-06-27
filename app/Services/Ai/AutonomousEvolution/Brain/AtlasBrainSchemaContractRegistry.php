@@ -42,6 +42,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainPathInactivityAlarm::SCHEMA => AtlasBrainPathInactivityAlarm::class,
         AtlasBrainAuthorJudgeOverlapCheck::SCHEMA => AtlasBrainAuthorJudgeOverlapCheck::class,
         AtlasBrainRepeatedRefusalAntiPattern::SCHEMA => AtlasBrainRepeatedRefusalAntiPattern::class,
+        AtlasBrainPathStreakTracker::SCHEMA => AtlasBrainPathStreakTracker::class,
     ];
 
     public function ownerOf(string $schema): ?string
