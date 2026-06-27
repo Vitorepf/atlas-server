@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Certifies the output of the Agent Control Plane Runtime Pilot Orchestrator.
@@ -21,6 +22,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneRuntimePilotCertificationService
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_runtime_pilot_certification.v1';
 
     public const MODE = 'read_only_agent_control_plane_runtime_pilot_certification';
@@ -249,24 +251,6 @@ final class AgentControlPlaneRuntimePilotCertificationService
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload

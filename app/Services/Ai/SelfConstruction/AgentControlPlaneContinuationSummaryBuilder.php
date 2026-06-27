@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Builds a deterministic continuation summary for a task packet: objective
@@ -19,6 +20,7 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
  */
 final class AgentControlPlaneContinuationSummaryBuilder
 {
+    use RecursivelyKsortsArrays;
     use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_continuation_summary.v1';
 
@@ -149,23 +151,5 @@ final class AgentControlPlaneContinuationSummaryBuilder
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        $isAssoc = $value !== [] && array_keys($value) !== range(0, count($value) - 1);
-        foreach ($value as $key => $entry) {
-            if (is_array($entry)) {
-                $value[$key] = $this->recursivelyKsort($entry);
-            }
-        }
-        if ($isAssoc) {
-            ksort($value);
-        }
-
-        return $value;
-    }
 
 }

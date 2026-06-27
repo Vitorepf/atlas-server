@@ -4,7 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use App\Services\Ai\SelfConstruction\Support\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Plans how a runtime pilot WOULD import provider cost/token events for a

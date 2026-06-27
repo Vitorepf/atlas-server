@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Plans which receipts and evidence events a runtime pilot WOULD register,
@@ -17,6 +18,7 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneEvidenceLedgerDryRun
 {
+    use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_evidence_ledger_dry_run.v1';
 
     public const MODE = 'read_only_agent_control_plane_evidence_ledger_dry_run';
@@ -167,14 +169,6 @@ final class AgentControlPlaneEvidenceLedgerDryRun
         return $this->recursivelyKsort($clone);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload
