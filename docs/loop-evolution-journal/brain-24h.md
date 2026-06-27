@@ -264,3 +264,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 4 tests / 8 assertions green; pint green
 - placar (L162-L167): bundle → flag-auditor → red-team → momentum → projector; 5 paths rotated
 - next: metrics-optimization or pattern-design
+
+## L168 — path diversity score (metrics-optimization)
+- path: metrics-optimization (rotated from simulation-twin)
+- organ: AtlasBrainPathDiversityScore — Shannon-entropy KPI of path distribution; leading indicator of mode collapse
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 10 assertions green; pint green
+- next: pattern-design or frontier-harvest
