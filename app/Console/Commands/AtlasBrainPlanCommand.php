@@ -25,7 +25,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 final class AtlasBrainPlanCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:plan {--scope= : scope slug} {--json} {--raw}';
+    protected $signature = 'atlas:brain:plan {--scope= : scope slug} {--reasons : include the input data the suggester used (starved paths + rollup)} {--json} {--raw}';
 
     /** @var string */
     protected $description = 'Single-purpose: prints the recommended next action from the doctor adviser.';
@@ -71,6 +71,13 @@ final class AtlasBrainPlanCommand extends Command
             'rationale' => (string) ($rec['rationale'] ?? ''),
             'suggested_next_path' => $suggestion,
         ];
+
+        if ($this->option('reasons')) {
+            $payload['suggester_inputs'] = [
+                'starved_paths' => $starv['starved'],
+                'path_rollup' => array_values($rollup),
+            ];
+        }
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
