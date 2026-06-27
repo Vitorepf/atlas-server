@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\AutonomousEvolution\Brain;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -109,6 +110,31 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         self::assertSame([], $payload2['findings']);
         self::assertSame('healthy', $payload2['status']);
         self::assertSame(0, $exit);
+    }
+
+    public function test_low_yield_cascade_rule_emits_info_finding(): void
+    {
+        file_put_contents($this->envPath, "APP_ENV=testing\n".AtlasBrainMasterSwitch::KEY."=true\n");
+        config()->set('atlas.brain.scope_signal_digest_enabled', true);
+        config()->set('atlas.brain.reflection_enabled', true);
+
+        $stream = sys_get_temp_dir().'/atlas-brain-doctor-cascade-'.bin2hex(random_bytes(4)).'.ndjson';
+        config()->set('atlas.brain.reflection_root', $stream);
+
+        // 6 cycles all hint=rotate_path; 1 served, 5 refused ⇒ 17% < 30 ⇒ low_yield fires.
+        $ledger = new AtlasBrainDoneSetLedger('loop', (string) config('atlas.brain.done_set_root'));
+        for ($i = 0; $i < 6; $i++) {
+            $cycle = "snap-{$i}";
+            $row = ['schema' => 'x', 'scope' => 'loop', 'cycle_id' => $cycle, 'result_kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — t', 'signals' => ['action_hint' => 'rotate_path'], 'recorded_at' => 0];
+            file_put_contents($stream, json_encode($row).PHP_EOL, FILE_APPEND);
+            $ledger->record(['snapshot_id' => $cycle, 'status' => $i === 0 ? 'served' : 'refused', 'produced' => $i === 0]);
+        }
+
+        Artisan::call('atlas:brain:health-doctor', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        $codes = array_column($payload['findings'], 'code');
+        self::assertContains('cascade_rule_low_yield', $codes);
     }
 
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void

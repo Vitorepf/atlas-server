@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
@@ -137,6 +138,18 @@ final class AtlasBrainHealthDoctorCommand extends Command
             if ($hist['total'] >= 5 && $hist['by_hint'] !== [] && $hist['by_hint'][0]['pct'] > 70) {
                 $top = $hist['by_hint'][0];
                 $findings[] = ['severity' => 'info', 'code' => 'brief_histogram_skewed', 'advice' => "action_hint '{$top['hint']}' dominates {$top['pct']}% of {$hist['total']} recent briefs — cascade has collapsed onto one rule; rotate path or originate against a fresh signal"];
+            }
+        }
+
+        // INFO: cascade rule low-yield. For any action_hint with ≥5 joined cycles AND served_rate<30%,
+        // emit a per-hint nudge ("rule X churns; reroute"). Joins reflection+done-set via L75 analyzer.
+        if ($reflectionEnabled) {
+            $stream = app(AtlasBrainReflectionStream::class);
+            $report = app(AtlasBrainCascadeRuleOutcomeAnalyzer::class)->analyze($scope, $stream, $ledger);
+            foreach ($report['by_hint'] as $row) {
+                if ($row['total'] >= 5 && $row['served_rate_pct'] < 30) {
+                    $findings[] = ['severity' => 'info', 'code' => 'cascade_rule_low_yield', 'advice' => "action_hint '{$row['hint']}' serves {$row['served_rate_pct']}% over {$row['total']} cycles — low-yield rule; the brief cascade should weight it down or reroute via a different path"];
+                }
             }
         }
 
