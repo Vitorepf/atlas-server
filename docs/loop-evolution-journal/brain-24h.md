@@ -166,6 +166,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - fc4cd7af4 — **L133 doctor: frontier_shallow (info)**: count 1-2 (não 0) ⇒ info "harvest more". Distinto de frontier_empty. Adviser→frontier-harvest. 14 surface tests verdes.
 - 1565ad5d6 — **L134 brain:findings command (pétreo)**: dumper de referência do code→path mapping da adviser. Operator descobre toda finding code + path sem grep. 2 tests verdes. 12 commands.
 - 95d96599a — **L135 origination gap detector (pétreo organ novo)**: cycles since last served|seeded. Eixo CYCLE distinto do TIME (L94). Pétreo. 4 tests verdes.
+- df20b6a50 — **L136 state.origination_gap**: wire da L135 no state. Companion ao evidence_freshness (wall-clock). 10 surface tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
