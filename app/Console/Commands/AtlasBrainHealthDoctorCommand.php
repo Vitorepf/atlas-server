@@ -17,6 +17,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPlanAdviser;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -284,6 +285,21 @@ final class AtlasBrainHealthDoctorCommand extends Command
                     if ($pct > 60) {
                         $findings[] = ['severity' => 'info', 'code' => 'path_concentration', 'advice' => "portfolio path '{$top}' covers {$pct}% of {$totalAttributed} recent attributed hints — rotation is concentrating; pick a sibling path next cycle"];
                     }
+                }
+            }
+        }
+
+        // INFO: portfolio path starvation — ≥3 canonical paths haven't fired in the recent hint tail.
+        // Different from concentration (dominance): starvation means the rotation is leaving paths
+        // on the bench. Uses L125 detector + L121 translator + brief histogram.
+        if ($reflectionEnabled) {
+            $brief = app(AtlasBrainBriefHistogram::class)->histogram(array_slice(app(AtlasBrainReflectionStream::class)->forScope($scope), -50));
+            if ((int) ($brief['total'] ?? 0) >= 5) {
+                $starv = app(AtlasBrainPathStarvationDetector::class)->detect($brief, app(AtlasBrainHintToPathTranslator::class));
+                $count = count($starv['starved']);
+                if ($count >= 3) {
+                    $list = implode(', ', $starv['starved']);
+                    $findings[] = ['severity' => 'info', 'code' => 'path_starvation', 'advice' => "{$count} portfolio paths haven't fired recently: {$list} — rotation is leaving paths on the bench; originate a cycle through a starved one"];
                 }
             }
         }

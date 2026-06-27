@@ -42,6 +42,7 @@ final class AtlasBrainPlanAdviser
         'provenance_unwired' => 'comprehension-deepening',
         'cohort_scope_stale' => 'comprehension-deepening',
         'path_concentration' => 'pattern-design',
+        'path_starvation' => 'frontier-harvest',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
