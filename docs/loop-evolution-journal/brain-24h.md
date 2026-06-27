@@ -286,3 +286,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 4 tests / 18 assertions green; pint green
 - cycle complete: L164..L170 hit all 7 portfolio paths (comprehension-deepening, adversarial-critique, compounding, simulation-twin, metrics-optimization, pattern-design, frontier-harvest)
 - next: second rotation — comprehension-deepening or compounding upgrade
+
+## L171 — compounding velocity (compounding, 2nd rotation)
+- path: compounding — harvested from frontier catalog's unharvested list
+- organ: AtlasBrainCompoundingVelocity — second-derivative per path (early/mid/late thirds); accelerating/decelerating/steady
+- catalog: marked compounding_velocity as implemented (was null)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green; one false test caught (decelerating math != naive intuition)
+- next: harvest another unharvested catalog method
