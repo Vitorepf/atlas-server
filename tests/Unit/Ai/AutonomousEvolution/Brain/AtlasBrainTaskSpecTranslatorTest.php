@@ -83,8 +83,64 @@ final class AtlasBrainTaskSpecTranslatorTest extends TestCase
             'snapshot_id' => 'snap_1',
         ]);
 
-        self::assertSame(['app/Services/Foo.php'], $spec['allowed_files']);
+        // S4-narrow: target under app/ ⇒ translator now mirrors the conventional unit-test path so a worker
+        // can author proof without a separate obligation (closes the test_evidence_without_test_in_allowed_files
+        // gap the brain hit on every minimal origination). Both files appear, sorted.
+        self::assertSame(['app/Services/Foo.php', 'tests/Unit/Services/FooTest.php'], $spec['allowed_files']);
         self::assertContains('php -l app/Services/Foo.php passes (no syntax error)', $spec['acceptance_criteria']);
+    }
+
+    public function test_translate_mirrors_test_path_for_an_app_target(): void
+    {
+        $spec = (new AtlasBrainTaskSpecTranslator)->translate([
+            'objective' => 'Mirror test path for a deeper app target',
+            'target_path' => 'app/Http/Controllers/Foo/BarController.php',
+            'obligations' => [],
+            'snapshot_id' => 'snap_mirror',
+        ]);
+
+        self::assertContains('tests/Unit/Http/Controllers/Foo/BarControllerTest.php', $spec['allowed_files']);
+    }
+
+    public function test_translate_does_not_double_grant_when_obligations_supply_a_test_path(): void
+    {
+        $spec = (new AtlasBrainTaskSpecTranslator)->translate([
+            'objective' => 'Obligation already supplies a tests/ path',
+            'target_path' => 'app/Services/Foo.php',
+            'obligations' => [[
+                'kind' => 'unit_test',
+                'file_path' => 'tests/Unit/Services/CustomFooSuite.php',
+                'assertion_ref' => 'CustomFooSuite passes',
+            ]],
+            'snapshot_id' => 'snap_supplied',
+        ]);
+
+        // The obligation-supplied test path wins; the translator must NOT also add the conventional mirror
+        // (avoid double-grant — workers commit narrowly and the convention isn't always what the brain wants).
+        self::assertContains('tests/Unit/Services/CustomFooSuite.php', $spec['allowed_files']);
+        self::assertNotContains('tests/Unit/Services/FooTest.php', $spec['allowed_files']);
+    }
+
+    public function test_translate_refuses_path_traversal_and_ellipsis_in_allowed_files(): void
+    {
+        $spec = (new AtlasBrainTaskSpecTranslator)->translate([
+            'objective' => 'A malformed obligation must not smuggle path traversal',
+            'target_path' => 'app/Services/Real.php',
+            'obligations' => [
+                ['file_path' => 'app/../etc/passwd.php'], // ".." segment ⇒ refused
+                ['file_path' => 'app/.../Foo.php'],       // literal "..." ⇒ refused (the campaign-memory bug)
+                ['file_path' => "app/Services/Bad\u{2026}.php"], // ellipsis char ⇒ refused
+                ['file_path' => 'app/Services/Sibling.php'], // safe ⇒ accepted
+            ],
+            'snapshot_id' => 'snap_traversal',
+        ]);
+
+        self::assertContains('app/Services/Real.php', $spec['allowed_files']);
+        self::assertContains('app/Services/Sibling.php', $spec['allowed_files']);
+        foreach ($spec['allowed_files'] as $p) {
+            self::assertStringNotContainsString('..', $p, 'no parent-traversal segment must survive');
+            self::assertStringNotContainsString("\u{2026}", $p);
+        }
     }
 
     public function test_translate_never_invents_file_paths(): void
@@ -105,8 +161,12 @@ final class AtlasBrainTaskSpecTranslatorTest extends TestCase
             'snapshot_id' => 'snap_2',
         ]);
 
-        // Only the target_path, nothing invented.
-        self::assertSame(['app/Http/Controllers/FooController.php'], $spec['allowed_files']);
+        // The target_path + its conventional unit-test mirror (S4-narrow), nothing else invented from text:
+        // the obligation carries NO file path, so it contributes nothing to allowed_files.
+        self::assertSame(
+            ['app/Http/Controllers/FooController.php', 'tests/Unit/Http/Controllers/FooControllerTest.php'],
+            $spec['allowed_files'],
+        );
     }
 
     public function test_translate_is_deterministic(): void

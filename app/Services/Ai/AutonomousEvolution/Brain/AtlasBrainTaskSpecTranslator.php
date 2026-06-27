@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Console\Commands\AtlasTaskSeedGovLanesCommand;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline;
+
 /**
- * Translates the output of {@see \App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline::produce()}
+ * Translates the output of {@see AtlasLoopOriginationPipeline::produce()}
  * into the EXACT seed-gov-lanes packet spec consumed by
- * {@see \App\Console\Commands\AtlasTaskSeedGovLanesCommand}.
+ * {@see AtlasTaskSeedGovLanesCommand}.
  *
  * CRITICAL INVARIANT: allowed_files comes ONLY from target_path + obligation file
  * references — NEVER an invented path. If an obligation carries no file path, it
@@ -37,12 +40,26 @@ final class AtlasBrainTaskSpecTranslator
 
         // allowed_files = target_path + every file named in obligations. NEVER invent a path.
         $allowedFiles = [];
-        if ($targetPath !== '') {
+        if ($targetPath !== '' && $this->isSafePath($targetPath)) {
             $allowedFiles[$targetPath] = true;
         }
         foreach ($obligations as $obligation) {
             foreach ($this->extractFilePaths($obligation) as $path) {
-                $allowedFiles[$path] = true;
+                if ($this->isSafePath($path)) {
+                    $allowedFiles[$path] = true;
+                }
+            }
+        }
+        // S4-narrow GRANT TEST PATH: a packet whose target lives under app/ but ships no test-authoring
+        // obligation strands the worker — required_evidence:tests_or_gates_result + test-shaped acceptance
+        // hit `test_evidence_without_test_in_allowed_files` (the seed-quality BLOCKING deficiency) and the
+        // brain refuses its own valid origination. Mirroring `app/X/Y/Foo.php` to `tests/Unit/X/Y/FooTest.php`
+        // closes the asymmetry the memory `brain-9_3-campaign` named as the qualidade/constância bug.
+        // Skipped when the obligations already supply a tests/ path (no double-grant, no override).
+        if ($targetPath !== '' && $this->isSafePath($targetPath) && ! $this->anyTestPath(array_keys($allowedFiles))) {
+            $mirror = $this->mirrorTestPathFor($targetPath);
+            if ($mirror !== null && $this->isSafePath($mirror)) {
+                $allowedFiles[$mirror] = true;
             }
         }
         $allowedFilesList = array_values(array_unique(array_keys($allowedFiles)));
@@ -103,6 +120,69 @@ final class AtlasBrainTaskSpecTranslator
         $value = trim($value);
 
         return $value !== '' && (str_ends_with($value, '.php') || str_ends_with($value, '.blade.php'));
+    }
+
+    /**
+     * S4-narrow PATH SAFETY: refuse a path with a parent-traversal segment, NUL byte, or a literal ellipsis
+     * (the historical bug in brain-9_3-campaign — `"app/.../Foo.php"` slipping through into scope_in and
+     * tripping the validator). Defensive at the translator boundary so a malformed obligation can never
+     * smuggle a `..` into allowed_files / scope_in. Repeat the check at every assembly site (cheap;
+     * fail-closed) rather than trusting any upstream cleaner.
+     */
+    private function isSafePath(string $path): bool
+    {
+        if ($path === '' || strpos($path, "\0") !== false) {
+            return false;
+        }
+        // Literal ellipsis (the bug in the campaign memory) — usually a placeholder pasted by the brain or
+        // a model that thought "..." meant "rest of path". Drop it before it ever reaches the seed validator.
+        if (str_contains($path, '...') || str_contains($path, "\u{2026}")) {
+            return false;
+        }
+        // Any `..` SEGMENT (not just substring — `foo..bar.php` is a legit filename). Split on / and \.
+        foreach (preg_split('#[/\\\\]+#', $path) ?: [] as $segment) {
+            if ($segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Mirror an `app/X/Y/Foo.php` target to its conventional unit-test path `tests/Unit/X/Y/FooTest.php`.
+     * Returns null when the target is not under `app/`, already lives under `tests/`, or doesn't end in
+     * `.php` — no invention outside the convention. .blade.php targets are out of scope (views aren't
+     * unit-test mirrored).
+     */
+    private function mirrorTestPathFor(string $targetPath): ?string
+    {
+        $target = ltrim(trim($targetPath), '/');
+        if (! str_starts_with($target, 'app/') || ! str_ends_with($target, '.php') || str_ends_with($target, '.blade.php')) {
+            return null;
+        }
+        $rest = substr($target, strlen('app/'));
+        $stem = substr($rest, 0, -strlen('.php'));
+        if ($stem === '' || str_ends_with($stem, 'Test')) {
+            return null; // nothing to mirror, or target already names a *Test.php sibling.
+        }
+
+        return 'tests/Unit/'.$stem.'Test.php';
+    }
+
+    /**
+     * @param  list<string>  $paths
+     */
+    private function anyTestPath(array $paths): bool
+    {
+        foreach ($paths as $p) {
+            $norm = ltrim(str_replace('\\', '/', trim($p)), '/');
+            if ($norm !== '' && (str_starts_with($norm, 'tests/') || str_contains($norm, '/tests/'))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
