@@ -310,3 +310,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 9 assertions green; pint green
 - next: rotate path (frontier-harvest x3 risks oscillation per L169); pattern-design or adversarial-critique
+
+## L174 — critical consensus gate (adversarial-critique, 2nd rotation)
+- path: adversarial-critique (rotated from frontier-harvest x3)
+- organ: AtlasBrainCriticalConsensusGate — N-critic majority verdict + dissent list; ties abstain
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 8 assertions green; pint green
+- placar 2h: L164..L174 = 11 slices, ~10 organs, all paths rotated at least once
+- next: pattern-design or simulation-twin
