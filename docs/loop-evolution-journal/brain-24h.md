@@ -168,6 +168,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 95d96599a — **L135 origination gap detector (pétreo organ novo)**: cycles since last served|seeded. Eixo CYCLE distinto do TIME (L94). Pétreo. 4 tests verdes.
 - df20b6a50 — **L136 state.origination_gap**: wire da L135 no state. Companion ao evidence_freshness (wall-clock). 10 surface tests verdes.
 - 942ea7c45 — **L137 doctor: origination_gap_wide (info)**: ≥20 cycles + gap ≥20 ⇒ info "iterating but not delivering". Distinto de evidence_stale (cycle-axis). Adviser→adversarial-critique. 14 surface tests verdes.
+- 327d45596 — **L138 summary one-liner adds gap=N**: cycle-axis companion ao age (wall-clock). 2 summary tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
