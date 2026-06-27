@@ -16,6 +16,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOriginationGapDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPlanAdviser;
@@ -305,6 +306,14 @@ final class AtlasBrainHealthDoctorCommand extends Command
                     $findings[] = ['severity' => 'info', 'code' => 'path_starvation', 'advice' => "{$count} portfolio paths haven't fired recently: {$list} — rotation is leaving paths on the bench; originate a cycle through a starved one"];
                 }
             }
+        }
+
+        // INFO: long origination gap — 20+ consecutive cycles without a served|seeded done-set entry.
+        // Distinct from evidence_stale (wall-clock): catches "many cycles burned, all refused" even
+        // when the worker is still writing reflections.
+        $gap = app(AtlasBrainOriginationGapDetector::class)->inspect($ledger);
+        if ((int) $gap['total_cycles'] >= 20 && (int) $gap['gap'] >= 20) {
+            $findings[] = ['severity' => 'info', 'code' => 'origination_gap_wide', 'advice' => "no served seed in last {$gap['gap']} cycles (of {$gap['total_cycles']} total) — brain is iterating but not delivering; review gates/specs"];
         }
 
         // Severity counts BEFORE filter — operator sees the global picture even when narrowing the list.

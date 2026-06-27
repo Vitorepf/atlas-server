@@ -44,6 +44,7 @@ final class AtlasBrainPlanAdviser
         'path_concentration' => 'pattern-design',
         'path_starvation' => 'frontier-harvest',
         'frontier_shallow' => 'frontier-harvest',
+        'origination_gap_wide' => 'adversarial-critique',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
