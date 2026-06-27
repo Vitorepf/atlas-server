@@ -66,6 +66,7 @@ final class AtlasBrainStateCommandTest extends TestCase
         self::assertSame(2, $payload['done_set']['recent_count']);
         self::assertSame(1, $payload['done_set']['recent_served']);
         self::assertSame(1, $payload['done_set']['recent_refused']);
+        self::assertSame(50, $payload['done_set']['recent_ratio_pct']); // 1 served / (1+1) = 50%
         self::assertArrayHasKey('reflection', $payload);
         self::assertSame(0, $payload['gate_health']['inspector_holes']);
         self::assertSame(0, $payload['gate_health']['seed_gate_holes']);

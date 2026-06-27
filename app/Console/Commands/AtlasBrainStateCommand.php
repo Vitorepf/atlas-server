@@ -91,6 +91,9 @@ final class AtlasBrainStateCommand extends Command
                 'recent_count' => count($recent),
                 'recent_served' => $served,
                 'recent_refused' => $refused,
+                'recent_ratio_pct' => ($served + $refused) > 0
+                    ? (int) round(($served * 100) / ($served + $refused))
+                    : 0,
             ],
             'reflection' => [
                 'recent_count' => $reflectionCount,
