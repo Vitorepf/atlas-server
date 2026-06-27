@@ -191,6 +191,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSchemaContractRegistry.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainGateFalsePositiveEstimator.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainProjectionCalibrationScore.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainReflectionProvenanceChain.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

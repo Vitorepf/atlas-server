@@ -26,7 +26,7 @@ final class AtlasBrainFrontierMethodCatalog
         ['id' => 'next_cycle_projector', 'summary' => 'fuses adviser + red-team + momentum into projected_path', 'organ_class' => AtlasBrainNextCycleProjector::class],
         ['id' => 'scope_flag_auditor', 'summary' => 'flags inconsistent config flag combinations', 'organ_class' => AtlasBrainScopeFlagAuditor::class],
         // — unharvested frontier methods (organ_class=null) —
-        ['id' => 'reflection_provenance_chain', 'summary' => 'per-reflection lineage of which prior cycles influenced it', 'organ_class' => null],
+        ['id' => 'reflection_provenance_chain', 'summary' => 'per-reflection lineage of which prior cycles influenced it', 'organ_class' => AtlasBrainReflectionProvenanceChain::class],
         ['id' => 'cross_scope_pattern_xref', 'summary' => 'detect patterns common to >=2 scopes (transferable lessons)', 'organ_class' => AtlasBrainCrossScopePatternXref::class],
         ['id' => 'gate_false_positive_estimator', 'summary' => 'estimate gate FP rate by sampling refused-but-author-believes-real', 'organ_class' => AtlasBrainGateFalsePositiveEstimator::class],
         ['id' => 'projection_calibration_score', 'summary' => 'compare past projector outputs vs actual next-cycle picks', 'organ_class' => AtlasBrainProjectionCalibrationScore::class],
