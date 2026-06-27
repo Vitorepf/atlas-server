@@ -23,6 +23,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainScopeFlagAuditor::class,
             AtlasBrainPathSignalAggregator::class,
             AtlasBrainReflectionProvenanceChain::class,
+            AtlasBrainOrganDependencyGraph::class,
         ],
         'adversarial-critique' => [
             AtlasBrainPlanAdviserRedTeam::class,
