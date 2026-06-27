@@ -133,4 +133,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - b913ce0b7 — **L101 brain:trend command (pétreo)**: lê L99 ledger tail → first/last/min/max/delta. Complemento read-only do snapshot writer. 2 trend tests verdes.
 - 8cead6618 — **L102 doctor: score_ledger_regressing (info)**: ≥5 snapshots + delta<-10 ⇒ info "multi-snapshot regression". Cobre multi-day drift que L85 short-window missa. Fecha ledger ring (writer→reader→advice). 9 doctor tests verdes.
 - 50224af3d — **L103 brain:trend direction + ascii sparkline**: direction {improving/regressing/flat/insufficient_data}; sparkline ` .oO0` glyphs sobre buckets de 20. 2 trend tests verdes.
+- 340789861 — **L104 summary ganha ledger=<first>→<last>**: long-window score history (L99) lado-a-lado com short-window trend. 'ledger=none' quando ainda 0 snapshots. 2 summary tests verdes.
 
