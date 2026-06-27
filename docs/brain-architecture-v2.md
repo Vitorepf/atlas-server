@@ -123,6 +123,32 @@ Every L1–L23 organ is in `AtlasLoopHarnessGuard::FORBIDDEN_SELF_TARGETS`. Oper
 - No auto-seed (drafter+simulator emit suggestions; brain still chooses; seed gate still vets).
 - No self-modification of priorizadores, auditors, or perception (pétreo).
 
+## Addendum (L26–L64): observability + recovery surface
+
+The L1–L25 layer was the brain's PERCEPTION + DECISION engine. The L26–L64 wave added the OPERATOR SURFACE — read-only commands and recovery helpers that make the brain inspectable and self-repairing without enabling autonomous run.
+
+### New commands
+- `atlas:brain:state` — non-mutating snapshot (master switch, scope, done-set tail counts + ratio, reflection tail count, last_brief, frontier.count, gate_health {holes, attacks_tried}, paths {count, ids}, optional `--all` cohort summary, optional `--raw`).
+- `atlas:brain:health-doctor` — first-aid checks emit `{severity, code, advice}` findings: `gate_regression` (critical), `master_switch_off` / `served_ratio_low` / `portfolio_paths_unexpected_count` / `portfolio_path_missing_executor` / `portfolio_canonical_paths_missing` (warn), `scope_signal_digest_dormant` / `reflection_empty` / `frontier_empty` (info). `--all` enumerates per-scope. `--raw` for log scrape.
+- `atlas:brain:audit` — one-shot consolidated `{state, doctor, adversarial.{inspector,seed_gate}, gate_health_status:'airtight'|'regression', gate_health_total_holes}` for CI/dashboard.
+- `atlas:brain:catalog` — dump `config('atlas.brain.paths')` with `--intent`/`--kind` filters + `--check` (exit 1 on portfolio drift).
+
+### New organs
+- `AtlasBrainPathCatalog` — single-source lookup over `config('atlas.brain.paths')` (`all`/`find`/`executorOrganFor`/`lensFor`/`byObjectiveKind`/`byIntent`). Pétreo.
+- `AtlasBrainSpecRepairHints` — frozen `deficiency → concrete repair` table (16 keys). `repair()` returns hints + unknown bucket. Wired into `atlas:brain:seed`'s blocked emit. Pétreo.
+
+### Brief enrichments
+- `previous_action_hint` + `continuity ∈ {first|held|changed}` derived from prior_briefs[0].
+- `rotate_path` rule rationale now cites `worst_refusal_streak` and `served_ratio_pct`.
+- `use_routed_path` rule rationale now cites the path's `executor_organ` FQCN (delegated to the Path Catalog).
+- New `worst_refusal_streak` + `served_ratio_pct` metrics in `AtlasBrainMetricSnapshot`.
+- New `signal_strength` (0–3 axes count) in `AtlasBrainPortfolioRouter` output.
+
+### Auditor battery growth
+- Inspector battery now 11 attacks (added `permanent_human_dependency`, `test_evidence_without_test_in_allowed_files`).
+- Seed-gate battery now 4 attacks (added `blind_orphan_wiring_proxy_promoted`).
+- Both auditors expose `attacks_tried` alongside `holes` (anti-shrink contract).
+
 ## End-state goal
 
 The 24h run delivered a brain that: (1) sees its scope's multi-file structural gaps, (2) routes by dominant signal, (3) drafts ready-to-seed candidates from orphans, (4) ranks them via the same gate they'll face, (5) recommends a single action via deterministic cascade with anti-perseveration + anti-regression safeguards, (6) records its own recommendation time series, (7) exposes a non-mutating snapshot for dashboards. All flag-gated OFF by default; turning the digest flag ON arms the rich payload without changing existing gates.
