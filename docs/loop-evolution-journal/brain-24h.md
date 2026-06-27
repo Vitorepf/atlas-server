@@ -548,3 +548,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 3 tests / 8 assertions green; pint green
 - next: 3 paths still at 5 (frontier, metrics, simulation)
+
+## L203 — frontier idea seed v2 (frontier-harvest @6)
+- path: frontier-harvest (now 6 organs)
+- organ: AtlasBrainFrontierIdeaSeed — 10 fresh unbuilt ideas (v2 catalog)
+- coverage: frontier-harvest=6; 4 paths at 6 (compounding, comprehension, adversarial, pattern, frontier); 3 at 5 (metrics, simulation)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 23 assertions green; pint green
+- next: metrics or simulation @5
