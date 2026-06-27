@@ -196,6 +196,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - b03019e73 — **L160 brain:doctor --alert log-router format**: line-per-finding `severity|code|advice`. Pipe pra syslog/Slack/PagerDuty sem JSON. 10 doctor tests verdes. **160-slice mark.**
 - f21511c21 — **L161 state.cascade_outcomes.top_churn**: wire da L158 (top RAW refused hint). 11 surface tests verdes.
 - 8e55f214f — **L162 brain:audit --include-perception**: opt-in pra anexar L150 bundle como bloco top-level. 2 audit tests verdes.
+- 910bb1754 — **L163 perception bundle inclui cascade_outcomes**: L75 analyzer agregado à L150 façade — 8 axes cobertos. 4 perception tests verdes.
 
 ### Placar @ L159 — 160-slice mark approaching
 - **Brain test suite**: 287 verde; gates AIRTIGHT continuous.
