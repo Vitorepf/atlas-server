@@ -34,6 +34,8 @@ final class AtlasBrainLeverageBrief
 
     public const HINT_ROTATE_PATH = 'rotate_path';
 
+    public const HINT_ESCALATE_PERSEVERATION = 'escalate_perseveration';
+
     public const HINT_USE_DRAFTED_CANDIDATE = 'use_drafted_candidate';
 
     public const HINT_USE_ROUTED_PATH = 'use_routed_path';
@@ -48,6 +50,8 @@ final class AtlasBrainLeverageBrief
 
     public const COMPOUND_STREAK_THRESHOLD = 3;
 
+    public const PERSEVERATION_STREAK_THRESHOLD = 3;
+
     /**
      * Build the consolidated leverage brief from a scope_signals block. Empty/null inputs degrade gracefully
      * (the brief always returns SOMETHING, even if just the default hint with empty evidence).
@@ -55,8 +59,27 @@ final class AtlasBrainLeverageBrief
      * @param  array<string,mixed>  $signals  the scope_signals block (as built by AtlasBrainNextCommand::scopeSignalsFor)
      * @return array{schema:string, action_hint:string, evidence:list<string>, rationale:string}
      */
-    public function brief(array $signals): array
+    /**
+     * @param  array<string,mixed>  $signals
+     * @param  list<array{kind?:string, reflection?:string}>  $priorBriefs  top-K newest-first reflections
+     *                                                                      (L14 time series of action_hints)
+     * @return array{schema:string, action_hint:string, evidence:list<string>, rationale:string}
+     */
+    public function brief(array $signals, array $priorBriefs = []): array
     {
+        // RULE 0 — PERSEVERATION (highest priority, meta-signal): if the time series of recent briefs shows
+        // the SAME action_hint K times in a row, the brain has been recommending the same dead path; escalate
+        // to abstain/operator rather than recommend it again. Reads the L14-populated prior_briefs prefix
+        // text — each entry is "leverage_brief: <hint> — <rationale>". Cheap textual sameness check.
+        $streakHint = $this->perseverationStreakHint($priorBriefs);
+        if ($streakHint !== null) {
+            return $this->result(
+                self::HINT_ESCALATE_PERSEVERATION,
+                ['perseveration_streak='.self::PERSEVERATION_STREAK_THRESHOLD, 'stuck_on='.$streakHint],
+                'the last '.self::PERSEVERATION_STREAK_THRESHOLD."+ briefs all recommended '{$streakHint}' — the scope isn't converging on that path; escalate (abstain harder, switch scope, surface to the operator) rather than recommend it again",
+            );
+        }
+
         $recommendedPath = isset($signals['recommended_path']) && is_string($signals['recommended_path']) ? $signals['recommended_path'] : null;
         $compounding = is_array($signals['compounding'] ?? null) ? $signals['compounding'] : [];
         $streak = (int) ($compounding['success_streak'] ?? 0);
@@ -155,6 +178,36 @@ final class AtlasBrainLeverageBrief
         $cues = array_values(array_unique($cues));
 
         return array_slice($cues, 0, 3);
+    }
+
+    /**
+     * Detect a perseveration streak in the prior-briefs time series. Returns the repeated action_hint when the
+     * NEWEST K entries all share the same hint, else null. Reflection text format is "leverage_brief: <hint>
+     * — <rationale>" (L14); we parse the hint by extracting the token between "leverage_brief: " and " —".
+     *
+     * @param  list<array{kind?:string, reflection?:string}>  $priorBriefs
+     */
+    private function perseverationStreakHint(array $priorBriefs): ?string
+    {
+        if (count($priorBriefs) < self::PERSEVERATION_STREAK_THRESHOLD) {
+            return null;
+        }
+        $hints = [];
+        foreach (array_slice($priorBriefs, 0, self::PERSEVERATION_STREAK_THRESHOLD) as $brief) {
+            $text = (string) ($brief['reflection'] ?? '');
+            if (! str_starts_with($text, 'leverage_brief: ')) {
+                return null;
+            }
+            $rest = substr($text, strlen('leverage_brief: '));
+            $cut = strpos($rest, ' — ');
+            $hint = trim($cut === false ? $rest : substr($rest, 0, $cut));
+            if ($hint === '') {
+                return null;
+            }
+            $hints[] = $hint;
+        }
+
+        return count(array_unique($hints)) === 1 ? $hints[0] : null;
     }
 
     /**

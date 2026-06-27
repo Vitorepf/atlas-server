@@ -29,6 +29,42 @@ final class AtlasBrainLeverageBriefTest extends TestCase
         self::assertStringContainsString('5', $brief['rationale']);
     }
 
+    public function test_perseveration_streak_beats_every_other_signal(): void
+    {
+        $priorBriefs = [
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — origination misfiring'],
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — origination misfiring'],
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — origination misfiring'],
+        ];
+
+        $brief = (new AtlasBrainLeverageBrief)->brief([
+            // every other signal is present — perseveration STILL wins.
+            'recommended_path' => 'comprehension-deepening',
+            'drafted_candidates' => [['task_packet_id' => 'x']],
+            'compounding' => ['success_streak' => 9],
+            'metrics' => [['id' => 'recent_refusal_count', 'value' => 99]],
+        ], $priorBriefs);
+
+        self::assertSame(AtlasBrainLeverageBrief::HINT_ESCALATE_PERSEVERATION, $brief['action_hint']);
+        self::assertStringContainsString('rotate_path', $brief['rationale']);
+    }
+
+    public function test_perseveration_streak_with_mixed_hints_does_not_fire(): void
+    {
+        $priorBriefs = [
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — x'],
+            ['kind' => 'note', 'reflection' => 'leverage_brief: harvest_frontier — x'],
+            ['kind' => 'note', 'reflection' => 'leverage_brief: rotate_path — x'],
+        ];
+
+        $brief = (new AtlasBrainLeverageBrief)->brief([
+            'recommended_path' => 'pattern-design',
+            'metrics' => [['id' => 'recent_refusal_count', 'value' => 0]],
+        ], $priorBriefs);
+
+        self::assertNotSame(AtlasBrainLeverageBrief::HINT_ESCALATE_PERSEVERATION, $brief['action_hint']);
+    }
+
     public function test_drafted_candidates_beat_router_recommendation(): void
     {
         $brief = (new AtlasBrainLeverageBrief)->brief([

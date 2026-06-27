@@ -285,9 +285,10 @@ final class AtlasBrainNextCommand extends Command
         }
         // INTEGRATION: leverage_brief is the consolidated read over the ASSEMBLED signals block —
         // ONE action hint + top-3 evidence cues + rationale. Computed last so it sees every signal
-        // the brain just produced (including drafted_candidates). The brain reads this first when
-        // deciding the next leap.
-        $signals['leverage_brief'] = app(AtlasBrainLeverageBrief::class)->brief($signals);
+        // the brain just produced (including drafted_candidates) AND its own prior-brief time series
+        // (so it can detect perseveration via the L14 reflection feed without an extra call).
+        $priorBriefs = app(AtlasBrainReflectionStream::class)->recallTexts($scope, ['signals' => ['action_hint' => '']], AtlasBrainLeverageBrief::PERSEVERATION_STREAK_THRESHOLD);
+        $signals['leverage_brief'] = app(AtlasBrainLeverageBrief::class)->brief($signals, $priorBriefs);
 
         // TIME-SERIES of recommendations: record the brief as a Reflexion note so the next cycle can
         // recall "what we recommended for this scope last time" and see whether it converged. Flag-gated
