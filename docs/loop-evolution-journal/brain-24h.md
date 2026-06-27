@@ -188,6 +188,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 97b556a51 — **L153 freshness future-skew test case**: frozen proof do clamp + new field. 4 freshness tests verdes.
 - 5bb2002db — **L154 brain:plan --reasons**: explainability flag — operator vê starved_paths + path_rollup que o suggester usou. 2 plan tests verdes.
 - 053e09c74 — **L155 brain:findings --csv format**: code,path export pra spreadsheet/awk pipelines. 2 findings tests verdes.
+- 9d20626b2 — **L156 brain:findings --filter-path**: narrow listing por path. 2 findings tests verdes.
 
 ### Placar @ L149 — 150-slice mark approaching (cadência)
 - **Brain test suite**: 278 verde; gates AIRTIGHT continuous.
