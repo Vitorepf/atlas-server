@@ -173,6 +173,8 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 47d7538b9 — **L140 brain:provenance --attribution flag**: wire da L139 — operator opt-in pra ver per-finding counts. 2 tests verdes. **140-slice mark.**
 - 005b5c624 — **L141 state.provenance.top_findings**: top-3 source_finding codes surfaced em state. 10 surface tests verdes.
 
+- 47a78ceba — **L142 brain:summary --compact mode**: 3-field line `[score gates next]` pra status bars/minimal cron. 3 summary tests verdes.
+
 ### Placar @ L141 (cadência)
 - **Organs pétreos novos nesta run**: ~22 (briefHistogram via prior, +21 originated since L72).
 - **Commands pétreos**: 12 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings).
