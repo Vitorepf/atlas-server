@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -218,7 +219,21 @@ final class AtlasBrainNextCommand extends Command
             return []; // nothing to surface ⇒ stay quiet rather than emit an empty key
         }
 
-        return ['scope_signals' => $digest];
+        // PORTFOLIO ROUTER: deterministic signal→path recommendation alongside the raw signals. Surface BOTH
+        // so the brain sees the recommendation but still has the underlying facts to override it (author≠judge).
+        $route = app(AtlasBrainPortfolioRouter::class)->route([
+            'orphans' => $digest['orphans'],
+            'clone_clusters' => $digest['clone_clusters'],
+            'doc_stated_gaps' => $digest['doc_stated_gaps'],
+        ]);
+
+        return [
+            'scope_signals' => $digest + [
+                'recommended_path' => $route['recommended_path'],
+                'recommended_path_reason' => $route['reason'],
+                'signal_class' => $route['signal_class'],
+            ],
+        ];
     }
 
     /**

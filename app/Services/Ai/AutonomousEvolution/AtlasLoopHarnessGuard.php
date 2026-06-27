@@ -70,6 +70,10 @@ final class AtlasLoopHarnessGuard
         // stated gaps) the next origination reads. Pétreo for the same reason as the comprehension model:
         // the réu never edits what it perceives (else it'd shape its own input to forge the "right" leap).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainStructuralSignalDigest.php',
+        // The PORTFOLIO ROUTER — same priorizador principle as NextWorkDecider + LeverageSelector: the réu
+        // never edits the organ that recommends which self-improvement path to take (else it'd always route
+        // toward whichever path it wanted to "win" next, collapsing the portfolio rotation).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPortfolioRouter.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
