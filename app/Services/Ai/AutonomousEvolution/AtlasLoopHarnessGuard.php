@@ -122,6 +122,9 @@ final class AtlasLoopHarnessGuard
         // The CASCADE-RULE OUTCOME ANALYZER — joins reflection stream + done-set to score each action_hint.
         // Editable ⇒ the réu would relabel statuses or pad served counts to inflate its own win-rate.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCascadeRuleOutcomeAnalyzer.php',
+        // The HINT TRANSITION MATRIX — markov-style read of adjacent (prev, next) action_hint pairs.
+        // Editable ⇒ the réu would flatten transitions to look "balanced" while oscillating in practice.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHintTransitionMatrix.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
