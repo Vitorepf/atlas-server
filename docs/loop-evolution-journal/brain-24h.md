@@ -177,6 +177,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 077b3800d — **L143 doctor --top=K**: filter por prioridade depois de --severity. Cron pode pegar só top-K alerts. 10 doctor tests verdes.
 - 89109b3b5 — **L144 brain:findings --by-path grouping**: agrupa codes por portfolio path. Operator vê catch-all paths. 2 findings tests verdes.
 - 100123a20 — **L145 brain:metrics Prometheus textfile export (pétreo)**: `atlas_brain_<metric>{scope=…} <value>` flat lines. 8 metrics. Pipe pra node_exporter textfile. 2 tests verdes. 13 commands.
+- e5219e528 — **L146 brain:metrics adds HELP/TYPE Prometheus comments**: full textfile format compliance. 2 tests verdes.
 
 ### Placar @ L141 (cadência)
 - **Organs pétreos novos nesta run**: ~22 (briefHistogram via prior, +21 originated since L72).
