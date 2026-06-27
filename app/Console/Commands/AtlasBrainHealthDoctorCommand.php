@@ -29,7 +29,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainHealthDoctorCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--json}';
+    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
 
     /** @var string */
     protected $description = 'First-aid checks over brain state — emits actionable findings (gate holes, dormant flags, dead memory, etc).';
@@ -131,11 +131,15 @@ final class AtlasBrainHealthDoctorCommand extends Command
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
         $blocking = array_values(array_filter($findings, static fn (array $f): bool => in_array((string) $f['severity'], ['critical', 'warn'], true)));
 
+        $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        if (! $this->option('raw')) {
+            $flags |= JSON_PRETTY_PRINT;
+        }
         $this->line((string) json_encode([
             'scope' => $scope,
             'findings' => $findings,
             'status' => $blocking === [] ? 'healthy' : 'has_findings',
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        ], $flags));
 
         return self::SUCCESS;
     }
