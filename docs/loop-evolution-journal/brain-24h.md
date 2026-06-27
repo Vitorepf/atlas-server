@@ -606,3 +606,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 8 tests / 59 assertions green; pint green
 - direction shift: stopped stacking pure organs; started **circulating** what was already built
 - next: wire adversarial-critique organs (RedTeam/ConsensusGate/AuthorJudgeOverlap) into actual gate
+
+## L210 — WIRING continued: perception bundle adds pattern-design layer
+- path: comprehension-deepening (wiring continuation, not new organ)
+- change: AtlasBrainPerceptionBundle::build() now also calls PathOscillation + HintBurst + RepeatedRefusalAntiPattern
+- impact: 3 more pattern organs (sat library-only since L169/L186/L189) now LIVE in every brain:perception call
+- bundle now emits 14 perception blocks (was 7 at S163, 10 after L209, 13 after L210 + cascade)
+- dep graph: 6 edges added across L209+L210 (3 metrics + 3 pattern)
+- proof: 8 tests / 65 assertions green; pint green
+- next: more wiring — perhaps integrate cascade analyzer flag-gated, or wire adversarial organs into a gate
