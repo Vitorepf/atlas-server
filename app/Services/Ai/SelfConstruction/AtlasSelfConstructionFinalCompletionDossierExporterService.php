@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
@@ -23,6 +25,8 @@ use Illuminate\Support\Facades\Storage;
  */
 final class AtlasSelfConstructionFinalCompletionDossierExporterService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.final_completion_dossier_exporter.v1';
 
     public const MODE = 'read_only_final_completion_dossier_exporter';
@@ -393,8 +397,4 @@ final class AtlasSelfConstructionFinalCompletionDossierExporterService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }

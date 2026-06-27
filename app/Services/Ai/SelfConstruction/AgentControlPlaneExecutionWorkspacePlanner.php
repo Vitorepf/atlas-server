@@ -2,12 +2,16 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 /**
  * Plans an isolated execution workspace for a task packet without creating
  * worktrees, branches, directories or files.
  */
 final class AgentControlPlaneExecutionWorkspacePlanner
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_execution_workspace_plan.v1';
 
     public const MODE = 'read_only_agent_control_plane_execution_workspace_plan';
@@ -98,8 +102,4 @@ final class AgentControlPlaneExecutionWorkspacePlanner
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }
