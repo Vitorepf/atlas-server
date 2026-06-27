@@ -1,0 +1,60 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Console\Commands;
+
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
+
+/**
+ * BRAIN AUDIT — one-shot consolidated read of the brain's observable surface for CI / dashboard /
+ * end-of-cycle log scrape. Wraps `atlas:brain:state` + `atlas:brain:health-doctor` + the raw adversarial
+ * auditor reports into a single payload. Read-only; no mutation; no comprehension build.
+ *
+ * Pétreo: brain entry point; réu never edits its own consolidated audit surface.
+ */
+final class AtlasBrainAuditCommand extends Command
+{
+    /** @var string */
+    protected $signature = 'atlas:brain:audit {--scope= : scope slug (default: configured default_scope)} {--json} {--raw : single-line JSON}';
+
+    /** @var string */
+    protected $description = 'One-shot consolidated brain observability: state + health-doctor findings + raw adversarial audits.';
+
+    public function handle(): int
+    {
+        $scope = trim((string) ($this->option('scope') ?? ''));
+        $scopeArg = $scope !== '' ? ['--scope' => $scope] : [];
+
+        Artisan::call('atlas:brain:state', $scopeArg + ['--json' => true]);
+        $state = json_decode(trim(Artisan::output()), true) ?: [];
+
+        Artisan::call('atlas:brain:health-doctor', $scopeArg + ['--json' => true]);
+        $doctor = json_decode(trim(Artisan::output()), true) ?: [];
+
+        $inspector = app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector);
+        $seedGate = app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class));
+
+        $payload = [
+            'state' => $state,
+            'doctor' => $doctor,
+            'adversarial' => [
+                'inspector' => $inspector,
+                'seed_gate' => $seedGate,
+            ],
+        ];
+
+        $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        if (! $this->option('raw')) {
+            $flags |= JSON_PRETTY_PRINT;
+        }
+        $this->line((string) json_encode($payload, $flags));
+
+        return self::SUCCESS;
+    }
+}
