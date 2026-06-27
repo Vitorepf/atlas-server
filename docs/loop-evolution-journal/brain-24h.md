@@ -124,4 +124,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 8490b3a30 — **L92 brain:summary one-liner leads com score=NN/100**: top-line da L90 antes de tudo; breakdown sobrevive nos campos seguintes. 2 summary tests verdes.
 - 1113b4c97 — **L93 doctor: health_score_low (info)**: score<50/100 ⇒ info "review breakdown". Fecha o anel L90 (organ→state→summary→doctor). 8 doctor tests verdes.
 - 0b8dd5d7b — **L94 evidence freshness (pétreo organ novo)**: age (seconds) do reflection mais novo. Detecta "brain silenciado" (gates ok + ratio ok mas 0 evidence) — ortogonal aos outros sinais. Pétreo. 3 tests verdes.
+- 3d5dd2168 — **L95 state.evidence_freshness + doctor evidence_stale**: wire da L94 no state + doctor flagga age>1h. Cobre wedged-worker que gates+ratio mascaram. 18 surface tests verdes.
 
