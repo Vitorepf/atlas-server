@@ -381,22 +381,31 @@ final class AtlasLoopSemanticImplementationCertifier
         // failure — never a universal refute). RECORDED always; GATE only when judge_consensus_gate_enabled.
         $judgeVerdicts = is_array($options['judge_verdicts'] ?? null) ? array_values($options['judge_verdicts']) : [];
         if ($judgeVerdicts === []) {
+            // SELF-REFEREED FALLBACK: these two judges are cert-INTERNAL engines (the author judging
+            // itself), so they are stamped source_class='in_process'. The verdict-side independence floor
+            // (AtlasLoopJudgeConsensusGate GATE 1b, min_distinct_source_classes) can then refuse a consensus
+            // carried ONLY by in_process judges — the verdict-side twin of the S213 author≠judge diff refuse.
             $judgeVerdicts[] = [
                 'lens' => 'correctness',
                 'provider' => 'adversarial_panel',
+                'source_class' => 'in_process',
                 'passes' => (int) ($panelVerdict['refuted_count'] ?? 0) === 0,
                 'reason' => (string) ($panelVerdict['reason'] ?? 'refuted'),
             ];
             $judgeVerdicts[] = [
                 'lens' => 'completeness',
                 'provider' => 'completeness_gate',
+                'source_class' => 'in_process',
                 'passes' => (bool) ($completeness['complete'] ?? true),
                 'reason' => (string) ($completeness['reason'] ?? ''),
             ];
             foreach ((array) ($providerRefuters['verdicts'] ?? []) as $rv) {
+                // Provider refuters are out-of-process external engines => source_class='external', the
+                // genuine second source that satisfies the independence floor when one is actually run.
                 $judgeVerdicts[] = [
                     'lens' => 'correctness',
                     'provider' => trim((string) ($rv['provider'] ?? 'refuter')) ?: 'refuter',
+                    'source_class' => 'external',
                     'passes' => ($rv['refuted'] ?? false) !== true,
                     'reason' => (string) ($rv['reason'] ?? ''),
                 ];

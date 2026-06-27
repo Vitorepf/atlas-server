@@ -27,6 +27,73 @@ final class AtlasLoopJudgeConsensusGateTest extends TestCase
         $this->assertNull($r['reason']);
     }
 
+    public function test_source_class_floor_is_inert_by_default(): void
+    {
+        // OFF/byte-identical: the default fabricated set is two in_process judges; with no
+        // min_distinct_source_classes (defaults to 1) consensus holds exactly as before.
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'adversarial_panel', 'source_class' => 'in_process', 'passes' => true],
+            ['lens' => 'completeness', 'provider' => 'completeness_gate', 'source_class' => 'in_process', 'passes' => true],
+        ], ['policy' => 'unanimous', 'min_distinct_providers' => 2]);
+
+        $this->assertTrue($r['consensus']);
+        $this->assertSame(1, $r['distinct_source_classes']);
+    }
+
+    public function test_armed_source_class_floor_blocks_self_refereed_consensus(): void
+    {
+        // ARMED: the same self-refereed set (2 distinct provider STRINGS, both in_process) satisfies
+        // min_distinct_providers=2 but FAILS min_distinct_source_classes=2 — the author judging itself
+        // no longer reaches consensus. This is the verdict-side twin of the S213 author≠judge refuse.
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'adversarial_panel', 'source_class' => 'in_process', 'passes' => true],
+            ['lens' => 'completeness', 'provider' => 'completeness_gate', 'source_class' => 'in_process', 'passes' => true],
+        ], ['policy' => 'unanimous', 'min_distinct_providers' => 2, 'min_distinct_source_classes' => 2]);
+
+        $this->assertFalse($r['consensus']);
+        $this->assertStringContainsString('insufficient_source_independence:1<2', (string) $r['reason']);
+    }
+
+    public function test_armed_source_class_floor_passes_with_a_real_external_source(): void
+    {
+        // A genuine cross-source verdict (one external judge added) clears the floor.
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'adversarial_panel', 'source_class' => 'in_process', 'passes' => true],
+            ['lens' => 'completeness', 'provider' => 'completeness_gate', 'source_class' => 'in_process', 'passes' => true],
+            ['lens' => 'correctness', 'provider' => 'minimax_m27', 'source_class' => 'external', 'passes' => true],
+        ], ['policy' => 'unanimous', 'min_distinct_providers' => 2, 'min_distinct_source_classes' => 2]);
+
+        $this->assertTrue($r['consensus']);
+        $this->assertSame(2, $r['distinct_source_classes']);
+    }
+
+    public function test_distinct_provider_strings_in_same_class_do_not_fake_source_independence(): void
+    {
+        // ANTI-GAMING: two DIFFERENT provider strings that are both in_process must NOT satisfy the
+        // source-class floor — the floor keys on the curated class, not the free-text provider field.
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'panel_a', 'source_class' => 'in_process', 'passes' => true],
+            ['lens' => 'completeness', 'provider' => 'panel_b', 'source_class' => 'in_process', 'passes' => true],
+        ], ['policy' => 'unanimous', 'min_distinct_source_classes' => 2]);
+
+        $this->assertFalse($r['consensus']);
+        $this->assertSame(2, $r['distinct_providers']);
+        $this->assertSame(1, $r['distinct_source_classes']);
+    }
+
+    public function test_failing_external_judge_does_not_confer_source_independence(): void
+    {
+        // Only PASSING verdicts confer independence: a FAILING external judge cannot make a
+        // self-refereed pass look cross-source (and its failure also blocks quorum).
+        $r = (new AtlasLoopJudgeConsensusGate)->evaluate([
+            ['lens' => 'correctness', 'provider' => 'adversarial_panel', 'source_class' => 'in_process', 'passes' => true],
+            ['lens' => 'correctness', 'provider' => 'minimax_m27', 'source_class' => 'external', 'passes' => false, 'reason' => 'gap'],
+        ], ['policy' => 'unanimous', 'min_distinct_source_classes' => 2]);
+
+        $this->assertFalse($r['consensus']);
+        $this->assertSame(1, $r['distinct_source_classes']);
+    }
+
     public function test_a_single_dissent_blocks_consensus(): void
     {
         $r = (new AtlasLoopJudgeConsensusGate)->evaluate([

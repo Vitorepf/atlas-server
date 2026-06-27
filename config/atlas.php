@@ -2584,6 +2584,11 @@ return [
             'quorum' => [
                 'policy' => (string) env('ATLAS_LOOP_JUDGE_CONSENSUS_POLICY', 'unanimous'),
                 'min_distinct_providers' => max(1, (int) env('ATLAS_LOOP_JUDGE_CONSENSUS_MIN_PROVIDERS', 2)),
+                // SOURCE-CLASS independence floor: `provider` is free-text (two cert-internal engines look
+                // like 2 providers while being self-refereed). source_class is a curated enum
+                // (in_process|external); requiring >=2 means a genuine cross-source verdict. Default 1 =>
+                // inert/byte-identical until armed (needs a real external judge fed in — see grinder wire).
+                'min_distinct_source_classes' => max(0, (int) env('ATLAS_LOOP_JUDGE_CONSENSUS_MIN_SOURCE_CLASSES', 0)),
                 'required_lenses' => array_values(array_filter(array_map(
                     static fn (string $l): string => trim($l),
                     explode(',', (string) env('ATLAS_LOOP_JUDGE_CONSENSUS_REQUIRED_LENSES', 'correctness,completeness')),
