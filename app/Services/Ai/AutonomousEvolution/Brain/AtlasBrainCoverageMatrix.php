@@ -30,6 +30,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainCriticalConsensusGate::class,
             AtlasBrainStaleEvidenceVeto::class,
             AtlasBrainAuthorJudgeOverlapCheck::class,
+            AtlasBrainRubberStampDetector::class,
         ],
         'compounding' => [
             AtlasBrainPathYieldMomentum::class,

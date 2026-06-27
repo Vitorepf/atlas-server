@@ -207,6 +207,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathPriorityRationale.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCadenceDetector.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainTailAlternateHistory.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainRubberStampDetector.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

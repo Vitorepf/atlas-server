@@ -49,6 +49,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainPathPriorityRationale::SCHEMA => AtlasBrainPathPriorityRationale::class,
         AtlasBrainPathCadenceDetector::SCHEMA => AtlasBrainPathCadenceDetector::class,
         AtlasBrainTailAlternateHistory::SCHEMA => AtlasBrainTailAlternateHistory::class,
+        AtlasBrainRubberStampDetector::SCHEMA => AtlasBrainRubberStampDetector::class,
     ];
 
     public function ownerOf(string $schema): ?string
