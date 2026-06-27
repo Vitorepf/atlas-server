@@ -28,7 +28,7 @@ final class AtlasBrainFrontierMethodCatalog
         // — unharvested frontier methods (organ_class=null) —
         ['id' => 'reflection_provenance_chain', 'summary' => 'per-reflection lineage of which prior cycles influenced it', 'organ_class' => null],
         ['id' => 'cross_scope_pattern_xref', 'summary' => 'detect patterns common to >=2 scopes (transferable lessons)', 'organ_class' => AtlasBrainCrossScopePatternXref::class],
-        ['id' => 'gate_false_positive_estimator', 'summary' => 'estimate gate FP rate by sampling refused-but-author-believes-real', 'organ_class' => null],
+        ['id' => 'gate_false_positive_estimator', 'summary' => 'estimate gate FP rate by sampling refused-but-author-believes-real', 'organ_class' => AtlasBrainGateFalsePositiveEstimator::class],
         ['id' => 'projection_calibration_score', 'summary' => 'compare past projector outputs vs actual next-cycle picks', 'organ_class' => null],
         ['id' => 'hint_frequency_drift_alarm', 'summary' => 'flags hints whose current freq is >=2x or <=0.5x of baseline window', 'organ_class' => AtlasBrainHintFrequencyDriftAlarm::class],
         ['id' => 'compounding_velocity', 'summary' => 'd(yield)/d(cycle) per path; rate of improvement, not level', 'organ_class' => AtlasBrainCompoundingVelocity::class],
