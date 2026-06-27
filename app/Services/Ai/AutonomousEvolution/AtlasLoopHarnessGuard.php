@@ -119,6 +119,9 @@ final class AtlasLoopHarnessGuard
         // the réu would drop attacks until "no holes" was structurally guaranteed (same self-confirmation trap
         // the inspector auditor's pétreo entry was created for, here applied to the seed boundary).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedGateAdversarialAuditor.php',
+        // The CASCADE-RULE OUTCOME ANALYZER — joins reflection stream + done-set to score each action_hint.
+        // Editable ⇒ the réu would relabel statuses or pad served counts to inflate its own win-rate.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCascadeRuleOutcomeAnalyzer.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
