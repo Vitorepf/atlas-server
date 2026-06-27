@@ -249,3 +249,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS (réu would soften veto on its own path)
 - proof: 5 tests / 8 assertions green; pint green
 - next: rotate to compounding or simulation-twin
+
+## L166 — path yield momentum (compounding)
+- path: compounding (rotated from adversarial-critique)
+- organ: AtlasBrainPathYieldMomentum — earlier-half vs later-half yield per path; trend = improving/declining/flat
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 6 tests / 7 assertions green; pint green
+- next: rotate to simulation-twin or metrics-optimization
