@@ -623,3 +623,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - bundle now emits 17 perception blocks (started at 7)
 - proof: 8 tests / 71 assertions green; pint green
 - next: more wiring or upgrade adviser to actually USE these signals downstream
+
+## L212 — WIRING round 4: first composed chain (aggregator over live momentum+velocity+oscillation)
+- path: comprehension-deepening (wiring continuation; first real composition wire)
+- change: bundle pre-computes momentum/velocity/oscillation then feeds them to PathSignalAggregator->aggregate(); new bundle block path_signal_agreement
+- impact: this is the FIRST chained wiring (organ → organ → derived signal). Bundle is no longer just N parallel calls; one slot now consumes other slots
+- 10 organs wired-live to bundle total
+- proof: 8 tests / 73 assertions green; pint green
+- placar 9h: 10 wired-live (de ~45 lib) + bundle agora emite 18 perception blocks com 1 derived
+- next: wire more derived chains — priority rank over agreement + starvation, or red-team over recommended path
