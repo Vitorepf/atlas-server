@@ -302,3 +302,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: another unharvested entry (projection_calibration_score, cross_scope_pattern_xref, reflection_provenance_chain, gate_false_positive_estimator)
+
+## L173 — cross-scope pattern xref (frontier-harvest, 3rd in row)
+- path: frontier-harvest — another catalog harvest
+- organ: AtlasBrainCrossScopePatternXref — intersection across N scope tails; transferable list sorted by total
+- catalog: 9/12 implemented
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 9 assertions green; pint green
+- next: rotate path (frontier-harvest x3 risks oscillation per L169); pattern-design or adversarial-critique
