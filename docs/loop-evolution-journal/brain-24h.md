@@ -154,6 +154,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - f51015486 — **L121 hint→path translator (pétreo organ novo)**: const-table action_hint → portfolio path. Atribui per-hint outcome a path. Pétreo. 3 tests verdes.
 - fc317dfe7 — **L122 state.cascade_outcomes.by_path**: wire da L121 — outcomes atribuídos a path. "frontier-harvest serves 80%" em vez de "harvest_frontier serves 80%". 10 surface tests verdes.
 - c623e91f5 — **L123 state.cascade_outcomes.path_rollup**: agrega served/refused across hints sharing the same path. ONE win-rate per path. 10 surface tests verdes.
+- f2171e822 — **L124 doctor: path_concentration (info)**: ≥5 hints atribuídos + um path >60% ⇒ info "rotation concentrating". Distinto de brief_histogram_skewed (per-hint vs per-path). Adviser→pattern-design. 14 surface tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
