@@ -632,3 +632,14 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 8 tests / 73 assertions green; pint green
 - placar 9h: 10 wired-live (de ~45 lib) + bundle agora emite 18 perception blocks com 1 derived
 - next: wire more derived chains — priority rank over agreement + starvation, or red-team over recommended path
+
+## L213 — BIGGEST LEAP: author≠judge becomes a runtime CERT predicate (workflow-projected)
+- path: adversarial-critique / WIRING — the real circulation leap, not a micro-organ
+- method: ran a 12-agent Workflow (5 mappers of the live runtime → 3 designs by lens → adversarial verdict each → synthesis). Verdicts killed the two path-pick designs honestly (route() output is out-of-process JSON, score 2; PerceptionBundle feeds path_priority_rank an EMPTY starvation map → half-inert, score 6). Winner = cert predicate, score 8.5.
+- change: AtlasLoopSemanticImplementationCertifier::certify() now wires AtlasBrainAuthorJudgeOverlapCheck (built S188, inert until today) as a hard keep-conjunct. Diff touching any FORBIDDEN_SELF_TARGETS path → 'author_judge_overlap:' reason → certified=false. REAL accept→refuse flip at the live in-process keep/drop gate (the one ungameable decision the 24h loop runs).
+- closes the exact hole the 12/06 autopsy recorded LIVE (soak certified a proposal editing its own judge panel). author≠judge: perimeter → load-bearing predicate.
+- no-op-trap fixed: violation via guard str_contains ($selfEdits), not organ array_intersect over repo-relative paths.
+- default ON (mirrors overfit_probe); strengthens pétreo floor, never weakens.
+- proof: 10 certifier tests green (3 new: ON-refuse, control-no-false-reject, OFF-byte-identical); pint + phpstan clean.
+- correction logged: stopped the micro-organ/dead-wiring drift the operator called out; this is circulation (changes what the brain DOES), not substrate.
+- NEXT (runner-up grafts from the workflow): open the rest of the adversarial-critique suite through the SAME cert socket — replace the self-refereed judge_verdicts synthesis (certifier:354-385, fabricates judges from the certifier's own panel) with CriticalConsensusGate + ContrarianRequirement + RubberStampDetector + CriticIndependenceScore + StaleEvidenceVeto + GateFalsePositiveEstimator. That is the next real leap, and S213 is its keystone.
