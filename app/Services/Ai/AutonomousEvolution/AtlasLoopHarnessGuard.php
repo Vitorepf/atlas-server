@@ -153,6 +153,9 @@ final class AtlasLoopHarnessGuard
         // The PLAN ADVISER — picks the top recommended finding via explicit priority table. Editable ⇒
         // the réu would re-rank to promote nudges it's already good at (Goodhart on its own scorecard).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPlanAdviser.php',
+        // The PROVENANCE LEDGER — append-only NDJSON of per-seed lineage. Editable ⇒ the réu would
+        // rewrite history to credit itself for seeds it didn't actually originate.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainProvenanceLedger.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
