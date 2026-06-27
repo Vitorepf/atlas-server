@@ -73,9 +73,27 @@ final class AtlasBrainHealthDoctorCommand extends Command
         }
 
         // WARN: portfolio path count diverges from the canonical 7. Indicates config drift / abridgment.
-        $pathsCount = count(app(AtlasBrainPathCatalog::class)->all());
+        $catalog = app(AtlasBrainPathCatalog::class);
+        $allPaths = $catalog->all();
+        $pathsCount = count($allPaths);
         if ($pathsCount !== 7) {
             $findings[] = ['severity' => 'warn', 'code' => 'portfolio_paths_unexpected_count', 'advice' => "atlas.brain.paths has {$pathsCount} entries (expected 7 — frontier-harvest, metrics-optimization, pattern-design, simulation-twin, comprehension-deepening, adversarial-critique, compounding); rotation will be incomplete"];
+        }
+
+        // WARN: any path with a missing/empty executor_organ — the router would recommend it but the catalog
+        // can't resolve a concrete executor (leverage_brief.evidence would drop the cue).
+        $missing = [];
+        foreach ($allPaths as $entry) {
+            $id = (string) ($entry['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            if ($catalog->executorOrganFor($id) === null) {
+                $missing[] = $id;
+            }
+        }
+        if ($missing !== []) {
+            $findings[] = ['severity' => 'warn', 'code' => 'portfolio_path_missing_executor', 'advice' => 'paths without executor_organ: '.implode(', ', $missing).' — leverage_brief can\'t cite the concrete organ for these paths'];
         }
 
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
