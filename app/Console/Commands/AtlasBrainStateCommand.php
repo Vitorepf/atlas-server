@@ -20,6 +20,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainNextPathSuggester;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOriginationGapDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceAttributionAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
@@ -215,10 +216,16 @@ final class AtlasBrainStateCommand extends Command
             // SCOPE CATALOG — L119 enumeration of configured scopes + default. Operator sees the cohort
             // shape without grepping config/atlas.php.
             'scope_catalog' => app(AtlasBrainScopeCatalogSnapshot::class)->snapshot(),
-            // PROVENANCE — L112 ledger size for this scope (per-seed lineage rows recorded so far).
-            'provenance' => [
-                'count' => count(app(AtlasBrainProvenanceLedger::class)->tail($scope, PHP_INT_MAX)),
-            ],
+            // PROVENANCE — L112 ledger size + L139 top-3 source_finding attribution.
+            'provenance' => (function () use ($scope): array {
+                $rows = app(AtlasBrainProvenanceLedger::class)->tail($scope, PHP_INT_MAX);
+                $attr = app(AtlasBrainProvenanceAttributionAnalyzer::class)->analyze($rows);
+
+                return [
+                    'count' => count($rows),
+                    'top_findings' => array_slice($attr['by_finding'], 0, 3),
+                ];
+            })(),
             'paths' => [
                 'count' => count(app(AtlasBrainPathCatalog::class)->all()),
                 'ids' => array_values(array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), app(AtlasBrainPathCatalog::class)->all()))),
