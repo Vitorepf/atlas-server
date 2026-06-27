@@ -63,6 +63,6 @@ final class AtlasBrainAuditCommand extends Command
         }
         $this->line((string) json_encode($payload, $flags));
 
-        return self::SUCCESS;
+        return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
 }
