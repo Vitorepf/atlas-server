@@ -90,6 +90,10 @@ final class AtlasLoopHarnessGuard
         // Editable ⇒ the réu would drop "recent_refusal_count" the moment it became inconvenient (the
         // Goodhart-on-the-meta-objective trap the V4 pétreo block was created to prevent).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainMetricSnapshot.php',
+        // The SPEC SIMULATION TWIN — pre-flight predictor. Editable ⇒ the réu could return "passes_clean"
+        // for whatever it wanted to win, collapsing the candidate-exploration's discriminating power.
+        // Pétreo for the same priorizador principle as the cert chain.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSpecSimulationTwin.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
