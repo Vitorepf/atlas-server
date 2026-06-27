@@ -96,6 +96,15 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $findings[] = ['severity' => 'warn', 'code' => 'portfolio_path_missing_executor', 'advice' => 'paths without executor_organ: '.implode(', ', $missing).' — leverage_brief can\'t cite the concrete organ for these paths'];
         }
 
+        // WARN: any of the 7 canonical ids missing. Detects "7 entries but wrong ones" (different drift mode
+        // than the count check).
+        $canonical = ['frontier-harvest', 'metrics-optimization', 'pattern-design', 'simulation-twin', 'comprehension-deepening', 'adversarial-critique', 'compounding'];
+        $present = array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), $allPaths));
+        $missingCanonical = array_values(array_diff($canonical, $present));
+        if ($missingCanonical !== []) {
+            $findings[] = ['severity' => 'warn', 'code' => 'portfolio_canonical_paths_missing', 'advice' => 'missing canonical path ids: '.implode(', ', $missingCanonical).' — these paths are part of the portfolio rotation and the brain cannot recommend them'];
+        }
+
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
         $blocking = array_values(array_filter($findings, static fn (array $f): bool => in_array((string) $f['severity'], ['critical', 'warn'], true)));
 
