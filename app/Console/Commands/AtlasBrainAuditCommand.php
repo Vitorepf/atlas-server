@@ -45,7 +45,10 @@ final class AtlasBrainAuditCommand extends Command
         $inspector = app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector);
         $seedGate = app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class));
 
+        $totalHoles = count($inspector['holes']) + count($seedGate['holes']);
         $payload = [
+            'gate_health_status' => $totalHoles === 0 ? 'airtight' : 'regression',
+            'gate_health_total_holes' => $totalHoles,
             'state' => $state,
             'doctor' => $doctor,
             'adversarial' => [

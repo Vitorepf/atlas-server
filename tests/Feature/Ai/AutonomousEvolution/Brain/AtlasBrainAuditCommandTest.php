@@ -48,6 +48,8 @@ final class AtlasBrainAuditCommandTest extends TestCase
         self::assertArrayHasKey('seed_gate', $payload['adversarial']);
         self::assertArrayHasKey('findings', $payload['doctor']);
         self::assertSame('loop', $payload['state']['scope']['slug']);
+        self::assertSame('airtight', $payload['gate_health_status']);
+        self::assertSame(0, $payload['gate_health_total_holes']);
     }
 
     public function test_audit_command_is_a_petreo_forbidden_self_target(): void
