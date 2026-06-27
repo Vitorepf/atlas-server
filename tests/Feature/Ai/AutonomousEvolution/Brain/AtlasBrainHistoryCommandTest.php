@@ -45,6 +45,21 @@ final class AtlasBrainHistoryCommandTest extends TestCase
         self::assertSame('use_drafted_candidate', $payload['rows'][1]['action_hint']);
     }
 
+    public function test_history_kind_filter_narrows_to_one_kind(): void
+    {
+        foreach ([['c1', 'note', ''], ['c2', 'blocked', ''], ['c3', 'note', ''], ['c4', 'blocked', '']] as [$cid, $kind, $hint]) {
+            $row = ['schema' => 'x', 'scope' => 'loop', 'cycle_id' => $cid, 'result_kind' => $kind, 'reflection' => 'r', 'signals' => ['action_hint' => $hint], 'recorded_at' => 0];
+            file_put_contents($this->stream, json_encode($row).PHP_EOL, FILE_APPEND);
+        }
+        $buf = new BufferedOutput;
+        Artisan::call('atlas:brain:history', ['--kind' => 'blocked'], $buf);
+        $payload = json_decode(trim($buf->fetch()), true);
+        self::assertSame(2, $payload['count']);
+        foreach ($payload['rows'] as $row) {
+            self::assertSame('blocked', $row['result_kind']);
+        }
+    }
+
     public function test_history_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainHistoryCommand.php', true);

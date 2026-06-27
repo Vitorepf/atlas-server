@@ -18,7 +18,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainHistoryCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:history {--scope= : scope slug} {--tail=10 : how many recent rows to render} {--json} {--raw}';
+    protected $signature = 'atlas:brain:history {--scope= : scope slug} {--tail=10 : how many recent rows to render} {--kind= : filter to one result_kind (blocked|exhausted|stagnated|note|clean_no_op|success)} {--hint= : filter to one action_hint} {--json} {--raw}';
 
     /** @var string */
     protected $description = 'Tail of the brain reflection stream for a scope — compact operator-readable rows.';
@@ -29,7 +29,16 @@ final class AtlasBrainHistoryCommand extends Command
         $scope = (string) app(AtlasBrainScopeRegistry::class)->resolve($scopeOpt)['slug'];
         $tail = max(1, (int) ($this->option('tail') ?? 10));
 
-        $rows = array_slice(app(AtlasBrainReflectionStream::class)->forScope($scope), -$tail);
+        $kindFilter = trim((string) ($this->option('kind') ?? ''));
+        $hintFilter = trim((string) ($this->option('hint') ?? ''));
+        $all = app(AtlasBrainReflectionStream::class)->forScope($scope);
+        if ($kindFilter !== '') {
+            $all = array_values(array_filter($all, static fn (array $r): bool => (string) ($r['result_kind'] ?? '') === $kindFilter));
+        }
+        if ($hintFilter !== '') {
+            $all = array_values(array_filter($all, static fn (array $r): bool => (string) ($r['signals']['action_hint'] ?? '') === $hintFilter));
+        }
+        $rows = array_slice($all, -$tail);
 
         $compact = [];
         foreach ($rows as $row) {
