@@ -1995,6 +1995,13 @@ return [
         // precisão (só as formas inequívocas), gateia TODA cert. Default ON: pegar isso É o moat.
         'overfit_probe_enabled' => (bool) env('ATLAS_LOOP_OVERFIT_PROBE_ENABLED', true),
 
+        // AUTHOR≠JUDGE runtime cert predicate: se o diff de uma proposta tocar QUALQUER arquivo
+        // dono de juízo/gate (HarnessGuard::FORBIDDEN_SELF_TARGETS), a cert é RECUSADA — não só
+        // edit-bloqueada. Converte author≠judge de perímetro (blocklist de edição) em predicado
+        // de cert load-bearing. Default ON (igual overfit_probe acima): self-judging é o caso de
+        // alta severidade que a autópsia de 12/06 pegou rodando LIVE; default-OFF reabriria o buraco.
+        'author_judge_overlap_gate_enabled' => (bool) env('ATLAS_LOOP_AUTHOR_JUDGE_OVERLAP_GATE_ENABLED', true),
+
         // ACDE engine-independence: providers de TEXTO/HTTP (default: MiniMax M3 API) não editam
         // arquivos — devolvem a mudança no corpo da resposta. Com este flag ON, o driver parseia
         // e APLICA esse texto no workspace via DiffParser+PatchApplier/full-file blocks. CLI

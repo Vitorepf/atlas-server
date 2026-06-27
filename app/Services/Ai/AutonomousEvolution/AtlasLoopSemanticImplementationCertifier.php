@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainAuthorJudgeOverlapCheck;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasEngineeringHonestyGate;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
@@ -180,6 +181,33 @@ final class AtlasLoopSemanticImplementationCertifier
             $overfitReason = $this->mutationAdequacyGate->detectOverfitShortCircuit($changedAddedLines);
             if ($overfitReason !== null) {
                 $reasons[] = $overfitReason;
+            }
+        }
+
+        // AUTHOR≠JUDGE RUNTIME CERT PREDICATE. Until now author≠judge lived ONLY as an edit-targeting
+        // blocklist (AtlasLoopHarnessGuard::isForbiddenSelfTarget) that gates WHICH file the loop may
+        // AIM at — it never inspected the diff a proposal ALREADY produced. The 12/06 autopsy recorded
+        // LIVE that a soak certified a proposal editing its own judge panel; the edit-blocklist is the
+        // only thing preventing a repeat, and it is bypassable the moment any lane (meta_harness ON,
+        // sibling-ride, multi-file) lets a self-owned path into the diff. This wires the overlap check
+        // as a hard keep-conjunct: if the author's diff touches ANY judge/gate-owned file, the cert is
+        // REFUSED (a real accept→refuse flip on the highest-severity lane — a proposal grading its own
+        // scorer). Default ON, mirroring overfit_probe above: self-judging is the high-severity case;
+        // default-OFF would re-open the proven hole. CRITICAL no-op-trap fix: the violation is decided
+        // by the guard's str_contains contract ($selfEdits), NOT the organ's exact array_intersect —
+        // $changedFiles are repo-relative git paths while FORBIDDEN_SELF_TARGETS entries are path
+        // SUBSTRINGS, so a raw array_intersect would match nothing and ship an inert gate. The organ
+        // call carries the AtlasBrainAuthorJudgeOverlapCheck SCHEMA + verdict into the receipt.
+        $authorJudgeOverlap = null;
+        if ((bool) config('atlas.loop.author_judge_overlap_gate_enabled', true)) {
+            $guard = new AtlasLoopHarnessGuard;
+            $selfEdits = array_values(array_filter(
+                $changedFiles,
+                static fn ($f): bool => $guard->isForbiddenSelfTarget((string) $f)
+            ));
+            $authorJudgeOverlap = (new AtlasBrainAuthorJudgeOverlapCheck)->check($selfEdits, $selfEdits);
+            if ($selfEdits !== []) {
+                $reasons[] = 'author_judge_overlap:'.implode(',', array_slice($selfEdits, 0, 5));
             }
         }
 
@@ -410,6 +438,11 @@ final class AtlasLoopSemanticImplementationCertifier
             'changed_files' => $changedFiles,
             'allowed_files' => $allowedFiles,
             'reasons' => $certified ? ['certified'] : $reasons,
+            'author_judge_overlap' => $authorJudgeOverlap ?? [
+                'schema' => AtlasBrainAuthorJudgeOverlapCheck::SCHEMA,
+                'violation' => false,
+                'overlap' => [],
+            ],
             'deterministic_gate' => $deterministicGate,
             'adversarial_panel' => $panelVerdict,
             'mutation_adequacy_gate' => $mutationAdequacy,

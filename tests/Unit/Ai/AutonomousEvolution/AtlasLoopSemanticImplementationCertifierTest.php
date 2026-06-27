@@ -201,6 +201,74 @@ PHP);
     /**
      * @return array<string,mixed>
      */
+    public function test_author_judge_overlap_gate_refuses_diff_touching_a_judge_owned_file(): void
+    {
+        // AUTHOR≠JUDGE runtime cert predicate: a proposal whose diff touches a FORBIDDEN_SELF_TARGETS
+        // path (here a Brain/ critic organ) is REFUSED at certification when the gate is ON (default),
+        // with an 'author_judge_overlap:' reason — the real accept→refuse flip on the self-judging lane.
+        $this->workspace = $this->workspaceWithCandidate('good');
+        // Untracked file at a judge-owned path => git ls-files --others reports it => $changedFiles
+        // includes a FORBIDDEN_SELF_TARGETS substring. The path itself is what the guard matches on.
+        $forbiddenRel = 'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPlanAdviserRedTeam.php';
+        mkdir(dirname($this->workspace.'/'.$forbiddenRel), 0o755, true);
+        file_put_contents($this->workspace.'/'.$forbiddenRel, "<?php\n// loop edited its own judge\n");
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+        ]);
+
+        $this->assertFalse($receipt['certified'], 'a self-judging diff must not certify');
+        $this->assertTrue($this->hasReason($receipt, 'author_judge_overlap:'), 'overlap reason present: '.json_encode($receipt['reasons']));
+        $this->assertTrue(data_get($receipt, 'author_judge_overlap.violation'), 'receipt records the violation');
+    }
+
+    public function test_author_judge_overlap_gate_does_not_reject_ordinary_files(): void
+    {
+        // Control: an ordinary app/ file in the diff (no FORBIDDEN substring) adds NO overlap reason.
+        $this->workspace = $this->workspaceWithCandidate('good');
+        $ordinaryRel = 'app/Services/Ai/SomeOrdinaryFeatureService.php';
+        mkdir(dirname($this->workspace.'/'.$ordinaryRel), 0o755, true);
+        file_put_contents($this->workspace.'/'.$ordinaryRel, "<?php\n// ordinary change\n");
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+        ]);
+
+        $this->assertFalse($this->hasReason($receipt, 'author_judge_overlap:'), 'no false overlap reject: '.json_encode($receipt['reasons']));
+        $this->assertFalse(data_get($receipt, 'author_judge_overlap.violation'));
+    }
+
+    public function test_author_judge_overlap_gate_off_is_byte_identical(): void
+    {
+        // Flag OFF: the same judge-owned-touching diff adds NO overlap reason (provably no-op).
+        config(['atlas.loop.author_judge_overlap_gate_enabled' => false]);
+        $this->workspace = $this->workspaceWithCandidate('good');
+        $forbiddenRel = 'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPlanAdviserRedTeam.php';
+        mkdir(dirname($this->workspace.'/'.$forbiddenRel), 0o755, true);
+        file_put_contents($this->workspace.'/'.$forbiddenRel, "<?php\n// loop edited its own judge\n");
+
+        $receipt = app(AtlasLoopSemanticImplementationCertifier::class)->certify($this->workspace, $this->acceptance(), [
+            'objective' => 'make Foo return good',
+            'allowed_files' => ['src/Foo.php'],
+        ]);
+
+        $this->assertFalse($this->hasReason($receipt, 'author_judge_overlap:'), 'flag OFF => no overlap reason: '.json_encode($receipt['reasons']));
+        $this->assertFalse(data_get($receipt, 'author_judge_overlap.violation'));
+    }
+
+    private function hasReason(array $receipt, string $prefix): bool
+    {
+        foreach ((array) ($receipt['reasons'] ?? []) as $r) {
+            if (str_starts_with((string) $r, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function acceptance(): array
     {
         return [
