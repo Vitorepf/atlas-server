@@ -67,4 +67,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 2be1a2080 — **L35 frontier.count em brain:state**: `AtlasBrainFrontierSourceRegistry::count()` + payload `state.frontier.count`. Dashboard mostra quantos curated candidates aguardam. 163 brain tests verdes (1 novo).
 - b71b79991 — **L36 brain:state surface flag matrix**: payload inclui `scope_signal_digest_enabled` / `reflection_enabled` / `causal_selector_enabled`. Operator vê arming switches sem diff de config. 3 state tests verdes.
 - b97952039 — **L37 brain:state --tail=N**: option default 50, min 1. Dashboard escala window sem code change. 3 state tests verdes.
+- c9310c964 — **L38 brain:state --all (cohort summary)**: itera todos `atlas.brain.scopes.*` emitindo per-scope {slug, meta_harness, done_set_recent, reflection_total, frontier_count}. Dashboard multi-scope em 1 call. 4 state tests verdes (1 novo).
 
