@@ -19,6 +19,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeCatalogSnapshot;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
@@ -171,6 +172,9 @@ final class AtlasBrainStateCommand extends Command
                     'top_titles' => array_values(array_map(static fn (array $c): string => (string) ($c['title'] ?? ''), $top)),
                 ];
             })(),
+            // SCOPE CATALOG — L119 enumeration of configured scopes + default. Operator sees the cohort
+            // shape without grepping config/atlas.php.
+            'scope_catalog' => app(AtlasBrainScopeCatalogSnapshot::class)->snapshot(),
             // PROVENANCE — L112 ledger size for this scope (per-seed lineage rows recorded so far).
             'provenance' => [
                 'count' => count(app(AtlasBrainProvenanceLedger::class)->tail($scope, PHP_INT_MAX)),
