@@ -37,6 +37,8 @@ final class AtlasBrainTrendCommandTest extends TestCase
         self::assertSame(50, $r['min']);
         self::assertSame(80, $r['max']);
         self::assertSame(20, $r['delta']);
+        self::assertSame('improving', $r['direction']);
+        self::assertSame(4, strlen($r['sparkline']));
     }
 
     public function test_trend_command_is_a_petreo_forbidden_self_target(): void

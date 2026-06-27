@@ -40,6 +40,13 @@ final class AtlasBrainTrendCommand extends Command
             'min' => $scores === [] ? null : min($scores),
             'max' => $scores === [] ? null : max($scores),
             'delta' => count($scores) >= 2 ? (end($scores) - $scores[0]) : 0,
+            'direction' => match (true) {
+                count($scores) < 2 => 'insufficient_data',
+                (end($scores) - $scores[0]) > 5 => 'improving',
+                (end($scores) - $scores[0]) < -5 => 'regressing',
+                default => 'flat',
+            },
+            'sparkline' => $this->sparkline($scores),
         ];
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
@@ -49,5 +56,22 @@ final class AtlasBrainTrendCommand extends Command
         $this->line((string) json_encode($summary, $flags));
 
         return self::SUCCESS;
+    }
+
+    /** @param  list<int>  $scores */
+    private function sparkline(array $scores): string
+    {
+        if ($scores === []) {
+            return '';
+        }
+        // ASCII fallback (no unicode glyphs that can break copy-paste): ' .oO0' across 5 buckets of 0..100.
+        $glyphs = [' ', '.', 'o', 'O', '0'];
+        $out = '';
+        foreach ($scores as $s) {
+            $bucket = max(0, min(4, (int) floor(((int) $s) / 20)));
+            $out .= $glyphs[$bucket];
+        }
+
+        return $out;
     }
 }
