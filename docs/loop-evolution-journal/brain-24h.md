@@ -113,4 +113,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - e73e20fba — **L81 brain:summary single-line CLI (pétreo)**: `brain[scope=…, master=ON, gates=AIRTIGHT, ratio=42%/12, findings=0c/1w/3i]`. Cron/Slack/status-line friendly. Exit 0=airtight, 1=regression. 2 tests verdes.
 - 76a3c57b2 — **L82 hint entropy (pétreo organ novo) + wired no state**: Shannon-bits scalar; 0=perseveração, normalized=1.0=uniforme. Comprime distribuição inteira num número. 4 tests verdes.
 - 125e8ec93 — **L83 result_kind histogram (pétreo organ novo) + wired no state**: distribuição de OUTCOMES (blocked/exhausted/stagnated/note/...), eixo diferente do hint histogram. Surfaceia starvation_pct. 3 tests verdes.
+- 58c1a1bcb — **L84 doctor: result_kind_starvation (info)**: ≥10 reflections + starvation_pct>70% ⇒ info "dry-by-walls; check sources". Fecha o anel L83 (organ → state → doctor). 7 doctor tests verdes.
 
