@@ -140,6 +140,28 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         self::assertContains('cascade_rule_low_yield', $codes);
     }
 
+    public function test_starvation_kinds_emit_info_finding(): void
+    {
+        file_put_contents($this->envPath, "APP_ENV=testing\n".AtlasBrainMasterSwitch::KEY."=true\n");
+        config()->set('atlas.brain.scope_signal_digest_enabled', true);
+        config()->set('atlas.brain.reflection_enabled', true);
+
+        $stream = sys_get_temp_dir().'/atlas-brain-doctor-kindhist-'.bin2hex(random_bytes(4)).'.ndjson';
+        config()->set('atlas.brain.reflection_root', $stream);
+
+        // 10 reflections, 8 blocked + 2 note ⇒ starvation_pct = 80 > 70.
+        for ($i = 0; $i < 10; $i++) {
+            $kind = $i < 8 ? 'blocked' : 'note';
+            $row = ['schema' => 'x', 'scope' => 'loop', 'cycle_id' => "k{$i}", 'result_kind' => $kind, 'reflection' => "kind {$kind}", 'signals' => [], 'recorded_at' => 0];
+            file_put_contents($stream, json_encode($row).PHP_EOL, FILE_APPEND);
+        }
+
+        Artisan::call('atlas:brain:health-doctor', ['--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertContains('result_kind_starvation', array_column($payload['findings'], 'code'));
+    }
+
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainHealthDoctorCommand.php', true);

@@ -13,6 +13,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
@@ -166,6 +167,18 @@ final class AtlasBrainHealthDoctorCommand extends Command
                 if ($selfPct > 50) {
                     $findings[] = ['severity' => 'info', 'code' => 'hint_self_loop_dominant', 'advice' => "{$selfPct}% of the last {$matrix['transitions']} hint transitions are self-loops — cascade is stuck on its own previous hint; rotate path or originate fresh"];
                 }
+            }
+        }
+
+        // INFO: result-kind starvation. When ≥10 reflections in tail and starvation_pct >70 (blocked +
+        // exhausted + stagnated + clean_no_op share), the queue is dry-by-walls — origination keeps
+        // failing or abstaining. Uses L83 histogram over last 50 reflections.
+        if ($reflectionEnabled) {
+            $stream = app(AtlasBrainReflectionStream::class);
+            $tail = array_slice($stream->forScope($scope), -50);
+            $kindHist = app(AtlasBrainResultKindHistogram::class)->histogram($tail);
+            if ($kindHist['total'] >= 10 && $kindHist['starvation_pct'] > 70) {
+                $findings[] = ['severity' => 'info', 'code' => 'result_kind_starvation', 'advice' => "{$kindHist['starvation_pct']}% of the last {$kindHist['total']} cycles are blocked/exhausted/stagnated/clean_no_op — queue is dry-by-walls; check sources, rotate scope, or originate against a fresh signal"];
             }
         }
 
