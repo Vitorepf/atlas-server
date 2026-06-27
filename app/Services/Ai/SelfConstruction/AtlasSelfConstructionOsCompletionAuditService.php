@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionCompletionCriterionReporter;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionTerminalLoopCertifier;
 use Carbon\CarbonImmutable;
@@ -14,6 +16,8 @@ use Illuminate\Support\Facades\Storage;
  */
 final class AtlasSelfConstructionOsCompletionAuditService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.os_completion_audit.v1';
 
     public const MODE = 'read_only_atlas_self_construction_os_completion_audit';
@@ -616,8 +620,4 @@ final class AtlasSelfConstructionOsCompletionAuditService
         return Completion\AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash($payload);
     }
 
-    private function ksortRecursive(array $value): array
-    {
-        return Completion\AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::ksortRecursive($value);
-    }
 }

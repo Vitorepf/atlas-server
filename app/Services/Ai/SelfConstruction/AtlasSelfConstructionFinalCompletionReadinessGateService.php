@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 
 /**
@@ -20,6 +22,8 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionFinalCompletionReadinessGateService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.final_completion_readiness_gate.v1';
 
     public const MODE = 'read_only_final_completion_readiness_gate';
@@ -369,8 +373,4 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }
