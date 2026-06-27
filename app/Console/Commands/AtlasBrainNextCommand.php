@@ -122,6 +122,14 @@ final class AtlasBrainNextCommand extends Command
             if ($recalled !== []) {
                 $payload['reflections'] = $recalled;
             }
+            // PRIOR BRIEFS recall — surfaces the last N action_hint reflections (populated by L14 each cycle).
+            // On a refused/abstain payload, this lets the brain SEE its own recommendation history without
+            // requiring a separate call: "5 of the last 5 briefs said rotate_path but the scope still refuses
+            // ⇒ time to escalate / abstain harder / ask the operator". Flag-gated inside the stream.
+            $priorBriefs = app(AtlasBrainReflectionStream::class)->recallTexts($scope, ['signals' => ['action_hint' => '']], 5);
+            if ($priorBriefs !== []) {
+                $payload['prior_briefs'] = $priorBriefs;
+            }
             $payload += $this->scopeSignalsFor($scope, $model, $ledger);
 
             return $this->emit($payload);
