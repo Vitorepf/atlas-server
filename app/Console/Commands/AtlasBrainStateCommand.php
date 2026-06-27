@@ -104,6 +104,7 @@ final class AtlasBrainStateCommand extends Command
             ],
             'paths' => [
                 'count' => count(app(AtlasBrainPathCatalog::class)->all()),
+                'ids' => array_values(array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), app(AtlasBrainPathCatalog::class)->all()))),
             ],
             // GATE HEALTH — runtime adversarial audit hole counts + attacks_tried (coverage). zero holes
             // against N attacks = airtight; same N is a stability contract (dropping it = audit shrunk silently).
