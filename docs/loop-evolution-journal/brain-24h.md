@@ -615,3 +615,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - dep graph: 6 edges added across L209+L210 (3 metrics + 3 pattern)
 - proof: 8 tests / 65 assertions green; pint green
 - next: more wiring — perhaps integrate cascade analyzer flag-gated, or wire adversarial organs into a gate
+
+## L211 — WIRING round 3: bundle adds compounding layer
+- path: comprehension-deepening (wiring continuation)
+- change: bundle now invokes CompoundingVelocity + PathYieldEwma + PathStreakTracker
+- impact: 9 organs total wired-live to bundle across L209/L210/L211 (was 0 before today, all sat library-only)
+- bundle now emits 17 perception blocks (started at 7)
+- proof: 8 tests / 71 assertions green; pint green
+- next: more wiring or upgrade adviser to actually USE these signals downstream
