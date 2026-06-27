@@ -27,10 +27,11 @@ final class AtlasBrainPerceptionBundle
         private readonly AtlasBrainEvidenceFreshness $freshness,
         private readonly AtlasBrainHintToPathTranslator $translator,
         private readonly AtlasBrainPathStarvationDetector $starvationDetector,
+        private readonly AtlasBrainCascadeRuleOutcomeAnalyzer $cascadeAnalyzer,
     ) {}
 
     /**
-     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array}
+     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array}
      */
     public function build(string $scope): array
     {
@@ -47,6 +48,11 @@ final class AtlasBrainPerceptionBundle
             'starvation_trend' => $this->trend->starvation($this->stream->forScope($scope)),
             'evidence_freshness' => $this->freshness->inspect($this->stream->forScope($scope)),
             'path_starvation' => $this->starvationDetector->detect($brief, $this->translator),
+            'cascade_outcomes' => $this->cascadeAnalyzer->analyze(
+                $scope,
+                $this->stream,
+                new AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'))
+            ),
         ];
     }
 }
