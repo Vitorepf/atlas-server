@@ -160,9 +160,15 @@ final class AtlasBrainStateCommand extends Command
                     'by_hint' => array_slice($report['by_hint'], 0, 5),
                 ];
             })(),
-            'frontier' => [
-                'count' => app(AtlasBrainFrontierSourceRegistry::class)->count($scope),
-            ],
+            'frontier' => (function () use ($scope): array {
+                $reg = app(AtlasBrainFrontierSourceRegistry::class);
+                $top = $reg->topK($scope, 3);
+
+                return [
+                    'count' => $reg->count($scope),
+                    'top_titles' => array_values(array_map(static fn (array $c): string => (string) ($c['title'] ?? ''), $top)),
+                ];
+            })(),
             'paths' => [
                 'count' => count(app(AtlasBrainPathCatalog::class)->all()),
                 'ids' => array_values(array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), app(AtlasBrainPathCatalog::class)->all()))),
