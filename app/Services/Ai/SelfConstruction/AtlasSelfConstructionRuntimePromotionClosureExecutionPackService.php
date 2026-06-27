@@ -3,6 +3,8 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
@@ -19,6 +21,8 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
 
@@ -26,12 +30,6 @@ final class AtlasSelfConstructionRuntimePromotionClosureExecutionPackService
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-    private function ksortRecursive(array $value): array
-    {
-        $this->ksortRecursiveByReference($value);
-
-        return $value;
-    }
 
 
     /**

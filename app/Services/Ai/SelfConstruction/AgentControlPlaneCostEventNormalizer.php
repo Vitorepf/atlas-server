@@ -3,6 +3,8 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Normalizes operator/synthetic cost events without reading provider billing
@@ -10,6 +12,8 @@ use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
  */
 final class AgentControlPlaneCostEventNormalizer
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
     public const ALLOWED_CURRENCIES = ['BRL', 'EUR', 'GBP', 'USD'];
