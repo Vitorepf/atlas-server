@@ -193,6 +193,8 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - f554fcc2d — **L158 top churn hint detector (pétreo organ novo)**: RAW refused count vs ratio (L75/L77). "Para de tentar isso" independente do volume. Pétreo. 3 tests verdes.
 - 3244ae0b6 — **L159 doctor: top_churn_hint_dominant (info)**: ≥15 refused ⇒ info "rotate cascade rule". Adviser→pattern-design. 15 surface tests verdes.
 
+- b03019e73 — **L160 brain:doctor --alert log-router format**: line-per-finding `severity|code|advice`. Pipe pra syslog/Slack/PagerDuty sem JSON. 10 doctor tests verdes. **160-slice mark.**
+
 ### Placar @ L159 — 160-slice mark approaching
 - **Brain test suite**: 287 verde; gates AIRTIGHT continuous.
 - **Commands pétreos**: 14 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings/metrics/perception).
