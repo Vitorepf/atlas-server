@@ -149,6 +149,9 @@ final class AtlasLoopHarnessGuard
         // The HEALTH-SCORE LEDGER — append-only NDJSON time-series. Editable ⇒ the réu would rewrite
         // history to look better (Goodhart, lying mirror over its own past performance).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHealthScoreLedger.php',
+        // The PLAN ADVISER — picks the top recommended finding via explicit priority table. Editable ⇒
+        // the réu would re-rank to promote nudges it's already good at (Goodhart on its own scorecard).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPlanAdviser.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
