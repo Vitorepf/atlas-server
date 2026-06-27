@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
@@ -99,6 +100,9 @@ final class AtlasBrainStateCommand extends Command
                 'recent_count' => $reflectionCount,
             ],
             'last_brief' => $lastBrief,
+            'brief_histogram' => app(AtlasBrainBriefHistogram::class)->histogram(
+                $reflection->recallTexts($scope, ['signals' => ['action_hint' => '']], 20),
+            ),
             'frontier' => [
                 'count' => app(AtlasBrainFrontierSourceRegistry::class)->count($scope),
             ],
