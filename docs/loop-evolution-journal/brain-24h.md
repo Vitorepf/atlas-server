@@ -160,6 +160,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - baf703716 — **L127 state.path_starvation**: wire da L125 — operator vê {hit, starved, ambiguous}. 10 surface tests verdes.
 - 4ecab50ec — **L128 summary one-liner adds starved_paths=N/7**: cron operator vê quantos paths estão na banca. 0/7 = rotação completa; 7/7 = cold start. 2 summary tests verdes.
 - ffd4ba7af — **L129 brain:scopes command (pétreo)**: dump da L119 snapshot. Complementa brain:catalog (paths). 2 tests verdes. 11 commands total.
+- df4360f46 — **L130 next-path suggester (pétreo organ novo)**: prioridade explícita {starved>winning>fallback}. Operator suggestion ≠ auto-route. Pétreo. 4 tests verdes. **130-slice mark.**
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
