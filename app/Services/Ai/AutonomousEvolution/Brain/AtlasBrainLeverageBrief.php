@@ -227,23 +227,12 @@ final class AtlasBrainLeverageBrief
     }
 
     /**
-     * Resolve the executor_organ FQCN for a portfolio path id from config('atlas.brain.paths'). Returns null
-     * when the path is unknown (the router emitted a recommendation but config wasn't updated).
+     * Resolve the executor_organ FQCN for a portfolio path id. Delegated to AtlasBrainPathCatalog
+     * (single-source lookup over config('atlas.brain.paths')); returns null when the path is unknown.
      */
     private function executorOrganFor(string $pathId): ?string
     {
-        foreach ((array) config('atlas.brain.paths', []) as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-            if (($entry['id'] ?? null) === $pathId) {
-                $organ = (string) ($entry['executor_organ'] ?? '');
-
-                return $organ === '' ? null : $organ;
-            }
-        }
-
-        return null;
+        return app(AtlasBrainPathCatalog::class)->executorOrganFor($pathId);
     }
 
     /**
