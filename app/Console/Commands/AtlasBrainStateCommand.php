@@ -13,6 +13,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
@@ -157,10 +158,13 @@ final class AtlasBrainStateCommand extends Command
             })(),
             'cascade_outcomes' => (function () use ($scope, $reflection, $ledger): array {
                 $report = app(AtlasBrainCascadeRuleOutcomeAnalyzer::class)->analyze($scope, $reflection, $ledger);
+                $top = array_slice($report['by_hint'], 0, 5);
 
                 return [
                     'joined_cycles' => $report['joined_cycles'],
-                    'by_hint' => array_slice($report['by_hint'], 0, 5),
+                    'by_hint' => $top,
+                    // L121: each row also attributed to its portfolio path so operator sees per-PATH win-rate.
+                    'by_path' => app(AtlasBrainHintToPathTranslator::class)->attribute($top),
                 ];
             })(),
             'frontier' => (function () use ($scope): array {
