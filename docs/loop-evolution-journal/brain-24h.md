@@ -581,3 +581,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 7 assertions green; pint green
 - next: any path at 6
+
+## L207 — critic independence score (adversarial-critique @7)
+- path: adversarial-critique (now 7 organs)
+- organ: AtlasBrainCriticIndependenceScore — pairwise agreement_rate; flags non-independent voter pairs
+- coverage: adversarial-critique=7; comprehension=7; others at 6
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: paths still at 6 — frontier-harvest, metrics, pattern, simulation, compounding
