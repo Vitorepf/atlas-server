@@ -73,4 +73,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - fc8c34c3d — **L41 use_routed_path → executor_organ FQCN**: rule do brief agora lookupa config('atlas.brain.paths') e cita o executor concreto (AtlasLoopScopeComprehensionModelBuilder etc) no rationale + evidence. Brain vê alvo, não só nome. 17 brief tests verdes.
 - 2289b528d — **L42 AtlasBrainPathCatalog**: extraído organ single-source pra lookups em config('atlas.brain.paths') (all/find/executorOrganFor/lensFor). Brief migra pra delegar. Pétreo. 17 brief tests verdes.
 - e49bd374e — **L43 frozen tests for catalog**: 4 tests (all filters non-arrays, find by id, executor+lens lookups, pétreo). 4 catalog tests verdes.
+- 1edca6a91 — **L44 brain:state paths.count via catalog**: dashboard mostra portfolio size (7 esperados). 4 state tests verdes.
 
