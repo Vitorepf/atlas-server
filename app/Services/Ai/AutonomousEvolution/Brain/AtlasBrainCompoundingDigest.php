@@ -34,12 +34,12 @@ final class AtlasBrainCompoundingDigest
     public function digest(AtlasBrainDoneSetLedger $ledger, int $window = self::DEFAULT_WINDOW): array
     {
         if ($window <= 0) {
-            return ['schema' => self::SCHEMA, 'window' => 0, 'by_status' => [], 'success_streak' => 0, 'top_actions' => []];
+            return ['schema' => self::SCHEMA, 'window' => 0, 'by_status' => [], 'success_streak' => 0, 'worst_refusal_streak' => 0, 'top_actions' => []];
         }
 
         $rows = $ledger->recentCycles($window);
         if ($rows === []) {
-            return ['schema' => self::SCHEMA, 'window' => 0, 'by_status' => [], 'success_streak' => 0, 'top_actions' => []];
+            return ['schema' => self::SCHEMA, 'window' => 0, 'by_status' => [], 'success_streak' => 0, 'worst_refusal_streak' => 0, 'top_actions' => []];
         }
 
         // Status distribution — every key the done-set records (served / refused / abstain / already_done /
@@ -69,6 +69,24 @@ final class AtlasBrainCompoundingDigest
             break;
         }
 
+        // Worst refusal streak — max consecutive refused/abstain/etc anywhere in the tail. Symmetric to
+        // success_streak; tells the brain how DEEP a bad spell got, not just whether one ended now. Useful
+        // for "I once recovered from a 7-refusal streak, this current 3-streak is recoverable" judgement.
+        $worstRefusal = 0;
+        $cur = 0;
+        $refusalStatuses = ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'];
+        foreach ($rows as $row) {
+            $s = trim((string) ($row['status'] ?? ''));
+            if (in_array($s, $refusalStatuses, true)) {
+                $cur++;
+                if ($cur > $worstRefusal) {
+                    $worstRefusal = $cur;
+                }
+            } else {
+                $cur = 0;
+            }
+        }
+
         // Top actions — bounded count (top-5 by frequency, ties broken alphabetically for stability).
         $actions = [];
         foreach ($rows as $row) {
@@ -90,6 +108,7 @@ final class AtlasBrainCompoundingDigest
             'window' => count($rows),
             'by_status' => $byStatus,
             'success_streak' => $streak,
+            'worst_refusal_streak' => $worstRefusal,
             'top_actions' => $topActions,
         ];
     }

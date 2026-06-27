@@ -90,6 +90,20 @@ final class AtlasBrainCompoundingDigestTest extends TestCase
         self::assertSame(0, $r['success_streak'], 'last row is refused ⇒ streak is 0');
     }
 
+    public function test_worst_refusal_streak_finds_the_longest_run_in_the_tail(): void
+    {
+        $l = $this->ledger();
+        // pattern: r r r s s r r — longest refusal run = 3 (the first); current tail-success-streak = 0 (after the trailing 2 refusals).
+        foreach (['refused', 'refused', 'refused', 'served', 'served', 'refused', 'refused'] as $s) {
+            $this->record($l, $s, 'origin', 'X.php');
+        }
+
+        $r = (new AtlasBrainCompoundingDigest)->digest($l);
+
+        self::assertSame(3, $r['worst_refusal_streak']);
+        self::assertSame(0, $r['success_streak'], 'tail-success after 2 refusals must be 0');
+    }
+
     public function test_top_actions_are_bounded_and_ordered(): void
     {
         $l = $this->ledger();
