@@ -60,6 +60,7 @@ final class AtlasBrainSummaryCommandTest extends TestCase
         self::assertStringContainsString('ledger=', $out);
         self::assertStringContainsString('next=', $out);
         self::assertStringContainsString('path=', $out);
+        self::assertStringContainsString('starved_paths=', $out);
     }
 
     public function test_summary_command_is_a_petreo_forbidden_self_target(): void

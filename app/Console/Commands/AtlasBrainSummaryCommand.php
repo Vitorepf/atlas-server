@@ -11,7 +11,9 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScoreLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -103,11 +105,15 @@ final class AtlasBrainSummaryCommand extends Command
             $totalHoles === 0, $ratio, $starv, (float) $entropy['normalized'], $direction
         )['score'];
 
+        // Portfolio path starvation count from L125.
+        $pathStarvation = app(AtlasBrainPathStarvationDetector::class)->detect($brief, app(AtlasBrainHintToPathTranslator::class));
+        $starvedPaths = count($pathStarvation['starved']);
+
         // Long-window score history from L99 ledger (last 10 snapshots).
         $ledgerScores = array_map(static fn (array $r): int => (int) ($r['score'] ?? 0), app(AtlasBrainHealthScoreLedger::class)->tail($scope, 10));
         $ledgerSig = $ledgerScores === [] ? 'none' : ($ledgerScores[0].'→'.end($ledgerScores));
 
-        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, findings={$c}c/{$w}w/{$i}i, next={$next}, path={$nextPath}]");
+        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, ledger={$ledgerSig}, starved_paths={$starvedPaths}/7, findings={$c}c/{$w}w/{$i}i, next={$next}, path={$nextPath}]");
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
