@@ -27,7 +27,7 @@ final class AtlasBrainFrontierMethodCatalog
         ['id' => 'scope_flag_auditor', 'summary' => 'flags inconsistent config flag combinations', 'organ_class' => AtlasBrainScopeFlagAuditor::class],
         // — unharvested frontier methods (organ_class=null) —
         ['id' => 'reflection_provenance_chain', 'summary' => 'per-reflection lineage of which prior cycles influenced it', 'organ_class' => null],
-        ['id' => 'cross_scope_pattern_xref', 'summary' => 'detect patterns common to >=2 scopes (transferable lessons)', 'organ_class' => null],
+        ['id' => 'cross_scope_pattern_xref', 'summary' => 'detect patterns common to >=2 scopes (transferable lessons)', 'organ_class' => AtlasBrainCrossScopePatternXref::class],
         ['id' => 'gate_false_positive_estimator', 'summary' => 'estimate gate FP rate by sampling refused-but-author-believes-real', 'organ_class' => null],
         ['id' => 'projection_calibration_score', 'summary' => 'compare past projector outputs vs actual next-cycle picks', 'organ_class' => null],
         ['id' => 'hint_frequency_drift_alarm', 'summary' => 'flags hints whose current freq is >=2x or <=0.5x of baseline window', 'organ_class' => AtlasBrainHintFrequencyDriftAlarm::class],
