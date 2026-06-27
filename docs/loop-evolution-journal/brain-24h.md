@@ -110,4 +110,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 4383340d9 — **L78 hint transition matrix (pétreo organ novo)**: markov-style adjacent-pair counter sobre o time series de action_hint. Surfaceia COUPLING (dinâmica) — ortogonal à histogram (distribuição) e analyzer (outcome). Pétreo. 4 tests verdes.
 - 568333618 — **L79 brain:state surfaces hint_transitions**: wire da L78 (top-3 pairs + self_loops + transitions count); 3 lentes ortogonais (distribuição + outcome + dinâmica) num só read. 5 state tests verdes (1 novo).
 - 76a94942e — **L80 doctor: hint_self_loop_dominant (info)**: ≥5 transições + >50% self-loops ⇒ info "cascade stuck on previous hint". Perseveração DINÂMICA, ortogonal ao histogram_skewed (distribuição). 7 doctor tests verdes.
+- e73e20fba — **L81 brain:summary single-line CLI (pétreo)**: `brain[scope=…, master=ON, gates=AIRTIGHT, ratio=42%/12, findings=0c/1w/3i]`. Cron/Slack/status-line friendly. Exit 0=airtight, 1=regression. 2 tests verdes.
 
