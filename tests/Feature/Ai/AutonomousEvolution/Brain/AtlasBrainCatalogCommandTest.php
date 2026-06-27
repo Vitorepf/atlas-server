@@ -40,6 +40,23 @@ final class AtlasBrainCatalogCommandTest extends TestCase
         self::assertSame('b', $payload['paths'][0]['id']);
     }
 
+    public function test_check_flag_returns_failure_on_incomplete_portfolio(): void
+    {
+        config()->set('atlas.brain.paths', [
+            ['id' => 'frontier-harvest', 'executor_organ' => 'App\\X'],
+            ['id' => 'pattern-design'], // missing executor
+        ]);
+
+        $exit = Artisan::call('atlas:brain:catalog', ['--check' => true, '--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame(1, $exit);
+        self::assertFalse($payload['check']['ok']);
+        self::assertSame(2, $payload['check']['actual_count']);
+        self::assertContains('pattern-design', $payload['check']['missing_executors']);
+        self::assertNotContains('frontier-harvest', $payload['check']['missing_canonical']);
+    }
+
     public function test_catalog_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainCatalogCommand.php', true);

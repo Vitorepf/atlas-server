@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainCatalogCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:catalog {--intent= : filter by intent} {--kind= : filter by objective_kind} {--json} {--raw : single-line JSON}';
+    protected $signature = 'atlas:brain:catalog {--intent= : filter by intent} {--kind= : filter by objective_kind} {--check : validate portfolio integrity (exit 1 on drift)} {--json} {--raw : single-line JSON}';
 
     /** @var string */
     protected $description = 'Dump the portfolio path catalog (config(atlas.brain.paths)) with optional intent/kind filters.';
@@ -45,12 +45,37 @@ final class AtlasBrainCatalogCommand extends Command
             ], $entries),
         ];
 
+        // INTEGRITY CHECK (opt-in): exit 1 when portfolio diverges from the canonical 7 / missing executors.
+        $checkExitCode = self::SUCCESS;
+        if ($this->option('check')) {
+            $allEntries = $catalog->all();
+            $canonical = ['frontier-harvest', 'metrics-optimization', 'pattern-design', 'simulation-twin', 'comprehension-deepening', 'adversarial-critique', 'compounding'];
+            $present = array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), $allEntries));
+            $missingCanonical = array_values(array_diff($canonical, $present));
+            $missingExecutors = [];
+            foreach ($allEntries as $entry) {
+                $id = (string) ($entry['id'] ?? '');
+                if ($id !== '' && $catalog->executorOrganFor($id) === null) {
+                    $missingExecutors[] = $id;
+                }
+            }
+            $checkFailed = count($allEntries) !== 7 || $missingCanonical !== [] || $missingExecutors !== [];
+            $payload['check'] = [
+                'expected_count' => 7,
+                'actual_count' => count($allEntries),
+                'missing_canonical' => $missingCanonical,
+                'missing_executors' => $missingExecutors,
+                'ok' => ! $checkFailed,
+            ];
+            $checkExitCode = $checkFailed ? self::FAILURE : self::SUCCESS;
+        }
+
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
             $flags |= JSON_PRETTY_PRINT;
         }
         $this->line((string) json_encode($payload, $flags));
 
-        return self::SUCCESS;
+        return $checkExitCode;
     }
 }
