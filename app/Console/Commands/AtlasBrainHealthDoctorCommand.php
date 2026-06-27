@@ -45,7 +45,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainHealthDoctorCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--severity= : filter findings to one severity (critical|warn|info)} {--top= : after severity filter, keep only the top-K by adviser priority} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
+    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--severity= : filter findings to one severity (critical|warn|info)} {--top= : after severity filter, keep only the top-K by adviser priority} {--alert : emit one alert line per finding (severity|code|advice) for log routing} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
 
     /** @var string */
     protected $description = 'First-aid checks over brain state — emits actionable findings (gate holes, dormant flags, dead memory, etc).';
@@ -368,6 +368,15 @@ final class AtlasBrainHealthDoctorCommand extends Command
         $blocking = $severityFilter !== ''
             ? $surfaced
             : array_values(array_filter($findings, static fn (array $f): bool => in_array((string) $f['severity'], ['critical', 'warn'], true)));
+
+        // --alert: log-router-friendly line per finding. Severity|code|advice. No JSON envelope.
+        if ($this->option('alert')) {
+            foreach ($surfaced as $f) {
+                $this->line($f['severity'].'|'.$f['code'].'|'.$f['advice']);
+            }
+
+            return $blocking === [] ? self::SUCCESS : self::FAILURE;
+        }
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
