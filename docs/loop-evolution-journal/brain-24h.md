@@ -83,4 +83,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 7deabeff5 — **L51 brief rotate_path cita served_ratio_pct**: rationale agora inclui ratio% quando metric presente. Trigger + magnitude + eficiência em 1 linha. 17 brief tests verdes.
 - 532d37a37 — **L52 state.done_set.recent_ratio_pct**: dashboard expõe origination efficiency direto sem brain:next. 4 state tests verdes.
 - 626817765 — **L53 brain:state --raw**: single-line JSON pra log/dashboard pipes. Default pretty-print preservado. 4 state tests verdes.
+- 54fb42930 — **L54 brain:health-doctor --raw**: paridade com state. Mesmo flag, mesmo shape. 3 doctor tests verdes.
 
