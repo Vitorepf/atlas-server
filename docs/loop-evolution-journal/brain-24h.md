@@ -430,3 +430,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 7 assertions green; pint green
 - next: rotate to compounding/simulation-twin/pattern-design (3 paths still at 3)
+
+## L189 — repeated refusal anti-pattern (pattern-design)
+- path: pattern-design (now 4 organs)
+- organ: AtlasBrainRepeatedRefusalAntiPattern — accepted=0 + refused>=N → never-learning hint
+- coverage matrix: pattern-design=4
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 8 assertions green; pint green
+- next: compounding or simulation-twin (only 2 paths still at 3)
