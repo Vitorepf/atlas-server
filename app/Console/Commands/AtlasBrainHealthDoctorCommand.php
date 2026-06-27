@@ -30,7 +30,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainHealthDoctorCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
+    protected $signature = 'atlas:brain:health-doctor {--scope= : scope slug (default: configured default_scope)} {--all : also enumerate findings per configured scope} {--severity= : filter findings to one severity (critical|warn|info)} {--json} {--raw : single-line JSON (no pretty-print) for log scraping}';
 
     /** @var string */
     protected $description = 'First-aid checks over brain state — emits actionable findings (gate holes, dormant flags, dead memory, etc).';
@@ -140,8 +140,24 @@ final class AtlasBrainHealthDoctorCommand extends Command
             }
         }
 
+        // Severity counts BEFORE filter — operator sees the global picture even when narrowing the list.
+        $severityCounts = ['critical' => 0, 'warn' => 0, 'info' => 0];
+        foreach ($findings as $f) {
+            $severityCounts[(string) $f['severity']]++;
+        }
+
+        // Optional severity filter — narrows the surfaced findings without affecting the global counts.
+        $severityFilter = trim((string) ($this->option('severity') ?? ''));
+        $surfaced = $findings;
+        if ($severityFilter !== '' && in_array($severityFilter, ['critical', 'warn', 'info'], true)) {
+            $surfaced = array_values(array_filter($findings, static fn (array $f): bool => (string) $f['severity'] === $severityFilter));
+        }
+
         // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
-        $blocking = array_values(array_filter($findings, static fn (array $f): bool => in_array((string) $f['severity'], ['critical', 'warn'], true)));
+        // When a severity filter is set, status/exit reflect ONLY findings of that severity (cron-friendly).
+        $blocking = $severityFilter !== ''
+            ? $surfaced
+            : array_values(array_filter($findings, static fn (array $f): bool => in_array((string) $f['severity'], ['critical', 'warn'], true)));
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
@@ -149,7 +165,9 @@ final class AtlasBrainHealthDoctorCommand extends Command
         }
         $payload = [
             'scope' => $scope,
-            'findings' => $findings,
+            'findings' => $surfaced,
+            'severity_counts' => $severityCounts,
+            'severity_filter' => $severityFilter !== '' ? $severityFilter : null,
             'status' => $blocking === [] ? 'healthy' : 'has_findings',
         ];
 

@@ -87,6 +87,30 @@ final class AtlasBrainHealthDoctorCommandTest extends TestCase
         self::assertContains('brief_histogram_skewed', array_column($payload['findings'], 'code'));
     }
 
+    public function test_severity_filter_narrows_findings_and_drives_exit_code(): void
+    {
+        // Default state: master_off (warn) + scope_signal_digest_dormant (info) + frontier_empty (info).
+        Artisan::call('atlas:brain:health-doctor', ['--json' => true, '--severity' => 'info']);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        // Surfaced findings are info-only; counts retain the full breakdown.
+        foreach ($payload['findings'] as $f) {
+            self::assertSame('info', $f['severity']);
+        }
+        self::assertSame('info', $payload['severity_filter']);
+        self::assertGreaterThan(0, $payload['severity_counts']['warn'], 'warn counts survive in the summary even when filter=info');
+        self::assertGreaterThan(0, $payload['severity_counts']['info']);
+        // Filter=info ⇒ status reflects ONLY info findings (which are non-empty here) ⇒ has_findings.
+        self::assertSame('has_findings', $payload['status']);
+
+        // critical filter on the same default state ⇒ empty surfaced + healthy + exit 0.
+        $exit = Artisan::call('atlas:brain:health-doctor', ['--json' => true, '--severity' => 'critical']);
+        $payload2 = json_decode(trim(Artisan::output()), true);
+        self::assertSame([], $payload2['findings']);
+        self::assertSame('healthy', $payload2['status']);
+        self::assertSame(0, $exit);
+    }
+
     public function test_doctor_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainHealthDoctorCommand.php', true);
