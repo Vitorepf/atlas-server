@@ -51,6 +51,7 @@ use App\Console\Commands\AtlasAiWeeklyMemoryDigestCommand;
 use App\Console\Commands\AtlasApplyLearningCommand;
 use App\Console\Commands\AtlasBridgeEvidenceCommand;
 use App\Console\Commands\AtlasBlogEditorialPlanCommand;
+use App\Console\Commands\AtlasBrainContractGapsCommand;
 use App\Console\Commands\AtlasBrainNextCommand;
 use App\Console\Commands\AtlasBrainQueuedTargetsCommand;
 use App\Console\Commands\AtlasBrainSeedCommand;
@@ -269,6 +270,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasApplyLearningCommand::class,
         AtlasBridgeEvidenceCommand::class,
         AtlasBlogEditorialPlanCommand::class,
+        AtlasBrainContractGapsCommand::class,
         AtlasBrainNextCommand::class,
         AtlasBrainQueuedTargetsCommand::class,
         AtlasBrainSeedCommand::class,
