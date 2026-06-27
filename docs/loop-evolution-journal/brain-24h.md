@@ -128,4 +128,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 4415f9024 — **L96 brain:summary ganha age=Xs**: silence-detect visível na cron line; 'age=none' quando 0 reflections. 2 tests verdes.
 - 7c63a7f1f — **L97 brain:history command (pétreo)**: tail operator-friendly do reflection stream (cycle_id+kind+hint+head). 2 tests verdes.
 - 23d0073e7 — **L98 brain:history --kind/--hint filters**: operator pode grep só failures (kind=blocked) ou hint específico sem jq. Filtro antes do tail (last N matches, não last N rows). 3 history tests verdes.
+- 87c6b3af7 — **L99 health-score ledger (pétreo organ novo — first writer)**: append-only NDJSON time-series do composite L90 por scope. Memória nova; operator plota score sobre dias. Score clamped 0..100. Pétreo. 3 tests verdes.
 
