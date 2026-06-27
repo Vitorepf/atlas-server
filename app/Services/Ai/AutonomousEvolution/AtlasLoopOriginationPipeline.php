@@ -29,15 +29,16 @@ final class AtlasLoopOriginationPipeline
         private readonly ?AtlasLoopComprehensionOriginator $originator = null,
         private readonly ?AtlasLoopArchitectPhaseGate $gate = null,
         private readonly ?AtlasLoopCrossTypeLeverageSelector $selector = null,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<string>  $priorAttempts  campaign targets that did not converge — passed to the originator
-     *                                        as CONTEXT (informs the writer, never vetoes). §5 learning.
+     *                                       as CONTEXT (informs the writer, never vetoes). §5 learning.
+     * @param  array<string,int>  $refusalCounts  per target rel_path => prior intrinsic-refusal count (S215
+     *                                            Discovery→Brain coupling). Empty/OFF => byte-identical.
      * @return array{produced:bool, action?: 'proceed'|'abstain', objective:?string, target_path:?string, obligations:list<array<string,mixed>>, reason:?string}
      */
-    public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $priorAttempts = []): array
+    public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $priorAttempts = [], array $refusalCounts = []): array
     {
         // Directive #2/#3 — LEVERAGE-FIRST, MATERIAL-ONLY origination. Rank the grounded candidates by leverage
         // (wiring the parked CrossTypeLeverageSelector — the loop's OWN self-chosen evolution), DROP the
@@ -46,7 +47,7 @@ final class AtlasLoopOriginationPipeline
         $objective = '';
         $target = null;
         if ((bool) config('atlas.loop.leverage_first_origination_enabled', false)) {
-            $picked = $this->leverageFirstMaterialTarget($model, $repoRoot);
+            $picked = $this->leverageFirstMaterialTarget($model, $repoRoot, $refusalCounts);
             if ($picked !== null) {
                 [$objective, $target] = $picked;
             }
@@ -116,13 +117,14 @@ final class AtlasLoopOriginationPipeline
      * this deterministic path. The selector can only REORDER the grounded set (never fabricate), so this is
      * leverage-first WITHOUT a self-scored proxy.
      *
-     * @return array{0:string, 1:string}|null  [objective, target_relative_path]
+     * @param  array<string,int>  $refusalCounts
+     * @return array{0:string, 1:string}|null [objective, target_relative_path]
      */
-    private function leverageFirstMaterialTarget(AtlasLoopScopeComprehensionModel $model, string $repoRoot): ?array
+    private function leverageFirstMaterialTarget(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $refusalCounts = []): ?array
     {
         $ranked = ($this->selector ?? new AtlasLoopCrossTypeLeverageSelector)->rankedForModel($model);
         $dropped = [];
-        $picked = null;
+        $valid = []; // ordered [objective, rel] in leverage-ranked order (was: take first via ??=)
         foreach ($ranked as $candidate) {
             if (! is_array($candidate)) {
                 continue;
@@ -140,12 +142,56 @@ final class AtlasLoopOriginationPipeline
                 continue;
             }
 
-            $picked ??= [$objective, $rel];
+            $valid[] = [$objective, $rel];
         }
 
         $this->appendLeverageDroppedCandidates($dropped);
 
-        return $picked;
+        // ORIGINATION REFUSAL MEMORY (S215 — Discovery→Brain coupling): demote targets the brain has
+        // already refused >=N times below fresh ones, so it ORIGINATES a new target instead of
+        // re-proposing a failed one. OFF/empty => head of the ranked set (byte-identical first-valid pick).
+        return self::refusalAwarePick(
+            $valid,
+            $refusalCounts,
+            (bool) config('atlas.loop.origination_refusal_memory_enabled', false),
+            (int) config('atlas.loop.origination_refusal_memory_min', 2),
+        );
+    }
+
+    /**
+     * Pure refusal-aware selection over the leverage-ranked valid candidates. Public+static so the reorder
+     * is directly unit-testable (the architect gate / selector are final and un-fakeable). DEMOTE, never
+     * exclude: a fully-refused set still yields its best candidate (the loop never dead-stalls). isDone()
+     * sticky-dedups SERVED targets upstream, so this governs only refused-but-never-served targets — exactly
+     * the perseveration the operator named "substrato sem circulação".
+     *
+     * @param  list<array{0:string,1:string}>  $valid  [objective, rel] in leverage-ranked order
+     * @param  array<string,int>  $refusalCounts  per target rel_path
+     * @return array{0:string,1:string}|null
+     */
+    public static function refusalAwarePick(array $valid, array $refusalCounts, bool $enabled, int $minRefusals): ?array
+    {
+        if ($valid === []) {
+            return null;
+        }
+        if (! $enabled || $refusalCounts === []) {
+            return $valid[0];
+        }
+        $min = max(1, $minRefusals);
+        $fresh = [];
+        $refused = [];
+        foreach ($valid as $pair) {
+            if ((int) ($refusalCounts[$pair[1]] ?? 0) >= $min) {
+                $refused[] = $pair;
+            } else {
+                $fresh[] = $pair;
+            }
+        }
+
+        // Stable: fresh keep leverage order; fully-refused fall to the back in leverage order.
+        $ordered = array_merge($fresh, $refused);
+
+        return $ordered[0];
     }
 
     /**

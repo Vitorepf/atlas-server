@@ -1995,6 +1995,15 @@ return [
         // precisão (só as formas inequívocas), gateia TODA cert. Default ON: pegar isso É o moat.
         'overfit_probe_enabled' => (bool) env('ATLAS_LOOP_OVERFIT_PROBE_ENABLED', true),
 
+        // S215 Discovery→Brain coupling: ORIGINATION REFUSAL MEMORY. When ON, leverage-first origination
+        // demotes a target the brain has already refused >= _min times (target-intrinsic refusals only)
+        // below fresh targets, so it ORIGINATES a new target instead of re-proposing a failed one — the
+        // brain's per-target memory becomes load-bearing on WHAT is originated. Default OFF/empty-map =>
+        // byte-identical first-valid pick. Stacks under leverage_first_origination_enabled (the whole
+        // leverage-first path) + ATLAS_LOOP_MASTER_ENABLED + AtlasBrainMasterSwitch.
+        'origination_refusal_memory_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_REFUSAL_MEMORY_ENABLED', false),
+        'origination_refusal_memory_min' => max(1, (int) env('ATLAS_LOOP_ORIGINATION_REFUSAL_MEMORY_MIN', 2)),
+
         // AUTHOR≠JUDGE runtime cert predicate: se o diff de uma proposta tocar QUALQUER arquivo
         // dono de juízo/gate (HarnessGuard::FORBIDDEN_SELF_TARGETS), a cert é RECUSADA — não só
         // edit-bloqueada. Converte author≠judge de perímetro (blocklist de edição) em predicado

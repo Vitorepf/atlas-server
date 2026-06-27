@@ -79,4 +79,43 @@ final class AtlasLoopOriginationPipelineTest extends TestCase
         $this->assertFalse($res['produced']);
         $this->assertSame('forbidden_target_petreo', $res['reason']);
     }
+
+    // ── S215 Discovery→Brain coupling: origination refusal memory (pure reorder, directly tested) ──
+
+    /** @var list<array{0:string,1:string}> two leverage-ranked valid candidates */
+    private const VALID = [['Wire A', 'app/A.php'], ['Wire B', 'app/B.php']];
+
+    public function test_refusal_memory_off_is_byte_identical_first_valid_pick(): void
+    {
+        // OFF => head of the leverage-ranked set, exactly the prior `$picked ??=` behavior.
+        $this->assertSame(['Wire A', 'app/A.php'], AtlasLoopOriginationPipeline::refusalAwarePick(self::VALID, ['app/A.php' => 9], false, 2));
+        // Empty refusal map (default) => head, even when enabled.
+        $this->assertSame(['Wire A', 'app/A.php'], AtlasLoopOriginationPipeline::refusalAwarePick(self::VALID, [], true, 2));
+    }
+
+    public function test_refusal_memory_demotes_a_refused_target_when_armed(): void
+    {
+        // ARMED + the top candidate (A) has >= min refusals => the brain ORIGINATES the fresh target B
+        // instead of re-proposing A. This is the real origination behavior flip.
+        $this->assertSame(['Wire B', 'app/B.php'], AtlasLoopOriginationPipeline::refusalAwarePick(self::VALID, ['app/A.php' => 2], true, 2));
+    }
+
+    public function test_below_threshold_refusal_does_not_demote(): void
+    {
+        // 1 refusal < min 2 => A is still fresh-enough => head unchanged.
+        $this->assertSame(['Wire A', 'app/A.php'], AtlasLoopOriginationPipeline::refusalAwarePick(self::VALID, ['app/A.php' => 1], true, 2));
+    }
+
+    public function test_fully_refused_set_demotes_not_excludes(): void
+    {
+        // Both refused >= min => never a dead stall: the best (leverage-order head of the refused group) is
+        // still returned, never null.
+        $pick = AtlasLoopOriginationPipeline::refusalAwarePick(self::VALID, ['app/A.php' => 5, 'app/B.php' => 5], true, 2);
+        $this->assertSame(['Wire A', 'app/A.php'], $pick);
+    }
+
+    public function test_empty_valid_set_returns_null(): void
+    {
+        $this->assertNull(AtlasLoopOriginationPipeline::refusalAwarePick([], ['app/A.php' => 9], true, 2));
+    }
 }

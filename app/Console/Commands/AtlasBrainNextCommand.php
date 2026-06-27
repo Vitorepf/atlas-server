@@ -101,7 +101,10 @@ final class AtlasBrainNextCommand extends Command
 
         // ORIGINATE + DESIGN. priorAttempts = the done-set targets, so the originator never re-proposes them.
         $priorAttempts = $this->priorTargets($ledger, $maxPrior);
-        $origination = app(AtlasLoopOriginationPipeline::class)->produce($model, $repoRoot, $priorAttempts);
+        // S215 Discovery→Brain coupling: per-target refusal memory steers leverage-first origination away
+        // from targets the brain has already refused (OFF by default => empty map => byte-identical pick).
+        $refusalCounts = $this->buildRefusalCounts($ledger);
+        $origination = app(AtlasLoopOriginationPipeline::class)->produce($model, $repoRoot, $priorAttempts, $refusalCounts);
 
         $produced = (bool) ($origination['produced'] ?? false);
         $action = (string) ($origination['action'] ?? '');
@@ -361,6 +364,35 @@ final class AtlasBrainNextCommand extends Command
         }
 
         return array_keys($targets);
+    }
+
+    /**
+     * S215 — per-target REFUSAL MEMORY for origination. Counts, per target_path, the brain's prior
+     * TARGET-INTRINSIC refusals (forbidden_target, prepare_blocked) from the done-set tail. Excludes
+     * environmental/served statuses: 'already_done' is the sticky-dedup (handled by isDone() upstream),
+     * and a served target is never re-originated anyway. The map steers leverage-first origination away
+     * from targets that keep getting refused for a reason intrinsic to the target itself.
+     *
+     * @return array<string,int>
+     */
+    private function buildRefusalCounts(AtlasBrainDoneSetLedger $ledger): array
+    {
+        $intrinsic = ['forbidden_target', 'prepare_blocked'];
+        $counts = [];
+        foreach ($ledger->recentCycles(100000) as $row) {
+            if ((bool) ($row['refusal'] ?? false) !== true) {
+                continue;
+            }
+            if (! in_array((string) ($row['status'] ?? ''), $intrinsic, true)) {
+                continue;
+            }
+            $t = trim((string) ($row['target_path'] ?? ''));
+            if ($t !== '') {
+                $counts[$t] = ($counts[$t] ?? 0) + 1;
+            }
+        }
+
+        return $counts;
     }
 
     /**
