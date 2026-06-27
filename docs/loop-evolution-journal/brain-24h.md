@@ -157,6 +157,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - f2171e822 — **L124 doctor: path_concentration (info)**: ≥5 hints atribuídos + um path >60% ⇒ info "rotation concentrating". Distinto de brief_histogram_skewed (per-hint vs per-path). Adviser→pattern-design. 14 surface tests verdes.
 - 7749cd2be — **L125 path starvation detector (pétreo organ novo)**: para cada canonical path, retorna se algum hint mapeado disparou no tail. Diferente de concentration: "este path NÃO foi escolhido nem uma vez". Pétreo. 3 tests verdes.
 - 6f964ea2d — **L126 doctor: path_starvation (info)**: ≥5 hints atribuídos + ≥3 paths starved ⇒ info "rotation leaving paths on bench". Adviser→frontier-harvest. 14 surface tests verdes.
+- baf703716 — **L127 state.path_starvation**: wire da L125 — operator vê {hit, starved, ambiguous}. 10 surface tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
