@@ -167,6 +167,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathStarvationDetector.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainNextPathSuggester.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainOriginationGapDetector.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainProvenanceAttributionAnalyzer.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
