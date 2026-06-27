@@ -142,6 +142,18 @@ final class AtlasBrainGateAdversarialAuditor
                 ],
                 'expected' => 'acceptance_not_runnable',
             ],
+            // PERMANENT human/external-provider dependency — a packet that bakes in a human-loop runtime
+            // owner is structurally unable to autonomously evolve; the inspector must flag this BLOCKING.
+            'permanent_human_dependency' => [
+                'packet' => [
+                    'objective' => 'operator approval required permanently for every task running php artisan AtlasFooService boot kernel',
+                    'allowed_files' => ['app/Services/AtlasFooService.php'],
+                    'acceptance_criteria' => ['php artisan test --filter=AtlasFooServiceTest passes'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                ],
+                'expected' => 'permanent_human_or_external_provider_dependency',
+            ],
+
             // S5 attack — adequacy beyond presence (acceptance never names the changed file).
             'acceptance_coverage_mismatch' => [
                 'packet' => [
