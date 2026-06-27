@@ -9,6 +9,8 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyz
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
@@ -191,6 +193,23 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $trend = app(AtlasBrainTrendAnalyzer::class)->starvation($stream->forScope($scope));
             if ($trend['direction'] === 'worsening') {
                 $findings[] = ['severity' => 'info', 'code' => 'starvation_trend_worsening', 'advice' => "starvation_pct moved {$trend['older_starvation_pct']}% → {$trend['newer_starvation_pct']}% (Δ +{$trend['delta_pct']}) over the last {$trend['window']}+{$trend['window']} cycles — queue health degrading; act now (rotate path, harvest frontier, or originate fresh)"];
+            }
+        }
+
+        // INFO: composite health score below the 50/100 floor (weighted: gates40+ratio20+starv20+entropy10+trend10).
+        // One single number to act on; the rich findings tell you WHICH dimension caused it.
+        if ($reflectionEnabled) {
+            $stream = app(AtlasBrainReflectionStream::class);
+            $tail = array_slice($stream->forScope($scope), -50);
+            $brief = app(AtlasBrainBriefHistogram::class)->histogram($tail);
+            $entropy = app(AtlasBrainHintEntropy::class)->compute($brief);
+            $trend = app(AtlasBrainTrendAnalyzer::class)->starvation($stream->forScope($scope));
+            $starvPct = app(AtlasBrainResultKindHistogram::class)->histogram($tail)['starvation_pct'];
+            $airtight = ($inspectorHoles + $seedHoles) === 0;
+            $ratioPct = ($served + $refused) > 0 ? (int) round(($served * 100) / ($served + $refused)) : 0;
+            $score = app(AtlasBrainHealthScore::class)->compute($airtight, $ratioPct, $starvPct, (float) $entropy['normalized'], (string) $trend['direction'])['score'];
+            if ($score < 50) {
+                $findings[] = ['severity' => 'info', 'code' => 'health_score_low', 'advice' => "composite health_score={$score}/100 below the 50 floor — review the per-finding causes (gates/ratio/starvation/entropy/trend) and act on the heaviest deficit"];
             }
         }
 
