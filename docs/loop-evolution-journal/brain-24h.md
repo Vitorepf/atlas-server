@@ -564,3 +564,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 6 assertions green; pint green
 - next: simulation-twin (last @5)
+
+## L205 — horizon diversity forecast (simulation-twin @6) — ALL >=6
+- path: simulation-twin (now 6 organs)
+- organ: AtlasBrainHorizonDiversityForecast — projector + HHI composition
+- coverage: ALL 7 PATHS NOW >=6 ORGANS (42 total)
+- dependency graph: 1-organ dep recorded
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 3 tests / 4 assertions green; pint green
+- placar 8h: 42 organs across 7 paths, schema reg 41, all >=6
