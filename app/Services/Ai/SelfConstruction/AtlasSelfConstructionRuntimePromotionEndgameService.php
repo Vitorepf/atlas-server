@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
@@ -20,6 +22,8 @@ use Illuminate\Support\Facades\Storage;
  */
 final class AtlasSelfConstructionRuntimePromotionEndgameService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_endgame.v1';
 
     public const MODE = 'read_only_runtime_promotion_endgame';
@@ -932,8 +936,4 @@ final class AtlasSelfConstructionRuntimePromotionEndgameService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }
