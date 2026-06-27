@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -71,7 +76,18 @@ final class AtlasBrainSummaryCommand extends Command
         $w = (int) ($counts['warn'] ?? 0);
         $i = (int) ($counts['info'] ?? 0);
 
-        $this->line("brain[scope={$scope}, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, findings={$c}c/{$w}w/{$i}i]");
+        // Perception slice — read-only over the reflection stream.
+        $stream = app(AtlasBrainReflectionStream::class);
+        $tail = array_slice($stream->forScope($scope), -50);
+        $kind = app(AtlasBrainResultKindHistogram::class)->histogram($tail);
+        $brief = app(AtlasBrainBriefHistogram::class)->histogram($tail);
+        $entropy = app(AtlasBrainHintEntropy::class)->compute($brief);
+        $trend = app(AtlasBrainTrendAnalyzer::class)->starvation($stream->forScope($scope));
+        $starv = (int) $kind['starvation_pct'];
+        $entropyNorm = number_format((float) $entropy['normalized'], 2);
+        $direction = (string) $trend['direction'];
+
+        $this->line("brain[scope={$scope}, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, findings={$c}c/{$w}w/{$i}i]");
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }

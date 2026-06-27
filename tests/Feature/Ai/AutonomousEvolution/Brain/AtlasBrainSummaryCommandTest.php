@@ -51,6 +51,9 @@ final class AtlasBrainSummaryCommandTest extends TestCase
         self::assertStringContainsString('master=ON', $out);
         self::assertStringContainsString('gates=AIRTIGHT', $out);
         self::assertStringContainsString('findings=', $out);
+        self::assertStringContainsString('starv=', $out);
+        self::assertStringContainsString('entropy=', $out);
+        self::assertStringContainsString('trend=', $out);
     }
 
     public function test_summary_command_is_a_petreo_forbidden_self_target(): void
