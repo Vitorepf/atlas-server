@@ -131,4 +131,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 87c6b3af7 — **L99 health-score ledger (pétreo organ novo — first writer)**: append-only NDJSON time-series do composite L90 por scope. Memória nova; operator plota score sobre dias. Score clamped 0..100. Pétreo. 3 tests verdes.
 - 6ee34d42a — **L100 brain:snapshot command (pétreo) — closes L99 ring**: ÚNICA command da perception suite que muta. Computa L90 score atual + appenda na L99 ledger. Cron-friendly (snapshot every 15min). 2 snapshot tests verdes; 233 brain tests total. **100-slice mark.**
 - b913ce0b7 — **L101 brain:trend command (pétreo)**: lê L99 ledger tail → first/last/min/max/delta. Complemento read-only do snapshot writer. 2 trend tests verdes.
+- 8cead6618 — **L102 doctor: score_ledger_regressing (info)**: ≥5 snapshots + delta<-10 ⇒ info "multi-snapshot regression". Cobre multi-day drift que L85 short-window missa. Fecha ledger ring (writer→reader→advice). 9 doctor tests verdes.
 
