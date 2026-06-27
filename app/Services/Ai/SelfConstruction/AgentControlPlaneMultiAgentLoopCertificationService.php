@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Certifies the canonical multi-agent terminal loop dry-run:
@@ -27,6 +28,9 @@ use Illuminate\Support\Str;
  */
 final class AgentControlPlaneMultiAgentLoopCertificationService
 {
+    private ?\App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates $digestPredicates = null;
+
+    use RecursivelyKsortsArrays;
     private ?AgentControlPlaneMultiAgentLoopProbeRunner $probeRunnerInstance = null;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_multi_agent_loop_certification.v1';
 
@@ -1106,14 +1110,6 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::normalizeForHash($payload);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $value
-     * @return array<mixed, mixed>
-     */
-    private function recursivelyKsort(array $value): array
-    {
-        return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::recursivelyKsort($value);
-    }
 
     /**
      * @param  array<mixed, mixed>  $payload
@@ -1154,43 +1150,49 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
         return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::safeForParallelTerminalLoop($invariants, $cycleEvidence);
     }
 
-    private function terminalLoopFleetLaunchPlanPresent(): bool
+        public function terminalLoopFleetLaunchPlanPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetLaunchPlanPresent();
+        return $this->digestPredicates()->terminalLoopFleetLaunchPlanPresent();
     }
 
-    private function terminalLoopFleetReplenishmentPlanPresent(): bool
+        public function terminalLoopFleetReplenishmentPlanPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetReplenishmentPlanPresent();
+        return $this->digestPredicates()->terminalLoopFleetReplenishmentPlanPresent();
     }
 
-    private function terminalLoopFleetResumeRollupPresent(): bool
+        public function terminalLoopFleetResumeRollupPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetResumeRollupPresent();
+        return $this->digestPredicates()->terminalLoopFleetResumeRollupPresent();
     }
 
-    private function terminalLoopFleetEvidenceRollupPresent(): bool
+        public function terminalLoopFleetEvidenceRollupPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetEvidenceRollupPresent();
+        return $this->digestPredicates()->terminalLoopFleetEvidenceRollupPresent();
     }
 
-    private function terminalLoopFleetOperatorHandoffPresent(): bool
+        public function terminalLoopFleetOperatorHandoffPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetOperatorHandoffPresent();
+        return $this->digestPredicates()->terminalLoopFleetOperatorHandoffPresent();
     }
 
-    private function terminalLoopFleetLaneIsolationPresent(): bool
+        public function terminalLoopFleetLaneIsolationPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetLaneIsolationPresent();
+        return $this->digestPredicates()->terminalLoopFleetLaneIsolationPresent();
     }
 
-    private function terminalLoopCycleSupervisorPresent(): bool
+        public function terminalLoopCycleSupervisorPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::cycleSupervisorPresent();
+        return $this->digestPredicates()->terminalLoopCycleSupervisorPresent();
     }
 
-    private function terminalLoopFleetLaunchRunbookPresent(): bool
+        public function terminalLoopFleetLaunchRunbookPresent(): bool
     {
-        return MultiAgentLoopCertification\AgentControlPlaneTerminalLoopHealthDigestPresenceProbe::fleetLaunchRunbookPresent();
+        return $this->digestPredicates()->terminalLoopFleetLaunchRunbookPresent();
     }
+
+    private function digestPredicates(): \App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates
+    {
+        return $this->digestPredicates ??= new \App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates();
+    }
+
 }
