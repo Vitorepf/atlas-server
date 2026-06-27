@@ -61,6 +61,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainHintFrequencyDriftAlarm::class,
             AtlasBrainCrossScopePatternXref::class,
             AtlasBrainGateFalsePositiveEstimator::class,
+            AtlasBrainPathPriorityRationale::class,
         ],
     ];
 
