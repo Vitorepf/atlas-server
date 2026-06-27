@@ -46,14 +46,21 @@ final class AtlasBrainPortfolioRouter
      */
     public function route(array $digest): array
     {
+        $strength = 0;
+        foreach (['orphans', 'clone_clusters', 'doc_stated_gaps'] as $axis) {
+            if (($digest[$axis] ?? []) !== []) {
+                $strength++;
+            }
+        }
+
         if (($digest['orphans'] ?? []) !== []) {
-            return $this->result(self::PATH_COMPREHENSION_DEEPENING, 'orphans', 'unwired organs need the deepening lens — they ARE the non-obvious structural leverage');
+            return $this->result(self::PATH_COMPREHENSION_DEEPENING, 'orphans', 'unwired organs need the deepening lens — they ARE the non-obvious structural leverage', $strength);
         }
         if (($digest['clone_clusters'] ?? []) !== []) {
-            return $this->result(self::PATH_PATTERN_DESIGN, 'clone_clusters', 'duplicated implementations match the pattern-registry directly');
+            return $this->result(self::PATH_PATTERN_DESIGN, 'clone_clusters', 'duplicated implementations match the pattern-registry directly', $strength);
         }
         if (($digest['doc_stated_gaps'] ?? []) !== []) {
-            return $this->result(self::PATH_FRONTIER_HARVEST, 'doc_stated_gaps', 'a documented gap is a known-unknown to mine an external frontier technique for');
+            return $this->result(self::PATH_FRONTIER_HARVEST, 'doc_stated_gaps', 'a documented gap is a known-unknown to mine an external frontier technique for', $strength);
         }
 
         return [
@@ -61,19 +68,21 @@ final class AtlasBrainPortfolioRouter
             'recommended_path' => null,
             'reason' => 'no dominant structural signal — defer to the brain\'s default rotation',
             'signal_class' => null,
+            'signal_strength' => 0,
         ];
     }
 
     /**
-     * @return array{schema:string, recommended_path:string, reason:string, signal_class:string}
+     * @return array{schema:string, recommended_path:string, reason:string, signal_class:string, signal_strength:int}
      */
-    private function result(string $path, string $signalClass, string $reason): array
+    private function result(string $path, string $signalClass, string $reason, int $signalStrength): array
     {
         return [
             'schema' => self::SCHEMA,
             'recommended_path' => $path,
             'reason' => $reason,
             'signal_class' => $signalClass,
+            'signal_strength' => $signalStrength,
         ];
     }
 }

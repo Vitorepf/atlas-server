@@ -56,6 +56,15 @@ final class AtlasBrainPortfolioRouterTest extends TestCase
         self::assertNull($r['signal_class']);
     }
 
+    public function test_signal_strength_counts_present_axes(): void
+    {
+        $router = new AtlasBrainPortfolioRouter;
+        self::assertSame(0, $router->route(['orphans' => [], 'clone_clusters' => [], 'doc_stated_gaps' => []])['signal_strength']);
+        self::assertSame(1, $router->route(['orphans' => ['A']])['signal_strength']);
+        self::assertSame(2, $router->route(['orphans' => ['A'], 'clone_clusters' => ['c1']])['signal_strength']);
+        self::assertSame(3, $router->route(['orphans' => ['A'], 'clone_clusters' => ['c1'], 'doc_stated_gaps' => ['g']])['signal_strength']);
+    }
+
     public function test_router_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(
