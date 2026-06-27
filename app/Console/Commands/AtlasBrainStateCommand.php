@@ -165,6 +165,31 @@ final class AtlasBrainStateCommand extends Command
                     'by_hint' => $top,
                     // L121: each row also attributed to its portfolio path so operator sees per-PATH win-rate.
                     'by_path' => app(AtlasBrainHintToPathTranslator::class)->attribute($top),
+                    // PATH ROLLUP — aggregate served/refused across hints sharing the same path so
+                    // operator sees per-PATH win-rate (paths can have multiple hints, e.g. comprehension-
+                    // deepening covers both rotate_path AND originate_fresh).
+                    'path_rollup' => (function () use ($report): array {
+                        $tr = app(AtlasBrainHintToPathTranslator::class);
+                        $agg = [];
+                        foreach ($report['by_hint'] as $row) {
+                            $path = $tr->pathFor((string) ($row['hint'] ?? ''));
+                            if ($path === null) {
+                                continue;
+                            }
+                            $agg[$path] ??= ['path' => $path, 'served' => 0, 'refused' => 0, 'total' => 0];
+                            $agg[$path]['served'] += (int) ($row['served'] ?? 0);
+                            $agg[$path]['refused'] += (int) ($row['refused'] ?? 0);
+                            $agg[$path]['total'] += (int) ($row['total'] ?? 0);
+                        }
+                        foreach ($agg as &$r) {
+                            $r['served_rate_pct'] = $r['total'] > 0 ? (int) round(($r['served'] * 100) / $r['total']) : 0;
+                        }
+                        unset($r);
+                        $rows = array_values($agg);
+                        usort($rows, static fn (array $a, array $b): int => [$b['served_rate_pct'], $b['total']] <=> [$a['served_rate_pct'], $a['total']]);
+
+                        return $rows;
+                    })(),
                 ];
             })(),
             'frontier' => (function () use ($scope): array {
