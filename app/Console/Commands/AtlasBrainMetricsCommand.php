@@ -64,9 +64,11 @@ final class AtlasBrainMetricsCommand extends Command
         $holes = count(app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector)['holes'])
             + count(app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class))['holes']);
 
-        $score = app(AtlasBrainHealthScore::class)->compute(
+        $scoreReport = app(AtlasBrainHealthScore::class)->compute(
             $holes === 0, $ratio, (int) $kind['starvation_pct'], (float) $entropy['normalized'], (string) $trend['direction']
-        )['score'];
+        );
+        $score = $scoreReport['score'];
+        $br = $scoreReport['breakdown'];
 
         $label = "{scope=\"{$scope}\"}";
         $age = $fresh['has_evidence'] ? (int) $fresh['age_seconds'] : -1;
@@ -79,6 +81,11 @@ final class AtlasBrainMetricsCommand extends Command
             "atlas_brain_entropy_normalized{$label}" => number_format((float) $entropy['normalized'], 4),
             "atlas_brain_evidence_age_seconds{$label}" => $age,
             "atlas_brain_origination_gap_cycles{$label}" => $gap,
+            "atlas_brain_score_breakdown_gates{$label}" => (int) $br['gates'],
+            "atlas_brain_score_breakdown_ratio{$label}" => (int) $br['ratio'],
+            "atlas_brain_score_breakdown_starvation{$label}" => (int) $br['starvation'],
+            "atlas_brain_score_breakdown_entropy{$label}" => (int) $br['entropy'],
+            "atlas_brain_score_breakdown_trend{$label}" => (int) $br['trend'],
         ];
 
         if ((string) $this->option('format') === 'json') {
@@ -103,6 +110,11 @@ final class AtlasBrainMetricsCommand extends Command
             'atlas_brain_entropy_normalized' => ['gauge', 'Normalized Shannon entropy over hint distribution [0..1]'],
             'atlas_brain_evidence_age_seconds' => ['gauge', 'Seconds since newest reflection (-1 if none)'],
             'atlas_brain_origination_gap_cycles' => ['gauge', 'Cycles since last served|seeded done-set row'],
+            'atlas_brain_score_breakdown_gates' => ['gauge', 'Health score gates component (0|40)'],
+            'atlas_brain_score_breakdown_ratio' => ['gauge', 'Health score served_ratio component (0..20)'],
+            'atlas_brain_score_breakdown_starvation' => ['gauge', 'Health score starvation component (0..20)'],
+            'atlas_brain_score_breakdown_entropy' => ['gauge', 'Health score entropy component (0..10)'],
+            'atlas_brain_score_breakdown_trend' => ['gauge', 'Health score trend component (0|5|10)'],
         ];
         $emitted = [];
         foreach ($metrics as $key => $val) {
