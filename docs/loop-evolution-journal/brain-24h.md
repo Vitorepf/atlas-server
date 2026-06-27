@@ -235,3 +235,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - **Brain test suite**: 240+ verde; gates AIRTIGHT continuous.
 - Path rotation cobertos: pattern-design (L73,L80,L82,L83,L85,L87,L99) + metrics-optimization (L100,L101,L102,L103,L104,L106) + comprehension-deepening (L72,L75,L78,L94,L105) + adversarial-critique (L77,L84,L86,L93) + compounding (L107,L108,L109,L110,L111) + simulation-twin (L97,L98) + frontier-harvest (L105 read).
 
+
+## L164 — scope flag auditor (89fc8eb33)
+- path: comprehension-deepening
+- organ: AtlasBrainScopeFlagAuditor (4 oddity codes: recording_without_digesting, master_on_reflection_off, causal_selector_without_reflection, reflection_on_master_off)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 5 assertions green; pint green
+- next: rotate path — adversarial-critique or compounding
