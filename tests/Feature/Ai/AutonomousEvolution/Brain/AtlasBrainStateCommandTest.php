@@ -66,6 +66,8 @@ final class AtlasBrainStateCommandTest extends TestCase
         self::assertSame(1, $payload['done_set']['recent_served']);
         self::assertSame(1, $payload['done_set']['recent_refused']);
         self::assertArrayHasKey('reflection', $payload);
+        self::assertSame(0, $payload['gate_health']['inspector_holes']);
+        self::assertSame(0, $payload['gate_health']['seed_gate_holes']);
     }
 
     public function test_state_command_is_a_petreo_forbidden_self_target(): void

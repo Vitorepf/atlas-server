@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
 
 /**
@@ -69,6 +73,12 @@ final class AtlasBrainStateCommand extends Command
             ],
             'reflection' => [
                 'recent_count' => $reflectionCount,
+            ],
+            // GATE HEALTH — runtime adversarial audit hole counts (same as scope_signals.gate_health in
+            // brain:next, computed here without origination). zero=airtight; non-zero=regression to fix.
+            'gate_health' => [
+                'inspector_holes' => count(app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector)['holes']),
+                'seed_gate_holes' => count(app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class))['holes']),
             ],
         ];
 
