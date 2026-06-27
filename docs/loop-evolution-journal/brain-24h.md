@@ -456,3 +456,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 7 assertions green; pint green
 - next: raise threshold to 5; rotate to any path still at 4
+
+## L192 — portfolio budget allocator (metrics-optimization)
+- path: metrics-optimization (now 5 organs — first to hit 5)
+- organ: AtlasBrainPortfolioBudgetAllocator — scores → integer percent shares; total exactly 100
+- coverage matrix: metrics-optimization=5
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 8 assertions green; pint green
+- next: route to under-built (4) paths
