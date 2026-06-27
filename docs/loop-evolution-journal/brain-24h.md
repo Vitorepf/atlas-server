@@ -182,6 +182,15 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - bde58c4c5 — **L148 brain:metrics score_breakdown_***: 5 novos gauges (gates/ratio/starv/entropy/trend pts) — drill-down de qual componente afunda o score. 3 metrics tests verdes.
 - b8aa0b4c4 — **L149 brain:metrics starved_paths gauge**: count de canonical paths starved (L125). Dashboard chartable. 3 metrics tests verdes.
 
+### Placar @ L149 — 150-slice mark approaching (cadência)
+- **Brain test suite**: 278 verde; gates AIRTIGHT continuous.
+- **Commands pétreos**: 13 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings/metrics).
+- **Organs pétreos novos nesta run**: ~22 perception + adviser + suggester + 3 ledger writers.
+- **Doctor findings**: 21.
+- **Adviser CODE→PATH**: 21.
+- **Prometheus metrics exported**: 14 gauges.
+- **Anéis fechados**: organ→state→doctor→summary→plan pra cada axis (histogram, outcome, transition, entropy, kindhist, trend, freshness, gap, score, ledger, provenance, starvation).
+
 ### Placar @ L141 (cadência)
 - **Organs pétreos novos nesta run**: ~22 (briefHistogram via prior, +21 originated since L72).
 - **Commands pétreos**: 12 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings).
