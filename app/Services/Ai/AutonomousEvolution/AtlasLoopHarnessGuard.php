@@ -135,6 +135,9 @@ final class AtlasLoopHarnessGuard
         // The TREND ANALYZER — split-window deltas. Editable ⇒ the réu would flip the delta sign to mask
         // a worsening trend, hiding the moment to rotate.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainTrendAnalyzer.php',
+        // The COHORT SCOPE COMPARATOR — ranks scopes by composite health. Editable ⇒ the réu would
+        // reorder rows to keep its current scope on top regardless of evidence.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCohortScopeComparator.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
