@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainNextPathSuggester;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -34,7 +41,36 @@ final class AtlasBrainPlanCommand extends Command
         $doctor = json_decode(trim($buf->fetch()), true) ?: [];
         $rec = (array) ($doctor['recommended_action'] ?? []);
 
-        $payload = ['scope' => $scope, 'recommended' => $rec['recommended'] ?? null, 'rationale' => (string) ($rec['rationale'] ?? '')];
+        // L130 suggestion — derived from starvation + path rollup.
+        $stream = app(AtlasBrainReflectionStream::class);
+        $tail50 = array_slice($stream->forScope($scope), -50);
+        $brief = app(AtlasBrainBriefHistogram::class)->histogram($tail50);
+        $tr = app(AtlasBrainHintToPathTranslator::class);
+        $starv = app(AtlasBrainPathStarvationDetector::class)->detect($brief, $tr);
+        $ledger = new AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
+        $analyzer = app(AtlasBrainCascadeRuleOutcomeAnalyzer::class)->analyze($scope, $stream, $ledger);
+        $rollup = [];
+        foreach ($analyzer['by_hint'] as $r) {
+            $p = $tr->pathFor((string) ($r['hint'] ?? ''));
+            if ($p === null) {
+                continue;
+            }
+            $rollup[$p] ??= ['path' => $p, 'served' => 0, 'total' => 0];
+            $rollup[$p]['served'] += (int) ($r['served'] ?? 0);
+            $rollup[$p]['total'] += (int) ($r['total'] ?? 0);
+        }
+        foreach ($rollup as &$rr) {
+            $rr['served_rate_pct'] = $rr['total'] > 0 ? (int) round(($rr['served'] * 100) / $rr['total']) : 0;
+        }
+        unset($rr);
+        $suggestion = app(AtlasBrainNextPathSuggester::class)->suggest($starv['starved'], array_values($rollup));
+
+        $payload = [
+            'scope' => $scope,
+            'recommended' => $rec['recommended'] ?? null,
+            'rationale' => (string) ($rec['rationale'] ?? ''),
+            'suggested_next_path' => $suggestion,
+        ];
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
