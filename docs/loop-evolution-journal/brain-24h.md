@@ -504,3 +504,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 6 assertions green; pint green
 - next: compounding (last @4)
+
+## L198 — path streak ratio (compounding @5) — ALL PATHS >=5
+- path: compounding (now 5 organs)
+- organ: AtlasBrainPathStreakRatio — accepted/refused longest-streak ratio with labels
+- coverage matrix: ALL 7 PATHS NOW >=5 ORGANS (35 total organs across paths)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 7 tests / 9 assertions green; pint green
+- placar 6h: 35 organs across 7 paths, schema reg 34, all paths balanced at >=5
+- next: raise threshold to 6 — start with weakest-at-5 path
