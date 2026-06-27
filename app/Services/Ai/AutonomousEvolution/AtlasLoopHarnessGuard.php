@@ -216,6 +216,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainFrontierIdeaSeed.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathKlDivergence.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHorizonDiversityForecast.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainComposedHealthGrade.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
