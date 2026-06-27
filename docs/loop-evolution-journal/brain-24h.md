@@ -115,4 +115,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 125e8ec93 — **L83 result_kind histogram (pétreo organ novo) + wired no state**: distribuição de OUTCOMES (blocked/exhausted/stagnated/note/...), eixo diferente do hint histogram. Surfaceia starvation_pct. 3 tests verdes.
 - 58c1a1bcb — **L84 doctor: result_kind_starvation (info)**: ≥10 reflections + starvation_pct>70% ⇒ info "dry-by-walls; check sources". Fecha o anel L83 (organ → state → doctor). 7 doctor tests verdes.
 - 7a2f8b2ae — **L85 trend analyzer (pétreo organ novo) + state.starvation_trend**: split-window (older 25 vs newer 25) — delta + direction {worsening/recovering/flat/insufficient_data}. Diz se está STUCKING ou RECUPERANDO (eixo temporal). 4 tests verdes.
+- 8e64f1fb8 — **L86 doctor: starvation_trend_worsening (info)**: direção=worsening ⇒ info "moment to rotate". Distinto do starvation snapshot — esse flagga o MOMENTO de agir antes do fundo cair. 8 doctor tests verdes.
 
