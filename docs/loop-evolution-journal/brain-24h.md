@@ -164,6 +164,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - ee111342a — **L131 state.suggested_next_path**: wire da L130 — operator vê suggestion + reason alongside recommended_action (doctor findings). 10 surface tests verdes.
 - d211dc905 — **L132 brain:plan adds suggested_next_path**: L130 ao lado de L106. Operator vê WHAT'S BROKEN + WHICH PATH TO PICK no mesmo read. 2 plan tests verdes.
 - fc4cd7af4 — **L133 doctor: frontier_shallow (info)**: count 1-2 (não 0) ⇒ info "harvest more". Distinto de frontier_empty. Adviser→frontier-harvest. 14 surface tests verdes.
+- 1565ad5d6 — **L134 brain:findings command (pétreo)**: dumper de referência do code→path mapping da adviser. Operator descobre toda finding code + path sem grep. 2 tests verdes. 12 commands.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
