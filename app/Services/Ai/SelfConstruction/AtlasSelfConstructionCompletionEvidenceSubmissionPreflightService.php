@@ -2,11 +2,15 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 
 final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.completion_evidence_submission_preflight.v1';
 
     public const MODE = 'read_only_completion_evidence_submission_preflight';
@@ -1031,8 +1035,4 @@ final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }
