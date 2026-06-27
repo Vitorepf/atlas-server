@@ -138,4 +138,25 @@ final class AtlasBrainReflectionStreamTest extends TestCase
 
         self::assertSame('forbidden', $verdict);
     }
+
+    public function test_recall_texts_is_empty_when_flag_off(): void
+    {
+        $s = $this->stream();
+        // record a row while ON, then flip OFF — recallTexts must yield [] so the producer stays byte-identical.
+        $s->record(['scope' => 'loop', 'reflection' => 'x', 'signals' => ['k' => 'v']], 1);
+        config()->set('atlas.brain.reflection_enabled', false);
+
+        self::assertSame([], $s->recallTexts('loop', ['signals' => ['k' => 'v']]));
+    }
+
+    public function test_recall_texts_returns_compact_rows_when_on(): void
+    {
+        $s = $this->stream();
+        $s->record(['scope' => 'loop', 'reflection' => 'blocked: petreo target', 'result_kind' => 'blocked', 'signals' => ['target_path' => 'A.php']], 1);
+
+        $out = $s->recallTexts('loop', ['signals' => ['target_path' => 'A.php']]);
+
+        self::assertCount(1, $out);
+        self::assertSame(['kind' => 'blocked', 'reflection' => 'blocked: petreo target'], $out[0]);
+    }
 }

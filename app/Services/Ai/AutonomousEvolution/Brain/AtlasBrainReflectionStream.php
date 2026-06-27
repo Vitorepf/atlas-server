@@ -196,6 +196,30 @@ final class AtlasBrainReflectionStream
     }
 
     /**
+     * Flag-gated recall shaped for a brain payload: [] when reflection_enabled is OFF (so callers stay
+     * byte-identical), else the top-K reflections as compact {kind, reflection} rows for injection into the
+     * next comprehension. This is the single seam a producer (AtlasBrainNextCommand) calls — the flag gate
+     * lives here so the producer never grows a config branch.
+     *
+     * @param  array<string,mixed>  $context
+     * @return list<array{kind: string, reflection: string}>
+     */
+    public function recallTexts(string $scope, array $context = [], int $k = 5): array
+    {
+        if (! (bool) config('atlas.brain.reflection_enabled', false)) {
+            return [];
+        }
+
+        return array_map(
+            static fn (array $r): array => [
+                'kind' => (string) ($r['result_kind'] ?? ''),
+                'reflection' => (string) ($r['reflection'] ?? ''),
+            ],
+            $this->recall($scope, $context, $k),
+        );
+    }
+
+    /**
      * Normalize signals to a flat list of comparable string tokens. Accepts a list (["target:Foo.php"]) or a
      * map ({target_path: "Foo.php", gate: "seed_quality"} → ["target_path:Foo.php", "gate:seed_quality"]).
      *

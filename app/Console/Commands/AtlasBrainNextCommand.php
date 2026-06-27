@@ -10,6 +10,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
@@ -96,14 +97,26 @@ final class AtlasBrainNextCommand extends Command
         // Refusal for dry-purposes: nothing produced OR an abstain (park-and-ask) — REGARDLESS of `produced`.
         if (! $produced || $action === 'abstain') {
             $status = ! $produced ? 'refused' : 'abstain';
-            $this->recordRefusal($ledger, $model->snapshotId, $status, $action, (string) ($origination['target_path'] ?? ''));
+            $refusalTarget = (string) ($origination['target_path'] ?? '');
+            $reason = (string) ($origination['reason'] ?? ($action === 'abstain' ? 'parked_and_asked' : 'not_originated'));
+            $this->recordRefusal($ledger, $model->snapshotId, $status, $action, $refusalTarget);
+            // REFLEXION memory — record this refusal as a fact, then recall prior failure semantics for THIS
+            // scope so the next origination (the pasted brain) is conditioned on what already failed. Both
+            // legs are flag-gated (reflection_enabled): OFF ⇒ record is a no-op and recallTexts returns [].
+            $this->reflect($scope, $model->snapshotId, $status, $refusalTarget, $reason);
 
-            return $this->emit([
+            $payload = [
                 'status' => $status,
                 'scope' => $scope,
-                'reason' => (string) ($origination['reason'] ?? ($action === 'abstain' ? 'parked_and_asked' : 'not_originated')),
+                'reason' => $reason,
                 'operator_question' => $origination['operator_question'] ?? null,
-            ]);
+            ];
+            $recalled = app(AtlasBrainReflectionStream::class)->recallTexts($scope, ['signals' => ['target_path' => $refusalTarget]]);
+            if ($recalled !== []) {
+                $payload['reflections'] = $recalled;
+            }
+
+            return $this->emit($payload);
         }
 
         $targetPath = ltrim((string) ($origination['target_path'] ?? ''), '/');
@@ -177,6 +190,7 @@ final class AtlasBrainNextCommand extends Command
             'task_packet_id' => (string) $spec['task_packet_id'],
             'refusal' => false,
         ]);
+        $this->reflect($scope, $model->snapshotId, 'served', $targetPath, (string) $spec['objective']);
 
         return $this->emit([
             'status' => 'served',
@@ -231,6 +245,28 @@ final class AtlasBrainNextCommand extends Command
         }
 
         return array_keys($targets);
+    }
+
+    /**
+     * Record ONE semantic reflection fact for this cycle (Reflexion memory). Flag-gated inside the stream
+     * (reflection_enabled OFF ⇒ no-op, byte-identical). No-scalar: stores the status+note text, never a score.
+     */
+    private function reflect(string $scope, string $snapshotId, string $status, string $targetPath, string $note): void
+    {
+        $kind = match ($status) {
+            'served' => AtlasBrainReflectionStream::KIND_SUCCESS,
+            'abstain' => AtlasBrainReflectionStream::KIND_NOTE,
+            default => AtlasBrainReflectionStream::KIND_BLOCKED,
+        };
+        $text = trim($status.': '.$note);
+
+        app(AtlasBrainReflectionStream::class)->record([
+            'scope' => $scope,
+            'reflection' => $text !== '' ? $text : $status,
+            'cycle_id' => $snapshotId,
+            'result_kind' => $kind,
+            'signals' => $targetPath !== '' ? ['target_path' => $targetPath] : [],
+        ]);
     }
 
     private function recordRefusal(AtlasBrainDoneSetLedger $ledger, string $snapshotId, string $status, string $action, string $targetPath): void
