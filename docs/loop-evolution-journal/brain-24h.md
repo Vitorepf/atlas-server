@@ -109,4 +109,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 83e69d197 — **L77 doctor: cascade_rule_low_yield (info)**: per-hint ≥5 cycles + served_rate<30% ⇒ info "reroute". Fecha o anel analyzer (L75) → state (L76) → doctor (L77). 6 doctor tests verdes (1 novo).
 - 4383340d9 — **L78 hint transition matrix (pétreo organ novo)**: markov-style adjacent-pair counter sobre o time series de action_hint. Surfaceia COUPLING (dinâmica) — ortogonal à histogram (distribuição) e analyzer (outcome). Pétreo. 4 tests verdes.
 - 568333618 — **L79 brain:state surfaces hint_transitions**: wire da L78 (top-3 pairs + self_loops + transitions count); 3 lentes ortogonais (distribuição + outcome + dinâmica) num só read. 5 state tests verdes (1 novo).
+- 76a94942e — **L80 doctor: hint_self_loop_dominant (info)**: ≥5 transições + >50% self-loops ⇒ info "cascade stuck on previous hint". Perseveração DINÂMICA, ortogonal ao histogram_skewed (distribuição). 7 doctor tests verdes.
 
