@@ -109,6 +109,9 @@ final class AtlasLoopHarnessGuard
         // The PATH CATALOG — single-source lookup over config('atlas.brain.paths'). Editable ⇒ the réu could
         // remap a path id to whatever executor it wanted (priorizador-mapping trap).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCatalog.php',
+        // The SPEC REPAIR HINTS — deficiency→repair map. Editable ⇒ the réu would map a deficiency to
+        // "ignore it", weakening the inspector's discriminating power.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSpecRepairHints.php',
         // The SEED-GATE ADVERSARIAL AUDITOR — adversarial vetting of the seed gate's promote-set. Editable ⇒
         // the réu would drop attacks until "no holes" was structurally guaranteed (same self-confirmation trap
         // the inspector auditor's pétreo entry was created for, here applied to the seed boundary).
