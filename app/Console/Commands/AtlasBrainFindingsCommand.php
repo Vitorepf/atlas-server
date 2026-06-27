@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainFindingsCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:findings {--json} {--raw}';
+    protected $signature = 'atlas:brain:findings {--by-path : group codes under their portfolio path} {--json} {--raw}';
 
     /** @var string */
     protected $description = 'Dump the adviser code→path mapping for every known doctor finding.';
@@ -29,6 +29,20 @@ final class AtlasBrainFindingsCommand extends Command
         usort($rows, static fn (array $a, array $b): int => $a['code'] <=> $b['code']);
 
         $payload = ['count' => count($rows), 'mapping' => $rows];
+
+        if ($this->option('by-path')) {
+            $grouped = [];
+            foreach ($map as $code => $path) {
+                $grouped[$path] ??= [];
+                $grouped[$path][] = (string) $code;
+            }
+            foreach ($grouped as &$codes) {
+                sort($codes);
+            }
+            unset($codes);
+            ksort($grouped);
+            $payload['by_path'] = $grouped;
+        }
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         if (! $this->option('raw')) {
             $flags |= JSON_PRETTY_PRINT;
