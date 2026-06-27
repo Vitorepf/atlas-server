@@ -174,6 +174,7 @@ final class AtlasLoopHarnessGuard
         // re-order or omit signals to hide its own weaknesses from downstream consumers.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPerceptionBundle.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainTopChurnHintDetector.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeFlagAuditor.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
