@@ -171,6 +171,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 327d45596 — **L138 summary one-liner adds gap=N**: cycle-axis companion ao age (wall-clock). 2 summary tests verdes.
 - b758314e5 — **L139 provenance attribution analyzer (pétreo organ novo)**: conta seeds per source_finding code sobre L112 ledger. "Qual finding originou mais packets?" sem grep. Pétreo. 3 tests verdes.
 - 47d7538b9 — **L140 brain:provenance --attribution flag**: wire da L139 — operator opt-in pra ver per-finding counts. 2 tests verdes. **140-slice mark.**
+- 005b5c624 — **L141 state.provenance.top_findings**: top-3 source_finding codes surfaced em state. 10 surface tests verdes.
 
 ### Placar @ L111 (cadência)
 - **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
