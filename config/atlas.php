@@ -68,6 +68,10 @@ return [
         'reflection_enabled' => (bool) env('ATLAS_BRAIN_REFLECTION_ENABLED', false),
         'reflection_root' => storage_path('app/atlas/brain/reflection-stream.ndjson'),
         'causal_selector_enabled' => (bool) env('ATLAS_BRAIN_CAUSAL_SELECTOR_ENABLED', false),
+        // Structural-signal digest (comprehension-deepening): when ON, brain:next injects top-K orphan/clone/
+        // doc-stated-gap signals into the served payload so the pasted brain can originate against multi-file
+        // leverage instead of file-local micro-leverage. OFF ⇒ payload is byte-identical to today.
+        'scope_signal_digest_enabled' => (bool) env('ATLAS_BRAIN_SCOPE_SIGNAL_DIGEST_ENABLED', false),
 
         // THE PORTFOLIO OF SELF-IMPROVEMENT PATHS (data, not code). The brain ROTATES these so it always
         // seeks the highest leverage, never dries, never duplicates. Each executor_organ is a real class.

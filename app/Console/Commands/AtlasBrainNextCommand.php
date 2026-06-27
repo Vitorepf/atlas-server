@@ -14,6 +14,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStructuralSignalDigest;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTaskSpecTranslator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
@@ -115,6 +116,7 @@ final class AtlasBrainNextCommand extends Command
             if ($recalled !== []) {
                 $payload['reflections'] = $recalled;
             }
+            $payload += $this->scopeSignalsFor($model);
 
             return $this->emit($payload);
         }
@@ -197,7 +199,26 @@ final class AtlasBrainNextCommand extends Command
             'scope' => $scope,
             'journal' => $journalPath,
             'packet' => ['specs' => ['packets' => [$spec]]],
-        ]);
+        ] + $this->scopeSignalsFor($model));
+    }
+
+    /**
+     * COMPREHENSION-DEEPENING seam: return ['scope_signals' => digest] when the flag is ON, else []. Lives at
+     * the wiring site (not inside the digest organ) so the organ stays pure. OFF ⇒ byte-identical payload.
+     *
+     * @return array<string,mixed>
+     */
+    private function scopeSignalsFor(AtlasLoopScopeComprehensionModel $model): array
+    {
+        if (! (bool) config('atlas.brain.scope_signal_digest_enabled', false)) {
+            return [];
+        }
+        $digest = app(AtlasBrainStructuralSignalDigest::class)->digest($model);
+        if ($digest['orphans'] === [] && $digest['clone_clusters'] === [] && $digest['doc_stated_gaps'] === []) {
+            return []; // nothing to surface ⇒ stay quiet rather than emit an empty key
+        }
+
+        return ['scope_signals' => $digest];
     }
 
     /**
