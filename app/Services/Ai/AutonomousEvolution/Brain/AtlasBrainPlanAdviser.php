@@ -21,6 +21,26 @@ final class AtlasBrainPlanAdviser
 {
     public const SCHEMA = 'atlas.brain.plan_adviser.v1';
 
+    /** code → portfolio path that historically resolves the finding (operator nudge; never auto-routed). */
+    public const CODE_TO_PATH = [
+        'gate_regression' => 'adversarial-critique',
+        'frontier_empty' => 'frontier-harvest',
+        'cascade_rule_low_yield' => 'compounding',
+        'result_kind_starvation' => 'frontier-harvest',
+        'starvation_trend_worsening' => 'frontier-harvest',
+        'brief_histogram_skewed' => 'pattern-design',
+        'hint_self_loop_dominant' => 'pattern-design',
+        'score_ledger_regressing' => 'metrics-optimization',
+        'health_score_low' => 'metrics-optimization',
+        'evidence_stale' => 'comprehension-deepening',
+        'reflection_empty' => 'comprehension-deepening',
+        'scope_signal_digest_dormant' => 'comprehension-deepening',
+        'portfolio_paths_unexpected_count' => 'comprehension-deepening',
+        'portfolio_path_missing_executor' => 'comprehension-deepening',
+        'portfolio_canonical_paths_missing' => 'comprehension-deepening',
+        'served_ratio_low' => 'simulation-twin',
+    ];
+
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
     private const INFO_PRIORITY = [
         'result_kind_starvation' => 90,
@@ -55,17 +75,17 @@ final class AtlasBrainPlanAdviser
         }
 
         if ($byCriticality['critical'] !== []) {
-            return ['schema' => self::SCHEMA, 'recommended' => $byCriticality['critical'][0], 'rationale' => 'first critical finding takes precedence'];
+            return ['schema' => self::SCHEMA, 'recommended' => $byCriticality['critical'][0], 'rationale' => 'first critical finding takes precedence', 'recommended_path' => self::CODE_TO_PATH[$byCriticality['critical'][0]['code']] ?? null];
         }
         if ($byCriticality['warn'] !== []) {
-            return ['schema' => self::SCHEMA, 'recommended' => $byCriticality['warn'][0], 'rationale' => 'no critical; first warn takes precedence'];
+            return ['schema' => self::SCHEMA, 'recommended' => $byCriticality['warn'][0], 'rationale' => 'no critical; first warn takes precedence', 'recommended_path' => self::CODE_TO_PATH[$byCriticality['warn'][0]['code']] ?? null];
         }
         if ($byCriticality['info'] !== []) {
             usort($byCriticality['info'], fn (array $a, array $b): int => (self::INFO_PRIORITY[(string) $b['code']] ?? 0) <=> (self::INFO_PRIORITY[(string) $a['code']] ?? 0));
 
-            return ['schema' => self::SCHEMA, 'recommended' => $byCriticality['info'][0], 'rationale' => 'no critical/warn; info ranked by explicit priority table'];
+            return ['schema' => self::SCHEMA, 'recommended' => $byCriticality['info'][0], 'rationale' => 'no critical/warn; info ranked by explicit priority table', 'recommended_path' => self::CODE_TO_PATH[$byCriticality['info'][0]['code']] ?? null];
         }
 
-        return ['schema' => self::SCHEMA, 'recommended' => null, 'rationale' => 'no findings — healthy; continue with the regular cycle'];
+        return ['schema' => self::SCHEMA, 'recommended' => null, 'rationale' => 'no findings — healthy; continue with the regular cycle', 'recommended_path' => null];
     }
 }

@@ -41,6 +41,22 @@ final class AtlasBrainPlanAdviserTest extends TestCase
         self::assertStringContainsString('healthy', $r['rationale']);
     }
 
+    public function test_recommended_path_maps_each_code_to_a_portfolio_path(): void
+    {
+        $r = (new AtlasBrainPlanAdviser)->advise([
+            ['severity' => 'info', 'code' => 'frontier_empty', 'advice' => 'x'],
+        ]);
+        self::assertSame('frontier-harvest', $r['recommended_path']);
+
+        $r2 = (new AtlasBrainPlanAdviser)->advise([
+            ['severity' => 'critical', 'code' => 'gate_regression', 'advice' => 'x'],
+        ]);
+        self::assertSame('adversarial-critique', $r2['recommended_path']);
+
+        $r3 = (new AtlasBrainPlanAdviser)->advise([]);
+        self::assertNull($r3['recommended_path']);
+    }
+
     public function test_adviser_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(
