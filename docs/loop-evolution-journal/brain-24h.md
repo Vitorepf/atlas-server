@@ -96,4 +96,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - a13b74f49 — **L64 brain:seed blocked + repair_hints inline**: ao blocar um spec, payload inclui repair_hints (L63 organ delegado). Brain vê "porque blocou" + "como arrumar" em 1 round-trip. 184 testes verdes.
 - d97f39c85 — **L65 architecture-v2.md L26-L64 addendum**: doc canônico atualizado com novos commands (state/doctor/audit/catalog), organs (PathCatalog/SpecRepairHints), brief enrichments, auditor battery growth (11+4 attacks).
 - c8d637d4f — **L66 doctor exit code (cron-friendly)**: 0 healthy / 1 has_findings. Paridade com catalog --check. 3 doctor tests verdes.
+- 08f788d9f — **L67 audit exit code**: 0 airtight / 1 regression. Trio doctor+catalog+audit todos com exit codes alinhados. 2 audit tests verdes.
 
