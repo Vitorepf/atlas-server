@@ -3,9 +3,13 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 final class AtlasSelfConstructionCompletionEvidenceHashService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
 
@@ -13,12 +17,6 @@ final class AtlasSelfConstructionCompletionEvidenceHashService
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-    private function ksortRecursive(array $value): array
-    {
-        $this->ksortRecursiveByReference($value);
-
-        return $value;
-    }
     /** @param array<string, mixed> $receipt */
     public function runtimePromotionReceiptHash(array $receipt): string
     {

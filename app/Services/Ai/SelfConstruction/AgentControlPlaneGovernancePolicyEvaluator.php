@@ -2,12 +2,16 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 /**
  * Evaluates operator governance policy for future runtime actions without
  * granting approval or mutating state.
  */
 final class AgentControlPlaneGovernancePolicyEvaluator
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_governance_policy_evaluation.v1';
 
     public const MODE = 'read_only_agent_control_plane_governance_policy_evaluation';
@@ -100,8 +104,4 @@ final class AgentControlPlaneGovernancePolicyEvaluator
         return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function ksortRecursive(array $value): array
-    {
-        return ReadinessHash::ksortRecursive($value);
-    }
 }

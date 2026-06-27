@@ -3,12 +3,16 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 /**
  * Builds a hashable continuity index from local runtime evidence records.
  */
 final class AgentRuntimeEvidenceContinuityIndexer
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
 
@@ -16,12 +20,6 @@ final class AgentRuntimeEvidenceContinuityIndexer
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-    private function ksortRecursive(array $value): array
-    {
-        $this->ksortRecursiveByReference($value);
-
-        return $value;
-    }
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_evidence_continuity_index.v1';
 
     public const MODE = 'read_only_agent_runtime_evidence_continuity_indexer';
