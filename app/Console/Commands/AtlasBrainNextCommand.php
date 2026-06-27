@@ -282,14 +282,10 @@ final class AtlasBrainNextCommand extends Command
         // (each passes the inspector by construction — see AtlasBrainOrphanSpecDrafterTest). The brain still
         // chooses + the gate still vets; drafts are SUGGESTIONS, not seeds. Null drafts (the drafter's
         // fail-closed) are filtered out so the brain never sees a bad shape.
-        $drafter = app(AtlasBrainOrphanSpecDrafter::class);
-        $drafts = [];
-        foreach (array_slice((array) ($signals['orphans'] ?? []), 0, 3) as $orphanFqcn) {
-            $draft = $drafter->draft((string) $orphanFqcn, $scope);
-            if ($draft !== null) {
-                $drafts[] = $draft;
-            }
-        }
+        $drafts = app(AtlasBrainOrphanSpecDrafter::class)->draftAll(
+            array_slice(array_map('strval', (array) ($signals['orphans'] ?? [])), 0, 3),
+            $scope,
+        );
         if ($drafts !== []) {
             $signals['drafted_candidates'] = $drafts;
             // SIMULATION TWIN ranks the drafts via the LIVE inspector + picks the cleanest. Brain reads

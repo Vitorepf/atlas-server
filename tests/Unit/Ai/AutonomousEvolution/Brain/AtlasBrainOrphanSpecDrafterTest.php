@@ -58,6 +58,19 @@ final class AtlasBrainOrphanSpecDrafterTest extends TestCase
         self::assertSame($d->draft('App\\X\\Foo', 'loop'), $d->draft('App\\X\\Foo', 'loop'));
     }
 
+    public function test_draft_all_batch_filters_nulls(): void
+    {
+        $drafts = (new AtlasBrainOrphanSpecDrafter)->draftAll([
+            'App\\Foo\\A',
+            'Vendor\\Foo\\B', // refused (non-App)
+            'App\\..\\X',     // refused (traversal)
+            'App\\Foo\\C',
+        ], 'loop');
+
+        self::assertCount(2, $drafts);
+        self::assertSame('app/Foo/A.php', $drafts[0]['allowed_files'][0]);
+    }
+
     public function test_drafter_organ_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit(

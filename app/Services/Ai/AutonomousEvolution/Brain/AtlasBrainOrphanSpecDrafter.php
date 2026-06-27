@@ -37,6 +37,25 @@ final class AtlasBrainOrphanSpecDrafter
      *
      * @return array<string,mixed>|null
      */
+    /**
+     * Batch draft helper: shape every orphan FQCN to a spec, filtering nulls. Saves a loop at the wiring site.
+     *
+     * @param  list<string>  $orphanFqcns
+     * @return list<array<string,mixed>>
+     */
+    public function draftAll(array $orphanFqcns, string $scope): array
+    {
+        $out = [];
+        foreach ($orphanFqcns as $fqcn) {
+            $spec = $this->draft((string) $fqcn, $scope);
+            if ($spec !== null) {
+                $out[] = $spec;
+            }
+        }
+
+        return $out;
+    }
+
     public function draft(string $orphanFqcn, string $scope): ?array
     {
         $fqcn = ltrim(trim($orphanFqcn), '\\');
