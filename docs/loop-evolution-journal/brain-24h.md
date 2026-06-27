@@ -496,3 +496,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 7 assertions green; pint green
 - next: adversarial-critique and compounding remain at 4
+
+## L197 — rubber-stamp detector (adversarial-critique @5)
+- path: adversarial-critique (now 5 organs)
+- organ: AtlasBrainRubberStampDetector — flags critics with >=90% one-way vote rate
+- coverage: adversarial-critique=5; 6/7 paths now at 5
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 6 assertions green; pint green
+- next: compounding (last @4)
