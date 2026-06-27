@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
@@ -210,6 +211,16 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $score = app(AtlasBrainHealthScore::class)->compute($airtight, $ratioPct, $starvPct, (float) $entropy['normalized'], (string) $trend['direction'])['score'];
             if ($score < 50) {
                 $findings[] = ['severity' => 'info', 'code' => 'health_score_low', 'advice' => "composite health_score={$score}/100 below the 50 floor — review the per-finding causes (gates/ratio/starvation/entropy/trend) and act on the heaviest deficit"];
+            }
+        }
+
+        // INFO: brain silent — newest reflection ≥1h old. Detects a wedged worker / inactive switches that
+        // the gate + ratio checks miss (those can be green for stale data).
+        if ($reflectionEnabled) {
+            $freshness = app(AtlasBrainEvidenceFreshness::class)->inspect(app(AtlasBrainReflectionStream::class)->forScope($scope));
+            if ($freshness['has_evidence'] && (int) $freshness['age_seconds'] > 3600) {
+                $hours = (int) round($freshness['age_seconds'] / 3600);
+                $findings[] = ['severity' => 'info', 'code' => 'evidence_stale', 'advice' => "newest reflection is ~{$hours}h old — brain origination has gone silent; check the worker / master switch / cron"];
             }
         }
 

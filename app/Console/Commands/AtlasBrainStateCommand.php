@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCohortScopeComparator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
@@ -106,6 +107,9 @@ final class AtlasBrainStateCommand extends Command
             'reflection' => [
                 'recent_count' => $reflectionCount,
             ],
+            // EVIDENCE FRESHNESS — age of newest reflection (L94). Detects "brain silenced" state where
+            // gates+ratio are fine but origination has stopped writing entirely.
+            'evidence_freshness' => app(AtlasBrainEvidenceFreshness::class)->inspect($reflection->forScope($scope)),
             'last_brief' => $lastBrief,
             'brief_histogram' => app(AtlasBrainBriefHistogram::class)->histogram(
                 $reflection->recallTexts($scope, ['signals' => ['action_hint' => '']], 20),
