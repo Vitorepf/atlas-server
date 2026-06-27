@@ -57,4 +57,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 2c65c92e3 — **L25 brain:state + last_brief**: parse do mais recente leverage_brief reflection (L14 time series) em `{hint, rationale}` no state payload. Dashboard mostra última recomendação sem rodar next. 3 state tests verdes (1 novo).
 - 06d5da041 — **L26 docs canon**: novo `docs/brain-architecture-v2.md` — organ map L1-L25, payload shape, rule cascade, pétreo floor, flag matrix, end-state goal. Operator-readable artifact durável.
 - 76570af61 — **L27 brief.previous_action_hint**: brief sai com previous_action_hint extraído de priorBriefs[0]. Cérebro vê continuity/drift em 1 campo sem parsear lista. 171 testes verdes (2 novos).
+- e53b77503 — **L28 brief.continuity** ∈ {first|held|changed}: derivado da comparação previous_action_hint × action_hint. Brain lê 1 word pra saber se cycle continuou, mudou ou é primeiro. 177 testes verdes (3 novos).
 
