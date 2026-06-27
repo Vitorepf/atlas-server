@@ -17,6 +17,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
@@ -192,6 +193,11 @@ final class AtlasBrainStateCommand extends Command
                     })(),
                 ];
             })(),
+            // PATH STARVATION — L125 detector over brief histogram. {hit, starved} per canonical path.
+            'path_starvation' => app(AtlasBrainPathStarvationDetector::class)->detect(
+                app(AtlasBrainBriefHistogram::class)->histogram(array_slice($reflection->forScope($scope), -50)),
+                app(AtlasBrainHintToPathTranslator::class)
+            ),
             'frontier' => (function () use ($scope): array {
                 $reg = app(AtlasBrainFrontierSourceRegistry::class);
                 $top = $reg->topK($scope, 3);
