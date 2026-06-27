@@ -325,3 +325,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 7 assertions green; pint fixed import order; composition test green with diversity score
 - next: comprehension-deepening or metrics-optimization
+
+## L176 — path signal aggregator (comprehension-deepening, 2nd rotation)
+- path: comprehension-deepening
+- organ: AtlasBrainPathSignalAggregator — momentum + velocity + oscillation → agreement tag (signals_agree_improving / declining / steady / signals_disagree / oscillation_pin / insufficient_signal)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 6 tests / 7 assertions green; pint green
+- next: metrics-optimization or pattern-design
