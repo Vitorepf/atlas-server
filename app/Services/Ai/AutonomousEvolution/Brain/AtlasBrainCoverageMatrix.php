@@ -40,6 +40,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainPathYieldEwma::class,
             AtlasBrainPathStreakTracker::class,
             AtlasBrainPathStreakRatio::class,
+            AtlasBrainCompoundingSuperposition::class,
         ],
         'simulation-twin' => [
             AtlasBrainNextCycleProjector::class,
