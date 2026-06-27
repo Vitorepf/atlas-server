@@ -107,4 +107,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 1918f2047 — **L75 cascade-rule outcome analyzer (pétreo organ novo)**: junta reflection stream + done-set ledger via snapshot_id===cycle_id → per-action_hint served/refused/served_rate_pct. Read-only, sem writes novos. Substrato pra compounding-path futura ler. Pétreo. 3 tests verdes.
 - 4ca9a403b — **L76 brain:state surfaces cascade_outcomes (top-5)**: wire da L75 no payload da state command; operator vê served_rate por hint sem comando extra. 4 state tests verdes (1 novo).
 - 83e69d197 — **L77 doctor: cascade_rule_low_yield (info)**: per-hint ≥5 cycles + served_rate<30% ⇒ info "reroute". Fecha o anel analyzer (L75) → state (L76) → doctor (L77). 6 doctor tests verdes (1 novo).
+- 4383340d9 — **L78 hint transition matrix (pétreo organ novo)**: markov-style adjacent-pair counter sobre o time series de action_hint. Surfaceia COUPLING (dinâmica) — ortogonal à histogram (distribuição) e analyzer (outcome). Pétreo. 4 tests verdes.
 
