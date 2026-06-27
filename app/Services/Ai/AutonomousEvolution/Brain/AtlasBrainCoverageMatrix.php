@@ -40,6 +40,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainNextCycleProjector::class,
             AtlasBrainHypotheticalTailAppender::class,
             AtlasBrainProjectionCalibrationScore::class,
+            AtlasBrainGreedyRotationProjector::class,
         ],
         'metrics-optimization' => [
             AtlasBrainPathDiversityScore::class,
