@@ -102,6 +102,10 @@ final class AtlasLoopHarnessGuard
         // specs to whatever passes inspection regardless of merit (Goodhart on the candidate-shaping step).
         // Pétreo for the same reason as every author≠judge organ above it.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainOrphanSpecDrafter.php',
+        // The SEED-GATE ADVERSARIAL AUDITOR — adversarial vetting of the seed gate's promote-set. Editable ⇒
+        // the réu would drop attacks until "no holes" was structurally guaranteed (same self-confirmation trap
+        // the inspector auditor's pétreo entry was created for, here applied to the seed boundary).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedGateAdversarialAuditor.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
