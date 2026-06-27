@@ -422,3 +422,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 5 assertions green; pint green
 - next: route to one of the 4 paths still at 3 (adversarial-critique, compounding, simulation-twin, pattern-design)
+
+## L188 — author/judge overlap check (adversarial-critique)
+- path: adversarial-critique (now 4 organs)
+- organ: AtlasBrainAuthorJudgeOverlapCheck — set intersection; Goodhart detector
+- coverage matrix: adversarial-critique=4
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 7 assertions green; pint green
+- next: rotate to compounding/simulation-twin/pattern-design (3 paths still at 3)
