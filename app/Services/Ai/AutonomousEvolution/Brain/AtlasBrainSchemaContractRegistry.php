@@ -51,6 +51,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainTailAlternateHistory::SCHEMA => AtlasBrainTailAlternateHistory::class,
         AtlasBrainRubberStampDetector::SCHEMA => AtlasBrainRubberStampDetector::class,
         AtlasBrainPathStreakRatio::SCHEMA => AtlasBrainPathStreakRatio::class,
+        AtlasBrainComposedSelfKnowledgeReport::SCHEMA => AtlasBrainComposedSelfKnowledgeReport::class,
     ];
 
     public function ownerOf(string $schema): ?string

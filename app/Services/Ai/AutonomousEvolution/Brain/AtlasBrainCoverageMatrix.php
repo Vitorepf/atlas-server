@@ -24,6 +24,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainPathSignalAggregator::class,
             AtlasBrainReflectionProvenanceChain::class,
             AtlasBrainOrganDependencyGraph::class,
+            AtlasBrainComposedSelfKnowledgeReport::class,
         ],
         'adversarial-critique' => [
             AtlasBrainPlanAdviserRedTeam::class,
