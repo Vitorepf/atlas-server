@@ -122,14 +122,7 @@ final class AtlasBrainNextCommand extends Command
             if ($recalled !== []) {
                 $payload['reflections'] = $recalled;
             }
-            // PRIOR BRIEFS recall — surfaces the last N action_hint reflections (populated by L14 each cycle).
-            // On a refused/abstain payload, this lets the brain SEE its own recommendation history without
-            // requiring a separate call: "5 of the last 5 briefs said rotate_path but the scope still refuses
-            // ⇒ time to escalate / abstain harder / ask the operator". Flag-gated inside the stream.
-            $priorBriefs = app(AtlasBrainReflectionStream::class)->recallTexts($scope, ['signals' => ['action_hint' => '']], 5);
-            if ($priorBriefs !== []) {
-                $payload['prior_briefs'] = $priorBriefs;
-            }
+            $payload += $this->priorBriefsFor($scope);
             $payload += $this->scopeSignalsFor($scope, $model, $ledger);
 
             return $this->emit($payload);
@@ -213,7 +206,22 @@ final class AtlasBrainNextCommand extends Command
             'scope' => $scope,
             'journal' => $journalPath,
             'packet' => ['specs' => ['packets' => [$spec]]],
-        ] + $this->scopeSignalsFor($scope, $model, $ledger));
+        ] + $this->priorBriefsFor($scope) + $this->scopeSignalsFor($scope, $model, $ledger));
+    }
+
+    /**
+     * PRIOR BRIEFS — top-5 action_hint reflections (the time series L14 populates each cycle). Same call on
+     * served/refused/abstain so the brain always sees its own recent recommendations alongside the live one,
+     * making perseveration (5×rotate_path with no rotation actually happening) detectable without an extra call.
+     * Flag-gated inside the stream itself (reflection_enabled OFF ⇒ [] ⇒ no payload key).
+     *
+     * @return array<string,mixed>
+     */
+    private function priorBriefsFor(string $scope): array
+    {
+        $priorBriefs = app(AtlasBrainReflectionStream::class)->recallTexts($scope, ['signals' => ['action_hint' => '']], 5);
+
+        return $priorBriefs === [] ? [] : ['prior_briefs' => $priorBriefs];
     }
 
     /**
