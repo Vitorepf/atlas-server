@@ -53,6 +53,7 @@ final class AtlasBrainOrganDependencyGraph
             AtlasBrainCompoundingVelocity::class,
             AtlasBrainPathYieldEwma::class,
             AtlasBrainPathStreakTracker::class,
+            AtlasBrainPathSignalAggregator::class,
         ],
         AtlasBrainSchemaContractRegistry::class => [
             // virtual edge: registry references every owner schema constant; not iterated here

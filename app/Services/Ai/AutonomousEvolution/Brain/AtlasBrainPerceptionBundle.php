@@ -37,15 +37,19 @@ final class AtlasBrainPerceptionBundle
         private readonly AtlasBrainCompoundingVelocity $compoundingVelocity,
         private readonly AtlasBrainPathYieldEwma $pathYieldEwma,
         private readonly AtlasBrainPathStreakTracker $pathStreakTracker,
+        private readonly AtlasBrainPathSignalAggregator $signalAggregator,
     ) {}
 
     /**
-     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array, path_diversity_score:array, concentration_hhi:array, path_yield_momentum:array, path_oscillation:array, hint_bursts:array, repeated_refusal_anti_patterns:array, compounding_velocity:array, path_yield_ewma:array, path_streaks:array}
+     * @return array{schema:string, scope:string, brief_histogram:array, result_kind_histogram:array, hint_entropy:array, hint_transitions:array, starvation_trend:array, evidence_freshness:array, path_starvation:array, cascade_outcomes:array, path_diversity_score:array, concentration_hhi:array, path_yield_momentum:array, path_oscillation:array, hint_bursts:array, repeated_refusal_anti_patterns:array, compounding_velocity:array, path_yield_ewma:array, path_streaks:array, path_signal_agreement:array}
      */
     public function build(string $scope): array
     {
         $tail = array_slice($this->stream->forScope($scope), -50);
         $brief = $this->briefHistogram->histogram($tail);
+        $momentum = $this->pathYieldMomentum->compute($tail, $this->translator);
+        $velocity = $this->compoundingVelocity->compute($tail, $this->translator);
+        $oscillation = $this->oscillationDetector->detect($tail, $this->translator);
 
         return [
             'schema' => self::SCHEMA,
@@ -64,13 +68,18 @@ final class AtlasBrainPerceptionBundle
             ),
             'path_diversity_score' => $this->diversityScore->compute($tail, $this->translator),
             'concentration_hhi' => $this->concentrationHhi->compute($tail, $this->translator),
-            'path_yield_momentum' => $this->pathYieldMomentum->compute($tail, $this->translator),
-            'path_oscillation' => $this->oscillationDetector->detect($tail, $this->translator),
+            'path_yield_momentum' => $momentum,
+            'path_oscillation' => $oscillation,
             'hint_bursts' => $this->burstDetector->detect($tail),
             'repeated_refusal_anti_patterns' => $this->repeatedRefusal->detect($tail),
-            'compounding_velocity' => $this->compoundingVelocity->compute($tail, $this->translator),
+            'compounding_velocity' => $velocity,
             'path_yield_ewma' => $this->pathYieldEwma->compute($tail, $this->translator),
             'path_streaks' => $this->pathStreakTracker->track($tail, $this->translator),
+            'path_signal_agreement' => $this->signalAggregator->aggregate(
+                $momentum['by_path'] ?? [],
+                $velocity['by_path'] ?? [],
+                $oscillation
+            ),
         ];
     }
 }
