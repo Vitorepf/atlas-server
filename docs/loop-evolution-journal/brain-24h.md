@@ -75,4 +75,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - e49bd374e — **L43 frozen tests for catalog**: 4 tests (all filters non-arrays, find by id, executor+lens lookups, pétreo). 4 catalog tests verdes.
 - 1edca6a91 — **L44 brain:state paths.count via catalog**: dashboard mostra portfolio size (7 esperados). 4 state tests verdes.
 - 15970e9c2 — **L45 doctor warns portfolio drift**: warn `portfolio_paths_unexpected_count` quando count != 7. Detector de config drift. 3 doctor tests verdes.
+- 0a2d013f7 — **L46 doctor warns missing executor**: warn `portfolio_path_missing_executor` listando ids sem executor_organ. Detecta config drift mais sutil (path adicionado sem binding). 3 doctor tests verdes.
 
