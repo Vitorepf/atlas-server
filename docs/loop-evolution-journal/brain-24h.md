@@ -120,4 +120,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 12b1bc71e — **L88 state --all surfaces cohort_health_ranking**: wire da L87; operator vê {rows, top} alongside cohort rows. 6 state tests verdes.
 - 605fb35f6 — **L89 brain:summary ganha starv/entropy/trend**: one-liner enriquecido com perception triad (L82+L83+L85). Operator vê 8 sinais num só read terminal. 2 summary tests verdes.
 - 1cd5d6e55 — **L90 health score 0..100 (pétreo organ novo)**: composite com pesos nomeados (gates40+ratio20+starv20+entropy10+trend10). Single scalar pra dashboard/sort de cohort. Pétreo. 4 tests verdes. **90-slice mark.**
+- d6df7767b — **L91 brain:state surfaces health_score**: wire da L90 derivado dos inputs já surfaced (no drift). Operator vê UM número + full breakdown. 6 state tests verdes.
 
