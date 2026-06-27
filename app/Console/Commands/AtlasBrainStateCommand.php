@@ -16,6 +16,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -169,6 +170,10 @@ final class AtlasBrainStateCommand extends Command
                     'top_titles' => array_values(array_map(static fn (array $c): string => (string) ($c['title'] ?? ''), $top)),
                 ];
             })(),
+            // PROVENANCE — L112 ledger size for this scope (per-seed lineage rows recorded so far).
+            'provenance' => [
+                'count' => count(app(AtlasBrainProvenanceLedger::class)->tail($scope, PHP_INT_MAX)),
+            ],
             'paths' => [
                 'count' => count(app(AtlasBrainPathCatalog::class)->all()),
                 'ids' => array_values(array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), app(AtlasBrainPathCatalog::class)->all()))),
