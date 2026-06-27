@@ -193,6 +193,15 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - f554fcc2d — **L158 top churn hint detector (pétreo organ novo)**: RAW refused count vs ratio (L75/L77). "Para de tentar isso" independente do volume. Pétreo. 3 tests verdes.
 - 3244ae0b6 — **L159 doctor: top_churn_hint_dominant (info)**: ≥15 refused ⇒ info "rotate cascade rule". Adviser→pattern-design. 15 surface tests verdes.
 
+### Placar @ L159 — 160-slice mark approaching
+- **Brain test suite**: 287 verde; gates AIRTIGHT continuous.
+- **Commands pétreos**: 14 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings/metrics/perception).
+- **Organs pétreos novos nesta run**: ~25.
+- **Doctor findings**: 23.
+- **Adviser CODE→PATH**: 23.
+- **Prometheus metrics**: 14 gauges + 5 score_breakdown + starved_paths.
+- **Output formats**: JSON pretty, JSON raw, Prometheus textfile, CSV, single-line text, compact 3-field.
+
 ### Placar @ L149 — 150-slice mark approaching (cadência)
 - **Brain test suite**: 278 verde; gates AIRTIGHT continuous.
 - **Commands pétreos**: 13 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan/provenance/scopes/findings/metrics).
