@@ -149,7 +149,7 @@ final class AtlasBrainStateCommand extends Command
         }
         $this->line((string) json_encode($payload, $flags));
 
-        $totalHoles = (int) ($payload['gate_health']['inspector_holes'] ?? 0) + (int) ($payload['gate_health']['seed_gate_holes'] ?? 0);
+        $totalHoles = (int) $payload['gate_health']['inspector_holes'] + (int) $payload['gate_health']['seed_gate_holes'];
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
