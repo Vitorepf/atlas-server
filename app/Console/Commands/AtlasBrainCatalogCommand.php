@@ -53,18 +53,26 @@ final class AtlasBrainCatalogCommand extends Command
             $present = array_filter(array_map(static fn (array $e): string => (string) ($e['id'] ?? ''), $allEntries));
             $missingCanonical = array_values(array_diff($canonical, $present));
             $missingExecutors = [];
+            $unresolvableExecutors = [];
             foreach ($allEntries as $entry) {
                 $id = (string) ($entry['id'] ?? '');
-                if ($id !== '' && $catalog->executorOrganFor($id) === null) {
+                if ($id === '') {
+                    continue;
+                }
+                $organ = $catalog->executorOrganFor($id);
+                if ($organ === null) {
                     $missingExecutors[] = $id;
+                } elseif (! class_exists($organ)) {
+                    $unresolvableExecutors[] = $id.':'.$organ;
                 }
             }
-            $checkFailed = count($allEntries) !== 7 || $missingCanonical !== [] || $missingExecutors !== [];
+            $checkFailed = count($allEntries) !== 7 || $missingCanonical !== [] || $missingExecutors !== [] || $unresolvableExecutors !== [];
             $payload['check'] = [
                 'expected_count' => 7,
                 'actual_count' => count($allEntries),
                 'missing_canonical' => $missingCanonical,
                 'missing_executors' => $missingExecutors,
+                'unresolvable_executors' => $unresolvableExecutors,
                 'ok' => ! $checkFailed,
             ];
             $checkExitCode = $checkFailed ? self::FAILURE : self::SUCCESS;
