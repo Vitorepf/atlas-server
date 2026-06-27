@@ -28,6 +28,8 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
  */
 final class AgentControlPlaneMultiAgentLoopCertificationService
 {
+    private ?\App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopCertificationHasher $hasher = null;
+
     private ?\App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates $digestPredicates = null;
 
     use RecursivelyKsortsArrays;
@@ -1088,35 +1090,35 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
     /**
      * @return array<string, mixed>|null
      */
-    private function loadJson($disk, string $path): ?array
+        public function loadJson($disk, string $path): ?array
     {
-        return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::loadJson($disk, $path);
+        return $this->hasher()->loadJson($disk, $path);
     }
 
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function encodeJson(array $payload): string
+        public function encodeJson(array $payload): string
     {
-        return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::encodeJson($payload);
+        return $this->hasher()->encodeJson($payload);
     }
 
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function normalizeForHash(array $payload): array
+        public function normalizeForHash(array $payload): array
     {
-        return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::normalizeForHash($payload);
+        return $this->hasher()->normalizeForHash($payload);
     }
 
 
     /**
      * @param  array<mixed, mixed>  $payload
      */
-    private function stableHash(array $payload): string
+        public function stableHash(array $payload): string
     {
-        return MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationHashCanonicalizer::stableHash($payload);
+        return $this->hasher()->stableHash($payload);
     }
 
     /**
@@ -1193,6 +1195,12 @@ final class AgentControlPlaneMultiAgentLoopCertificationService
     private function digestPredicates(): \App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates
     {
         return $this->digestPredicates ??= new \App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates();
+    }
+
+
+    private function hasher(): \App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopCertificationHasher
+    {
+        return $this->hasher ??= new \App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopCertificationHasher();
     }
 
 }
