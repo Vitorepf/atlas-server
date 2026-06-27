@@ -62,6 +62,10 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainEvolutionLevelClassifier.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainDoneSetLedger.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeRegistry.php',
+        // The brain's MEMORY (Reflexion stream) and its CAUSAL promotion gate — the réu can never edit the
+        // memory it recalls from nor the test that decides if a path's win is real (self-confirmation trap).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainReflectionStream.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCausalEffectGate.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
