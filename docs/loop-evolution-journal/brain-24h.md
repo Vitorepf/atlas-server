@@ -531,3 +531,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 5 tests / 8 assertions green; pint green
 - placar 7h (S200): 37 organs across 7 paths, schema reg 36, all paths >=5, two at 6
 - next: rotate to one of the 5 paths still at 5
+
+## L201 — path cadence variance (pattern-design @6)
+- path: pattern-design (now 6 organs)
+- organ: AtlasBrainPathCadenceVariance — second-moment of inter-pick gaps; erratic rotation alarm
+- coverage matrix: pattern-design=6
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 4 assertions green; pint green
+- next: 4 paths still at 5
