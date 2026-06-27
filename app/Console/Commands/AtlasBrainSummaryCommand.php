@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
@@ -88,11 +89,14 @@ final class AtlasBrainSummaryCommand extends Command
         $entropyNorm = number_format((float) $entropy['normalized'], 2);
         $direction = (string) $trend['direction'];
 
+        $fresh = app(AtlasBrainEvidenceFreshness::class)->inspect($stream->forScope($scope));
+        $age = $fresh['has_evidence'] ? ($fresh['age_seconds'].'s') : 'none';
+
         $score = app(AtlasBrainHealthScore::class)->compute(
             $totalHoles === 0, $ratio, $starv, (float) $entropy['normalized'], $direction
         )['score'];
 
-        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, findings={$c}c/{$w}w/{$i}i]");
+        $this->line("brain[scope={$scope}, score={$score}/100, master={$master}, gates={$gates}, ratio={$ratio}%/{$decisive}, starv={$starv}%, entropy={$entropyNorm}, trend={$direction}, age={$age}, findings={$c}c/{$w}w/{$i}i]");
 
         return $totalHoles === 0 ? self::SUCCESS : self::FAILURE;
     }
