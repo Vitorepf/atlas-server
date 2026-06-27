@@ -98,6 +98,10 @@ final class AtlasLoopHarnessGuard
         // Editable ⇒ the réu would always recommend whichever leap it wanted to "win" next, collapsing
         // the entire rotation. Same priorizador principle as the router + NextWorkDecider.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainLeverageBrief.php',
+        // The ORPHAN SPEC DRAFTER — brain-as-author embryo. Editable ⇒ the réu would shape its own candidate
+        // specs to whatever passes inspection regardless of merit (Goodhart on the candidate-shaping step).
+        // Pétreo for the same reason as every author≠judge organ above it.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainOrphanSpecDrafter.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
