@@ -156,10 +156,16 @@ final class AtlasBrainLeverageBrief
         }
 
         if ($recommendedPath !== null && $recommendedPath !== '') {
+            $executor = $this->executorOrganFor($recommendedPath);
+            $cues = ['recommended_path' => $recommendedPath];
+            if ($executor !== null) {
+                $cues['executor'] = $executor;
+            }
+
             return $this->result(
                 self::HINT_USE_ROUTED_PATH,
-                $this->evidenceFor($signals, ['recommended_path' => $recommendedPath]),
-                "router recommended '{$recommendedPath}' based on the dominant structural signal — use it unless a stronger override exists",
+                $this->evidenceFor($signals, $cues),
+                "router recommended '{$recommendedPath}'".($executor !== null ? " (executor: {$executor})" : '').' based on the dominant structural signal — use it unless a stronger override exists',
             );
         }
 
@@ -218,6 +224,26 @@ final class AtlasBrainLeverageBrief
         $cues = array_values(array_unique($cues));
 
         return array_slice($cues, 0, 3);
+    }
+
+    /**
+     * Resolve the executor_organ FQCN for a portfolio path id from config('atlas.brain.paths'). Returns null
+     * when the path is unknown (the router emitted a recommendation but config wasn't updated).
+     */
+    private function executorOrganFor(string $pathId): ?string
+    {
+        foreach ((array) config('atlas.brain.paths', []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            if (($entry['id'] ?? null) === $pathId) {
+                $organ = (string) ($entry['executor_organ'] ?? '');
+
+                return $organ === '' ? null : $organ;
+            }
+        }
+
+        return null;
     }
 
     /**
