@@ -10,7 +10,9 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOriginationGapDetector;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -86,6 +88,7 @@ final class AtlasBrainMetricsCommand extends Command
             "atlas_brain_score_breakdown_starvation{$label}" => (int) $br['starvation'],
             "atlas_brain_score_breakdown_entropy{$label}" => (int) $br['entropy'],
             "atlas_brain_score_breakdown_trend{$label}" => (int) $br['trend'],
+            "atlas_brain_starved_paths{$label}" => count(app(AtlasBrainPathStarvationDetector::class)->detect($brief, app(AtlasBrainHintToPathTranslator::class))['starved']),
         ];
 
         if ((string) $this->option('format') === 'json') {
@@ -115,6 +118,7 @@ final class AtlasBrainMetricsCommand extends Command
             'atlas_brain_score_breakdown_starvation' => ['gauge', 'Health score starvation component (0..20)'],
             'atlas_brain_score_breakdown_entropy' => ['gauge', 'Health score entropy component (0..10)'],
             'atlas_brain_score_breakdown_trend' => ['gauge', 'Health score trend component (0|5|10)'],
+            'atlas_brain_starved_paths' => ['gauge', 'Canonical paths with no recent hint (0..7)'],
         ];
         $emitted = [];
         foreach ($metrics as $key => $val) {
