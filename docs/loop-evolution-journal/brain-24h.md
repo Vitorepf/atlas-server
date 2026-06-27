@@ -373,3 +373,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: faculdade de ambição — branch beyond catalog (originate fresh frontier)
+
+## L182 — coverage matrix (meta-improvement, beyond catalog)
+- path: faculdade de ambição — branched past the catalog
+- organ: AtlasBrainCoverageMatrix — path → organs map; underbuiltPaths(min) flags dimensions starving for new organs
+- schema registry: 18 entries
+- self-knowledge: brain can now answer "where am I weak?" structurally; under-built at threshold 3 = adversarial-critique, compounding, metrics-optimization, pattern-design
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 23 assertions green; pint green
+- next: route to one of those 4 under-built paths
