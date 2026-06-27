@@ -43,6 +43,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainPathDiversityScore::class,
             AtlasBrainPathPriorityRank::class,
             AtlasBrainConcentrationHhi::class,
+            AtlasBrainPathInactivityAlarm::class,
         ],
         'pattern-design' => [
             AtlasBrainPathOscillationDetector::class,
