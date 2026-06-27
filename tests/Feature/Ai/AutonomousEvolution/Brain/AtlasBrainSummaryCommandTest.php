@@ -58,6 +58,7 @@ final class AtlasBrainSummaryCommandTest extends TestCase
         self::assertMatchesRegularExpression('/score=\d+\/100/', $out);
         self::assertStringContainsString('age=', $out);
         self::assertStringContainsString('ledger=', $out);
+        self::assertStringContainsString('next=', $out);
     }
 
     public function test_summary_command_is_a_petreo_forbidden_self_target(): void
