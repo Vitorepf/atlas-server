@@ -339,3 +339,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 8 assertions green; pint green
 - next: pattern-design or frontier-harvest
+
+## L178 — schema contract registry (pattern-design, 2nd rotation)
+- path: pattern-design
+- organ: AtlasBrainSchemaContractRegistry — 14-entry schema → owner class lookup; governance pattern
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 34 assertions green (every owner class verified); pint green
+- next: frontier-harvest (4 unharvested catalog entries remain: reflection_provenance_chain, gate_false_positive_estimator, projection_calibration_score)
