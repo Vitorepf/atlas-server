@@ -97,4 +97,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - d97f39c85 — **L65 architecture-v2.md L26-L64 addendum**: doc canônico atualizado com novos commands (state/doctor/audit/catalog), organs (PathCatalog/SpecRepairHints), brief enrichments, auditor battery growth (11+4 attacks).
 - c8d637d4f — **L66 doctor exit code (cron-friendly)**: 0 healthy / 1 has_findings. Paridade com catalog --check. 3 doctor tests verdes.
 - 08f788d9f — **L67 audit exit code**: 0 airtight / 1 regression. Trio doctor+catalog+audit todos com exit codes alinhados. 2 audit tests verdes.
+- cd1931693 / 7c4656dbc — **L68 state exit code**: paridade — state também emite 0/1. Quartet completo (state/doctor/audit/catalog) cron-friendly. 4 state tests verdes.
 
