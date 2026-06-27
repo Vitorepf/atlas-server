@@ -20,10 +20,12 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecSimulationTwin;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStructuralSignalDigest;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTaskSpecTranslator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
+use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -282,6 +284,12 @@ final class AtlasBrainNextCommand extends Command
         }
         if ($drafts !== []) {
             $signals['drafted_candidates'] = $drafts;
+            // SIMULATION TWIN ranks the drafts via the LIVE inspector + picks the cleanest. Brain reads
+            // `recommended_draft` (a task_packet_id) and can seed it directly without re-evaluating.
+            $sim = app(AtlasBrainSpecSimulationTwin::class)->simulate($drafts, new AtlasTaskPacketQualityInspector);
+            if ($sim['winner'] !== null) {
+                $signals['recommended_draft'] = $sim['winner'];
+            }
         }
         // INTEGRATION: leverage_brief is the consolidated read over the ASSEMBLED signals block —
         // ONE action hint + top-3 evidence cues + rationale. Computed last so it sees every signal
