@@ -191,6 +191,7 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 9d20626b2 — **L156 brain:findings --filter-path**: narrow listing por path. 2 findings tests verdes.
 - 26fb56ece — **L157 brain:findings --csv frozen test**: prova header+rows+formato. 3 findings tests verdes.
 - f554fcc2d — **L158 top churn hint detector (pétreo organ novo)**: RAW refused count vs ratio (L75/L77). "Para de tentar isso" independente do volume. Pétreo. 3 tests verdes.
+- 3244ae0b6 — **L159 doctor: top_churn_hint_dominant (info)**: ≥15 refused ⇒ info "rotate cascade rule". Adviser→pattern-design. 15 surface tests verdes.
 
 ### Placar @ L149 — 150-slice mark approaching (cadência)
 - **Brain test suite**: 278 verde; gates AIRTIGHT continuous.
