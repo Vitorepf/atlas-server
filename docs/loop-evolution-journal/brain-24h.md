@@ -480,3 +480,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 6 assertions green; pint green
 - next: bring remaining 4 paths to 5
+
+## L195 — path cadence detector (pattern-design @5)
+- path: pattern-design (now 5 organs)
+- organ: AtlasBrainPathCadenceDetector — mean gap between picks per path
+- coverage matrix: pattern-design=5
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 6 assertions green; pint green
+- next: 3 paths still at 4 (adversarial, compounding, simulation)
