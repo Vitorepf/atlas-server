@@ -17,6 +17,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPlanAdviser;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -234,6 +235,15 @@ final class AtlasBrainHealthDoctorCommand extends Command
             $delta = (int) end($scoresArr) - (int) $scoresArr[0];
             if ($delta < -10) {
                 $findings[] = ['severity' => 'info', 'code' => 'score_ledger_regressing', 'advice' => "health_score moved {$scoresArr[0]} → ".end($scoresArr).' over '.count($scoresArr)." snapshots (Δ {$delta}) — multi-snapshot regression; review what changed since the high"];
+            }
+        }
+
+        // INFO: provenance ledger unwired — done_set has served seeds but L112 provenance is empty.
+        // Tells operator the lineage organ exists but nothing is feeding it (wiring gap).
+        if ($served > 0) {
+            $provCount = count(app(AtlasBrainProvenanceLedger::class)->tail($scope, PHP_INT_MAX));
+            if ($provCount === 0) {
+                $findings[] = ['severity' => 'info', 'code' => 'provenance_unwired', 'advice' => "{$served} served seeds in done-set but L112 provenance ledger is empty — lineage organ exists but no recorder is feeding it; wire brain:seed to append on success"];
             }
         }
 

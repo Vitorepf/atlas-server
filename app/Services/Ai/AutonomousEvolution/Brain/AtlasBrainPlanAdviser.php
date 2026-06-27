@@ -39,6 +39,7 @@ final class AtlasBrainPlanAdviser
         'portfolio_path_missing_executor' => 'comprehension-deepening',
         'portfolio_canonical_paths_missing' => 'comprehension-deepening',
         'served_ratio_low' => 'simulation-twin',
+        'provenance_unwired' => 'comprehension-deepening',
     ];
 
     /** explicit per-info-code priority (higher = surfaced first). unlisted codes get 0. */
