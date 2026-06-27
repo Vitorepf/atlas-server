@@ -82,6 +82,10 @@ final class AtlasLoopHarnessGuard
         // ⇒ the réu could pre-seed itself with whichever frontier idea it wanted to "win", collapsing the
         // path's discriminating power. Same principle as the comprehension model + reflection stream.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainFrontierSourceRegistry.php',
+        // The COMPOUNDING DIGEST — the summary the brain reads to see its own track record. Editable ⇒ the
+        // réu could shape its OWN apparent success streak to fake a compounding lift. Pétreo for the same
+        // reason as the cert chain (réu never edits the organ that decides whether its delivery counts).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCompoundingDigest.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCompoundingDigest;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
@@ -118,7 +119,7 @@ final class AtlasBrainNextCommand extends Command
             if ($recalled !== []) {
                 $payload['reflections'] = $recalled;
             }
-            $payload += $this->scopeSignalsFor($scope, $model);
+            $payload += $this->scopeSignalsFor($scope, $model, $ledger);
 
             return $this->emit($payload);
         }
@@ -201,7 +202,7 @@ final class AtlasBrainNextCommand extends Command
             'scope' => $scope,
             'journal' => $journalPath,
             'packet' => ['specs' => ['packets' => [$spec]]],
-        ] + $this->scopeSignalsFor($scope, $model));
+        ] + $this->scopeSignalsFor($scope, $model, $ledger));
     }
 
     /**
@@ -210,7 +211,7 @@ final class AtlasBrainNextCommand extends Command
      *
      * @return array<string,mixed>
      */
-    private function scopeSignalsFor(string $scope, AtlasLoopScopeComprehensionModel $model): array
+    private function scopeSignalsFor(string $scope, AtlasLoopScopeComprehensionModel $model, AtlasBrainDoneSetLedger $ledger): array
     {
         if (! (bool) config('atlas.brain.scope_signal_digest_enabled', false)) {
             return [];
@@ -220,8 +221,12 @@ final class AtlasBrainNextCommand extends Command
         // appended for THIS scope. Read at the same wiring seam so frontier shows up alongside structural
         // signals in one payload key — the brain doesn't need a separate fetch.
         $frontier = app(AtlasBrainFrontierSourceRegistry::class)->topK($scope);
+        // COMPOUNDING summary: tail-window of the per-scope done-set. NEVER a learning scalar — counts +
+        // success streak only (anti-Goodhart). window=0 ⇒ ledger is empty / brand new scope; skip surfacing.
+        $compounding = app(AtlasBrainCompoundingDigest::class)->digest($ledger);
+        $hasCompounding = ($compounding['window'] ?? 0) > 0;
 
-        if ($digest['orphans'] === [] && $digest['clone_clusters'] === [] && $digest['doc_stated_gaps'] === [] && $frontier === []) {
+        if ($digest['orphans'] === [] && $digest['clone_clusters'] === [] && $digest['doc_stated_gaps'] === [] && $frontier === [] && ! $hasCompounding) {
             return []; // nothing to surface ⇒ stay quiet rather than emit an empty key
         }
 
@@ -239,6 +244,7 @@ final class AtlasBrainNextCommand extends Command
                 'recommended_path_reason' => $route['reason'],
                 'signal_class' => $route['signal_class'],
                 'frontier_candidates' => $frontier,
+                'compounding' => $hasCompounding ? $compounding : null,
             ],
         ];
     }
