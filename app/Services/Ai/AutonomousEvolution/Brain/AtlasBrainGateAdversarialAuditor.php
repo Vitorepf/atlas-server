@@ -142,6 +142,19 @@ final class AtlasBrainGateAdversarialAuditor
                 ],
                 'expected' => 'acceptance_not_runnable',
             ],
+            // TEST-AUTHORING WITHOUT A TESTS PATH — acceptance demands test authoring AND evidence is
+            // tests_or_gates_result, but allowed_files has NO tests/ path. The worker physically cannot
+            // satisfy this; the inspector must BLOCK before serving.
+            'test_evidence_without_test_in_allowed_files' => [
+                'packet' => [
+                    'objective' => 'a perfectly fine, concrete objective naming app/Services/AtlasFooBar.php and adding a test',
+                    'allowed_files' => ['app/Services/AtlasFooBar.php'], // intentionally no tests/ path
+                    'acceptance_criteria' => ['author a new test that asserts AtlasFooBar::run returns true and runs green via php artisan test'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                ],
+                'expected' => 'test_evidence_without_test_in_allowed_files',
+            ],
+
             // PERMANENT human/external-provider dependency — a packet that bakes in a human-loop runtime
             // owner is structurally unable to autonomously evolve; the inspector must flag this BLOCKING.
             'permanent_human_dependency' => [
