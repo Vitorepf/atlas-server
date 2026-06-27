@@ -355,3 +355,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 14 tests / 70 assertions across batch green; pint green
 - next: rotate (simulation-twin or adversarial-critique)
+
+## L180 — projection calibration score (simulation-twin, 3rd rotation)
+- path: simulation-twin
+- organ: AtlasBrainProjectionCalibrationScore — (pred,actual) pairs → hit_rate + status
+- catalog: 11/12 implemented
+- schema registry: 16 entries
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 14 batch tests / 73 assertions green; pint green
+- next: only reflection_provenance_chain left in catalog; or branch out beyond catalog (faculdade de ambição)
