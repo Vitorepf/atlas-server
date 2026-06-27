@@ -29,6 +29,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStaleScopeDetector;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTopChurnHintDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
@@ -175,6 +176,7 @@ final class AtlasBrainStateCommand extends Command
                     // PATH ROLLUP — aggregate served/refused across hints sharing the same path so
                     // operator sees per-PATH win-rate (paths can have multiple hints, e.g. comprehension-
                     // deepening covers both rotate_path AND originate_fresh).
+                    'top_churn' => app(AtlasBrainTopChurnHintDetector::class)->detect($report),
                     'path_rollup' => (function () use ($report): array {
                         $tr = app(AtlasBrainHintToPathTranslator::class);
                         $agg = [];
