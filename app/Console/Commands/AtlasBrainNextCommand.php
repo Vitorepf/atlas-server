@@ -14,6 +14,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainLeverageBrief;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMetricSnapshot;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOrphanSpecDrafter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
@@ -251,9 +252,25 @@ final class AtlasBrainNextCommand extends Command
             // metric list is a contract, even values of 0 are signal ("nothing to push here").
             'metrics' => app(AtlasBrainMetricSnapshot::class)->snapshot($model, $ledger)['metrics'],
         ];
+        // BRAIN-AS-AUTHOR EMBRYO (L9 wired): when the digest surfaces orphans, draft top-K candidate specs
+        // (each passes the inspector by construction — see AtlasBrainOrphanSpecDrafterTest). The brain still
+        // chooses + the gate still vets; drafts are SUGGESTIONS, not seeds. Null drafts (the drafter's
+        // fail-closed) are filtered out so the brain never sees a bad shape.
+        $drafter = app(AtlasBrainOrphanSpecDrafter::class);
+        $drafts = [];
+        foreach (array_slice((array) ($signals['orphans'] ?? []), 0, 3) as $orphanFqcn) {
+            $draft = $drafter->draft((string) $orphanFqcn, $scope);
+            if ($draft !== null) {
+                $drafts[] = $draft;
+            }
+        }
+        if ($drafts !== []) {
+            $signals['drafted_candidates'] = $drafts;
+        }
         // INTEGRATION: leverage_brief is the consolidated read over the ASSEMBLED signals block —
         // ONE action hint + top-3 evidence cues + rationale. Computed last so it sees every signal
-        // the brain just produced. The brain reads this first when deciding the next leap.
+        // the brain just produced (including drafted_candidates). The brain reads this first when
+        // deciding the next leap.
         $signals['leverage_brief'] = app(AtlasBrainLeverageBrief::class)->brief($signals);
 
         return ['scope_signals' => $signals];
