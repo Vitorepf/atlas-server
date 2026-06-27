@@ -92,4 +92,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 57fd23fd0 — **L60 audit.gate_health_status**: top-level `airtight` | `regression` + `gate_health_total_holes`. CI grep-friendly. 2 audit tests verdes.
 - 16b03fa42 — **L61 atlas:brain:catalog**: command read-only dumpa portfolio paths (id/intent/kind/executor/lens) com --intent + --kind filters. Pétreo. 3 catalog command tests verdes.
 - 57fa8c34e — **L62 brain:catalog --check**: exit code 0/1 sobre integridade do portfólio (count==7, canonical present, executors set). Cron/CI: `catalog --check || alert`. 4 catalog command tests verdes.
+- 385dbf7e4 — **L63 AtlasBrainSpecRepairHints** (inverse do simulator): organ pétreo deficiency→repair concreto pra 16 inspector keys. Brain autoriza um spec ruim, vê hints e arruma. Unknown deficiencies degrade graceful. 4 frozen tests verdes.
 
