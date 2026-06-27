@@ -11,6 +11,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainLeverageBrief;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMetricSnapshot;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
@@ -239,19 +240,23 @@ final class AtlasBrainNextCommand extends Command
             'doc_stated_gaps' => $digest['doc_stated_gaps'],
         ]);
 
-        return [
-            'scope_signals' => $digest + [
-                'recommended_path' => $route['recommended_path'],
-                'recommended_path_reason' => $route['reason'],
-                'signal_class' => $route['signal_class'],
-                'frontier_candidates' => $frontier,
-                'compounding' => $hasCompounding ? $compounding : null,
-                // METRICS-OPTIMIZATION: declared measurable facts the brain should be optimizing (counts
-                // + tail-streak — never a learned scalar). Always present when scope_signals fires — the
-                // metric list is a contract, even values of 0 are signal ("nothing to push here").
-                'metrics' => app(AtlasBrainMetricSnapshot::class)->snapshot($model, $ledger)['metrics'],
-            ],
+        $signals = $digest + [
+            'recommended_path' => $route['recommended_path'],
+            'recommended_path_reason' => $route['reason'],
+            'signal_class' => $route['signal_class'],
+            'frontier_candidates' => $frontier,
+            'compounding' => $hasCompounding ? $compounding : null,
+            // METRICS-OPTIMIZATION: declared measurable facts the brain should be optimizing (counts
+            // + tail-streak — never a learned scalar). Always present when scope_signals fires — the
+            // metric list is a contract, even values of 0 are signal ("nothing to push here").
+            'metrics' => app(AtlasBrainMetricSnapshot::class)->snapshot($model, $ledger)['metrics'],
         ];
+        // INTEGRATION: leverage_brief is the consolidated read over the ASSEMBLED signals block —
+        // ONE action hint + top-3 evidence cues + rationale. Computed last so it sees every signal
+        // the brain just produced. The brain reads this first when deciding the next leap.
+        $signals['leverage_brief'] = app(AtlasBrainLeverageBrief::class)->brief($signals);
+
+        return ['scope_signals' => $signals];
     }
 
     /**

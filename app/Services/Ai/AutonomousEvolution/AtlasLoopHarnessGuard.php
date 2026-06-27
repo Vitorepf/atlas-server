@@ -94,6 +94,10 @@ final class AtlasLoopHarnessGuard
         // for whatever it wanted to win, collapsing the candidate-exploration's discriminating power.
         // Pétreo for the same priorizador principle as the cert chain.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSpecSimulationTwin.php',
+        // The LEVERAGE BRIEF — the integration organ that consolidates all signals into ONE action hint.
+        // Editable ⇒ the réu would always recommend whichever leap it wanted to "win" next, collapsing
+        // the entire rotation. Same priorizador principle as the router + NextWorkDecider.
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainLeverageBrief.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
