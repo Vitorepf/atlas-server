@@ -142,3 +142,13 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - adfadb469 — **L110 plan adviser ganha recommended_path mapping**: cada finding code mapeia para portfolio path (gate_regression→adversarial-critique, frontier_empty→frontier-harvest, etc). Doctor diz O QUÊ, adviser diz POR ONDE rotacionar. 5 adviser tests verdes.
 - c1f00ce7b — **L111 summary ganha path=<portfolio-path>**: cron one-liner inclui o path recomendado pelo adviser. Operator vê WHAT broke + WHERE rotacionar num só read. 2 summary tests verdes.
 
+### Placar @ L111 (cadência)
+- **Organs pétreos novos nesta run**: 13 (BriefHistogram já existia desde L69 prior-run).
+- **Commands pétreos novos**: 9 (state/doctor/audit/catalog/summary/history/snapshot/trend/plan).
+- **Doctor findings**: 13 (gates/master/digest/reflection/frontier/paths/executor/canonical/ratio/skewed/lowyield/selfloop/starv/trend/score/stale/regression).
+- **Adviser code→path**: 16 codes mapeados em CODE_TO_PATH.
+- **Ledger writers**: 2 (reflection-stream legacy + health_score_ledger L99).
+- **Anéis fechados**: 5 (analyzer→state→doctor; histogram→state→doctor; trend→state→doctor; ledger→snapshot→trend→doctor; adviser→doctor→summary).
+- **Brain test suite**: 240+ verde; gates AIRTIGHT continuous.
+- Path rotation cobertos: pattern-design (L73,L80,L82,L83,L85,L87,L99) + metrics-optimization (L100,L101,L102,L103,L104,L106) + comprehension-deepening (L72,L75,L78,L94,L105) + adversarial-critique (L77,L84,L86,L93) + compounding (L107,L108,L109,L110,L111) + simulation-twin (L97,L98) + frontier-harvest (L105 read).
+
