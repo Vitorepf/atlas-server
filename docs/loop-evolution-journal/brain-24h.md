@@ -447,3 +447,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - proof: 4 tests / 6 assertions green; pint green
 - placar 5h: L164..L190 = 27 slices, ~26 organs, schema reg 26, every path now >=3, several at 4
 - next: simulation-twin (last at 3)
+
+## L191 — greedy rotation projector (simulation-twin)
+- path: simulation-twin (now 4 organs)
+- organ: AtlasBrainGreedyRotationProjector — K-cycle least-touched policy simulation
+- coverage matrix: simulation-twin=4 — ALL 7 PATHS NOW >=4 ORGANS
+- schema registry: 27 entries
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 7 assertions green; pint green
+- next: raise threshold to 5; rotate to any path still at 4
