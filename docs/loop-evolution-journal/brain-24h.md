@@ -414,3 +414,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 7 assertions green; pint fixed blank lines
 - next: every path balanced — raise threshold to 4, route to whoever is below
+
+## L187 — path inactivity alarm (metrics-optimization, routed beyond 3)
+- path: metrics-optimization (now 4 organs)
+- organ: AtlasBrainPathInactivityAlarm — alarms paths whose cycles-since-last >= threshold
+- coverage matrix: metrics-optimization=4 (raises bar)
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 4 tests / 5 assertions green; pint green
+- next: route to one of the 4 paths still at 3 (adversarial-critique, compounding, simulation-twin, pattern-design)
