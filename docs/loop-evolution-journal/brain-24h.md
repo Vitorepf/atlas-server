@@ -242,3 +242,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 5 assertions green; pint green
 - next: rotate path — adversarial-critique or compounding
+
+## L165 — plan-adviser red team (adversarial-critique)
+- path: adversarial-critique (rotated from comprehension-deepening)
+- organ: AtlasBrainPlanAdviserRedTeam — vetoes plan adviser's path pick when yield <20% over ≥5 samples; alternative = least-sampled portfolio path
+- pétreo: added to FORBIDDEN_SELF_TARGETS (réu would soften veto on its own path)
+- proof: 5 tests / 8 assertions green; pint green
+- next: rotate to compounding or simulation-twin
