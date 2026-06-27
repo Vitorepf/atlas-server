@@ -134,4 +134,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 8cead6618 — **L102 doctor: score_ledger_regressing (info)**: ≥5 snapshots + delta<-10 ⇒ info "multi-snapshot regression". Cobre multi-day drift que L85 short-window missa. Fecha ledger ring (writer→reader→advice). 9 doctor tests verdes.
 - 50224af3d — **L103 brain:trend direction + ascii sparkline**: direction {improving/regressing/flat/insufficient_data}; sparkline ` .oO0` glyphs sobre buckets de 20. 2 trend tests verdes.
 - 340789861 — **L104 summary ganha ledger=<first>→<last>**: long-window score history (L99) lado-a-lado com short-window trend. 'ledger=none' quando ainda 0 snapshots. 2 summary tests verdes.
+- 2ab676162 — **L105 state.frontier surfaces top_titles[3]**: operator vê o que está enfileirado no frontier sem jq + topK. 10 surface tests verdes.
 
