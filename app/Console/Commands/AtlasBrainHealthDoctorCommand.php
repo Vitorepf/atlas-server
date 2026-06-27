@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
@@ -65,10 +66,18 @@ final class AtlasBrainHealthDoctorCommand extends Command
             }
         }
 
+        // INFO: frontier source has no curated candidates for this scope (the frontier-harvest path has no fuel).
+        if (app(AtlasBrainFrontierSourceRegistry::class)->count($scope) === 0) {
+            $findings[] = ['severity' => 'info', 'code' => 'frontier_empty', 'advice' => "scope '{$scope}' has 0 curated frontier candidates — append entries via the registry to give the frontier-harvest path material"];
+        }
+
+        // 'healthy' = no critical/warn (info findings are tolerated; they're suggestions, not problems).
+        $blocking = array_values(array_filter($findings, static fn (array $f): bool => in_array((string) ($f['severity'] ?? ''), ['critical', 'warn'], true)));
+
         $this->line((string) json_encode([
             'scope' => $scope,
             'findings' => $findings,
-            'status' => $findings === [] ? 'healthy' : 'has_findings',
+            'status' => $blocking === [] ? 'healthy' : 'has_findings',
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         return self::SUCCESS;
