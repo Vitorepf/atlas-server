@@ -9,6 +9,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyz
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog;
@@ -104,6 +105,13 @@ final class AtlasBrainStateCommand extends Command
             'last_brief' => $lastBrief,
             'brief_histogram' => app(AtlasBrainBriefHistogram::class)->histogram(
                 $reflection->recallTexts($scope, ['signals' => ['action_hint' => '']], 20),
+            ),
+            // HINT ENTROPY — Shannon-bits scalar over the histogram. Single number; 0 = perseveration,
+            // log2(alphabet) = perfectly diverse. normalized = bits / log2(alphabet), so 1.0 = uniform.
+            'hint_entropy' => app(AtlasBrainHintEntropy::class)->compute(
+                app(AtlasBrainBriefHistogram::class)->histogram(
+                    $reflection->recallTexts($scope, ['signals' => ['action_hint' => '']], 20),
+                )
             ),
             // CASCADE OUTCOMES — per-action_hint served/refused/served_rate_pct joined from reflection +
             // done-set. Top 5 by served_rate so the dashboard line stays small but the operator can see
