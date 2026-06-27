@@ -160,6 +160,7 @@ final class AtlasLoopHarnessGuard
         // The STALE SCOPE DETECTOR — multi-scope freshness over threshold. Editable ⇒ the réu would
         // exclude its own silent scope from the stale list.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainStaleScopeDetector.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainScopeCatalogSnapshot.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
