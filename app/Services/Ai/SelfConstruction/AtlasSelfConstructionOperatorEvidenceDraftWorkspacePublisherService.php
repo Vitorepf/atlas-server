@@ -3,12 +3,16 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     use KsortsArraysByReference;
 
 
@@ -16,12 +20,6 @@ final class AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
      */
-    private function ksortRecursive(array $value): array
-    {
-        $this->ksortRecursiveByReference($value);
-
-        return $value;
-    }
     public const SCHEMA_VERSION = 'atlas.self_construction.operator_evidence_draft_workspace_publisher.v1';
 
     public const MODE = 'operator_evidence_draft_workspace_publisher';

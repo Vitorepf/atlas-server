@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+
+use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +19,8 @@ use Illuminate\Support\Facades\Storage;
  */
 final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 {
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
+
     public const SCHEMA_VERSION = 'atlas.self_construction.operator_evidence_submission_readiness.v1';
 
     public const MODE = 'read_only_operator_evidence_submission_readiness';
@@ -1752,8 +1756,4 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
     }
 
     /** @param array<string, mixed> $value */
-    private function ksortRecursive(array $value): array
-    {
-        return OperatorEvidence\OperatorEvidenceCanonicalizer::ksortRecursive($value);
-    }
 }
