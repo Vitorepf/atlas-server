@@ -93,4 +93,5 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - 16b03fa42 — **L61 atlas:brain:catalog**: command read-only dumpa portfolio paths (id/intent/kind/executor/lens) com --intent + --kind filters. Pétreo. 3 catalog command tests verdes.
 - 57fa8c34e — **L62 brain:catalog --check**: exit code 0/1 sobre integridade do portfólio (count==7, canonical present, executors set). Cron/CI: `catalog --check || alert`. 4 catalog command tests verdes.
 - 385dbf7e4 — **L63 AtlasBrainSpecRepairHints** (inverse do simulator): organ pétreo deficiency→repair concreto pra 16 inspector keys. Brain autoriza um spec ruim, vê hints e arruma. Unknown deficiencies degrade graceful. 4 frozen tests verdes.
+- a13b74f49 — **L64 brain:seed blocked + repair_hints inline**: ao blocar um spec, payload inclui repair_hints (L63 organ delegado). Brain vê "porque blocou" + "como arrumar" em 1 round-trip. 184 testes verdes.
 
