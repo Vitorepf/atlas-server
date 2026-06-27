@@ -213,6 +213,7 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainContrarianRequirement.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainPathCadenceVariance.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCompoundingSuperposition.php',
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainFrontierIdeaSeed.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',

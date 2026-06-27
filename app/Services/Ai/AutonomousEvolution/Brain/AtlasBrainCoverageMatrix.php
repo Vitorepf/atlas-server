@@ -70,6 +70,7 @@ final class AtlasBrainCoverageMatrix
             AtlasBrainCrossScopePatternXref::class,
             AtlasBrainGateFalsePositiveEstimator::class,
             AtlasBrainPathPriorityRationale::class,
+            AtlasBrainFrontierIdeaSeed::class,
         ],
     ];
 
