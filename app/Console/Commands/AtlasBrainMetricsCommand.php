@@ -28,7 +28,7 @@ use Illuminate\Console\Command;
 final class AtlasBrainMetricsCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:metrics {--scope= : scope slug}';
+    protected $signature = 'atlas:brain:metrics {--scope= : scope slug} {--format=textfile : textfile|json}';
 
     /** @var string */
     protected $description = 'Flat key=value metrics export (Prometheus textfile format).';
@@ -80,6 +80,17 @@ final class AtlasBrainMetricsCommand extends Command
             "atlas_brain_evidence_age_seconds{$label}" => $age,
             "atlas_brain_origination_gap_cycles{$label}" => $gap,
         ];
+
+        if ((string) $this->option('format') === 'json') {
+            $json = ['scope' => $scope, 'metrics' => []];
+            foreach ($metrics as $key => $val) {
+                $base = (string) strstr($key, '{', true) ?: $key;
+                $json['metrics'][substr($base, strlen('atlas_brain_'))] = is_numeric($val) ? +$val : $val;
+            }
+            $this->line((string) json_encode($json, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
+
+            return self::SUCCESS;
+        }
 
         // HELP/TYPE comments — proper Prometheus textfile format. Static dict so the help text stays
         // identical across runs (scrapers cache type hints).

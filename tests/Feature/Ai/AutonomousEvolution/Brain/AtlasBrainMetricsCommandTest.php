@@ -33,6 +33,24 @@ final class AtlasBrainMetricsCommandTest extends TestCase
         self::assertStringContainsString('# HELP atlas_brain_score Composite', $out);
     }
 
+    public function test_metrics_json_format_returns_named_object(): void
+    {
+        config()->set('atlas.brain.scopes.loop', ['label' => 't', 'roots' => [], 'docs_roots' => [], 'meta_harness' => true]);
+        config()->set('atlas.brain.default_scope', 'loop');
+        $base = sys_get_temp_dir().'/atlas-brain-metrics-json-'.bin2hex(random_bytes(4));
+        @mkdir($base.'/done-set', 0o775, true);
+        config()->set('atlas.brain.done_set_root', $base.'/done-set');
+
+        $buf = new BufferedOutput;
+        Artisan::call('atlas:brain:metrics', ['--format' => 'json'], $buf);
+        $payload = json_decode(trim($buf->fetch()), true);
+
+        self::assertSame('loop', $payload['scope']);
+        self::assertArrayHasKey('score', $payload['metrics']);
+        self::assertArrayHasKey('gates_holes', $payload['metrics']);
+        self::assertArrayHasKey('origination_gap_cycles', $payload['metrics']);
+    }
+
     public function test_metrics_command_is_a_petreo_forbidden_self_target(): void
     {
         $verdict = app(AtlasLoopHarnessGuard::class)->admit('app/Console/Commands/AtlasBrainMetricsCommand.php', true);
