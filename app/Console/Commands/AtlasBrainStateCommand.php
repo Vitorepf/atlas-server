@@ -22,6 +22,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStaleScopeDetector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Illuminate\Console\Command;
@@ -225,6 +226,12 @@ final class AtlasBrainStateCommand extends Command
             $payload['cohorts'] = $cohorts;
             // COHORT HEALTH RANKING — comparator (L87) ranks every scope by composite health so the
             // operator sees the winner at a glance instead of eyeballing the per-cohort rows.
+            // COHORT FRESHNESS — L116 bucketing of stale/silent/fresh scopes over the same cohort.
+            $payload['cohort_freshness'] = app(AtlasBrainStaleScopeDetector::class)->detect(
+                array_map(static fn (array $c): string => (string) $c['slug'], $cohorts),
+                $reflection,
+                3600,
+            );
             $payload['cohort_health_ranking'] = app(AtlasBrainCohortScopeComparator::class)->compare(
                 array_map(static fn (array $c): string => (string) $c['slug'], $cohorts),
                 $reflection,
