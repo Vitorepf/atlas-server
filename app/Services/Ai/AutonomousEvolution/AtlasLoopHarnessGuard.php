@@ -144,6 +144,9 @@ final class AtlasLoopHarnessGuard
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHealthScore.php',
         // The EVIDENCE FRESHNESS — age of newest reflection. Editable ⇒ the réu would fake recency.
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainEvidenceFreshness.php',
+        // The HEALTH-SCORE LEDGER — append-only NDJSON time-series. Editable ⇒ the réu would rewrite
+        // history to look better (Goodhart, lying mirror over its own past performance).
+        'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainHealthScoreLedger.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModelBuilder.php',
         'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopScopeComprehensionModel.php',
         'app/Models/AtlasLoopProposal.php',
