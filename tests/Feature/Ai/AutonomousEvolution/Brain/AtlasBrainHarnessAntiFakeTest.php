@@ -350,4 +350,64 @@ final class AtlasBrainHarnessAntiFakeTest extends TestCase
         @unlink($okPath);
         @unlink($petreoPath);
     }
+
+    // (h) DEDUP MEMORY — a target already in the per-scope done-set is skipped at the seed boundary BEFORE the
+    //     downstream gates run (no enqueue, no re-author). The brain never re-seeds the same target on a re-run.
+    public function test_h_seed_skips_targets_already_in_the_done_set(): void
+    {
+        $this->brainOn();
+        $packet = $this->cleanPacket();
+        // Pre-populate the done-set for this scope with the exact target_path the packet carries.
+        (new AtlasBrainDoneSetLedger('loop', $this->doneSetRoot))->record([
+            'snapshot_id' => 'snap-prev',
+            'status' => 'served',
+            'produced' => true,
+            'action' => 'seed',
+            'target_path' => $packet['allowed_files'][0],
+            'task_packet_id' => 'brain:prev-cycle',
+            'refusal' => false,
+        ]);
+
+        $path = $this->specsFile([$packet]);
+        Artisan::call('atlas:brain:seed', ['--specs' => $path, '--dry-run' => true, '--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame('skipped_done_set', $payload['results'][0]['status']);
+        self::assertSame('dedup', $payload['results'][0]['stage']);
+        self::assertSame(1, (int) $payload['counts']['skipped_done_set']);
+        self::assertSame(0, (int) $payload['counts']['dry_run'], 'a deduped packet must NOT be counted as a gated dry_run');
+        self::assertSame(0, (int) $payload['counts']['enqueued']);
+        @unlink($path);
+    }
+
+    // (i) STICKY — a gated-ok dry_run seed POPULATES the done-set; a second seed of the same target is then
+    //     refused. Closes the asymmetry where `next` was dedup-aware but `seed` was not (the historical bug:
+    //     `produced:0` lying because the done-set was never updated from the seed path).
+    public function test_i_a_gated_dry_run_seed_populates_the_done_set_for_future_calls(): void
+    {
+        $this->brainOn();
+        $packet = $this->cleanPacket();
+        $path = $this->specsFile([$packet]);
+
+        // First call: dry_run gated_ok ⇒ records the target into the done-set.
+        Artisan::call('atlas:brain:seed', ['--specs' => $path, '--dry-run' => true, '--json' => true]);
+        $first = json_decode(trim(Artisan::output()), true);
+        self::assertSame('dry_run', $first['results'][0]['status'], 'first call clears every gate');
+
+        self::assertTrue(
+            (new AtlasBrainDoneSetLedger('loop', $this->doneSetRoot))->isDone($packet['allowed_files'][0]),
+            'a passing dry_run gate must populate the done-set so the brain never re-considers the same target'
+        );
+
+        // Second call (same target, fresh packet id) ⇒ deduped before any gate runs.
+        $packet2 = $this->cleanPacket();
+        $packet2['allowed_files'] = $packet['allowed_files'];
+        $packet2['scope_in'] = $packet['scope_in'];
+        $path2 = $this->specsFile([$packet2]);
+        Artisan::call('atlas:brain:seed', ['--specs' => $path2, '--dry-run' => true, '--json' => true]);
+        $second = json_decode(trim(Artisan::output()), true);
+        self::assertSame('skipped_done_set', $second['results'][0]['status']);
+        @unlink($path);
+        @unlink($path2);
+    }
 }

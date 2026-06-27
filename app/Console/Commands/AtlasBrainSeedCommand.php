@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCycleProgressVerdict;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
@@ -66,7 +67,13 @@ final class AtlasBrainSeedCommand extends Command
         $progress = app(AtlasBrainCycleProgressVerdict::class);
         // meta_harness comes from the SCOPE (the brain's reach is data, not a global flag). The registry is
         // pétreo — a packet can never smuggle its own meta_harness past the FORBIDDEN floor.
-        $metaHarness = (bool) app(AtlasBrainScopeRegistry::class)->resolve((string) ($this->option('scope') ?? ''))['meta_harness'];
+        $scopeDef = app(AtlasBrainScopeRegistry::class)->resolve((string) ($this->option('scope') ?? ''));
+        $metaHarness = (bool) $scopeDef['meta_harness'];
+        // DEDUP MEMORY (per-scope done-set, pétreo organ). `next` already calls isDone() before originating; `seed`
+        // is the OTHER entry point (replay of a stale specs file, manual hand-off, future brain-as-author paths)
+        // and was bypassing the ledger entirely — so a target already seeded in a previous cycle could re-enqueue
+        // silently. We mirror `next`'s contract here: check pre-gate; record on enqueue / dry-run-gated-ok.
+        $doneSet = new AtlasBrainDoneSetLedger((string) $scopeDef['slug'], (string) config('atlas.brain.done_set_root'));
         // The classifier needs a comprehension model; the specs carry no structural facts, so an empty model is
         // the honest input — the proxy check (objective text) is model-independent.
         $emptyModel = AtlasLoopScopeComprehensionModel::fromArray([]);
@@ -75,13 +82,24 @@ final class AtlasBrainSeedCommand extends Command
         $queue = AtlasTaskServingStack::queueRepo();
 
         $results = [];
-        $counts = ['enqueued' => 0, 'blocked' => 0, 'dry_run' => 0, 'skipped_exists' => 0, 'error' => 0];
+        $counts = ['enqueued' => 0, 'blocked' => 0, 'dry_run' => 0, 'skipped_exists' => 0, 'skipped_done_set' => 0, 'error' => 0];
 
         foreach ($packets as $i => $spec) {
             $id = trim((string) ($spec['task_packet_id'] ?? ''));
             if ($id === '') {
                 $results[] = ['index' => $i, 'status' => 'blocked', 'stage' => 'input', 'reasons' => ['missing_task_packet_id']];
                 $counts['blocked']++;
+
+                continue;
+            }
+
+            // STICKY dedup — the first allowed_file is the canonical target_path (mirrors `next`). A previously
+            // originated target is REFUSED here without running the downstream gates; the brain never re-seeds
+            // the same target on a second pass (skipped before any enqueue work, no ledger churn).
+            $targetPath = ltrim((string) (((array) ($spec['allowed_files'] ?? []))[0] ?? ''), '/');
+            if ($targetPath !== '' && $doneSet->isDone($targetPath)) {
+                $results[] = ['task_packet_id' => $id, 'status' => 'skipped_done_set', 'stage' => 'dedup', 'target_path' => $targetPath];
+                $counts['skipped_done_set']++;
 
                 continue;
             }
@@ -97,6 +115,9 @@ final class AtlasBrainSeedCommand extends Command
             if ($dryRun || ! $brainOn) {
                 $results[] = ['task_packet_id' => $id, 'status' => 'dry_run', 'stage' => 'gated_ok', 'reasons' => $dryRun ? [] : ['brain_switch_off']];
                 $counts['dry_run']++;
+                // RECORD the gated-ok cycle into the done-set — a passing dry-run/gate proves the target was
+                // considered, so a re-seed of the same target on a later call is STICKY-deduped (no double-author).
+                $this->recordDone($doneSet, $id, $targetPath, $dryRun ? 'dry_run' : 'gated_brain_off', false);
 
                 continue;
             }
@@ -113,6 +134,7 @@ final class AtlasBrainSeedCommand extends Command
                 if ($event === 'prepared_and_enqueued') {
                     $results[] = ['task_packet_id' => $id, 'status' => 'enqueued', 'stage' => 'enqueue'];
                     $counts['enqueued']++;
+                    $this->recordDone($doneSet, $id, $targetPath, 'seeded', true);
                 } else {
                     $results[] = ['task_packet_id' => $id, 'status' => 'blocked', 'stage' => 'enqueue', 'reasons' => [(string) data_get($env, 'reason', $event)]];
                     $counts['blocked']++;
@@ -183,6 +205,25 @@ final class AtlasBrainSeedCommand extends Command
         }
 
         return [true, 'gated_ok', []];
+    }
+
+    /**
+     * Append a sticky cycle row to the per-scope done-set. Target_path empty ⇒ no-op (nothing to dedup against).
+     */
+    private function recordDone(AtlasBrainDoneSetLedger $doneSet, string $id, string $targetPath, string $status, bool $produced): void
+    {
+        if ($targetPath === '') {
+            return; // no canonical key ⇒ recording it would never deduplicate anything.
+        }
+        $doneSet->record([
+            'snapshot_id' => '', // seed has no comprehension snapshot; the brain owns that field for `next`.
+            'status' => $status,
+            'produced' => $produced,
+            'action' => 'seed',
+            'target_path' => $targetPath,
+            'task_packet_id' => $id,
+            'refusal' => false,
+        ]);
     }
 
     /**
