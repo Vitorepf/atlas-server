@@ -539,3 +539,12 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 4 assertions green; pint green
 - next: 4 paths still at 5
+
+## L202 — compounding superposition (compounding @6)
+- path: compounding (now 6 organs)
+- organ: AtlasBrainCompoundingSuperposition — 4-signal per-path fusion (momentum/velocity/ewma/streak)
+- coverage: compounding=6
+- dependency graph: 4-organ deps recorded
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 3 tests / 8 assertions green; pint green
+- next: 3 paths still at 5 (frontier, metrics, simulation)
