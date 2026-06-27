@@ -382,3 +382,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 4 tests / 23 assertions green; pint green
 - next: route to one of those 4 under-built paths
+
+## L183 — stale evidence veto (adversarial-critique, routed by coverage matrix)
+- path: adversarial-critique — routed via coverage matrix (was 2 organs, now 3)
+- organ: AtlasBrainStaleEvidenceVeto — vetoes findings whose evidence age exceeds freshness threshold
+- coverage matrix: adversarial-critique=3, no longer under-built at threshold 3
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 5 tests / 6 assertions green (coverage test updated); pint green
+- next: route to remaining under-built (compounding, metrics-optimization, pattern-design — all 2)
