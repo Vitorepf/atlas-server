@@ -44,6 +44,7 @@ final class AtlasBrainSchemaContractRegistry
         AtlasBrainRepeatedRefusalAntiPattern::SCHEMA => AtlasBrainRepeatedRefusalAntiPattern::class,
         AtlasBrainPathStreakTracker::SCHEMA => AtlasBrainPathStreakTracker::class,
         AtlasBrainGreedyRotationProjector::SCHEMA => AtlasBrainGreedyRotationProjector::class,
+        AtlasBrainPortfolioBudgetAllocator::SCHEMA => AtlasBrainPortfolioBudgetAllocator::class,
     ];
 
     public function ownerOf(string $schema): ?string
