@@ -11,6 +11,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainLeverageBrief;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMetricSnapshot;
@@ -19,6 +20,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecSimulationTwin;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStructuralSignalDigest;
@@ -269,6 +271,12 @@ final class AtlasBrainNextCommand extends Command
             // + tail-streak — never a learned scalar). Always present when scope_signals fires — the
             // metric list is a contract, even values of 0 are signal ("nothing to push here").
             'metrics' => app(AtlasBrainMetricSnapshot::class)->snapshot($model, $ledger)['metrics'],
+            // GATE HEALTH — runtime adversarial audit of inspector + seed-gate. zero holes = airtight;
+            // non-zero IS the highest-leverage next slice (the brain originates against a real regression).
+            'gate_health' => [
+                'inspector_holes' => count(app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector)['holes']),
+                'seed_gate_holes' => count(app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class))['holes']),
+            ],
         ];
         // BRAIN-AS-AUTHOR EMBRYO (L9 wired): when the digest surfaces orphans, draft top-K candidate specs
         // (each passes the inspector by construction — see AtlasBrainOrphanSpecDrafterTest). The brain still
