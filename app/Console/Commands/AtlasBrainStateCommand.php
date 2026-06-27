@@ -102,12 +102,19 @@ final class AtlasBrainStateCommand extends Command
             'paths' => [
                 'count' => count(app(AtlasBrainPathCatalog::class)->all()),
             ],
-            // GATE HEALTH — runtime adversarial audit hole counts (same as scope_signals.gate_health in
-            // brain:next, computed here without origination). zero=airtight; non-zero=regression to fix.
-            'gate_health' => [
-                'inspector_holes' => count(app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector)['holes']),
-                'seed_gate_holes' => count(app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class))['holes']),
-            ],
+            // GATE HEALTH — runtime adversarial audit hole counts + attacks_tried (coverage). zero holes
+            // against N attacks = airtight; same N is a stability contract (dropping it = audit shrunk silently).
+            'gate_health' => (function (): array {
+                $inspector = app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector);
+                $seed = app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class));
+
+                return [
+                    'inspector_holes' => count($inspector['holes']),
+                    'inspector_attacks_tried' => (int) ($inspector['attacks_tried'] ?? 0),
+                    'seed_gate_holes' => count($seed['holes']),
+                    'seed_gate_attacks_tried' => (int) ($seed['attacks_tried'] ?? 0),
+                ];
+            })(),
         ];
 
         if ($this->option('all')) {
