@@ -464,3 +464,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - pétreo: added to FORBIDDEN_SELF_TARGETS
 - proof: 5 tests / 8 assertions green; pint green
 - next: route to under-built (4) paths
+
+## L193 — organ dependency graph (comprehension-deepening)
+- path: comprehension-deepening (now 5 organs)
+- organ: AtlasBrainOrganDependencyGraph — dependsOn() + consumersOf() lookups
+- coverage matrix: comprehension-deepening=5; metrics-optimization=5; others at 4
+- pétreo: added to FORBIDDEN_SELF_TARGETS
+- proof: 6 tests / 31 assertions green (every declared dep class exists)
+- next: paths still at 4: frontier, adversarial, compounding, simulation, pattern
