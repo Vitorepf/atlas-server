@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCohortScopeComparator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
@@ -196,6 +197,13 @@ final class AtlasBrainStateCommand extends Command
                 ];
             }
             $payload['cohorts'] = $cohorts;
+            // COHORT HEALTH RANKING — comparator (L87) ranks every scope by composite health so the
+            // operator sees the winner at a glance instead of eyeballing the per-cohort rows.
+            $payload['cohort_health_ranking'] = app(AtlasBrainCohortScopeComparator::class)->compare(
+                array_map(static fn (array $c): string => (string) $c['slug'], $cohorts),
+                $reflection,
+                (string) config('atlas.brain.done_set_root'),
+            );
         }
 
         $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;

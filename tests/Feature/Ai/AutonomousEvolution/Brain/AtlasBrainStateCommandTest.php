@@ -107,6 +107,9 @@ final class AtlasBrainStateCommandTest extends TestCase
         $slugs = array_column($payload['cohorts'], 'slug');
         self::assertContains('loop', $slugs);
         self::assertContains('muscle', $slugs);
+        // cohort_health_ranking is computed alongside cohorts when --all is set.
+        self::assertArrayHasKey('cohort_health_ranking', $payload);
+        self::assertArrayHasKey('top', $payload['cohort_health_ranking']);
     }
 
     public function test_cascade_outcomes_block_joins_reflection_and_done_set(): void
