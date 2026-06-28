@@ -117,9 +117,10 @@ final class AtlasBrainSeedCommand extends Command
             if ($dryRun || ! $brainOn) {
                 $results[] = ['task_packet_id' => $id, 'status' => 'dry_run', 'stage' => 'gated_ok', 'reasons' => $dryRun ? [] : ['brain_switch_off']];
                 $counts['dry_run']++;
-                // RECORD the gated-ok cycle into the done-set — a passing dry-run/gate proves the target was
-                // considered, so a re-seed of the same target on a later call is STICKY-deduped (no double-author).
-                $this->recordDone($doneSet, $id, $targetPath, $dryRun ? 'dry_run' : 'gated_brain_off', false);
+                // A dry-run / switch-off pass is a PREVIEW, not a commitment — it must NOT record into the
+                // done-set. Recording here burned the target via the STICKY isDone() check, so the subsequent
+                // REAL seed of the same target returned `skipped_done_set` and never enqueued (the dry-run→seed
+                // flow could not seed). Only a real enqueue (below) records. Re-seed dedup is preserved there.
 
                 continue;
             }
