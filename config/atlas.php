@@ -39,6 +39,10 @@ return [
         'master_enabled' => env('ATLAS_BRAIN_MASTER_ENABLED', false),
         'journal_root' => 'docs/loop-evolution-journal',
         'done_set_root' => storage_path('app/atlas/brain/done-set'),
+        // CYCLE CAPSULE — replayable per-cycle external record (prompt/receipt, spec, decision, provider,
+        // files, evidence, validation, metrics, failures, learning). One JSONL per scope. The substrate the
+        // Internalization Pipeline replays to turn external cycles into internal capability candidates.
+        'cycle_capsule_root' => storage_path('app/atlas/brain/cycle-capsule'),
 
         // The scope the brain evolves when none is named. The brain has ONE defined scope today: the whole
         // autonomous block (brain + loop engine + muscle). Add cortex/maestro/… here as DATA — no code change.
