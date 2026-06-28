@@ -730,3 +730,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - seam pétreo respeitado: model+builder são PÉTREO (não dá pra add campo) → wirei no ORIGINATOR (não-pétreo, não-queued). flag-OFF byte-identical → soak-safe pras 3 sessões.
 - prova: 15 testes frozen (scanner puro + originator prompt OFF=''/ON-injeta/cap-8 + originator Feature regression) + tinker end-to-end (ON → prompt CONTÉM AtlasLoopAmbitionFacultyStore; OFF → sem linha). pint clean (originator deixado com débito pré-existente, minhas linhas limpas). phpstan zero-novo. Commit d390b9e8b.
 - flag: atlas.loop.contract_gap_origination_enabled (default OFF). Armar = decisão do operador (muda o prompt da origination automática).
+
+## L-SEED-BURN — RESOLVIDO o bug crítico do dry-run (Codex #2) na raiz
+- gatilho: operador "resolva" após eu apontar o fix como pétreo. Autorização explícita → editei arquivo pétreo (AtlasBrainSeedCommand) com fix STRENGTHENING (dedup correto; nenhum juiz/gate/switch enfraquecido).
+- bug (confirmado código + e2e): seed --dry-run gate-passing chamava recordDone('dry_run') + isDone() sticky → seed real seguinte = skipped_done_set (nunca enfileira). O fluxo dry-run→seed não conseguia semear.
+- fix: ramo dry-run/brain-off NÃO grava mais no done-set (preview ≠ commitment); só enqueue real grava (dedup de re-seed preservado lá).
+- prova: tinker e2e com done-set TEMP + spec real que passa no gate → done-set rows = 0 (era 1 = burn). phpstan HEAD+now limpo, pint ok, 9 testes gate/auditor verdes. Commit 136029689. Também mitiguei no prompt aumentado (seed direto, 0302095a8).
+- NÃO armei flags mid-soak (3 sessões rodando → mudar flag corromperia a medição; princípio freeze-durante-soak). scope_signal_digest/reflection/contract_gap_origination + leverage_first ficam pro operador armar ENTRE runs. Writer Hermes = `hermes model` interativo (tool do operador).
