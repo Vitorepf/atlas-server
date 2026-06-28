@@ -80,6 +80,10 @@ final class AtlasLoopHarnessGuard
         // memory it recalls from nor the test that decides if a path's win is real (self-confirmation trap).
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainReflectionStream.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainCausalEffectGate.php',
+        // KEYSTONE #4 causal credit gate (effect+CI over the pattern LEARNING LEDGER). Pétreo for the same
+        // reason as the selector/ledger: the réu can never edit the test that decides whether a path's
+        // compounding is REAL (else it forges its own "proven" verdict). Strengthen-only.
+        'app/Services/Ai/AutonomousEvolution/Pattern/AtlasLoopPatternCausalEffectGate.php',
         // The brain's STRUCTURAL PERCEPTION — the digest of multi-file leverage signals (orphans/clones/doc-
         // stated gaps) the next origination reads. Pétreo for the same reason as the comprehension model:
         // the réu never edits what it perceives (else it'd shape its own input to forge the "right" leap).
