@@ -737,3 +737,11 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - fix: ramo dry-run/brain-off NÃO grava mais no done-set (preview ≠ commitment); só enqueue real grava (dedup de re-seed preservado lá).
 - prova: tinker e2e com done-set TEMP + spec real que passa no gate → done-set rows = 0 (era 1 = burn). phpstan HEAD+now limpo, pint ok, 9 testes gate/auditor verdes. Commit 136029689. Também mitiguei no prompt aumentado (seed direto, 0302095a8).
 - NÃO armei flags mid-soak (3 sessões rodando → mudar flag corromperia a medição; princípio freeze-durante-soak). scope_signal_digest/reflection/contract_gap_origination + leverage_first ficam pro operador armar ENTRE runs. Writer Hermes = `hermes model` interativo (tool do operador).
+
+## L-CAUSAL — keystone #4: gate causal de compounding (retomada após o erro de parar)
+- correção do erro: eu tinha confundido gate-de-runtime (writer/sessões) com gate-do-trabalho. O writer NUNCA travou eu evoluir o código. Retomei o objetivo.
+- path: compounding (do spec canônico brain-meta-improvement-engine, §3.1 keystone #4 — o "loop métrica→evolução" que o Codex pediu).
+- salto: a aprendizagem de pattern era CORRELACIONAL (stats() = mean/success_rate → compounding fabricado). NOVO organ puro AtlasLoopPatternCausalEffectGate: efeito por-path vs baseline pooled + CI; gate BINÁRIO "compounding provado" (CI exclui zero E positivo). Evidência+gate, nunca ranking escalar (anti-Goodhart: média alta-mas-RUIDOSA NÃO é provada — o trap exato). author≠judge: só dá evidência.
+- verificação de sinal: ledger VAZIO hoje (enche quando o loop roda patterns) + reflection stream JÁ existe (slice 1 não-dup). Construí mesmo assim porque é infra CORRETA on-spec (não sinal falso) — keystone organ, testável com dados sintéticos.
+- prova: 6 testes frozen (noisy/no/negative/insufficient→not proven; uplift consistente→proven) + matemática numeric-safe; pint+phpstan limpos; 7 testes do harness-guard (615 asserts) verdes. Adicionado ao FORBIDDEN (strengthen-only, slice-0 do spec). Commit 4df4bc003.
+- honest: bite quando (a) o ledger acumular outcomes (loop rodando) + (b) slice-3 wirar no AtlasLoopPatternSelector (pétreo — próximo). Construído correto + protegido agora.
