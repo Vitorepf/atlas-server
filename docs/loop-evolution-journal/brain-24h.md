@@ -709,3 +709,15 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - ATIVAÇÃO: docs/brain-augmented-worker-prompt.md — prompt Mode-B canônico que liga dedup + contract-gaps + collision-awareness (as 4 slices viram inteligência real só quando a sessão consome; este prompt é o gatilho). worker-prompt canônico é pétreo, daí o prompt-doc.
 - DESCARTES honestos (anti-fake): doc-named-organ-gap signal REJEITADO (dispara falso: canon diz "Maestro Scheduler" mas código tem "Maestro"); KIND_CONTRACT_IMPL_GAP via forModel() REJEITADO (consumidor inerte/queued). Só shipei sinal binário sem ambiguidade.
 - contenção: 3 sessões-cérebro rodando → não toquei decide-path/pétreo/queued/músculo. Próximos saltos grandes (wirar contract-gaps na comprehension model do brain:next automático; arming flags) ficam pra quando as sessões estiverem ociosas ou sob teu OK.
+
+## CICLO (goal novo) — comprehend + descartes verificados + achado do payload dark
+- path rodados: comprehension-deepening (esgotado: contract-gaps shipado) → compounding → frontier → perception-signals.
+- DESCARTES honestos (sinal verificado, não shipei — anti-inerte/anti-falso/anti-redundante):
+  - history/lições do done-set: 18 ciclos mas refused têm target_path VAZIO e NÃO há campo `reason` → sinal fino + redundante com queued-targets. DESCARTE. (enriquecer o done-set é pétreo: ledger+brain:next em FORBIDDEN.)
+  - stub-method (corpo só lança not-implemented) = 0 no escopo → inerte. DESCARTE.
+  - abstract-class-sem-subclasse = 0 no escopo → inerte. DESCARTE.
+  - doc-named-organ-gap = FALSO (nome-variante: canon "Maestro Scheduler" vs código "Maestro"). DESCARTE (já era).
+  - wirar contract-gaps no caminho AUTOMÁTICO: model+builder são PÉTREO (não dá pra add campo nem popular docStatedGaps); o originator (não-pétreo) não tem repoRoot/roots e o writer downstream está MORTO (Hermes moa) → consumidor morto + latente. DESCARTE (régua: não wirar consumidor morto / evitar substrato sem circulação).
+  - comando de órfãos pra Mode-B: REDUNDANTE — brain:next já emite orphans+drafted_candidates+leverage_brief+recommended_draft (AtlasBrainNextCommand:262-303), porém gated por scope_signal_digest_enabled.
+- ACHADO (maior lever disponível, operator-gated): `scope_signal_digest_enabled` está OFF → todo o payload de briefing de origination (órfãos, drafts, leverage_brief, recommended_draft — JÁ construído e wired no brain:next) chega VAZIO à sessão. Armar esse flag (+ os meus origination_queue_dedup/leverage_first) é o salto de maior alavanca agora, mas muda comportamento default da origination = decisão do operador (e há 3 sessões rodando → armar mid-soak muda o hint delas).
+- estado: 5 slices live commitadas nesta campanha (queue-aware, queued-targets, collision, contract-gaps, augmented-prompt). Próximos saltos GRANDES gated em: writer revival (Hermes/queued packets) → caminho automático fica vivo; OU sessões ociosas → posso tocar decide-path; OU operador arma os flags. Sem fabricar latente.
