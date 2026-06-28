@@ -134,11 +134,25 @@ final class AtlasLoopComprehensionOriginator
                 ."evolution; only re-cite one of these if you have a genuinely better design than last time.";
         }
 
+        // COMPREHENSION-DEEPENING seam: surface declared-but-unimplemented CONTRACTS (interfaces with ZERO
+        // implementer) as a high-leverage origination axis the writer was blind to — architecture-completion,
+        // not orphan-wiring. Binary/grounded signal (shared AtlasLoopContractGapScanner). Flag OFF (default) =>
+        // $contractLine = '' => the prompt is byte-identical. ON => the automated writer perceives contract gaps.
+        $contractLine = '';
+        if ((bool) config('atlas.loop.contract_gap_origination_enabled', false)) {
+            $paths = array_map(
+                static fn (array $row): string => base_path((string) ($row['rel_path'] ?? '')),
+                array_values($model->inventory),
+            );
+            $gaps = (new AtlasLoopContractGapScanner)->capabilityGaps($paths, base_path());
+            $contractLine = self::contractGapPromptLine(array_map(static fn (array $g): string => (string) $g['fqcn'], $gaps));
+        }
+
         return <<<PROMPT
             You reason over the loop's OWN comprehension model and ORIGINATE the single highest-LEVERAGE
             evolution of its scope — a real capability, a structural improvement, a removed coupling — NOT a
             cosmetic or proxy change. Facts: built-but-unwired orphans: {$orphans}. Capabilities the canonical
-            docs demand but no symbol provides: {$gaps}. Structural clone clusters: {$cloneCount}.{$learned}
+            docs demand but no symbol provides: {$gaps}. Structural clone clusters: {$cloneCount}.{$learned}{$contractLine}
 
             Propose ONE evolution. Every symbol you cite MUST be a REAL member of the scope (it is checked
             against the inventory — a cited symbol that does not exist REFUTES your whole proposal). Output
@@ -149,6 +163,24 @@ final class AtlasLoopComprehensionOriginator
             <comma-separated REAL symbols/paths it rests on>
             <<<END>>>
             PROMPT;
+    }
+
+    /**
+     * Pure: render the contract-gap fact line for the writer prompt. EMPTY list => '' (so the OFF path is
+     * byte-identical). Public+static so the byte-identical-OFF + ON-injection contract is directly testable.
+     *
+     * @param  list<string>  $fqcns
+     */
+    public static function contractGapPromptLine(array $fqcns): string
+    {
+        $fqcns = array_values(array_filter(array_map('trim', $fqcns), static fn (string $s): bool => $s !== ''));
+        if ($fqcns === []) {
+            return '';
+        }
+        $list = implode(', ', array_slice($fqcns, 0, 8));
+
+        return "\n\nDeclared-but-UNIMPLEMENTED contracts (an interface in scope with ZERO implementer — building "
+            ."a concrete implementation is a high-leverage capability completion, NOT orphan-wiring): {$list}.";
     }
 
     /**

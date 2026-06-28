@@ -4,22 +4,19 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopContractGapScanner;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use Illuminate\Console\Command;
 
 /**
- * BRAIN CONTRACT-GAPS — read-only. Surfaces a NEW class of high-leverage origination the brain was blind to:
- * an INTERFACE declared inside the scope that has ZERO concrete implementers anywhere in app/ — a contract the
- * architecture PROMISED but never fulfilled (architectural capability debt). This is NOT orphan-wiring (an
- * orphan class exists and lacks a caller); it is a capability the system DECLARED via a contract and never
- * delivered. The brain (the pasted decide-loop session) reads this and originates "implement contract X" specs
- * — architecture-completion leverage, not intra-graph node-wiring.
+ * BRAIN CONTRACT-GAPS — read-only Mode-B surface over {@see AtlasLoopContractGapScanner}. Lists interfaces in a
+ * scope with ZERO concrete implementer anywhere in app/ — contracts the architecture DECLARED but never
+ * fulfilled (architectural capability debt). The brain (the pasted decide-loop session) reads this and
+ * originates "implement contract X" specs — architecture-COMPLETION leverage, not intra-graph node-wiring.
  *
- * The signal is BINARY and UNAMBIGUOUS (an interface either has an `implements`-ing class or it does not — no
- * name-variant fuzziness), so it never fires a false gap, and it is GROUNDED (real interface FQCN + the real
- * method signatures the implementation must satisfy are carried as evidence). NOT a computed scalar
- * (anti-Goodhart): a SET of zero-implementer interfaces, never a ranked score. author≠judge intact — the brain
- * only PROPOSES; Atlas's architect gate + RED→GREEN cert remain the judges. Read-only, fail-OPEN.
+ * Binary, UNAMBIGUOUS signal (a class either `implements X` or it does not), so it never fires a false gap;
+ * GROUNDED (real FQCN + the method signatures the implementation must satisfy). Read-only, fail-OPEN. The
+ * SAME scanner feeds the automated origination prompt (flag-gated) — single source of truth, zero duplication.
  */
 final class AtlasBrainContractGapsCommand extends Command
 {
@@ -35,9 +32,8 @@ final class AtlasBrainContractGapsCommand extends Command
         $slug = (string) $scopeDef['slug'];
         $roots = array_values((array) ($scopeDef['roots'] ?? []));
 
-        $implemented = $this->implementedInterfaceNames();
-        $interfaces = $this->scopeInterfaces($roots, $implemented);
-        $gaps = self::gapsFrom($interfaces);
+        $scanner = new AtlasLoopContractGapScanner;
+        $gaps = $scanner->capabilityGaps($scanner->phpFilesUnder($roots, base_path()), base_path());
 
         $payload = ['scope' => $slug, 'count' => count($gaps), 'gaps' => $gaps];
 
@@ -59,120 +55,5 @@ final class AtlasBrainContractGapsCommand extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Pure: keep only interfaces with zero implementers, sorted by FQCN. The membership signal — never a score.
-     *
-     * @param  list<array{fqcn:string, file:string, methods:list<string>, implementer_count:int}>  $interfaces
-     * @return list<array{fqcn:string, file:string, methods:list<string>, implementer_count:int}>
-     */
-    public static function gapsFrom(array $interfaces): array
-    {
-        $gaps = array_values(array_filter($interfaces, static fn (array $i): bool => (int) ($i['implementer_count'] ?? 0) === 0));
-        usort($gaps, static fn (array $a, array $b): int => strcmp((string) ($a['fqcn'] ?? ''), (string) ($b['fqcn'] ?? '')));
-
-        return $gaps;
-    }
-
-    /**
-     * Pure: parse the public method signatures an implementation of this interface source must satisfy. These
-     * are the GROUNDED obligation the originated spec carries (so the brain authors a concrete spec, not prose).
-     *
-     * @return list<string>
-     */
-    public static function interfaceMethods(string $source): array
-    {
-        $methods = [];
-        if (preg_match_all('/public\s+(?:static\s+)?function\s+(\w+\s*\([^;{]*\)(?:\s*:\s*[^;{\n]+)?)/m', $source, $m) === false) {
-            return [];
-        }
-        foreach ($m[1] as $sig) {
-            $methods[] = 'function '.trim((string) preg_replace('/\s+/', ' ', (string) $sig));
-        }
-
-        return $methods;
-    }
-
-    /**
-     * Scope interfaces (FQCN + methods + app-wide implementer count). IO; fail-OPEN to [].
-     *
-     * @param  list<string>  $roots
-     * @param  array<string,bool>  $implemented  short interface-name => has a concrete implementer somewhere
-     * @return list<array{fqcn:string, file:string, methods:list<string>, implementer_count:int}>
-     */
-    private function scopeInterfaces(array $roots, array $implemented): array
-    {
-        $out = [];
-        try {
-            foreach ($roots as $root) {
-                $base = base_path(trim($root, '/'));
-                if (! is_dir($base)) {
-                    continue;
-                }
-                $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS));
-                foreach ($it as $path) {
-                    $path = (string) $path;
-                    if (! str_ends_with($path, '.php')) {
-                        continue;
-                    }
-                    $src = (string) @file_get_contents($path);
-                    if (! preg_match('/^interface\s+(\w+)/m', $src, $im)) {
-                        continue;
-                    }
-                    $short = $im[1];
-                    $ns = preg_match('/^namespace\s+([^;]+);/m', $src, $nm) ? trim($nm[1]) : '';
-                    $out[] = [
-                        'fqcn' => $ns !== '' ? $ns.'\\'.$short : $short,
-                        'file' => ltrim(str_replace(base_path(), '', $path), '/'),
-                        'methods' => self::interfaceMethods($src),
-                        'implementer_count' => isset($implemented[$short]) ? 1 : 0,
-                    ];
-                }
-            }
-        } catch (\Throwable) {
-            return [];
-        }
-
-        return $out;
-    }
-
-    /**
-     * One pass over app/: every interface short-name that appears in a concrete `implements` clause. Membership
-     * is the whole signal. ponytail: full-tree scan per run; fine for an occasional read-only command, index if
-     * app/ ever dwarfs this.
-     *
-     * @return array<string,bool>
-     */
-    private function implementedInterfaceNames(): array
-    {
-        $set = [];
-        try {
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path('app'), \FilesystemIterator::SKIP_DOTS));
-            foreach ($it as $path) {
-                $path = (string) $path;
-                if (! str_ends_with($path, '.php')) {
-                    continue;
-                }
-                $src = (string) @file_get_contents($path);
-                if (preg_match_all('/\bimplements\s+([^{]+?)[\n{]/m', $src, $m) === false) {
-                    continue;
-                }
-                foreach ($m[1] as $clause) {
-                    foreach (preg_split('/[\s,]+/', trim((string) $clause)) ?: [] as $name) {
-                        $name = ltrim((string) $name, '\\');
-                        if ($name === '') {
-                            continue;
-                        }
-                        $parts = explode('\\', $name);
-                        $set[(string) end($parts)] = true;
-                    }
-                }
-            }
-        } catch (\Throwable) {
-            return [];
-        }
-
-        return $set;
     }
 }

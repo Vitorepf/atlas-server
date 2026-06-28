@@ -4,29 +4,29 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
-use App\Console\Commands\AtlasBrainContractGapsCommand;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopContractGapScanner;
 use PHPUnit\Framework\TestCase;
 
 /**
- * BRAIN CONTRACT-GAPS — the brain perceives interfaces declared-but-never-implemented (architectural capability
- * debt) and originates the implementation. gapsFrom is the binary membership signal (zero implementers, never a
- * score); interfaceMethods carries the grounded obligation. Both pure → frozen here.
+ * CONTRACT-GAP scanner — the shared organ behind both the Mode-B command and the automated origination prompt.
+ * gapsFrom is the binary membership signal (zero implementers, never a score); interfaceMethods carries the
+ * grounded obligation. Both pure → frozen here.
  */
-final class AtlasBrainContractGapsCommandTest extends TestCase
+final class AtlasLoopContractGapScannerTest extends TestCase
 {
     public function test_only_zero_implementer_interfaces_are_gaps(): void
     {
-        $gaps = AtlasBrainContractGapsCommand::gapsFrom([
-            ['fqcn' => 'A\\Z', 'file' => 'a', 'methods' => [], 'implementer_count' => 0], // gap
-            ['fqcn' => 'A\\Has', 'file' => 'b', 'methods' => [], 'implementer_count' => 1], // fulfilled → not a gap
-            ['fqcn' => 'A\\A', 'file' => 'c', 'methods' => [], 'implementer_count' => 0], // gap
+        $gaps = AtlasLoopContractGapScanner::gapsFrom([
+            ['fqcn' => 'A\\Z', 'file' => 'a', 'methods' => [], 'implementer_count' => 0],
+            ['fqcn' => 'A\\Has', 'file' => 'b', 'methods' => [], 'implementer_count' => 1],
+            ['fqcn' => 'A\\A', 'file' => 'c', 'methods' => [], 'implementer_count' => 0],
         ]);
         self::assertSame(['A\\A', 'A\\Z'], array_column($gaps, 'fqcn'), 'only zero-impl, sorted by FQCN');
     }
 
     public function test_no_gaps_when_every_contract_is_implemented(): void
     {
-        $gaps = AtlasBrainContractGapsCommand::gapsFrom([
+        $gaps = AtlasLoopContractGapScanner::gapsFrom([
             ['fqcn' => 'A\\X', 'file' => 'a', 'methods' => [], 'implementer_count' => 3],
         ]);
         self::assertSame([], $gaps);
@@ -44,7 +44,7 @@ final class AtlasBrainContractGapsCommandTest extends TestCase
             // a comment, not a method
         }
         PHP;
-        $methods = AtlasBrainContractGapsCommand::interfaceMethods($source);
+        $methods = AtlasLoopContractGapScanner::interfaceMethods($source);
         self::assertSame(
             ['function current(): ?AmbitionState', 'function save(AmbitionState $state): void'],
             $methods,
@@ -53,6 +53,6 @@ final class AtlasBrainContractGapsCommandTest extends TestCase
 
     public function test_interface_with_no_methods_yields_empty_obligation(): void
     {
-        self::assertSame([], AtlasBrainContractGapsCommand::interfaceMethods("<?php\ninterface Marker {}\n"));
+        self::assertSame([], AtlasLoopContractGapScanner::interfaceMethods("<?php\ninterface Marker {}\n"));
     }
 }

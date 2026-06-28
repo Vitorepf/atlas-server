@@ -2012,6 +2012,13 @@ return [
         // under leverage_first_origination_enabled + ATLAS_LOOP_MASTER_ENABLED + AtlasBrainMasterSwitch.
         'origination_queue_dedup_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_QUEUE_DEDUP_ENABLED', false),
 
+        // CONTRACT-GAP ORIGINATION: when ON, the automated origination writer prompt
+        // (AtlasLoopComprehensionOriginator::buildPrompt) surfaces interfaces declared in scope with ZERO
+        // implementer (declared-but-unfulfilled contracts) as a high-leverage axis — architecture-completion,
+        // not orphan-wiring. Binary/grounded signal via the shared AtlasLoopContractGapScanner. Default OFF =>
+        // the line is empty => the writer prompt is byte-identical. Same surface as atlas:brain:contract-gaps.
+        'contract_gap_origination_enabled' => (bool) env('ATLAS_LOOP_CONTRACT_GAP_ORIGINATION_ENABLED', false),
+
         // AUTHOR≠JUDGE runtime cert predicate: se o diff de uma proposta tocar QUALQUER arquivo
         // dono de juízo/gate (HarnessGuard::FORBIDDEN_SELF_TARGETS), a cert é RECUSADA — não só
         // edit-bloqueada. Converte author≠judge de perímetro (blocklist de edição) em predicado
