@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Observability\AtlasLoopCycleSignalEmitter;
 use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCyclePauseFlag;
+use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCyclePauseResumeSignalBridge;
 use App\Services\Ai\AutonomousEvolution\PauseResume\AtlasLoopCycleResumeFromCheckpoint;
 use Illuminate\Console\Command;
 
@@ -43,6 +45,8 @@ final class AtlasLoopPauseResumeCommand extends Command
             return $this->emit(['action' => 'pause', 'outcome' => 'refused', 'reason' => 'missing_required_options'], 1);
         }
         $sentinel = $this->flag()->raise($cycle, $phase, $reason);
+        // Surface the manual pause as a first-class cycle observability signal (master-gated no-op when OFF).
+        $this->bridge()->onPauseRaised($cycle, $phase, $reason);
 
         return $this->emit(['action' => 'pause', 'outcome' => 'raised', 'sentinel' => $sentinel], 0);
     }
@@ -73,13 +77,25 @@ final class AtlasLoopPauseResumeCommand extends Command
             'checkpoint_hash' => $svc->hashFacts([]),
         ];
         $result = $svc->resume($checkpoint);
+        // Surface the resume outcome as a discrete signal: a clean resume vs an integrity-drift refusal.
+        if (($result['outcome'] ?? '') === 'resumed') {
+            $this->bridge()->onResumeAttempted($cycle, $result);
+        } else {
+            $this->bridge()->onResumeRefusedDueToDrift($cycle, $result);
+        }
 
         return $this->emit(['action' => 'resume'] + $result, $result['outcome'] === 'resumed' ? 0 : 1);
     }
 
     private function doClear(): int
     {
+        // Capture the sentinel's cycle_id BEFORE lowering so the signal can name the cycle it cleared.
+        $existing = $this->flag()->inspect();
         $lowered = $this->flag()->lower();
+        if ($lowered) {
+            $cycle = $existing !== null ? (string) ($existing['cycle_id'] ?? '') : (string) $this->option('cycle');
+            $this->bridge()->onPauseLowered($cycle);
+        }
 
         return $this->emit([
             'action' => 'clear',
@@ -100,6 +116,16 @@ final class AtlasLoopPauseResumeCommand extends Command
         $this->line((string) json_encode($payload, $flags));
 
         return $exit;
+    }
+
+    private function bridge(): AtlasLoopCyclePauseResumeSignalBridge
+    {
+        $app = $this->getLaravel();
+        if ($app->bound(AtlasLoopCyclePauseResumeSignalBridge::class)) {
+            return $app->make(AtlasLoopCyclePauseResumeSignalBridge::class);
+        }
+
+        return new AtlasLoopCyclePauseResumeSignalBridge(new AtlasLoopCycleSignalEmitter, $this->flag());
     }
 
     private function flag(): AtlasLoopCyclePauseFlag
