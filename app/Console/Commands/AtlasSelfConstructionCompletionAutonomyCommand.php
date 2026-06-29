@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAutonomyDependencyAudit;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAutonomyTransitionMap;
+use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionCodeIndexReadinessBridge;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalAutonomyVerdict;
 use Illuminate\Console\Command;
 use Throwable;
@@ -17,6 +18,8 @@ use Throwable;
  *   transition-map    AtlasSelfConstructionAutonomyTransitionMap::transition(audit_verdict)
  *   policy            echoes the readiness policy facts (no business decision)
  *   verdict           composes audit + transition-map + readiness into AtlasSelfConstructionFinalAutonomyVerdict
+ *   code-index-readiness  AtlasSelfConstructionCodeIndexReadinessBridge::verify(facts.code_index ?? facts) —
+ *                         the OS must NOT claim ready while code indexing is missing, stale, or schema-drifted
  *
  * Every action is read-only. Payload always carries:
  *   final_runtime_owner          = "atlas_native"
@@ -34,14 +37,15 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
 
     public const STEADY_STATE_RUNTIME_OWNER = 'atlas_server';
 
-    protected $signature = 'atlas:self-construction:completion-autonomy {action : audit|transition-map|policy|verdict} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:completion-autonomy {action : audit|transition-map|policy|verdict|code-index-readiness} {--facts=} {--json}';
 
-    protected $description = 'Read-only final-autonomy completion CLI: audit | transition-map | policy | verdict.';
+    protected $description = 'Read-only final-autonomy completion CLI: audit | transition-map | policy | verdict | code-index-readiness.';
 
     public function handle(
         AtlasSelfConstructionAutonomyDependencyAudit $auditSvc,
         AtlasSelfConstructionAutonomyTransitionMap $transitionSvc,
         AtlasSelfConstructionFinalAutonomyVerdict $verdictSvc,
+        AtlasSelfConstructionCodeIndexReadinessBridge $codeIndexBridge,
     ): int {
         $action = (string) $this->argument('action');
         $facts = $this->loadFacts();
@@ -58,6 +62,7 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
                 $transitionSvc->transition($auditSvc->audit((array) ($facts['evidence'] ?? []))),
                 (array) ($facts['readiness'] ?? []),
             ),
+            'code-index-readiness' => $codeIndexBridge->verify((array) ($facts['code_index'] ?? $facts)),
             default => null,
         };
         if ($payload === null) {

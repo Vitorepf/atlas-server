@@ -104,4 +104,41 @@ final class AtlasSelfConstructionCompletionAutonomyCommandTest extends TestCase
         [$exit] = $this->runCmd(['action' => 'BOGUS', '--facts' => $path]);
         $this->assertSame(AtlasSelfConstructionCompletionAutonomyCommand::EXIT_USAGE, $exit);
     }
+
+    public function test_code_index_readiness_blocks_on_schema_drift(): void
+    {
+        $path = $this->fixture([
+            'code_index' => [
+                'schema_drift' => ['passed' => false, 'status' => 'drifted'],
+                'automatic_gate' => ['status' => 'ready'],
+                'code_status' => ['status' => 'ready', 'indexed_symbols' => 100, 'is_stale' => false],
+                'readiness' => ['status' => 'ready', 'blocking_findings' => []],
+            ],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'code-index-readiness', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionCompletionAutonomyCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('blocked', $decoded['status'], (string) $out);
+        $this->assertContains('schema_drift_failed:drifted', $decoded['blockers']);
+        // canonical owner labels still stamped by the command
+        $this->assertSame('atlas_native', $decoded['final_runtime_owner']);
+    }
+
+    public function test_code_index_readiness_ready_when_clean(): void
+    {
+        $path = $this->fixture([
+            'code_index' => [
+                'schema_drift' => ['passed' => true, 'status' => 'clean'],
+                'automatic_gate' => ['status' => 'ready'],
+                'code_status' => ['status' => 'ready', 'indexed_symbols' => 100, 'is_stale' => false],
+                'readiness' => ['status' => 'ready', 'blocking_findings' => []],
+            ],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'code-index-readiness', '--facts' => $path, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionCompletionAutonomyCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('ready', $decoded['status'], (string) $out);
+        $this->assertSame([], $decoded['blockers']);
+        $this->assertTrue($decoded['passed']);
+    }
 }
