@@ -6,8 +6,10 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactBoundsMissingException;
 use App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsSchema;
 use App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsValidator;
 use Illuminate\Console\Command;
+use InvalidArgumentException;
 
 /**
  * Operator surface for distinguishing single-sample FACTS (legacy) from multi-source bounded FACTS.
@@ -21,9 +23,9 @@ final class AtlasLoopFactConfidenceBoundsCommand extends Command
 
     public const LEDGER_PATH_BINDING = 'atlas.loop.fact_confidence.ledger_path';
 
-    private const VALID_ACTIONS = ['inspect', 'validate', 'history'];
+    private const VALID_ACTIONS = ['inspect', 'validate', 'history', 'compute'];
 
-    protected $signature = 'atlas:loop:fact:bounds {action : inspect|validate|history} {--fact-key=} {--limit=20} {--json}';
+    protected $signature = 'atlas:loop:fact:bounds {action : inspect|validate|history|compute} {--fact-key=} {--limit=20} {--value=} {--sample-size=1} {--source-count=1} {--json}';
 
     protected $description = 'Confidence-envelope surface for the comprehend snapshot (inspect | validate | history).';
 
@@ -50,7 +52,43 @@ final class AtlasLoopFactConfidenceBoundsCommand extends Command
             'inspect' => $this->doInspect(),
             'validate' => $this->doValidate(),
             'history' => $this->doHistory(),
+            'compute' => $this->doCompute(),
         };
+    }
+
+    /**
+     * Quantify how trustworthy a fact is given its sample size and source count by running the (previously
+     * dormant) AtlasLoopFactConfidenceBoundsSchema. Read-only. A missing or non-numeric --value is a usage_error.
+     */
+    private function doCompute(): int
+    {
+        $rawValue = $this->option('value');
+        if ($rawValue === null || ! is_numeric($rawValue)) {
+            return $this->emit([
+                'action' => 'compute',
+                'outcome' => 'refused',
+                'reason' => 'usage_error',
+                'message' => 'compute requires a numeric --value',
+            ], 2);
+        }
+
+        try {
+            // The schema's fact value is a boolean (does the fact hold); the numeric --value is its truthiness.
+            $envelope = AtlasLoopFactConfidenceBoundsSchema::make(
+                (bool) (float) $rawValue,
+                (int) $this->option('sample-size'),
+                (int) $this->option('source-count'),
+            )->toArray();
+        } catch (InvalidArgumentException $e) {
+            return $this->emit([
+                'action' => 'compute',
+                'outcome' => 'refused',
+                'reason' => 'usage_error',
+                'message' => $e->getMessage(),
+            ], 2);
+        }
+
+        return $this->emit($envelope, 0);
     }
 
     private function doInspect(): int

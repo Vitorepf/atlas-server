@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Console\Commands\AtlasLoopFactConfidenceBoundsCommand;
+use App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsSchema;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -118,6 +119,39 @@ final class AtlasLoopFactConfidenceBoundsCommandTest extends TestCase
         $this->assertCount(5, $payload['rows']);
         $seqs = array_map(static fn (array $r): int => (int) $r['seq'], (array) $payload['rows']);
         $this->assertSame([7, 6, 5, 4, 3], $seqs, 'most-recent-first slice expected');
+    }
+
+    public function test_compute_emits_bounds_schema_toarray_for_inputs(): void
+    {
+        $exit = Artisan::call('atlas:loop:fact:bounds', [
+            'action' => 'compute',
+            '--value' => '0.8',
+            '--sample-size' => 10,
+            '--source-count' => 3,
+            '--json' => true,
+        ]);
+        $this->assertSame(0, $exit);
+
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertIsArray($payload);
+        $this->assertNotEmpty($payload);
+        $this->assertSame(10, $payload['sample_size']);
+        $this->assertSame(3, $payload['source_count']);
+        $this->assertTrue($payload['value'], 'a truthy --value computes to a true bounded fact');
+
+        // The payload IS the schema's toArray() output for those inputs.
+        $expected = AtlasLoopFactConfidenceBoundsSchema::make(true, 10, 3)->toArray();
+        foreach ($expected as $key => $value) {
+            $this->assertSame($value, $payload[$key]);
+        }
+    }
+
+    public function test_compute_without_numeric_value_is_usage_error(): void
+    {
+        $exit = Artisan::call('atlas:loop:fact:bounds', ['action' => 'compute', '--json' => true]);
+        $this->assertSame(2, $exit);
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertSame('usage_error', $payload['reason']);
     }
 
     public function test_unknown_action_exits_two(): void
