@@ -99,6 +99,43 @@ class AtlasLoopFederationCommandTest extends TestCase
         self::assertNotEmpty($payload['quarantine'], 'malformed envelope must be quarantined');
     }
 
+    public function test_evaluate_scope_rejects_loop_core_overlap(): void
+    {
+        $proposal = json_encode([
+            'scope_id' => 'newscope',
+            'namespace' => 'App\\Services\\Ai\\AutonomousEvolution\\NewScope',
+            'operator_intent' => ['evolve the loop'],
+            'root' => 'app/Services/Ai/AutonomousEvolution/NewScope',
+            'operator_receipt' => 'op-receipt-1',
+        ]);
+
+        $r = $this->runCmd(['action' => 'evaluate-scope', '--scope-proposal' => $proposal, '--json' => true]);
+
+        self::assertSame(0, $r['exit']);
+        $payload = json_decode($r['output'], true);
+        self::assertFalse($payload['admitted'], 'a loop-core root is never admissible');
+        self::assertContains('ScopeOverlapsLoopCore', $payload['blocking_reasons']);
+        self::assertTrue($payload['requires_operator_receipt']);
+    }
+
+    public function test_evaluate_scope_admits_complete_non_core_proposal_with_receipt(): void
+    {
+        $proposal = json_encode([
+            'scope_id' => 'marketing',
+            'namespace' => 'App\\Services\\Ai\\Marketing',
+            'operator_intent' => ['grow the marketing capability'],
+            'root' => 'app/Services/Ai/Marketing',
+            'operator_receipt' => 'op-receipt-123',
+        ]);
+
+        $r = $this->runCmd(['action' => 'evaluate-scope', '--scope-proposal' => $proposal, '--json' => true]);
+
+        self::assertSame(0, $r['exit']);
+        $payload = json_decode($r['output'], true);
+        self::assertTrue($payload['admitted'], 'complete non-loop-core proposal with a receipt is admitted: '.$r['output']);
+        self::assertSame([], $payload['blocking_reasons']);
+    }
+
     public function test_unknown_action_fails_with_usage(): void
     {
         $r = $this->runCmd(['action' => 'bogus']);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopAttributionInheritanceChannel;
+use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopAutopoieticScopeGovernancePipeline;
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopFederationConsensusObserver;
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopFederationFactSyncProtocol;
 use App\Services\Ai\AutonomousEvolution\Federation\AtlasLoopFederationIsolationGuard;
@@ -26,7 +27,7 @@ final class AtlasLoopFederationCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:loop:federation {action : peer-register|peer-forget|sync|consensus|status|inheritance}
+    protected $signature = 'atlas:loop:federation {action : peer-register|peer-forget|sync|consensus|status|inheritance|evaluate-scope}
         {--peer-id= : peer id (register/forget/sync)}
         {--scope= : peer scope (register)}
         {--endpoint= : peer endpoint URI (register)}
@@ -35,6 +36,7 @@ final class AtlasLoopFederationCommand extends Command
         {--malformed-envelope= : JSON path/literal for an envelope to send through the guard (sync)}
         {--reports= : JSON path/literal of peer reports (consensus)}
         {--per-cycle-priors= : JSON path/literal of per-cycle attribution priors (inheritance)}
+        {--scope-proposal= : JSON path/literal of a scope-origination proposal (evaluate-scope)}
         {--json : machine-readable JSON output}';
 
     protected $description = 'Federation operator CLI: peer-register|peer-forget|sync|consensus|status.';
@@ -50,6 +52,7 @@ final class AtlasLoopFederationCommand extends Command
             'consensus' => $this->consensus(),
             'status' => $this->status(),
             'inheritance' => $this->inheritance(),
+            'evaluate-scope' => $this->evaluateScope(),
             default => $this->failWith('unknown_action:'.$action),
         };
     }
@@ -219,6 +222,30 @@ final class AtlasLoopFederationCommand extends Command
         return app()->bound(AtlasLoopAttributionInheritanceChannel::class)
             ? app(AtlasLoopAttributionInheritanceChannel::class)
             : new AtlasLoopAttributionInheritanceChannel();
+    }
+
+    /**
+     * `evaluate-scope` pre-flights an operator scope-origination proposal against the constitutional autopoietic
+     * governance gate (fail-closed): LOOP_CORE_OVERLAP, IncompleteScopeDescriptor, OperatorReceiptRequired. The
+     * gate only DECIDES — it never writes, bootstraps, or merges. Mirrors the `inheritance` action.
+     */
+    private function evaluateScope(): int
+    {
+        $proposal = $this->loadJsonOption('scope-proposal');
+        if (! is_array($proposal)) {
+            $proposal = [];
+        }
+
+        $this->emit($this->scopeGovernancePipeline()->evaluate($proposal));
+
+        return self::EXIT_OK;
+    }
+
+    private function scopeGovernancePipeline(): AtlasLoopAutopoieticScopeGovernancePipeline
+    {
+        return app()->bound(AtlasLoopAutopoieticScopeGovernancePipeline::class)
+            ? app(AtlasLoopAutopoieticScopeGovernancePipeline::class)
+            : new AtlasLoopAutopoieticScopeGovernancePipeline();
     }
 
     /**
