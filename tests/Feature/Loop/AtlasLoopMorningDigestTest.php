@@ -212,6 +212,46 @@ final class AtlasLoopMorningDigestTest extends TestCase
         $this->assertSame(0, $event['checked']);
     }
 
+    public function test_ran_canary_without_passed_key_counts_as_failed(): void
+    {
+        DB::table('atlas_loop_proposals')->insert([
+            [
+                'id' => 'proposal-ambiguous',
+                'campaign_id' => null,
+                'task_id' => null,
+                'schema_version' => 'test',
+                'status' => 'certified_for_review',
+                'objective' => 'ambiguous canary',
+                'provider' => 'codex_cli',
+                'target_path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopMorningDigestService.php',
+                'diff_text' => "+x\n",
+                'proposal_hash' => 'hash-amb',
+                'metric' => json_encode([]),
+                'quality' => json_encode([
+                    '_canary' => ['ran' => true, 'target' => 'tests/Feature/Loop/AtlasLoopMorningDigestTest.php'],
+                ]),
+                'acceptance_hash' => 'acceptance',
+                'scenarios_explored' => 1,
+                'scenarios_accepted' => 1,
+                'winning_scenario' => json_encode([]),
+                'merged_to_main' => true,
+                'reviewed_at' => now()->subHour(),
+                'created_at' => now()->subHours(2),
+                'updated_at' => now()->subHour(),
+            ],
+        ]);
+
+        $payload = app(AtlasLoopMorningDigestService::class)->digest(24);
+        $ran = (int) data_get($payload, 'sections.canaries.ran_24h');
+        $passed = (int) data_get($payload, 'sections.canaries.passed_24h');
+        $failed = (int) data_get($payload, 'sections.canaries.failed_24h');
+
+        $this->assertSame(1, $ran);
+        $this->assertSame(0, $passed);
+        $this->assertSame(1, $failed, 'a ran canary with non-true passed must count as failed (fail-closed)');
+        $this->assertSame($ran, $passed + $failed, 'ran_24h must equal passed_24h + failed_24h');
+    }
+
     private function createTables(): void
     {
         Schema::dropIfExists('ai_programming_runtime_telemetry_events');

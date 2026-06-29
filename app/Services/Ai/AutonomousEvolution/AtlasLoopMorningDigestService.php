@@ -225,7 +225,7 @@ final class AtlasLoopMorningDigestService
                 $base['ran_24h']++;
                 if (($canary['passed'] ?? null) === true) {
                     $base['passed_24h']++;
-                } elseif (($canary['passed'] ?? null) === false) {
+                } else {
                     $base['failed_24h']++;
                     if (count($failed) < 5) {
                         $failed[] = [
