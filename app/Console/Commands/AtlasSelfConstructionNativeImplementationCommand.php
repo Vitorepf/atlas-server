@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchMaterializer;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchPlanner;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativeTestFeedbackRepairLoop;
 use Illuminate\Console\Command;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -16,6 +18,9 @@ use Throwable;
  *   plan         echo the supplied packet/patch_plan shape (no business decision; safety lint only)
  *   materialize  AtlasSelfConstructionNativePatchMaterializer::materialize(patch_plan)
  *   repair       AtlasSelfConstructionNativeTestFeedbackRepairLoop::repair(failures, patch_plan)
+ *   patch-plan   AtlasSelfConstructionNativePatchPlanner::plan(packet) — template-driven patch PLAN
+ *                (target_files, template_ids, variables, required_imports, test_plan, risk_notes); a
+ *                read-only preview of the intended patch BEFORE materialize applies it
  *
  * NEVER writes files, calls providers, runs processes, or touches git.
  */
@@ -25,13 +30,14 @@ final class AtlasSelfConstructionNativeImplementationCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:self-construction:native-implementation {action : templates|plan|materialize|repair} {--packet=} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:native-implementation {action : templates|plan|materialize|repair|patch-plan} {--packet=} {--facts=} {--json}';
 
-    protected $description = 'Read-only native-implementation CLI: templates | plan | materialize | repair.';
+    protected $description = 'Read-only native-implementation CLI: templates | plan | materialize | repair | patch-plan.';
 
     public function handle(
         AtlasSelfConstructionNativePatchMaterializer $materializer,
         AtlasSelfConstructionNativeTestFeedbackRepairLoop $repair,
+        AtlasSelfConstructionNativePatchPlanner $patchPlanner,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -40,6 +46,7 @@ final class AtlasSelfConstructionNativeImplementationCommand extends Command
             'plan' => $this->plan(),
             'materialize' => $this->materialize($materializer),
             'repair' => $this->repair($repair),
+            'patch-plan' => $this->patchPlan($patchPlanner),
             default => null,
         };
         if ($payload === null) {
@@ -104,6 +111,25 @@ final class AtlasSelfConstructionNativeImplementationCommand extends Command
             'patch_count' => count($patches),
             'blockers' => $blockers,
         ];
+    }
+
+    /**
+     * Template-driven patch PLAN preview (distinct from the path-validation `plan` action): emits the planner's
+     * structured plan, or a refusal when the packet maps to no template / escapes scope. Read-only.
+     *
+     * @return array<string,mixed>
+     */
+    private function patchPlan(AtlasSelfConstructionNativePatchPlanner $planner): array
+    {
+        $packet = $this->loadPacket();
+        if ($packet === null) {
+            return ['__usage_error__' => true];
+        }
+        try {
+            return $planner->plan($packet);
+        } catch (RuntimeException $e) {
+            return ['patch_plan_ok' => false, 'refused' => true, 'reason' => $e->getMessage()];
+        }
     }
 
     /**

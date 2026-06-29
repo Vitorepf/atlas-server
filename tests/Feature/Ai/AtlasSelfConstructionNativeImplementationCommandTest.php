@@ -109,6 +109,52 @@ final class AtlasSelfConstructionNativeImplementationCommandTest extends TestCas
         $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
     }
 
+    public function test_patch_plan_action_emits_template_driven_plan(): void
+    {
+        $packet = $this->fixture([
+            'allowed_files' => ['app/Foo.php'],
+            'task_shape' => ['kind' => 'value_object'],
+            'test_files' => ['tests/Unit/FooTest.php'],
+            'context' => ['namespace' => 'App', 'class_name' => 'Foo'],
+        ]);
+        [$exit, $out] = $this->runCmd(['action' => 'patch-plan', '--packet' => $packet, '--json' => true]);
+        $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+
+        // template-driven plan fields the old path-validation `plan` action never emits
+        $this->assertContains('app/Foo.php', $decoded['target_files'], (string) $out);
+        $this->assertContains('value_object', $decoded['template_ids']);
+        $this->assertArrayHasKey('test_plan', $decoded);
+        $this->assertSame(['tests/Unit/FooTest.php'], $decoded['test_plan']['test_files']);
+        $this->assertArrayHasKey('plan_id', $decoded);
+    }
+
+    public function test_patch_plan_output_distinct_from_path_validation_plan(): void
+    {
+        $packet = $this->fixture([
+            'allowed_files' => ['app/Foo.php'],
+            'task_shape' => ['kind' => 'value_object'],
+            'context' => ['namespace' => 'App', 'class_name' => 'Foo'],
+        ]);
+        [, $patchOut] = $this->runCmd(['action' => 'patch-plan', '--packet' => $packet, '--json' => true]);
+        [, $planOut] = $this->runCmd(['action' => 'plan', '--packet' => $packet, '--json' => true]);
+
+        $patch = json_decode(trim($patchOut), true);
+        $plan = json_decode(trim($planOut), true);
+
+        // patch-plan carries template-driven fields; the path-validation plan carries plan_ok/blockers only
+        $this->assertArrayHasKey('template_ids', $patch);
+        $this->assertArrayNotHasKey('template_ids', $plan);
+        $this->assertArrayHasKey('plan_ok', $plan);
+        $this->assertArrayNotHasKey('plan_ok', $patch);
+    }
+
+    public function test_patch_plan_missing_packet_fails_closed(): void
+    {
+        [$exit] = $this->runCmd(['action' => 'patch-plan']);
+        $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
+    }
+
     public function test_cli_source_makes_no_provider_or_git_calls(): void
     {
         $src = (string) file_get_contents(base_path('app/Console/Commands/AtlasSelfConstructionNativeImplementationCommand.php'));
