@@ -160,7 +160,7 @@ final class AtlasLoopCortexCounterfactualCommand extends Command
     {
         $env = getenv('ATLAS_LOOP_MASTER_ENABLED');
         if ($env === false) {
-            return true;
+            return false;
         }
 
         return ! in_array(strtolower((string) $env), ['0', 'false', 'off', ''], true);

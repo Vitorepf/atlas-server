@@ -74,6 +74,19 @@ final class AtlasLoopCortexCounterfactualCommandTest extends TestCase
         $this->assertSame([], glob($this->tmpRoot.'/*.json') ?: []);
     }
 
+    public function test_master_unset_exits_zero_without_writes_fail_closed(): void
+    {
+        // ATLAS_LOOP_MASTER_ENABLED unset ⇒ getenv returns false ⇒ command must fail-closed (no-op, no writes).
+        putenv('ATLAS_LOOP_MASTER_ENABLED');  // unsets the env var
+        AtlasCortexCounterfactualHypothesisLedger::$flagOverride = false;
+
+        Artisan::call('atlas:loop:cortex:counterfactual', ['action' => 'hypothesis', '--site' => 'x', '--walk' => 'w', '--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        $this->assertTrue($payload['disabled']);
+        $this->assertSame([], glob($this->tmpRoot.'/*.json') ?: [], 'must write no ledger row when master flag is unset');
+    }
+
     public function test_unknown_action_exits_non_zero_with_clear_error(): void
     {
         $exit = Artisan::call('atlas:loop:cortex:counterfactual', ['action' => 'bogus', '--json' => true]);
