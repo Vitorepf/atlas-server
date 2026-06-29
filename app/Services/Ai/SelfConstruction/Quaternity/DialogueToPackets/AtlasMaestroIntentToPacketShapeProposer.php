@@ -112,7 +112,7 @@ final class AtlasMaestroIntentToPacketShapeProposer
                 if ($short !== '' && str_contains($short, $tag)) {
                     return [
                         'symbol' => (string) $symbol,
-                        'file' => (string) ($cortex->files[$i] ?? ($cortex->files[0] ?? '')),
+                        'file' => (string) ($cortex->files[$i] ?? ''),
                     ];
                 }
             }

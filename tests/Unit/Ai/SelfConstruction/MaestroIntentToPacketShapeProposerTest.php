@@ -141,4 +141,29 @@ final class MaestroIntentToPacketShapeProposerTest extends TestCase
         $this->assertStringEndsWith($result->taskPacketId.'.json', (string) $writtenPath);
         $this->assertSame($result->canonicalJson(), $writtenJson);
     }
+
+    public function test_out_of_range_symbol_index_resolves_to_empty_file_not_files_zero(): void
+    {
+        // CortexGroundingSnapshot has no length-parity guarantee: symbols can outnumber files.
+        // A symbol matched at an out-of-range index must resolve to '' (no hallucinated anchor).
+        $cortex = new CortexGroundingSnapshot(
+            symbols: ['App\\Services\\Ai\\Maestro\\MaestroThing'],
+            files: [],  // no files at all — every index is out of range
+            cortexId: 'cortex-run-2',
+        );
+
+        $proposer = new AtlasMaestroIntentToPacketShapeProposer(static function (): void { /* swallow */ });
+        $intent = new IntentFactBundle(
+            phrases: ['evolve the maestro thing'],
+            timestamps: [1_700_000_000],
+            scopeTags: ['maestro'],
+            verbs: ['evolve'],
+        );
+
+        $result = $proposer->propose($intent, $cortex, 'wave-330');
+
+        $this->assertInstanceOf(ProposedPacketShape::class, $result);
+        $this->assertSame('', $result->anchorFile, 'out-of-range symbol index must resolve to empty file, not a wrong files[0]');
+        $this->assertSame([], $result->allowedFiles);
+    }
 }
