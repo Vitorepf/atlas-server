@@ -185,6 +185,37 @@ final class AtlasBrainTaskSpecTranslatorTest extends TestCase
         self::assertSame($a, $b);
     }
 
+    public function test_derive_test_path_grants_mirror_for_app_target_and_invents_none_for_non_app(): void
+    {
+        $translator = new AtlasBrainTaskSpecTranslator;
+
+        // A code target under app/ ⇒ the author grants the mirrored tests/Unit ...Test.php proof path the
+        // brain's own seed-quality gate (tests_or_gates_result evidence) requires — in BOTH allowed_files and scope_in.
+        $appSpec = $translator->translate([
+            'objective' => 'Add behavior to App\\Services\\Ai\\AutonomousEvolution\\Brain\\AtlasWidget',
+            'target_path' => 'app/Services/Ai/AutonomousEvolution/Brain/AtlasWidget.php',
+            'obligations' => [],
+            'snapshot_id' => 'snap_grant',
+        ]);
+
+        self::assertContains('tests_or_gates_result', $appSpec['evidence_requirements']);
+        self::assertContains('tests/Unit/Services/Ai/AutonomousEvolution/Brain/AtlasWidgetTest.php', $appSpec['allowed_files']);
+        self::assertContains('tests/Unit/Services/Ai/AutonomousEvolution/Brain/AtlasWidgetTest.php', $appSpec['scope_in']);
+
+        // A non-app target has no conventional mirror ⇒ deriveTestPathForTarget returns null and the author
+        // must NOT invent a tests/ path.
+        $nonAppSpec = $translator->translate([
+            'objective' => 'Adjust a target that lives outside the app/ tree',
+            'target_path' => 'database/migrations/2026_01_01_000000_create_things.php',
+            'obligations' => [],
+            'snapshot_id' => 'snap_nonapp',
+        ]);
+
+        foreach ($nonAppSpec['allowed_files'] as $file) {
+            self::assertStringNotContainsString('tests/', $file, 'non-app target must not yield an invented test path');
+        }
+    }
+
     public function test_obligation_without_assertion_ref_uses_kind_and_symbol(): void
     {
         $translator = new AtlasBrainTaskSpecTranslator;

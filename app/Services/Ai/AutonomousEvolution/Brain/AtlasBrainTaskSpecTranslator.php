@@ -26,7 +26,9 @@ final class AtlasBrainTaskSpecTranslator
      * @param  array{objective:?string, target_path:?string, obligations:list<array<string,mixed>>, snapshot_id?:string}  $origination
      * @return array{task_packet_id:string, objective:string, allowed_files:list<string>, scope_in:list<string>,
      *               acceptance_criteria:list<string>, evidence_requirements:list<string>,
-     *               depends_on:list<string>, wave:int, risk_level:string}
+     *               depends_on:list<string>, wave:int, risk_level:string, problem:string, expected_delta:string,
+     *               value:string, duplicate_key:string, freshness_check:string, anti_proxy:string,
+     *               modifies_existing_files:bool, existing_file_delta:string}
      */
     public function translate(array $origination): array
     {
@@ -50,23 +52,26 @@ final class AtlasBrainTaskSpecTranslator
                 }
             }
         }
-        // S4-narrow GRANT TEST PATH: a packet whose target lives under app/ but ships no test-authoring
-        // obligation strands the worker — required_evidence:tests_or_gates_result + test-shaped acceptance
-        // hit `test_evidence_without_test_in_allowed_files` (the seed-quality BLOCKING deficiency) and the
-        // brain refuses its own valid origination. Mirroring `app/X/Y/Foo.php` to `tests/Unit/X/Y/FooTest.php`
-        // closes the asymmetry the memory `brain-9_3-campaign` named as the qualidade/constância bug.
+        // Derive acceptance_criteria + evidence_requirements from obligation kinds/assertions.
+        [$acceptanceCriteria, $evidenceRequirements] = $this->deriveAcceptanceAndEvidence($obligations, $targetPath);
+
+        // GRANT TEST PATH: the brain's OWN seed-quality gate raises test_evidence_without_test_in_allowed_files
+        // when evidence requires `tests_or_gates_result` but no writable tests/ path is granted — so the brain
+        // rejects its own test-authoring originations (observed live as prepare_blocked on minimal app/ targets).
+        // When target_path is a code file under app/ AND that evidence id is present, mirror `app/X/Y/Foo.php` to
+        // `tests/Unit/X/Y/FooTest.php` so the author grants the proof path the gate already demands.
+        // deriveTestPathForTarget() returns null outside the convention and we never invent a path then.
         // Skipped when the obligations already supply a tests/ path (no double-grant, no override).
-        if ($targetPath !== '' && $this->isSafePath($targetPath) && ! $this->anyTestPath(array_keys($allowedFiles))) {
-            $mirror = $this->mirrorTestPathFor($targetPath);
+        if (in_array('tests_or_gates_result', $evidenceRequirements, true) && ! $this->anyTestPath(array_keys($allowedFiles))) {
+            $mirror = $this->deriveTestPathForTarget($targetPath);
             if ($mirror !== null && $this->isSafePath($mirror)) {
                 $allowedFiles[$mirror] = true;
             }
         }
+
         $allowedFilesList = array_values(array_unique(array_keys($allowedFiles)));
         sort($allowedFilesList, SORT_STRING);
-
-        // Derive acceptance_criteria + evidence_requirements from obligation kinds/assertions.
-        [$acceptanceCriteria, $evidenceRequirements] = $this->deriveAcceptanceAndEvidence($obligations, $targetPath);
+        $modifiesExisting = $this->hasExistingAllowedFile($allowedFilesList);
 
         // Deterministic task_packet_id = sha1(objective . '|' . snapshotId).
         $taskPacketId = 'brain:'.sha1($objective.'|'.$snapshotId);
@@ -81,6 +86,16 @@ final class AtlasBrainTaskSpecTranslator
             'depends_on' => [],
             'wave' => 1,
             'risk_level' => 'medium',
+            'problem' => 'The Atlas brain found a concrete evolution gap at '.$targetPath.' that needs a worker-safe packet.',
+            'expected_delta' => 'A worker changes '.$targetPath.' and proves the behavior with the listed test or gate.',
+            'value' => 'This adds a credited runtime/test proof for Atlas autonomy and prevents quota from counting proxy work.',
+            'duplicate_key' => sha1($targetPath.'|'.$objective.'|'.implode('|', $acceptanceCriteria)),
+            'freshness_check' => 'Before editing, the worker re-checks that the allowed files still need this delta.',
+            'anti_proxy' => 'No class_exists-only, wrapper-only, formatting-only, or snapshot-empty solution counts.',
+            'modifies_existing_files' => $modifiesExisting,
+            'existing_file_delta' => $modifiesExisting
+                ? 'Existing target receives the concrete behavior delta described by the objective and test gate.'
+                : '',
         ];
     }
 
@@ -122,6 +137,18 @@ final class AtlasBrainTaskSpecTranslator
         return $value !== '' && (str_ends_with($value, '.php') || str_ends_with($value, '.blade.php'));
     }
 
+    /** @param list<string> $allowedFiles */
+    private function hasExistingAllowedFile(array $allowedFiles): bool
+    {
+        foreach ($allowedFiles as $path) {
+            if ($path !== '' && is_file(base_path($path))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * S4-narrow PATH SAFETY: refuse a path with a parent-traversal segment, NUL byte, or a literal ellipsis
      * (the historical bug in brain-9_3-campaign — `"app/.../Foo.php"` slipping through into scope_in and
@@ -150,12 +177,11 @@ final class AtlasBrainTaskSpecTranslator
     }
 
     /**
-     * Mirror an `app/X/Y/Foo.php` target to its conventional unit-test path `tests/Unit/X/Y/FooTest.php`.
-     * Returns null when the target is not under `app/`, already lives under `tests/`, or doesn't end in
-     * `.php` — no invention outside the convention. .blade.php targets are out of scope (views aren't
-     * unit-test mirrored).
+     * Derive the conventional mirrored unit-test path for a target: `app/X/Y/Foo.php` → `tests/Unit/X/Y/FooTest.php`.
+     * Pure. Returns null when the target is not a code file under `app/`, already lives under `tests/`, doesn't end
+     * in `.php`, or is a `.blade.php` view — no invention outside the convention.
      */
-    private function mirrorTestPathFor(string $targetPath): ?string
+    private function deriveTestPathForTarget(string $targetPath): ?string
     {
         $target = ltrim(trim($targetPath), '/');
         if (! str_starts_with($target, 'app/') || ! str_ends_with($target, '.php') || str_ends_with($target, '.blade.php')) {
