@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHardCaseAutoDiscovery;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopJudgeDisagreementDiagnostic;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use PHPUnit\Framework\TestCase;
 
@@ -86,6 +87,68 @@ final class AtlasLoopHardCaseAutoDiscoveryTest extends TestCase
         ]]);
 
         $this->assertSame([], $cases, 'anti-farm floor false ⇒ cannot manufacture cases');
+    }
+
+    public function test_provider_disagreement_gains_a_typed_disagreement_category(): void
+    {
+        $cases = $this->discovery()->discover([[
+            'id' => 'row-1',
+            'bundle_sha256' => 'B1',
+            'providers' => [['provider' => 'minimax', 'passed' => true], ['provider' => 'codex', 'passed' => false]],
+        ]]);
+
+        $this->assertCount(1, $cases);
+        $this->assertArrayHasKey('disagreement_category', $cases[0]);
+        $this->assertContains($cases[0]['disagreement_category'], AtlasLoopJudgeDisagreementDiagnostic::CATEGORIES);
+        // Same frozen bundle, no capability gap, no prompt lensing ⇒ a genuine semantic split (worth re-grinding).
+        $this->assertSame('genuine_semantic_split', $cases[0]['disagreement_category']);
+    }
+
+    public function test_two_distinct_bundle_hashes_classify_as_bundle_drift(): void
+    {
+        $cases = $this->discovery()->discover([[
+            'id' => 'row-drift',
+            'bundle_sha256' => 'B-row', // row-level fallback, overridden per-judge below
+            'providers' => [
+                ['provider' => 'minimax', 'passed' => true, 'bundle_sha256' => 'AAA'],
+                ['provider' => 'codex', 'passed' => false, 'bundle_sha256' => 'BBB'],
+            ],
+        ]]);
+
+        $this->assertCount(1, $cases);
+        $this->assertSame('provider_disagreement', $cases[0]['trigger_reason']);
+        $this->assertSame('bundle_drift', $cases[0]['disagreement_category'], 'two distinct frozen bundles ⇒ a measurement artifact, not a genuine split');
+    }
+
+    public function test_non_disagreement_triggers_are_undetermined_and_order_is_byte_identical(): void
+    {
+        $input = [
+            ['id' => 'r-rollback', 'rolled_back' => true],
+            ['id' => 'r-disagree', 'bundle_sha256' => 'B1', 'providers' => [['provider' => 'a', 'passed' => true], ['provider' => 'b', 'passed' => false]]],
+            ['id' => 'r-flip', 'initial_verdict' => true, 'reprove_verdict' => false],
+            ['id' => 'r-clean', 'providers' => [['provider' => 'a', 'passed' => true]]], // agreement ⇒ not a hard case
+        ];
+
+        $cases = $this->discovery()->discover($input);
+
+        // The annotation never drops/adds/reorders: same hard cases, same sequence, the clean row still dropped.
+        $this->assertSame(
+            [
+                ['r-rollback', 'provider_rollback'],
+                ['r-disagree', 'provider_disagreement'],
+                ['r-flip', 'reprove_verdict_flip'],
+            ],
+            array_map(static fn (array $c): array => [$c['ledger_row_id'], $c['trigger_reason']], $cases),
+        );
+
+        $byId = [];
+        foreach ($cases as $c) {
+            $byId[$c['ledger_row_id']] = $c['disagreement_category'];
+        }
+        $this->assertSame('undetermined', $byId['r-rollback'], 'a rollback has no judge split to classify');
+        $this->assertSame('undetermined', $byId['r-flip'], 'a reprove flip has no judge split to classify');
+        $this->assertNotSame('undetermined', $byId['r-disagree'], 'a real disagreement gets a substantive category');
+        $this->assertContains($byId['r-disagree'], AtlasLoopJudgeDisagreementDiagnostic::CATEGORIES);
     }
 
     public function test_master_off_emits_nothing(): void

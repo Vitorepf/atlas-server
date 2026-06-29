@@ -55,10 +55,43 @@ final class AtlasLoopHardCaseAutoDiscovery
                 'trigger_reason' => $reason,
                 'provider_set' => $this->providerSet($row),
                 'frozen_bundle_hash' => (string) ($row['bundle_sha256'] ?? ($row['frozen_bundle_hash'] ?? '')),
+                'disagreement_category' => $this->disagreementCategory($reason, $row),
             ];
         }
 
         return $cases;
+    }
+
+    /**
+     * The typed disagreement category for an emitted case. Pure ANNOTATION: it never drops/adds/reorders a
+     * case. For a 'provider_disagreement' trigger it composes {@see AtlasLoopJudgeDisagreementDiagnostic} over
+     * per-judge receipts built from the row (each providers[] entry → {provider, passed} + its optional
+     * bundle_sha256/prompt_id/capability_ok/missing_capability; the row-level bundle_sha256 is the fallback).
+     * Every non-disagreement trigger is 'undetermined' — there is no judge split to classify.
+     */
+    private function disagreementCategory(string $reason, array $row): string
+    {
+        if ($reason !== 'provider_disagreement') {
+            return 'undetermined';
+        }
+
+        $rowBundle = trim((string) ($row['bundle_sha256'] ?? ($row['frozen_bundle_hash'] ?? '')));
+        $receipts = array_map(static function (array $p) use ($rowBundle): array {
+            $receipt = [
+                'provider' => (string) ($p['provider'] ?? ''),
+                'passed' => ($p['passed'] ?? null) === true,
+                'bundle_sha256' => trim((string) ($p['bundle_sha256'] ?? $rowBundle)),
+            ];
+            foreach (['prompt_id', 'capability_ok', 'missing_capability'] as $key) {
+                if (array_key_exists($key, $p)) {
+                    $receipt[$key] = $p[$key];
+                }
+            }
+
+            return $receipt;
+        }, $this->providers($row));
+
+        return (string) (new AtlasLoopJudgeDisagreementDiagnostic)->diagnose([], $receipts)['category'];
     }
 
     /** The real ledger fact that makes this row a hard case, or null. Fact-driven, never a heuristic. */
