@@ -415,6 +415,17 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketQueueRepositoryTes
         $this->assertFalse($disk->exists(AgentControlPlaneTaskPacketQueueRepository::STORAGE_PREFIX.'/task_synthetic-done.json'));
     }
 
+    public function test_enqueue_numeric_string_status_is_quarantined_to_blocked(): void
+    {
+        $repo = new AgentControlPlaneTaskPacketQueueRepository;
+        $base = $this->packet('numeric-status-0');
+        $base['status'] = '0';
+        $result = $repo->enqueue($base);
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame('enqueued', $result['event']);
+        $this->assertSame('blocked', $result['record']['status']);
+    }
+
     /**
      * @return array<string, mixed>
      */

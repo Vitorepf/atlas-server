@@ -106,7 +106,7 @@ final class AgentControlPlaneTaskPacketQueueRepository
             $packetStatusFromBuilder = (string) ($taskPacket['status'] ?? 'unknown');
             $initialStatus = $packetStatusFromBuilder === 'planned'
                 ? 'claimable'
-                : (isset(self::STATUSES[$packetStatusFromBuilder]) || in_array($packetStatusFromBuilder, self::STATUSES, true)
+                : (in_array($packetStatusFromBuilder, self::STATUSES, true)
                     ? $packetStatusFromBuilder
                     : 'blocked');
 
