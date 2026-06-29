@@ -75,7 +75,7 @@ final class AtlasLoopProxyDriftFactDetector
         ksort($histogram, SORT_STRING);
         $available = count($signals);
         $insufficient = $available < max(1, (int) ceil($sampleSize / 4));
-        $ratio = round($proxyCount / $sampleSize, 3);
+        $ratio = round($proxyCount / max(1, $available), 3);
         $drifting = ! $insufficient && $ratio >= self::DRIFT_THRESHOLD;
 
         return [

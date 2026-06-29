@@ -98,7 +98,21 @@ final class AtlasLoopProxyDriftFactDetectorTest extends TestCase
         $this->assertFalse($result['drifting']);
         $this->assertTrue($result['fact_evidence']['insufficient_sample']);
         $this->assertSame(4, $result['fact_evidence']['available_sample']);
-        $this->assertSame(0.2, $result['drift_ratio']);
+        $this->assertSame(1.0, $result['drift_ratio']);
+    }
+
+    public function test_all_proxy_with_below_cap_signals_reports_drifting_true(): void
+    {
+        // 10 signals, all proxy, fewer than sample_size 20 but >= ceil(20/4)=5, so sufficient.
+        // With the fix the ratio is 10/10=1.0 (not 10/20=0.5), so drift is correctly detected.
+        $this->writeSignals(array_fill(0, 10, $this->decision('dead_code_removal')));
+
+        $result = $this->evaluate();
+
+        $this->assertTrue($result['drifting']);
+        $this->assertSame(1.0, $result['drift_ratio']);
+        $this->assertFalse($result['fact_evidence']['insufficient_sample']);
+        $this->assertSame(10, $result['fact_evidence']['available_sample']);
     }
 
     public function test_unknown_work_type_counts_as_neutral_not_material_or_proxy(): void
