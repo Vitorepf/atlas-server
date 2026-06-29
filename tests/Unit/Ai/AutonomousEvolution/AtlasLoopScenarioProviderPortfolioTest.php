@@ -51,4 +51,12 @@ final class AtlasLoopScenarioProviderPortfolioTest extends TestCase
         $this->assertSame('c', $pf->providerFor($task, 2, 'd'));
         $this->assertSame('a', $pf->providerFor($task, 3, 'd'), 'cycles back');
     }
+
+    public function test_decomposition_for_returns_empty_array_when_no_decompositions(): void
+    {
+        // Simulate the enabled-path where every fingerprint resolves to '' and amplify() returns [].
+        $pf = new AtlasLoopScenarioProviderPortfolio(amplifyFn: fn() => []);
+        $result = $pf->decompositionFor([], 0);
+        $this->assertSame([], $result);
+    }
 }

@@ -24,6 +24,7 @@ final class AtlasLoopScenarioProviderPortfolio
 {
     public function __construct(
         private readonly ?AtlasLoopTaskDecompositionAmplifier $decompositionAmplifier = null,
+        private readonly ?\Closure $amplifyFn = null,
     ) {}
 
     /**
@@ -67,6 +68,10 @@ final class AtlasLoopScenarioProviderPortfolio
      */
     public function decompositionsFor(array $task): array
     {
+        if ($this->amplifyFn !== null) {
+            return ($this->amplifyFn)($task);
+        }
+
         return ($this->decompositionAmplifier ?? new AtlasLoopTaskDecompositionAmplifier)->amplify($task);
     }
 
@@ -81,7 +86,7 @@ final class AtlasLoopScenarioProviderPortfolio
     {
         $decompositions = $this->decompositionsFor($task);
 
-        return $decompositions[$i % count($decompositions)];
+        return $decompositions === [] ? [] : $decompositions[$i % count($decompositions)];
     }
 
     /**
