@@ -6,6 +6,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\SelfConstruction\Support\NormalizesToStringList;
+use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskHiddenPoisonDetector;
 
 /**
  * PART 2 · axis 8 — the task-packet SELF-SUFFICIENCY inspector (the "packet-quality scorer" the operator's
@@ -213,6 +214,18 @@ final class AtlasTaskPacketQualityInspector
         );
         if ($acceptanceCoverageMismatch) {
             $deficiencies[] = 'acceptance_coverage_mismatch';
+        }
+
+        // HIDDEN-POISON screen: wire the built-but-unused AtlasTaskHiddenPoisonDetector so its patterns actually
+        // screen real packets. Each found pattern_id surfaces as an ADVISORY `hidden_poison:<pattern_id>`
+        // deficiency — kept OUT of BLOCKING_DEFICIENCIES (same posture as acceptance_coverage_mismatch), so it
+        // informs without hard-blocking. A clean packet finds nothing and gains no entry (byte-identical).
+        foreach ((new AtlasTaskHiddenPoisonDetector)->detect($packet)['found_patterns'] as $pattern) {
+            $patternId = is_array($pattern) ? (string) ($pattern['pattern_id'] ?? '') : '';
+            $entry = 'hidden_poison:'.$patternId;
+            if ($patternId !== '' && ! in_array($entry, $deficiencies, true)) {
+                $deficiencies[] = $entry;
+            }
         }
 
         $blocking = array_values(array_intersect($deficiencies, self::BLOCKING_DEFICIENCIES));

@@ -498,6 +498,32 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
         $this->assertTrue($r['facts']['acceptance_coverage_mismatch']);
     }
 
+    // wire-hidden-poison-detector-into-universal-inspector-v1: the built-but-unused AtlasTaskHiddenPoisonDetector
+    // now screens every inspected packet. Its patterns surface as ADVISORY `hidden_poison:<id>` deficiencies
+    // (never blocking), and a clean packet gains none of them.
+    public function test_hidden_poison_contradictory_acceptance_surfaces_as_advisory_deficiency(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            // Mutually contradictory acceptance, declared via the detector's quality_facts contract.
+            'acceptance_criteria' => ['Foo must be deleted entirely', 'Foo must remain and be extended'],
+            'quality_facts' => [
+                'contradiction_pairs' => [
+                    ['a' => 'Foo must be deleted entirely', 'b' => 'Foo must remain and be extended'],
+                ],
+            ],
+        ]));
+
+        $this->assertContains('hidden_poison:contradictory_acceptance', $r['deficiencies'], 'a contradictory packet must surface the hidden-poison pattern');
+        $this->assertNotContains('hidden_poison:contradictory_acceptance', $r['blocking_deficiencies'], 'hidden poison is ADVISORY, never blocking');
+
+        // A clean, well-formed packet must NOT gain any hidden_poison: entry — the wiring is additive and never
+        // false-positives a healthy packet.
+        $clean = (new AtlasTaskPacketQualityInspector)->inspect($this->packet());
+        foreach ($clean['deficiencies'] as $d) {
+            $this->assertStringNotContainsString('hidden_poison:', (string) $d, 'a healthy packet must stay free of hidden-poison advisories');
+        }
+    }
+
     public function test_filter_naming_the_target_does_not_trigger_coverage_mismatch(): void
     {
         $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
