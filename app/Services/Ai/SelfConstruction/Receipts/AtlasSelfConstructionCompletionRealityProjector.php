@@ -73,7 +73,7 @@ final class AtlasSelfConstructionCompletionRealityProjector
             $reality = self::REALITY_REJECTED;
         } elseif ($verdict === 'passed' && $decision === 'admitted') {
             $reality = self::REALITY_COMPLETED;
-        } elseif ($workerClaim !== '' && $verification === null) {
+        } elseif ($workerClaim !== '' && ($verification === null || $verdict === '')) {
             $reality = self::REALITY_UNVERIFIED;
         }
 

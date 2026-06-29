@@ -54,6 +54,15 @@ final class AtlasSelfConstructionCompletionRealityProjectorTest extends TestCase
         $this->assertContains('missing_proof:verification', $r['missing_proofs']);
     }
 
+    public function test_worker_claim_with_incomplete_verification_yields_unverified(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'worker_claim' => 'I am done',
+            'verification_receipt' => ['verdict' => ''], // present but verdict empty = incomplete
+        ]);
+        $this->assertSame(AtlasSelfConstructionCompletionRealityProjector::REALITY_UNVERIFIED, $r['reality']);
+    }
+
     public function test_empty_input_yields_unknown_with_missing_proofs(): void
     {
         $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([]);
