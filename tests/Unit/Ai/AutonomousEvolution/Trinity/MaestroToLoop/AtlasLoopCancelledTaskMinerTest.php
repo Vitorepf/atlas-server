@@ -38,6 +38,21 @@ final class AtlasLoopCancelledTaskMinerTest extends TestCase
         $this->assertSame([], $miner->mine());
     }
 
+    public function test_record_with_malformed_cancelled_at_but_valid_updated_at_is_retained_not_dropped(): void
+    {
+        $miner = new AtlasLoopCancelledTaskMiner($this->reader([
+            $this->record('pkt-1', 'app/Services/Ai/AutonomousEvolution/AtlasLoopXAlpha.php', cancelledAt: 'NOT-A-DATE', updatedAt: '2026-06-24T00:00:00+00:00'),
+            $this->record('pkt-2', 'app/Services/Ai/AutonomousEvolution/AtlasLoopXBeta.php', updatedAt: '2026-06-24T00:00:00+00:00'),
+            $this->record('pkt-3', 'app/Services/Ai/AutonomousEvolution/AtlasLoopXGamma.php', updatedAt: '2026-06-24T00:00:00+00:00'),
+        ]), now: fn () => '2026-06-24T12:00:00+00:00');
+
+        $patterns = $miner->mine();
+
+        $this->assertCount(1, $patterns);
+        $this->assertSame(3, $patterns[0]['member_count']);
+        $this->assertContains('pkt-1', $patterns[0]['member_task_ids']);
+    }
+
     public function test_stale_records_are_excluded_from_cluster_membership_using_the_config_window_default(): void
     {
         $miner = new AtlasLoopCancelledTaskMiner($this->reader([
@@ -88,13 +103,20 @@ final class AtlasLoopCancelledTaskMinerTest extends TestCase
         string $reason = 'doomed_after_repeated_give_back',
         string $gate = 'gate-loop-freeze',
         string $updatedAt = '2026-06-24T00:00:00+00:00',
+        ?string $cancelledAt = null,
     ): array {
-        return [
+        $record = [
             'task_packet_id' => $taskPacketId,
             'allowed_files' => [$allowedFile],
             'reason' => $reason,
             'gate' => $gate,
             'updated_at' => $updatedAt,
         ];
+
+        if ($cancelledAt !== null) {
+            $record['cancelled_at'] = $cancelledAt;
+        }
+
+        return $record;
     }
 }

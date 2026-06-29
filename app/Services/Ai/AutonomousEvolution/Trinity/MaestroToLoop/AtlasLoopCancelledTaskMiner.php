@@ -278,7 +278,7 @@ final class AtlasLoopCancelledTaskMiner
             try {
                 return new DateTimeImmutable($value);
             } catch (Throwable) {
-                return null;
+                continue;
             }
         }
 
