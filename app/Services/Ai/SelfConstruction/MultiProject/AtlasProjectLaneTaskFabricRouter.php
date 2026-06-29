@@ -99,7 +99,7 @@ final class AtlasProjectLaneTaskFabricRouter
         foreach ($allowedScopeRoots as $root) {
             $root = rtrim((string) $root, '/');
             $leaf = substr($root, (int) strrpos($root, '/') + 1);
-            if (str_starts_with($path, $leaf.'/') || str_starts_with($path, $leaf)) {
+            if ($path === $leaf || str_starts_with($path, $leaf.'/')) {
                 return true;
             }
         }

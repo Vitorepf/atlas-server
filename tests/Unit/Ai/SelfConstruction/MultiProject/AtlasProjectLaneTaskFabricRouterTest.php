@@ -81,6 +81,16 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
         (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), []);
     }
 
+    public function test_relative_path_sharing_only_prefix_substring_with_scope_leaf_is_rejected(): void
+    {
+        // scope root leaf is "app"; "apparmor/escape.php" starts with "app" but is NOT under "app/"
+        $candidate = $this->candidate(['allowed_files' => ['apparmor/escape.php']]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/escapes_lane_scope/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
     public function test_acceptance_and_evidence_fields_are_preserved(): void
     {
         $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate([
