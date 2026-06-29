@@ -115,6 +115,22 @@ final class AtlasLoopCrossModelTriangulatorTest extends TestCase
         $this->assertTrue($result['consensus']['consensus']);
     }
 
+    public function test_provider_plan_fallback_uses_provider_id_not_raw_array(): void
+    {
+        $this->master(true);
+        config()->set('atlas.loop.cross_model_triangulation_enabled', true);
+
+        $result = (new AtlasLoopCrossModelTriangulator)->triangulate($this->bundle(), [
+            ['raw_verdict' => ['passes' => true, 'reason' => 'passed']],
+            ['raw_verdict' => ['passes' => true, 'reason' => 'passed']],
+            ['raw_verdict' => ['passes' => true, 'reason' => 'passed']],
+        ]);
+
+        $this->assertSame(['codex', 'glm', 'minimax_m3'], array_column($result['receipts'], 'provider_id'));
+        $this->assertSame('agree', $result['verdict']);
+        $this->assertTrue($result['consensus']['consensus']);
+    }
+
     private function master(bool $enabled): void
     {
         file_put_contents($this->envPath, 'ATLAS_LOOP_MASTER_ENABLED='.($enabled ? 'true' : 'false')."\n");

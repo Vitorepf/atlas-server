@@ -96,7 +96,7 @@ final class AtlasLoopCrossModelTriangulator
             if (! is_array($verdict)) {
                 continue;
             }
-            $providerId = trim((string) ($verdict['provider_id'] ?? $verdict['provider'] ?? $this->providerPlan($options)[$i] ?? ''));
+            $providerId = trim((string) ($verdict['provider_id'] ?? $verdict['provider'] ?? $this->providerPlan($options)[$i]['provider_id'] ?? ''));
             if ($providerId === '') {
                 continue;
             }
