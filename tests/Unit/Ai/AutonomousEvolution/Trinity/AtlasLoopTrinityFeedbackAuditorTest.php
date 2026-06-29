@@ -17,11 +17,12 @@ final class AtlasLoopTrinityFeedbackAuditorTest extends TestCase
     /** @return array<string,mixed> */
     private function fact(string $factId, string $source, string $cycleId): array
     {
-        return ['factId' => $factId, 'source' => $source, 'cycleId' => $cycleId, 'payload' => [], 'parentFactIds' => []];
+        // payload embeds factId so that same factId ⇒ same content key (static) and different factId ⇒ new content.
+        return ['factId' => $factId, 'source' => $source, 'cycleId' => $cycleId, 'payload' => ['id' => $factId], 'parentFactIds' => []];
     }
 
     /**
-     * c1 baseline {L1,C1,M1}; c2 reuses the given factIds (a reused id ⇒ that primitive is static).
+     * c1 baseline {L1,C1,M1}; c2 reuses the given factIds (a reused payload ⇒ that primitive is static).
      *
      * @return list<array<string,mixed>>
      */
@@ -71,6 +72,29 @@ final class AtlasLoopTrinityFeedbackAuditorTest extends TestCase
         $this->assertNotEmpty($result->newLoopFacts);
         $this->assertNotEmpty($result->newCortexFacts);
         $this->assertNotEmpty($result->newMaestroFacts);
+    }
+
+    public function test_same_payload_different_factid_due_to_cycleid_is_detected_as_static(): void
+    {
+        // Production scenario: factId = sha256(payload|cycleId|source), so re-emitting the SAME payload in c2
+        // produces a DIFFERENT factId — the bug was counting this as "new". With content-based comparison
+        // (payload|source independent of cycleId), it is correctly detected as static.
+        $payload = ['change_kind' => 'cosmetic', 'symbol' => 'Foo'];
+        $stream = [
+            ['factId' => 'id-c1-loop', 'source' => 'loop',    'cycleId' => 'c1', 'payload' => $payload, 'parentFactIds' => []],
+            ['factId' => 'id-c1-ctx',  'source' => 'cortex',  'cycleId' => 'c1', 'payload' => ['x' => 1], 'parentFactIds' => []],
+            ['factId' => 'id-c1-mae',  'source' => 'maestro', 'cycleId' => 'c1', 'payload' => ['y' => 1], 'parentFactIds' => []],
+            // c2: same payload as c1 for loop, but different factId (cycleId embedded in production hash)
+            ['factId' => 'id-c2-loop', 'source' => 'loop',    'cycleId' => 'c2', 'payload' => $payload, 'parentFactIds' => []],
+            ['factId' => 'id-c2-ctx',  'source' => 'cortex',  'cycleId' => 'c2', 'payload' => ['x' => 2], 'parentFactIds' => []],
+            ['factId' => 'id-c2-mae',  'source' => 'maestro', 'cycleId' => 'c2', 'payload' => ['y' => 2], 'parentFactIds' => []],
+        ];
+
+        $result = (new AtlasLoopTrinityFeedbackAuditor($stream))->audit('c2');
+
+        $this->assertContains('static_cycle_violation:loop', $result->violations, 'loop re-emitted same payload — must be flagged static');
+        $this->assertNotContains('static_cycle_violation:cortex', $result->violations);
+        $this->assertNotContains('static_cycle_violation:maestro', $result->violations);
     }
 
     public function test_audit_is_persisted_as_a_fact_for_the_next_cycle_seed(): void

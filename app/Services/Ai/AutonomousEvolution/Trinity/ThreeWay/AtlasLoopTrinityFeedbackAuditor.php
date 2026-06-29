@@ -116,12 +116,17 @@ final class AtlasLoopTrinityFeedbackAuditor
 
     /**
      * @param  list<array<string,mixed>>  $facts
-     * @param  array<string,bool>  $priorIds
+     * @param  array<string,bool>  $priorContentKeys
      * @return list<array<string,mixed>>
      */
-    private function newFacts(array $facts, array $priorIds): array
+    private function newFacts(array $facts, array $priorContentKeys): array
     {
-        return array_values(array_filter($facts, static fn (array $f): bool => ! isset($priorIds[(string) ($f['factId'] ?? '')])));
+        return array_values(array_filter($facts, static fn (array $f): bool => ! isset($priorContentKeys[self::contentKey($f)])));
+    }
+
+    private static function contentKey(array $fact): string
+    {
+        return hash('sha256', (string) json_encode($fact['payload'] ?? null, JSON_UNESCAPED_SLASHES).'|'.(string) ($fact['source'] ?? ''));
     }
 
     private function priorCycleId(string $cycleId): ?string
@@ -139,18 +144,18 @@ final class AtlasLoopTrinityFeedbackAuditor
     }
 
     /**
-     * @return array<string,bool>
+     * @return array<string,bool> content-keyed (cycleId-independent) — not factId-keyed
      */
     private function factIdsOfCycle(string $cycleId): array
     {
-        $ids = [];
+        $keys = [];
         foreach ($this->stream as $fact) {
             if ((string) ($fact['cycleId'] ?? '') === $cycleId) {
-                $ids[(string) ($fact['factId'] ?? '')] = true;
+                $keys[self::contentKey($fact)] = true;
             }
         }
 
-        return $ids;
+        return $keys;
     }
 
     /**
