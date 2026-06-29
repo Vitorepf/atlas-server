@@ -82,6 +82,27 @@ final class AtlasBrainCycleCapsuleTest extends TestCase
         }
     }
 
+    public function test_certified_without_tests_or_gates_evidence_is_normalized_uncertified_and_yields_no_wiring(): void
+    {
+        // certified=true + files_touched, but the evidence carries NO tests_or_gates_result proof.
+        $c = AtlasBrainCycleCapsule::capture([
+            'task_packet_id' => 'brain-pkt-unproven',
+            'objective' => 'Wire something without proof',
+            'files_touched' => ['app/Foo.php'],
+            'evidence' => ['diff' => 'abc'], // missing tests_or_gates_result
+            'validation' => ['certified' => true, 'reasons' => []],
+        ]);
+
+        self::assertNotNull($c);
+        self::assertFalse($c['certified'], 'certified+files but no tests_or_gates_result evidence ⇒ normalized uncertified');
+        self::assertFalse($c['validation']['certified']);
+        self::assertContains('uncertified_missing_tests_or_gates_evidence', $c['validation']['reasons']);
+
+        // The Internalization Pipeline must NOT mint a wiring candidate from the unproven cycle.
+        $kinds = array_column(AtlasBrainInternalizationPipeline::candidatesFrom([$c]), 'kind');
+        self::assertNotContains('wiring', $kinds, 'an unproven certified cycle yields no wiring candidate');
+    }
+
     public function test_failure_capsule_yields_a_policy_candidate(): void
     {
         $c = AtlasBrainCycleCapsule::capture(['task_packet_id' => 'y', 'failures' => ['prepare_blocked'], 'certified' => false]);

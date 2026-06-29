@@ -34,6 +34,20 @@ final class AtlasBrainCycleCapsule
 
         $validation = (array) ($cycle['validation'] ?? []);
         $certified = (bool) ($validation['certified'] ?? ($cycle['certified'] ?? false));
+        $reasons = self::stringList($validation['reasons'] ?? []);
+        $filesTouched = self::stringList($cycle['files_touched'] ?? []);
+        $evidence = (array) ($cycle['evidence'] ?? []);
+
+        // CERTIFIED-EVIDENCE GUARD: a capsule certified=true that changed files but carries NO
+        // tests_or_gates_result evidence is not honestly certified — the Internalization Pipeline would mint a
+        // `wiring` candidate from an UNPROVEN change (a fabricated capability). Normalize it uncertified here so
+        // no wiring candidate is derived from unverified work; a capsule whose proof evidence IS present is
+        // unchanged.
+        if ($certified && $filesTouched !== [] && ! self::hasTestsOrGatesEvidence($evidence)) {
+            $certified = false;
+            $reasons[] = 'uncertified_missing_tests_or_gates_evidence';
+        }
+        $reasons = array_values(array_unique($reasons));
 
         return [
             'schema' => self::SCHEMA,
@@ -44,14 +58,35 @@ final class AtlasBrainCycleCapsule
             'spec' => (array) ($cycle['spec'] ?? []),
             'decision' => trim((string) ($cycle['decision'] ?? '')),
             'provider' => trim((string) ($cycle['provider'] ?? '')),
-            'files_touched' => self::stringList($cycle['files_touched'] ?? []),
-            'evidence' => (array) ($cycle['evidence'] ?? []),
-            'validation' => ['certified' => $certified, 'reasons' => self::stringList($validation['reasons'] ?? [])],
+            'files_touched' => $filesTouched,
+            'evidence' => $evidence,
+            'validation' => ['certified' => $certified, 'reasons' => $reasons],
             'metrics' => (array) ($cycle['metrics'] ?? []),
             'failures' => self::stringList($cycle['failures'] ?? []),
             'learning' => trim((string) ($cycle['learning'] ?? '')),
             'certified' => $certified,
         ];
+    }
+
+    /**
+     * Does the evidence carry a `tests_or_gates_result` proof? Accepts the map shape
+     * (`['tests_or_gates_result' => 'OK']`, non-empty value) and the list shape (`['tests_or_gates_result']`).
+     *
+     * @param  array<string,mixed>  $evidence
+     */
+    private static function hasTestsOrGatesEvidence(array $evidence): bool
+    {
+        if (array_key_exists('tests_or_gates_result', $evidence)) {
+            return ! in_array($evidence['tests_or_gates_result'], [null, '', false, []], true);
+        }
+
+        foreach ($evidence as $value) {
+            if (is_scalar($value) && trim((string) $value) === 'tests_or_gates_result') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
