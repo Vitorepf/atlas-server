@@ -110,17 +110,23 @@ final class AtlasAaelExecutionRollbackExecutorTest extends TestCase
         }
 
         file_put_contents($blobPath, 'outside');
+
+        $target = [
+            'path' => 'app/Services/Ai/MarketingDomain/foo.php',
+            'sha256' => hash('sha256', 'outside'),
+            'bytes' => 7,
+            'mode' => null,
+            'mtime' => null,
+            'content_blob_path' => $blobPath,
+        ];
+        $shaRow = sprintf('%s|%s|%s', $target['path'], $target['sha256'], $target['content_blob_path']);
+        $shaOfShas = hash('sha256', $shaRow);
+
         file_put_contents($snapshotRoot.'/manifest.json', json_encode([
             'schema_version' => 'atlas.aael.execution.preimage_snapshotter.v1',
             'execution_id' => $executionId,
-            'targets' => [[
-                'path' => 'app/Services/Ai/MarketingDomain/foo.php',
-                'sha256' => hash('sha256', 'outside'),
-                'bytes' => 7,
-                'mode' => null,
-                'mtime' => null,
-                'content_blob_path' => $blobPath,
-            ]],
+            'sha_of_shas' => $shaOfShas,
+            'targets' => [$target],
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         $this->cleanupPaths[] = $snapshotRoot;
 
@@ -128,6 +134,31 @@ final class AtlasAaelExecutionRollbackExecutorTest extends TestCase
 
         (new AtlasAaelExecutionRollbackExecutor)->execute($executionId, [
             'app/Services/Ai/MarketingDomain/foo.php' => hash('sha256', 'outside-mutated'),
+        ]);
+    }
+
+    public function test_tampered_manifest_target_sha_is_rejected_as_integrity_mismatch(): void
+    {
+        $relativePath = 'app/Services/Ai/AutonomousEvolution/Runtime/Tmp/AtlasAaelRollbackTamperFixture.php';
+        $absolutePath = $this->createFixture($relativePath, "<?php\n\nreturn 'before';\n");
+        $executionId = 'aael-rollback-tamper';
+
+        (new AtlasAaelExecutionPreImageSnapshotter)->snapshot($executionId, [
+            'allowed_files' => [$relativePath],
+        ]);
+        $this->cleanupPaths[] = storage_path('atlas/aael/preimage/'.$executionId);
+
+        // Tamper with the manifest: alter the recorded sha256 of the target so the sha_of_shas
+        // computed at rollback no longer matches the persisted value.
+        $manifestPath = storage_path('atlas/aael/preimage/'.$executionId.'/manifest.json');
+        $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        $manifest['targets'][0]['sha256'] = hash('sha256', 'tampered-content');
+        file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        $this->expectExceptionMessage('aael_rollback_manifest_integrity_mismatch');
+
+        (new AtlasAaelExecutionRollbackExecutor)->execute($executionId, [
+            $relativePath => hash_file('sha256', $absolutePath),
         ]);
     }
 

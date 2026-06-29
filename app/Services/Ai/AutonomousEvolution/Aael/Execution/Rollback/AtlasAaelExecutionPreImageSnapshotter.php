@@ -112,9 +112,23 @@ final class AtlasAaelExecutionPreImageSnapshotter
         }
 
         $manifestPath = $snapshotRoot.'/manifest.json';
+
+        $shaRows = [];
+        foreach ($manifestTargets as $target) {
+            $shaRows[] = sprintf(
+                '%s|%s|%s',
+                $target['path'],
+                $target['sha256'],
+                $target['content_blob_path'],
+            );
+        }
+        sort($shaRows);
+        $shaOfShas = hash('sha256', implode("\n", $shaRows));
+
         $manifest = [
             'schema_version' => self::SCHEMA,
             'execution_id' => $executionId,
+            'sha_of_shas' => $shaOfShas,
             'targets' => $manifestTargets,
         ];
 

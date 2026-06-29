@@ -133,7 +133,12 @@ final class AtlasAaelExecutionRollbackExecutor
 
         sort($shaRows);
         $computed = hash('sha256', implode("\n", $shaRows));
-        $recorded = (string) ($manifest['sha_of_shas'] ?? $computed);
+
+        if (! isset($manifest['sha_of_shas']) || ! is_string($manifest['sha_of_shas']) || $manifest['sha_of_shas'] === '') {
+            throw new RuntimeException('aael_rollback_manifest_integrity_missing');
+        }
+
+        $recorded = (string) $manifest['sha_of_shas'];
 
         if ($computed !== $recorded) {
             throw new RuntimeException('aael_rollback_manifest_integrity_mismatch');
