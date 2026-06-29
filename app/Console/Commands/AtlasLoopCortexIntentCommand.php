@@ -8,12 +8,13 @@ use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexDecisionHist
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentExtractor;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentSnapshot;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentStaleness;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\AtlasCortexIntentTriangulator;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\TriangulatedIntentFact;
 use Illuminate\Console\Command;
 
 final class AtlasLoopCortexIntentCommand extends Command
 {
-    protected $signature = 'atlas:loop:cortex:intent {action : inspect|refresh|diff|history|extract} {--fqcn=} {--file=} {--json}';
+    protected $signature = 'atlas:loop:cortex:intent {action : inspect|refresh|diff|history|extract|triangulate} {--fqcn=} {--file=} {--json}';
 
     protected $description = 'Inspect, refresh, diff, extract, or history the intent-aware Cortex snapshot.';
 
@@ -27,6 +28,7 @@ final class AtlasLoopCortexIntentCommand extends Command
             'diff' => $this->diff(),
             'history' => $this->history(),
             'extract' => $this->extract(),
+            'triangulate' => $this->triangulate(),
             default => $this->usageError($action),
         };
     }
@@ -82,6 +84,37 @@ final class AtlasLoopCortexIntentCommand extends Command
             'doc_excerpt' => $fact->docExcerpt,
             'confidence' => $fact->confidence,
             'source_file' => $filePath,
+        ]);
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Wires the dormant AtlasCortexIntentTriangulator into the operator-facing intent CLI so
+     * `atlas:loop:cortex:intent triangulate --file=path/to/Foo.php` FUSES leg 1 (the docblock
+     * IntentExtractionFact) and leg 2 (the DecisionHistoryFact) into the REAL TriangulatedIntentFact —
+     * the same fused shape the snapshot consumer reads — instead of the refresh path's placeholder default.
+     * Siblings (leg 3) default to empty. Read-only: no snapshot/queue mutation.
+     */
+    private function triangulate(): int
+    {
+        $filePath = trim((string) $this->option('file'));
+        if ($filePath === '') {
+            $this->line('usage_error: triangulate requires --file=<path>');
+
+            return self::FAILURE;
+        }
+
+        $extractorFact = app(AtlasCortexIntentExtractor::class)->extract($filePath);
+        $historyFact = app(AtlasCortexDecisionHistoryReader::class)->read($filePath);
+        $fused = (new AtlasCortexIntentTriangulator)->triangulate($extractorFact->fqcn, $extractorFact, $historyFact);
+
+        $this->emit([
+            'fqcn' => $fused->fqcn,
+            'purpose_statement' => $fused->purposeStatement,
+            'evidence' => $fused->evidence,
+            'confidence_score' => $fused->confidenceScore,
+            'conflicts' => $fused->conflicts,
         ]);
 
         return self::SUCCESS;
@@ -149,7 +182,7 @@ final class AtlasLoopCortexIntentCommand extends Command
 
     private function usageError(string $action): int
     {
-        $this->line("usage_error: invalid action [{$action}], expected inspect|refresh|diff|history|extract");
+        $this->line("usage_error: invalid action [{$action}], expected inspect|refresh|diff|history|extract|triangulate");
 
         return 2;
     }

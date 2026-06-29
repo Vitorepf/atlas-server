@@ -140,6 +140,59 @@ PHP);
         $this->assertStringContainsString('extract requires --file', Artisan::output());
     }
 
+    public function test_triangulate_emits_fused_intent_fact_from_real_legs(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'atlas_triangulate_').'.php';
+        $purposeText = 'Triangulated purpose fusing the docblock extractor and decision history legs.';
+        file_put_contents($tempFile, <<<PHP
+<?php
+namespace AtlasTriangulateTest;
+
+/**
+ * Atlas triangulate fixture.
+ *
+ * @purpose {$purposeText}
+ * @design Inline design note for the triangulate test.
+ */
+final class TriangulateFixture
+{
+    public function ping(): string
+    {
+        return 'pong';
+    }
+}
+PHP);
+
+        try {
+            $exit = Artisan::call('atlas:loop:cortex:intent', [
+                'action' => 'triangulate',
+                '--file' => $tempFile,
+                '--json' => true,
+            ]);
+
+            $this->assertSame(0, $exit);
+            $decoded = json_decode(Artisan::output(), true);
+            $this->assertIsArray($decoded);
+            // The fused fact carries a non-empty purpose from the extractor leg (never the refresh placeholder).
+            $this->assertSame($purposeText, $decoded['purpose_statement']);
+            // confidence_score is derived from the fused legs — neither 0 (no evidence) nor the refresh path's hardcoded 50.
+            $this->assertNotContains($decoded['confidence_score'], [0, 50]);
+            $this->assertNotEmpty($decoded['evidence']['extractor'], 'the extractor leg fed real tokens into the fusion');
+            $this->assertArrayHasKey('conflicts', $decoded);
+            $this->assertStringContainsString('TriangulateFixture', $decoded['fqcn']);
+        } finally {
+            @unlink($tempFile);
+        }
+    }
+
+    public function test_triangulate_without_file_returns_usage_error(): void
+    {
+        $exit = Artisan::call('atlas:loop:cortex:intent', ['action' => 'triangulate']);
+
+        $this->assertNotSame(0, $exit);
+        $this->assertStringContainsString('triangulate requires --file', Artisan::output());
+    }
+
     /**
      * @param  array<string,array<string,mixed>>  $items
      */
