@@ -56,4 +56,15 @@ final class CortexQueryLanguageParserTest extends TestCase
 
         (new AtlasCortexQueryLanguageParser)->parse('SELECT fqcn FROM cortex_api_diff WHERE');
     }
+
+    public function test_in_list_with_bare_digits_returns_integers(): void
+    {
+        $result = (new AtlasCortexQueryLanguageParser)->parse(
+            'SELECT fqcn FROM cortex_api_diff WHERE unwired_days IN (5, 20)'
+        );
+
+        $where = $result['WHERE'];
+        $this->assertSame('IN', $where['operator']);
+        $this->assertSame([5, 20], $where['value']);
+    }
 }

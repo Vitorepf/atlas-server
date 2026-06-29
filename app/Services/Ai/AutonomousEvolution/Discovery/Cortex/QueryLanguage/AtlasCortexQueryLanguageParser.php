@@ -124,14 +124,18 @@ final class AtlasCortexQueryLanguageParser
     }
 
     /**
-     * @return string|int|list<string>
+     * @return string|int|list<string|int>
      */
     private function parseValue(string $value): string|int|array
     {
         $trimmed = trim($value);
         if (preg_match('/^\((.+)\)$/', $trimmed, $match) === 1) {
             return array_values(array_map(
-                static fn (string $item): string => trim($item, " \t\n\r\0\x0B'\""),
+                static function (string $item): string|int {
+                    $v = trim($item, " \t\n\r\0\x0B'\"");
+
+                    return ctype_digit($v) ? (int) $v : $v;
+                },
                 array_map('trim', explode(',', $match[1]))
             ));
         }
