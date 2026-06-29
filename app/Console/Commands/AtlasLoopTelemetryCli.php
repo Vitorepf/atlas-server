@@ -7,13 +7,14 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryFactExporter;
 use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryFactStreamEmitter;
 use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryFactWindowAggregator;
+use App\Services\Ai\AutonomousEvolution\Telemetry\AtlasLoopTelemetryStarvationDetector;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Console\Command;
 
 class AtlasLoopTelemetryCli extends Command
 {
-    protected $signature = 'atlas:loop:telemetry {action : tail|aggregate|export} {--minutes=15} {--path=} {--json}';
+    protected $signature = 'atlas:loop:telemetry {action : tail|aggregate|export|starvation} {--minutes=15} {--path=} {--json}';
 
     protected $description = 'Read-only operator surface over the canonical Loop telemetry FACT stream. No score, no rank.';
 
@@ -42,8 +43,24 @@ class AtlasLoopTelemetryCli extends Command
             'tail' => $this->tail($facts),
             'aggregate' => $this->aggregate($facts),
             'export' => $this->export($facts),
+            'starvation' => $this->starvation($facts),
             default => $this->unknownAction($action),
         };
+    }
+
+    /**
+     * Surfaces the loop-stall signal: claims that never paired with a serve in the window (the zombie/0-grind
+     * stall). Runs the dormant {@see AtlasLoopTelemetryStarvationDetector} over the already-loaded facts.
+     *
+     * @param  list<array<string, mixed>>  $facts
+     */
+    private function starvation(array $facts): int
+    {
+        $payload = (new AtlasLoopTelemetryStarvationDetector)->detect($facts, gmdate('c'), (int) $this->option('minutes'));
+
+        $this->line($this->encode($payload));
+
+        return self::SUCCESS;
     }
 
     /**
@@ -132,7 +149,7 @@ class AtlasLoopTelemetryCli extends Command
 
     private function unknownAction(string $action): int
     {
-        $this->error('Unknown action: '.$action.'. Expected one of tail|aggregate|export.');
+        $this->error('Unknown action: '.$action.'. Expected one of tail|aggregate|export|starvation.');
 
         return self::FAILURE;
     }

@@ -95,6 +95,56 @@ final class AtlasLoopTelemetryCliTest extends TestCase
         $this->assertFileDoesNotExist($path);
     }
 
+    public function test_starvation_claim_without_serve_is_starved(): void
+    {
+        $tester = new CommandTester($this->starvationCommand([['claim', 'cycle-1']]));
+
+        $exit = $tester->execute(['action' => 'starvation', '--minutes' => 15, '--json' => true]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertTrue($payload['starved'], 'a claim with no paired serve in the window is a stall');
+        $this->assertSame(1, $payload['counts']['claim']);
+        $this->assertArrayHasKey('window', $payload);
+        $this->assertArrayHasKey('lease', $payload['counts']);
+        $this->assertArrayHasKey('serve', $payload['counts']);
+        $this->assertArrayHasKey('paired_claim_to_serve', $payload['evidence']);
+    }
+
+    public function test_starvation_paired_claim_and_serve_is_not_starved(): void
+    {
+        $tester = new CommandTester($this->starvationCommand([['claim', 'cycle-1'], ['serve', 'cycle-1']]));
+
+        $exit = $tester->execute(['action' => 'starvation', '--minutes' => 15, '--json' => true]);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertFalse($payload['starved'], 'a paired claim→serve in the window is healthy');
+    }
+
+    /**
+     * @param  list<array{0:string,1:string}>  $emits  list of [kind, cycle_id] emitted at ~now (inside the window)
+     */
+    private function starvationCommand(array $emits): AtlasLoopTelemetryCli
+    {
+        $emitter = new AtlasLoopTelemetryFactStreamEmitter(
+            null,
+            static fn (): DateTimeImmutable => new DateTimeImmutable('now', new DateTimeZone('UTC')),
+        );
+        foreach ($emits as [$kind, $cycle]) {
+            $emitter->emit($kind, ['scope' => 'loop', 'value' => $kind], $cycle);
+        }
+
+        $command = new AtlasLoopTelemetryCli(
+            $emitter,
+            new AtlasLoopTelemetryFactWindowAggregator,
+            new AtlasLoopTelemetryFactExporter,
+        );
+        $command->setLaravel($this->app);
+
+        return $command;
+    }
+
     private function command(): AtlasLoopTelemetryCli
     {
         $ticks = [
