@@ -206,7 +206,7 @@ final class AtlasLoopExternalDepDriftDetector
         if ($files === false) {
             return [];
         }
-        sort($files, SORT_STRING);
+        usort($files, static fn (string $a, string $b): int => filemtime($a) <=> filemtime($b));
 
         return array_values($files);
     }

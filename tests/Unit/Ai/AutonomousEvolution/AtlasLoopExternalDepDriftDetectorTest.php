@@ -160,4 +160,45 @@ final class AtlasLoopExternalDepDriftDetectorTest extends TestCase
         $this->assertContains('vendor/b', $report['added_packages']);
         $this->assertSame([], $report['removed_packages']);
     }
+
+    public function test_latest_snapshot_picks_newest_by_mtime_not_lexicographic_hash(): void
+    {
+        // Write two snapshots with lexicographically-DESCENDING content_hash but ASCENDING mtime.
+        // The chronologically newest has the lexicographically-smaller hash.
+        $dir = $this->root.'/'.AtlasLoopExternalDepDriftDetector::SNAPSHOT_DIR;
+
+        // First: lexicographically-larger hash (zzzz), written earlier
+        $old = $this->encode(['content_hash' => 'zzzz', 'packages' => ['vendor/old' => '1.0.0'], 'constraints' => ['vendor/old' => '^1.0']]);
+        file_put_contents($dir.'/zzzz-0000.json', $old);
+        touch($dir.'/zzzz-0000.json', time() - 10);
+
+        // Second: lexicographically-smaller hash (aaaa), written later
+        $newContent = ['content_hash' => 'aaaa', 'packages' => ['vendor/new' => '2.0.0'], 'constraints' => ['vendor/new' => '^2.0']];
+        $new = $this->encode($newContent);
+        file_put_contents($dir.'/aaaa-0000.json', $new);
+        touch($dir.'/aaaa-0000.json', time());
+
+        $detector = new AtlasLoopExternalDepDriftDetector($this->root);
+        // detect() calls latestSnapshot() internally and compares against it; the latest should be
+        // 'aaaa' (newest by mtime), so the comparison sees vendor/new as the baseline.
+        $report = $detector->detect(
+            $this->lock('aaaa', ['vendor/new' => '2.0.0']),
+            $this->composerJson(['vendor/new' => '^2.0']),
+        );
+
+        $this->assertFalse($report['content_hash_changed'], 'latest snapshot must be the newest by mtime (aaaa), not the lexicographically-last (zzzz)');
+    }
+
+    private function encode(array $snapshot): string
+    {
+        ksort($snapshot);
+        if (isset($snapshot['packages']) && is_array($snapshot['packages'])) {
+            ksort($snapshot['packages']);
+        }
+        if (isset($snapshot['constraints']) && is_array($snapshot['constraints'])) {
+            ksort($snapshot['constraints']);
+        }
+
+        return json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)."\n";
+    }
 }
