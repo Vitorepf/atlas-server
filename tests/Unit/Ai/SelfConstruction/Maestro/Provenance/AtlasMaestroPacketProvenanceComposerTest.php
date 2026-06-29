@@ -94,4 +94,28 @@ final class AtlasMaestroPacketProvenanceComposerTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $link['content_hash']);
         $this->assertArrayHasKey('parent_id', $link);
     }
+
+    public function test_record_with_custom_content_key_verifies_ok_no_false_hash_mismatch(): void
+    {
+        $composer = new AtlasMaestroPacketProvenanceComposer;
+        $record = $composer->compose('packet-prov', [
+            'origin_kind' => 'cortex_fact',
+            'origin_id' => 'fact-999',
+            'chain' => [
+                [
+                    'parent_id' => null,
+                    'source_kind' => 'cortex_fact',
+                    'source_id' => 'fact-999',
+                    'captured_at' => '2026-06-24T07:00:00-03:00',
+                    'content' => ['objective' => 'seed'],
+                ],
+            ],
+        ]);
+
+        $verifier = new \App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceVerifier;
+        $verdict = $verifier->verify($record);
+
+        $this->assertTrue($verdict['ok']);
+        $this->assertSame('OK', $verdict['reason_code']);
+    }
 }

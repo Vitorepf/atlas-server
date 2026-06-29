@@ -70,14 +70,12 @@ final class AtlasMaestroPacketProvenanceComposer
             throw new InvalidArgumentException('Each provenance chain link requires non-empty source_kind, source_id, and captured_at.');
         }
 
-        $contentPayload = array_key_exists('content', $link)
-            ? $link['content']
-            : [
-                'parent_id' => $parentId,
-                'source_kind' => $sourceKind,
-                'source_id' => $sourceId,
-                'captured_at' => $capturedAt,
-            ];
+        $contentPayload = [
+            'parent_id' => $parentId,
+            'source_kind' => $sourceKind,
+            'source_id' => $sourceId,
+            'captured_at' => $capturedAt,
+        ];
 
         $contentHash = hash('sha256', $this->canonicalJson($contentPayload));
         $linkId = hash(
