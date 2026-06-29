@@ -133,6 +133,23 @@ PHP;
         }
     }
 
+    public function test_bodyless_abstract_method_does_not_poison_next_method_attribution(): void
+    {
+        $source = <<<'PHP'
+<?php
+abstract class Foo {
+    abstract public function bar(): void;
+    public function baz(): void { $this->prop = 1; }
+}
+PHP;
+        $obs = $this->lens()->observe($this->subject($source));
+        $methods = (array) $obs->facts['methods'];
+        $byName = array_column($methods, null, 'method');
+        $this->assertArrayHasKey('baz', $byName, 'baz must be tracked');
+        $this->assertContains('prop', $byName['baz']['write_set'], 'write in baz must appear under baz');
+        $this->assertArrayNotHasKey('bar', $byName, 'bar is bodyless — must not be attributed as caller');
+    }
+
     public function test_method_records_param_list(): void
     {
         $source = <<<'PHP'

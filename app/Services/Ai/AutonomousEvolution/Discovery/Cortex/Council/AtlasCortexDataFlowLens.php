@@ -127,6 +127,9 @@ final class AtlasCortexDataFlowLens implements LensContract
                 if ($name === null) {
                     continue;
                 }
+                if (! $this->methodHasBody($tokens, $i, $count)) {
+                    continue; // bodyless abstract/interface method — skip to avoid poisoning next real method
+                }
                 $currentMethod = $name;
                 $currentParams = $this->collectParams($tokens, $i, $count);
                 $currentMethodBraceDepth = $depth + 1; // the opening '{' will bump $depth to $currentMethodBraceDepth
@@ -170,6 +173,26 @@ final class AtlasCortexDataFlowLens implements LensContract
     /**
      * @param  array<int,array{0:int,1:string,2:int}|string>  $tokens
      */
+    private function methodHasBody(array $tokens, int $from, int $count): bool
+    {
+        $parenDepth = 0;
+        for ($j = $from + 1; $j < $count; $j++) {
+            $tok = $tokens[$j];
+            $text = is_string($tok) ? $tok : $tok[1];
+            if ($text === '(') {
+                $parenDepth++;
+            } elseif ($text === ')') {
+                $parenDepth--;
+            } elseif ($parenDepth === 0 && $text === '{') {
+                return true;
+            } elseif ($parenDepth === 0 && $text === ';') {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private function seekMethodName(array $tokens, int $from, int $count): ?string
     {
         for ($i = $from + 1; $i < $count; $i++) {
