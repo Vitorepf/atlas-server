@@ -87,7 +87,10 @@ final class AtlasLoopOperatorIntentSchemaRegistry
 
         $violations = [];
 
-        $known = array_keys($shape['required']) + array_keys($shape['optional']);
+        // array_merge (NOT `+`): both key lists are int-indexed, so `+` keeps the left list's integer keys
+        // and silently drops every declared-optional field NAME — wrongly rejecting optional fields as
+        // KIND_UNKNOWN_FIELD. Merge the field-name values so optional fields are recognised as known.
+        $known = array_merge(array_keys($shape['required']), array_keys($shape['optional']));
         $known = array_flip(array_values($known));
 
         foreach ($shape['required'] as $field => $type) {

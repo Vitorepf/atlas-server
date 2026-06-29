@@ -81,6 +81,29 @@ final class AtlasLoopOperatorIntentSchemaRegistryTest extends TestCase
         $this->assertContains([SchemaViolation::KIND_ENUM_VIOLATION, 'source'], $kinds);
     }
 
+    public function test_declared_optional_field_is_accepted_not_unknown(): void
+    {
+        // Regression: `array_keys(required) + array_keys(optional)` dropped optional field NAMES (int-key
+        // union), so a declared-optional field was wrongly rejected as KIND_UNKNOWN_FIELD.
+        $registry = new AtlasLoopOperatorIntentSchemaRegistry([
+            'operator.intent.v2' => [
+                'required' => ['schema' => 'string'],
+                'optional' => ['note' => 'string'],
+                'source' => ['chat'],
+                'verbs' => ['FOCUS'],
+            ],
+        ]);
+
+        $result = $registry->validate(['schema' => 'operator.intent.v2', 'note' => 'an optional note'], 'operator.intent.v2');
+
+        $this->assertTrue($result->ok, 'a payload carrying a declared-optional field must validate');
+        $unknownFields = array_map(
+            static fn (SchemaViolation $v): string => $v->field,
+            array_filter($result->violations, static fn (SchemaViolation $v): bool => $v->kind === SchemaViolation::KIND_UNKNOWN_FIELD),
+        );
+        $this->assertNotContains('note', $unknownFields, 'a declared-optional field must not be a KIND_UNKNOWN_FIELD violation');
+    }
+
     public function test_current_version_and_versioned_list(): void
     {
         $registry = new AtlasLoopOperatorIntentSchemaRegistry;
