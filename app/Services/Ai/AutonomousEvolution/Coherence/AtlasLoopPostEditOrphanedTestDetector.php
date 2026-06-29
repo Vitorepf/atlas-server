@@ -86,9 +86,7 @@ final class AtlasLoopPostEditOrphanedTestDetector
             $sutShort = $cls[1];
             $sutNamespace = $this->namespaceOf($contents);
             if ($sutNamespace !== '') {
-                $sutNamespace = preg_replace('/^Tests\\\\/', '', $sutNamespace) ?? $sutNamespace;
-                $sutNamespace = preg_replace('/^Tests\\\\Unit\\\\/', '', $sutNamespace) ?? $sutNamespace;
-                $sutNamespace = preg_replace('/^Tests\\\\Feature\\\\/', '', $sutNamespace) ?? $sutNamespace;
+                $sutNamespace = preg_replace('/^Tests\\\\(Unit\\\\|Feature\\\\)?/', '', $sutNamespace) ?? $sutNamespace;
             }
             $candidate = ($sutNamespace !== '' ? 'App\\'.$sutNamespace.'\\' : 'App\\').$sutShort;
 

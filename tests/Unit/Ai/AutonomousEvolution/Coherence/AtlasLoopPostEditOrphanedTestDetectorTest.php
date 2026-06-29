@@ -109,4 +109,22 @@ PHP);
         $this->assertSame('AlphaTest', basename($findings[0]['file'], '.php'));
         $this->assertSame('BetaTest', basename($findings[1]['file'], '.php'));
     }
+
+    public function test_rule3_resolves_tests_unit_namespace_to_correct_app_fqcn(): void
+    {
+        $path = $this->writeTest('FooTest', <<<'PHP'
+<?php
+
+namespace Tests\Unit\Ai\AutonomousEvolution\Coherence;
+
+final class FooTest extends \PHPUnit\Framework\TestCase {}
+PHP);
+
+        $detector = new AtlasLoopPostEditOrphanedTestDetector();
+        $findings = $detector->detect([$path], []);
+
+        $this->assertCount(1, $findings);
+        $this->assertSame('App\Ai\AutonomousEvolution\Coherence\Foo', $findings[0]['target_fqcn']);
+        $this->assertSame('class_name_convention', $findings[0]['detection_rule']);
+    }
 }
