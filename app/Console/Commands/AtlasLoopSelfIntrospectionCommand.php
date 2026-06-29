@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfArchitectureScanner;
+use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfCapabilityCoverageReporter;
+use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfDependencyGraphReporter;
 use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfIntrospectionReceiptLedger;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Throwable;
 
 /**
  * Operator-facing introspection CLI: 'how do you look right now?'
@@ -69,34 +73,93 @@ final class AtlasLoopSelfIntrospectionCommand extends Command
     }
 
     /**
+     * REAL loop state — each action resolves its pure Introspection reporter from the container (mirroring the
+     * ledger resolve pattern) and projects the reporter's deterministic scan() output into the backward-
+     * compatible `rows` contract, carrying the full scan payload alongside. A reporter that cannot scan (e.g.
+     * unreadable root) yields an empty rows list — NEVER the fabricated 'ok' stub this used to return.
+     *
      * @return array<string,mixed>
      */
     private function buildPayload(string $action): array
     {
-        // Deterministic synthetic facts — wired stubs the test asserts against. Production swaps
-        // these with real Scanner/DepGraph/Coverage reporters bound in the container.
-        return match ($action) {
-            'architecture' => [
-                'rows' => [
-                    ['organ' => 'Loop', 'status' => 'ok'],
-                    ['organ' => 'Cortex', 'status' => 'ok'],
-                    ['organ' => 'Maestro', 'status' => 'ok'],
-                ],
-            ],
-            'deps' => [
-                'rows' => [
-                    ['from' => 'Loop', 'to' => 'Cortex', 'kind' => 'observes'],
-                    ['from' => 'Loop', 'to' => 'Maestro', 'kind' => 'dispatches'],
-                ],
-            ],
-            'coverage' => [
-                'rows' => [
-                    ['surface' => 'task_packets', 'covered' => true],
-                    ['surface' => 'merge_governor', 'covered' => true],
-                ],
-            ],
-            default => ['rows' => []],
-        };
+        try {
+            return match ($action) {
+                'architecture' => $this->architecturePayload(),
+                'deps' => $this->depsPayload(),
+                'coverage' => $this->coveragePayload(),
+                default => ['rows' => []],
+            };
+        } catch (Throwable) {
+            return ['rows' => []]; // honest emptiness over a fabricated 'ok'
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function architecturePayload(): array
+    {
+        /** @var AtlasLoopSelfArchitectureScanner $scanner */
+        $scanner = $this->resolveReporter(AtlasLoopSelfArchitectureScanner::class);
+        $scan = $scanner->scan();
+
+        $methodsByClass = (array) ($scan['methods_by_class'] ?? []);
+        $linesByClass = (array) ($scan['lines_by_class'] ?? []);
+        $rows = [];
+        foreach ($methodsByClass as $fqcn => $methods) {
+            $rows[] = [
+                'class' => (string) $fqcn,
+                'public_methods' => is_array($methods) ? count($methods) : 0,
+                'lines' => (int) ($linesByClass[$fqcn] ?? 0),
+            ];
+        }
+
+        return ['rows' => $rows, 'scan' => $scan];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function depsPayload(): array
+    {
+        /** @var AtlasLoopSelfDependencyGraphReporter $reporter */
+        $reporter = $this->resolveReporter(AtlasLoopSelfDependencyGraphReporter::class);
+        $scan = $reporter->scan();
+
+        return ['rows' => array_values((array) ($scan['edges'] ?? [])), 'scan' => $scan];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function coveragePayload(): array
+    {
+        /** @var AtlasLoopSelfCapabilityCoverageReporter $reporter */
+        $reporter = $this->resolveReporter(AtlasLoopSelfCapabilityCoverageReporter::class);
+        $scan = $reporter->scan();
+
+        $rows = [];
+        foreach ((array) ($scan['capabilities'] ?? []) as $capability => $detail) {
+            $row = ['capability' => (string) $capability];
+            $rows[] = is_array($detail) ? $row + $detail : $row + ['state' => $detail];
+        }
+
+        return ['rows' => $rows, 'scan' => $scan];
+    }
+
+    /**
+     * Resolve a reporter through the container when bound (so tests can inject one), else construct it directly
+     * — the same bound()?make:new seam the ledger uses.
+     *
+     * @template T of object
+     * @param  class-string<T>  $class
+     * @return T
+     */
+    private function resolveReporter(string $class): object
+    {
+        $app = $this->getLaravel();
+
+        return $app->bound($class) ? $app->make($class) : new $class();
     }
 
     private function history(AtlasLoopSelfIntrospectionReceiptLedger $ledger): int
