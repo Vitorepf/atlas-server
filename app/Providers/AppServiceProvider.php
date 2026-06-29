@@ -465,6 +465,18 @@ class AppServiceProvider extends ServiceProvider
         );
         // Operator-intent schema registry — singleton so Extractor/Ledger/CLI all read the same schema.
         $this->app->singleton(AtlasLoopOperatorIntentSchemaRegistry::class);
+        // Quaternity intent-drift production adapters: atlas:loop:intent:drift resolves these two contracts.
+        // Bind them to the stream/file-backed production impls so the CLI runs without test fakes. The operator
+        // intent source REUSES the existing AtlasLoopOperatorIntentStreamReader (one ingest pipeline, not a
+        // second parser); both adapters autowire (the reader and the file path resolve from their own defaults).
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopOperatorIntentSource::class,
+            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopIntentStreamOperatorIntentSource::class,
+        );
+        $this->app->bind(
+            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopAmbitionFacultyStore::class,
+            \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopFileAmbitionFacultyStore::class,
+        );
         // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
         $this->app->singleton(AtlasLoopCycleReceiptSigner::class);
         $this->app->singleton(AtlasLoopCycleReceiptLedger::class);
