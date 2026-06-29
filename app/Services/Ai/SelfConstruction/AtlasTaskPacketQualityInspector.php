@@ -93,6 +93,13 @@ final class AtlasTaskPacketQualityInspector
 
     private const TRUNCATION_MARKERS = ["\u{2026}", '...'];
 
+    /**
+     * Generic identifier tokens that carry NO discriminating power for filter↔target binding: every test class is
+     * a "…Test", so allowing them would let any `--filter=AnythingTest` match any target and the adequacy gate
+     * would never fire. Dropped before comparing filter tokens to target tokens.
+     */
+    private const FILTER_TOKEN_STOPWORDS = ['test', 'tests', 'spec', 'specs', 'case', 'unit'];
+
     public function __construct(
         private readonly ?AtlasLoopHarnessGuard $guard = null,
     ) {}
@@ -190,9 +197,21 @@ final class AtlasTaskPacketQualityInspector
         // PRESENCE → ADEQUACY: missing_acceptance_criteria catches an EMPTY list, but a non-empty list that
         // never names any code allowed_file is just as fake — a packet writing to FooService.php can clear the
         // "presence" gate with acceptance="phpunit passes" while the criteria never bind to the change at all.
-        // Surface it as an ADVISORY signal (kept OUT of BLOCKING_DEFICIENCIES on purpose: a generic runnable
-        // hook is still legitimate proof for many internal/minimal packets) — anti-fake without false-blocking.
-        if ($acceptance !== [] && $this->acceptanceFailsToCoverAnyAllowed($acceptance, $allowed)) {
+        // A subtler fake also clears it: a runnable `php artisan test --filter=<X>` whose <X> names a test
+        // UNRELATED to the packet's own target — runnable, and may even "cover some file", yet exercising nothing
+        // the packet changes. acceptanceFilterMatchesTarget() demands the filter share an identifier token with a
+        // target the packet actually owns. Surface either shape as an ADVISORY signal (kept OUT of
+        // BLOCKING_DEFICIENCIES on purpose: a generic/broad runnable hook is still legitimate proof for many
+        // internal/minimal packets) — anti-fake without false-blocking.
+        $acceptanceCoverageMismatch = $acceptance !== [] && (
+            $this->acceptanceFailsToCoverAnyAllowed($acceptance, $allowed)
+            || (
+                $this->acceptanceHasRunnableSignal($acceptance)
+                && $this->acceptanceContainsFilterToken($acceptance)
+                && ! $this->acceptanceFilterMatchesTarget($acceptance, $allowed, $objective)
+            )
+        );
+        if ($acceptanceCoverageMismatch) {
             $deficiencies[] = 'acceptance_coverage_mismatch';
         }
 
@@ -218,6 +237,7 @@ final class AtlasTaskPacketQualityInspector
                 'simplicity_contract_autonomy_violations' => $contractAutonomyViolations,
                 'default_worktree_or_sandbox_violations' => $defaultIsolationViolations,
                 'blind_orphan_wiring_proxy' => $blindOrphanWiringProxy,
+                'acceptance_coverage_mismatch' => $acceptanceCoverageMismatch,
             ],
         ];
     }
@@ -557,6 +577,125 @@ final class AtlasTaskPacketQualityInspector
         }
 
         return true;
+    }
+
+    /**
+     * Does the acceptance text invoke PHPUnit's `--filter=<X>` (or `--filter <X>`)? The adequacy upgrade only
+     * applies to filtered runs — an unfiltered `php artisan test` exercises the whole suite, so coverage of the
+     * packet's target is implicit and there is nothing to mis-bind.
+     *
+     * @param  list<string>  $acceptance
+     */
+    private function acceptanceContainsFilterToken(array $acceptance): bool
+    {
+        return preg_match('/--filter[=\s]/i', implode("\n", $acceptance)) === 1;
+    }
+
+    /**
+     * Adequacy (vs. presence) for FILTERED test runs: a `--filter=<X>` proves the packet only when <X> exercises
+     * the thing the packet changes. We accept it when at least one filter value shares an identifier token
+     * (>=4 chars, generic "test"-style stopwords removed) with any allowed_files basename (minus .php) or any
+     * concrete symbol named in the objective. A filter that names an unrelated test shares no such token and is
+     * reported as `acceptance_coverage_mismatch` (advisory). False on no filter value or no bindable target.
+     *
+     * @param  list<string>  $acceptance
+     * @param  list<string>  $allowedFiles
+     */
+    private function acceptanceFilterMatchesTarget(array $acceptance, array $allowedFiles, string $objective): bool
+    {
+        $filterValues = $this->acceptanceFilterValues($acceptance);
+        if ($filterValues === []) {
+            return false;
+        }
+
+        $targetTokens = [];
+        foreach ($allowedFiles as $path) {
+            $base = basename(ltrim(str_replace('\\', '/', trim($path)), '/'));
+            $stem = (string) preg_replace('/\.php$/i', '', $base);
+            foreach ($this->identifierTokens($stem) as $token) {
+                $targetTokens[$token] = true;
+            }
+        }
+        foreach ($this->concreteObjectiveSymbols($objective) as $symbol) {
+            foreach ($this->identifierTokens($symbol) as $token) {
+                $targetTokens[$token] = true;
+            }
+        }
+        if ($targetTokens === []) {
+            return false; // nothing concrete to bind against — leave it to the basename-coverage check.
+        }
+
+        foreach ($filterValues as $value) {
+            foreach ($this->identifierTokens($value) as $token) {
+                if (isset($targetTokens[$token])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Extract every `--filter=<X>` (or `--filter <X>`) value from the acceptance criteria. Strips an optional
+     * surrounding quote so `--filter='Foo::testBar'` yields `Foo::testBar`.
+     *
+     * @param  list<string>  $acceptance
+     * @return list<string>
+     */
+    private function acceptanceFilterValues(array $acceptance): array
+    {
+        if (preg_match_all('/--filter[=\s]+["\']?([^\s"\']+)/i', implode("\n", $acceptance), $matches) !== false) {
+            return array_values(array_filter(array_map('trim', $matches[1] ?? [])));
+        }
+
+        return [];
+    }
+
+    /**
+     * Split a value into lowercase identifier tokens, breaking on non-alphanumerics AND camelCase boundaries so
+     * `AtlasWidgetCompiler` → [atlas, widget, compiler]. Tokens shorter than 4 chars and generic stopwords are
+     * dropped (they carry no discriminating power).
+     *
+     * @return list<string>
+     */
+    private function identifierTokens(string $value): array
+    {
+        $spaced = (string) preg_replace('/(?<=[a-z0-9])(?=[A-Z])/', ' ', $value);
+        $parts = preg_split('/[^A-Za-z0-9]+/', $spaced) ?: [];
+        $tokens = [];
+        foreach ($parts as $part) {
+            $token = strtolower(trim($part));
+            if (strlen($token) >= 4 && ! in_array($token, self::FILTER_TOKEN_STOPWORDS, true)) {
+                $tokens[$token] = true;
+            }
+        }
+
+        return array_keys($tokens);
+    }
+
+    /**
+     * The concrete symbols a packet's objective names: FQCNs, camelCase class/identifier names, `file.php`
+     * references and `Class::method` references. Deliberately NOT plain prose words — binding a filter to any
+     * 4-char word in the objective would dilute the gate to nothing.
+     *
+     * @return list<string>
+     */
+    private function concreteObjectiveSymbols(string $objective): array
+    {
+        $symbols = [];
+        foreach ([
+            '/[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z0-9_]+)+/',     // FQCN: App\Services\Foo
+            '/\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+\b/',            // camelCase identifier: AtlasWidgetCompiler
+            '/\b[A-Za-z0-9_]+\.php\b/',                           // file reference: Foo.php
+            '/\b[A-Za-z_][A-Za-z0-9_]*::[A-Za-z_][A-Za-z0-9_]*/', // member reference: Foo::bar
+        ] as $pattern) {
+            if (preg_match_all($pattern, $objective, $matches) && isset($matches[0])) {
+                $symbols = array_merge($symbols, $matches[0]);
+            }
+        }
+
+        return array_values(array_unique($symbols));
     }
 
     /**

@@ -476,4 +476,39 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
 
         $this->assertNotContains('acceptance_coverage_mismatch', $r['deficiencies']);
     }
+
+    // brain-pkt-acceptance-adequacy-coverage-w1: filter ADEQUACY beyond presence. A runnable
+    // `php artisan test --filter=<X>` whose <X> names a test UNRELATED to the packet's target clears the
+    // basename-coverage check (the target IS named elsewhere) yet exercises nothing the packet changes —
+    // surfaced as an ADVISORY acceptance_coverage_mismatch. A filter that DOES name the target is left alone.
+    public function test_filter_naming_an_unrelated_test_is_advisory_coverage_mismatch(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'Refactor App\\Services\\Ai\\SelfConstruction\\AtlasWidgetCompiler to add a deterministic compile path under php artisan.',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasWidgetCompiler.php', 'tests/Unit/Ai/SelfConstruction/AtlasWidgetCompilerTest.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/AtlasWidgetCompiler.php', 'tests/Unit/Ai/SelfConstruction/AtlasWidgetCompilerTest.php'],
+            // First line names the target (so the basename-coverage check is satisfied), but the runnable gate
+            // filters on an UNRELATED test — only the filter-adequacy check can catch this.
+            'acceptance_criteria' => ['AtlasWidgetCompiler compiles deterministically', 'php artisan test --filter=UnrelatedPaymentGatewayTest'],
+        ]));
+
+        $this->assertContains('acceptance_coverage_mismatch', $r['deficiencies'], 'an unrelated --filter must be surfaced');
+        $this->assertNotContains('acceptance_coverage_mismatch', $r['blocking_deficiencies'], 'must stay ADVISORY (not blocking)');
+        $this->assertTrue($r['self_sufficient'], 'advisory must not flip self_sufficient');
+        $this->assertTrue($r['facts']['acceptance_coverage_mismatch']);
+    }
+
+    public function test_filter_naming_the_target_does_not_trigger_coverage_mismatch(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'Refactor App\\Services\\Ai\\SelfConstruction\\AtlasWidgetCompiler to add a deterministic compile path under php artisan.',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/AtlasWidgetCompiler.php', 'tests/Unit/Ai/SelfConstruction/AtlasWidgetCompilerTest.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/AtlasWidgetCompiler.php', 'tests/Unit/Ai/SelfConstruction/AtlasWidgetCompilerTest.php'],
+            'acceptance_criteria' => ['php artisan test --filter=AtlasWidgetCompilerTest'],
+        ]));
+
+        $this->assertNotContains('acceptance_coverage_mismatch', $r['deficiencies'], 'a filter that names the target binds');
+        $this->assertFalse($r['facts']['acceptance_coverage_mismatch']);
+        $this->assertTrue($r['self_sufficient']);
+    }
 }
