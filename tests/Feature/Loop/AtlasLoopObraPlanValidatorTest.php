@@ -96,6 +96,29 @@ final class AtlasLoopObraPlanValidatorTest extends TestCase
         $this->assertContains('dependency_cycle_detected', $r['reasons']);
     }
 
+    public function test_allowed_files_only_node_forbidden_edge_is_flagged(): void
+    {
+        // create-class node: no target_area, new file declared via allowed_files
+        $newFile = 'app/New/NewClass.php';
+        $forbiddenDep = 'app/Forbidden/ForbiddenTarget.php';
+
+        $plan = ['nodes' => [
+            ['id' => 'n1', 'allowed_files' => [$newFile], 'depends_on' => ['n2']],
+            ['id' => 'n2', 'target_area' => $forbiddenDep],
+        ]];
+        $contract = [
+            $newFile => ['forbidden_depend_on' => [$forbiddenDep]],
+        ];
+
+        $gaps = $this->validator()->assertDecompositionEdges($plan, $contract);
+
+        $this->assertContains(
+            'node_interface_inverted_edge:'.$newFile.'->'.$forbiddenDep,
+            $gaps,
+            'a create-class node with only allowed_files must be checked for forbidden edges'
+        );
+    }
+
     public function test_duplicate_node_id_and_dangling_dependency_are_rejected(): void
     {
         $plan = ['plan_id' => 'obra-dup', 'nodes' => [

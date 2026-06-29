@@ -313,6 +313,12 @@ final class AtlasLoopObraPlanValidator
         foreach (array_filter($nodes, 'is_array') as $node) {
             $id = trim((string) ($node['id'] ?? ''));
             $file = ltrim(trim((string) ($node['target_area'] ?? '')), '/');
+            if ($file === '') {
+                // create-class nodes declare their new file via allowed_files, not target_area
+                $allowedFiles = is_array($node['allowed_files'] ?? null) ? array_values((array) $node['allowed_files']) : [];
+                $first = $allowedFiles[0] ?? '';
+                $file = is_string($first) ? ltrim(trim($first), '/') : '';
+            }
             if ($id !== '' && $file !== '') {
                 $idToFile[$id] = $file;
             }
