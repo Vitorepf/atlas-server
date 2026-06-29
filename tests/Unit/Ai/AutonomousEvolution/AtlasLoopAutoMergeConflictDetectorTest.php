@@ -80,6 +80,17 @@ final class AtlasLoopAutoMergeConflictDetectorTest extends TestCase
         $this->assertStringContainsString('probe_threw', (string) $report->reason);
     }
 
+    public function test_exit_1_with_no_parsed_paths_reports_conflict_not_clean(): void
+    {
+        // git merge-tree signals a conflict via exit 1 but may emit 1 or fewer output lines that the
+        // runner cannot parse into paths. The detector must fail-closed on the exit code, not the
+        // parsed path count — otherwise a real conflict auto-merges over shared main.
+        $report = $this->detector(['conflicted_files' => [], 'conflicted_hunks' => [], 'exit_code' => 1])->detect('/repo', 'main-sha', 'branch-sha');
+
+        $this->assertFalse($report->clean, 'exit-1 conflict signal must NEVER report clean even with zero parsed paths');
+        $this->assertStringContainsString('probe_conflict_signal_unparsed', (string) $report->reason);
+    }
+
     public function test_auto_merge_service_refuses_when_detector_says_non_clean(): void
     {
         $preFlight = $this->preFlightAllowing('main-sha');

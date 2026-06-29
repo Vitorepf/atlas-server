@@ -103,6 +103,11 @@ final class AtlasLoopAutoMergeConflictDetector
         $hunks = $this->normaliseHunks($result['conflicted_hunks'] ?? []);
 
         if ($paths === [] && $hunks === []) {
+            $exitCode = (int) ($result['exit_code'] ?? 0);
+            if ($exitCode !== 0) {
+                return AtlasLoopAutoMergeConflictReport::dirty([], [], 'probe_conflict_signal_unparsed:exit_'.$exitCode);
+            }
+
             return AtlasLoopAutoMergeConflictReport::clean();
         }
 
@@ -202,7 +207,7 @@ final class AtlasLoopAutoMergeConflictDetector
                 $paths = array_values(array_filter(array_slice($kept, 1), static fn (string $l): bool => trim($l) !== ''));
             }
 
-            return ['conflicted_files' => $paths, 'conflicted_hunks' => [], 'runner_error' => null];
+            return ['conflicted_files' => $paths, 'conflicted_hunks' => [], 'runner_error' => null, 'exit_code' => $exit];
         };
     }
 }
