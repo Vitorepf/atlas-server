@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Redaction\AtlasAaelEvidenceRedactionPolicyRegistry;
+use App\Services\Ai\AutonomousEvolution\Aael\Execution\Redaction\AtlasAaelEvidenceRedactionRule;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Redaction\AtlasAaelEvidenceRedactor;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Redaction\RedactedEvidence;
 use Tests\TestCase;
@@ -99,5 +100,27 @@ class AtlasAaelEvidenceRedactorTest extends TestCase
         $result = $this->redactor()->redact('stdout', 'noop');
         self::assertInstanceOf(RedactedEvidence::class, $result);
         self::assertSame('stdout', $result->evidenceKind);
+    }
+
+    public function test_key_name_rule_redacts_array_valued_subtree(): void
+    {
+        // A specific (non-*) KIND_KEY_NAME rule matching a key whose value is an array must
+        // redact the whole subtree — the secret inside the array must NOT survive unredacted.
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry([
+            'custom' => [[
+                'kind' => AtlasAaelEvidenceRedactionRule::KIND_KEY_NAME,
+                'pattern' => 'secrets',
+                'replacement' => '[REDACTED:secrets]',
+                'scope' => AtlasAaelEvidenceRedactionRule::SCOPE_MATCH,
+            ]],
+        ]);
+        $redactor = new AtlasAaelEvidenceRedactor($registry);
+
+        $result = $redactor->redact('custom', ['secrets' => ['plain_token_value']]);
+
+        self::assertIsArray($result->payload);
+        self::assertSame('[REDACTED:secrets]', $result->payload['secrets'] ?? null);
+        $json = (string) json_encode($result->payload);
+        self::assertStringNotContainsString('plain_token_value', $json);
     }
 }

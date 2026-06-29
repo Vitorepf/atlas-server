@@ -67,7 +67,22 @@ final class AtlasAaelEvidenceRedactor
         $out = [];
         foreach ($value as $key => $child) {
             if (is_array($child)) {
-                $out[$key] = $this->walk($child, $policy, $ruleHits);
+                // Check KEY_NAME rules first — if the key matches, redact the whole subtree.
+                $redacted = false;
+                foreach ($policy->rules as $idx => $rule) {
+                    if ($rule->kind !== AtlasAaelEvidenceRedactionRule::KIND_KEY_NAME) {
+                        continue;
+                    }
+                    if ($this->keyNameMatches((string) $key, $rule->pattern)) {
+                        $out[$key] = $rule->replacement;
+                        $ruleHits[$this->ruleKey($idx, $rule)]++;
+                        $redacted = true;
+                        break;
+                    }
+                }
+                if (! $redacted) {
+                    $out[$key] = $this->walk($child, $policy, $ruleHits);
+                }
 
                 continue;
             }
