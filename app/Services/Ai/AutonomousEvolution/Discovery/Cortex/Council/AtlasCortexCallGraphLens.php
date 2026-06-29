@@ -140,7 +140,7 @@ final class AtlasCortexCallGraphLens implements LensContract
 
             if ($id === T_FUNCTION && $currentMethod === null) {
                 $name = $this->nextStringAfter($tokens, $i);
-                if ($name !== null && $isPublic) {
+                if ($name !== null && $isPublic && $this->methodHasBody($tokens, $i)) {
                     $currentMethod = $name;
                     $methodNames[] = $name;
                 }
@@ -197,6 +197,29 @@ final class AtlasCortexCallGraphLens implements LensContract
     /**
      * @param  list<array{0:int|null,1:string,2:int}>  $tokens
      */
+    /**
+     * @param  list<array{0:int|null,1:string,2:int}>  $tokens
+     */
+    private function methodHasBody(array $tokens, int $from): bool
+    {
+        $n = count($tokens);
+        $parenDepth = 0;
+        for ($j = $from + 1; $j < $n; $j++) {
+            $text = $tokens[$j][1];
+            if ($text === '(') {
+                $parenDepth++;
+            } elseif ($text === ')') {
+                $parenDepth--;
+            } elseif ($parenDepth === 0 && $text === '{') {
+                return true;
+            } elseif ($parenDepth === 0 && $text === ';') {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private function nextStringAfter(array $tokens, int $from): ?string
     {
         $n = count($tokens);

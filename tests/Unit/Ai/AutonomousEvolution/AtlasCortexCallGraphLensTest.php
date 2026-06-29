@@ -76,6 +76,25 @@ PHP;
         $this->assertContains('dynamic_dispatch', $obs->disagreementSignals);
     }
 
+    public function test_bodyless_abstract_method_does_not_poison_next_method_attribution(): void
+    {
+        $source = <<<'PHP'
+<?php
+abstract class Foo {
+    abstract public function bar(): void;
+    public function baz(): void { $this->helper(); }
+    private function helper(): void {}
+}
+PHP;
+
+        $obs = (new AtlasCortexCallGraphLens)->observe(new CortexSubject('bodyless-1', 'php_class', ['source_code' => $source]));
+
+        $edges = (array) $obs->facts['edges'];
+        $fromMethods = array_column($edges, 'from');
+        $this->assertContains('baz', $fromMethods, 'call from baz must appear');
+        $this->assertNotContains('bar', $fromMethods, 'bar is bodyless — must not be attributed as caller');
+    }
+
     public function test_provider_binding_registers_lens_only_when_config_lists_callgraph(): void
     {
         // ON: config lists callgraph ⇒ the registry resolves with the lens registered.
