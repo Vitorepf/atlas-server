@@ -38,12 +38,17 @@ final class AtlasBrainInternalizationPipeline
             $metrics = (array) ($capsule['metrics'] ?? []);
             $learning = trim((string) ($capsule['learning'] ?? ''));
             $objective = trim((string) ($capsule['objective'] ?? ''));
+            $proof = self::testsOrGatesProof((array) ($capsule['evidence'] ?? []));
 
-            // A CERTIFIED cycle that changed real files = a reusable wiring/skill the internal brain can adopt.
-            if ($certified && $files !== []) {
+            // A CERTIFIED cycle that changed real files AND carries REAL proof evidence (non-empty
+            // evidence.tests_or_gates_result) = a reusable wiring/skill the internal brain can adopt. The proof
+            // floor is the CONSUMER-side anti-fabricated-capability guard: a self-declared certified=true with no
+            // proof never mints the high-trust wiring candidate (the producer-side capture() guard does not cover
+            // replayed/foreign capsules). The proof string rides in evidence_ref so a downstream gate can verify it.
+            if ($certified && $files !== [] && $proof !== '') {
                 $candidates[] = self::candidate('wiring', $cycle,
                     'Internalize the certified change pattern: '.($objective !== '' ? $objective : $cycle),
-                    ['files_touched' => array_values($files), 'validation' => $capsule['validation'] ?? null]);
+                    ['files_touched' => array_values($files), 'validation' => $capsule['validation'] ?? null, 'tests_or_gates_result' => $proof]);
             }
             // Failures → a policy/reflection candidate so the internal brain avoids the same trap.
             if ($failures !== []) {
@@ -63,6 +68,32 @@ final class AtlasBrainInternalizationPipeline
         }
 
         return $candidates;
+    }
+
+    /**
+     * The cycle's tests_or_gates_result proof as a non-empty string, or '' when absent/empty. Accepts the map
+     * shape (`['tests_or_gates_result' => 'OK']`, scalar or structured value) and the list shape
+     * (`['tests_or_gates_result']`).
+     *
+     * @param  array<string,mixed>  $evidence
+     */
+    private static function testsOrGatesProof(array $evidence): string
+    {
+        $value = $evidence['tests_or_gates_result'] ?? null;
+        if (is_scalar($value)) {
+            return trim((string) $value);
+        }
+        if (is_array($value) && $value !== []) {
+            return (string) json_encode($value, JSON_UNESCAPED_SLASHES);
+        }
+
+        foreach ($evidence as $entry) {
+            if (is_scalar($entry) && trim((string) $entry) === 'tests_or_gates_result') {
+                return 'tests_or_gates_result';
+            }
+        }
+
+        return '';
     }
 
     /**
