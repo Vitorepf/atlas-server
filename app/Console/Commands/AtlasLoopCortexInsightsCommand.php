@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\AtlasCortexInsightFactsProducer;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\AtlasCortexInsightObserverContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\AtlasCortexInsightObserverRegistry;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\AtlasCortexInsightReceiptLedger;
@@ -157,7 +158,8 @@ final class AtlasLoopCortexInsightsCommand extends Command
             }
         }
 
-        return [];
+        // No explicit facts binding ⇒ produce the REAL structural facts (orphan spike etc.) from the producer.
+        return app(AtlasCortexInsightFactsProducer::class)->produce();
     }
 
     /**

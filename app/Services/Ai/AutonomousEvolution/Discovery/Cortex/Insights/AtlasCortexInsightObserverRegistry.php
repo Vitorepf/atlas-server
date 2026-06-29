@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\Axis\AtlasCortexInsightObserverAxisOrphanSpike;
 use InvalidArgumentException;
 
 final class AtlasCortexInsightObserverRegistry
@@ -70,6 +71,11 @@ final class AtlasCortexInsightObserverRegistry
             'memory_pressure' => $this->descriptor(
                 AtlasCortexMemoryPressureInsightObserver::class,
                 ['scope_comprehension_read_model', 'telemetry_fact_stream'],
+            ),
+            // Structural-alerting axis: a class that became orphaned (built but unwired) since the last snapshot.
+            'orphan_spike' => $this->descriptor(
+                AtlasCortexInsightObserverAxisOrphanSpike::class,
+                ['current_orphan_fqcns', 'prior_orphan_fqcns'],
             ),
             'similarity_clusters' => $this->descriptor(
                 AtlasCortexSimilarityInsightObserver::class,
