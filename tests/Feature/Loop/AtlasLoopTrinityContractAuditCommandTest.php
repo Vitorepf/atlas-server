@@ -4,36 +4,41 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Loop;
 
-use App\Console\Commands\AtlasLoopTrinityContractAuditCommand;
 use App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling\AtlasLoopTrinityContractAuditor;
 use App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling\AtlasLoopTrinityContractEmitter;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 /**
- * Proves the operator-facing atlas:loop:trinity:contract-audit CLI: exits 0 on a clean tree where the
- * current-fingerprint provider matches the frozen contract; exits non-zero on the first breach.
+ * Proves the operator-facing atlas:loop:trinity-contract-audit CLI ITERATES the frozen Trinity contracts from
+ * the registry and runs the auditor on each: a clean tree (provider matches the frozen contract) yields a
+ * CLEAN verdict per contract; a mutated side yields a BREACH verdict naming the primitive/side/counterpart;
+ * with no live-source provider wired each contract is reported `skipped` (never a fabricated CLEAN).
  */
 final class AtlasLoopTrinityContractAuditCommandTest extends TestCase
 {
     public function test_artisan_command_is_registered(): void
     {
-        $this->assertArrayHasKey('atlas:loop:trinity:contract-audit', Artisan::all());
+        $this->assertArrayHasKey('atlas:loop:trinity-contract-audit', Artisan::all());
     }
 
-    public function test_clean_audit_exits_zero(): void
+    public function test_clean_audit_emits_clean_verdict_per_contract(): void
     {
         $frozen = $this->makeFrozen();
-        $this->bindContract($frozen, $this->honestProvider($frozen));
+        $this->bindRegistry([$frozen], $this->honestProvider($frozen));
 
-        $exit = Artisan::call('atlas:loop:trinity:contract-audit', ['--json' => true]);
+        $exit = Artisan::call('atlas:loop:trinity-contract-audit', ['--json' => true]);
         $decoded = json_decode(trim(Artisan::output()), true);
 
         $this->assertSame(0, $exit);
-        $this->assertSame('clean', $decoded['status']);
+        $this->assertSame('atlas.loop.trinity_contract_audit.v1', $decoded['schema']);
+        $this->assertTrue($decoded['provider_wired']);
+        $this->assertSame(1, $decoded['audited']);
+        $this->assertSame('CLEAN', $decoded['verdicts'][0]['verdict']);
+        $this->assertNull($decoded['verdicts'][0]['breach']);
     }
 
-    public function test_breach_audit_exits_non_zero_with_structured_envelope(): void
+    public function test_breach_audit_emits_breach_verdict_naming_the_side(): void
     {
         $frozen = $this->makeFrozen();
         $base = $this->honestProvider($frozen);
@@ -44,31 +49,37 @@ final class AtlasLoopTrinityContractAuditCommandTest extends TestCase
 
             return $base($primitive, $side);
         };
-        $this->bindContract($frozen, $bad);
+        $this->bindRegistry([$frozen], $bad);
 
-        $exit = Artisan::call('atlas:loop:trinity:contract-audit', ['--json' => true]);
-        $decoded = json_decode(trim(Artisan::output()), true);
-
-        $this->assertNotSame(0, $exit, 'breach must exit non-zero');
-        $this->assertSame('breach', $decoded['status']);
-        $this->assertSame('loop', $decoded['primitive']);
-        $this->assertSame('emit', $decoded['side']);
-        $this->assertSame('cortex', $decoded['counterpart']);
-    }
-
-    public function test_unbound_provider_falls_through_to_skipped(): void
-    {
-        // No bindings ⇒ command resolves a self-identity frozen contract via the emitter fallback BUT no
-        // provider, so it cleanly skips with a reason (never crashes).
-        $exit = Artisan::call('atlas:loop:trinity:contract-audit', ['--json' => true]);
+        $exit = Artisan::call('atlas:loop:trinity-contract-audit', ['--json' => true]);
         $decoded = json_decode(trim(Artisan::output()), true);
 
         $this->assertSame(0, $exit);
-        if (isset($decoded['status']) && $decoded['status'] === 'skipped') {
-            $this->assertNotEmpty($decoded['reason']);
+        $verdict = $decoded['verdicts'][0];
+        $this->assertSame('BREACH', $verdict['verdict']);
+        $this->assertSame('loop', $verdict['breach']['primitive']);
+        $this->assertSame('emit', $verdict['breach']['side']);
+        $this->assertSame('cortex', $verdict['breach']['counterpart']);
+    }
+
+    public function test_without_provider_each_contract_is_skipped(): void
+    {
+        // No provider bound ⇒ the command still iterates the default self-identity registry but refuses to
+        // fabricate a CLEAN verdict — every contract is reported skipped.
+        $exit = Artisan::call('atlas:loop:trinity-contract-audit', ['--json' => true]);
+        $decoded = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertFalse($decoded['provider_wired']);
+        $this->assertGreaterThanOrEqual(1, $decoded['audited']);
+        foreach ($decoded['verdicts'] as $verdict) {
+            $this->assertSame('skipped', $verdict['verdict']);
         }
     }
 
+    /**
+     * @return array<string,mixed>
+     */
     private function makeFrozen(): array
     {
         return (new AtlasLoopTrinityContractEmitter)->emit([
@@ -96,6 +107,9 @@ final class AtlasLoopTrinityContractAuditCommandTest extends TestCase
         ]);
     }
 
+    /**
+     * @param  array<string,mixed>  $frozen
+     */
     private function honestProvider(array $frozen): callable
     {
         return static function (string $primitive, string $side) use ($frozen): string {
@@ -109,10 +123,13 @@ final class AtlasLoopTrinityContractAuditCommandTest extends TestCase
         };
     }
 
-    private function bindContract(array $frozen, callable $provider): void
+    /**
+     * @param  list<array<string,mixed>>  $contracts
+     */
+    private function bindRegistry(array $contracts, callable $provider): void
     {
-        $this->app->instance(AtlasLoopTrinityContractAuditCommand::FROZEN_CONTRACT_KEY, $frozen);
-        $this->app->instance(AtlasLoopTrinityContractAuditCommand::CURRENT_FINGERPRINT_PROVIDER_KEY, $provider);
+        $this->app->instance('atlas.loop.trinity.frozen_contracts', $contracts);
+        $this->app->instance('atlas.loop.trinity.current_fingerprint_provider', $provider);
     }
 
     private static function canonicalize(mixed $value): mixed
