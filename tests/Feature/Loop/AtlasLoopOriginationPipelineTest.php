@@ -80,6 +80,41 @@ final class AtlasLoopOriginationPipelineTest extends TestCase
         $this->assertSame('forbidden_target_petreo', $res['reason']);
     }
 
+    // ── FIX-2 writer-availability preflight (opt-in short-circuit) ──
+
+    public function test_unavailable_writer_short_circuits_to_writer_unavailable(): void
+    {
+        // A spy writer flips a flag if (and only if) the originator is ever invoked.
+        $originatorCalled = false;
+        $spyWriter = function (string $p) use (&$originatorCalled): array {
+            $originatorCalled = true;
+
+            return ['objective' => 'Wire AtlasLoopResearchOriginator into the discovery feed.', 'cited_symbols' => ['AtlasLoopResearchOriginator']];
+        };
+
+        // Preflight reports the brain writer NOT available ⇒ produce() short-circuits before the originator runs.
+        $pipeline = new AtlasLoopOriginationPipeline(new AtlasLoopComprehensionOriginator($spyWriter), null, null, fn (): bool => false);
+        $res = $pipeline->produce($this->model(), sys_get_temp_dir());
+
+        $this->assertSame('writer_unavailable', $res['action']);
+        $this->assertFalse($res['produced']);
+        $this->assertSame('writer_unavailable', $res['reason']);
+        $this->assertFalse($originatorCalled, 'a dead writer short-circuits BEFORE the originator is ever invoked');
+
+        // Second assertion — NO preflight injected (the default): produce() behaves exactly as before, still
+        // reaching the originator and producing. The new branch is opt-in and byte-identical when absent.
+        $reachedOriginator = false;
+        $reachWriter = function (string $p) use (&$reachedOriginator): array {
+            $reachedOriginator = true;
+
+            return ['objective' => 'Wire AtlasLoopResearchOriginator into the discovery feed.', 'cited_symbols' => ['AtlasLoopResearchOriginator']];
+        };
+        $defaultRes = (new AtlasLoopOriginationPipeline(new AtlasLoopComprehensionOriginator($reachWriter)))->produce($this->model(), sys_get_temp_dir());
+
+        $this->assertTrue($reachedOriginator, 'with no preflight, produce() still reaches the originator');
+        $this->assertTrue($defaultRes['produced'], (string) ($defaultRes['reason'] ?? ''));
+    }
+
     // ── S215 Discovery→Brain coupling: origination refusal memory (pure reorder, directly tested) ──
 
     /** @var list<array{0:string,1:string}> two leverage-ranked valid candidates */

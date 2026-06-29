@@ -30,6 +30,9 @@ final class AtlasLoopOriginationPipeline
         private readonly ?AtlasLoopComprehensionOriginator $originator = null,
         private readonly ?AtlasLoopArchitectPhaseGate $gate = null,
         private readonly ?AtlasLoopCrossTypeLeverageSelector $selector = null,
+        // FIX-2 writer-availability preflight (opt-in). A nullable predicate returning bool: true/absent ⇒ the
+        // brain writer is available (existing behaviour byte-identical); false ⇒ short-circuit before originating.
+        private readonly ?\Closure $writerPreflight = null,
     ) {}
 
     /**
@@ -37,10 +40,25 @@ final class AtlasLoopOriginationPipeline
      *                                       as CONTEXT (informs the writer, never vetoes). §5 learning.
      * @param  array<string,int>  $refusalCounts  per target rel_path => prior intrinsic-refusal count (S215
      *                                            Discovery→Brain coupling). Empty/OFF => byte-identical.
-     * @return array{produced:bool, action?: 'proceed'|'abstain', objective:?string, target_path:?string, obligations:list<array<string,mixed>>, reason:?string}
+     * @return array{produced:bool, action?: 'proceed'|'abstain'|'writer_unavailable', operator_question?:?string, objective:?string, target_path:?string, obligations:list<array<string,mixed>>, reason:?string}
      */
     public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $priorAttempts = [], array $refusalCounts = []): array
     {
+        // FIX-2 writer-availability preflight (opt-in, docs/atlas-brain-harness-build-spec.md): if a preflight is
+        // injected and reports the brain writer is NOT available (the resolved brain_default provider fails router
+        // isConfigured), short-circuit BEFORE touching the originator/gate. Recording a dead writer as an honest
+        // no_proposal refusal corrupts the dry-probe and done-set. No preflight ⇒ always-available ⇒ byte-identical.
+        if ($this->writerPreflight !== null && ($this->writerPreflight)() !== true) {
+            return [
+                'produced' => false,
+                'action' => 'writer_unavailable',
+                'reason' => 'writer_unavailable',
+                'objective' => null,
+                'target_path' => null,
+                'obligations' => [],
+            ];
+        }
+
         // Directive #2/#3 — LEVERAGE-FIRST, MATERIAL-ONLY origination. Rank the grounded candidates by leverage
         // (wiring the parked CrossTypeLeverageSelector — the loop's OWN self-chosen evolution), DROP the
         // behaviour-preserving clone-unification PROXY, and originate the TOP material candidate. Flag-gated;
