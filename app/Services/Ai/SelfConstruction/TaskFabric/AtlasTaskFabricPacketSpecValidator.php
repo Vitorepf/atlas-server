@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\TaskFabric;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskWorkerInstructionLint;
 
 /**
  * Task Fabric PREFLIGHT — validates draft packet specs BEFORE they reach the existing
@@ -40,7 +41,7 @@ final class AtlasTaskFabricPacketSpecValidator
 
     /**
      * @param  array<string,mixed>  $spec
-     * @return array{schema:string, self_sufficient:bool, blockers:list<string>, delegated_inspector:array<string,mixed>|null}
+     * @return array{schema:string, self_sufficient:bool, blockers:list<string>, delegated_inspector:array<string,mixed>|null, worker_instruction_lint:array{schema:string, accepted:bool, findings:list<string>}}
      */
     public function validate(array $spec): array
     {
@@ -101,6 +102,13 @@ final class AtlasTaskFabricPacketSpecValidator
             $delegated = $this->inspector->inspect($spec);
         }
 
+        // ADVISORY worker-instruction lint: wire the pure AtlasTaskWorkerInstructionLint into the preflight so
+        // worker-facing instruction poison (run_git_manually, edit_outside_allowed_files,
+        // ask_human_for_normal_progress, ignore_give_back_when_capability_exists) is caught here — neither the
+        // structural blockers nor the delegated inspector flag it today. NON-BLOCKING, exactly like
+        // delegated_inspector: a surfaced fact only, never pushed into blockers, never flips self_sufficient.
+        $workerInstructionLint = (new AtlasTaskWorkerInstructionLint)->lint($spec);
+
         sort($blockers, SORT_STRING);
 
         return [
@@ -108,6 +116,7 @@ final class AtlasTaskFabricPacketSpecValidator
             'self_sufficient' => $blockers === [],
             'blockers' => $blockers,
             'delegated_inspector' => $delegated,
+            'worker_instruction_lint' => $workerInstructionLint,
         ];
     }
 
