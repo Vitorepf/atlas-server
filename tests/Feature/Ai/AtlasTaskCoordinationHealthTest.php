@@ -167,6 +167,39 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
         $this->assertSame('blocked', (string) ((new AgentControlPlaneTaskPacketQueueRepository)->get('scope-repair-test-only-poison')['status'] ?? ''));
     }
 
+    public function test_malformed_sweep_quarantines_test_only_singleton_microtasks(): void
+    {
+        $this->rawEnqueue($this->testOnlyInput('cerebro4-singleton'));
+
+        $dry = $this->orchestrator()->sweepMalformedClaimableTasks(dryRun: true, actor: 'test-sweep');
+        $this->assertSame(1, $dry['would_block_count']);
+        $this->assertContains('test_only_microtask_requires_contract', $dry['would_block'][0]['blocking_deficiencies']);
+
+        $sweep = $this->orchestrator()->sweepMalformedClaimableTasks(actor: 'test-sweep');
+        $this->assertSame(1, $sweep['blocked_count']);
+        $this->assertSame('blocked', (string) ((new AgentControlPlaneTaskPacketQueueRepository)->get('cerebro4-singleton')['status'] ?? ''));
+    }
+
+    public function test_test_only_behavior_matrix_remains_worker_servable(): void
+    {
+        $this->rawEnqueue($this->testOnlyInput('test-matrix', [
+            'target_behavior' => 'FooGate decision policy for approved, rejected, and malformed inputs.',
+            'risk_if_missing' => 'A regression could silently approve unsafe work or reject valid work.',
+            'min_distinct_cases' => 3,
+            'cases' => [
+                'approved input returns an allow decision',
+                'unsafe input returns a reject decision',
+                'malformed input returns a stable error decision',
+            ],
+        ]));
+
+        $served = (new AtlasTaskServingService($this->orchestrator()))->next('client-1');
+
+        $this->assertSame('served', $served['status']);
+        $this->assertSame('test-matrix', $served['task']['task_packet_id']);
+        $this->assertSame([], $served['task']['packet_quality']['blocking_deficiencies']);
+    }
+
     public function test_repair_blocked_forbidden_self_target_reopens_same_task_id_with_safe_scope(): void
     {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;
@@ -261,6 +294,33 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
             'acceptance_criteria' => $acceptance ?? ['php artisan test asserts '.$id.' behaves correctly'],
             'required_evidence' => $evidence ?? ['task_packet_created'],
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function testOnlyInput(string $id, ?array $contract = null): array
+    {
+        $input = [
+            'task_packet_id' => $id,
+            'objective' => 'Add a deterministic behavior characterization test for App\\Services\\Ai\\SelfConstruction\\FooGate that pins evaluate() output contract and one boundary case.',
+            'operator_id' => 'tester',
+            'allowed_files' => ['tests/Unit/Ai/AutonomousEvolution/Characterization/FooGateCharacterizationTest.php'],
+            'scope_in' => [
+                'app/Services/Ai/SelfConstruction/FooGate.php',
+                'tests/Unit/Ai/AutonomousEvolution/Characterization/FooGateCharacterizationTest.php',
+            ],
+            'acceptance_criteria' => ['php artisan test --filter=FooGateCharacterizationTest passes'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ];
+
+        if ($contract !== null) {
+            $input['continuation_context'] = [
+                'brain_seed_credit' => [
+                    'test_only_contract' => $contract,
+                ],
+            ];
+        }
+
+        return $input;
     }
 
     /** @return array<string, mixed> */

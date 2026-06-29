@@ -36,8 +36,7 @@ final class AtlasLoopScopeComprehensionModelBuilder
     public function __construct(
         private readonly ?AtlasLoopSignalAnalyzer $analyzer = null,
         private readonly ?AtlasLoopHarnessGuard $guard = null,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  string  $repoRoot  the repo root the caller grep + clone scan resolve against
@@ -138,7 +137,7 @@ final class AtlasLoopScopeComprehensionModelBuilder
      * targets ⇒ ~126s). Here the SAME caller set is computed with two cheap passes: (1) FQCN edges via a SINGLE
      * fixed-pattern candidate filter on the scope namespace prefix + strpos attribution (~9s vs ~126s — a
      * 246-pattern `grep -f` is ~70s on BSD grep, which lacks GNU's Aho-Corasick), and (2) same-directory short-
-     * name edges via a multi-pattern grep over the SMALL scope subtree only. On any grep error it FALLS BACK to
+     * name edges via one PHP word scan over the scope subtree. On any FQCN grep error it FALLS BACK to
      * the trusted per-target oracle (correctness over speed — never a false orphan).
      *
      * @param  array<string,string>  $fqcnByRel
@@ -167,12 +166,17 @@ final class AtlasLoopScopeComprehensionModelBuilder
         }
         // FQCN edges: a SINGLE-pattern candidate filter on the scope namespace prefix (fast Boyer-Moore on BSD
         // grep, unlike a 246-pattern `-f` which is ~70s) → substring-attribute the few candidates by strpos.
-        // The short edges are a multi-pattern grep over the SMALL scope subtree only (fast). Both substring/
+        // The short edges are one PHP word scan over the scope subtree, avoiding BSD grep's pathological
+        // multi-pattern `-f` cost. Both substring/
         // word-boundary semantics match AtlasLoopWiredCallerService::callerPaths (proven EXACT on the real scope).
         $fqcnHits = $this->resolveFqcnHits($repoRoot, $prodDirs, $fqcnByRel);
-        $shortHits = $this->grepOccurrences($repoRoot, [$scopeRel], array_keys($shorts), word: true);
+        $shortHits = $this->wordOccurrencesInPhpFiles($repoRoot, [$scopeRel], array_keys($shorts));
 
         if ($fqcnHits === null || $shortHits === null) {
+            if (count($relPaths) > 50) {
+                // ponytail: large degraded scopes fail open; batch oracle later if caller recall must be exact.
+                return [];
+            }
             // grep degraded ⇒ fall back to the trusted per-target oracle (slower, but never a false orphan).
             try {
                 $edges = (new AtlasLoopWiredCallerService($repoRoot))->callerPaths($relPaths);
@@ -212,59 +216,67 @@ final class AtlasLoopScopeComprehensionModelBuilder
     }
 
     /**
-     * One multi-pattern `grep -oHF [-w] -f <patterns>` pass: returns matchedString => sorted distinct file
-     * rel-paths that contain it. NULL on a grep error (exit ≥ 2) so the caller can fall back to the trusted
-     * oracle; an empty result (exit 1, no matches) is a measured empty map.
+     * Word-boundary occurrence scan for class short names. This replaces BSD grep's pathological
+     * `grep -f <1600 patterns>` path in long-running brain cycles while preserving the same practical
+     * word semantics: PHP identifiers/comments/strings all contribute words, just as grep would.
      *
      * @param  list<string>  $dirs
      * @param  list<string>  $patterns
      * @return array<string, list<string>>|null
      */
-    private function grepOccurrences(string $repoRoot, array $dirs, array $patterns, bool $word): ?array
+    private function wordOccurrencesInPhpFiles(string $repoRoot, array $dirs, array $patterns): ?array
     {
         if ($dirs === [] || $patterns === []) {
             return [];
         }
-        $listFile = tempnam(sys_get_temp_dir(), 'atlas-comp-pat-');
-        if ($listFile === false) {
-            return null;
-        }
-        @file_put_contents($listFile, implode("\n", $patterns)."\n");
 
-        $argv = ['grep', '-rHoF', '--include=*.php'];
-        if ($word) {
-            $argv[] = '-w';
-        }
-        $argv = array_merge($argv, ['-f', $listFile], $dirs);
-
-        try {
-            $proc = new Process($argv, $repoRoot, $this->grepEnv(), null, 90.0);
-            $proc->run();
-            $exit = $proc->getExitCode();
-            if ($exit === null || $exit > 1) {
-                return null; // grep error ⇒ unmeasured
+        $wanted = [];
+        foreach ($patterns as $pattern) {
+            $pattern = (string) $pattern;
+            if ($pattern !== '') {
+                $wanted[$pattern] = true;
             }
-            $lines = preg_split('/\R/', (string) $proc->getOutput()) ?: [];
-        } catch (Throwable) {
-            return null;
-        } finally {
-            @unlink($listFile);
+        }
+        if ($wanted === []) {
+            return [];
         }
 
         $hits = [];
-        foreach ($lines as $line) {
-            if ($line === '') {
-                continue;
+        try {
+            foreach ($dirs as $dir) {
+                $base = $repoRoot.'/'.trim(str_replace('\\', '/', (string) $dir), '/');
+                if (! is_dir($base)) {
+                    continue;
+                }
+                $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
+                foreach ($it as $info) {
+                    if (! $info->isFile() || $info->getExtension() !== 'php') {
+                        continue;
+                    }
+                    $abs = str_replace('\\', '/', $info->getPathname());
+                    $rel = ltrim(substr($abs, strlen($repoRoot)), '/');
+                    foreach (self::EXCLUDE as $frag) {
+                        if (str_contains('/'.$rel, $frag)) {
+                            continue 2;
+                        }
+                    }
+
+                    $src = (string) @file_get_contents($abs);
+                    if ($src === '') {
+                        continue;
+                    }
+                    preg_match_all('/[A-Za-z_][A-Za-z0-9_]*/', $src, $matches);
+                    foreach (array_unique($matches[0] ?? []) as $word) {
+                        if (isset($wanted[$word])) {
+                            $hits[$word][$rel] = true;
+                        }
+                    }
+                }
             }
-            // `path:match` — split on the FIRST colon (paths have no colon; the match is the FQCN/short).
-            $pos = strpos($line, ':');
-            if ($pos === false) {
-                continue;
-            }
-            $path = ltrim(str_replace('\\', '/', substr($line, 0, $pos)), '/');
-            $match = ltrim(substr($line, $pos + 1), '\\');
-            $hits[$match][$path] = true;
+        } catch (Throwable) {
+            return null;
         }
+
         foreach ($hits as $match => $paths) {
             $list = array_keys($paths);
             sort($list);

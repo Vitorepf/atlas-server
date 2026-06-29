@@ -6,6 +6,7 @@ namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopComprehensionOriginator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 use Tests\TestCase;
 
 /**
@@ -81,6 +82,60 @@ final class AtlasLoopComprehensionOriginatorTest extends TestCase
         $res = (new AtlasLoopComprehensionOriginator)->originate($this->model());
         $this->assertFalse($res['originated']);
         $this->assertSame('no_proposal', $res['reason']);
+    }
+
+    public function test_live_writer_uses_brain_timeout_not_loop_attempt_budget(): void
+    {
+        config([
+            'atlas.loop.default_provider' => 'codex_cli',
+            'atlas.loop.campaign.attempt_hard_seconds' => 900,
+            'atlas.brain.writer_timeout_seconds' => 17,
+        ]);
+
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class, function ($mock): void {
+            $mock->shouldReceive('isConfigured')->once()->with('codex_cli')->andReturn(true);
+            $mock->shouldReceive('invoke')
+                ->once()
+                ->withArgs(function (?string $provider, mixed $model, array $prompt, array $context): bool {
+                    return $provider === 'codex_cli'
+                        && $model === null
+                        && isset($prompt['text'], $prompt['instruction'], $prompt['messages'])
+                        && ($context['timeout_seconds'] ?? null) === 17
+                        && ($context['max_output_chars'] ?? null) === 4000;
+                })
+                ->andReturn([
+                    'provider_called' => true,
+                    'stdout' => "<<<OBJECTIVE>>>\nWire AtlasLoopResearchOriginator.\n<<<CITES>>>\nAtlasLoopResearchOriginator\n<<<END>>>",
+                ]);
+        });
+
+        $res = (new AtlasLoopComprehensionOriginator)->originate($this->model());
+
+        $this->assertTrue($res['originated']);
+    }
+
+    public function test_live_writer_uses_brain_default_provider_not_loop_execution_default(): void
+    {
+        config([
+            'atlas.loop.default_provider' => 'hermes_cli',
+            'atlas.provider_defaults.brain_default' => 'codex_cli',
+            'atlas.brain.writer_timeout_seconds' => 17,
+        ]);
+
+        $this->mock(AtlasForgeProviderInvocationDriverRouter::class, function ($mock): void {
+            $mock->shouldReceive('isConfigured')->once()->with('codex_cli')->andReturn(true);
+            $mock->shouldReceive('invoke')
+                ->once()
+                ->withArgs(fn (?string $provider, mixed $model, array $prompt, array $context): bool => $provider === 'codex_cli')
+                ->andReturn([
+                    'provider_called' => true,
+                    'stdout' => "<<<OBJECTIVE>>>\nWire AtlasLoopResearchOriginator.\n<<<CITES>>>\nAtlasLoopResearchOriginator\n<<<END>>>",
+                ]);
+        });
+
+        $res = (new AtlasLoopComprehensionOriginator)->originate($this->model());
+
+        $this->assertTrue($res['originated']);
     }
 
     public function test_prior_attempts_inform_the_writer_as_context(): void

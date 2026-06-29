@@ -42,6 +42,18 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
         $kill = trim((string) $this->option('kill-switch')) ?: storage_path('atlas/finance/STOP');
         $completed = [];
 
+        if (! $dryRun && ! is_file($this->authorizationFile())) {
+            return $this->emit([
+                'schema_version' => 'atlas.finance.strategy_campaign_runner.v1',
+                'status' => 'operator_authorization_required',
+                'authorization_file' => $this->authorizationFile(),
+                'reason' => 'finance strategy loop is fail-closed until the operator explicitly authorizes it',
+                'parallelism_policy' => 'one_active_strategy_search_loop',
+                'propose_only' => true,
+                'live_trading' => 'forbidden',
+            ], self::FAILURE);
+        }
+
         while (true) {
             if (is_file($kill)) {
                 return $this->emit([
@@ -68,6 +80,7 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
                 }
                 $this->emit($payload, self::SUCCESS);
                 sleep($idleSleep);
+
                 continue;
             }
 
@@ -237,6 +250,11 @@ final class AtlasFinanceStrategyCampaignRunnerCommand extends Command
     private function campaignId(string $prefix): string
     {
         return StrategyCampaignStore::sanitizeId($prefix.'-'.gmdate('Ymd-His'));
+    }
+
+    private function authorizationFile(): string
+    {
+        return storage_path('atlas/finance/RUN_AUTHORIZED');
     }
 
     private function seed(): int

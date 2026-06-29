@@ -8,7 +8,9 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCycleProgressVerdict;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHeartbeatLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecRepairHints;
@@ -31,7 +33,7 @@ use Throwable;
 final class AtlasBrainSeedCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:brain:seed {--specs= : path to the JSON specs file} {--scope= : scope slug — meta_harness comes from it (default: the configured default scope)} {--dry-run} {--json}';
+    protected $signature = 'atlas:brain:seed {--specs= : path to the JSON specs file} {--scope= : scope slug — meta_harness comes from it (default: the configured default scope)} {--actor= : external brain actor/client id for provenance} {--require-actor : fail closed when no actor can be provided or inferred} {--cleanup-specs : remove the external-brain /tmp/brain-*.json specs file after a real enqueue} {--dry-run} {--no-heartbeat : skip dry-run heartbeat for observer probes} {--json}';
 
     /** @var string */
     protected $description = 'Brain SEED: gate originated packet specs and enqueue survivors onto the dedicated serving disk (BRAIN switch-gated).';
@@ -70,6 +72,19 @@ final class AtlasBrainSeedCommand extends Command
         // pétreo — a packet can never smuggle its own meta_harness past the FORBIDDEN floor.
         $scopeDef = app(AtlasBrainScopeRegistry::class)->resolve((string) ($this->option('scope') ?? ''));
         $metaHarness = (bool) $scopeDef['meta_harness'];
+        $actor = $this->actorFromOptionOrSpecsPath($path);
+        $warnings = $actor === '' ? ['missing_actor_attribution'] : [];
+        if ((bool) $this->option('require-actor') && $actor === '') {
+            return $this->emit([
+                'status' => 'missing_actor',
+                'dry_run' => $dryRun,
+                'brain_enabled' => $brainOn,
+                'actor' => '',
+                'warnings' => $warnings,
+                'counts' => ['enqueued' => 0, 'credited' => 0, 'blocked' => 0, 'dry_run' => 0, 'skipped_exists' => 0, 'skipped_done_set' => 0, 'error' => 0],
+                'results' => [],
+            ], self::FAILURE);
+        }
         // DEDUP MEMORY (per-scope done-set, pétreo organ). `next` already calls isDone() before originating; `seed`
         // is the OTHER entry point (replay of a stale specs file, manual hand-off, future brain-as-author paths)
         // and was bypassing the ledger entirely — so a target already seeded in a previous cycle could re-enqueue
@@ -83,7 +98,7 @@ final class AtlasBrainSeedCommand extends Command
         $queue = AtlasTaskServingStack::queueRepo();
 
         $results = [];
-        $counts = ['enqueued' => 0, 'blocked' => 0, 'dry_run' => 0, 'skipped_exists' => 0, 'skipped_done_set' => 0, 'error' => 0];
+        $counts = ['enqueued' => 0, 'credited' => 0, 'blocked' => 0, 'dry_run' => 0, 'skipped_exists' => 0, 'skipped_done_set' => 0, 'error' => 0];
 
         foreach ($packets as $i => $spec) {
             $id = trim((string) ($spec['task_packet_id'] ?? ''));
@@ -115,7 +130,8 @@ final class AtlasBrainSeedCommand extends Command
             }
 
             if ($dryRun || ! $brainOn) {
-                $results[] = ['task_packet_id' => $id, 'status' => 'dry_run', 'stage' => 'gated_ok', 'reasons' => $dryRun ? [] : ['brain_switch_off']];
+                $credit = (array) ($seedGate->evaluate($this->inspectorShape($spec))['credit'] ?? []);
+                $results[] = ['task_packet_id' => $id, 'status' => 'dry_run', 'stage' => 'gated_ok', 'credit' => $credit, 'reasons' => $dryRun ? [] : ['brain_switch_off']];
                 $counts['dry_run']++;
                 // A dry-run / switch-off pass is a PREVIEW, not a commitment — it must NOT record into the
                 // done-set. Recording here burned the target via the STICKY isDone() check, so the subsequent
@@ -135,9 +151,15 @@ final class AtlasBrainSeedCommand extends Command
                 $env = $orch->prepareAndEnqueue(['task_packet' => $this->toPacketInput($spec, $id)]);
                 $event = (string) ($env['event'] ?? $env['status'] ?? '');
                 if ($event === 'prepared_and_enqueued') {
-                    $results[] = ['task_packet_id' => $id, 'status' => 'enqueued', 'stage' => 'enqueue'];
+                    $credit = (array) ($seedGate->evaluate($this->inspectorShape($spec))['credit'] ?? []);
+                    $credited = (bool) ($credit['credited'] ?? false);
+                    $results[] = ['task_packet_id' => $id, 'status' => 'enqueued', 'stage' => 'enqueue', 'credit' => $credit];
                     $counts['enqueued']++;
+                    if ($credited) {
+                        $counts['credited']++;
+                    }
                     $this->recordDone($doneSet, $id, $targetPath, 'seeded', true);
+                    $this->recordProvenance((string) $scopeDef['slug'], $spec, $id, $targetPath, $actor, $credit);
                 } else {
                     $results[] = ['task_packet_id' => $id, 'status' => 'blocked', 'stage' => 'enqueue', 'reasons' => [(string) data_get($env, 'reason', $event)]];
                     $counts['blocked']++;
@@ -148,7 +170,41 @@ final class AtlasBrainSeedCommand extends Command
             }
         }
 
-        return $this->emit(['status' => 'ok', 'dry_run' => $dryRun, 'brain_enabled' => $brainOn, 'counts' => $counts, 'results' => $results]);
+        if (! ($dryRun && (bool) $this->option('no-heartbeat'))) {
+            $this->recordHeartbeat((string) $scopeDef['slug'], $actor, 'ok', $dryRun);
+        }
+
+        $terminalClean = $counts['blocked'] === 0
+            && $counts['error'] === 0
+            && $counts['dry_run'] === 0
+            && ($counts['enqueued'] + $counts['skipped_exists'] + $counts['skipped_done_set']) > 0;
+        if (! $dryRun && (bool) $this->option('cleanup-specs') && $terminalClean && $this->isExternalBrainTempSpec($path)) {
+            @unlink($path);
+        }
+
+        $payload = ['status' => 'ok', 'dry_run' => $dryRun, 'brain_enabled' => $brainOn, 'actor' => $actor, 'warnings' => $warnings, 'counts' => $counts, 'results' => $results];
+        if ($counts['skipped_done_set'] > 0) {
+            $next = '/opt/homebrew/bin/php -d memory_limit=4096M -d pcov.enabled=0 artisan atlas:brain:next '.escapeshellarg((string) $scopeDef['slug']).' --scope-signals';
+            if ($actor !== '') {
+                $next .= ' --actor='.escapeshellarg($actor);
+            }
+            $next .= ' --json';
+            if ($this->isExternalBrainTempSpec($path)) {
+                $next = 'rm -f '.escapeshellarg($path).' && '.$next;
+            }
+            $payload['recovery_hint'] = [
+                'schema' => 'atlas.brain.seed_recovery_hint.v1',
+                'action' => 'resume_external_brain_step_1',
+                'reason' => 'skipped_done_set',
+                'command' => $next,
+                'external_actor_must_execute' => true,
+                'operator_input_required' => false,
+                'atlas_auto_started' => false,
+            ];
+            $payload['next_command'] = $next;
+        }
+
+        return $this->emit($payload);
     }
 
     /**
@@ -231,6 +287,71 @@ final class AtlasBrainSeedCommand extends Command
 
     /**
      * @param  array<string,mixed>  $spec
+     */
+    private function recordProvenance(string $scope, array $spec, string $id, string $targetPath, string $actor, array $credit = []): void
+    {
+        $cycleId = trim((string) ($spec['cycle_id'] ?? $spec['snapshot_id'] ?? ''));
+        app(AtlasBrainProvenanceLedger::class)->append($scope, [
+            'cycle_id' => $cycleId !== '' ? $cycleId : $id,
+            'task_packet_id' => $id,
+            'target_path' => $targetPath,
+            'actor' => $actor,
+            'action_hint' => (string) ($spec['action_hint'] ?? 'seed'),
+            'recommended_path' => (string) ($spec['recommended_path'] ?? ''),
+            'source_finding' => (string) ($spec['source_finding'] ?? ''),
+            'credit_status' => (bool) ($credit['credited'] ?? false) ? 'credited' : 'not_credited',
+            'duplicate_key' => (string) ($credit['duplicate_key'] ?? $spec['duplicate_key'] ?? ''),
+            'credit_bucket' => (string) ($credit['credit_bucket'] ?? ''),
+        ]);
+    }
+
+    private function actorFromOptionOrSpecsPath(string $path): string
+    {
+        $actor = trim((string) ($this->option('actor') ?? ''));
+        if ($actor !== '') {
+            return $actor;
+        }
+
+        $name = basename($path);
+        if (preg_match('/^brain-(.+)\.json$/', $name, $m) !== 1) {
+            return '';
+        }
+
+        return trim((string) $m[1]);
+    }
+
+    private function isExternalBrainTempSpec(string $path): bool
+    {
+        if (preg_match('/^brain-.+\.json$/', basename($path)) !== 1) {
+            return false;
+        }
+
+        $real = realpath($path);
+        if (! is_string($real)) {
+            return false;
+        }
+
+        foreach (array_filter([realpath(sys_get_temp_dir()), realpath('/tmp')]) as $tmp) {
+            if (str_starts_with($real, rtrim((string) $tmp, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function recordHeartbeat(string $scope, string $actor, string $status, bool $dryRun): void
+    {
+        app(AtlasBrainHeartbeatLedger::class)->record($scope, [
+            'actor' => $actor,
+            'command' => 'seed',
+            'status' => $status,
+            'dry_run' => $dryRun,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $spec
      * @return array<string,mixed>
      */
     private function inspectorShape(array $spec): array
@@ -241,6 +362,15 @@ final class AtlasBrainSeedCommand extends Command
             'scope_in' => array_values(array_map('strval', (array) ($spec['scope_in'] ?? []))),
             'acceptance_criteria' => array_values(array_map('strval', (array) ($spec['acceptance_criteria'] ?? []))),
             'required_evidence' => array_values(array_map('strval', (array) ($spec['evidence_requirements'] ?? $spec['required_evidence'] ?? []))),
+            'problem' => (string) ($spec['problem'] ?? data_get($spec, 'credit.problem', '')),
+            'expected_delta' => (string) ($spec['expected_delta'] ?? data_get($spec, 'credit.expected_delta', '')),
+            'value' => (string) ($spec['value'] ?? data_get($spec, 'credit.value', '')),
+            'duplicate_key' => (string) ($spec['duplicate_key'] ?? data_get($spec, 'credit.duplicate_key', '')),
+            'freshness_check' => (string) ($spec['freshness_check'] ?? data_get($spec, 'credit.freshness_check', '')),
+            'anti_proxy' => (string) ($spec['anti_proxy'] ?? data_get($spec, 'credit.anti_proxy', '')),
+            'test_only_contract' => (array) ($spec['test_only_contract'] ?? data_get($spec, 'credit.test_only_contract', [])),
+            'modifies_existing_files' => (bool) ($spec['modifies_existing_files'] ?? false),
+            'existing_file_delta' => (string) ($spec['existing_file_delta'] ?? ''),
         ];
     }
 
@@ -259,6 +389,17 @@ final class AtlasBrainSeedCommand extends Command
             'scope_in' => array_values(array_map('strval', (array) ($spec['scope_in'] ?? []))),
             'acceptance_criteria' => array_values(array_map('strval', (array) ($spec['acceptance_criteria'] ?? []))),
             'required_evidence' => array_values(array_map('strval', (array) ($spec['evidence_requirements'] ?? $spec['required_evidence'] ?? []))),
+            'continuation_context' => [
+                'brain_seed_credit' => [
+                    'problem' => (string) ($spec['problem'] ?? ''),
+                    'expected_delta' => (string) ($spec['expected_delta'] ?? ''),
+                    'value' => (string) ($spec['value'] ?? ''),
+                    'duplicate_key' => (string) ($spec['duplicate_key'] ?? ''),
+                    'freshness_check' => (string) ($spec['freshness_check'] ?? ''),
+                    'anti_proxy' => (string) ($spec['anti_proxy'] ?? ''),
+                    'test_only_contract' => (array) ($spec['test_only_contract'] ?? data_get($spec, 'credit.test_only_contract', [])),
+                ],
+            ],
             'risk_level' => strtolower(trim((string) ($spec['risk_level'] ?? 'medium'))),
             'depends_on' => array_values(array_filter((array) ($spec['depends_on'] ?? []), 'is_string')),
             'wave' => (int) ($spec['wave'] ?? 1),

@@ -26,7 +26,7 @@ final class AtlasBrainProvenanceLedger
     }
 
     /**
-     * @param  array{cycle_id:string, task_packet_id?:string, target_path?:string, action_hint?:string, recommended_path?:string, source_finding?:string}  $row
+     * @param  array{cycle_id:string, task_packet_id?:string, target_path?:string, actor?:string, action_hint?:string, recommended_path?:string, source_finding?:string, credit_status?:string, duplicate_key?:string, credit_bucket?:string}  $row
      */
     public function append(string $scope, array $row, ?int $at = null): ?array
     {
@@ -45,9 +45,13 @@ final class AtlasBrainProvenanceLedger
             'cycle_id' => $cycleId,
             'task_packet_id' => (string) ($row['task_packet_id'] ?? ''),
             'target_path' => (string) ($row['target_path'] ?? ''),
+            'actor' => (string) ($row['actor'] ?? ''),
             'action_hint' => (string) ($row['action_hint'] ?? ''),
             'recommended_path' => (string) ($row['recommended_path'] ?? ''),
             'source_finding' => (string) ($row['source_finding'] ?? ''),
+            'credit_status' => (string) ($row['credit_status'] ?? 'legacy_unscored'),
+            'duplicate_key' => (string) ($row['duplicate_key'] ?? ''),
+            'credit_bucket' => (string) ($row['credit_bucket'] ?? ''),
             'recorded_at' => $at ?? time(),
         ];
 

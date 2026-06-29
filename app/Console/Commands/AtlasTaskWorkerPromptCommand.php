@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  *
  *   php artisan atlas:task:worker-prompt                 # prints a prompt with an auto unique client id
  *   php artisan atlas:task:worker-prompt --client=codex-1
- *   php artisan atlas:task:worker-prompt --keep-polling  # the worker waits + retries when the queue is empty
+ *   php artisan atlas:task:worker-prompt --stop-on-empty  # stop when the queue is empty instead of polling forever
  */
 class AtlasTaskWorkerPromptCommand extends Command
 {
@@ -30,7 +30,7 @@ class AtlasTaskWorkerPromptCommand extends Command
     {
         $client = trim((string) ($this->option('client') ?? ''));
         if ($client === '') {
-            $client = 'worker-'.Str::lower((string) Str::ulid());
+            $client = 'worker-'.Str::lower(Str::random(8));
         }
         $php = (string) $this->option('php');
 
@@ -68,6 +68,11 @@ THE LOOP:
    - `commit_failed` → the lease is still yours; read `reason`, fix, retry 4. (`server_verification_failed` = your change failed lint/boot/its own test — fix it. `nothing_to_commit_in_scope` = you edited nothing.)
 5. TRULY IMPOSSIBLE task (self-contradictory acceptance, or needs a forbidden/pétreo file)? Hand it back with a one-line diagnosis, then go to 1 — never fake a green, never stop:
    `{$php} artisan atlas:task report --client="{$client}" --task="<task_packet_id>" --lease="<lease_id>" --outcome=give_back --json`
+
+QUALITY BOOST:
+- Before editing, grep the named class/symbol/capability across `app/` and `tests/`. If it already exists, or the acceptance is already true, give_back as duplicate/no-op. Do not create a second copy just to close a task.
+- Read every allowed_file plus direct callers before patching. Fix the shared root cause once with the smallest diff. No new deps, broad refactors, formatting churn, or architecture for later.
+- Preserve other workers' WIP. If acceptance needs a file outside allowed_files, give_back naming that exact file instead of hacking around scope.
 
 NEVER STOP:
 - A hard or failing task is NOT a reason to stop. Fix it, or give_back with a reason, and move to the next.

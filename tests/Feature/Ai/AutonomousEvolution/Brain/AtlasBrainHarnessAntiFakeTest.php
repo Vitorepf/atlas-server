@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\AutonomousEvolution\AtlasBrainScopeSignalsOrphan;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
@@ -93,6 +94,14 @@ final class AtlasBrainHarnessAntiFakeTest extends TestCase
             'scope_in' => ['app/Models/AtlasNonHarnessTarget.php'],
             'acceptance_criteria' => ['php artisan test tests/Unit passes (no regressions)'],
             'evidence_requirements' => ['tests_or_gates_result'],
+            'problem' => 'The clean anti-fake packet needs credited runtime proof before seed quota can move.',
+            'expected_delta' => 'AtlasNonHarnessTarget changes behavior and the listed test gate proves the runtime delta.',
+            'value' => 'This adds runtime test proof for Atlas autonomy and prevents proxy quota credit.',
+            'duplicate_key' => 'anti-fake-clean|runtime-target|test-proof',
+            'freshness_check' => 'Re-check the allowed file before seeding so this clean packet is not stale.',
+            'anti_proxy' => 'Invalid if it only wraps, renames, formats, or exposes dormant code without behavior proof.',
+            'modifies_existing_files' => true,
+            'existing_file_delta' => 'Existing targets receive a concrete behavior delta proved by the listed gate.',
             'risk_level' => 'medium',
         ];
     }
@@ -239,6 +248,29 @@ final class AtlasBrainHarnessAntiFakeTest extends TestCase
         self::assertSame($orphanRel, $payload['target_path']);
     }
 
+    public function test_d2_scope_signals_option_surfaces_digest_without_global_arming(): void
+    {
+        $this->brainOn();
+        config()->set('atlas.brain.scope_signal_digest_enabled', false);
+        config()->set('atlas.loop.leverage_first_origination_enabled', true);
+        config()->set('atlas.loop.proceed_on_grounded_novelty_enabled', true);
+
+        $repo = sys_get_temp_dir().'/atlas-brain-scope-signals-'.bin2hex(random_bytes(6));
+        $scopeDir = $repo.'/app/Services/Ai/AutonomousEvolution';
+        @mkdir($scopeDir, 0775, true);
+        file_put_contents($scopeDir.'/AtlasBrainScopeSignalsOrphan.php',
+            "<?php\n\nnamespace App\\Services\\Ai\\AutonomousEvolution;\n\nfinal class AtlasBrainScopeSignalsOrphan\n{\n    public function run(): void {}\n}\n");
+
+        Artisan::call('atlas:brain:next', ['scope' => 'loop', '--repo' => $repo, '--scope-signals' => true, '--json' => true]);
+        $payload = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame('served', $payload['status']);
+        self::assertArrayHasKey('scope_signals', $payload);
+        self::assertContains(AtlasBrainScopeSignalsOrphan::class, $payload['scope_signals']['orphans']);
+        self::assertNotSame([], $payload['scope_signals']['frontier_candidates']);
+        self::assertSame('research-source-registry', $payload['scope_signals']['frontier_candidates'][0]['source']);
+    }
+
     // (e) N consecutive {produced:true, action:'abstain'} cycles + zero grounded gaps => dry-probe state 'dry'.
     //     This drives the REAL pipeline ABSTAIN shape — the ABSTAIN->DRY fix: a produced=true abstain still counts.
     public function test_e_consecutive_produced_true_abstain_cycles_go_dry(): void
@@ -377,37 +409,41 @@ final class AtlasBrainHarnessAntiFakeTest extends TestCase
         self::assertSame(1, (int) $payload['counts']['skipped_done_set']);
         self::assertSame(0, (int) $payload['counts']['dry_run'], 'a deduped packet must NOT be counted as a gated dry_run');
         self::assertSame(0, (int) $payload['counts']['enqueued']);
+        self::assertSame('resume_external_brain_step_1', $payload['recovery_hint']['action']);
+        self::assertSame($payload['recovery_hint']['command'], $payload['next_command']);
+        self::assertStringStartsWith('rm -f '.escapeshellarg($path).' && ', $payload['next_command']);
+        self::assertStringContainsString("atlas:brain:next 'loop' --scope-signals", $payload['next_command']);
+        self::assertStringContainsString("--actor='specs-", $payload['next_command']);
+        self::assertFalse($payload['recovery_hint']['operator_input_required']);
         @unlink($path);
     }
 
-    // (i) STICKY — a gated-ok dry_run seed POPULATES the done-set; a second seed of the same target is then
-    //     refused. Closes the asymmetry where `next` was dedup-aware but `seed` was not (the historical bug:
-    //     `produced:0` lying because the done-set was never updated from the seed path).
-    public function test_i_a_gated_dry_run_seed_populates_the_done_set_for_future_calls(): void
+    // (i) STICKY — dry_run proves gates without burning the target; only the real seed commits to the done-set.
+    //     This preserves the real external-brain handoff: dry-run first, seed for real second, no skipped_done_set.
+    public function test_i_a_gated_dry_run_seed_does_not_burn_the_target_before_real_seed(): void
     {
         $this->brainOn();
         $packet = $this->cleanPacket();
         $path = $this->specsFile([$packet]);
 
-        // First call: dry_run gated_ok ⇒ records the target into the done-set.
+        // First call: dry_run gated_ok ⇒ records nothing into the done-set.
         Artisan::call('atlas:brain:seed', ['--specs' => $path, '--dry-run' => true, '--json' => true]);
         $first = json_decode(trim(Artisan::output()), true);
         self::assertSame('dry_run', $first['results'][0]['status'], 'first call clears every gate');
 
-        self::assertTrue(
+        self::assertFalse(
             (new AtlasBrainDoneSetLedger('loop', $this->doneSetRoot))->isDone($packet['allowed_files'][0]),
-            'a passing dry_run gate must populate the done-set so the brain never re-considers the same target'
+            'a passing dry_run must not burn the target before the real seed'
         );
 
-        // Second call (same target, fresh packet id) ⇒ deduped before any gate runs.
-        $packet2 = $this->cleanPacket();
-        $packet2['allowed_files'] = $packet['allowed_files'];
-        $packet2['scope_in'] = $packet['scope_in'];
-        $path2 = $this->specsFile([$packet2]);
-        Artisan::call('atlas:brain:seed', ['--specs' => $path2, '--dry-run' => true, '--json' => true]);
+        // Second call: real seed commits the target and only then future calls dedup.
+        Artisan::call('atlas:brain:seed', ['--specs' => $path, '--json' => true]);
         $second = json_decode(trim(Artisan::output()), true);
-        self::assertSame('skipped_done_set', $second['results'][0]['status']);
+        self::assertSame('enqueued', $second['results'][0]['status']);
+        self::assertTrue(
+            (new AtlasBrainDoneSetLedger('loop', $this->doneSetRoot))->isDone($packet['allowed_files'][0]),
+            'a real seed must populate the done-set for future dedup'
+        );
         @unlink($path);
-        @unlink($path2);
     }
 }

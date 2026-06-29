@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter;
 
 /**
  * §5.6 · LAYER 2 — CROSS-MODEL ORIGINATION: the "decide" phase ORIGINATING a new evolution, not merely
@@ -40,10 +41,10 @@ final class AtlasLoopComprehensionOriginator
      * Originate ONE grounded evolution from the comprehension substrate, or a refusal.
      *
      * @param  list<string>  $priorAttempts  targets that already parked / did not converge THIS campaign —
-     *                                        passed to the writer as CONTEXT (informing, NEVER a veto: the
-     *                                        model stays free to re-cite one with a genuinely better design).
-     *                                        §5 learning realimenting comprehension WITHOUT the #4 Goodhart
-     *                                        surface of autonomously suppressing non-converged work.
+     *                                       passed to the writer as CONTEXT (informing, NEVER a veto: the
+     *                                       model stays free to re-cite one with a genuinely better design).
+     *                                       §5 learning realimenting comprehension WITHOUT the #4 Goodhart
+     *                                       surface of autonomously suppressing non-converged work.
      * @return array{originated:bool, objective:?string, cited_symbols:list<string>, refuted:list<string>, reason:?string}
      */
     public function originate(AtlasLoopScopeComprehensionModel $model, array $priorAttempts = []): array
@@ -131,7 +132,7 @@ final class AtlasLoopComprehensionOriginator
             $list = implode(', ', array_slice($prior, 0, 12));
             // INFORM, never veto — the writer may still re-cite one of these if it has a genuinely better design.
             $learned = "\n\nAlready attempted this campaign and did NOT converge: {$list}. Prefer a FRESH "
-                ."evolution; only re-cite one of these if you have a genuinely better design than last time.";
+                .'evolution; only re-cite one of these if you have a genuinely better design than last time.';
         }
 
         // COMPREHENSION-DEEPENING seam: surface declared-but-unimplemented CONTRACTS (interfaces with ZERO
@@ -191,16 +192,16 @@ final class AtlasLoopComprehensionOriginator
      */
     private function liveWriter(string $prompt): ?array
     {
-        $provider = trim((string) config('atlas.loop.default_provider', ''));
+        $provider = trim((string) config('atlas.provider_defaults.brain_default', config('atlas.loop.default_provider', '')));
         if ($provider === '') {
             return null;
         }
-        $router = app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class);
+        $router = app(AtlasForgeProviderInvocationDriverRouter::class);
         if (! $router->isConfigured($provider)) {
             return null;
         }
         $result = $router->invoke($provider, null, ['text' => $prompt, 'instruction' => $prompt, 'messages' => [['role' => 'user', 'content' => $prompt]]], [
-            'timeout_seconds' => max(60, (int) config('atlas.loop.campaign.attempt_hard_seconds', 900)),
+            'timeout_seconds' => max(5, (int) config('atlas.brain.writer_timeout_seconds', 30)),
             'max_output_chars' => 4000,
         ]);
         if (($result['provider_called'] ?? false) !== true) {

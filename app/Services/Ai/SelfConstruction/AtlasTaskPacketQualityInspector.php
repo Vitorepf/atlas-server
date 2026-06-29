@@ -68,6 +68,13 @@ final class AtlasTaskPacketQualityInspector
         // auto-replenisher or false-block valid minimal packets. Excellence is enforced at the AUTHORING/serve
         // boundary (where a cold worker actually receives a packet), not by hard-blocking every internal packet.
         'content_truncated',
+        // A test-only packet is legitimate only when it is a coherent behavior contract/matrix. Without that,
+        // the worker queue devolves into one-assert microtasks (cerebro-4: 105 singleton CharacterizationTests).
+        'test_only_microtask_requires_contract',
+        // Exact anti-Goodhart farm: a batch of "arm dormant X" wrapper commands that only prints a schema and
+        // asserts exit 0 makes dormant code observable, but does not by itself add a decision, gate, repair, or
+        // runtime capability. It burned cerebro-5 into 108 same-shape proxy packets.
+        'dormant_cli_arm_proxy',
     ];
 
     /**
@@ -136,6 +143,7 @@ final class AtlasTaskPacketQualityInspector
         $contractAutonomyViolations = $this->simplicityContractAutonomyViolations($packet);
         $defaultIsolationViolations = $this->defaultWorktreeOrSandboxViolations($packet, $policyText);
         $blindOrphanWiringProxy = $objective !== '' && $this->objectiveIsBlindOrphanWiringProxy($objective);
+        $dormantCliArmProxy = $objective !== '' && $this->objectiveIsDormantCliArmProxy($objective);
 
         $deficiencies = [];
         if ($objective === '') {
@@ -189,11 +197,17 @@ final class AtlasTaskPacketQualityInspector
         if ($objective !== '' && $this->objectiveEndsWithTruncationMarker($objective)) {
             $deficiencies[] = 'content_truncated';
         }
+        if ($this->allowedFilesAreOnlyTests($allowed) && ! $this->hasStrongTestOnlyContract($packet)) {
+            $deficiencies[] = 'test_only_microtask_requires_contract';
+        }
         // ANTI-PROXY (Checkpoint A author≠judge milestone): the alignment dimension the structural judge
         // lacked. ADVISORY for now (surfaces the signal without changing admission), so the judge can SEE a
         // proxy packet it previously waved through. Promotion to BLOCKING is a measured follow-up.
         if ($blindOrphanWiringProxy) {
             $deficiencies[] = 'blind_orphan_wiring_proxy';
+        }
+        if ($dormantCliArmProxy) {
+            $deficiencies[] = 'dormant_cli_arm_proxy';
         }
         // PRESENCE → ADEQUACY: missing_acceptance_criteria catches an EMPTY list, but a non-empty list that
         // never names any code allowed_file is just as fake — a packet writing to FooService.php can clear the
@@ -250,7 +264,9 @@ final class AtlasTaskPacketQualityInspector
                 'simplicity_contract_autonomy_violations' => $contractAutonomyViolations,
                 'default_worktree_or_sandbox_violations' => $defaultIsolationViolations,
                 'blind_orphan_wiring_proxy' => $blindOrphanWiringProxy,
+                'dormant_cli_arm_proxy' => $dormantCliArmProxy,
                 'acceptance_coverage_mismatch' => $acceptanceCoverageMismatch,
+                'test_only_has_contract' => ! $this->allowedFilesAreOnlyTests($allowed) || $this->hasStrongTestOnlyContract($packet),
             ],
         ];
     }
@@ -294,6 +310,34 @@ final class AtlasTaskPacketQualityInspector
             || str_contains($o, 'disposition');
 
         return ! $offersDisposition;
+    }
+
+    private function objectiveIsDormantCliArmProxy(string $objective): bool
+    {
+        $o = mb_strtolower($objective);
+
+        $armsDormant = str_contains($o, 'arm the dormant')
+            || str_contains($o, 'built-but-dormant-at-cli');
+        if (! $armsDormant) {
+            return false;
+        }
+
+        $wrapperSurface = str_contains($o, 'read-only')
+            && str_contains($o, 'php artisan atlas:loop:arm-')
+            && str_contains($o, 'prints ')
+            && str_contains($o, 'schema_version')
+            && str_contains($o, 'asserting exit 0');
+        if (! $wrapperSurface) {
+            return false;
+        }
+
+        $realIntegration = str_contains($o, 'fail-closed')
+            || str_contains($o, 'changes decision')
+            || str_contains($o, 'changes the decision')
+            || str_contains($o, 'consumes live')
+            || str_contains($o, 'reads live');
+
+        return ! $realIntegration;
     }
 
     /**
@@ -745,6 +789,24 @@ final class AtlasTaskPacketQualityInspector
         }
 
         return true;
+    }
+
+    /** @param array<string,mixed> $packet */
+    private function hasStrongTestOnlyContract(array $packet): bool
+    {
+        $contract = (array) data_get($packet, 'test_only_contract', data_get($packet, 'continuation_context.brain_seed_credit.test_only_contract', []));
+        $target = trim((string) ($contract['target_behavior'] ?? ''));
+        $risk = trim((string) ($contract['risk_if_missing'] ?? ''));
+        $cases = array_values(array_filter(
+            array_map('strval', (array) ($contract['cases'] ?? [])),
+            static fn (string $case): bool => mb_strlen(trim($case)) >= 8,
+        ));
+        $uniqueCases = array_unique(array_map(static fn (string $case): string => mb_strtolower(trim($case)), $cases));
+        $min = max(3, (int) ($contract['min_distinct_cases'] ?? 3));
+
+        return mb_strlen($target) >= 12
+            && mb_strlen($risk) >= 12
+            && count($uniqueCases) >= $min;
     }
 
     /**

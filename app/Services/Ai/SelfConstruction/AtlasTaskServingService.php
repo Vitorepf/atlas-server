@@ -346,6 +346,7 @@ final class AtlasTaskServingService
             // `required_evidence` key (absent) left the served packet WITHOUT the evidence a cold client must
             // produce. Read the real path (fallback to the projection shape).
             'required_evidence' => array_values((array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', []))),
+            'continuation_context' => (array) data_get($packet, 'continuation_context', []),
             'risk_level' => (string) data_get($packet, 'risk_level', 'unspecified'),
         ];
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use Symfony\Component\Process\Process;
@@ -34,7 +35,7 @@ final class AtlasLoopScopeComprehensionModelTest extends TestCase
     }
 
     /** Build the model against the committed fixture (read-only). */
-    private function model(): \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel
+    private function model(): AtlasLoopScopeComprehensionModel
     {
         return $this->builder()->build($this->fixtureRoot(), 'app/Scope', ['docs_roots' => ['docs']]);
     }
@@ -170,6 +171,55 @@ final class AtlasLoopScopeComprehensionModelTest extends TestCase
         ksort($modelEdges);
 
         $this->assertSame($oracle, $modelEdges, 'fast resolver must equal the trusted callerPaths oracle');
+    }
+
+    public function test_large_short_name_set_keeps_same_namespace_edges(): void
+    {
+        $root = $this->copyFixture();
+
+        for ($i = 0; $i < 420; $i++) {
+            file_put_contents(
+                $root.'/app/Scope/Bulk'.$i.'.php',
+                "<?php\n\nnamespace App\\Scope;\n\nfinal class Bulk{$i}\n{\n    public function id{$i}(): int\n    {\n        return {$i};\n    }\n}\n",
+            );
+        }
+        file_put_contents(
+            $root.'/app/Scope/BulkCaller.php',
+            "<?php\n\nnamespace App\\Scope;\n\nfinal class BulkCaller\n{\n    public function make(): Bulk377\n    {\n        return new Bulk377();\n    }\n}\n",
+        );
+
+        $m = $this->builder()->build($root, 'app/Scope', ['docs_roots' => [], 'max_files' => 1000]);
+
+        $this->assertContains(
+            'app/Scope/BulkCaller.php',
+            $m->callerPathsFor('app/Scope/Bulk377.php') ?? [],
+            'large short-name sets must not drop same-namespace callers',
+        );
+    }
+
+    public function test_large_broad_namespace_degraded_edge_scan_fails_open(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-comp-model-wide-'.bin2hex(random_bytes(5));
+        $this->tmp[] = $root;
+        mkdir($root.'/app/One', 0775, true);
+        mkdir($root.'/app/Two', 0775, true);
+        mkdir($root.'/app/Wiring', 0775, true);
+
+        for ($i = 0; $i < 55; $i++) {
+            $dir = $i % 2 === 0 ? 'One' : 'Two';
+            file_put_contents(
+                $root.'/app/'.$dir.'/Target'.$i.'.php',
+                "<?php\n\nnamespace {$dir};\n\nfinal class Target{$i}\n{\n}\n",
+            );
+        }
+        file_put_contents(
+            $root.'/app/Wiring/UsesTarget0.php',
+            "<?php\n\nnamespace Wiring;\n\nfinal class UsesTarget0\n{\n    public function boot(): \\One\\Target0\n    {\n        return new \\One\\Target0();\n    }\n}\n",
+        );
+
+        $m = $this->builder()->build($root, 'app', ['docs_roots' => [], 'max_files' => 100]);
+
+        $this->assertNull($m->callerPathsFor('app/One/Target0.php'));
     }
 
     public function test_descriptor_carries_only_descriptive_fields(): void

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Finance\StrategyLoop;
 
-use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCandidateSignature;
+use App\Console\Commands\AtlasFinanceStrategySearchCommand;
+use App\Services\Ai\Finance\StrategyLoop\Bar;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCampaignStore;
+use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyCandidateSignature;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyConfirmationQueue;
 use App\Services\Ai\Finance\StrategyLoop\Campaign\StrategyScenarioRegistry;
-use App\Services\Ai\Finance\StrategyLoop\Bar;
-use App\Console\Commands\AtlasFinanceStrategySearchCommand;
 use Illuminate\Support\Facades\Artisan;
 use ReflectionMethod;
 use Symfony\Component\Process\Process;
@@ -459,6 +459,19 @@ final class AtlasFinanceStrategySearchCampaignCommandTest extends TestCase
 
         $this->assertSame(0, $exit, $output);
         $this->assertFileExists($this->dryRunRoot.'/'.$campaign.'/ledger.jsonl');
+    }
+
+    public function test_campaign_runner_requires_operator_authorization_for_real_loop(): void
+    {
+        @unlink(storage_path('atlas/finance/RUN_AUTHORIZED'));
+
+        $exit = Artisan::call('atlas:finance:strategy-campaign-runner', [
+            '--json' => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $exit);
+        $this->assertStringContainsString('operator_authorization_required', $output);
     }
 
     public function test_campaign_runner_can_focus_one_strategy_family_sequentially(): void

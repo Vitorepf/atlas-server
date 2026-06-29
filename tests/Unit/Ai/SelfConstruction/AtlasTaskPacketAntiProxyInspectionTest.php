@@ -70,4 +70,29 @@ final class AtlasTaskPacketAntiProxyInspectionTest extends TestCase
 
         $this->assertNotContains('blind_orphan_wiring_proxy', $result['deficiencies']);
     }
+
+    public function test_blocks_dormant_cli_arm_wrapper_farm_template(): void
+    {
+        $result = $this->inspect(
+            'Arm the dormant service `App\\Services\\Ai\\SelfConstruction\\FooService` at the operator surface: '
+            .'add a new read-only `php artisan atlas:loop:arm-foo-service` command that resolves it and prints '
+            .'build() as JSON (schema_version + result keys), proven by ArmFooServiceCommandTest asserting exit 0 '
+            .'and the JSON schema.'
+        );
+
+        $this->assertContains('dormant_cli_arm_proxy', $result['deficiencies']);
+        $this->assertContains('dormant_cli_arm_proxy', $result['blocking_deficiencies']);
+        $this->assertTrue($result['facts']['dormant_cli_arm_proxy']);
+    }
+
+    public function test_spares_dormant_cli_task_that_changes_a_live_decision(): void
+    {
+        $result = $this->inspect(
+            'Arm the dormant service `App\\Services\\Ai\\SelfConstruction\\FooService` inside the live queue '
+            .'gate so it reads live task records and changes the decision fail-closed when poison is detected; '
+            .'prove with php artisan test --filter=FooServiceLiveDecisionTest.'
+        );
+
+        $this->assertNotContains('dormant_cli_arm_proxy', $result['deficiencies']);
+    }
 }

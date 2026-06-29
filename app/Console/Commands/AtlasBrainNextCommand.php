@@ -12,12 +12,14 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHeartbeatLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainLeverageBrief;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMetricSnapshot;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOrphanSpecDrafter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResearchSourceRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
@@ -50,19 +52,35 @@ final class AtlasBrainNextCommand extends Command
         {--docs=* : canonical doc roots for doc-stated-gap detection}
         {--m=3 : consecutive refusals the dry-probe requires before declaring the scope dry}
         {--max-prior=50 : how many prior done-set targets to feed the originator as context}
+        {--actor= : external brain actor/client id for heartbeat}
+        {--scope-signals : include the rich scope_signals digest for this invocation}
         {--json}';
 
     /** @var string */
     protected $description = 'Brain DECIDE: originate + design the next grounded evolution spec for a scope (author≠judge — writes only docs/ + ledger).';
 
+    private string $heartbeatScope = '';
+
+    private string $heartbeatActor = '';
+
+    private bool $forceScopeSignals = false;
+
+    /** @var array<string,string>|null */
+    private ?array $tempSpecRecovery = null;
+
     public function handle(): int
     {
+        $scope = trim((string) $this->argument('scope')) ?: 'loop';
+        $this->heartbeatScope = $scope;
+        $this->heartbeatActor = trim((string) ($this->option('actor') ?? ''));
+        $this->forceScopeSignals = (bool) $this->option('scope-signals');
+        $this->tempSpecRecovery = null;
+
         // §0 — fail-CLOSED master gate. OFF ⇒ clean no-op (never a crash), gated independently of the muscle.
         if (! AtlasBrainMasterSwitch::enabled()) {
             return $this->emit(['status' => 'disabled', 'reason' => 'brain_master_switch_off']);
         }
 
-        $scope = trim((string) $this->argument('scope')) ?: 'loop';
         $repoRoot = rtrim((string) ($this->option('repo') ?: base_path()), '/');
         $docsRoots = array_values(array_filter(array_map('strval', (array) $this->option('docs'))));
         $m = max(1, (int) $this->option('m'));
@@ -85,9 +103,9 @@ final class AtlasBrainNextCommand extends Command
         $scopeDef = app(AtlasBrainScopeRegistry::class)->resolve($scope);
         $scope = $scopeDef['slug'];
         $metaHarness = $scopeDef['meta_harness'];
-        $model = $this->comprehend($repoRoot, $scopeDef['roots'], $docsRoots !== [] ? $docsRoots : $scopeDef['docs_roots']);
-
         $ledger = new AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
+        $this->tempSpecRecovery = $this->discardDoneTempSpec($ledger);
+        $model = $this->comprehend($repoRoot, $scopeDef['roots'], $docsRoots !== [] ? $docsRoots : $scopeDef['docs_roots']);
 
         // STOP is the dry-probe's call — never the model self-judging. Dry ⇒ honest stop.
         $probe = app(AtlasBrainScopeDryProbe::class)->probe($ledger->recentCycles(max($m, 10)), $model, $m);
@@ -239,7 +257,7 @@ final class AtlasBrainNextCommand extends Command
      */
     private function scopeSignalsFor(string $scope, AtlasLoopScopeComprehensionModel $model, AtlasBrainDoneSetLedger $ledger): array
     {
-        if (! (bool) config('atlas.brain.scope_signal_digest_enabled', false)) {
+        if (! $this->forceScopeSignals && ! (bool) config('atlas.brain.scope_signal_digest_enabled', false)) {
             return [];
         }
         $digest = app(AtlasBrainStructuralSignalDigest::class)->digest($model);
@@ -247,6 +265,9 @@ final class AtlasBrainNextCommand extends Command
         // appended for THIS scope. Read at the same wiring seam so frontier shows up alongside structural
         // signals in one payload key — the brain doesn't need a separate fetch.
         $frontier = app(AtlasBrainFrontierSourceRegistry::class)->topK($scope);
+        if ($frontier === []) {
+            $frontier = $this->frontierDiscoveryCandidates();
+        }
         // COMPOUNDING summary: tail-window of the per-scope done-set. NEVER a learning scalar — counts +
         // success streak only (anti-Goodhart). window=0 ⇒ ledger is empty / brand new scope; skip surfacing.
         $compounding = app(AtlasBrainCompoundingDigest::class)->digest($ledger);
@@ -320,6 +341,52 @@ final class AtlasBrainNextCommand extends Command
     }
 
     /**
+     * @return list<array<string,string>>
+     */
+    private function frontierDiscoveryCandidates(): array
+    {
+        return array_values(array_map(
+            static fn (array $source): array => [
+                'title' => 'Harvest frontier from '.$source['url_pattern'],
+                'url' => $source['url_pattern'],
+                'summary' => 'Operator-seeded discover source; harvest techniques, then read/ground via github/arxiv.',
+                'source' => 'research-source-registry',
+                'captured_at' => '',
+            ],
+            array_slice(app(AtlasBrainResearchSourceRegistry::class)->forTier('discover'), 0, AtlasBrainFrontierSourceRegistry::DEFAULT_K),
+        ));
+    }
+
+    /** @return array<string,string>|null */
+    private function discardDoneTempSpec(AtlasBrainDoneSetLedger $ledger): ?array
+    {
+        $actor = $this->heartbeatActor;
+        if ($actor === '' || str_contains($actor, '/') || str_contains($actor, "\0")) {
+            return null;
+        }
+
+        $path = '/tmp/brain-'.$actor.'.json';
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $decoded = json_decode((string) @file_get_contents($path), true);
+        $packet = is_array($decoded) && is_array($decoded['packets'][0] ?? null) ? $decoded['packets'][0] : [];
+        $target = ltrim((string) (((array) ($packet['allowed_files'] ?? []))[0] ?? ''), '/');
+        if ($target === '' || ! $ledger->isDone($target)) {
+            return null;
+        }
+
+        $discarded = @unlink($path);
+
+        return [
+            'schema' => 'atlas.brain.temp_spec_recovery.v1',
+            'action' => $discarded ? 'discarded_done_set_spec' : 'discard_failed',
+            'target_path' => $target,
+        ];
+    }
+
+    /**
      * Map the translator spec into the shape the inspector/seed-quality gate read (evidence_requirements →
      * required_evidence). The gate's clean-packet contract uses required_evidence as a flat list.
      *
@@ -334,6 +401,14 @@ final class AtlasBrainNextCommand extends Command
             'scope_in' => array_values((array) ($spec['scope_in'] ?? [])),
             'acceptance_criteria' => array_values((array) ($spec['acceptance_criteria'] ?? [])),
             'required_evidence' => array_values((array) ($spec['evidence_requirements'] ?? [])),
+            'problem' => (string) ($spec['problem'] ?? ''),
+            'expected_delta' => (string) ($spec['expected_delta'] ?? ''),
+            'value' => (string) ($spec['value'] ?? ''),
+            'duplicate_key' => (string) ($spec['duplicate_key'] ?? ''),
+            'freshness_check' => (string) ($spec['freshness_check'] ?? ''),
+            'anti_proxy' => (string) ($spec['anti_proxy'] ?? ''),
+            'modifies_existing_files' => (bool) ($spec['modifies_existing_files'] ?? false),
+            'existing_file_delta' => (string) ($spec['existing_file_delta'] ?? ''),
         ];
     }
 
@@ -489,6 +564,21 @@ final class AtlasBrainNextCommand extends Command
     /** @param array<string,mixed> $payload */
     private function emit(array $payload, int $code = self::SUCCESS): int
     {
+        if ($this->tempSpecRecovery !== null) {
+            $payload['temp_spec_recovery'] = $this->tempSpecRecovery;
+        }
+
+        if ($this->heartbeatActor !== '') {
+            app(AtlasBrainHeartbeatLedger::class)->record(
+                (string) ($payload['scope'] ?? $this->heartbeatScope),
+                [
+                    'actor' => $this->heartbeatActor,
+                    'command' => 'next',
+                    'status' => (string) ($payload['status'] ?? ''),
+                ]
+            );
+        }
+
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
         return $code;

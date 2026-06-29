@@ -202,6 +202,19 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
             'forbidden_files' => [$target],
             'acceptance_criteria' => ['add a PHPUnit test for the already implemented behavior'],
             'required_evidence' => ['tests_or_gates_result'],
+            'continuation_context' => [
+                'brain_seed_credit' => [
+                    'test_only_contract' => [
+                        'target_behavior' => 'Existing operator-facing behavior remains stable.',
+                        'risk_if_missing' => 'Regression coverage could fragment into singleton test noise.',
+                        'cases' => [
+                            'happy path preserves existing output',
+                            'invalid input keeps existing rejection',
+                            'edge input keeps existing boundary behavior',
+                        ],
+                    ],
+                ],
+            ],
         ]));
 
         $this->assertTrue($r['self_sufficient'], 'the repair note itself is not enough to quarantine a packet');
