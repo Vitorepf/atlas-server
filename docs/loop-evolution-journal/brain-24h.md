@@ -751,3 +751,10 @@ Campaign 9.3 fechada → próximo path: **comprehension-deepening** (não tocado
 - Fase 3: construí AtlasBrainCycleCapsule (record replayável puro) + AtlasBrainCycleCapsuleLedger (JSONL/escopo) + AtlasBrainInternalizationPipeline (cápsula→candidatos skill/policy/wiring/metric/reflection, promoted=false/requires_gate=true, NUNCA auto-promove).
 - PROVA V3 (tinker, ciclo REAL): cápsula gravada → replayável → Internalization consumiu → 3 candidatos (wiring/reflection/metric), 0 auto-promovidos. 6 testes frozen + pint + phpstan limpos. Commit ba04ece2d.
 - mapa: Cycle Capsule + Internalization saíram de MISSING → EXISTS+PROVEN. Resta wirar o record-de-cápsula no ponto-de-ciclo (pétreo brain:next/seed ou grinder dormente) + os flips de runtime do operador.
+
+## L-WIRE+CLEANUP — wiring real + correção honesta de duplicata
+- WIRING: AtlasBrainCycleCapsule + InternalizationPipeline tinham 0 consumidores (caminho in-process brain:next/seed é pétreo). Criei `atlas:brain:cycle-capsule {record|internalize|list}` (não-pétreo) — provado LIVE: record do ciclo real research-registry → internalize consumiu 1 cápsula → 3 candidatos, 0 auto-promovidos. Commit b589ef710.
+- DUPLICATA CORRIGIDA (anti-greenfield): meu AtlasLoopPatternCausalEffectGate (4df4bc003) DUPLICAVA o AtlasBrainCausalEffectGate (Brain/) que JÁ era keystone#4 + JÁ wired no AtlasLoopPatternSelector (causalBonus, flag causal_selector_enabled) + testado (AtlasLoopPatternSelectorCausalTest). Revertido (git revert) — gate+test+FORBIDDEN entry. Harness guard 617 asserts verde. Lição: checar EXISTS antes de construir mesmo em sub-namespace vizinho.
+- S217 (cert-learning) REVERTIDO: tocava AtlasBrainNextCommand (pétreo) + consumer órfão. Não commito edit pétreo.
+- ResearchSourceRegistry: substrato de dados pronto; consumidor (fetcher frontier networked) não-construído/local-first → não force-wiro consumidor inexistente.
+- PONTAS NÃO-MINHAS surfacadas (não toquei): AtlasBrainPerceptionBundle + AtlasBrainOrganDependencyGraph (edits PÉTREO de sessão anterior, uncommitted) — violam o piso; decisão do operador reverter/manter.
