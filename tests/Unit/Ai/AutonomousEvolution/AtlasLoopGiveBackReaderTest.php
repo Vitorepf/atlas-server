@@ -102,6 +102,38 @@ final class AtlasLoopGiveBackReaderTest extends TestCase
         $this->assertSame('completed', $recent[0]['outcome']);
     }
 
+    public function test_colon_delimited_packet_id_resolves_to_first_segment_as_class(): void
+    {
+        $queue = AtlasTaskServingStack::queueRepo();
+        $packetId = 'brain:c3q100:auto-merge-reverse-audit-cli-v1';
+
+        $queue->enqueue([
+            'task_packet_id' => $packetId,
+            'task_packet_hash' => 'hash-colon-1',
+            'status' => 'planned',
+            'objective' => 'test colon-delimited packet class parsing',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/placeholder.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]);
+
+        $queue->updateStatus($packetId, 'claimed', [
+            'lease_id' => 'lease-colon-1',
+            'agent_id' => 'worker-colon-1',
+        ]);
+
+        $queue->updateStatus($packetId, 'released', [
+            'release_reason' => 'client_reported_give_back',
+            'last_give_back_by' => 'worker-colon-1',
+        ]);
+
+        $recent = (new AtlasLoopGiveBackReader())->recent(10);
+
+        $this->assertCount(1, $recent);
+        $this->assertSame($packetId, $recent[0]['packet_id']);
+        $this->assertSame('brain', $recent[0]['packet_class'], 'colon-delimited id must resolve to its first segment');
+    }
+
     public function test_reader_returns_empty_when_serving_disk_has_no_outcomes(): void
     {
         $reader = new AtlasLoopGiveBackReader();

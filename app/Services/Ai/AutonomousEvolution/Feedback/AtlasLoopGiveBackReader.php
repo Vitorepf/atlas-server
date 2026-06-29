@@ -238,7 +238,7 @@ final class AtlasLoopGiveBackReader
 
     private function packetClass(string $taskPacketId): string
     {
-        if (preg_match('/^([A-Za-z0-9]+)(?:[-_]|$)/', $taskPacketId, $matches) === 1) {
+        if (preg_match('/^([A-Za-z0-9]+)(?:[-_:]|$)/', $taskPacketId, $matches) === 1) {
             return strtolower($matches[1]);
         }
 
