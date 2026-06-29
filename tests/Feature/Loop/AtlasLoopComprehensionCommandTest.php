@@ -115,6 +115,30 @@ final class AtlasLoopComprehensionCommandTest extends TestCase
         $this->assertSame('invalid_action', $out['error']);
     }
 
+    public function test_doc_gaps_action_emits_sections_and_doc_stated_gaps(): void
+    {
+        $dir = $this->tmpDir();
+        file_put_contents(
+            $dir.'/loop-fixture.md',
+            "# Loop Fixture\n\n## Pending Work\n\n- TODO: wire the dormant refiller organ\n- a routine note about the caching layer\n",
+        );
+
+        $exit = Artisan::call('atlas:loop:comprehension', [
+            'action' => 'doc-gaps',
+            '--path' => $dir,
+            '--json' => true,
+        ]);
+
+        $this->assertSame(0, $exit);
+        $out = $this->jsonOutput();
+        $this->assertSame('atlas.loop.comprehension.doc_gaps.v1', $out['schema']);
+        $this->assertNotEmpty($out['sections']);
+
+        $this->assertCount(1, $out['doc_stated_gaps']); // only the TODO bullet, not the normal one
+        $this->assertSame('todo', $out['doc_stated_gaps'][0]['gap_marker_hit']);
+        $this->assertContains('Pending Work', $out['doc_stated_gaps'][0]['heading_chain']);
+    }
+
     /**
      * @return array<string,mixed>
      */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionDeltaTracker;
+use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionDocReader;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionGraphSerializer;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionStalenessDetector;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
@@ -13,9 +14,9 @@ use Throwable;
 
 final class AtlasLoopComprehensionCommand extends Command
 {
-    protected $signature = 'atlas:loop:comprehension {action : snapshot|diff|stale} {--old=} {--new=} {--path=} {--threshold=1800} {--json}';
+    protected $signature = 'atlas:loop:comprehension {action : snapshot|diff|stale|doc-gaps} {--old=} {--new=} {--path=} {--threshold=1800} {--json}';
 
-    protected $description = 'Emit Loop comprehension FACTS: snapshot, diff, or stale. No scores, no opinions.';
+    protected $description = 'Emit Loop comprehension FACTS: snapshot, diff, stale, or doc-gaps. No scores, no opinions.';
 
     public function handle(): int
     {
@@ -26,6 +27,7 @@ final class AtlasLoopComprehensionCommand extends Command
                 'snapshot' => $this->snapshot(),
                 'diff' => $this->diff(),
                 'stale' => $this->stale(),
+                'doc-gaps' => $this->docGaps(),
                 default => $this->invalidAction($action),
             };
         } catch (Throwable $e) {
@@ -107,8 +109,22 @@ final class AtlasLoopComprehensionCommand extends Command
             'ok' => false,
             'action' => $action,
             'error' => 'invalid_action',
-            'allowed_actions' => ['snapshot', 'diff', 'stale'],
+            'allowed_actions' => ['snapshot', 'diff', 'stale', 'doc-gaps'],
         ];
+    }
+
+    /**
+     * Read-only FACTS over the loop docs: every heading section + every doc-stated gap (a bullet that
+     * names a falta/gap/todo/missing/pendente/aberto). $docsDir = --path, else the repo's docs dir.
+     *
+     * @return array<string,mixed>
+     */
+    private function docGaps(): array
+    {
+        $docsDir = (string) ($this->option('path') ?: base_path('docs'));
+
+        return ['schema' => 'atlas.loop.comprehension.doc_gaps.v1']
+            + (new AtlasLoopComprehensionDocReader)->read($docsDir);
     }
 
     /**
