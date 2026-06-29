@@ -90,7 +90,7 @@ final class AtlasLoopFactAnchorExtractor
         }
 
         // 2. file:line
-        if (preg_match_all('/([A-Za-z0-9_\/\.\-]+\.[A-Za-z0-9]+):(\d+)(?!-)/u', $combined, $matches, PREG_OFFSET_CAPTURE)) {
+        if (preg_match_all('/([A-Za-z0-9_\/\.\-]+\.[A-Za-z0-9]+):(\d++)(?!-)/u', $combined, $matches, PREG_OFFSET_CAPTURE)) {
             foreach ($matches[0] as $i => $whole) {
                 $path = (string) $matches[1][$i][0];
                 $line = (int) $matches[2][$i][0];

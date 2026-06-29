@@ -133,4 +133,19 @@ final class AtlasLoopFactAnchorExtractorTest extends TestCase
         $this->assertSame(0, $verdict->resolvedCount());
         $this->assertSame(0, $verdict->unresolvedCount());
     }
+
+    public function test_multidigit_range_yields_one_range_anchor_no_fabricated_single_line(): void
+    {
+        $verdict = $this->extractor()->extract('See '.$this->realFile.':10-20 for the body.');
+
+        $rangeAnchors = array_filter($verdict->resolved, static fn (array $r): bool => ($r['kind'] ?? '') === 'file_line_range');
+        $lineAnchors = array_filter($verdict->resolved, static fn (array $r): bool => ($r['kind'] ?? '') === 'file_line');
+
+        $this->assertCount(1, $rangeAnchors, 'exactly one range anchor');
+        $this->assertCount(0, $lineAnchors, 'no fabricated single-line anchor from backtracking');
+
+        $rangeAnchor = array_values($rangeAnchors)[0];
+        $this->assertSame(10, $rangeAnchor['line_start']);
+        $this->assertSame(20, $rangeAnchor['line_end']);
+    }
 }
