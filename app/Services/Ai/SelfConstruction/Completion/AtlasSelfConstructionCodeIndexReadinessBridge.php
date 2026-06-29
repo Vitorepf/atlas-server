@@ -76,8 +76,11 @@ final class AtlasSelfConstructionCodeIndexReadinessBridge
             $hold = true;
             $repairs[] = 'rerun_engineering_knowledge_index_code_prune';
         }
-        if ($codeStatus !== 'ready' && $codeStatus !== '') {
-            // empty code_status is treated as hold via index_count above
+        if ($codeStatus === '') {
+            // absent status is never ready — force hold regardless of index count
+            $hold = true;
+            $repairs[] = 'investigate_code_intelligence_pipeline';
+        } elseif ($codeStatus !== 'ready') {
             $blockers[] = 'code_status_not_ready:'.$codeStatus;
             $repairs[] = 'investigate_code_intelligence_pipeline';
         }

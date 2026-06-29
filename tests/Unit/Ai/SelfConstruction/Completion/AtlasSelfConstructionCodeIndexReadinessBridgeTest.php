@@ -87,6 +87,20 @@ class AtlasSelfConstructionCodeIndexReadinessBridgeTest extends TestCase
         self::assertContains('readiness_blocking_findings_present', $verdict['blockers']);
     }
 
+    public function test_hold_when_code_status_is_absent_but_index_is_populated(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['code_status']['status']); // absent status coerces to empty string
+        $facts['code_status']['indexed_symbols'] = 8700;
+        $facts['code_status']['is_stale'] = false;
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_HOLD, $verdict['status']);
+        self::assertFalse($verdict['passed']);
+        self::assertContains('investigate_code_intelligence_pipeline', $verdict['repair_actions']);
+    }
+
     /**
      * @return array<string,mixed>
      */
