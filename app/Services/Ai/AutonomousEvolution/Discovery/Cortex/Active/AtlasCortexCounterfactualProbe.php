@@ -49,7 +49,7 @@ final class AtlasCortexCounterfactualProbe
      * @param  array<string,mixed>|string  $removalEdit
      * @return list<array<string,mixed>>
      */
-    public function probe(string $target, array|string $removalEdit = ['kind' => 'removal']): array
+    public function probe(string $target, array|string $removalEdit = ['kind' => 'remove']): array
     {
         $resolver = $this->isResolved ?? static fn (string $t): bool => trim($t) !== '';
         if (! $resolver($target)) {

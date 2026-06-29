@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution\Cortex\Active;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\AtlasCortexCounterfactualProbe;
+use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Active\AtlasCortexHypotheticalChangeWalker;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -86,5 +87,29 @@ final class AtlasCortexCounterfactualProbeTest extends TestCase
         $probe = new AtlasCortexCounterfactualProbe($walker);
 
         $this->assertSame(json_encode($probe->probe('App\\Target')), json_encode($probe->probe('App\\Target')));
+    }
+
+    public function test_default_edit_with_real_walker_returns_dangling_callers_not_empty(): void
+    {
+        $index = [
+            'edges' => [
+                'app/Target.php' => [
+                    ['caller_file' => 'app/CallerA.php', 'caller_line' => 5, 'caller_symbol' => 'CallerA'],
+                    ['caller_file' => 'app/CallerB.php', 'caller_line' => 12, 'caller_symbol' => 'CallerB'],
+                ],
+            ],
+            'caller_locations' => [],
+            'unindexed_edges' => [],
+        ];
+
+        $walker = new AtlasCortexHypotheticalChangeWalker($index);
+        $probe = new AtlasCortexCounterfactualProbe($walker);
+
+        // Default edit (kind=remove) must produce hard breaks, not []
+        $facts = $probe->probe('app/Target.php');
+
+        $this->assertNotEmpty($facts, 'default removal probe must return dangling callers, not silent empty');
+        $contracts = array_column($facts, 'broken_contract');
+        $this->assertContains('call_site_dangling', $contracts);
     }
 }
