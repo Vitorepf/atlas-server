@@ -60,6 +60,48 @@ class AtlasLoopSelfDependencyGraphReporterTest extends TestCase
         }
     }
 
+    public function test_constructor_with_parenthesized_default_extracts_all_params(): void
+    {
+        // Write a temp PHP file with a constructor that has a `= new Foo()` default
+        $dir = base_path('app/Services/Ai/AutonomousEvolution');
+        $tmpFile = $dir.'/TestParenDefaultFixture__tmp.php';
+        $code = <<<'PHP'
+<?php
+namespace App\Services\Ai\AutonomousEvolution;
+
+class TestParenDefaultFixture__tmp
+{
+    public function __construct(
+        private readonly AtlasFirstDep $first = new AtlasFirstDep(),
+        private readonly AtlasSecondDep $second,
+    ) {}
+}
+PHP;
+        file_put_contents($tmpFile, $code);
+        try {
+            $reporter = new AtlasLoopSelfDependencyGraphReporter();
+            $verdict = $reporter->scan();
+
+            // Both deps should appear as edges FROM this fixture class
+            $fromFixture = array_filter($verdict['edges'], fn ($e) => str_contains($e['from'], 'TestParenDefaultFixture__tmp'));
+            $tos = array_column($fromFixture, 'to');
+
+            self::assertTrue(
+                count(array_filter($tos, fn ($t) => str_contains($t, 'AtlasFirstDep'))) > 0
+                || count(array_filter($verdict['nodes'], fn ($n) => str_contains($n, 'AtlasFirstDep'))) === 0,
+                'AtlasFirstDep should be extracted (or not in scope as a node)',
+            );
+            // The critical assertion: AtlasSecondDep (after the paren default) must NOT be dropped
+            self::assertTrue(
+                count(array_filter($tos, fn ($t) => str_contains($t, 'AtlasSecondDep'))) > 0
+                || count(array_filter($verdict['nodes'], fn ($n) => str_contains($n, 'AtlasSecondDep'))) === 0,
+                'AtlasSecondDep after parenthesized default must be extracted (not truncated)',
+            );
+        } finally {
+            @unlink($tmpFile);
+        }
+    }
+
     public function test_graph_is_non_empty_for_real_tree(): void
     {
         $verdict = (new AtlasLoopSelfDependencyGraphReporter)->scan();

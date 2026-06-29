@@ -192,10 +192,23 @@ final class AtlasLoopSelfDependencyGraphReporter
     private function extractConstructorParamTypes(string $src): array
     {
         // Find the public function __construct(...) signature and pull typed params.
-        if (preg_match('/public\s+function\s+__construct\s*\((.*?)\)/s', $src, $m) !== 1) {
+        // Use balanced-paren extraction so defaults like `= new Foo()` don't truncate.
+        if (preg_match('/public\s+function\s+__construct\s*\(/s', $src, $m, PREG_OFFSET_CAPTURE) !== 1) {
             return [];
         }
-        $params = $m[1];
+        $openPos = (int) $m[0][1] + strlen($m[0][0]);
+        $depth = 1;
+        $len = strlen($src);
+        $i = $openPos;
+        while ($i < $len && $depth > 0) {
+            if ($src[$i] === '(') {
+                $depth++;
+            } elseif ($src[$i] === ')') {
+                $depth--;
+            }
+            $i++;
+        }
+        $params = substr($src, $openPos, $i - $openPos - 1);
         $types = [];
         // Match "Type $var" or "?Type $var" or "private readonly Type $var" etc.
         if (preg_match_all('/(?:private|public|protected)?\s*(?:readonly\s+)?(?:\?\s*)?([A-Za-z_][A-Za-z0-9_\\\\]*)\s+\$[A-Za-z_]/', $params, $tm) > 0) {
