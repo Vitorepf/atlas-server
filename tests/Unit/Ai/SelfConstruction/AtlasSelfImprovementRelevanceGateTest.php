@@ -299,6 +299,19 @@ final class AtlasSelfImprovementRelevanceGateTest extends TestCase
         $this->assertSame(AtlasSelfImprovementRelevanceGate::METHOD_NONE, $v['content_method']);
     }
 
+    public function test_root_level_target_vs_unrelated_root_file_is_rejected(): void
+    {
+        $v = $this->gate()->evaluate(
+            ['file' => 'composer.json', 'line' => 1, 'signal' => 'update dependency'],
+            ['delivered' => true, 'delivery' => ['files' => ['README.md']]],
+        );
+
+        $this->assertFalse($v['relevant'], 'unrelated root file must NOT match a root target');
+        $this->assertSame('off_target_generation', $v['reason']);
+        $this->assertNull($v['matched_file']);
+        $this->assertSame(0.0, $v['target_match']);
+    }
+
     /** ~412 lines of an unrelated Hermes Kanban board driver (the real failure's shape). */
     private function kanbanDriverGarbage(): string
     {

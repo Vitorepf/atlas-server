@@ -227,9 +227,11 @@ final class AtlasSelfImprovementRelevanceGate
         }
 
         $dir = $this->dirOf($target);
-        foreach ($touched as $t) {
-            if ($this->dirOf($t) === $dir) {
-                return $t;
+        if ($dir !== '') {
+            foreach ($touched as $t) {
+                if ($this->dirOf($t) === $dir) {
+                    return $t;
+                }
             }
         }
 
