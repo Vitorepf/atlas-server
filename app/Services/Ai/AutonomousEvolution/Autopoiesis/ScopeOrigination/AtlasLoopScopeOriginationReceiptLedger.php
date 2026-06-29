@@ -38,13 +38,14 @@ final class AtlasLoopScopeOriginationReceiptLedger
 
     public function record(ScopeOriginationVerdict $v): ReceiptId
     {
+        $resolvedTimestamp = $v->timestamp ?? $this->timestamp;
         $receipt = new ScopeOriginationReceipt(
-            receiptId: $this->receiptId($v),
+            receiptId: $this->receiptId($v, $resolvedTimestamp),
             snapshotHash: $this->snapshotHash,
             proposalHash: $this->proposalHash,
             verdict: $v->verdict,
             actor: $v->actor,
-            timestamp: $v->timestamp ?? $this->timestamp,
+            timestamp: $resolvedTimestamp,
             reason: $v->reason,
             factRefs: $this->factRefs,
         );
@@ -158,12 +159,15 @@ final class AtlasLoopScopeOriginationReceiptLedger
         return $rows;
     }
 
-    private function receiptId(ScopeOriginationVerdict $v): string
+    private function receiptId(ScopeOriginationVerdict $v, ?string $resolvedTimestamp): string
     {
+        $verdictArray = $v->toArray();
+        $verdictArray['timestamp'] = $resolvedTimestamp;
+
         return 'scope-origin:'.substr(hash('sha256', json_encode([
             'snapshot_hash' => $this->snapshotHash,
             'proposal_hash' => $this->proposalHash,
-            'verdict' => $v->toArray(),
+            'verdict' => $verdictArray,
             'fact_refs' => $this->factRefs,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 24);
     }

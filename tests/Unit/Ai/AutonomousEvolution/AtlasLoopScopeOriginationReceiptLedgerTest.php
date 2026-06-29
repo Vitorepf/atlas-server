@@ -71,6 +71,36 @@ final class AtlasLoopScopeOriginationReceiptLedgerTest extends TestCase
         $this->assertNull($ledger->getByProposalHash('missing-proposal'));
     }
 
+    public function test_receipt_id_is_bound_to_the_resolved_timestamp_not_to_null(): void
+    {
+        $fallback = '2026-06-24T12:00:00Z';
+        $ledger = $this->ledger('proposal-ts', $fallback);
+
+        // pending() carries null timestamp — must be resolved to the ledger fallback
+        $verdict = ScopeOriginationVerdict::pending('operator_required');
+        $receiptId = (string) $ledger->record($verdict);
+
+        // Recompute expected receiptId with the resolved (fallback) timestamp
+        $verdictArray = $verdict->toArray();
+        $verdictArray['timestamp'] = $fallback;
+        $expected = 'scope-origin:'.substr(hash('sha256', json_encode([
+            'snapshot_hash' => 'snapshot-abc',
+            'proposal_hash' => 'proposal-ts',
+            'verdict' => $verdictArray,
+            'fact_refs' => [
+                ['fact_id' => 'ctx-1', 'source' => 'cortex_meaning', 'snapshot_hash' => 'snapshot-abc'],
+                ['fact_id' => 'loop-1', 'source' => 'loop_telemetry', 'snapshot_hash' => 'snapshot-abc'],
+            ],
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 24);
+
+        $this->assertSame($expected, $receiptId);
+
+        // The persisted receipt must also carry the resolved timestamp, not null
+        $stored = $ledger->latest();
+        $this->assertNotNull($stored);
+        $this->assertSame($fallback, $stored->timestamp);
+    }
+
     private function ledger(string $proposalHash, string $timestamp): AtlasLoopScopeOriginationReceiptLedger
     {
         return new AtlasLoopScopeOriginationReceiptLedger(
