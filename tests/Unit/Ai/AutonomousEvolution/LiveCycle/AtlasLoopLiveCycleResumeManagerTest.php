@@ -110,4 +110,22 @@ final class AtlasLoopLiveCycleResumeManagerTest extends TestCase
         $this->assertTrue($plan['verified_chain']);
         $this->assertFalse($plan['refused']);
     }
+
+    public function test_resume_twice_no_checkpoint_is_idempotent_and_never_reports_tamper(): void
+    {
+        $cycle = 'never-checkpointed';
+
+        $a = $this->manager->resume($cycle);
+        $b = $this->manager->resume($cycle);
+
+        $this->assertSame(AtlasLoopLiveCycleResumeManager::FACT_NAME, $a['fact'], 'first resume emits FACT');
+        $this->assertFalse($a['refused']);
+        $this->assertTrue($a['verified_chain']);
+        $this->assertSame(1, $a['from_phase']);
+
+        $this->assertNull($b['fact'], 'second resume must NOT emit a new FACT (idempotent)');
+        $this->assertFalse($b['refused'], 'second resume must NOT report tamper');
+        $this->assertTrue($b['verified_chain'], 'second resume must NOT flip verified_chain');
+        $this->assertSame($a['from_phase'], $b['from_phase']);
+    }
 }

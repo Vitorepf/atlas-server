@@ -81,8 +81,8 @@ final class AtlasLoopLiveCycleResumeManager
             throw new RuntimeException('cycle_id is required');
         }
         $state = $this->loadState($cycleId);
-        if ($state === null) {
-            // Nothing persisted ⇒ resume = start from phase 1 (still a FACT worth emitting once).
+        if ($state === null || ($state['last_receipt_hash'] ?? '') === '') {
+            // No real checkpoint (either no state file, or state written by emitOrIdempotent with empty hash).
             return $this->emitOrIdempotent($cycleId, fromPhase: 1, verifiedChain: true, refused: false, reason: 'no checkpoint; starting from phase 1');
         }
 
