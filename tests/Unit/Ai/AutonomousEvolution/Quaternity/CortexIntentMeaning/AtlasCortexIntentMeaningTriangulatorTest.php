@@ -97,6 +97,26 @@ final class AtlasCortexIntentMeaningTriangulatorTest extends TestCase
         $this->assertContains('changed_symbol', $rows[0]['evidence']);
     }
 
+    public function test_generator_based_collaborator_sites_are_collected(): void
+    {
+        $fqcn = self::ROLES_FQCN;
+        $file = self::ROLES_FILE;
+        $generatorProvider = new class($fqcn, $file) {
+            public function __construct(private string $fqcn, private string $file) {}
+
+            /** @return \Generator<array<string,mixed>> */
+            public function groundedSites(): \Generator
+            {
+                yield ['symbol' => $this->fqcn, 'file' => $this->file];
+            }
+        };
+
+        $rows = $this->triangulator($generatorProvider)->triangulate('AtlasLoopGroundedProjectionRoles');
+
+        $this->assertNotEmpty($rows, 'generator collaborator must contribute its sites');
+        $this->assertContains(self::ROLES_FQCN, array_column($rows, 'symbol'));
+    }
+
     public function test_strips_stopwords_and_short_tokens(): void
     {
         // 'no' is a stopword and 'e' is below the length floor + a stopword — neither should match anything.

@@ -131,7 +131,9 @@ final class AtlasCortexIntentMeaningTriangulator
         }
 
         $out = [];
-        foreach ((array) $collaborator->groundedSites() as $row) {
+        $sites = $collaborator->groundedSites();
+        $rows = $sites instanceof \Traversable ? iterator_to_array($sites, false) : (array) $sites;
+        foreach ($rows as $row) {
             if (is_array($row)) {
                 $out[] = $row;
             }
