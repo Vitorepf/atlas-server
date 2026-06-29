@@ -96,7 +96,7 @@ final class AtlasLoopWiringMaterialGrader
     private function referencesSymbol(string $src, string $class): bool
     {
         // Strip line + block comments so a `// mentions AtlasLoopFoo` note never counts as wiring.
-        $code = (string) preg_replace(['~//[^\n]*~', '~/\*.*?\*/~s', '~\#[^\n]*~'], '', $src);
+        $code = (string) preg_replace(['~//[^\n]*~', '~/\*.*?\*/~s', '~#(?!\[)[^\n]*~'], '', $src);
 
         return preg_match('/\b'.preg_quote($class, '/').'\b/', $code) === 1;
     }

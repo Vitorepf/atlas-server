@@ -110,4 +110,24 @@ final class AtlasLoopWiringMaterialGraderTest extends TestCase
         $this->assertFalse($m->invoke($grader, '// AtlasLoopFoo is parked', 'AtlasLoopFoo'), 'comment mention does NOT count');
         $this->assertFalse($m->invoke($grader, '/* AtlasLoopFoo */ $y = 1;', 'AtlasLoopFoo'), 'block-comment mention does NOT count');
     }
+
+    public function test_php8_attribute_reference_counts_as_wired(): void
+    {
+        // A primitive referenced only inside a PHP 8 #[Attribute(...)] is real code, not a comment;
+        // the hash-comment stripper must NOT erase it — otherwise GATE 2 fails open.
+        $grader = $this->grader();
+        $m = (new ReflectionClass($grader))->getMethod('referencesSymbol');
+        $m->setAccessible(true);
+
+        $src = <<<'PHP'
+<?php
+
+#[UsesPrimitive(AtlasLoopFoo::class)]
+final class SomeConsumer
+{
+}
+PHP;
+
+        $this->assertTrue($m->invoke($grader, $src, 'AtlasLoopFoo'), 'a PHP 8 attribute reference counts as wired');
+    }
 }
