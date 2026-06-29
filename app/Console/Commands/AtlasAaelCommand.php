@@ -5,12 +5,13 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\AtlasAaelLoopExecutionBridge;
 use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopArmedCoverageReporter;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMultiSiteWiringPlanner;
 use Illuminate\Console\Command;
 
 class AtlasAaelCommand extends Command
 {
     protected $signature = 'atlas:aael
-        {action=control-plane : cycle|control-plane|bridge-execute|armed-coverage}
+        {action=control-plane : cycle|control-plane|bridge-execute|armed-coverage|wiring-plan}
         {--objective= : Evolution objective}
         {--workspace= : Workspace root}
         {--domain=programming : Domain}
@@ -29,6 +30,7 @@ class AtlasAaelCommand extends Command
         AtlasAutonomousEvolutionLoopService $runtime,
         AtlasAaelLoopExecutionBridge $bridge,
         AtlasLoopArmedCoverageReporter $armedCoverage,
+        AtlasLoopMultiSiteWiringPlanner $wiringPlanner,
     ): int {
         $action = (string) $this->argument('action');
         $payload = match ($action) {
@@ -36,6 +38,7 @@ class AtlasAaelCommand extends Command
             'control-plane' => $runtime->controlPlane((int) $this->option('hours')),
             'bridge-execute' => $this->bridgeExecute($runtime, $bridge),
             'armed-coverage' => $this->armedCoverage($armedCoverage),
+            'wiring-plan' => $this->wiringPlan($wiringPlanner),
             default => ['schema_version' => 'atlas.aael.command_error.v1', 'status' => 'blocked', 'reason' => 'unknown_action', 'action' => $action],
         };
 
@@ -81,6 +84,25 @@ class AtlasAaelCommand extends Command
             'status' => 'ok',
             'primitives_count' => count($report),
             'coverage' => $report,
+        ];
+    }
+
+    /**
+     * Per-(primitive, consumer-site) wiring picture: which intended consumers actually mention the primitive's
+     * class ('wired') vs. those that do not yet ('intended') — the loop-architecture-debt-wiring-gap made
+     * explicit. Read-only; flag-gated (plan() returns [] until atlas.loop.multi_site_wiring_planner_enabled).
+     *
+     * @return array<string,mixed>
+     */
+    private function wiringPlan(AtlasLoopMultiSiteWiringPlanner $planner): array
+    {
+        $records = $planner->plan();
+
+        return [
+            'schema_version' => AtlasLoopMultiSiteWiringPlanner::SCHEMA,
+            'status' => 'ok',
+            'records_count' => count($records),
+            'plan' => $records,
         ];
     }
 
