@@ -137,20 +137,66 @@ final class AtlasLoopPostEditCoherenceScanner
         $findings = [];
 
         foreach ($matches[1] ?? [] as [$fqcn, $offset]) {
-            $trimmed = trim((string) $fqcn);
-            if ($trimmed === '' || isset($classMap[$trimmed]) || class_exists($trimmed) || interface_exists($trimmed) || trait_exists($trimmed)) {
-                continue;
-            }
+            foreach ($this->normalizeUseBody((string) $fqcn) as $trimmed) {
+                if (isset($classMap[$trimmed]) || class_exists($trimmed) || interface_exists($trimmed) || trait_exists($trimmed)) {
+                    continue;
+                }
 
-            $findings[] = [
-                'file' => $path,
-                'line' => $this->lineAtOffset($contents, (int) $offset),
-                'reason' => 'unresolved_use',
-                'target_symbol' => $trimmed,
-            ];
+                $findings[] = [
+                    'file' => $path,
+                    'line' => $this->lineAtOffset($contents, (int) $offset),
+                    'reason' => 'unresolved_use',
+                    'target_symbol' => $trimmed,
+                ];
+            }
         }
 
         return $findings;
+    }
+
+    /**
+     * Expand a raw `use` body into the FQCNs that should be resolved.
+     * - `use function` / `use const` → [] (not class imports)
+     * - `Base\{A, B as C}` → ['Base\A', 'Base\B'] (alias stripped)
+     * - `App\Foo as Bar` → ['App\Foo'] (alias stripped)
+     *
+     * @return list<string>
+     */
+    private function normalizeUseBody(string $body): array
+    {
+        $trimmed = trim($body);
+        if ($trimmed === '') {
+            return [];
+        }
+
+        // use function / use const are not class-like imports
+        if (str_starts_with($trimmed, 'function ') || str_starts_with($trimmed, 'const ')) {
+            return [];
+        }
+
+        // Group use: Base\{A, B as C, ...}
+        if (preg_match('/^(.+)\{([^}]+)\}$/', $trimmed, $m)) {
+            $base = rtrim(trim($m[1]), '\\');
+            $fqcns = [];
+            foreach (explode(',', $m[2]) as $part) {
+                $part = trim($part);
+                if (str_contains($part, ' as ')) {
+                    $part = trim(explode(' as ', $part)[0]);
+                }
+                if ($part !== '') {
+                    $fqcns[] = $base.'\\'.$part;
+                }
+            }
+
+            return $fqcns;
+        }
+
+        // Aliased: App\Foo as Bar
+        if (str_contains($trimmed, ' as ')) {
+            $trimmed = trim(explode(' as ', $trimmed)[0]);
+        }
+
+        return $trimmed !== '' ? [$trimmed] : [];
     }
 
     /**

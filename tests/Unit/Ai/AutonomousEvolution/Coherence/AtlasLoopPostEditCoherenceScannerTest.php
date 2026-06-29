@@ -72,6 +72,17 @@ final class AtlasLoopPostEditCoherenceScannerTest extends TestCase
         $this->assertStringNotContainsString('"quality"', $json);
     }
 
+    public function test_aliased_use_of_resolvable_class_does_not_emit_unresolved_use_finding(): void
+    {
+        // PHPUnit\Framework\TestCase is always resolvable in this suite.
+        $file = $this->write('Aliased.php', "<?php\nuse PHPUnit\\Framework\\TestCase as TC;\nclass Aliased extends TC {}\n");
+
+        $rows = (new AtlasLoopPostEditCoherenceScanner)->scan([$file]);
+
+        $unresolvedUseRows = array_values(array_filter($rows, static fn ($r): bool => $r['reason'] === 'unresolved_use'));
+        $this->assertSame([], $unresolvedUseRows, 'a resolvable aliased import must not produce an unresolved_use finding');
+    }
+
     private function write(string $name, string $contents): string
     {
         $path = $this->dir.'/'.$name;
