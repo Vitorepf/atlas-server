@@ -35,7 +35,7 @@ final class AtlasLoopFederationIsolationGuardTest extends TestCase
     {
         $guard = new AtlasLoopFederationIsolationGuard(clockSkewBoundSeconds: 60);
 
-        $a = $guard->ingest($this->envelope('peer-schema', ['schema_version' => 'wrong']), '2026-06-25T06:00:00+00:00');
+        $a = $guard->ingest($this->envelope('peer-schema', ['schema' => 'wrong']), '2026-06-25T06:00:00+00:00');
         $this->assertSame('schema_violation', $a['reason']);
 
         $b = $guard->ingest($this->envelope('peer-skew', ['observed_at' => '2026-06-25T03:00:00+00:00']), '2026-06-25T06:00:00+00:00');
@@ -46,6 +46,22 @@ final class AtlasLoopFederationIsolationGuardTest extends TestCase
 
         $d = $guard->ingest($this->envelope('peer-hash', ['declared_content_hash' => 'different']), '2026-06-25T06:00:00+00:00');
         $this->assertSame('content_hash_mismatch', $d['reason']);
+    }
+
+    public function test_fact_sync_envelope_with_wrong_schema_is_quarantined(): void
+    {
+        // Real FactSync envelopes carry key `schema` with value `atlas.loop.federation_fact_envelope.v1`.
+        // A wrong value must be quarantined as schema_violation — not silently accepted.
+        $guard = new AtlasLoopFederationIsolationGuard;
+
+        $verdict = $guard->ingest(
+            $this->envelope('peer-factsync', ['schema' => 'atlas.loop.federation_fact_envelope.v2']),
+            '2026-06-25T06:00:00+00:00',
+        );
+
+        $this->assertFalse($verdict['accepted']);
+        $this->assertSame('schema_violation', $verdict['reason']);
+        $this->assertArrayHasKey('peer-factsync', $guard->quarantine());
     }
 
     public function test_three_violations_in_window_degrade_peer_tier(): void

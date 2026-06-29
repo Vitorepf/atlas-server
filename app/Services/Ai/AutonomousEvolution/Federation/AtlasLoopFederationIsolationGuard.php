@@ -128,7 +128,7 @@ final class AtlasLoopFederationIsolationGuard
                 return self::REASON_MALFORMED_ENVELOPE;
             }
         }
-        if (isset($envelope['schema_version']) && (string) $envelope['schema_version'] !== 'atlas.loop.federation_envelope.v1') {
+        if (isset($envelope['schema']) && (string) $envelope['schema'] !== 'atlas.loop.federation_fact_envelope.v1') {
             return self::REASON_SCHEMA_VIOLATION;
         }
         $observedAt = (string) $envelope['observed_at'];
