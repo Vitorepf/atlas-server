@@ -82,6 +82,42 @@ class AtlasLoopCycleDeadlockCheckerTest extends TestCase
         self::assertTrue($b['is_fact']);
     }
 
+    public function test_scc_containing_terminal_state_is_not_flagged_as_livelock(): void
+    {
+        $fsm = [
+            'entry_state' => 'A',
+            'terminal_states' => ['T'],
+            'states' => ['A', 'B', 'T'],
+            'transitions' => [
+                ['from' => 'A', 'to' => 'B', 'guard' => 'g1'],
+                ['from' => 'B', 'to' => 'T', 'guard' => 'g2'],
+                ['from' => 'T', 'to' => 'B', 'guard' => 'g3'],
+                // B<->T is an SCC but T is terminal (haltable) — NOT a livelock.
+            ],
+        ];
+        $verdict = (new AtlasLoopCycleDeadlockChecker)->check($fsm);
+
+        self::assertEmpty($verdict['livelocks'], 'SCC containing a terminal state must not be flagged as livelock');
+    }
+
+    public function test_self_looping_singleton_is_detected_as_livelock(): void
+    {
+        $fsm = [
+            'entry_state' => 'A',
+            'terminal_states' => ['T'],
+            'states' => ['A', 'TRAP'],
+            'transitions' => [
+                ['from' => 'A', 'to' => 'TRAP', 'guard' => 'g1'],
+                ['from' => 'TRAP', 'to' => 'TRAP', 'guard' => 'g2'],
+                // TRAP->TRAP is a self-loop with no exit — a real livelock.
+            ],
+        ];
+        $verdict = (new AtlasLoopCycleDeadlockChecker)->check($fsm);
+
+        self::assertCount(1, $verdict['livelocks']);
+        self::assertSame(['TRAP'], $verdict['livelocks'][0]['component']);
+    }
+
     public function test_verdict_carries_no_scalar_quality_keys_anywhere(): void
     {
         $fsm = (new AtlasLoopCycleStateMachineExtractor)->extract();

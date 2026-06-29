@@ -170,7 +170,8 @@ final class AtlasLoopCycleDeadlockChecker
                         break;
                     }
                 }
-                if (count($component) >= 2) {
+                $hasSelfLoop = count($component) === 1 && in_array($component[0], $localAdj[$component[0]] ?? [], true);
+                if (count($component) >= 2 || $hasSelfLoop) {
                     sort($component, SORT_STRING);
                     $sccs[] = $component;
                 }
@@ -183,9 +184,21 @@ final class AtlasLoopCycleDeadlockChecker
             }
         }
 
+        $terminalSet = array_flip($terminals);
         $livelocks = [];
         foreach ($sccs as $component) {
             $componentSet = array_flip($component);
+            // An SCC containing a terminal state can halt — not a livelock.
+            $hasTerminal = false;
+            foreach ($component as $node) {
+                if (isset($terminalSet[$node])) {
+                    $hasTerminal = true;
+                    break;
+                }
+            }
+            if ($hasTerminal) {
+                continue;
+            }
             $hasExit = false;
             foreach ($component as $node) {
                 foreach ($localAdj[$node] ?? [] as $to) {
