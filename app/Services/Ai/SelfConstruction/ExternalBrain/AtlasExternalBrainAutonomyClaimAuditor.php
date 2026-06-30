@@ -80,12 +80,33 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             $evidenceGaps[] = 'no_strong_evidence_kind_present';
         }
 
+        $rejectedProxyKinds = array_values(array_unique(array_intersect(
+            array_merge($evidenceRefs, $proxySignals),
+            self::PROXY_ONLY_SIGNALS,
+        )));
+
+        $evidenceFreshness = match (true) {
+            $evidenceAge === null            => 'unknown',
+            $evidenceAge > self::STALE_THRESHOLD_SECONDS => 'stale',
+            default                          => 'fresh',
+        };
+
+        $confidence = match ($status) {
+            self::STATUS_PROVEN  => 1.0,
+            self::STATUS_PARTIAL => 0.5,
+            default              => 0.0,
+        };
+
         return [
             'schema' => self::SCHEMA,
             'claim' => $claimText,
             'status' => $status,
+            'confidence' => $confidence,
             'evidence_gaps' => $evidenceGaps,
             'proxy_signals' => $proxySignals,
+            'accepted_evidence_kinds' => $strongEvidence,
+            'rejected_proxy_kinds' => $rejectedProxyKinds,
+            'evidence_freshness' => $evidenceFreshness,
             'next_evidence_task' => $this->nextEvidenceTask($status, $strongEvidence, $claimText),
         ];
     }

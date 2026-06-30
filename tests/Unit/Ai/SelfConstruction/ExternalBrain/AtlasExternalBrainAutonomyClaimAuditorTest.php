@@ -20,10 +20,57 @@ final class AtlasExternalBrainAutonomyClaimAuditorTest extends TestCase
     {
         $r = $this->svc()->audit(['claim' => 'queue healthy']);
 
-        foreach (['claim', 'status', 'evidence_gaps', 'proxy_signals', 'next_evidence_task'] as $key) {
+        foreach (['claim', 'status', 'confidence', 'evidence_gaps', 'proxy_signals',
+                  'accepted_evidence_kinds', 'rejected_proxy_kinds', 'evidence_freshness', 'next_evidence_task'] as $key) {
             $this->assertArrayHasKey($key, $r, "missing key: {$key}");
         }
         $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::SCHEMA, $r['schema']);
+    }
+
+    public function test_proven_status_has_full_confidence_and_two_accepted_kinds(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '24/7 autonomous operation',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
+        $this->assertSame(1.0, $r['confidence']);
+        $this->assertCount(2, $r['accepted_evidence_kinds']);
+    }
+
+    public function test_queue_count_and_task_count_are_rejected_proxy_kinds(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => '95 percent readiness',
+            'proxy_signals' => ['queue_count', 'task_count'],
+        ]);
+
+        $this->assertContains('queue_count', $r['rejected_proxy_kinds']);
+        $this->assertContains('task_count', $r['rejected_proxy_kinds']);
+        $this->assertNotSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_PROVEN, $r['status']);
+    }
+
+    public function test_evidence_freshness_is_stale_beyond_threshold(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'model amplifier quality',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+            'evidence_age_seconds' => 700000,
+        ]);
+
+        $this->assertSame('stale', $r['evidence_freshness']);
+        $this->assertSame(AtlasExternalBrainAutonomyClaimAuditor::STATUS_STALE, $r['status']);
+    }
+
+    public function test_evidence_freshness_unknown_when_no_age_supplied(): void
+    {
+        $r = $this->svc()->audit([
+            'claim' => 'queue healthy',
+            'evidence_refs' => ['runnable_end_to_end_replay'],
+        ]);
+
+        $this->assertSame('unknown', $r['evidence_freshness']);
     }
 
     public function test_claim_text_is_echoed_back(): void
