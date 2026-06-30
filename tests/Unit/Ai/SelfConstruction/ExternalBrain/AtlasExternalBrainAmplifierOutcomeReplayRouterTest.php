@@ -152,6 +152,61 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouterTest extends TestCase
         $this->assertCount(2, $r['affected_model_tiers']);
     }
 
+    // ── learning-loop sinks (proxy / no-delta / heldout-fail / frontier) ─────
+
+    public function test_proxy_success_routes_to_rollback_and_benchmark(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'proxy_success')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('rollback_signal', $sinks);
+        $this->assertContains('heldout_benchmark_update', $sinks);
+    }
+
+    public function test_proxy_success_does_not_feed_positive_learning(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'proxy_success')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertNotContains('scaffold_variant_learning', $sinks);
+        $this->assertNotContains('scaffold_selection', $sinks);
+    }
+
+    public function test_no_capability_delta_routes_to_rollback_and_benchmark(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'no_capability_delta')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('rollback_signal', $sinks);
+        $this->assertContains('heldout_benchmark_update', $sinks);
+    }
+
+    public function test_no_capability_delta_does_not_feed_positive_learning(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'no_capability_delta')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertNotContains('scaffold_variant_learning', $sinks);
+    }
+
+    public function test_heldout_failure_routes_to_benchmark_and_frontier_escalation(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'heldout_failure')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('heldout_benchmark_update', $sinks);
+        $this->assertContains('frontier_escalation_signal', $sinks);
+    }
+
+    public function test_frontier_candidate_routes_to_scaffold_variant_and_escalation(): void
+    {
+        $r = $this->route([$this->outcome('o1', 'frontier_candidate')]);
+
+        $sinks = $r['routed_updates'][0]['sinks'];
+        $this->assertContains('scaffold_variant_learning', $sinks);
+        $this->assertContains('frontier_escalation_signal', $sinks);
+    }
+
     // ── empty + schema ────────────────────────────────────────────────────────
 
     public function test_empty_outcomes_returns_empty_output(): void

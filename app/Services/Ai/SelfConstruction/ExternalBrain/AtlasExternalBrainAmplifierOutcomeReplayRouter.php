@@ -5,18 +5,23 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure router: maps completed task outcomes to amplifier learning sinks
- * (scaffold_selection, model_tier_routing, promotion_gates, regression_cases).
+ * Pure router: maps completed task outcomes to amplifier learning sinks.
  *
  * Outcomes with evidence_count < MIN_EVIDENCE are ignored — anecdotal single
  * samples must not update routing.
  *
- * Sink routing table:
+ * Sink routing table (original amplifier sinks):
  *   commit_success → scaffold_selection, model_tier_routing
  *   give_back      → scaffold_selection, promotion_gates
  *   poison         → promotion_gates, regression_cases
  *   weak_evidence  → regression_cases
  *   high_value     → scaffold_selection, model_tier_routing, promotion_gates
+ *
+ * Learning-loop sinks (AC: proxy/no-delta must NOT feed positive learning):
+ *   proxy_success       → rollback_signal, heldout_benchmark_update
+ *   no_capability_delta → rollback_signal, heldout_benchmark_update
+ *   heldout_failure     → heldout_benchmark_update, frontier_escalation_signal
+ *   frontier_candidate  → scaffold_variant_learning, frontier_escalation_signal
  *
  * Unknown outcome_type → ignored (reason: unknown_outcome_type).
  */
@@ -27,11 +32,17 @@ final class AtlasExternalBrainAmplifierOutcomeReplayRouter
     public const MIN_EVIDENCE = 3;
 
     private const SINK_MAP = [
-        'commit_success' => ['scaffold_selection', 'model_tier_routing'],
-        'give_back' => ['scaffold_selection', 'promotion_gates'],
-        'poison' => ['promotion_gates', 'regression_cases'],
-        'weak_evidence' => ['regression_cases'],
-        'high_value' => ['scaffold_selection', 'model_tier_routing', 'promotion_gates'],
+        // original amplifier sinks
+        'commit_success'      => ['scaffold_selection', 'model_tier_routing'],
+        'give_back'           => ['scaffold_selection', 'promotion_gates'],
+        'poison'              => ['promotion_gates', 'regression_cases'],
+        'weak_evidence'       => ['regression_cases'],
+        'high_value'          => ['scaffold_selection', 'model_tier_routing', 'promotion_gates'],
+        // learning-loop sinks — proxy/no-delta must NOT feed positive learning
+        'proxy_success'       => ['rollback_signal', 'heldout_benchmark_update'],
+        'no_capability_delta' => ['rollback_signal', 'heldout_benchmark_update'],
+        'heldout_failure'     => ['heldout_benchmark_update', 'frontier_escalation_signal'],
+        'frontier_candidate'  => ['scaffold_variant_learning', 'frontier_escalation_signal'],
     ];
 
     /**
