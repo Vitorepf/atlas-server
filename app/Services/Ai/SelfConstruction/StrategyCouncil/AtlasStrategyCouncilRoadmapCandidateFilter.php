@@ -39,9 +39,13 @@ final class AtlasStrategyCouncilRoadmapCandidateFilter
     /**
      * @param  list<array<string,mixed>>  $candidates
      * @param  list<string>  $admittedOwnerScopes  whitelist of owner_scope values (empty ⇒ all admitted)
+     * @param  bool  $workerFloorLow  when true, candidates that cannot produce claimable work
+     *   soon (missing implementation_scope, runnable_acceptance, or near_term_queue_feed_value)
+     *   are deferred instead of admitted — roadmap-pretty work must not starve active muscles
+     *   while the worker floor is breached.
      * @return array{schema:string, kept:list<array<string,mixed>>, dropped:list<array{candidate_id:string, drop_reason:string}>}
      */
-    public function filter(array $candidates, array $admittedOwnerScopes = []): array
+    public function filter(array $candidates, array $admittedOwnerScopes = [], bool $workerFloorLow = false): array
     {
         $kept = [];
         $dropped = [];
@@ -110,6 +114,23 @@ final class AtlasStrategyCouncilRoadmapCandidateFilter
                 }
             }
             $dupKey = (string) ($c['duplicate_key'] ?? '');
+            if ($workerFloorLow) {
+                if (! (bool) ($c['implementation_scope'] ?? false)) {
+                    $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'deferred:worker_floor_missing_implementation_scope'];
+
+                    continue;
+                }
+                if (! (bool) ($c['runnable_acceptance'] ?? false)) {
+                    $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'deferred:worker_floor_missing_runnable_acceptance'];
+
+                    continue;
+                }
+                if (! (bool) ($c['near_term_queue_feed_value'] ?? false)) {
+                    $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'deferred:worker_floor_no_near_term_queue_feed_value'];
+
+                    continue;
+                }
+            }
             if ($dupKey !== '' && isset($seenDupKeys[$dupKey])) {
                 $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:duplicate:'.$dupKey];
 

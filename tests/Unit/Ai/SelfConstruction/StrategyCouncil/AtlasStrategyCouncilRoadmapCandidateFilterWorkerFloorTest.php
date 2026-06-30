@@ -74,4 +74,84 @@ final class AtlasStrategyCouncilRoadmapCandidateFilterWorkerFloorTest extends Te
         $this->assertSame([], $result['kept']);
         $this->assertSame('dropped:stale', $result['dropped'][0]['drop_reason']);
     }
+
+    // ── worker-floor admission (separate from the stale-exemption tests above) ───────────────
+
+    private function roadmapCandidate(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'candidate_id' => $id,
+            'organ' => 'cortex',
+            'evidence_path' => 'docs/evidence.md',
+            'kind' => 'capability_gap',
+            'stale' => false,
+            'implementation_scope' => true,
+            'runnable_acceptance' => true,
+            'near_term_queue_feed_value' => true,
+        ], $overrides);
+    }
+
+    public function test_worker_floor_low_defers_candidate_missing_implementation_scope(): void
+    {
+        $result = $this->filter()->filter(
+            [$this->roadmapCandidate('roadmap-1', ['implementation_scope' => false])],
+            [],
+            true,
+        );
+
+        $this->assertSame([], $result['kept']);
+        $this->assertSame('deferred:worker_floor_missing_implementation_scope', $result['dropped'][0]['drop_reason']);
+    }
+
+    public function test_worker_floor_low_defers_candidate_missing_runnable_acceptance(): void
+    {
+        $result = $this->filter()->filter(
+            [$this->roadmapCandidate('roadmap-2', ['runnable_acceptance' => false])],
+            [],
+            true,
+        );
+
+        $this->assertSame([], $result['kept']);
+        $this->assertSame('deferred:worker_floor_missing_runnable_acceptance', $result['dropped'][0]['drop_reason']);
+    }
+
+    public function test_worker_floor_low_defers_candidate_without_near_term_queue_feed_value(): void
+    {
+        $result = $this->filter()->filter(
+            [$this->roadmapCandidate('roadmap-3', ['near_term_queue_feed_value' => false])],
+            [],
+            true,
+        );
+
+        $this->assertSame([], $result['kept']);
+        $this->assertSame('deferred:worker_floor_no_near_term_queue_feed_value', $result['dropped'][0]['drop_reason']);
+    }
+
+    public function test_worker_floor_low_keeps_fully_qualified_candidate(): void
+    {
+        $result = $this->filter()->filter(
+            [$this->roadmapCandidate('roadmap-4')],
+            [],
+            true,
+        );
+
+        $this->assertSame(['roadmap-4'], array_column($result['kept'], 'candidate_id'));
+        $this->assertSame([], $result['dropped']);
+    }
+
+    public function test_worker_floor_healthy_preserves_existing_admission_behavior(): void
+    {
+        $result = $this->filter()->filter(
+            [$this->roadmapCandidate('roadmap-5', [
+                'implementation_scope' => false,
+                'runnable_acceptance' => false,
+                'near_term_queue_feed_value' => false,
+            ])],
+            [],
+            false,
+        );
+
+        $this->assertSame(['roadmap-5'], array_column($result['kept'], 'candidate_id'));
+        $this->assertSame([], $result['dropped']);
+    }
 }
