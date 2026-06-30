@@ -43,7 +43,7 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlannerTest extends TestC
         ]);
 
         $task = $result['backfill_tasks'][0];
-        foreach (['stream_id', 'capture_task', 'freshness_threshold_seconds', 'proof_command', 'reason'] as $f) {
+        foreach (['stream_id', 'capture_task', 'freshness_threshold_seconds', 'proof_command', 'reason', 'priority'] as $f) {
             $this->assertArrayHasKey($f, $task);
         }
     }
@@ -251,5 +251,48 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlannerTest extends TestC
             $this->planner()->plan($audit),
             $this->planner()->plan($audit),
         );
+    }
+
+    // ── priority field ────────────────────────────────────────────────────────
+
+    public function test_missing_evidence_produces_high_priority_backfill(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'queue_health', 'has_evidence' => false],
+            ],
+        ]);
+
+        $this->assertSame('high', $result['backfill_tasks'][0]['priority']);
+    }
+
+    public function test_stale_evidence_produces_medium_priority_backfill(): void
+    {
+        $result = $this->planner()->plan([
+            'now_unix'         => self::NOW,
+            'evidence_streams' => [
+                [
+                    'stream_id'                  => 'code_facts',
+                    'has_evidence'               => true,
+                    'last_captured_at_unix'      => self::NOW - 90000,
+                    'freshness_threshold_seconds' => 86400,
+                ],
+            ],
+        ]);
+
+        $this->assertSame('medium', $result['backfill_tasks'][0]['priority']);
+    }
+
+    public function test_unknown_stream_proof_command_is_runnable_artisan(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'my_custom_stream', 'has_evidence' => false],
+            ],
+        ]);
+
+        $proof = $result['backfill_tasks'][0]['proof_command'];
+        $this->assertStringContainsString('artisan', $proof);
+        $this->assertStringContainsString('my_custom_stream', $proof);
     }
 }

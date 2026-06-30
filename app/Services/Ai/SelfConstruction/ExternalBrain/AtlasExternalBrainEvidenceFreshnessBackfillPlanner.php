@@ -109,6 +109,7 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
                 'freshness_threshold_seconds' => $threshold,
                 'proof_command'              => $proofCommand,
                 'reason'                     => $reason,
+                'priority'                   => $reason === 'missing' ? 'high' : 'medium',
             ];
         }
 
@@ -134,7 +135,7 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
 
         return [
             'capture:'.$streamId,
-            'atlas:brain:seed --stream='.$streamId,
+            '/opt/homebrew/bin/php artisan atlas:brain:seed --stream='.$streamId.' --dry-run',
         ];
     }
 }
