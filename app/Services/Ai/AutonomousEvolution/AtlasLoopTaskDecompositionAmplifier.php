@@ -47,9 +47,9 @@ final class AtlasLoopTaskDecompositionAmplifier
         }
 
         usort($variants, static function (array $a, array $b): int {
-            $rate = ((float) ($b['history']['win_rate'] ?? 0.0)) <=> ((float) ($a['history']['win_rate'] ?? 0.0));
-            if ($rate !== 0) {
-                return $rate;
+            $lbCmp = ((float) ($b['prior']['lower_bound'] ?? 0.0)) <=> ((float) ($a['prior']['lower_bound'] ?? 0.0));
+            if ($lbCmp !== 0) {
+                return $lbCmp;
             }
 
             return strcmp((string) $a['fingerprint'], (string) $b['fingerprint']);

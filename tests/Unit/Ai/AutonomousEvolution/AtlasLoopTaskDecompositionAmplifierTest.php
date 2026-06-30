@@ -56,7 +56,7 @@ final class AtlasLoopTaskDecompositionAmplifierTest extends TestCase
         $this->assertNotContains('', $fingerprints);
     }
 
-    public function test_variants_are_ranked_by_same_family_win_rate_then_fingerprint_tie_break(): void
+    public function test_variants_are_ranked_by_wilson_lower_bound_then_fingerprint_tie_break(): void
     {
         config()->set('atlas.loop.decomposition_amplifier_enabled', true);
         config()->set('atlas.loop.decomposition_corpus_enabled', true);
@@ -66,9 +66,9 @@ final class AtlasLoopTaskDecompositionAmplifierTest extends TestCase
         sort($fingerprints, SORT_STRING);
         [$tieA, $tieB, $winner] = array_slice($fingerprints, 0, 3);
 
-        $this->seedHistory($winner, 'refactor_extract_class', certified: 5, total: 5);
-        $this->seedHistory($tieA, 'refactor_extract_class', certified: 1, total: 2);
-        $this->seedHistory($tieB, 'refactor_extract_class', certified: 1, total: 2);
+        $this->seedHistory($winner, 'refactor_extract_class', certified: 40, total: 50);
+        $this->seedHistory($tieA, 'refactor_extract_class', certified: 10, total: 20);
+        $this->seedHistory($tieB, 'refactor_extract_class', certified: 10, total: 20);
         $this->seedHistory($tieB, 'unrelated_family', certified: 10, total: 10);
 
         $ranked = $amplifier->amplify($packet);
@@ -78,6 +78,27 @@ final class AtlasLoopTaskDecompositionAmplifierTest extends TestCase
         $this->assertLessThan($positions[$tieB], $positions[$tieA]);
         $this->assertSame(0.5, $ranked[$positions[$tieA]]['history']['win_rate']);
         $this->assertSame(0.5, $ranked[$positions[$tieB]]['history']['win_rate']);
+    }
+
+    public function test_proven_shape_ranks_above_small_sample_fluke(): void
+    {
+        config()->set('atlas.loop.decomposition_amplifier_enabled', true);
+        config()->set('atlas.loop.decomposition_corpus_enabled', true);
+        $packet = $this->packet(['objective_kind' => 'refactor_extract_class']);
+        $amplifier = new AtlasLoopTaskDecompositionAmplifier;
+        $fingerprints = array_column($amplifier->amplify($packet), 'fingerprint');
+        sort($fingerprints, SORT_STRING);
+        [$fluke, $proven] = array_slice($fingerprints, 0, 2);
+
+        $this->seedHistory($fluke, 'refactor_extract_class', certified: 1, total: 1);
+        $this->seedHistory($proven, 'refactor_extract_class', certified: 80, total: 100);
+
+        $ranked = $amplifier->amplify($packet);
+        $positions = array_flip(array_column($ranked, 'fingerprint'));
+
+        $this->assertLessThan($positions[$fluke], $positions[$proven], '80/100 proven shape must rank above 1/1 fluke');
+        $this->assertGreaterThan(0.0, $ranked[$positions[$proven]]['prior']['lower_bound']);
+        $this->assertSame(0.0, $ranked[$positions[$fluke]]['prior']['lower_bound']);
     }
 
     public function test_portfolio_exposes_attempt_indexed_decomposition_rotation(): void
