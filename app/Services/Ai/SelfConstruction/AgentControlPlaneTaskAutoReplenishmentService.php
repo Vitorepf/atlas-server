@@ -59,6 +59,73 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         return $this->completionAuditReader ?? new AgentControlPlaneCompletionAuditReader;
     }
 
+    public const DEFAULT_WORKER_FEED_RISK_MIN_CLAIMABLE_PER_WORKER = 2.0;
+
+    public const DEFAULT_WORKER_FEED_RISK_BATCH_CAP = 10;
+
+    public const REASON_WORKER_FEED_RISK = 'worker_feed_risk';
+
+    /**
+     * Pure worker-feed-risk evaluator: decides whether automatic replenishment should start
+     * BEFORE the queue actually hits no_claimable_task, using leading indicators — active_leases,
+     * claimable_depth, claimable_per_active_worker, replenish_recommendation — rather than waiting
+     * for the lagging dry_queue signal. Does not touch the queue, the DB, or any I/O; this is a
+     * standalone bounded-plan computation a caller can act on before invoking replenish().
+     *
+     * Triggers (either is sufficient) when active_leases > 0:
+     *   - claimable_per_active_worker <= min_claimable_per_worker (default 2.0), explicit or
+     *     derived as claimable_depth / active_leases when not supplied;
+     *   - replenish_recommendation === 'replenish_soon' (explicit leading-indicator signal).
+     *
+     * With no active workers (active_leases === 0) or a comfortable buffer (neither trigger
+     * fires), this is a no-op — preserving existing dry_queue-only behavior for those cases.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    public function evaluateWorkerFeedRisk(array $context = []): array
+    {
+        $activeLeases = max(0, (int) ($context['active_leases'] ?? 0));
+        $claimableDepth = max(0, (int) ($context['claimable_depth'] ?? 0));
+        $minClaimablePerWorker = (float) ($context['min_claimable_per_worker'] ?? self::DEFAULT_WORKER_FEED_RISK_MIN_CLAIMABLE_PER_WORKER);
+        $batchCap = max(1, (int) ($context['batch_cap'] ?? self::DEFAULT_WORKER_FEED_RISK_BATCH_CAP));
+        $recommendation = (string) ($context['replenish_recommendation'] ?? '');
+
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $context) && $context['claimable_per_active_worker'] !== null
+            ? (float) $context['claimable_per_active_worker']
+            : ($activeLeases > 0 ? (float) $claimableDepth / $activeLeases : null);
+
+        $triggered = $activeLeases > 0 && (
+            ($claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $minClaimablePerWorker)
+            || $recommendation === 'replenish_soon'
+        );
+
+        if (! $triggered) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'top_up_required' => false,
+                'target_new_packets' => 0,
+                'reason' => null,
+                'active_leases' => $activeLeases,
+                'claimable_depth' => $claimableDepth,
+                'claimable_per_active_worker' => $claimablePerActiveWorker,
+            ];
+        }
+
+        $need = max(1, $activeLeases - $claimableDepth);
+        $targetNewPackets = min($batchCap, $need);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'top_up_required' => true,
+            'target_new_packets' => $targetNewPackets,
+            'reason' => self::REASON_WORKER_FEED_RISK,
+            'active_leases' => $activeLeases,
+            'claimable_depth' => $claimableDepth,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $context
      * @param  array<string, mixed>  $options
