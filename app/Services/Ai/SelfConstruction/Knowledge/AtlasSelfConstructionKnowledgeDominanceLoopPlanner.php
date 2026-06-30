@@ -87,6 +87,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
         $uncapturedOutcomeCount    = max(0, (int) ($input['uncaptured_outcome_count']        ?? 0));
         $queueHealthFreshness      = max(0, (int) ($input['queue_health_freshness_seconds']  ?? 0));
         $queuedTargetsStale        = (bool) ($input['queued_targets_stale_after_batch']      ?? false);
+        $claimableDepthChanged     = (bool) ($input['claimable_depth_changed']               ?? false);
 
         $refreshActions  = [];
         $skippedActions  = [];
@@ -190,6 +191,13 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
                 'command'   => self::COMMANDS[self::ACTION_REFRESH_QUEUE_HEALTH],
             ];
             $notReadyReasons[] = 'queue_health_stale';
+            if ($claimableDepthChanged) {
+                // Worker-floor specific: a queue-health snapshot taken before an
+                // enqueue cycle materially changed claimable depth can no longer
+                // justify a wait decision — it describes a queue that no longer
+                // exists.
+                $notReadyReasons[] = 'worker_floor_queue_health_not_refreshed_after_claimable_depth_change';
+            }
         } else {
             $skippedActions[] = [
                 'action_id' => self::ACTION_REFRESH_QUEUE_HEALTH,
