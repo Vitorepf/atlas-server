@@ -45,9 +45,24 @@ final class AtlasSelfConstructionHumanCompletionReceiptMutationGuardService
             'no_autopromotion_acknowledged',
         ];
         $mutations = [];
+        $mutatedFields = [];
+        $unchangedFields = [];
         foreach ($protectedFields as $field) {
-            if (($before[$field] ?? null) !== ($after[$field] ?? null)) {
+            $beforeHasField = array_key_exists($field, $before);
+            $afterHasField = array_key_exists($field, $after);
+            $beforeValue = $before[$field] ?? null;
+            $afterValue = $after[$field] ?? null;
+            $mutated = $beforeValue !== $afterValue || $beforeHasField !== $afterHasField;
+
+            if ($mutated) {
                 $mutations[] = ['field' => $field, 'code' => 'protected_human_receipt_field_mutated'];
+                $mutatedFields[] = [
+                    'field' => $field,
+                    'present_before' => $beforeHasField,
+                    'present_after' => $afterHasField,
+                ];
+            } else {
+                $unchangedFields[] = $field;
             }
         }
 
@@ -57,9 +72,14 @@ final class AtlasSelfConstructionHumanCompletionReceiptMutationGuardService
             'mode' => self::MODE,
             'status' => $status,
             'checked_at' => CarbonImmutable::now()->toIso8601String(),
+            'protected_field_count' => count($protectedFields),
+            'mutated_field_count' => count($mutatedFields),
+            'mutated_fields' => $mutatedFields,
+            'unchanged_protected_fields' => $unchangedFields,
             'mutation_count' => count($mutations),
             'mutations' => $mutations,
             'guard_passed' => $status === 'passed',
+            'receipt_reuse_allowed' => $status === 'passed',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
