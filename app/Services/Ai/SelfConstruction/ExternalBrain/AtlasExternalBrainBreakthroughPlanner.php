@@ -30,6 +30,34 @@ final class AtlasExternalBrainBreakthroughPlanner
 {
     public const SCHEMA = 'atlas.external_brain.breakthrough_planner.v1';
 
+    /**
+     * Fixed second-pass strategies the brain must exhaust (with evidence or denial) before
+     * honest_exhausted is allowed. Each entry is keyed by strategy_id.
+     */
+    private const SECOND_PASS_STRATEGIES = [
+        [
+            'strategy_id'       => 'cross_codebase_scan',
+            'search_surface'    => 'Full codebase scan: grep for implemented-but-unwired primitives, dormant classes, and orphan integration points',
+            'proof_threshold'   => 'at_least_1_verified_candidate_from_codebase_scan',
+            'anti_padding_rule' => 'queue_task_count_and_test_count_do_not_count_as_verified_candidates',
+            'stop_condition'    => 'codebase_scan_exhausted_or_verified_candidate_found',
+        ],
+        [
+            'strategy_id'       => 'capability_rubric_diff',
+            'search_surface'    => 'Capability rubric diff: compare current proven_evidence against full rubric to find near-complete dimensions needing one signal',
+            'proof_threshold'   => 'at_least_1_near_complete_dimension_with_specific_missing_signal_named',
+            'anti_padding_rule' => 'partial_evidence_does_not_count_without_specific_missing_signal_named',
+            'stop_condition'    => 'all_near_complete_dimensions_enumerated_or_none_found',
+        ],
+        [
+            'strategy_id'       => 'atlas_journal_harvest',
+            'search_surface'    => 'Atlas journals and evidence ledger: mine recent loop runs for unreported capability gains and missing certifications',
+            'proof_threshold'   => 'at_least_1_evidence_ref_extracted_from_journal',
+            'anti_padding_rule' => 'self_declared_capabilities_without_journal_ref_do_not_count',
+            'stop_condition'    => 'journal_entries_since_last_harvest_exhausted_or_evidence_ref_found',
+        ],
+    ];
+
     private AtlasExternalBrainAmbitionEscalationPolicy $escalationPolicy;
 
     private AtlasExternalBrainResearchPatternPlan $researchPlan;
@@ -60,14 +88,32 @@ final class AtlasExternalBrainBreakthroughPlanner
 
         $escalation = $this->escalationPolicy->decide($escalationState);
 
-        if ($escalation['honest_exhausted']) {
+        // AC2: second-pass guard — refuse honest_exhausted until every strategy has evidence or denial.
+        $secondPassResults = is_array($escalationState['second_pass_results'] ?? null)
+            ? $escalationState['second_pass_results']
+            : [];
+        $honestExhausted = $escalation['honest_exhausted'];
+        if ($honestExhausted) {
+            foreach (self::SECOND_PASS_STRATEGIES as $strategy) {
+                $result = $secondPassResults[$strategy['strategy_id']] ?? null;
+                if ($result === null
+                    || (empty($result['evidence']) && empty($result['denial_reason']))
+                ) {
+                    $honestExhausted = false;
+                    break;
+                }
+            }
+        }
+
+        if ($honestExhausted) {
             return [
-                'schema' => self::SCHEMA,
-                'honest_exhausted' => true,
-                'investigations' => [],
-                'next_mode' => AtlasExternalBrainAmbitionEscalationPolicy::MODE_HONEST_EXHAUSTED,
-                'stall_gap' => $gap,
-                'modes_with_evidence' => $escalation['modes_with_evidence'],
+                'schema'               => self::SCHEMA,
+                'honest_exhausted'     => true,
+                'investigations'       => [],
+                'next_mode'            => AtlasExternalBrainAmbitionEscalationPolicy::MODE_HONEST_EXHAUSTED,
+                'stall_gap'            => $gap,
+                'modes_with_evidence'  => $escalation['modes_with_evidence'],
+                'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
             ];
         }
 
@@ -76,23 +122,24 @@ final class AtlasExternalBrainBreakthroughPlanner
         $research = $this->researchPlan->plan($idea);
 
         $investigations = [[
-            'investigation_id' => $nextMode.':gap:'.$gap,
-            'mode' => $nextMode,
-            'idea' => $idea,
-            'source_categories' => array_keys($research['source_categories']),
-            'expected_leverage' => $this->expectedLeverage($nextMode),
-            'stop_conditions' => $this->stopConditions($nextMode, $gap),
+            'investigation_id'    => $nextMode.':gap:'.$gap,
+            'mode'                => $nextMode,
+            'idea'                => $idea,
+            'source_categories'   => array_keys($research['source_categories']),
+            'expected_leverage'   => $this->expectedLeverage($nextMode),
+            'stop_conditions'     => $this->stopConditions($nextMode, $gap),
             'comparison_questions' => $research['comparison_questions'],
         ]];
 
         return [
-            'schema' => self::SCHEMA,
-            'honest_exhausted' => false,
-            'investigations' => $investigations,
-            'next_mode' => $nextMode,
-            'stall_gap' => $gap,
-            'modes_with_evidence' => $escalation['modes_with_evidence'],
-            'modes_remaining' => $escalation['modes_remaining'],
+            'schema'               => self::SCHEMA,
+            'honest_exhausted'     => false,
+            'investigations'       => $investigations,
+            'next_mode'            => $nextMode,
+            'stall_gap'            => $gap,
+            'modes_with_evidence'  => $escalation['modes_with_evidence'],
+            'modes_remaining'      => $escalation['modes_remaining'],
+            'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
         ];
     }
 

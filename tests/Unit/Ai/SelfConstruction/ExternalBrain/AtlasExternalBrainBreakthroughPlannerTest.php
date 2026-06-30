@@ -115,12 +115,20 @@ final class AtlasExternalBrainBreakthroughPlannerTest extends TestCase
             $evidenceMap[$mode] = ['evidence-ref-'.$mode];
         }
 
+        // All second-pass strategies must also have evidence or denial before honest_exhausted is allowed.
+        $secondPassResults = [
+            'cross_codebase_scan'    => ['evidence' => ['scan-done'], 'denial_reason' => null],
+            'capability_rubric_diff' => ['evidence' => [], 'denial_reason' => 'no near-complete dimensions found'],
+            'atlas_journal_harvest'  => ['evidence' => ['journal-ref-1'], 'denial_reason' => null],
+        ];
+
         $r = $this->planner->plan([
-            'verified_count' => 5,
+            'verified_count'   => 5,
             'requested_target' => 100,
             'escalation_state' => [
-                'attempted_modes' => $allModes,
-                'evidence_by_mode' => $evidenceMap,
+                'attempted_modes'    => $allModes,
+                'evidence_by_mode'   => $evidenceMap,
+                'second_pass_results' => $secondPassResults,
             ],
         ]);
 
@@ -186,5 +194,151 @@ final class AtlasExternalBrainBreakthroughPlannerTest extends TestCase
 
         $this->assertNotSame($firstMode, $r2['next_mode'], 'second call must advance to next mode');
         $this->assertNotContains($r2['next_mode'], [$firstMode]);
+    }
+
+    // ── AC1: second_pass_strategies in output ─────────────────────────────────
+
+    public function test_plan_includes_second_pass_strategies(): void
+    {
+        $r = $this->planner->plan(['verified_count' => 5, 'requested_target' => 20]);
+
+        $this->assertArrayHasKey('second_pass_strategies', $r);
+        $this->assertNotEmpty($r['second_pass_strategies']);
+    }
+
+    public function test_second_pass_strategies_have_required_fields(): void
+    {
+        $r = $this->planner->plan(['verified_count' => 0, 'requested_target' => 10]);
+
+        foreach ($r['second_pass_strategies'] as $strategy) {
+            foreach (['search_surface', 'proof_threshold', 'anti_padding_rule', 'stop_condition'] as $key) {
+                $this->assertArrayHasKey($key, $strategy, "second_pass strategy must contain {$key}");
+                $this->assertNotEmpty($strategy[$key]);
+            }
+        }
+    }
+
+    public function test_second_pass_strategies_present_in_honest_exhausted_path(): void
+    {
+        $allModes = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceMap = array_combine($allModes, array_map(fn ($m) => ["ref-{$m}"], $allModes));
+        $secondPassResults = [
+            'cross_codebase_scan'    => ['evidence' => ['e1'], 'denial_reason' => null],
+            'capability_rubric_diff' => ['evidence' => [], 'denial_reason' => 'none found'],
+            'atlas_journal_harvest'  => ['evidence' => ['e2'], 'denial_reason' => null],
+        ];
+
+        $r = $this->planner->plan([
+            'verified_count'   => 5,
+            'requested_target' => 100,
+            'escalation_state' => [
+                'attempted_modes'    => $allModes,
+                'evidence_by_mode'   => $evidenceMap,
+                'second_pass_results' => $secondPassResults,
+            ],
+        ]);
+
+        $this->assertTrue($r['honest_exhausted']);
+        $this->assertArrayHasKey('second_pass_strategies', $r);
+    }
+
+    // ── AC2: honest_exhausted refused without second-pass results ─────────────
+
+    public function test_honest_exhausted_refused_when_second_pass_not_run(): void
+    {
+        // All 6 modes have evidence, but no second_pass_results → must refuse honest_exhausted.
+        $allModes = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceMap = array_combine($allModes, array_map(fn ($m) => ["ref-{$m}"], $allModes));
+
+        $r = $this->planner->plan([
+            'verified_count'   => 5,
+            'requested_target' => 100,
+            'escalation_state' => [
+                'attempted_modes'  => $allModes,
+                'evidence_by_mode' => $evidenceMap,
+                // second_pass_results intentionally absent
+            ],
+        ]);
+
+        $this->assertFalse($r['honest_exhausted'], 'must refuse honest_exhausted when second-pass strategies have no results');
+        $this->assertNotEmpty($r['investigations']);
+    }
+
+    public function test_honest_exhausted_refused_when_one_second_pass_strategy_has_no_result(): void
+    {
+        $allModes = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceMap = array_combine($allModes, array_map(fn ($m) => ["ref-{$m}"], $allModes));
+
+        // Only 2 of 3 second-pass strategies have results.
+        $secondPassResults = [
+            'cross_codebase_scan'    => ['evidence' => ['e1'], 'denial_reason' => null],
+            'capability_rubric_diff' => ['evidence' => [], 'denial_reason' => 'none'],
+            // atlas_journal_harvest missing
+        ];
+
+        $r = $this->planner->plan([
+            'verified_count'   => 5,
+            'requested_target' => 100,
+            'escalation_state' => [
+                'attempted_modes'    => $allModes,
+                'evidence_by_mode'   => $evidenceMap,
+                'second_pass_results' => $secondPassResults,
+            ],
+        ]);
+
+        $this->assertFalse($r['honest_exhausted']);
+    }
+
+    public function test_denial_reason_alone_satisfies_second_pass_requirement(): void
+    {
+        $allModes = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceMap = array_combine($allModes, array_map(fn ($m) => ["ref-{$m}"], $allModes));
+
+        // All strategies have denial_reason only (empty evidence).
+        $secondPassResults = [
+            'cross_codebase_scan'    => ['evidence' => [], 'denial_reason' => 'scan exhausted with nothing found'],
+            'capability_rubric_diff' => ['evidence' => [], 'denial_reason' => 'no near-complete dimensions'],
+            'atlas_journal_harvest'  => ['evidence' => [], 'denial_reason' => 'journals already processed'],
+        ];
+
+        $r = $this->planner->plan([
+            'verified_count'   => 5,
+            'requested_target' => 100,
+            'escalation_state' => [
+                'attempted_modes'    => $allModes,
+                'evidence_by_mode'   => $evidenceMap,
+                'second_pass_results' => $secondPassResults,
+            ],
+        ]);
+
+        $this->assertTrue($r['honest_exhausted'], 'denial_reason alone must satisfy the second-pass requirement');
     }
 }
