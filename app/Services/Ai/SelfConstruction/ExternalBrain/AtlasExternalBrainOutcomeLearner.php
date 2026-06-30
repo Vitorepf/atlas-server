@@ -13,9 +13,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *           give_back_count?:int, task_family?:string, worker_id?:string, client_id?:string }>
  *
  * OUTCOME VALUES:
- *   delivered — task completed and committed; positive signal.
- *   give_back — worker returned the task; negative signal weighted by give_back_count.
- *   proxy     — task shipped but was proxy/filler (no real capability gain); stronger negative.
+ *   delivered  — task completed and committed; positive signal.
+ *   give_back  — worker returned the task; negative signal weighted by give_back_count.
+ *   proxy      — task shipped but was proxy/filler (no real capability gain); stronger negative.
+ *   poison     — task is actively harmful or systemically broken; triggers repair recommendation.
+ *   quarantine — task family must be isolated; triggers self_heal recommendation.
  *
  * IMPACT (for delivered outcomes): high | medium | low — scales the positive delta.
  *
@@ -24,15 +26,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     promoted:list<string>, demoted:list<string>,
  *     family_performance:list<FamilyPerf>, give_back_risk:list<GiveBackRisk>,
  *     poison_family_hints:list<PoisonHint>, worker_fit_hints:list<WorkerFit>,
- *     next_wave_adjustments:list<WaveAdj> }
+ *     next_wave_adjustments:list<WaveAdj>, recommendations:list<Recommendation> }
  *
- * Adjustment:    { pattern_family, delta:float[-1.0..+1.0], reason:string }
- * Hint:          { source_category:string, focus:string, priority:float[0..1] }
- * FamilyPerf:    { task_family, total, delivered, give_back, proxy, success_rate }
- * GiveBackRisk:  { task_family, risk_level:'low'|'medium'|'high', give_back_rate }
- * PoisonHint:    { task_family, reason, suggested_action }
- * WorkerFit:     { worker_id, task_family, fit:'strong'|'weak'|'neutral', success_rate }
- * WaveAdj:       { task_family, priority_delta:float, reason:string }
+ * Adjustment:     { pattern_family, delta:float[-1.0..+1.0], reason:string }
+ * Hint:           { source_category:string, focus:string, priority:float[0..1] }
+ * FamilyPerf:     { task_family, total, delivered, give_back, proxy, success_rate }
+ * GiveBackRisk:   { task_family, risk_level:'low'|'medium'|'high', give_back_rate }
+ * PoisonHint:     { task_family, reason, suggested_action }
+ * WorkerFit:      { worker_id, task_family, fit:'strong'|'weak'|'neutral', success_rate }
+ * WaveAdj:        { task_family, priority_delta:float, reason:string }
+ * Recommendation: { task_family, action:'promote'|'avoid'|'repair'|'self_heal', confidence:float, reason:string }
  *
  * INVARIANTS:
  *   - No hidden model prompts, no external calls, no unverifiable claims. Pure output.
@@ -51,6 +54,10 @@ final class AtlasExternalBrainOutcomeLearner
 
     public const OUTCOME_PROXY = 'proxy';
 
+    public const OUTCOME_POISON     = 'poison';
+
+    public const OUTCOME_QUARANTINE = 'quarantine';
+
     public const IMPACT_HIGH   = 'high';
 
     public const IMPACT_MEDIUM = 'medium';
@@ -67,6 +74,10 @@ final class AtlasExternalBrainOutcomeLearner
     private const DELTA_GIVE_BACK_BASE   = -0.20;
 
     private const DELTA_PROXY            = -0.40;
+
+    private const DELTA_POISON           = -0.60;
+
+    private const DELTA_QUARANTINE       = -0.80;
 
     /** Minimum absolute delta before a pattern is considered promoted/demoted. */
     private const PROMOTE_THRESHOLD = 0.01;
@@ -111,23 +122,27 @@ final class AtlasExternalBrainOutcomeLearner
             // ── existing pattern_family accumulation ──
             if ($family !== '') {
                 $delta = match ($outcome) {
-                    self::OUTCOME_DELIVERED => match ($impact) {
+                    self::OUTCOME_DELIVERED  => match ($impact) {
                         self::IMPACT_HIGH => self::DELTA_DELIVERED_HIGH,
                         self::IMPACT_LOW  => self::DELTA_DELIVERED_LOW,
                         default           => self::DELTA_DELIVERED_MEDIUM,
                     },
-                    self::OUTCOME_GIVE_BACK => self::DELTA_GIVE_BACK_BASE * min($giveBackCount, 5),
-                    self::OUTCOME_PROXY     => self::DELTA_PROXY,
+                    self::OUTCOME_GIVE_BACK  => self::DELTA_GIVE_BACK_BASE * min($giveBackCount, 5),
+                    self::OUTCOME_PROXY      => self::DELTA_PROXY,
+                    self::OUTCOME_POISON     => self::DELTA_POISON,
+                    self::OUTCOME_QUARANTINE => self::DELTA_QUARANTINE,
                     default => 0.0,
                 };
 
                 $accumulated[$family] = ($accumulated[$family] ?? 0.0) + $delta;
 
                 $reasons[$family][] = match ($outcome) {
-                    self::OUTCOME_DELIVERED => "delivered:{$impact}",
-                    self::OUTCOME_GIVE_BACK => "give_back:count:{$giveBackCount}",
-                    self::OUTCOME_PROXY     => 'proxy:no_capability_gain',
-                    default                 => "unknown_outcome:{$outcome}",
+                    self::OUTCOME_DELIVERED  => "delivered:{$impact}",
+                    self::OUTCOME_GIVE_BACK  => "give_back:count:{$giveBackCount}",
+                    self::OUTCOME_PROXY      => 'proxy:no_capability_gain',
+                    self::OUTCOME_POISON     => 'poison:harmful_task',
+                    self::OUTCOME_QUARANTINE => 'quarantine:family_isolated',
+                    default                  => "unknown_outcome:{$outcome}",
                 };
             }
 
@@ -137,13 +152,15 @@ final class AtlasExternalBrainOutcomeLearner
 
             if ($taskFamily !== '') {
                 if (! isset($familyStats[$taskFamily])) {
-                    $familyStats[$taskFamily] = ['total' => 0, 'delivered' => 0, 'give_back' => 0, 'proxy' => 0];
+                    $familyStats[$taskFamily] = ['total' => 0, 'delivered' => 0, 'give_back' => 0, 'proxy' => 0, 'poison' => 0, 'quarantine' => 0];
                 }
                 $familyStats[$taskFamily]['total']++;
                 match ($outcome) {
-                    self::OUTCOME_DELIVERED => $familyStats[$taskFamily]['delivered']++,
-                    self::OUTCOME_GIVE_BACK => $familyStats[$taskFamily]['give_back']++,
-                    self::OUTCOME_PROXY     => $familyStats[$taskFamily]['proxy']++,
+                    self::OUTCOME_DELIVERED  => $familyStats[$taskFamily]['delivered']++,
+                    self::OUTCOME_GIVE_BACK  => $familyStats[$taskFamily]['give_back']++,
+                    self::OUTCOME_PROXY      => $familyStats[$taskFamily]['proxy']++,
+                    self::OUTCOME_POISON     => $familyStats[$taskFamily]['poison']++,
+                    self::OUTCOME_QUARANTINE => $familyStats[$taskFamily]['quarantine']++,
                     default => null,
                 };
 
@@ -183,14 +200,14 @@ final class AtlasExternalBrainOutcomeLearner
             }
         }
 
-        $hints = $this->buildNextWaveHints($promoted, $demoted);
-
         // ── Build new task_family output ──
         $familyPerformance   = [];
         $giveBackRisk        = [];
         $poisonFamilyHints   = [];
         $nextWaveAdjustments = [];
         $nextBatchBudget     = [];
+        $recommendations     = [];
+        $focusFamilies       = [];
 
         foreach ($familyStats as $tf => $stats) {
             $successRate  = $stats['total'] > 0 ? round($stats['delivered'] / $stats['total'], 3) : 0.0;
@@ -202,6 +219,8 @@ final class AtlasExternalBrainOutcomeLearner
                 'delivered'    => $stats['delivered'],
                 'give_back'    => $stats['give_back'],
                 'proxy'        => $stats['proxy'],
+                'poison'       => $stats['poison'],
+                'quarantine'   => $stats['quarantine'],
                 'success_rate' => $successRate,
             ];
 
@@ -255,6 +274,21 @@ final class AtlasExternalBrainOutcomeLearner
                 'min_evidence_floor' => $minEvidenceFloor,
                 'risk_cap'           => $riskCap,
             ];
+
+            // Recommendations: concrete policy action derived from the family's outcome mix.
+            $action     = $this->deriveRecommendationAction($stats, $successRate, $giveBackRate);
+            $confidence = $this->deriveRecommendationConfidence($stats, $successRate);
+            $recommendations[] = [
+                'task_family' => $tf,
+                'action'      => $action,
+                'confidence'  => $confidence,
+                'reason'      => $this->deriveRecommendationReason($action, $stats, $successRate, $giveBackRate),
+            ];
+
+            // Track families eligible for focus (high-confidence green).
+            if ($action === 'promote' && $confidence >= 0.70) {
+                $focusFamilies[] = $tf;
+            }
         }
 
         // ── Build worker_fit_hints ──
@@ -276,6 +310,8 @@ final class AtlasExternalBrainOutcomeLearner
             }
         }
 
+        $hints = $this->buildNextWaveHints($promoted, $demoted, $focusFamilies);
+
         return [
             'schema'                => self::SCHEMA,
             'priority_adjustments'  => array_values($adjustments),
@@ -288,34 +324,88 @@ final class AtlasExternalBrainOutcomeLearner
             'worker_fit_hints'      => $workerFitHints,
             'next_wave_adjustments' => $nextWaveAdjustments,
             'next_batch_budget'     => $nextBatchBudget,
+            'recommendations'       => $recommendations,
         ];
     }
 
     /**
      * @param  list<string>  $promoted
      * @param  list<string>  $demoted
+     * @param  list<string>  $focusFamilies
      * @return list<array{source_category:string, focus:string, priority:float}>
      */
-    private function buildNextWaveHints(array $promoted, array $demoted): array
+    private function buildNextWaveHints(array $promoted, array $demoted, array $focusFamilies = []): array
     {
         $hints = [];
 
         foreach ($promoted as $family) {
             $hints[] = [
                 'source_category' => 'internal_patterns',
-                'focus' => "expand_{$family}_patterns_that_delivered",
-                'priority' => 0.8,
+                'focus'           => "expand_{$family}_patterns_that_delivered",
+                'priority'        => 0.8,
             ];
         }
 
         foreach ($demoted as $family) {
             $hints[] = [
                 'source_category' => 'atlas_journals',
-                'focus' => "investigate_why_{$family}_produces_give_back_or_proxy",
-                'priority' => 0.6,
+                'focus'           => "investigate_why_{$family}_produces_give_back_or_proxy",
+                'priority'        => 0.6,
+            ];
+        }
+
+        foreach ($focusFamilies as $family) {
+            $hints[] = [
+                'source_category' => 'compounding_focus',
+                'focus'           => "compound_{$family}_high_confidence_green_batch",
+                'priority'        => 0.95,
             ];
         }
 
         return $hints;
+    }
+
+    /** @param array{delivered:int,give_back:int,proxy:int,poison:int,quarantine:int,total:int} $stats */
+    private function deriveRecommendationAction(array $stats, float $successRate, float $giveBackRate): string
+    {
+        if ($stats['quarantine'] > 0) {
+            return 'self_heal';
+        }
+        if ($stats['poison'] > 0) {
+            return 'repair';
+        }
+        if ($giveBackRate >= 0.50 || $stats['give_back'] >= 2) {
+            return 'avoid';
+        }
+        if ($successRate >= 0.70 && $stats['delivered'] >= 2) {
+            return 'promote';
+        }
+        return 'repair';
+    }
+
+    /** @param array{delivered:int,give_back:int,proxy:int,poison:int,quarantine:int,total:int} $stats */
+    private function deriveRecommendationConfidence(array $stats, float $successRate): float
+    {
+        if ($stats['total'] === 0) {
+            return 0.0;
+        }
+        $base = round($successRate, 2);
+        // More evidence → confidence scales up slightly, capped at 1.0.
+        $evidenceBoost = min(0.20, $stats['total'] * 0.04);
+        return round(min(1.0, $base + $evidenceBoost), 4);
+    }
+
+    /** @param array{delivered:int,give_back:int,proxy:int,poison:int,quarantine:int,total:int} $stats */
+    private function deriveRecommendationReason(string $action, array $stats, float $successRate, float $giveBackRate): string
+    {
+        return match ($action) {
+            'self_heal' => "quarantine_count={$stats['quarantine']}:family_must_be_isolated_before_re-origination",
+            'repair'    => $stats['poison'] > 0
+                ? "poison_count={$stats['poison']}:harmful_tasks_detected_fix_root_cause_first"
+                : "success_rate={$successRate}:low_delivery_confidence_requires_repair",
+            'avoid'     => "give_back_rate={$giveBackRate},give_back_count={$stats['give_back']}:repeated_negative_lowers_priority",
+            'promote'   => "success_rate={$successRate},delivered={$stats['delivered']}:high_confidence_green_compound_next_batch",
+            default     => "success_rate={$successRate}:insufficient_signal",
+        };
     }
 }
