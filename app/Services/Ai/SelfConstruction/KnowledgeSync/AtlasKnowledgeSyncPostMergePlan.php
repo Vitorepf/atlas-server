@@ -61,6 +61,7 @@ final class AtlasKnowledgeSyncPostMergePlan
     {
         $classes = array_values(array_unique($this->classifyFiles($changedFiles)));
         $hasImpl = in_array(self::FILE_CLASS_APP, $classes, true) || in_array(self::FILE_CLASS_MIGRATION, $classes, true);
+        $hasTest = in_array(self::FILE_CLASS_TEST, $classes, true);
         $hasDocs = in_array(self::FILE_CLASS_DOCS, $classes, true);
         $any = $changedFiles !== [];
 
@@ -82,7 +83,11 @@ final class AtlasKnowledgeSyncPostMergePlan
             $actions[] = self::ACTION_REFRESH_CONTEXT_PACK;
             $required[] = self::ACTION_REFRESH_CONTEXT_PACK;
         }
-        if ($hasImpl) {
+        // Implementation changes always need an evidence ledger record (paired with
+        // index_code, in that order). Test-only changes ALSO need evidence recorded —
+        // tests are real proof-bearing changes — but must NOT trigger code indexing,
+        // which only applies when app/migration source actually changed.
+        if ($hasImpl || $hasTest) {
             $actions[] = self::ACTION_RECORD_EVIDENCE_LEDGER;
             $required[] = self::ACTION_RECORD_EVIDENCE_LEDGER;
         }

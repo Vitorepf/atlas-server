@@ -155,6 +155,21 @@ final class AtlasKnowledgeSyncPostMergePlanTest extends TestCase
         $this->assertLessThan($idxEvidence, $idxIndex, 'index_code must precede record_evidence_ledger');
     }
 
+    public function test_tests_only_change_requires_evidence_ledger_but_not_index_code(): void
+    {
+        $plan = (new AtlasKnowledgeSyncPostMergePlan)->planFromChangedFiles([
+            'tests/Unit/Ai/SelfConstruction/FooTest.php',
+        ]);
+
+        $this->assertSame([AtlasKnowledgeSyncPostMergePlan::FILE_CLASS_TEST], $plan['file_classes']);
+        $this->assertFalse($plan['has_impl_changes']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $plan['required_actions']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_REFRESH_MEMORY_PROJECTION, $plan['required_actions']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_REFRESH_CONTEXT_PACK, $plan['required_actions']);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $plan['actions']);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $plan['required_actions']);
+    }
+
     public function test_docs_only_change_has_sync_docs_as_optional_not_in_required(): void
     {
         $plan = (new AtlasKnowledgeSyncPostMergePlan)->planFromChangedFiles([
