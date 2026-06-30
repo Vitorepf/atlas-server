@@ -293,6 +293,112 @@ final class AtlasAiSelfConstructionAgentControlPlaneScopeLockRuntimeValidatorTes
         $this->assertGreaterThan(0, $result['forbidden_axis_count']);
     }
 
+    // ── AC1/AC2: runtime drift, lease overlap, lock proof, commit_decision ─────
+
+    public function test_valid_scope_has_commit_decision_valid(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet());
+
+        $this->assertSame(AgentControlPlaneScopeLockRuntimeValidator::COMMIT_DECISION_VALID, $result['commit_decision']);
+    }
+
+    public function test_edited_files_outside_allowed_scope_triggers_reject_commit(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet(), [
+            'edited_files' => ['app/Services/Ai/SelfConstruction/Foo.php', 'app/Services/Ai/SelfConstruction/Sneaky.php'],
+        ]);
+
+        $this->assertContains('files_edited_outside_allowed_scope', $result['blockers']);
+        $this->assertSame(AgentControlPlaneScopeLockRuntimeValidator::COMMIT_DECISION_REJECT_COMMIT, $result['commit_decision']);
+        $this->assertSame(['app/Services/Ai/SelfConstruction/Sneaky.php'], $result['drifted_files']);
+    }
+
+    public function test_edited_files_within_allowed_scope_does_not_drift(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet(), [
+            'edited_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+        ]);
+
+        $this->assertNotContains('files_edited_outside_allowed_scope', $result['blockers']);
+        $this->assertSame([], $result['drifted_files']);
+    }
+
+    public function test_active_lease_scope_overlap_triggers_reject_commit(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet(), [
+            'active_lease_scopes' => [
+                ['lease_id' => 'lease-other', 'write_set' => ['app/Services/Ai/SelfConstruction/Foo.php']],
+            ],
+        ]);
+
+        $this->assertContains('active_lease_scope_overlap', $result['blockers']);
+        $this->assertSame(AgentControlPlaneScopeLockRuntimeValidator::COMMIT_DECISION_REJECT_COMMIT, $result['commit_decision']);
+        $this->assertSame('lease-other', $result['active_lease_scope_overlaps'][0]['lease_id']);
+    }
+
+    public function test_non_overlapping_active_lease_scope_does_not_block(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet(), [
+            'active_lease_scopes' => [
+                ['lease_id' => 'lease-other', 'write_set' => ['app/Services/Ai/SelfConstruction/Unrelated.php']],
+            ],
+        ]);
+
+        $this->assertNotContains('active_lease_scope_overlap', $result['blockers']);
+        $this->assertSame([], $result['active_lease_scope_overlaps']);
+    }
+
+    public function test_missing_lock_proof_blocks_when_required(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet(), [
+            'require_lock_proof' => true,
+        ]);
+
+        $this->assertContains('missing_lock_proof', $result['blockers']);
+        $this->assertSame(AgentControlPlaneScopeLockRuntimeValidator::COMMIT_DECISION_REJECT_COMMIT, $result['commit_decision']);
+        $this->assertFalse($result['lock_proof_valid']);
+    }
+
+    public function test_valid_lock_proof_satisfies_requirement(): void
+    {
+        $packet = $this->packet();
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($packet, [
+            'require_lock_proof' => true,
+            'lock_proof' => $packet['task_packet_id'],
+        ]);
+
+        $this->assertNotContains('missing_lock_proof', $result['blockers']);
+        $this->assertTrue($result['lock_proof_valid']);
+    }
+
+    public function test_lock_proof_not_required_leaves_field_null(): void
+    {
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($this->packet());
+
+        $this->assertNull($result['lock_proof_valid']);
+    }
+
+    public function test_soft_blocker_only_yields_repair_required(): void
+    {
+        $packet = $this->packetWith(['rollback_strategy' => '']);
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($packet);
+
+        $this->assertContains('rollback_strategy_missing', $result['blockers']);
+        $this->assertSame(AgentControlPlaneScopeLockRuntimeValidator::COMMIT_DECISION_REPAIR_REQUIRED, $result['commit_decision']);
+    }
+
+    public function test_hard_blocker_takes_priority_over_soft_blocker(): void
+    {
+        $packet = $this->packetWith(['rollback_strategy' => '']);
+        $result = (new AgentControlPlaneScopeLockRuntimeValidator)->validate($packet, [
+            'require_lock_proof' => true,
+        ]);
+
+        $this->assertContains('rollback_strategy_missing', $result['blockers']);
+        $this->assertContains('missing_lock_proof', $result['blockers']);
+        $this->assertSame(AgentControlPlaneScopeLockRuntimeValidator::COMMIT_DECISION_REJECT_COMMIT, $result['commit_decision']);
+    }
+
     /**
      * @return array<string, mixed>
      */

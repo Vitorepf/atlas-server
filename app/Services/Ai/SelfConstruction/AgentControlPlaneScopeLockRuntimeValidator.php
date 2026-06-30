@@ -44,6 +44,25 @@ final class AgentControlPlaneScopeLockRuntimeValidator
 
     public const ALLOWED_RISK_LEVELS_BLOCKED = ['high', 'critical'];
 
+    public const COMMIT_DECISION_VALID          = 'valid';
+    public const COMMIT_DECISION_REPAIR_REQUIRED = 'repair_required';
+    public const COMMIT_DECISION_REJECT_COMMIT   = 'reject_commit';
+
+    /**
+     * Hard blockers force reject_commit (security/integrity violations); everything else is
+     * recoverable by the packet author and only forces repair_required.
+     */
+    public const HARD_BLOCKERS = [
+        'forbidden_overlap',
+        'path_traversal',
+        'forbidden_axis',
+        'risk_level_too_high_for_runtime_claim',
+        'task_packet_not_planned',
+        'files_edited_outside_allowed_scope',
+        'active_lease_scope_overlap',
+        'missing_lock_proof',
+    ];
+
     /**
      * @param  array<string, mixed>  $taskPacket
      * @param  array<string, mixed>  $options
@@ -130,7 +149,47 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             $blockers[] = 'task_packet_not_planned';
         }
 
+        // AC1: runtime drift detection — only evaluated when the caller supplies what was
+        // actually edited / who else is active, so the pre-commit-only validation path stays
+        // unchanged when those options are absent (AC4: preserve existing commit model).
+        $editedFilesProvided = array_key_exists('edited_files', $options);
+        $driftedFiles = [];
+        if ($editedFilesProvided) {
+            $editedFiles = $this->normalize((array) $options['edited_files']);
+            $driftedFiles = array_values(array_diff($editedFiles, $allowed));
+            if ($driftedFiles !== []) {
+                $blockers[] = 'files_edited_outside_allowed_scope';
+            }
+        }
+
+        $activeLeaseOverlaps = [];
+        foreach ((array) ($options['active_lease_scopes'] ?? []) as $lease) {
+            $leaseId = (string) ($lease['lease_id'] ?? '');
+            $leaseWriteSet = $this->normalize((array) ($lease['write_set'] ?? []));
+            $overlap = array_values(array_intersect($allowed, $leaseWriteSet));
+            if ($overlap !== []) {
+                $activeLeaseOverlaps[] = ['lease_id' => $leaseId, 'overlapping_files' => $overlap];
+            }
+        }
+        if ($activeLeaseOverlaps !== []) {
+            $blockers[] = 'active_lease_scope_overlap';
+        }
+
+        $requireLockProof = (bool) ($options['require_lock_proof'] ?? false);
+        $lockProof = isset($options['lock_proof']) ? (string) $options['lock_proof'] : null;
+        $hasValidLockProof = $lockProof !== null && $lockProof !== '' && $lockProof === (string) ($taskPacket['task_packet_id'] ?? '');
+        if ($requireLockProof && ! $hasValidLockProof) {
+            $blockers[] = 'missing_lock_proof';
+        }
+
         $status = $blockers === [] ? 'valid' : 'blocked';
+
+        $hasHardBlocker = array_intersect($blockers, self::HARD_BLOCKERS) !== [];
+        $commitDecision = match (true) {
+            $blockers === [] => self::COMMIT_DECISION_VALID,
+            $hasHardBlocker => self::COMMIT_DECISION_REJECT_COMMIT,
+            default => self::COMMIT_DECISION_REPAIR_REQUIRED,
+        };
 
         $normalizedScopeLock = [
             'allowed_files' => $allowed,
@@ -155,10 +214,14 @@ final class AgentControlPlaneScopeLockRuntimeValidator
             'mode' => self::MODE,
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'status' => $status,
+            'commit_decision' => $commitDecision,
             'task_packet_id' => (string) ($taskPacket['task_packet_id'] ?? ''),
             'task_packet_hash' => (string) ($taskPacket['task_packet_hash'] ?? ''),
             'blockers' => $blockers,
             'warnings' => $warnings,
+            'drifted_files' => $driftedFiles,
+            'active_lease_scope_overlaps' => $activeLeaseOverlaps,
+            'lock_proof_valid' => $requireLockProof ? $hasValidLockProof : null,
             'normalized_scope_lock' => $normalizedScopeLock,
             'scope_lock_hash' => $scopeLockHash,
             'forbidden_axis_count' => count($axisHits),
