@@ -34,6 +34,9 @@ final class AtlasSelfConstructionCortexSnapshotComposer
 
     public const REQUIRED_SECTIONS = ['inventory', 'freshness', 'risk_gaps', 'queue_state', 'task_coverage', 'evidence_refs'];
 
+    /** Optional sections: included in snapshot+hash when provided; surfaced as a warning when absent. */
+    public const OPTIONAL_SECTIONS = ['domain_map', 'worker_outcomes', 'project_lanes'];
+
     /**
      * @param  array<string,array<string,mixed>>  $sections
      * @return array{schema:string, status:string, blockers:list<string>, snapshot:array<string,array<string,mixed>>, snapshot_hash:string}
@@ -82,12 +85,13 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             $queueSummary['dry']     = isset($qs['dry']) ? (bool) $qs['dry'] : null;
         }
 
-        // Optional domain_map: included in snapshot+hash when provided; surfaced as warning when absent.
         $warnings = [];
-        if (isset($sections['domain_map']) && is_array($sections['domain_map'])) {
-            $snapshot['domain_map'] = $sections['domain_map'];
-        } else {
-            $warnings[] = 'optional_domain_map_missing';
+        foreach (self::OPTIONAL_SECTIONS as $name) {
+            if (isset($sections[$name]) && is_array($sections[$name])) {
+                $snapshot[$name] = $sections[$name];
+            } else {
+                $warnings[] = 'optional_'.$name.'_missing';
+            }
         }
 
         $canonical = $snapshot;

@@ -217,4 +217,40 @@ final class AtlasSelfConstructionCortexSnapshotComposerTest extends TestCase
         $this->assertSame('governance', $organ['owner_lane']);
         $this->assertSame('add_rollback_path', $organ['next_leverage_gap']);
     }
+
+    // ── worker_outcomes / project_lanes (optional sections) ────────────────────
+
+    public function test_worker_outcomes_included_in_snapshot_when_provided(): void
+    {
+        $sections = $this->completeSections();
+        $sections['worker_outcomes'] = ['by_client' => ['claude-muscle-4' => ['success' => 10, 'give_back' => 2]]];
+
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($sections);
+
+        $this->assertSame(AtlasSelfConstructionCortexSnapshotComposer::STATUS_READY, $r['status']);
+        $this->assertArrayHasKey('worker_outcomes', $r['snapshot']);
+        $this->assertSame($sections['worker_outcomes'], $r['snapshot']['worker_outcomes']);
+    }
+
+    public function test_project_lanes_included_in_snapshot_when_provided(): void
+    {
+        $sections = $this->completeSections();
+        $sections['project_lanes'] = ['lanes' => ['loop', 'cortex', 'maestro']];
+
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($sections);
+
+        $this->assertSame(AtlasSelfConstructionCortexSnapshotComposer::STATUS_READY, $r['status']);
+        $this->assertArrayHasKey('project_lanes', $r['snapshot']);
+        $this->assertSame($sections['project_lanes'], $r['snapshot']['project_lanes']);
+    }
+
+    public function test_missing_worker_outcomes_and_project_lanes_surface_as_optional_warnings_not_blockers(): void
+    {
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->completeSections());
+
+        $this->assertSame(AtlasSelfConstructionCortexSnapshotComposer::STATUS_READY, $r['status']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertContains('optional_worker_outcomes_missing', $r['warnings']);
+        $this->assertContains('optional_project_lanes_missing', $r['warnings']);
+    }
 }
