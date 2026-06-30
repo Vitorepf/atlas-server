@@ -111,6 +111,50 @@ final class AtlasExternalBrainMetaCycleCheckpoint
 
         $recommendation = $this->recommend($queuePressure, $tasksEnqueued, $tasksSkipped, $valRate, $valFailed);
 
+        // Cross-cycle continuity sections (AC2). Each is optional input; capture() only
+        // PASSES THEM THROUGH compactly — it never invents content for a missing section.
+        $domainMapSummary       = is_array($cycle['domain_map_summary']       ?? null) ? $cycle['domain_map_summary']       : null;
+        $queuedTargetDigest     = is_array($cycle['queued_target_digest']     ?? null) ? $cycle['queued_target_digest']     : null;
+        $outcomeLearningDigest  = is_array($cycle['outcome_learning_digest']  ?? null) ? $cycle['outcome_learning_digest']  : null;
+        $nextFrontier           = isset($cycle['next_frontier']) ? trim((string) $cycle['next_frontier']) : null;
+
+        $rejectedCandidates = is_array($cycle['rejected_candidates'] ?? null) ? $cycle['rejected_candidates'] : null;
+        $rejectedCandidateDigest = null;
+        if ($rejectedCandidates !== null) {
+            $byReason = [];
+            foreach ($rejectedCandidates as $rejected) {
+                if (! is_array($rejected)) {
+                    continue;
+                }
+                $reason = (string) ($rejected['reason'] ?? 'unspecified');
+                $byReason[$reason] = ($byReason[$reason] ?? 0) + 1;
+            }
+            $rejectedCandidateDigest = [
+                'total'     => count($rejectedCandidates),
+                'by_reason' => $byReason,
+            ];
+        }
+
+        $sections = [
+            'domain_map_summary'       => $domainMapSummary,
+            'queued_target_digest'     => $queuedTargetDigest,
+            'rejected_candidate_digest' => $rejectedCandidateDigest,
+            'outcome_learning_digest'  => $outcomeLearningDigest,
+            'next_frontier'            => $nextFrontier !== '' ? $nextFrontier : null,
+        ];
+
+        $continuationUnsafeReasons = [];
+        foreach ($sections as $sectionName => $sectionValue) {
+            if ($sectionValue === null) {
+                $continuationUnsafeReasons[] = "missing:{$sectionName}";
+                continue;
+            }
+            if (is_array($sectionValue) && (bool) ($sectionValue['stale'] ?? false) === true) {
+                $continuationUnsafeReasons[] = "stale:{$sectionName}";
+            }
+        }
+        $continuationSafe = $continuationUnsafeReasons === [];
+
         $checkpoint = [
             'cycle_id'                  => $cycleId,
             'recorded_at'               => $recordedAt,
@@ -126,6 +170,13 @@ final class AtlasExternalBrainMetaCycleCheckpoint
             ],
             'carryover_notes'           => $carryoverNotes,
             'next_cycle_recommendation' => $recommendation,
+            'domain_map_summary'        => $domainMapSummary,
+            'queued_target_digest'      => $queuedTargetDigest,
+            'rejected_candidate_digest' => $rejectedCandidateDigest,
+            'outcome_learning_digest'   => $outcomeLearningDigest,
+            'next_frontier'             => $sections['next_frontier'],
+            'continuation_safe'         => $continuationSafe,
+            'continuation_unsafe_reasons' => $continuationUnsafeReasons,
         ];
 
         $this->history[] = $checkpoint;

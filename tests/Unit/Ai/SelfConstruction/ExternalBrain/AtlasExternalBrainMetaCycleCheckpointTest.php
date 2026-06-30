@@ -80,6 +80,79 @@ final class AtlasExternalBrainMetaCycleCheckpointTest extends TestCase
         $this->assertSame(0.8, $result['checkpoint']['validation_results']['rate']);
     }
 
+    // ── continuity sections (AC2/AC3) ────────────────────────────────────────
+
+    private function fullContinuityCycle(array $overrides = []): array
+    {
+        return $this->validCycle(array_merge([
+            'domain_map_summary'      => ['areas_covered' => 5, 'top_area' => 'external_brain'],
+            'queued_target_digest'    => ['count' => 7, 'families' => ['poison_repair']],
+            'rejected_candidates'     => [
+                ['candidate_id' => 'c1', 'reason' => 'duplicate'],
+                ['candidate_id' => 'c2', 'reason' => 'duplicate'],
+                ['candidate_id' => 'c3', 'reason' => 'low_leverage'],
+            ],
+            'outcome_learning_digest' => ['success_rate' => 0.72, 'families_learned' => 4],
+            'next_frontier'           => 'harden_quarantine_repair_loop',
+        ], $overrides));
+    }
+
+    public function test_continuity_sections_captured_and_continuation_safe(): void
+    {
+        $result = $this->cp()->capture($this->fullContinuityCycle());
+        $cp = $result['checkpoint'];
+
+        $this->assertSame(['areas_covered' => 5, 'top_area' => 'external_brain'], $cp['domain_map_summary']);
+        $this->assertSame(['count' => 7, 'families' => ['poison_repair']], $cp['queued_target_digest']);
+        $this->assertSame(['success_rate' => 0.72, 'families_learned' => 4], $cp['outcome_learning_digest']);
+        $this->assertSame('harden_quarantine_repair_loop', $cp['next_frontier']);
+        $this->assertTrue($cp['continuation_safe']);
+        $this->assertSame([], $cp['continuation_unsafe_reasons']);
+    }
+
+    public function test_rejected_candidate_digest_groups_by_reason(): void
+    {
+        $result = $this->cp()->capture($this->fullContinuityCycle());
+        $digest = $result['checkpoint']['rejected_candidate_digest'];
+
+        $this->assertSame(3, $digest['total']);
+        $this->assertSame(['duplicate' => 2, 'low_leverage' => 1], $digest['by_reason']);
+    }
+
+    public function test_missing_required_section_marks_continuation_unsafe(): void
+    {
+        $cycle = $this->fullContinuityCycle();
+        unset($cycle['next_frontier']);
+
+        $result = $this->cp()->capture($cycle);
+        $cp = $result['checkpoint'];
+
+        $this->assertFalse($cp['continuation_safe']);
+        $this->assertContains('missing:next_frontier', $cp['continuation_unsafe_reasons']);
+    }
+
+    public function test_stale_section_marks_continuation_unsafe(): void
+    {
+        $cycle = $this->fullContinuityCycle([
+            'domain_map_summary' => ['areas_covered' => 5, 'stale' => true],
+        ]);
+
+        $result = $this->cp()->capture($cycle);
+        $cp = $result['checkpoint'];
+
+        $this->assertFalse($cp['continuation_safe']);
+        $this->assertContains('stale:domain_map_summary', $cp['continuation_unsafe_reasons']);
+    }
+
+    public function test_no_continuity_sections_supplied_marks_unsafe_with_all_missing(): void
+    {
+        $result = $this->cp()->capture($this->validCycle());
+        $cp = $result['checkpoint'];
+
+        $this->assertFalse($cp['continuation_safe']);
+        $this->assertCount(5, $cp['continuation_unsafe_reasons']);
+    }
+
     public function test_capture_validation_rate_zero_when_no_results(): void
     {
         $result = $this->cp()->capture($this->validCycle([
