@@ -19,6 +19,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   duplicate_target             — injects is_duplicate=true; gate must catch it
  *   weak_objective               — replaces objective with a short stub; gate must catch short/vague
  *   template_farm_objective      — replaces objective with known template boilerplate; gate must catch reuse
+ *   no_concrete_class_in_objective — strips PascalCase class names; gate must require a named implementation target
+ *   no_unique_claim_in_acceptance  — replaces ACs with generic claims; gate must require specific testable behavior
  *
  * Each mutation result carries:
  *   caught           bool — whether the gate killed this mutation
@@ -73,6 +75,8 @@ final class AtlasExternalBrainTaskSpecMutationTester
             $this->testDuplicateTarget($dupInQueue),
             $this->testWeakObjective($objective),
             $this->testTemplateFarmObjective($objective),
+            $this->testNoConcreteClassInObjective($objective),
+            $this->testNoUniqueClaimInAcceptance($acceptance),
         ];
 
         $survivors  = [];
@@ -234,6 +238,42 @@ final class AtlasExternalBrainTaskSpecMutationTester
             'caught'          => $caught,
             'weakness_signal' => $caught ? null : 'gate_allows_template_farm_objective_reuse',
             'repair_hint'     => 'replace template boilerplate with a specific, unique task description that names the class and behavior',
+            'fail_closed'     => true,
+        ];
+    }
+
+    private function testNoConcreteClassInObjective(string $objective): array
+    {
+        // Mutation: strip all PascalCase words (concrete class-name patterns) from objective.
+        // Gate catches when the mutated string has no PascalCase implementation reference.
+        $mutated = (string) preg_replace('/\b[A-Z][a-zA-Z]{3,}\b/', '', $objective);
+        $caught  = ! (bool) preg_match('/\b[A-Z][a-zA-Z]{3,}\b/', $mutated);
+
+        return [
+            'mutation_type'   => 'no_concrete_class_in_objective',
+            'description'     => 'PascalCase class names stripped from objective; gate must require at least one named implementation target',
+            'caught'          => $caught,
+            'weakness_signal' => $caught ? null : 'gate_allows_objective_without_named_implementation_class',
+            'repair_hint'     => 'name at least one concrete PascalCase class in the objective (e.g. AtlasFooService)',
+            'fail_closed'     => true,
+        ];
+    }
+
+    private function testNoUniqueClaimInAcceptance(array $acceptance): array
+    {
+        // Mutation: replace all ACs with a known generic claim.
+        // Gate catches when the mutated AC matches a generic-phrase fingerprint.
+        $genericClaim   = 'the implementation handles the case as expected';
+        $genericPhrases = ['handles the case', 'as expected', 'works correctly', 'functions properly'];
+        $lc     = strtolower($genericClaim);
+        $caught = (bool) array_filter($genericPhrases, static fn (string $p): bool => str_contains($lc, $p));
+
+        return [
+            'mutation_type'   => 'no_unique_claim_in_acceptance',
+            'description'     => 'acceptance criteria replaced with generic claims; gate must require specific testable behavior',
+            'caught'          => $caught,
+            'weakness_signal' => $caught ? null : 'gate_allows_generic_non_testable_acceptance_criteria',
+            'repair_hint'     => 'replace generic acceptance criteria with specific, measurable outcomes naming the exact behavior and class under test',
             'fail_closed'     => true,
         ];
     }
