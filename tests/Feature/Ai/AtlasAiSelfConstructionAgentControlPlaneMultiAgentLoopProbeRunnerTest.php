@@ -91,6 +91,134 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame($runnerResult, $runtimeResult);
     }
 
+    // ── AC1/AC2/AC3: probeParallelism — real progress vs fake parallelism ──────
+
+    private function worker(array $overrides = []): array
+    {
+        return array_merge([
+            'worker_id' => 'w1',
+            'active' => true,
+            'lease_moved' => false,
+            'report_events_count' => 0,
+            'outcome_freshness_seconds' => null,
+        ], $overrides);
+    }
+
+    public function test_no_active_workers_is_idle(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker(['active' => false])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_IDLE, $result['parallelism_status']);
+        $this->assertSame([], $result['active_workers']);
+    }
+
+    public function test_active_workers_with_zero_movement_and_flat_queue_is_fake_parallelism(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [
+                $this->worker(['worker_id' => 'w1']),
+                $this->worker(['worker_id' => 'w2']),
+            ],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_FAKE, $result['parallelism_status']);
+        $this->assertSame(['w1', 'w2'], $result['active_workers']);
+        $this->assertSame([], $result['productive_workers']);
+        $this->assertSame(['w1', 'w2'], $result['stale_workers']);
+    }
+
+    public function test_lease_movement_marks_worker_productive(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker(['lease_moved' => true])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_REAL, $result['parallelism_status']);
+        $this->assertSame(['w1'], $result['productive_workers']);
+    }
+
+    public function test_report_events_mark_worker_productive(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker(['report_events_count' => 2])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(['w1'], $result['productive_workers']);
+    }
+
+    public function test_fresh_outcome_marks_worker_productive(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker(['outcome_freshness_seconds' => 30.0])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(['w1'], $result['productive_workers']);
+    }
+
+    public function test_stale_outcome_does_not_mark_worker_productive(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker(['outcome_freshness_seconds' => 9999.0])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame([], $result['productive_workers']);
+        $this->assertSame(['w1'], $result['stale_workers']);
+    }
+
+    public function test_queue_depth_decrease_prevents_fake_parallelism_even_without_per_worker_signal(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker()],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 6,
+        ]);
+
+        $this->assertNotSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_FAKE, $result['parallelism_status']);
+        $this->assertSame(4, $result['queue_depth_change']);
+    }
+
+    public function test_mixed_productive_and_stale_workers_is_partial_parallelism(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [
+                $this->worker(['worker_id' => 'w1', 'lease_moved' => true]),
+                $this->worker(['worker_id' => 'w2']),
+            ],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_PARTIAL, $result['parallelism_status']);
+        $this->assertSame(['w1'], $result['productive_workers']);
+        $this->assertSame(['w2'], $result['stale_workers']);
+    }
+
+    public function test_probe_parallelism_is_deterministic(): void
+    {
+        $input = [
+            'workers' => [$this->worker(['lease_moved' => true]), $this->worker(['worker_id' => 'w2'])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 8,
+        ];
+        $runner = $this->makeRunner();
+
+        $this->assertSame($runner->probeParallelism($input), $runner->probeParallelism($input));
+    }
+
     /**
      * Wire up a runner directly via the container, using in-memory fakes.
      */

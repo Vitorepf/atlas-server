@@ -1105,4 +1105,117 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
             ],
         ];
     }
+
+    public const PARALLELISM_STATUS_IDLE = 'idle';
+    public const PARALLELISM_STATUS_FAKE = 'fake_parallelism';
+    public const PARALLELISM_STATUS_PARTIAL = 'partial_parallelism';
+    public const PARALLELISM_STATUS_REAL = 'real_parallelism';
+
+    public const DEFAULT_OUTCOME_FRESHNESS_THRESHOLD_SECONDS = 600;
+
+    /**
+     * Probes whether multiple muscles are making REAL parallel progress, not just running as
+     * active processes. Active process count alone is a vanity signal — a worker can be "alive"
+     * (process up, lease held) while producing zero actual movement. This combines four
+     * independent productivity signals per worker (lease movement, report events, outcome
+     * freshness) plus a global queue-depth check, so a worker only counts as productive when at
+     * least one real signal fired.
+     *
+     * INPUT:
+     *   workers: list<{
+     *     worker_id: string,
+     *     active: bool,                         // process/lease currently held
+     *     lease_moved: bool,                     // claim/renew/release advanced since last probe
+     *     report_events_count: int,              // report events emitted during the probe window
+     *     outcome_freshness_seconds: float|null,  // seconds since this worker's last outcome
+     *   }>
+     *   queue_depth_before: int
+     *   queue_depth_after: int
+     *   outcome_freshness_threshold_seconds?: int (default 600)
+     *
+     * OUTPUT:
+     *   { parallelism_status, active_workers, productive_workers, stale_workers,
+     *     queue_depth_change, per_worker }
+     *
+     * parallelism_status:
+     *   idle               — no active workers
+     *   fake_parallelism   — active workers present but zero per-worker productivity AND queue
+     *                        depth did not improve (the exact failure mode this probe exists for)
+     *   partial_parallelism — some but not all active workers are productive
+     *   real_parallelism   — every active worker is productive
+     *
+     * Pure / deterministic — takes a snapshot, never polls live processes itself.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function probeParallelism(array $input): array
+    {
+        $workers = is_array($input['workers'] ?? null) ? $input['workers'] : [];
+        $queueDepthBefore = (int) ($input['queue_depth_before'] ?? 0);
+        $queueDepthAfter = (int) ($input['queue_depth_after'] ?? 0);
+        $freshnessThreshold = (int) ($input['outcome_freshness_threshold_seconds'] ?? self::DEFAULT_OUTCOME_FRESHNESS_THRESHOLD_SECONDS);
+
+        $queueDepthChange = $queueDepthBefore - $queueDepthAfter;
+        $queueMovedGlobally = $queueDepthChange > 0;
+
+        $perWorker = [];
+        $activeWorkers = [];
+        $productiveWorkers = [];
+        $staleWorkers = [];
+
+        foreach ($workers as $worker) {
+            if (! is_array($worker)) {
+                continue;
+            }
+
+            $workerId = (string) ($worker['worker_id'] ?? '');
+            $active = (bool) ($worker['active'] ?? false);
+            $leaseMoved = (bool) ($worker['lease_moved'] ?? false);
+            $reportEvents = max(0, (int) ($worker['report_events_count'] ?? 0));
+            $freshness = isset($worker['outcome_freshness_seconds']) ? (float) $worker['outcome_freshness_seconds'] : null;
+            $outcomeFresh = $freshness !== null && $freshness <= $freshnessThreshold;
+
+            $productive = $leaseMoved || $reportEvents > 0 || $outcomeFresh;
+
+            $perWorker[] = [
+                'worker_id' => $workerId,
+                'active' => $active,
+                'productive' => $active && $productive,
+                'lease_moved' => $leaseMoved,
+                'report_events_count' => $reportEvents,
+                'outcome_fresh' => $outcomeFresh,
+            ];
+
+            if (! $active) {
+                continue;
+            }
+
+            $activeWorkers[] = $workerId;
+            if ($productive) {
+                $productiveWorkers[] = $workerId;
+            } else {
+                $staleWorkers[] = $workerId;
+            }
+        }
+
+        $activeCount = count($activeWorkers);
+        $productiveCount = count($productiveWorkers);
+
+        $parallelismStatus = match (true) {
+            $activeCount === 0 => self::PARALLELISM_STATUS_IDLE,
+            $productiveCount === 0 && ! $queueMovedGlobally => self::PARALLELISM_STATUS_FAKE,
+            $productiveCount === $activeCount => self::PARALLELISM_STATUS_REAL,
+            default => self::PARALLELISM_STATUS_PARTIAL,
+        };
+
+        return [
+            'parallelism_status' => $parallelismStatus,
+            'active_workers' => $activeWorkers,
+            'productive_workers' => $productiveWorkers,
+            'stale_workers' => $staleWorkers,
+            'queue_depth_change' => $queueDepthChange,
+            'per_worker' => $perWorker,
+        ];
+    }
 }
