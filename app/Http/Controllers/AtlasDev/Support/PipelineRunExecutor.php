@@ -1051,6 +1051,11 @@ final class PipelineRunExecutor implements RunExecutor
             verificationReceiptHash: $receipt->receiptHash,
             scopeGuardReceiptHash: $scopeReceipt->receiptHash,
             diffHash: $diffResult->diffHash(),
+            // VAL-M2-030: surface the CompletionStateGate decision reasons
+            // (incl. the specific elevation trip condition when a hard gate
+            // forced STATUS_FAILED) on the run result so the CLI `--json`
+            // receipt names WHICH gate tripped and WHY.
+            reasons: array_values($decision->reasons),
         );
     }
 

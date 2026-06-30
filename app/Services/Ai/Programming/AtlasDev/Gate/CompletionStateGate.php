@@ -116,6 +116,21 @@ final class CompletionStateGate
         if ($verificationResult->aggregateStatus === VerificationGateResult::STATUS_FAILED) {
             $reasons[] = 'verification_failed';
 
+            // VAL-M2-030: when a hard elevation forced STATUS_FAILED, the
+            // honesty flags name the SPECIFIC trip condition (e.g.
+            // `intent_likely_not_addressed`, `shadow_diff_regression`,
+            // `regression_detected`, `mutation_score_below_threshold`,
+            // `spec_constitution_violation`). Surface those flags in the
+            // reasons so the operator can tell WHICH gate tripped and WHY
+            // from the CLI receipt — not just a bare `verification_failed`.
+            // A plain test failure (no elevation flags) keeps the bare
+            // `verification_failed` reason unchanged. The flags are already
+            // deduped/order-preserved by withHonestyFlags, so the reasons
+            // mirror that stable order.
+            foreach ($honestyFlags as $flag) {
+                $reasons[] = $flag;
+            }
+
             // Repair is OUT OF SCOPE for this slice. We just report failed.
             // Future repair loop (Fatia 4) decides whether to retry.
             return new CompletionDecision(

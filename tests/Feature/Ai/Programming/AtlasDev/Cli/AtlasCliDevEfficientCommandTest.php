@@ -261,6 +261,71 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
     }
 
     /**
+     * VAL-M2-030: a hard gate failure surfaces a clear `failed` status with
+     * the trip reason in the CLI receipt. From the operator's perspective
+     * running `atlas dev '<task>' --yes --json`, a `failed` completion yields
+     * `--json` output with `run.completion_state === 'failed'` (not
+     * `needs_review`, not `passed`), a NON-ZERO exit code (an honest failure
+     * signal — never 0 masquerading as success), and the `reasons` array
+     * naming the specific trip condition (e.g. `intent_likely_not_addressed`)
+     * alongside the generic `verification_failed`.
+     *
+     * The fake executor returns a `failed` RunExecutionResult carrying the
+     * elevation-trip reasons (mirroring what the real PipelineRunExecutor
+     * produces after a hard E1 trip); the handler must map that to a
+     * non-zero exit code and surface the reasons in the `run` JSON object.
+     */
+    public function test_val_m2_030_failed_completion_surfaces_non_zero_exit_code_and_trip_reason(): void
+    {
+        $fake = new FakeCliRunExecutor(new RunExecutionResult(
+            completionState: 'failed',
+            scopeGuardStatus: 'passed',
+            verificationStatus: 'failed',
+            persistedReceiptPaths: [
+                'verification_receipt.json' => $this->tmpStorage.'/dev-fake/verification_receipt.json',
+            ],
+            providerCallSummary: [
+                'provider' => 'claude_cli',
+                'model_family' => 'sonnet',
+                'provider_calls' => 1,
+                'exit_code' => 0,
+                'duration_ms' => 1200,
+                'tokens_in' => 100,
+                'tokens_out' => 50,
+                'estimated_cost_usd' => 0.01,
+                'error_codes' => [],
+            ],
+            verificationReceiptHash: str_repeat('a', 64),
+            scopeGuardReceiptHash: str_repeat('b', 64),
+            diffHash: str_repeat('c', 64),
+            reasons: ['verification_failed', 'intent_likely_not_addressed'],
+        ));
+        $this->app->instance(RunExecutor::class, $fake);
+        config()->set('atlas_dev.efficient.run_enabled', true);
+
+        $output = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--yes' => true,
+            '--json' => true,
+        ], expectedExit: 1);
+
+        // VAL-M2-030: completion_state is `failed` (not passed, not needs_review).
+        $this->assertStringContainsString('"completion_state": "failed"', $output, 'VAL-M2-030: a hard gate failure must surface completion_state=failed.');
+        $this->assertStringNotContainsString('"completion_state": "passed"', $output, 'VAL-M2-030: a hard gate failure must never masquerade as passed.');
+
+        // VAL-M2-030: the reasons array names the specific trip condition
+        // (the elevation flag), surfaced in the `run` JSON object so the
+        // operator can tell WHICH gate tripped and WHY.
+        $this->assertStringContainsString('"reasons"', $output, 'VAL-M2-030: the run object must carry a reasons array.');
+        $this->assertStringContainsString('intent_likely_not_addressed', $output, 'VAL-M2-030: the reasons must name the specific trip condition.');
+        $this->assertStringContainsString('verification_failed', $output, 'VAL-M2-030: the reasons must include the generic verification_failed.');
+        $this->assertNoAbsolutePaths($output);
+        $this->assertCount(1, $fake->calls, 'The failed run must still reach the RunExecutor.');
+    }
+
+    /**
      * VAL-M1-003: turning the spine ON gates execution, not planning. Without
      * --yes the CLI computes the plan and returns confirmation_required (exit
      * 0) with NO run object and NO ATLAS_DEV_RUN_DISABLED error — the run

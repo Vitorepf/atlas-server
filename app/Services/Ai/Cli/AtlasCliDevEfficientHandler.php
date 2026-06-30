@@ -49,6 +49,17 @@ final class AtlasCliDevEfficientHandler
 
     public const OUTCOME_RUN_FAILED = 'run_failed';
 
+    /**
+     * The run completed honestly but the gates firmly blocked it
+     * (completion_state `failed` or `blocked`). Distinct from
+     * OUTCOME_RUN_FAILED (a run that CRASHED) and OUTCOME_OK (a proven
+     * `passed`): the run processed fine, the result is an honest firm
+     * non-success. Mapped to a NON-ZERO exit code (VAL-M2-030) so the
+     * operator / CI sees an honest failure signal, never 0 masquerading
+     * as success.
+     */
+    public const OUTCOME_RUN_NOT_PASSED = 'run_not_passed';
+
     public function __construct(
         private readonly AtlasDevFastPathOrchestrator $orchestrator,
         private readonly AtlasCliDevAdapter $adapter,
@@ -184,6 +195,18 @@ final class AtlasCliDevEfficientHandler
             ],
         );
         $body['confirmation_required'] = false;
+
+        // VAL-M2-030: an honest firm failure (a hard gate trip -> `failed`,
+        // or `blocked`) surfaces a NON-ZERO exit code so the operator / CI
+        // sees an honest failure signal — never 0 masquerading as success.
+        // Soft non-success (`needs_review` / `no_patch_needed` /
+        // `escalate_forge`) stays exit 0: the run completed and the operator
+        // decides the next step. A proven `passed` is exit 0. The `run`
+        // body still carries completion_state + verification_status +
+        // reasons so the operator can tell WHICH gate tripped and WHY.
+        if (in_array($runResult->completionState, ['failed', 'blocked'], true)) {
+            return $this->ok(self::OUTCOME_RUN_NOT_PASSED, 1, $body);
+        }
 
         return $this->ok(self::OUTCOME_OK, 0, $body);
     }

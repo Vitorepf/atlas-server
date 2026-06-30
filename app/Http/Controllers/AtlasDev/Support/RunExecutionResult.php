@@ -34,6 +34,7 @@ final class RunExecutionResult
     /**
      * @param  array<string, string>  $persistedReceiptPaths  receipt_name => absolute_path
      * @param  ProviderCallSummary  $providerCallSummary
+     * @param  list<string>|null  $reasons  CompletionStateGate decision reasons surfaced in the CLI --json run object (VAL-M2-030); null when the gate produced none.
      */
     public function __construct(
         public readonly string $completionState,
@@ -45,6 +46,7 @@ final class RunExecutionResult
         public readonly ?string $verificationReceiptHash = null,
         public readonly ?string $scopeGuardReceiptHash = null,
         public readonly ?string $diffHash = null,
+        public readonly ?array $reasons = null,
     ) {}
 
     /**
@@ -62,6 +64,7 @@ final class RunExecutionResult
             'diff_parse' => $this->diffParseSummary,
             'provider_call' => $this->providerCallSummary,
             'persisted_receipt_paths' => $this->persistedReceiptPaths,
+            'reasons' => $this->reasons,
         ];
     }
 }
