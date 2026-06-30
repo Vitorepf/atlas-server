@@ -112,4 +112,85 @@ class AtlasSelfConstructionTaskGraphDraftEnqueuePlanTest extends TestCase
             self::assertStringNotContainsString($forbidden, $src, "plan builder must not call {$forbidden}");
         }
     }
+
+    // ── enqueue_now / defer / reject ──────────────────────────────────────────
+
+    public function test_plan_output_has_enqueue_now_defer_and_reject_keys(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$this->validDraft('x-1')]);
+
+        self::assertArrayHasKey('enqueue_now', $verdict);
+        self::assertArrayHasKey('defer', $verdict);
+        self::assertArrayHasKey('reject', $verdict);
+        self::assertSame(1, $verdict['counts']['enqueue_now']);
+        self::assertSame(0, $verdict['counts']['defer']);
+        self::assertSame(0, $verdict['counts']['reject']);
+    }
+
+    public function test_draft_with_unresolved_depends_on_is_deferred_with_reason(): void
+    {
+        $draft = $this->validDraft('dep-1');
+        $draft['depends_on'] = ['ghost-packet-999']; // not in batch or existing
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$draft]);
+
+        self::assertSame(0, $verdict['counts']['enqueue_now']);
+        self::assertSame(1, $verdict['counts']['defer']);
+        self::assertSame(0, $verdict['counts']['reject']);
+        self::assertSame('dep-1', $verdict['defer'][0]['task_packet_id']);
+        self::assertSame('blocked_prerequisites', $verdict['defer'][0]['reason']);
+        self::assertContains('ghost-packet-999', $verdict['defer'][0]['blockers']);
+    }
+
+    public function test_depends_on_within_same_batch_is_resolved_not_deferred(): void
+    {
+        $a = $this->validDraft('wave-a');
+        $b = $this->validDraft('wave-b');
+        $b['depends_on'] = ['wave-a']; // wave-a is in the same batch
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$a, $b]);
+
+        self::assertSame(2, $verdict['counts']['enqueue_now']);
+        self::assertSame(0, $verdict['counts']['defer']);
+    }
+
+    public function test_duplicate_allowed_files_across_batch_defers_second_draft(): void
+    {
+        $a = $this->validDraft('file-a');
+        $b = $this->validDraft('file-b');
+        // Override file-b to share a file with file-a
+        $b['allowed_files'] = $a['allowed_files'];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$a, $b]);
+
+        self::assertSame(1, $verdict['counts']['enqueue_now']); // a passes
+        self::assertSame(1, $verdict['counts']['defer']);       // b deferred (collision)
+        self::assertSame('file-b', $verdict['defer'][0]['task_packet_id']);
+        self::assertSame('duplicate_allowed_files', $verdict['defer'][0]['reason']);
+    }
+
+    public function test_queue_at_capacity_defers_eligible_drafts(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan(
+            [$this->validDraft('cap-1'), $this->validDraft('cap-2')],
+            ['queue_at_capacity' => true],
+        );
+
+        self::assertSame(0, $verdict['counts']['enqueue_now']);
+        self::assertSame(2, $verdict['counts']['defer']);
+        self::assertSame('queue_at_capacity', $verdict['defer'][0]['reason']);
+    }
+
+    public function test_gate_failure_goes_to_reject_not_defer(): void
+    {
+        $bad = $this->validDraft('rej-1');
+        $bad['acceptance_criteria'] = [];
+
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftEnqueuePlan)->plan([$bad]);
+
+        self::assertSame(0, $verdict['counts']['enqueue_now']);
+        self::assertSame(0, $verdict['counts']['defer']);
+        self::assertSame(1, $verdict['counts']['reject']);
+        self::assertSame('quality_gate_blocked', $verdict['reject'][0]['reason']);
+    }
 }

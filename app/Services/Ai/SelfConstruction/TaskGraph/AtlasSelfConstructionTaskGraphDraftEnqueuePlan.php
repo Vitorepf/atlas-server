@@ -43,61 +43,107 @@ final class AtlasSelfConstructionTaskGraphDraftEnqueuePlan
         $gate = $this->gate ?? new AtlasSelfConstructionTaskGraphDraftQualityGate();
 
         $existing = array_flip(array_values(array_map('strval', (array) ($queueFacts['existing_packet_ids'] ?? []))));
+        // All IDs in this batch — used for dependency-wave resolution.
+        $batchIds = array_flip(array_values(array_filter(
+            array_map(static fn (array $d): string => (string) ($d['task_packet_id'] ?? ''), $drafts),
+            static fn (string $id): bool => $id !== '',
+        )));
+        $claimedFiles = []; // collision-risk tracking: files claimed by earlier drafts in this run
 
-        $enqueueInputs = [];
-        $withheld = [];
-        $duplicates = [];
+        $enqueueNow = [];
+        $defer      = [];
+        $reject     = [];
 
         foreach ($drafts as $draft) {
             $id = (string) ($draft['task_packet_id'] ?? '');
             if ($id === '') {
-                $withheld[] = ['task_packet_id' => '', 'reason' => 'task_packet_id_missing', 'blockers' => ['task_packet_id_missing']];
+                $reject[] = ['task_packet_id' => '', 'reason' => 'task_packet_id_missing', 'blockers' => ['task_packet_id_missing']];
 
                 continue;
             }
             if (isset($existing[$id])) {
-                $duplicates[] = ['task_packet_id' => $id, 'reason' => 'already_in_queue'];
+                $defer[] = ['task_packet_id' => $id, 'reason' => 'already_in_queue'];
 
                 continue;
             }
 
+            // Dependency wave: prerequisites not in queue or batch → defer.
+            $depsOn      = array_values(array_filter(array_map('strval', (array) ($draft['depends_on'] ?? [])), static fn (string $s): bool => $s !== ''));
+            $blockedDeps = array_values(array_filter($depsOn, static fn (string $dep): bool => ! isset($existing[$dep]) && ! isset($batchIds[$dep])));
+            if ($blockedDeps !== []) {
+                $defer[] = ['task_packet_id' => $id, 'reason' => 'blocked_prerequisites', 'blockers' => $blockedDeps];
+
+                continue;
+            }
+
+            // Collision risk: duplicate allowed_files across drafts in this batch → defer.
+            $files      = array_values(array_filter(array_map('strval', (array) ($draft['allowed_files'] ?? [])), static fn (string $f): bool => $f !== ''));
+            $collisions = array_values(array_filter($files, static fn (string $f): bool => isset($claimedFiles[$f])));
+            if ($collisions !== []) {
+                $defer[] = ['task_packet_id' => $id, 'reason' => 'duplicate_allowed_files', 'blockers' => $collisions];
+
+                continue;
+            }
+
+            // Queue pressure: capacity reached → defer.
+            if ((bool) ($queueFacts['queue_at_capacity'] ?? false)) {
+                $defer[] = ['task_packet_id' => $id, 'reason' => 'queue_at_capacity'];
+
+                continue;
+            }
+
+            // Evidence readiness via quality gate → reject (permanent, not recoverable by re-scheduling).
             $verdict = $gate->evaluate($draft, $queueFacts);
             if (! (bool) $verdict['passed']) {
-                $withheld[] = [
+                $reject[] = [
                     'task_packet_id' => $id,
-                    'reason' => 'quality_gate_blocked',
-                    'blockers' => array_values((array) $verdict['blockers']),
+                    'reason'         => 'quality_gate_blocked',
+                    'blockers'       => array_values((array) $verdict['blockers']),
                 ];
 
                 continue;
             }
 
-            $enqueueInputs[] = $this->makeEnqueueInput($draft);
+            foreach ($files as $f) {
+                $claimedFiles[$f] = true;
+            }
+            $enqueueNow[] = $this->makeEnqueueInput($draft);
         }
 
-        // Deterministic ordering.
-        usort($enqueueInputs, static fn (array $a, array $b): int => strcmp((string) $a['task_packet']['task_packet_id'], (string) $b['task_packet']['task_packet_id']));
-        usort($withheld, static fn (array $a, array $b): int => strcmp((string) $a['task_packet_id'], (string) $b['task_packet_id']));
-        usort($duplicates, static fn (array $a, array $b): int => strcmp((string) $a['task_packet_id'], (string) $b['task_packet_id']));
+        $sortById = static fn (array $a, array $b): int => strcmp((string) $a['task_packet_id'], (string) $b['task_packet_id']);
+        usort($enqueueNow, static fn (array $a, array $b): int => strcmp((string) $a['task_packet']['task_packet_id'], (string) $b['task_packet']['task_packet_id']));
+        usort($defer,      $sortById);
+        usort($reject,     $sortById);
+
+        // Backward-compat aliases.
+        $duplicates = array_values(array_filter($defer, static fn (array $d): bool => $d['reason'] === 'already_in_queue'));
 
         $counts = [
-            'drafts' => count($drafts),
-            'enqueue_inputs' => count($enqueueInputs),
-            'withheld' => count($withheld),
-            'duplicates' => count($duplicates),
+            'drafts'         => count($drafts),
+            'enqueue_now'    => count($enqueueNow),
+            'defer'          => count($defer),
+            'reject'         => count($reject),
+            // legacy keys
+            'enqueue_inputs' => count($enqueueNow),
+            'withheld'       => count($reject),
+            'duplicates'     => count($duplicates),
         ];
 
-        $planHash = $this->planHash($enqueueInputs, $withheld, $duplicates);
+        $planHash = $this->planHash($enqueueNow, $defer, $reject);
 
         return [
-            'schema' => self::SCHEMA,
+            'schema'         => self::SCHEMA,
             'schema_version' => self::SCHEMA,
-            'status' => 'ok',
-            'enqueue_inputs' => $enqueueInputs,
-            'withheld' => $withheld,
-            'duplicates' => $duplicates,
-            'counts' => $counts,
-            'plan_hash' => $planHash,
+            'status'         => 'ok',
+            'enqueue_now'    => $enqueueNow,
+            'defer'          => $defer,
+            'reject'         => $reject,
+            // legacy keys
+            'enqueue_inputs' => $enqueueNow,
+            'withheld'       => $reject,
+            'duplicates'     => $duplicates,
+            'counts'         => $counts,
+            'plan_hash'      => $planHash,
         ];
     }
 
@@ -136,16 +182,16 @@ final class AtlasSelfConstructionTaskGraphDraftEnqueuePlan
     }
 
     /**
-     * @param  list<array<string,mixed>>  $enqueueInputs
-     * @param  list<array<string,mixed>>  $withheld
-     * @param  list<array<string,mixed>>  $duplicates
+     * @param  list<array<string,mixed>>  $enqueueNow
+     * @param  list<array<string,mixed>>  $defer
+     * @param  list<array<string,mixed>>  $reject
      */
-    private function planHash(array $enqueueInputs, array $withheld, array $duplicates): string
+    private function planHash(array $enqueueNow, array $defer, array $reject): string
     {
         $canonical = json_encode([
-            'enqueue_inputs' => $enqueueInputs,
-            'withheld' => $withheld,
-            'duplicates' => $duplicates,
+            'enqueue_now' => $enqueueNow,
+            'defer'       => $defer,
+            'reject'      => $reject,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return 'plan_'.substr(hash('sha256', (string) $canonical), 0, 32);
