@@ -41,9 +41,24 @@ final class AtlasTaskBlockedPacketFamilyClassifier
 
     public const FAMILY_SCHEMA_MISMATCH = 'schema_mismatch';
 
+    public const FAMILY_MISSING_SCOPE_FIELDS = 'missing_scope_fields';
+
+    public const FAMILY_FORBIDDEN_TARGET_SUSPECT = 'forbidden_target_suspect';
+
+    public const FAMILY_DUPLICATE_OR_STALE_BRAIN_PACKET = 'duplicate_or_stale_brain_packet';
+
     public const FAMILY_UNKNOWN = 'unknown';
 
     private const GIVE_BACK_THRESHOLD = 8;
+
+    /** Path-fragment markers for FORBIDDEN_AXES (pétreo): soft id/objective signal only —
+     * weaker confidence than the hard forbidden_target rule above, which requires an explicit
+     * blocking_deficiency citing it.
+     */
+    private const FORBIDDEN_AXIS_MARKERS = [
+        'selfimprovement/', 'self_improvement/', 'programming/', 'atlascode',
+        'routes/api.php', 'atlas-desktop/', 'forge/', 'rivals/', 'cartografia/', 'voice/',
+    ];
 
     /**
      * @param  array<string,mixed>  $packet  a raw task packet row
@@ -63,6 +78,9 @@ final class AtlasTaskBlockedPacketFamilyClassifier
         $status = trim((string) ($packet['status'] ?? ''));
         $blockingStr = implode(' ', array_map('strval', $blockingDeficiencies));
         $blockingStrLower = strtolower($blockingStr);
+        $objective = strtolower(trim((string) ($packet['objective'] ?? '')));
+        $idLower = strtolower($id);
+        $missingFields = is_array($packet['missing_fields'] ?? null) ? array_values(array_map('strval', $packet['missing_fields'])) : [];
 
         // ── New families: detect from blocking_deficiencies content ──────────
         if (str_contains($blockingStrLower, 'forbidden_self_target') || str_contains($blockingStrLower, 'forbidden_target') || str_contains($blockingStrLower, 'property_gated')) {
@@ -79,6 +97,39 @@ final class AtlasTaskBlockedPacketFamilyClassifier
             return $this->record($id, self::FAMILY_SCHEMA_MISMATCH, 'respec', 'repairable',
                 'blocking_deficiencies contain schema_mismatch: packet schema does not match expected version',
                 ['align_packet_schema'], 'medium');
+        }
+
+        // ── New real-queue families: classify from id/objective/missing-field signal
+        //    instead of collapsing into unknown (AC1).
+
+        if ($missingFields !== []
+            || str_contains($blockingStrLower, 'missing_scope')
+            || str_contains($blockingStrLower, 'scope_in')
+            || str_contains($blockingStrLower, 'allowed_files_empty')) {
+            $listed = $missingFields !== [] ? implode(', ', array_slice($missingFields, 0, 5)) : 'scope_in/allowed_files';
+            return $this->record($id, self::FAMILY_MISSING_SCOPE_FIELDS, 'respec', 'repairable',
+                "scope fields are missing: [{$listed}] — packet cannot be grinded until scope_in/allowed_files are populated",
+                ['populate_scope_in', 'populate_allowed_files'], 'medium');
+        }
+
+        $idAndObjective = $idLower.' '.$objective;
+        foreach (self::FORBIDDEN_AXIS_MARKERS as $marker) {
+            if (str_contains($idAndObjective, $marker)) {
+                return $this->record($id, self::FAMILY_FORBIDDEN_TARGET_SUSPECT, 'manual_review', 'conditional',
+                    "task_packet_id/objective mention a forbidden-axis path fragment ('{$marker}') without an explicit blocking_deficiency citing it — needs human confirmation before retire or repair",
+                    ['confirm_forbidden_axis_then_retire_or_clear'], 'medium');
+            }
+        }
+
+        $looksLikeBrainSeedId = (bool) preg_match('/^brain:[a-z0-9_]+:[a-z]+:/i', $id);
+        $staleSignal = str_contains($objective, 'duplicate') || str_contains($objective, 'stale')
+            || str_contains($objective, 'already implemented') || str_contains($objective, 'already resolved');
+        if ($looksLikeBrainSeedId || (str_starts_with($idLower, 'codex-meta-') && $staleSignal)) {
+            return $this->record($id, self::FAMILY_DUPLICATE_OR_STALE_BRAIN_PACKET, 'retire', 'unrepairable',
+                $looksLikeBrainSeedId
+                    ? "task_packet_id matches a brain-seed enumeration pattern ('{$id}'): these are ephemeral auto-generated ids that go stale quickly"
+                    : 'objective signals duplicate/stale work already resolved by a prior task',
+                ['retire'], $looksLikeBrainSeedId ? 'medium' : 'high');
         }
 
         if (($facts['dormant_cli_arm_proxy'] ?? false) === true) {
@@ -128,7 +179,7 @@ final class AtlasTaskBlockedPacketFamilyClassifier
         }
 
         return $this->record($id, self::FAMILY_UNKNOWN, 'manual_review', 'unknown',
-            'no deterministic family rule matched; manual review required to determine why this packet is blocked',
+            'insufficient_signal: no deterministic family rule matched; manual review required to determine why this packet is blocked',
             ['manual_review'], 'low');
     }
 
