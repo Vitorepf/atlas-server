@@ -15,58 +15,62 @@ final class SelfConstructionCapabilityPromotionStepAdvisor
     /**
      * Ordered promotion steps mirroring the canonical Promotion Requirements
      * table (capability-maturity-ladder.md). Each step is keyed by the source
-     * level it promotes FROM and carries the single gating signal whose proof
-     * unlocks the next level plus the canonical required-proof text.
+     * level it promotes FROM and carries the proof families (signals) ALL of
+     * which must be satisfied to unlock the next level.
      *
-     * @var array<int, array{label: string, next_level: int, signal: string, proof: string}>
+     * L0–L3: single proof family (documentation/spec/scaffold/manual gate).
+     * L4–L7: multiple proof families — one boolean is not sufficient evidence
+     *         for autonomy maturity at higher levels.
+     *
+     * @var array<int, array{label: string, next_level: int, signals: list<string>, proof: string}>
      */
     private const PROMOTION_STEPS = [
         0 => [
             'label' => 'L0->L1',
             'next_level' => 1,
-            'signal' => 'has_canonical_doc',
+            'signals' => ['has_canonical_doc'],
             'proof' => 'Canonical doc and owner.',
         ],
         1 => [
             'label' => 'L1->L2',
             'next_level' => 2,
-            'signal' => 'has_spec',
+            'signals' => ['has_spec'],
             'proof' => 'AP/spec, acceptance criteria, risk and non-goals.',
         ],
         2 => [
             'label' => 'L2->L3',
             'next_level' => 3,
-            'signal' => 'has_scaffold',
+            'signals' => ['has_scaffold'],
             'proof' => 'Scaffold with tests or explicit scaffold marker.',
         ],
         3 => [
             'label' => 'L3->L4',
             'next_level' => 4,
-            'signal' => 'manual_command_passes',
+            'signals' => ['manual_command_passes'],
             'proof' => 'Passing manual command or test proving behavior.',
         ],
         4 => [
             'label' => 'L4->L5',
             'next_level' => 5,
-            'signal' => 'agent_executable_with_receipt',
+            'signals' => ['agent_executable_with_receipt', 'decision_receipt_present', 'gates_passed'],
             'proof' => 'Agent can execute with Decision Receipt and gates.',
         ],
         5 => [
             'label' => 'L5->L6',
             'next_level' => 6,
-            'signal' => 'repeated_safe_runs',
+            'signals' => ['repeated_safe_runs', 'rollback_proven', 'drift_check_passed'],
             'proof' => 'Repeated successful runs, rollback and drift checks.',
         ],
         6 => [
             'label' => 'L6->L7',
             'next_level' => 7,
-            'signal' => 'learning_proposals_safe',
+            'signals' => ['learning_proposals_safe', 'no_unsafe_mutation_detected'],
             'proof' => 'Learning proposals improve future runs without unsafe mutation.',
         ],
         7 => [
             'label' => 'L7->L8',
             'next_level' => 8,
-            'signal' => 'strategic_selection_proven',
+            'signals' => ['priority_engine_present', 'build_graph_verified', 'metrics_proven'],
             'proof' => 'Priority engine, build graph and metrics prove strategic selection quality.',
         ],
     ];
@@ -102,7 +106,7 @@ final class SelfConstructionCapabilityPromotionStepAdvisor
 
         $step = self::PROMOTION_STEPS[$normalizedLevel];
 
-        $missingProof = $this->missingProof($step['signal'], $signals);
+        $missingProof = $this->missingProof($step['signals'], $signals);
         $isPromotableNow = $missingProof === [];
 
         return [
@@ -134,19 +138,18 @@ final class SelfConstructionCapabilityPromotionStepAdvisor
     }
 
     /**
-     * The gating signal keys for this step that are still not strictly true.
+     * Returns the proof family keys not yet satisfied (strictly true).
      *
+     * @param list<string>         $gatingSignals
      * @param array<string, mixed> $signals
-     *
      * @return list<string>
      */
-    private function missingProof(string $gatingSignal, array $signals): array
+    private function missingProof(array $gatingSignals, array $signals): array
     {
-        if ($this->signalSatisfied($gatingSignal, $signals)) {
-            return [];
-        }
-
-        return [$gatingSignal];
+        return array_values(array_filter(
+            $gatingSignals,
+            fn (string $key): bool => ! $this->signalSatisfied($key, $signals),
+        ));
     }
 
     /**

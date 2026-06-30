@@ -90,36 +90,67 @@ final class SelfConstructionCapabilityPromotionStepAdvisorTest extends TestCase
     public function test_all_eight_promotion_rules_map_in_canonical_ladder_order(): void
     {
         $expected = [
-            0 => ['label' => 'L0->L1', 'next_level' => 1, 'signal' => 'has_canonical_doc'],
-            1 => ['label' => 'L1->L2', 'next_level' => 2, 'signal' => 'has_spec'],
-            2 => ['label' => 'L2->L3', 'next_level' => 3, 'signal' => 'has_scaffold'],
-            3 => ['label' => 'L3->L4', 'next_level' => 4, 'signal' => 'manual_command_passes'],
-            4 => ['label' => 'L4->L5', 'next_level' => 5, 'signal' => 'agent_executable_with_receipt'],
-            5 => ['label' => 'L5->L6', 'next_level' => 6, 'signal' => 'repeated_safe_runs'],
-            6 => ['label' => 'L6->L7', 'next_level' => 7, 'signal' => 'learning_proposals_safe'],
-            7 => ['label' => 'L7->L8', 'next_level' => 8, 'signal' => 'strategic_selection_proven'],
+            0 => ['label' => 'L0->L1', 'next_level' => 1, 'signals' => ['has_canonical_doc']],
+            1 => ['label' => 'L1->L2', 'next_level' => 2, 'signals' => ['has_spec']],
+            2 => ['label' => 'L2->L3', 'next_level' => 3, 'signals' => ['has_scaffold']],
+            3 => ['label' => 'L3->L4', 'next_level' => 4, 'signals' => ['manual_command_passes']],
+            4 => ['label' => 'L4->L5', 'next_level' => 5, 'signals' => ['agent_executable_with_receipt', 'decision_receipt_present', 'gates_passed']],
+            5 => ['label' => 'L5->L6', 'next_level' => 6, 'signals' => ['repeated_safe_runs', 'rollback_proven', 'drift_check_passed']],
+            6 => ['label' => 'L6->L7', 'next_level' => 7, 'signals' => ['learning_proposals_safe', 'no_unsafe_mutation_detected']],
+            7 => ['label' => 'L7->L8', 'next_level' => 8, 'signals' => ['priority_engine_present', 'build_graph_verified', 'metrics_proven']],
         ];
 
-        // Exactly 8 distinct promotion steps cover the contiguous ladder L0..L8.
         self::assertCount(8, $expected);
 
         foreach ($expected as $level => $step) {
-            // Gating signal absent => that step's single key is the missing proof.
+            // All signals absent => all are listed as missing proof.
             $blocked = $this->advisor->adviseNext($level, []);
             self::assertSame($step['label'], $blocked['next_promotion']);
             self::assertSame($step['next_level'], $blocked['next_level']);
             self::assertSame($level + 1, $blocked['next_level']);
-            self::assertSame([$step['signal']], $blocked['missing_proof']);
+            self::assertSame($step['signals'], $blocked['missing_proof']);
             self::assertFalse($blocked['is_promotable_now']);
             self::assertFalse($blocked['at_ceiling']);
             self::assertNotNull($blocked['required_proof']);
 
-            // The same step with only its gating signal true flips promotability.
-            $cleared = $this->advisor->adviseNext($level, [$step['signal'] => true]);
+            // All signals true flips promotability (regardless of how many families required).
+            $allTrue = array_fill_keys($step['signals'], true);
+            $cleared = $this->advisor->adviseNext($level, $allTrue);
             self::assertSame($step['label'], $cleared['next_promotion']);
             self::assertSame([], $cleared['missing_proof']);
             self::assertTrue($cleared['is_promotable_now']);
         }
+    }
+
+    public function test_higher_level_promotion_requires_all_proof_families(): void
+    {
+        // L4->L5: one signal alone is not enough — all three families required.
+        $partial = $this->advisor->adviseNext(4, ['agent_executable_with_receipt' => true]);
+        self::assertFalse($partial['is_promotable_now']);
+        self::assertNotContains('agent_executable_with_receipt', $partial['missing_proof']);
+        self::assertContains('decision_receipt_present', $partial['missing_proof']);
+        self::assertContains('gates_passed', $partial['missing_proof']);
+
+        // All three present → promotable, missing_proof empty.
+        $full = $this->advisor->adviseNext(4, [
+            'agent_executable_with_receipt' => true,
+            'decision_receipt_present' => true,
+            'gates_passed' => true,
+        ]);
+        self::assertTrue($full['is_promotable_now']);
+        self::assertSame([], $full['missing_proof']);
+
+        // L5->L6: three families.
+        $partialL5 = $this->advisor->adviseNext(5, ['repeated_safe_runs' => true]);
+        self::assertFalse($partialL5['is_promotable_now']);
+        self::assertContains('rollback_proven', $partialL5['missing_proof']);
+        self::assertContains('drift_check_passed', $partialL5['missing_proof']);
+
+        // L7->L8: three families — single strategic signal not enough.
+        $partialL7 = $this->advisor->adviseNext(7, ['priority_engine_present' => true]);
+        self::assertFalse($partialL7['is_promotable_now']);
+        self::assertContains('build_graph_verified', $partialL7['missing_proof']);
+        self::assertContains('metrics_proven', $partialL7['missing_proof']);
     }
 
     public function test_gating_signal_is_independent_of_unrelated_signals(): void
