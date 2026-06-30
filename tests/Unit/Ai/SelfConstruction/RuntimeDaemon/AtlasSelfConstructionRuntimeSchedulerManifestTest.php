@@ -143,4 +143,55 @@ final class AtlasSelfConstructionRuntimeSchedulerManifestTest extends TestCase
         $this->assertSame(64, strlen($m1['manifest_hash']));
         $this->assertNotSame($m1['manifest_hash'], $m2['manifest_hash']);
     }
+
+    public function test_manifest_commands_forbid_git_network_claude_codex_cursor_sudo_and_raw_provider(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+
+        foreach (['git ', 'codex', 'cursor', 'claude', 'sudo', 'curl', 'wget', 'http', 'aws'] as $forbidden) {
+            $this->assertContains($forbidden, $m['forbidden_command_substrings'], "$forbidden must be in forbidden list");
+        }
+
+        // Consumer-facing commands must not contain these substrings.
+        $commands = [$m['tick_command'], $m['status_command'], $m['plan_command']];
+        $joined = implode("\n", $commands);
+        foreach ($m['forbidden_command_substrings'] as $sub) {
+            $this->assertStringNotContainsString($sub, $joined, "command must not contain forbidden substring: $sub");
+        }
+    }
+
+    public function test_queue_thresholds_include_min_claimable_min_servable_now_and_replenish_before_dry(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+        $qt = $m['queue_thresholds'];
+
+        $this->assertArrayHasKey('min_claimable', $qt);
+        $this->assertArrayHasKey('min_servable_now', $qt);
+        $this->assertArrayHasKey('replenish_before_dry', $qt);
+        $this->assertIsInt($qt['min_claimable']);
+        $this->assertIsInt($qt['min_servable_now']);
+        $this->assertIsBool($qt['replenish_before_dry']);
+        $this->assertTrue($qt['replenish_before_dry']);
+    }
+
+    public function test_resume_obligations_require_three_hash_fields(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+
+        $this->assertArrayHasKey('resume_obligations', $m);
+        $this->assertContains('last_state_hash', $m['resume_obligations']);
+        $this->assertContains('heartbeat_hash', $m['resume_obligations']);
+        $this->assertContains('safety_stop_clearance_hash', $m['resume_obligations']);
+    }
+
+    public function test_manifest_hash_is_deterministic_when_option_order_changes(): void
+    {
+        $optA = ['cadence_seconds' => 45, 'php_bin' => '/usr/bin/php'];
+        $optB = ['php_bin' => '/usr/bin/php', 'cadence_seconds' => 45];
+
+        $hashA = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest($optA)['manifest_hash'];
+        $hashB = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest($optB)['manifest_hash'];
+
+        $this->assertSame($hashA, $hashB, 'manifest_hash must be stable regardless of option key order');
+    }
 }

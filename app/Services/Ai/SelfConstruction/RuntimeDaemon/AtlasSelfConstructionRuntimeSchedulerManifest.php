@@ -37,9 +37,12 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
     ];
 
     public const DEFAULT_QUEUE_THRESHOLDS = [
-        'max_queued'   => 500,
-        'max_claimed'  => 20,
-        'drain_before_stop' => false,
+        'min_claimable'      => 5,
+        'min_servable_now'   => 3,
+        'max_queued'         => 500,
+        'max_claimed'        => 20,
+        'replenish_before_dry' => true,
+        'drain_before_stop'  => false,
     ];
 
     /**
@@ -106,6 +109,11 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
                 'cycle_receipt_hash',
                 'state_hash',
                 'supervisor_hash',
+            ],
+            'resume_obligations' => [
+                'last_state_hash',
+                'heartbeat_hash',
+                'safety_stop_clearance_hash',
             ],
             'forbidden_command_substrings' => [
                 'curl',
