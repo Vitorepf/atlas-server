@@ -303,4 +303,102 @@ final class AtlasExternalBrainSimulationTwinPlanProbeTest extends TestCase
 
         $this->assertSame($this->probe()->probe($input), $this->probe()->probe($input));
     }
+
+    // ── per-candidate outcome prediction ────────────────────────────────────────
+
+    public function test_duplicate_target_path_predicts_reject(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'target_path' => 'app/Foo.php'],
+            ['packet_id' => 'p1', 'target_path' => 'app/Foo.php'],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_ENQUEUE, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REJECT, $result['per_candidate_predictions'][1]['predicted_outcome']);
+        $this->assertContains(AtlasExternalBrainSimulationTwinPlanProbe::FLAG_DUPLICATE_TARGET, $result['risk_flags']);
+        $this->assertSame(1, $result['simulation_summary']['duplicate_target_count']);
+    }
+
+    public function test_target_path_matching_existing_target_paths_predicts_reject(): void
+    {
+        $result = $this->probe()->probe([
+            'batch'                 => [['packet_id' => 'p0', 'target_path' => 'app/Foo.php']],
+            'existing_target_paths' => ['app/Foo.php'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REJECT, $result['per_candidate_predictions'][0]['predicted_outcome']);
+    }
+
+    public function test_high_contradiction_risk_predicts_defer(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'contradiction_risk_score' => 0.75],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_DEFER, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertContains(AtlasExternalBrainSimulationTwinPlanProbe::FLAG_CONTRADICTION_RISK, $result['risk_flags']);
+        $this->assertSame(1, $result['simulation_summary']['high_contradiction_risk_count']);
+    }
+
+    public function test_missing_both_implementation_and_test_file_predicts_defer(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'has_implementation_file' => false, 'has_test_file' => false],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_DEFER, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertContains(AtlasExternalBrainSimulationTwinPlanProbe::FLAG_MISSING_FILES, $result['risk_flags']);
+    }
+
+    public function test_missing_only_implementation_file_predicts_repair(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'has_implementation_file' => false, 'has_test_file' => true],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REPAIR, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertContains('missing_implementation_file', $result['per_candidate_predictions'][0]['evidence']);
+        $this->assertSame(1, $result['simulation_summary']['missing_implementation_file_count']);
+    }
+
+    public function test_missing_only_test_file_predicts_repair(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'has_implementation_file' => true, 'has_test_file' => false],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REPAIR, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertSame(1, $result['simulation_summary']['missing_test_file_count']);
+    }
+
+    public function test_low_value_density_predicts_split(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'value_density' => 0.05],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_SPLIT, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertContains(AtlasExternalBrainSimulationTwinPlanProbe::FLAG_LOW_VALUE_DENSITY, $result['risk_flags']);
+        $this->assertSame(1, $result['simulation_summary']['low_value_density_count']);
+    }
+
+    public function test_healthy_candidate_predicts_enqueue_with_no_evidence(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'target_path' => 'app/Bar.php', 'value_density' => 0.9],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_ENQUEUE, $result['per_candidate_predictions'][0]['predicted_outcome']);
+        $this->assertSame([], $result['per_candidate_predictions'][0]['evidence']);
+    }
+
+    public function test_duplicate_target_takes_priority_over_contradiction_risk(): void
+    {
+        $result = $this->probe()->probe(['batch' => [
+            ['packet_id' => 'p0', 'target_path' => 'app/Foo.php'],
+            ['packet_id' => 'p1', 'target_path' => 'app/Foo.php', 'contradiction_risk_score' => 0.9],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainSimulationTwinPlanProbe::OUTCOME_REJECT, $result['per_candidate_predictions'][1]['predicted_outcome']);
+    }
 }
