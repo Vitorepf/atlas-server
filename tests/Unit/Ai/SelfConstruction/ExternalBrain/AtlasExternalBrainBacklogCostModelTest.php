@@ -69,7 +69,7 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
 
     public function test_blocked_count_adds_opportunity_cost(): void
     {
-        $noBlocked  = $this->model()->model(['backlog_size' => 20, 'blocked_count' => 0]);
+        $noBlocked   = $this->model()->model(['backlog_size' => 20, 'blocked_count' => 0]);
         $manyBlocked = $this->model()->model(['backlog_size' => 20, 'blocked_count' => 5]);
 
         $this->assertGreaterThan($noBlocked['carrying_cost'], $manyBlocked['carrying_cost']);
@@ -263,5 +263,205 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
 
         $reasonStr = implode(' ', $result['reasons']);
         $this->assertStringContainsString('blocked_pressure', $reasonStr);
+    }
+
+    // ── preferred_action: drain ───────────────────────────────────────────────
+
+    public function test_high_claimable_depth_with_low_value_density_yields_drain(): void
+    {
+        // claimable_depth=25 >= 20 AND expected_value_density=0.30 < 0.50 → drain
+        $result = $this->model()->model([
+            'backlog_size'           => 40,
+            'claimable_depth'        => 25,
+            'expected_value_density' => 0.30,
+            'give_back_rate'         => 0.05,
+            'blocked_count'          => 0,
+            'impact_confidence'      => 0.80,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $result['preferred_action']);
+    }
+
+    public function test_drain_reason_mentions_claimable_depth_and_value_density(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size'           => 40,
+            'claimable_depth'        => 25,
+            'expected_value_density' => 0.20,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $result['preferred_action']);
+        $reasonStr = implode(' ', $result['reasons']);
+        $this->assertStringContainsString('claimable_depth_high', $reasonStr);
+        $this->assertStringContainsString('expected_value_density_low', $reasonStr);
+    }
+
+    public function test_high_claimable_depth_with_healthy_value_density_does_not_yield_drain(): void
+    {
+        // claimable_depth=25 (high) but expected_value_density=0.80 (healthy) → no drain
+        $result = $this->model()->model([
+            'backlog_size'           => 40,
+            'claimable_depth'        => 25,
+            'expected_value_density' => 0.80,
+            'give_back_rate'         => 0.05,
+            'blocked_count'          => 0,
+            'impact_confidence'      => 0.80,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $result['preferred_action']);
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED, $result['preferred_action']);
+    }
+
+    public function test_low_claimable_depth_with_low_value_density_does_not_yield_drain(): void
+    {
+        // claimable_depth=5 (low) despite low value density → no drain → seed
+        $result = $this->model()->model([
+            'backlog_size'           => 10,
+            'claimable_depth'        => 5,
+            'expected_value_density' => 0.10,
+            'give_back_rate'         => 0.05,
+            'blocked_count'          => 0,
+            'impact_confidence'      => 0.80,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $result['preferred_action']);
+    }
+
+    public function test_drain_preferred_over_seed_when_depth_high_and_density_falling(): void
+    {
+        $seed = $this->model()->model([
+            'backlog_size' => 40, 'claimable_depth' => 25,
+            'expected_value_density' => 0.80,  // healthy → seed
+        ]);
+        $drain = $this->model()->model([
+            'backlog_size' => 40, 'claimable_depth' => 25,
+            'expected_value_density' => 0.20,  // falling → drain
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED,  $seed['preferred_action']);
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $drain['preferred_action']);
+    }
+
+    public function test_unblock_prioritized_over_drain(): void
+    {
+        // Both drain and unblock conditions met → unblock wins.
+        $result = $this->model()->model([
+            'backlog_size'           => 40,
+            'claimable_depth'        => 25,
+            'expected_value_density' => 0.20,
+            'blocked_count'          => 5,  // triggers unblock
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_UNBLOCK, $result['preferred_action']);
+    }
+
+    // ── recommended_queue_action ──────────────────────────────────────────────
+
+    public function test_recommended_queue_action_field_present(): void
+    {
+        $result = $this->model()->model([]);
+
+        $this->assertArrayHasKey('recommended_queue_action', $result);
+    }
+
+    public function test_recommended_queue_action_has_action_reasons_and_economics(): void
+    {
+        $result = $this->model()->model([]);
+
+        $rqa = $result['recommended_queue_action'];
+        $this->assertArrayHasKey('action',    $rqa);
+        $this->assertArrayHasKey('reasons',   $rqa);
+        $this->assertArrayHasKey('economics', $rqa);
+    }
+
+    public function test_recommended_queue_action_economics_contains_all_six_fields(): void
+    {
+        $result = $this->model()->model([]);
+
+        $eco = $result['recommended_queue_action']['economics'];
+        foreach (['worker_capacity', 'claimable_depth', 'blocked_count', 'give_back_rate', 'expected_value_density', 'age_cost'] as $key) {
+            $this->assertArrayHasKey($key, $eco, "Economics missing field: {$key}");
+        }
+    }
+
+    public function test_recommended_queue_action_action_matches_preferred_action(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size'      => 30,
+            'claimable_depth'   => 25,
+            'expected_value_density' => 0.20,
+        ]);
+
+        $this->assertSame($result['preferred_action'], $result['recommended_queue_action']['action']);
+    }
+
+    public function test_recommended_queue_action_economics_reflects_provided_inputs(): void
+    {
+        $result = $this->model()->model([
+            'worker_capacity'        => 4,
+            'claimable_depth'        => 12,
+            'blocked_count'          => 2,
+            'give_back_rate'         => 0.15,
+            'expected_value_density' => 0.70,
+            'age_cost'               => 3.5,
+        ]);
+
+        $eco = $result['recommended_queue_action']['economics'];
+        $this->assertSame(4,    $eco['worker_capacity']);
+        $this->assertSame(12,   $eco['claimable_depth']);
+        $this->assertSame(2,    $eco['blocked_count']);
+        $this->assertEqualsWithDelta(0.15, $eco['give_back_rate'],         0.0001);
+        $this->assertEqualsWithDelta(0.70, $eco['expected_value_density'], 0.0001);
+        $this->assertEqualsWithDelta(3.5,  $eco['age_cost'],               0.0001);
+    }
+
+    // ── age_cost ──────────────────────────────────────────────────────────────
+
+    public function test_age_cost_increases_carrying_cost(): void
+    {
+        $noAge   = $this->model()->model(['backlog_size' => 10, 'age_cost' => 0.0]);
+        $withAge = $this->model()->model(['backlog_size' => 10, 'age_cost' => 5.0]);
+
+        $this->assertGreaterThan($noAge['carrying_cost'], $withAge['carrying_cost']);
+    }
+
+    public function test_age_cost_contribution_in_cost_breakdown(): void
+    {
+        $result = $this->model()->model(['backlog_size' => 10, 'age_cost' => 2.0]);
+
+        $this->assertArrayHasKey('age_cost_contribution', $result['cost_breakdown']);
+        $this->assertEqualsWithDelta(20.0, $result['cost_breakdown']['age_cost_contribution'], 0.001);
+    }
+
+    public function test_zero_age_cost_contributes_nothing(): void
+    {
+        $result = $this->model()->model(['backlog_size' => 10]);
+
+        $this->assertSame(0.0, $result['cost_breakdown']['age_cost_contribution']);
+    }
+
+    // ── claimable_depth input (canonical name) ────────────────────────────────
+
+    public function test_claimable_depth_input_used_for_saturation_ratio(): void
+    {
+        // claimable_depth=1 out of backlog=20 → HIGH saturation (same behaviour as servable_depth)
+        $result = $this->model()->model(['backlog_size' => 20, 'claimable_depth' => 1]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::SATURATION_HIGH, $result['saturation_risk']);
+    }
+
+    public function test_claimable_depth_takes_priority_over_servable_depth(): void
+    {
+        // claimable_depth=25 should be used; servable_depth=5 is the legacy alias
+        $result = $this->model()->model([
+            'backlog_size'           => 40,
+            'claimable_depth'        => 25,
+            'servable_depth'         => 5,    // ignored when claimable_depth present
+            'expected_value_density' => 0.20,
+        ]);
+
+        // claimable_depth=25 >= HIGH_CLAIMABLE_DEPTH_THRESHOLD and value density low → drain
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $result['preferred_action']);
+        $this->assertSame(25, $result['recommended_queue_action']['economics']['claimable_depth']);
     }
 }
