@@ -25,6 +25,10 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
 
     public const TREND_REGRESSING = 'regressing';
 
+    private const LEVERAGE_WEIGHT = 0.5;
+
+    private const CHURN_WEIGHT = 2.0;
+
     /**
      * @param  list<array<string,mixed>>  $cycleFacts  list of per-cycle aggregates in chronological order
      * @return array<string,mixed>
@@ -43,6 +47,13 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
             $rework = (int) ($current['rework_count'] ?? 0);
             $completeness = (float) ($current['evidence_completeness'] ?? 0.0);
 
+            $leverageDelta = (float) ($current['leverage_delta'] ?? 0.0);
+            $churnCount = (int) ($current['give_back_count'] ?? 0)
+                + (int) ($current['poison_count'] ?? 0)
+                + (int) ($current['retry_churn'] ?? 0);
+            $churnPenalty = round($churnCount * self::CHURN_WEIGHT, 6);
+            $qualityVelocity = round(max(0.0, $passed + $leverageDelta * self::LEVERAGE_WEIGHT - $churnPenalty), 6);
+
             if ($previous === null) {
                 $rows[] = [
                     'cycle_id' => $cycleId,
@@ -54,12 +65,16 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
                     'rework_trend' => self::TREND_FLAT,
                     'evidence_completeness_delta' => 0.0,
                     'evidence_trend' => self::TREND_FLAT,
+                    'churn_penalty' => $churnPenalty,
+                    'quality_weighted_velocity' => $qualityVelocity,
+                    'quality_velocity_trend' => self::TREND_FLAT,
                 ];
             } else {
                 $tDelta = $passed - (int) $previous['passed_count'];
                 $bDecay = (int) $previous['blockers_count'] - $blockers;
                 $rDecay = (int) $previous['rework_count'] - $rework;
                 $eDelta = $completeness - (float) $previous['evidence_completeness'];
+                $qvDelta = $qualityVelocity - (float) $previous['quality_weighted_velocity'];
 
                 $rows[] = [
                     'cycle_id' => $cycleId,
@@ -71,9 +86,18 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
                     'rework_trend' => $this->trendInt($rDecay),
                     'evidence_completeness_delta' => $eDelta,
                     'evidence_trend' => $this->trendFloat($eDelta),
+                    'churn_penalty' => $churnPenalty,
+                    'quality_weighted_velocity' => $qualityVelocity,
+                    'quality_velocity_trend' => $this->trendFloat($qvDelta),
                 ];
             }
-            $previous = ['passed_count' => $passed, 'blockers_count' => $blockers, 'rework_count' => $rework, 'evidence_completeness' => $completeness];
+            $previous = [
+                'passed_count' => $passed,
+                'blockers_count' => $blockers,
+                'rework_count' => $rework,
+                'evidence_completeness' => $completeness,
+                'quality_weighted_velocity' => $qualityVelocity,
+            ];
         }
 
         return [

@@ -78,6 +78,33 @@ final class AtlasSelfConstructionCompoundingVelocityTrackerTest extends TestCase
         $this->assertSame(['z', 'm', 'a'], array_column($verdict['rows'], 'cycle_id'), 'tracker preserves input order (NOT alphabetical)');
     }
 
+    public function test_quality_weighted_velocity_increases_for_high_leverage_completed_work(): void
+    {
+        // Same passed_count; cycle 2 has high leverage_delta → quality velocity must be higher.
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 5, 'leverage_delta' => 0.0, 'give_back_count' => 0, 'poison_count' => 0, 'retry_churn' => 0],
+            ['cycle_id' => 'c-2', 'passed_count' => 5, 'leverage_delta' => 20.0, 'give_back_count' => 0, 'poison_count' => 0, 'retry_churn' => 0],
+        ]);
+
+        $rows = $verdict['rows'];
+        $this->assertGreaterThan($rows[0]['quality_weighted_velocity'], $rows[1]['quality_weighted_velocity']);
+        $this->assertSame(AtlasSelfConstructionCompoundingVelocityTracker::TREND_IMPROVING, $rows[1]['quality_velocity_trend']);
+    }
+
+    public function test_quality_weighted_velocity_decreases_with_give_back_churn(): void
+    {
+        // Same seed volume (passed_count unchanged); cycle 2 has heavy give_back churn → velocity must drop.
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 5, 'leverage_delta' => 0.0, 'give_back_count' => 0, 'poison_count' => 0, 'retry_churn' => 0],
+            ['cycle_id' => 'c-2', 'passed_count' => 5, 'leverage_delta' => 0.0, 'give_back_count' => 5, 'poison_count' => 0, 'retry_churn' => 0],
+        ]);
+
+        $rows = $verdict['rows'];
+        $this->assertLessThan($rows[0]['quality_weighted_velocity'], $rows[1]['quality_weighted_velocity'] + 0.001, 'churn must lower velocity');
+        $this->assertSame(AtlasSelfConstructionCompoundingVelocityTracker::TREND_REGRESSING, $rows[1]['quality_velocity_trend']);
+        $this->assertGreaterThan(0.0, $rows[1]['churn_penalty']);
+    }
+
     public function test_verdict_carries_no_composite_velocity_score(): void
     {
         $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([['cycle_id' => 'c-1']]);
