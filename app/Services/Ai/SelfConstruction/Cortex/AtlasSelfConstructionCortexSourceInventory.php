@@ -44,13 +44,20 @@ final class AtlasSelfConstructionCortexSourceInventory
 
     public const DEFAULT_WORKSPACE_BOUNDARY = 'atlas_repo';
 
+    public const FRESHNESS_FRESH = 'fresh';
+
+    public const FRESHNESS_STALE = 'stale';
+
+    public const FRESHNESS_UNKNOWN = 'unknown';
+
     /**
-     * @param  array{sources?:list<array{source_id?:string, kind?:string, authority?:string, freshness_requirement?:string, workspace_boundary?:string, read_only_available?:bool}>}  $facts
-     * @return array{schema:string, inventory:list<array{source_id:string, kind:string, authority:string, freshness_requirement:string, workspace_boundary:string, read_only_available:bool}>, blockers:list<string>}
+     * @param  array{sources?:list<array{source_id?:string, kind?:string, authority?:string, freshness_requirement?:string, workspace_boundary?:string, read_only_available?:bool, last_updated_at?:string, max_age_s?:int}>, now_at?:string}  $facts
+     * @return array{schema:string, inventory:list<array<string,mixed>>, blockers:list<string>, required_summary:array<string,list<string>>}
      */
     public function inventory(array $facts): array
     {
         $rawSources = is_array($facts['sources'] ?? null) ? array_values($facts['sources']) : [];
+        $nowAt = isset($facts['now_at']) ? strtotime((string) $facts['now_at']) : null;
         $blockers = [];
 
         $seenIds = [];
@@ -73,6 +80,15 @@ final class AtlasSelfConstructionCortexSourceInventory
             }
             $seenIds[$id] = true;
 
+            $freshness = self::FRESHNESS_UNKNOWN;
+            if ($nowAt !== false && $nowAt !== null && isset($s['last_updated_at'])) {
+                $updatedAt = strtotime((string) $s['last_updated_at']);
+                $maxAge = (int) ($s['max_age_s'] ?? 3600);
+                if ($updatedAt !== false) {
+                    $freshness = ($nowAt - $updatedAt) <= $maxAge ? self::FRESHNESS_FRESH : self::FRESHNESS_STALE;
+                }
+            }
+
             $normalized[] = [
                 'source_id' => $id,
                 'kind' => $kind,
@@ -80,12 +96,18 @@ final class AtlasSelfConstructionCortexSourceInventory
                 'freshness_requirement' => trim((string) ($s['freshness_requirement'] ?? '')) !== '' ? (string) $s['freshness_requirement'] : self::DEFAULT_FRESHNESS,
                 'workspace_boundary' => trim((string) ($s['workspace_boundary'] ?? '')) !== '' ? (string) $s['workspace_boundary'] : self::DEFAULT_WORKSPACE_BOUNDARY,
                 'read_only_available' => array_key_exists('read_only_available', $s) ? (bool) $s['read_only_available'] : true,
+                'freshness_status' => $freshness,
             ];
             $kindsPresent[$kind] = true;
         }
 
+        $presentKinds = [];
+        $missingKinds = [];
         foreach (self::REQUIRED_KINDS as $req) {
-            if (! isset($kindsPresent[$req])) {
+            if (isset($kindsPresent[$req])) {
+                $presentKinds[] = $req;
+            } else {
+                $missingKinds[] = $req;
                 $blockers[] = 'missing_required_source:'.$req;
             }
         }
@@ -97,6 +119,7 @@ final class AtlasSelfConstructionCortexSourceInventory
             'schema' => self::SCHEMA,
             'inventory' => $normalized,
             'blockers' => $blockers,
+            'required_summary' => ['present' => $presentKinds, 'missing' => $missingKinds],
         ];
     }
 }

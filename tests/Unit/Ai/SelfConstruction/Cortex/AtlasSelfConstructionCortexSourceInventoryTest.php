@@ -74,6 +74,52 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $this->assertSame('zebra.code', $r['inventory'][1]['source_id']);
     }
 
+    public function test_fresh_source_has_freshness_status_fresh_when_recently_updated(): void
+    {
+        $sources = $this->completeSources();
+        $sources[0]['last_updated_at'] = '2026-06-30T09:59:00+00:00'; // 60s before now_at
+        $sources[0]['max_age_s'] = 3600;
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
+            'sources' => $sources,
+            'now_at'  => '2026-06-30T10:00:00+00:00',
+        ]);
+        $byId = array_column($r['inventory'], null, 'source_id');
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::FRESHNESS_FRESH, $byId['docs.canonical']['freshness_status']);
+    }
+
+    public function test_stale_source_has_freshness_status_stale_when_too_old(): void
+    {
+        $sources = $this->completeSources();
+        $sources[0]['last_updated_at'] = '2026-06-30T07:00:00+00:00'; // 10800s before now_at, max_age=3600
+        $sources[0]['max_age_s'] = 3600;
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
+            'sources' => $sources,
+            'now_at'  => '2026-06-30T10:00:00+00:00',
+        ]);
+        $byId = array_column($r['inventory'], null, 'source_id');
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::FRESHNESS_STALE, $byId['docs.canonical']['freshness_status']);
+    }
+
+    public function test_required_source_summary_shows_present_and_missing_kinds(): void
+    {
+        $sources = [
+            ['source_id' => 'docs.x', 'kind' => 'docs'],
+            ['source_id' => 'mem.x', 'kind' => 'memory'],
+            ['source_id' => 'tq.x', 'kind' => 'task_queue'],
+        ];
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+        $this->assertEqualsCanonicalizing(['docs', 'memory', 'task_queue'], $r['required_summary']['present']);
+        $this->assertEqualsCanonicalizing(['code_index', 'evidence_ledger'], $r['required_summary']['missing']);
+    }
+
+    public function test_bounded_provider_safe_output_has_exactly_known_top_level_keys(): void
+    {
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $this->completeSources()]);
+        $keys = array_keys($r);
+        sort($keys);
+        $this->assertSame(['blockers', 'inventory', 'required_summary', 'schema'], $keys);
+    }
+
     public function test_explicit_authority_freshness_workspace_overrides_defaults(): void
     {
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
