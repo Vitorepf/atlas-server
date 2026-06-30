@@ -38,6 +38,11 @@ final class AtlasSelfConstructionCortexSourceInventory
 
     public const REQUIRED_KINDS = ['docs', 'code_index', 'memory', 'evidence_ledger', 'task_queue'];
 
+    /** Recognized but not blocking-required — the Cortex still owns a real map of these. */
+    public const OPTIONAL_KINDS = ['provider_projection', 'worker_outcome', 'project_lane'];
+
+    public const KNOWN_KINDS = [...self::REQUIRED_KINDS, ...self::OPTIONAL_KINDS];
+
     public const DEFAULT_AUTHORITY = 'atlas_native';
 
     public const DEFAULT_FRESHNESS = 'per_cycle';
@@ -79,6 +84,10 @@ final class AtlasSelfConstructionCortexSourceInventory
                 continue;
             }
             $seenIds[$id] = true;
+
+            if (! in_array($kind, self::KNOWN_KINDS, true)) {
+                $blockers[] = 'unrecognized_source_kind:'.$kind;
+            }
 
             $freshness = self::FRESHNESS_UNKNOWN;
             if ($nowAt !== false && $nowAt !== null && isset($s['last_updated_at'])) {

@@ -120,6 +120,41 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $this->assertSame(['blockers', 'inventory', 'required_summary', 'schema'], $keys);
     }
 
+    public function test_optional_kinds_provider_projection_worker_outcome_project_lane_are_recognized(): void
+    {
+        $sources = array_merge($this->completeSources(), [
+            ['source_id' => 'claude.projection', 'kind' => 'provider_projection'],
+            ['source_id' => 'worker.outcomes', 'kind' => 'worker_outcome'],
+            ['source_id' => 'lane.marketing', 'kind' => 'project_lane'],
+        ]);
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+
+        $this->assertSame([], $r['blockers']);
+        $this->assertCount(8, $r['inventory']);
+    }
+
+    public function test_unrecognized_kind_yields_named_blocker(): void
+    {
+        $sources = array_merge($this->completeSources(), [
+            ['source_id' => 'mystery.source', 'kind' => 'totally_unknown_kind'],
+        ]);
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+
+        $this->assertContains('unrecognized_source_kind:totally_unknown_kind', $r['blockers']);
+    }
+
+    public function test_optional_kinds_are_not_in_required_summary_missing_when_absent(): void
+    {
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $this->completeSources()]);
+
+        $this->assertSame([], $r['blockers']);
+        $this->assertNotContains('provider_projection', $r['required_summary']['missing']);
+        $this->assertNotContains('worker_outcome', $r['required_summary']['missing']);
+        $this->assertNotContains('project_lane', $r['required_summary']['missing']);
+    }
+
     public function test_explicit_authority_freshness_workspace_overrides_defaults(): void
     {
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
