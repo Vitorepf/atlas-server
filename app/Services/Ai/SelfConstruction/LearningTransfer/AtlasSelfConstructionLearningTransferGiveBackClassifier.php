@@ -49,6 +49,10 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
     public const CLASS_UNKNOWN = 'unknown';
 
+    public const CLASS_NO_CLAIMABLE_TASK = 'no_claimable_task';
+
+    public const CLASS_STALE_CLAIMABLE_BACKLOG = 'stale_claimable_backlog';
+
     /**
      * @param  array<string,mixed>  $giveBackFact  the give_back payload as recorded by the worker
      * @return array<string,mixed>
@@ -85,6 +89,8 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
             self::CLASS_CONTRADICTORY_ACCEPTANCE => 'revise_acceptance_contract',
             self::CLASS_STALE_CONTEXT => 'refresh_context_pack',
             self::CLASS_INSUFFICIENT_EVIDENCE => 'add_evidence_ref',
+            self::CLASS_NO_CLAIMABLE_TASK => 'originator_top_up',
+            self::CLASS_STALE_CLAIMABLE_BACKLOG => 'rotate_or_refresh_claimable_queue',
             default => 'investigate',
         };
     }
@@ -107,6 +113,8 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
             self::CLASS_WORKER_ERROR => ['worker_error', 'worker_crash', 'worker_bug', 'execution_error'],
             self::CLASS_STALE_CONTEXT => ['stale_context', 'context_pack_stale', 'code_index_stale', 'docs_stale'],
             self::CLASS_INSUFFICIENT_EVIDENCE => ['insufficient_evidence', 'verification_amber'],
+            self::CLASS_NO_CLAIMABLE_TASK => ['no_claimable_task'],
+            self::CLASS_STALE_CLAIMABLE_BACKLOG => ['stale_claimable_backlog'],
         ];
         foreach ($rules as $class => $needles) {
             foreach ($needles as $needle) {
