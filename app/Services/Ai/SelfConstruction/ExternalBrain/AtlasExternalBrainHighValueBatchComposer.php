@@ -193,7 +193,51 @@ final class AtlasExternalBrainHighValueBatchComposer
             'dependency_chain_summary'       => $this->computeDependencyChainSummary($emitted),
             'batch_thesis'                   => $this->computeBatchThesis($emitted),
             'rejected_template_farm_reasons' => $templateFarmRejected,
+            'wave_plan'                          => $this->computeWavePlan($emitted),
+            'learning_signals_by_rejection_reason' => $this->computeLearningSignals($rejected),
         ];
+    }
+
+    /**
+     * Groups emitted packet ids by dependency_wave, so callers can parallelise the batch safely
+     * without re-deriving wave assignment from category.
+     *
+     * @param  list<array<string,mixed>>  $emitted
+     * @return array<string, list<string>>
+     */
+    private function computeWavePlan(array $emitted): array
+    {
+        $plan = [];
+        foreach ($emitted as $packet) {
+            $wave = (string) ($packet['dependency_wave'] ?? '2');
+            $plan[$wave][] = (string) ($packet['task_packet_id'] ?? '');
+        }
+        ksort($plan, SORT_NUMERIC);
+        foreach ($plan as $wave => $ids) {
+            sort($plan[$wave], SORT_STRING);
+        }
+
+        return $plan;
+    }
+
+    /**
+     * Aggregates rejections by reason so the brain can learn which rejection patterns recur and
+     * adjust future opportunity generation, instead of re-discovering the same failure each batch.
+     *
+     * @param  list<array{label:string,reason:string,detail?:string}>  $rejected
+     * @return array<string, array{count:int, labels:list<string>}>
+     */
+    private function computeLearningSignals(array $rejected): array
+    {
+        $signals = [];
+        foreach ($rejected as $r) {
+            $reason = (string) ($r['reason'] ?? 'unknown');
+            $signals[$reason]['count'] = ($signals[$reason]['count'] ?? 0) + 1;
+            $signals[$reason]['labels'][] = (string) ($r['label'] ?? '');
+        }
+        ksort($signals, SORT_STRING);
+
+        return $signals;
     }
 
     /**

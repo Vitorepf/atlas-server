@@ -481,4 +481,45 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
         $this->assertSame([], $result['rejected_template_farm_reasons']);
         $this->assertCount(4, $result['emitted']);
     }
+
+    // ── wave_plan + learning_signals_by_rejection_reason ──────────────────────
+
+    public function test_wave_plan_groups_emitted_packet_ids_by_dependency_wave(): void
+    {
+        $opps = [
+            $this->valid('arch', ['category' => 'architecture_unlock', 'allowed_files' => ['app/Arch/A.php', 'tests/Arch/ATest.php']]),
+            $this->valid('bug', ['category' => 'bug_fix', 'allowed_files' => ['app/Bug/B.php', 'tests/Bug/BTest.php']]),
+        ];
+
+        $result = $this->composer()->compose($opps);
+
+        $this->assertArrayHasKey('wave_plan', $result);
+        $this->assertContains('arch', $result['wave_plan']['1']);
+        $this->assertContains('bug', $result['wave_plan']['2']);
+    }
+
+    public function test_learning_signals_by_rejection_reason_groups_and_counts(): void
+    {
+        $opps = [
+            $this->valid('ok', []),
+            ['label' => 'bad1', 'objective' => '', 'allowed_files' => [], 'acceptance_criteria' => [], 'required_evidence' => [], 'value_mechanism' => ''],
+            ['label' => 'bad2', 'objective' => '', 'allowed_files' => [], 'acceptance_criteria' => [], 'required_evidence' => [], 'value_mechanism' => ''],
+        ];
+
+        $result = $this->composer()->compose($opps);
+
+        $this->assertArrayHasKey('learning_signals_by_rejection_reason', $result);
+        $signals = $result['learning_signals_by_rejection_reason'];
+        $this->assertArrayHasKey('missing_required_fields', $signals);
+        $this->assertSame(2, $signals['missing_required_fields']['count']);
+        $this->assertContains('bad1', $signals['missing_required_fields']['labels']);
+        $this->assertContains('bad2', $signals['missing_required_fields']['labels']);
+    }
+
+    public function test_learning_signals_empty_when_nothing_rejected(): void
+    {
+        $result = $this->composer()->compose([$this->valid('only')]);
+
+        $this->assertSame([], $result['learning_signals_by_rejection_reason']);
+    }
 }
