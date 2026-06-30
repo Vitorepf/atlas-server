@@ -121,4 +121,45 @@ final class AutonomousWorkExecutionOsTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->svc->transitionStage($cycle, 'goal_recorded', 'maybe');
     }
+
+    public function test_fresh_cycle_next_stage_is_goal_recorded(): void
+    {
+        $cycle = $this->svc->evaluateCycle(['goal' => 'x', 'autonomy_level' => 'L0']);
+        $decision = $this->svc->nextStageDecision($cycle);
+
+        $this->assertSame('goal_recorded', $decision['next_stage']);
+        $this->assertFalse($decision['blocked']);
+        $this->assertFalse($decision['complete']);
+    }
+
+    public function test_failed_step_executed_blocks_certification_and_learning(): void
+    {
+        $cycle = $this->svc->evaluateCycle(['goal' => 'x', 'autonomy_level' => 'L0']);
+        $cycle = $this->svc->transitionStage($cycle, 'goal_recorded', 'succeeded');
+        $cycle = $this->svc->transitionStage($cycle, 'cycle_planned', 'succeeded');
+        $cycle = $this->svc->transitionStage($cycle, 'steps_decomposed', 'succeeded');
+        $cycle = $this->svc->transitionStage($cycle, 'step_executed', 'failed');
+
+        $decision = $this->svc->nextStageDecision($cycle);
+
+        $this->assertTrue($decision['blocked']);
+        $this->assertTrue($decision['certification_blocked']);
+        $this->assertTrue($decision['learning_blocked']);
+        $this->assertSame('step_executed', $decision['failure_stage']);
+        $this->assertNull($decision['next_stage']);
+    }
+
+    public function test_fully_succeeded_cycle_is_complete(): void
+    {
+        $cycle = $this->svc->evaluateCycle(['goal' => 'x', 'autonomy_level' => 'L0']);
+        foreach (AutonomousWorkExecutionOs::CYCLE_STAGES as $stage) {
+            $cycle = $this->svc->transitionStage($cycle, $stage, 'succeeded');
+        }
+
+        $decision = $this->svc->nextStageDecision($cycle);
+
+        $this->assertTrue($decision['complete']);
+        $this->assertNull($decision['next_stage']);
+        $this->assertFalse($decision['blocked']);
+    }
 }

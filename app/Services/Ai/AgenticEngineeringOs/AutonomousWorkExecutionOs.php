@@ -120,4 +120,68 @@ final class AutonomousWorkExecutionOs
 
         return array_merge($cycle, ['stages' => $stages]);
     }
+
+    /**
+     * Deterministic next-stage decision: reads the immutable cycle envelope
+     * and decides what to do next, without executing any provider.
+     *
+     * - The first stage (in CYCLE_STAGES order) whose status is "failed"
+     *   blocks the cycle: certification_blocked and learning_blocked are
+     *   both true, next_stage is null, and failure_stage names it.
+     * - Otherwise the first stage still "pending" is the next_stage to run.
+     * - When every stage has succeeded (or was skipped), the cycle is
+     *   complete: next_stage is null and complete=true.
+     *
+     * @param  array{stages?: list<array{stage: string, status: string}>}  $cycle
+     * @return array{
+     *   next_stage: ?string,
+     *   blocked: bool,
+     *   complete: bool,
+     *   certification_blocked: bool,
+     *   learning_blocked: bool,
+     *   failure_stage: ?string
+     * }
+     */
+    public function nextStageDecision(array $cycle): array
+    {
+        $statusByStage = [];
+        foreach ((array) ($cycle['stages'] ?? []) as $entry) {
+            $statusByStage[(string) ($entry['stage'] ?? '')] = (string) ($entry['status'] ?? 'pending');
+        }
+
+        foreach (self::CYCLE_STAGES as $stage) {
+            if (($statusByStage[$stage] ?? 'pending') === 'failed') {
+                return [
+                    'next_stage' => null,
+                    'blocked' => true,
+                    'complete' => false,
+                    'certification_blocked' => true,
+                    'learning_blocked' => true,
+                    'failure_stage' => $stage,
+                ];
+            }
+        }
+
+        foreach (self::CYCLE_STAGES as $stage) {
+            if (($statusByStage[$stage] ?? 'pending') === 'pending') {
+                return [
+                    'next_stage' => $stage,
+                    'blocked' => false,
+                    'complete' => false,
+                    'certification_blocked' => false,
+                    'learning_blocked' => false,
+                    'failure_stage' => null,
+                ];
+            }
+        }
+
+        return [
+            'next_stage' => null,
+            'blocked' => false,
+            'complete' => true,
+            'certification_blocked' => false,
+            'learning_blocked' => false,
+            'failure_stage' => null,
+        ];
+    }
 }
