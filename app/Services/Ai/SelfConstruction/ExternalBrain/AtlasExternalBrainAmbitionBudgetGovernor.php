@@ -60,6 +60,95 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
         self::MODE_CONSOLIDATION       => 0.10,
     ];
 
+    /** Queue-state ambition modes (distinct concern from the yield-ladder above). */
+    public const QUEUE_MODE_BREAKTHROUGH   = 'breakthrough';
+    public const QUEUE_MODE_RESEARCH       = 'research';
+    public const QUEUE_MODE_SELF_HEAL      = 'self_heal';
+    public const QUEUE_MODE_CONSOLIDATION  = 'consolidation';
+    public const QUEUE_MODE_SIMPLIFICATION = 'simplification';
+    public const QUEUE_MODE_DRAIN          = 'drain';
+
+    /** @var list<string> */
+    private const QUEUE_MODES = [
+        self::QUEUE_MODE_BREAKTHROUGH,
+        self::QUEUE_MODE_RESEARCH,
+        self::QUEUE_MODE_SELF_HEAL,
+        self::QUEUE_MODE_CONSOLIDATION,
+        self::QUEUE_MODE_SIMPLIFICATION,
+        self::QUEUE_MODE_DRAIN,
+    ];
+
+    private const LOW_QUEUE_HEALTH_THRESHOLD       = 0.50;
+    private const HIGH_STALE_BACKLOG_THRESHOLD     = 0.40;
+    private const HIGH_STRUCTURAL_LEVERAGE_THRESHOLD = 0.70;
+    private const BREAKTHROUGH_LEVERAGE_THRESHOLD  = 0.85;
+    private const LOW_BACKLOG_PRESSURE_THRESHOLD   = 0.30;
+    private const HIGH_BACKLOG_PRESSURE_THRESHOLD  = 0.70;
+
+    /**
+     * Decide which ambition mode (breakthrough, research, self_heal, consolidation,
+     * simplification, drain) the brain should spend budget on this cycle, based on queue
+     * health, stale backlog, and structural leverage — never on frontier-provider availability.
+     *
+     * @param  array{
+     *   queue_health?:         float,
+     *   stale_backlog_ratio?:  float,
+     *   structural_leverage?:  float,
+     *   backlog_pressure?:     float,
+     *   budget_total?:         int,
+     * }  $facts
+     * @return array{schema:string, selected_mode:string, budget_allocation:array<string,int>, denied_modes:list<string>, reasons:list<string>, remaining_budget:int}
+     */
+    public function governQueueAmbition(array $facts): array
+    {
+        $queueHealth        = max(0.0, min(1.0, (float) ($facts['queue_health']        ?? 1.0)));
+        $staleBacklogRatio   = max(0.0, min(1.0, (float) ($facts['stale_backlog_ratio']  ?? 0.0)));
+        $structuralLeverage  = max(0.0, min(1.0, (float) ($facts['structural_leverage']  ?? 0.0)));
+        $backlogPressure     = max(0.0, min(1.0, (float) ($facts['backlog_pressure']     ?? 0.0)));
+        $budgetTotal         = max(0, (int) ($facts['budget_total'] ?? 100));
+
+        $reasons = [];
+
+        if ($queueHealth < self::LOW_QUEUE_HEALTH_THRESHOLD) {
+            $selected = self::QUEUE_MODE_SELF_HEAL;
+            $reasons[] = sprintf('queue_health=%.2f below floor=%.2f: heal before expanding ambition', $queueHealth, self::LOW_QUEUE_HEALTH_THRESHOLD);
+        } elseif ($staleBacklogRatio >= self::HIGH_STALE_BACKLOG_THRESHOLD) {
+            $selected = self::QUEUE_MODE_CONSOLIDATION;
+            $reasons[] = sprintf('stale_backlog_ratio=%.2f at/above ceiling=%.2f: consolidate before creating', $staleBacklogRatio, self::HIGH_STALE_BACKLOG_THRESHOLD);
+        } elseif ($structuralLeverage >= self::HIGH_STRUCTURAL_LEVERAGE_THRESHOLD && $backlogPressure < self::LOW_BACKLOG_PRESSURE_THRESHOLD) {
+            // AC2: never gated on frontier-provider availability — local muscles can attempt this.
+            $selected = $structuralLeverage >= self::BREAKTHROUGH_LEVERAGE_THRESHOLD
+                ? self::QUEUE_MODE_BREAKTHROUGH
+                : self::QUEUE_MODE_RESEARCH;
+            $reasons[] = sprintf(
+                'structural_leverage=%.2f high and backlog_pressure=%.2f low: %s budget unlocked without depending on a frontier provider',
+                $structuralLeverage, $backlogPressure, $selected,
+            );
+        } elseif ($backlogPressure >= self::HIGH_BACKLOG_PRESSURE_THRESHOLD) {
+            $selected = self::QUEUE_MODE_DRAIN;
+            $reasons[] = sprintf('backlog_pressure=%.2f at/above ceiling=%.2f: drain existing claimable work', $backlogPressure, self::HIGH_BACKLOG_PRESSURE_THRESHOLD);
+        } else {
+            $selected = self::QUEUE_MODE_SIMPLIFICATION;
+            $reasons[] = 'no dominant signal: default to low-risk simplification housekeeping';
+        }
+
+        $budgetAllocation = [];
+        foreach (self::QUEUE_MODES as $mode) {
+            $budgetAllocation[$mode] = $mode === $selected ? $budgetTotal : 0;
+        }
+
+        $deniedModes = array_values(array_diff(self::QUEUE_MODES, [$selected]));
+
+        return [
+            'schema'            => self::SCHEMA,
+            'selected_mode'     => $selected,
+            'budget_allocation' => $budgetAllocation,
+            'denied_modes'      => $deniedModes,
+            'reasons'           => $reasons,
+            'remaining_budget'  => $budgetTotal,
+        ];
+    }
+
     /**
      * Compute budget allocation for the current brain-run state.
      *

@@ -301,4 +301,75 @@ final class AtlasExternalBrainAmbitionBudgetGovernorTest extends TestCase
         $this->assertSame(0, $r['budget_slice']);
         $this->assertSame(0, $r['quota_remaining']);
     }
+
+    // ── governQueueAmbition: required output keys ─────────────────────────────
+
+    public function test_govern_queue_ambition_has_required_keys(): void
+    {
+        $r = $this->gov->governQueueAmbition([]);
+
+        foreach (['schema', 'selected_mode', 'budget_allocation', 'denied_modes', 'reasons', 'remaining_budget'] as $key) {
+            $this->assertArrayHasKey($key, $r);
+        }
+        $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::SCHEMA, $r['schema']);
+    }
+
+    // ── AC: low queue health or high stale backlog redirects to self_heal/consolidation ──
+
+    public function test_low_queue_health_redirects_to_self_heal(): void
+    {
+        $r = $this->gov->governQueueAmbition([
+            'queue_health'        => 0.20,
+            'structural_leverage' => 0.95,
+            'backlog_pressure'    => 0.10,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_SELF_HEAL, $r['selected_mode']);
+        $this->assertContains(AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_BREAKTHROUGH, $r['denied_modes']);
+    }
+
+    public function test_high_stale_backlog_redirects_to_consolidation(): void
+    {
+        $r = $this->gov->governQueueAmbition([
+            'queue_health'         => 0.90,
+            'stale_backlog_ratio'  => 0.60,
+            'structural_leverage'  => 0.95,
+            'backlog_pressure'     => 0.10,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_CONSOLIDATION, $r['selected_mode']);
+    }
+
+    // ── AC: high structural leverage + low backlog pressure unlocks breakthrough/research ──
+
+    public function test_high_structural_leverage_low_backlog_pressure_unlocks_breakthrough(): void
+    {
+        $r = $this->gov->governQueueAmbition([
+            'queue_health'        => 1.0,
+            'stale_backlog_ratio' => 0.0,
+            'structural_leverage' => 0.90,
+            'backlog_pressure'    => 0.05,
+            'budget_total'        => 50,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_BREAKTHROUGH, $r['selected_mode']);
+        $this->assertSame(50, $r['budget_allocation'][AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_BREAKTHROUGH]);
+        $this->assertSame(50, $r['remaining_budget']);
+    }
+
+    public function test_unlock_does_not_depend_on_frontier_provider_availability(): void
+    {
+        $facts = [
+            'queue_health'        => 1.0,
+            'stale_backlog_ratio' => 0.0,
+            'structural_leverage' => 0.90,
+            'backlog_pressure'    => 0.05,
+        ];
+
+        $withoutFrontier = $this->gov->governQueueAmbition($facts + ['frontier_provider_available' => false]);
+        $withFrontier    = $this->gov->governQueueAmbition($facts + ['frontier_provider_available' => true]);
+
+        $this->assertSame($withoutFrontier['selected_mode'], $withFrontier['selected_mode']);
+        $this->assertSame(AtlasExternalBrainAmbitionBudgetGovernor::QUEUE_MODE_BREAKTHROUGH, $withoutFrontier['selected_mode']);
+    }
 }
