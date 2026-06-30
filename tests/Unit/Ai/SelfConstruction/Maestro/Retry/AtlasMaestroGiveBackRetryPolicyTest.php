@@ -81,4 +81,47 @@ final class AtlasMaestroGiveBackRetryPolicyTest extends TestCase
         ]);
         $this->assertSame(RetryDecision::REASON_LOOP_DETECTED, $verdict->reason);
     }
+
+    public function test_give_back_count_at_threshold_returns_respec_or_retire(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy(maxRetries: 10, repeatedGiveBackThreshold: 3);
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-repeat',
+            'retries_used' => 0,
+            'new_fingerprint' => 'fp-new',
+            'previous_fingerprint' => 'fp-old',
+            'give_back_count' => 3,
+        ]);
+        $this->assertFalse($verdict->allow);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_OR_RETIRE, $verdict->reason);
+    }
+
+    public function test_give_back_count_below_threshold_allows_retry(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy(maxRetries: 10, repeatedGiveBackThreshold: 3);
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-repeat',
+            'retries_used' => 0,
+            'new_fingerprint' => 'fp-new',
+            'previous_fingerprint' => 'fp-old',
+            'give_back_count' => 2,
+        ]);
+        $this->assertTrue($verdict->allow, 'give_back_count below threshold must still allow retry');
+    }
+
+    public function test_respec_or_retire_takes_precedence_over_loop_and_budget_and_cooldown(): void
+    {
+        $policy = new AtlasMaestroGiveBackRetryPolicy(maxRetries: 0, repeatedGiveBackThreshold: 1);
+        $verdict = $policy->evaluate([
+            'task_packet_id' => 'pkt-repeat',
+            'retries_used' => 99,
+            'new_fingerprint' => 'fp-dup',
+            'previous_fingerprint' => 'fp-dup',
+            'give_back_count' => 1,
+            'cooldown_until_unix' => 9999999999,
+            'now_unix' => 1700000000,
+        ]);
+        $this->assertSame(AtlasMaestroGiveBackRetryPolicy::REASON_RESPEC_OR_RETIRE, $verdict->reason,
+            'respec_or_retire must win over loop_detected, budget_exhausted, and cooldown_active');
+    }
 }

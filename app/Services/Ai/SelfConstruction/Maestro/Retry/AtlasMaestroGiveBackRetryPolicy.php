@@ -9,17 +9,23 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Retry;
  * (task_packet_id, reshape_fingerprint, retries_used, cooldown_until).
  *
  * Rules (evaluated in this order; first match wins):
- *   1. loop_detected     — new reshape_fingerprint == previous attempt's fingerprint.
- *   2. budget_exhausted  — retries_used >= max_retries.
- *   3. cooldown_active   — now < cooldown_until.
- *   4. allow             — otherwise.
+ *   1. respec_or_retire  — give_back_count >= repeated_give_back_threshold (prefer respec/retire over re-serving).
+ *   2. loop_detected     — new reshape_fingerprint == previous attempt's fingerprint.
+ *   3. budget_exhausted  — retries_used >= max_retries.
+ *   4. cooldown_active   — now < cooldown_until.
+ *   5. allow             — otherwise.
  */
 final class AtlasMaestroGiveBackRetryPolicy
 {
     public const DEFAULT_MAX_RETRIES = 2;
 
+    public const DEFAULT_REPEATED_GIVE_BACK_THRESHOLD = 3;
+
+    public const REASON_RESPEC_OR_RETIRE = 'respec_or_retire';
+
     public function __construct(
         private readonly int $maxRetries = self::DEFAULT_MAX_RETRIES,
+        private readonly int $repeatedGiveBackThreshold = self::DEFAULT_REPEATED_GIVE_BACK_THRESHOLD,
     ) {}
 
     /**
@@ -36,6 +42,11 @@ final class AtlasMaestroGiveBackRetryPolicy
     {
         $retriesUsed = (int) ($facts['retries_used'] ?? 0);
         $nextAttempt = $retriesUsed + 1;
+
+        // Repeated equivalent give_backs: prefer respec/retire over re-serving the same packet.
+        if ((int) ($facts['give_back_count'] ?? 0) >= $this->repeatedGiveBackThreshold) {
+            return RetryDecision::deny(self::REASON_RESPEC_OR_RETIRE, $nextAttempt);
+        }
 
         $newFingerprint = (string) ($facts['new_fingerprint'] ?? '');
         $previousFingerprint = isset($facts['previous_fingerprint']) ? (string) $facts['previous_fingerprint'] : '';
