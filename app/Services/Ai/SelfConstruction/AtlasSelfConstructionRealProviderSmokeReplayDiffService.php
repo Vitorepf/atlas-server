@@ -32,13 +32,47 @@ final class AtlasSelfConstructionRealProviderSmokeReplayDiffService
         'work_product_collected',
     ];
 
+    private const PROTECTED_HASH_FIELDS = [
+        'smoke_hash',
+        'operator_approval_receipt_hash',
+        'evidence_ledger_hash',
+        'work_product_manifest_hash',
+        'cost_event_hash',
+        'continuation_summary_hash',
+        'provider_response_hash',
+    ];
+
     /** @return array<string, mixed> */
     public function compare(array $before, array $after): array
     {
+        $evidenceFieldMap = [];
         $mutations = [];
+
         foreach (self::PROTECTED_FIELDS as $field) {
-            if (($before[$field] ?? null) !== ($after[$field] ?? null)) {
-                $mutations[] = ['code' => 'protected_real_provider_smoke_field_mutated', 'field' => $field];
+            $beforeValue = $before[$field] ?? null;
+            $afterValue = $after[$field] ?? null;
+            $beforePresent = array_key_exists($field, $before) && trim((string) $beforeValue) !== '';
+            $afterPresent = array_key_exists($field, $after) && trim((string) $afterValue) !== '';
+            $changed = $beforeValue !== $afterValue;
+            $isHashField = in_array($field, self::PROTECTED_HASH_FIELDS, true);
+
+            $blockerCode = match (true) {
+                $changed => 'protected_real_provider_smoke_field_mutated',
+                $isHashField && ! $afterPresent => 'protected_real_provider_smoke_field_missing',
+                $isHashField && preg_match('/^[a-f0-9]{64}$/', (string) $afterValue) !== 1 => 'protected_real_provider_smoke_field_malformed',
+                default => null,
+            };
+
+            $evidenceFieldMap[] = [
+                'field' => $field,
+                'before_present' => $beforePresent,
+                'after_present' => $afterPresent,
+                'changed' => $changed,
+                'blocker' => $blockerCode,
+            ];
+
+            if ($blockerCode !== null) {
+                $mutations[] = ['code' => $blockerCode, 'field' => $field];
             }
         }
         foreach (['provider_called_by_atlas', 'token_spent_by_atlas', 'dispatch_allowed', 'adapter_execution_allowed', 'self_programming_allowed'] as $flag) {
@@ -55,6 +89,7 @@ final class AtlasSelfConstructionRealProviderSmokeReplayDiffService
             'compared_at' => CarbonImmutable::now()->toIso8601String(),
             'mutation_count' => count($mutations),
             'mutations' => $mutations,
+            'evidence_field_map' => $evidenceFieldMap,
             'replay_diff_green' => $status === 'passed',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
