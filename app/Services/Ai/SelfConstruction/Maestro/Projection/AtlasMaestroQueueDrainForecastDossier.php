@@ -87,23 +87,34 @@ final class AtlasMaestroQueueDrainForecastDossier
         // Ready packets specifically excluded because of poison risk (not other blockers).
         $poisonBlockedReady = max(0, min($highPoisonCt, $readyCount - $blockedCount));
 
+        // Worker-floor starvation: even a non-empty effective_ready can be too thin to feed every
+        // active worker. minimum_claimable_per_worker defaults to 1.0 (each worker needs at least
+        // one claimable packet to stay productive).
+        $activeWorkerCount = max(0, (int) ($facts['active_worker_count'] ?? 0));
+        $minimumClaimablePerWorker = max(0.0, (float) ($facts['minimum_claimable_per_worker'] ?? 1.0));
+        $workerFloor = $activeWorkerCount * $minimumClaimablePerWorker;
+        $belowWorkerFloor = $activeWorkerCount > 0 && $effectiveReady < $workerFloor;
+
         // ── drain_eta ───────────────────────────────────────────────────────
         $drainEta = $this->computeDrainEta($effectiveReady, $throughput);
 
         // ── productivity_risk ────────────────────────────────────────────────
         $productivityRisk = $this->computeProductivityRisk(
-            $effectiveReady, $blockedCount, $readyCount, $overallPoison, $projectionRisk,
+            $effectiveReady, $blockedCount, $readyCount, $overallPoison, $projectionRisk, $belowWorkerFloor,
         );
 
         // ── next_action ──────────────────────────────────────────────────────
         $nextAction = $this->computeNextAction(
-            $effectiveReady, $blockedCount, $overallPoison, $projectionRisk,
+            $effectiveReady, $blockedCount, $overallPoison, $projectionRisk, $belowWorkerFloor,
         );
 
         // ── evidence_refs ────────────────────────────────────────────────────
         $evidenceRefs = $this->buildEvidenceRefs(
             $readyCount, $blockedCount, $claimedCount, $highPoisonCt, $overallPoison, $throughput, $effectiveReady,
         );
+        if ($activeWorkerCount > 0) {
+            $evidenceRefs[] = 'worker_floor:'.$workerFloor.':active_workers:'.$activeWorkerCount;
+        }
 
         // ── eta_to_dry_by_worker_count ───────────────────────────────────────
         $etaByWorkerCount = [];
@@ -121,6 +132,8 @@ final class AtlasMaestroQueueDrainForecastDossier
             'productive_ready'           => $effectiveReady,
             'poison_blocked_ready'       => $poisonBlockedReady,
             'eta_to_dry_by_worker_count' => $etaByWorkerCount,
+            'below_worker_floor'         => $belowWorkerFloor,
+            'worker_floor'               => $workerFloor,
         ];
     }
 
@@ -151,11 +164,12 @@ final class AtlasMaestroQueueDrainForecastDossier
         int $readyCount,
         string $overallPoison,
         string $projectionRisk,
+        bool $belowWorkerFloor = false,
     ): string {
         if ($effectiveReady <= 0) {
             return self::RISK_CRITICAL;
         }
-        if ($overallPoison === self::RISK_HIGH || $effectiveReady < self::REPLENISH_EFFECTIVE_THRESHOLD) {
+        if ($overallPoison === self::RISK_HIGH || $effectiveReady < self::REPLENISH_EFFECTIVE_THRESHOLD || $belowWorkerFloor) {
             return self::RISK_HIGH;
         }
         if ($projectionRisk === 'replenish_now' || ($readyCount > 0 && $blockedCount > (int) round($readyCount / 2))) {
@@ -170,6 +184,7 @@ final class AtlasMaestroQueueDrainForecastDossier
         int $blockedCount,
         string $overallPoison,
         string $projectionRisk,
+        bool $belowWorkerFloor = false,
     ): string {
         if ($overallPoison === self::RISK_HIGH) {
             return self::ACTION_DRAIN_POISON;
@@ -177,7 +192,7 @@ final class AtlasMaestroQueueDrainForecastDossier
         if ($blockedCount > 0 && $blockedCount >= $effectiveReady) {
             return self::ACTION_UNBLOCK;
         }
-        if ($effectiveReady < self::REPLENISH_EFFECTIVE_THRESHOLD || $projectionRisk === 'replenish_now') {
+        if ($effectiveReady < self::REPLENISH_EFFECTIVE_THRESHOLD || $projectionRisk === 'replenish_now' || $belowWorkerFloor) {
             return self::ACTION_ORIGINATE;
         }
 
