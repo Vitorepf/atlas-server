@@ -207,4 +207,95 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
         $this->assertSame('claude-1', $out['worker']);
         $this->assertSame([], $out['conflict_workers']);
     }
+
+    // ── risk tier routing ──────────────────────────────────────────────────────
+
+    public function test_route_packet_considers_risk_tier_before_task_class(): void
+    {
+        // codex-1 has risk:high affinity; claude-1 only has task_class success.
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'codex-1', 'risk:high');
+        }
+        for ($i = 0; $i < 10; $i++) {
+            $this->ledger->record('success', 'claude-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'risk_level' => 'high', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker'], 'risk tier affinity must beat higher task_class success');
+        $this->assertSame('risk:high', $out['routing_key']);
+    }
+
+    // ── task family routing ────────────────────────────────────────────────────
+
+    public function test_route_packet_considers_task_family_before_task_class(): void
+    {
+        // claude-1 has family:native affinity; codex-1 only has task_class success.
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'claude-1', 'family:native');
+        }
+        for ($i = 0; $i < 10; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'task_family' => 'native', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('claude-1', $out['worker'], 'task family affinity must beat higher task_class success');
+        $this->assertSame('family:native', $out['routing_key']);
+    }
+
+    // ── active claim pressure ──────────────────────────────────────────────────
+
+    public function test_route_packet_abstains_when_all_workers_overloaded(): void
+    {
+        config(['atlas.maestro.adaptive.max_active_claims' => 2]);
+
+        // Each worker has 2 active claims → at the threshold → overloaded.
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => ['app/X.php']],
+            ['claude-1', 'codex-1'],
+            [
+                ['worker_id' => 'claude-1', 'claimed_files' => ['app/A.php']],
+                ['worker_id' => 'claude-1', 'claimed_files' => ['app/B.php']],
+                ['worker_id' => 'codex-1',  'claimed_files' => ['app/C.php']],
+                ['worker_id' => 'codex-1',  'claimed_files' => ['app/D.php']],
+            ],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_ABSTAIN, $out['status']);
+        $this->assertSame('all_eligible_workers_overloaded', $out['reason']);
+        $this->assertContains('claude-1', $out['overloaded_workers']);
+        $this->assertContains('codex-1',  $out['overloaded_workers']);
+    }
+
+    public function test_route_packet_routes_to_clean_worker_when_other_is_overloaded(): void
+    {
+        config(['atlas.maestro.adaptive.max_active_claims' => 2]);
+
+        // codex-1 has 4 task_class successes; claude-1 is overloaded.
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => ['app/X.php']],
+            ['claude-1', 'codex-1'],
+            [
+                ['worker_id' => 'claude-1', 'claimed_files' => ['app/A.php']],
+                ['worker_id' => 'claude-1', 'claimed_files' => ['app/B.php']],
+            ],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker'], 'overloaded worker must be excluded; clean worker routed');
+        $this->assertContains('claude-1', $out['overloaded_workers']);
+    }
 }
