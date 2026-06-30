@@ -21,6 +21,15 @@ final class AtlasExternalBrainCritiqueQuorumReducer
 {
     public const SCHEMA = 'atlas.external_brain.critique_quorum_reducer.v1';
 
+    // evidence_strength threshold to treat a high-severity blocker as "sufficient evidence".
+    private const STRONG_EVIDENCE_THRESHOLD    = 0.70;
+    // At least this many critics must agree for strength+agreement to force reject.
+    private const STRONG_AGREEMENT_MIN         = 2;
+    // These blocker classes force reject on their own when evidence_strength is strong.
+    private const FORCE_REJECT_BLOCKER_CLASSES = ['safety', 'correctness', 'data_loss'];
+    // These blocker classes force escalate (after reject check).
+    private const ESCALATE_BLOCKER_CLASSES     = ['scope_disagreement', 'escalate'];
+
     /**
      * @param  array<string,mixed>  $input  critique_outputs list
      * @return array<string,mixed>
@@ -71,10 +80,17 @@ final class AtlasExternalBrainCritiqueQuorumReducer
             $severity = (string) ($best['severity'] ?? 'low');
 
             if ($severity === 'high') {
+                $maxEvidenceStrength = 0.0;
+                foreach ($findings as $f) {
+                    $maxEvidenceStrength = max($maxEvidenceStrength, min(1.0, max(0.0, (float) ($f['evidence_strength'] ?? 0.0))));
+                }
                 $blockingFindings[] = [
-                    'type' => $type,
-                    'severity' => $severity,
-                    'evidence' => (string) ($best['evidence'] ?? ''),
+                    'type'              => $type,
+                    'severity'          => $severity,
+                    'evidence'          => (string) ($best['evidence'] ?? ''),
+                    'evidence_strength' => $maxEvidenceStrength,
+                    'agreement_count'   => count($findings),
+                    'blocker_class'     => (string) ($best['blocker_class'] ?? ''),
                 ];
                 foreach ($findings as $f) {
                     $repair = trim((string) ($f['repair_action'] ?? ''));
@@ -92,13 +108,47 @@ final class AtlasExternalBrainCritiqueQuorumReducer
             }
         }
 
+        [$decision, $decisionReason] = $this->computeDecision($blockingFindings, $unresolvedConflicts);
+
         return [
-            'schema_version' => self::SCHEMA,
-            'blocking_findings' => $blockingFindings,
-            'merged_duplicates' => $mergedDuplicates,
+            'schema_version'      => self::SCHEMA,
+            'decision'            => $decision,
+            'decision_reason'     => $decisionReason,
+            'blocking_findings'   => $blockingFindings,
+            'merged_duplicates'   => $mergedDuplicates,
             'unresolved_conflicts' => $unresolvedConflicts,
-            'repair_actions' => $repairActions,
-            'accepted_tradeoffs' => $acceptedTradeoffs,
+            'repair_actions'      => $repairActions,
+            'accepted_tradeoffs'  => $acceptedTradeoffs,
         ];
+    }
+
+    /** @return array{string, string} [$decision, $reason] */
+    private function computeDecision(array $blockingFindings, array $unresolvedConflicts): array
+    {
+        foreach ($blockingFindings as $bf) {
+            $strongEvidence  = ($bf['evidence_strength'] ?? 0.0) >= self::STRONG_EVIDENCE_THRESHOLD;
+            $strongAgreement = ($bf['agreement_count']   ?? 0)   >= self::STRONG_AGREEMENT_MIN;
+            $safetyClass     = in_array($bf['blocker_class'] ?? '', self::FORCE_REJECT_BLOCKER_CLASSES, true);
+
+            if ($strongEvidence && ($strongAgreement || $safetyClass)) {
+                return ['reject', 'high_severity_blocker_with_sufficient_evidence'];
+            }
+        }
+
+        if ($unresolvedConflicts !== []) {
+            return ['escalate', 'unresolved_conflicts_require_escalation'];
+        }
+
+        foreach ($blockingFindings as $bf) {
+            if (in_array($bf['blocker_class'] ?? '', self::ESCALATE_BLOCKER_CLASSES, true)) {
+                return ['escalate', 'blocker_class_requires_escalation'];
+            }
+        }
+
+        if ($blockingFindings !== []) {
+            return ['repair', 'blocking_findings_with_insufficient_evidence_for_reject'];
+        }
+
+        return ['approve', 'no_blocking_findings'];
     }
 }

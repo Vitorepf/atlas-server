@@ -14,15 +14,25 @@ final class AtlasExternalBrainCritiqueQuorumReducerTest extends TestCase
         return new AtlasExternalBrainCritiqueQuorumReducer;
     }
 
-    private function finding(string $type, string $severity, string $evidence = '', string $repair = '', bool $accepted = false, bool $resolvesConflict = false): array
-    {
+    private function finding(
+        string $type,
+        string $severity,
+        string $evidence = '',
+        string $repair = '',
+        bool $accepted = false,
+        bool $resolvesConflict = false,
+        float $evidenceStrength = 0.0,
+        string $blockerClass = '',
+    ): array {
         return array_filter([
-            'type' => $type,
-            'severity' => $severity,
-            'evidence' => $evidence,
-            'repair_action' => $repair,
-            'accepted' => $accepted ?: null,
+            'type'              => $type,
+            'severity'          => $severity,
+            'evidence'          => $evidence,
+            'repair_action'     => $repair,
+            'accepted'          => $accepted ?: null,
             'resolves_conflict' => $resolvesConflict ?: null,
+            'evidence_strength' => $evidenceStrength > 0.0 ? $evidenceStrength : null,
+            'blocker_class'     => $blockerClass !== '' ? $blockerClass : null,
         ], static fn ($v) => $v !== null && $v !== '' && $v !== false);
     }
 
@@ -144,6 +154,74 @@ final class AtlasExternalBrainCritiqueQuorumReducerTest extends TestCase
 
         $sameRepair = array_filter($r['repair_actions'], static fn ($a) => $a['action'] === 'same repair');
         $this->assertCount(1, $sameRepair);
+    }
+
+    // ── quorum decision ───────────────────────────────────────────────────────
+
+    public function test_output_has_decision_and_reason_keys(): void
+    {
+        $r = $this->svc()->reduce([]);
+
+        $this->assertArrayHasKey('decision', $r);
+        $this->assertArrayHasKey('decision_reason', $r);
+    }
+
+    public function test_unanimous_approve_when_no_blockers(): void
+    {
+        $r = $this->reduce([
+            $this->finding('style', 'low', 'minor style nit'),
+            $this->finding('naming', 'low', 'variable name could be clearer'),
+        ]);
+
+        $this->assertSame('approve', $r['decision']);
+    }
+
+    public function test_high_severity_strong_evidence_and_agreement_rejects(): void
+    {
+        // 2 critics agree, evidence_strength=0.80, neutral blocker_class → rejects via agreement path
+        $r = $this->reduce(
+            [$this->finding('proxy_risk', 'high', 'objective is cleanup', '', false, false, 0.80, 'performance')],
+            [$this->finding('proxy_risk', 'high', 'confirmed proxy pattern', '', false, false, 0.80, 'performance')],
+        );
+
+        $this->assertSame('reject', $r['decision']);
+    }
+
+    public function test_high_severity_weak_evidence_repairs_not_rejects(): void
+    {
+        // Single critic, evidence_strength=0.40 (below threshold) → repair, not reject
+        $r = $this->reduce([
+            $this->finding('proxy_risk', 'high', 'looks like cleanup', '', false, false, 0.40),
+        ]);
+
+        $this->assertSame('repair', $r['decision']);
+    }
+
+    public function test_unresolved_disagreement_escalates(): void
+    {
+        $r = $this->reduce(
+            [$this->finding('low_leverage', 'high', 'one critic says high')],
+            [$this->finding('low_leverage', 'low', 'another critic says low')],
+        );
+
+        $this->assertSame('escalate', $r['decision']);
+    }
+
+    public function test_safety_blocker_class_forces_reject_with_single_critic_strong_evidence(): void
+    {
+        // Safety class + strong evidence overrides the agreement minimum → reject
+        $r = $this->reduce([
+            $this->finding('data_corruption', 'high', 'irreversible write detected', '', false, false, 0.85, 'safety'),
+        ]);
+
+        $this->assertSame('reject', $r['decision']);
+    }
+
+    public function test_empty_input_approves(): void
+    {
+        $r = $this->svc()->reduce([]);
+
+        $this->assertSame('approve', $r['decision']);
     }
 
     // ── schema + empty ────────────────────────────────────────────────────────
