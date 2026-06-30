@@ -54,6 +54,118 @@ final class AtlasMaestroGiveBackPatternMinerTest extends TestCase
         $this->assertSame('insufficient_sample', $result['abstentions'][0]['abstain_reason']);
     }
 
+    // ── root-cause classification ─────────────────────────────────────────────
+
+    public function test_classify_give_back_reason_forbidden_target(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('forbidden_target', $miner->classifyGiveBackReason(['give_back_reason' => 'forbidden_self_target']));
+        $this->assertSame('forbidden_target', $miner->classifyGiveBackReason(['commit_failed_reason' => 'property_gated']));
+    }
+
+    public function test_classify_give_back_reason_missing_impl_file(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('missing_impl_file', $miner->classifyGiveBackReason(['impl_file_missing' => true]));
+        $this->assertSame('missing_impl_file', $miner->classifyGiveBackReason(['reason' => 'missing impl file']));
+    }
+
+    public function test_classify_give_back_reason_contradictory_acceptance(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('contradictory_acceptance', $miner->classifyGiveBackReason(['give_back_reason' => 'contradictory_acceptance']));
+    }
+
+    public function test_classify_give_back_reason_schema_mismatch(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('schema_mismatch', $miner->classifyGiveBackReason(['reason' => 'schema mismatch detected']));
+    }
+
+    public function test_classify_give_back_reason_duplicate_or_noop(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('duplicate_or_noop', $miner->classifyGiveBackReason(['reason' => 'duplicate task']));
+        $this->assertSame('duplicate_or_noop', $miner->classifyGiveBackReason(['reason' => 'nothing_to_commit_in_scope']));
+    }
+
+    public function test_classify_give_back_reason_unknown_for_unrecognized(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        $this->assertSame('unknown', $miner->classifyGiveBackReason(['reason' => 'something weird']));
+        $this->assertSame('unknown', $miner->classifyGiveBackReason([]));
+    }
+
+    public function test_mined_rows_include_bucket_and_respec_hint(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 5; $i++) {
+            $rows[] = [
+                'task_class' => 'forbidden-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'forbidden_self_target',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/Maestro/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/Maestro/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $this->assertCount(1, $result['rows']);
+        $row = $result['rows'][0];
+        $this->assertSame('forbidden_target', $row['bucket']);
+        $this->assertNotEmpty($row['respec_hint']);
+    }
+
+    public function test_low_sample_buckets_abstain_instead_of_becoming_policy(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 3; $i++) {
+            $rows[] = [
+                'task_class' => 'small-class',
+                'served_delta' => 1,
+                'give_back_delta' => 1,
+                'give_back_reason' => 'contradictory_acceptance',
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                'scope_in' => ['app/Services/Foo.php'],
+                'required_evidence' => ['tests_or_gates_result'],
+            ];
+        }
+
+        $result = (new AtlasMaestroGiveBackPatternMiner($rows))->mineGiveBackShapes(minSample: 5);
+
+        $this->assertSame([], $result['rows']);
+        $this->assertCount(1, $result['abstentions']);
+        $this->assertSame('insufficient_sample', $result['abstentions'][0]['abstain_reason']);
+    }
+
+    public function test_each_bucket_emits_a_respec_hint(): void
+    {
+        $miner = new AtlasMaestroGiveBackPatternMiner;
+        foreach (['missing_impl_file', 'forbidden_target', 'contradictory_acceptance', 'schema_mismatch', 'duplicate_or_noop', 'unknown'] as $bucket) {
+            // Build enough rows for each bucket to pass the sample floor.
+            $rows = [];
+            for ($i = 0; $i < 5; $i++) {
+                $rows[] = [
+                    'task_class' => $bucket.'-class',
+                    'served_delta' => 1,
+                    'give_back_delta' => 1,
+                    'give_back_reason' => $bucket,
+                    'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+                    'scope_in' => ['app/Services/Foo.php'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                ];
+            }
+            $result = $miner->mineGiveBackShapes($rows, minSample: 5);
+            $this->assertNotEmpty($result['rows'], "bucket {$bucket} must produce a row");
+            $row = $result['rows'][0];
+            $this->assertSame($bucket, $row['bucket']);
+            $this->assertStringStartsWith('respec:', $row['respec_hint']);
+        }
+    }
+
     /**
      * @return list<array<string,mixed>>
      */
