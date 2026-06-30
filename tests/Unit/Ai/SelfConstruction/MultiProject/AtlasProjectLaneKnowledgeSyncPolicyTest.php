@@ -102,4 +102,84 @@ final class AtlasProjectLaneKnowledgeSyncPolicyTest extends TestCase
             $this->assertStringNotContainsString('lane-b', $cmd['id'], 'cross-project path must not produce a command targeting the other lane');
         }
     }
+
+    // ── knowledge surfaces ────────────────────────────────────────────────────
+
+    public function test_output_includes_canonical_docs_code_index_freshness_memory_projection_status(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => $this->atlasLane(),
+            'touched_paths' => [],
+        ]);
+        $this->assertArrayHasKey('canonical_docs', $r);
+        $this->assertArrayHasKey('code_index_freshness', $r);
+        $this->assertArrayHasKey('memory_projection_status', $r);
+    }
+
+    public function test_canonical_docs_populated_from_lane_manifest(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => array_merge($this->atlasLane(), [
+                'canonical_docs' => ['docs/engineering-knowledge-base/foo.md', 'docs/bar.md'],
+            ]),
+            'touched_paths' => [],
+        ]);
+        $this->assertSame(['docs/engineering-knowledge-base/foo.md', 'docs/bar.md'], $r['canonical_docs']);
+    }
+
+    public function test_stale_code_index_surface_blocks_and_emits_sync_command(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest'      => $this->atlasLane(),
+            'touched_paths'      => [],
+            'knowledge_surfaces' => ['code_index' => 'stale'],
+        ]);
+
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('stale_knowledge_surface:code_index', $r['blockers']);
+        $this->assertContains('lane-surface-sync:atlas:code_index', array_column($r['required_commands'], 'id'));
+    }
+
+    public function test_stale_memory_projection_surface_blocks_and_emits_sync_command(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest'      => $this->atlasLane(),
+            'touched_paths'      => [],
+            'knowledge_surfaces' => ['memory_projection' => 'stale'],
+        ]);
+
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('stale_knowledge_surface:memory_projection', $r['blockers']);
+        $this->assertContains('lane-surface-sync:atlas:memory_projection', array_column($r['required_commands'], 'id'));
+    }
+
+    public function test_missing_knowledge_surface_blocks_and_emits_sync_command(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest'      => $this->atlasLane(),
+            'touched_paths'      => [],
+            'knowledge_surfaces' => ['canonical_docs' => 'missing'],
+        ]);
+
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('missing_knowledge_surface:canonical_docs', $r['blockers']);
+        $this->assertContains('lane-surface-sync:atlas:canonical_docs', array_column($r['required_commands'], 'id'));
+    }
+
+    public function test_fresh_knowledge_surfaces_produce_no_blockers_or_commands(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest'      => $this->atlasLane(),
+            'touched_paths'      => [],
+            'knowledge_surfaces' => [
+                'code_index'        => 'fresh',
+                'memory_projection' => 'fresh',
+                'canonical_docs'    => 'fresh',
+            ],
+        ]);
+
+        $this->assertTrue($r['conformant']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertSame([], $r['required_commands']);
+    }
 }

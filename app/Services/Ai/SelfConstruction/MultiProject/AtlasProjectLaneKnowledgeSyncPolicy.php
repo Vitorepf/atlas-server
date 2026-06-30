@@ -44,6 +44,15 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
         $freshness = is_array($facts['freshness_facts'] ?? null) ? $facts['freshness_facts'] : [];
         $staleArtifacts = is_array($freshness['stale'] ?? null) ? array_map('strval', $freshness['stale']) : [];
 
+        // Knowledge surfaces: individual surface freshness from caller.
+        $knowledgeSurfaces = is_array($facts['knowledge_surfaces'] ?? null) ? $facts['knowledge_surfaces'] : [];
+        $codeIndexFreshness        = trim((string) ($knowledgeSurfaces['code_index']         ?? 'unknown'));
+        $memoryProjectionStatus    = trim((string) ($knowledgeSurfaces['memory_projection']   ?? 'unknown'));
+        $canonicalDocsFreshness    = trim((string) ($knowledgeSurfaces['canonical_docs']      ?? 'unknown'));
+
+        // Canonical docs list from lane manifest.
+        $canonicalDocs = is_array($lane['canonical_docs'] ?? null) ? array_values(array_map('strval', $lane['canonical_docs'])) : [];
+
         $blockers = [];
         if ($projectId === '') {
             $blockers[] = 'missing_project_id';
@@ -102,15 +111,36 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
             );
         }
 
+        // Stale/missing knowledge surface checks → blocker + actionable sync command.
+        $surfaceChecks = [
+            'code_index'        => [$codeIndexFreshness,     'engineering_knowledge_index_code'],
+            'memory_projection' => [$memoryProjectionStatus, 'export_memory_projection'],
+            'canonical_docs'    => [$canonicalDocsFreshness, 'engineering_knowledge_sync'],
+        ];
+        foreach ($surfaceChecks as $surface => [$status, $action]) {
+            if (in_array($status, ['stale', 'missing'], true)) {
+                $blockers[] = $status.'_knowledge_surface:'.$surface;
+                $commands[] = $this->command(
+                    'lane-surface-sync:'.$projectId.':'.$surface,
+                    $action,
+                    $projectId,
+                    $status.' knowledge surface: '.$surface,
+                );
+            }
+        }
+
         usort($commands, static fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
         sort($blockers, SORT_STRING);
 
         return [
-            'schema' => self::SCHEMA,
-            'project_id' => $projectId,
-            'conformant' => $blockers === [],
-            'blockers' => $blockers,
-            'required_commands' => $commands,
+            'schema'                   => self::SCHEMA,
+            'project_id'               => $projectId,
+            'conformant'               => $blockers === [],
+            'blockers'                 => $blockers,
+            'required_commands'        => $commands,
+            'canonical_docs'           => $canonicalDocs,
+            'code_index_freshness'     => $codeIndexFreshness,
+            'memory_projection_status' => $memoryProjectionStatus,
         ];
     }
 
