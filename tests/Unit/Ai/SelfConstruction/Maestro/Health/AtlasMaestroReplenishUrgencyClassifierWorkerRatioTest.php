@@ -38,7 +38,29 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerRatioTest extends TestCa
         $this->assertNull($result['inputs']['seconds_until_dry']);
     }
 
-    public function test_claimable_depth_at_least_double_active_workers_is_low_and_waits(): void
+    public function test_claimable_depth_comfortably_above_double_active_workers_is_low_and_waits(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 30, 'p95_seconds' => 30],
+            lease: ['p95_seconds' => 10, 'suspected_stuck_count' => 0],
+            idle: [
+                'claimable_depth' => 13,
+                'serve_rate_per_minute' => 5.0,
+                'seconds_until_dry' => null,
+                'active_claimed_workers' => 6,
+                'poison_pressure' => 0,
+            ],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 3600,
+        )->classify();
+
+        $this->assertSame('LOW', $result['urgency']);
+        $this->assertSame('wait', $result['next_action']);
+        $this->assertNotContains('claimable_depth_near_one_per_active_worker', $result['reasons']);
+    }
+
+    public function test_claimable_depth_at_exactly_double_active_workers_is_high_not_wait(): void
     {
         $result = $this->classifier(
             queue: ['oldest_seconds' => 30, 'p95_seconds' => 30],
@@ -55,9 +77,10 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerRatioTest extends TestCa
             thresholdStaleClaimableAgeSeconds: 3600,
         )->classify();
 
-        $this->assertSame('LOW', $result['urgency']);
-        $this->assertSame('wait', $result['next_action']);
-        $this->assertNotContains('claimable_depth_near_one_per_active_worker', $result['reasons']);
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertNotSame('wait', $result['next_action']);
+        $this->assertContains('claimable_depth_near_one_per_active_worker', $result['reasons']);
+        $this->assertContains($result['replenish_action'], ['replenish_soon', 'replenish_urgently']);
     }
 
     public function test_zero_active_workers_does_not_trigger_ratio_signal(): void

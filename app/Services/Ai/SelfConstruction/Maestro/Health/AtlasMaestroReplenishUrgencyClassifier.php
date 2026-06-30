@@ -79,7 +79,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
         // Primary starvation signal: claimable supply per active worker. Even when the raw
         // claimable_depth looks fine, near-1-per-worker means active muscles are about to run
         // out of claimable work before any seconds_until_dry/p95-age signal catches up.
-        if ($activeClaimedWorkers > 0 && ($claimableDepth / $activeClaimedWorkers) < $this->thresholdWorkerRatioHigh) {
+        if ($activeClaimedWorkers > 0 && ($claimableDepth / $activeClaimedWorkers) <= $this->thresholdWorkerRatioHigh) {
             $reasons[] = 'claimable_depth_near_one_per_active_worker';
         }
         if ($reasons !== []) {
