@@ -248,6 +248,37 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
     }
 
     /**
+     * Ranks delete/merge/refactor compression moves BEFORE additive (new-organ) proposals.
+     * Compression candidates (merge, delete, simplify, keep — already ordered by {@see plan()})
+     * always precede every additive proposal; a real missing capability with no duplication still
+     * permits its additive proposal to surface, just after whatever compression candidates exist
+     * (even an empty or keep-only set).
+     *
+     * @param  array{organs?: list<array<string,mixed>>, duplicate_threshold?: int, growth_threshold?: int}  $inventory
+     * @param  list<array<string,mixed>>  $additiveProposals  {proposal_id, ...}
+     * @return array<string,mixed>
+     */
+    public function rankWithAdditiveProposals(array $inventory, array $additiveProposals): array
+    {
+        $compressionPlan = $this->plan($inventory);
+        $candidates = $compressionPlan['candidates'];
+
+        $additive = [];
+        foreach (array_filter($additiveProposals, 'is_array') as $proposal) {
+            $additive[] = array_merge($proposal, ['is_additive_proposal' => true]);
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'ranked' => array_merge($candidates, array_values($additive)),
+            'compression_candidates_count' => count($candidates),
+            'additive_proposal_count' => count($additive),
+            'compression_summary' => $compressionPlan['summary'],
+            'plan_hash' => (string) $compressionPlan['plan_hash'],
+        ];
+    }
+
+    /**
      * Builds a merge candidate from an organ group, collecting contracts and required_tests.
      *
      * @param  list<string>              $uniqueIds
