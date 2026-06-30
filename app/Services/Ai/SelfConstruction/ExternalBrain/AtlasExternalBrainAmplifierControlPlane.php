@@ -27,15 +27,20 @@ final class AtlasExternalBrainAmplifierControlPlane
 {
     public const SCHEMA = 'atlas.external_brain.amplifier_control_plane.v1';
 
-    public const MODE_ROLLBACK        = 'rollback';
-    public const MODE_CANARY          = 'canary';
-    public const MODE_SHADOW_ONLY     = 'shadow_only';
-    public const MODE_SCAFFOLDED_LIVE = 'scaffolded_live';
-    public const MODE_BASELINE        = 'baseline';
+    public const MODE_ROLLBACK            = 'rollback';
+    public const MODE_CANARY              = 'canary';
+    public const MODE_SHADOW_ONLY         = 'shadow_only';
+    public const MODE_SCAFFOLDED_LIVE     = 'scaffolded_live';
+    public const MODE_FRONTIER_ESCALATION = 'frontier_escalation';
+    public const MODE_BASELINE            = 'baseline';
 
-    public const TELEMETRY_HEALTHY    = 'healthy';
-    public const TELEMETRY_WATCH      = 'watch';
-    public const TELEMETRY_ROLLBACK   = 'rollback_candidate';
+    public const TELEMETRY_HEALTHY  = 'healthy';
+    public const TELEMETRY_WATCH    = 'watch';
+    public const TELEMETRY_ROLLBACK = 'rollback_candidate';
+
+    private const HELD_OUT_PASS_THRESHOLD = 0.70;
+    private const PROXY_LEAKAGE_THRESHOLD = 0.20;
+    private const HIGH_LEVERAGE_THRESHOLD = 7.0;
 
     /**
      * @param  array{
@@ -128,6 +133,32 @@ final class AtlasExternalBrainAmplifierControlPlane
                 ['scaffolded_available', 'slo_met'],
                 [],
                 'monitor_slo_and_engage_canary_when_ready',
+            );
+        }
+
+        // FRONTIER_ESCALATION — only when quality signals are explicitly supplied
+        $heldOutPassRate    = isset($input['held_out_pass_rate'])       ? (float) $input['held_out_pass_rate']       : null;
+        $proxyLeakageRate   = isset($input['proxy_leakage_rate'])       ? (float) $input['proxy_leakage_rate']       : null;
+        $structuralLeverage = isset($input['structural_leverage_score']) ? (float) $input['structural_leverage_score'] : null;
+
+        $qualityFails = ($heldOutPassRate !== null && $heldOutPassRate < self::HELD_OUT_PASS_THRESHOLD)
+                     || ($proxyLeakageRate !== null && $proxyLeakageRate > self::PROXY_LEAKAGE_THRESHOLD);
+        $highLeverage = $structuralLeverage !== null && $structuralLeverage >= self::HIGH_LEVERAGE_THRESHOLD;
+
+        if ($qualityFails && $highLeverage) {
+            $reasons = [];
+            if ($heldOutPassRate !== null && $heldOutPassRate < self::HELD_OUT_PASS_THRESHOLD) {
+                $reasons[] = 'held_out_pass_rate_below_threshold';
+            }
+            if ($proxyLeakageRate !== null && $proxyLeakageRate > self::PROXY_LEAKAGE_THRESHOLD) {
+                $reasons[] = 'proxy_leakage_exceeds_threshold';
+            }
+            $reasons[] = 'structural_leverage_high';
+            return $this->result(
+                self::MODE_FRONTIER_ESCALATION,
+                $reasons,
+                [],
+                'escalate_to_frontier_model_for_high_leverage_task',
             );
         }
 

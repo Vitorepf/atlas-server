@@ -184,6 +184,84 @@ final class AtlasExternalBrainAmplifierControlPlaneTest extends TestCase
         $this->assertSame(AtlasExternalBrainAmplifierControlPlane::MODE_BASELINE, $result['mode']);
     }
 
+    // ── AC1: frontier_escalation mode ────────────────────────────────────────
+
+    public function test_held_out_failure_with_high_leverage_selects_frontier_escalation(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'         => 'healthy',
+            'blocking_signals'         => [],
+            'held_out_pass_rate'       => 0.55,
+            'structural_leverage_score' => 8.5,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierControlPlane::MODE_FRONTIER_ESCALATION, $result['mode']);
+        $reasons = implode(' ', $result['reasons']);
+        $this->assertStringContainsString('held_out_pass_rate_below_threshold', $reasons);
+        $this->assertStringContainsString('structural_leverage_high', $reasons);
+    }
+
+    public function test_proxy_leakage_with_high_leverage_selects_frontier_escalation(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'         => 'healthy',
+            'blocking_signals'         => [],
+            'proxy_leakage_rate'       => 0.35,
+            'structural_leverage_score' => 9.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierControlPlane::MODE_FRONTIER_ESCALATION, $result['mode']);
+        $this->assertStringContainsString('proxy_leakage_exceeds_threshold', implode(' ', $result['reasons']));
+    }
+
+    public function test_quality_fails_but_low_leverage_falls_through_to_baseline(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'         => 'healthy',
+            'blocking_signals'         => [],
+            'held_out_pass_rate'       => 0.50,
+            'structural_leverage_score' => 4.0,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_FRONTIER_ESCALATION, $result['mode']);
+    }
+
+    public function test_high_leverage_but_passing_quality_does_not_escalate(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'         => 'healthy',
+            'blocking_signals'         => [],
+            'held_out_pass_rate'       => 0.90,
+            'structural_leverage_score' => 9.0,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_FRONTIER_ESCALATION, $result['mode']);
+    }
+
+    public function test_frontier_escalation_next_safe_action_mentions_frontier_model(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'         => 'healthy',
+            'blocking_signals'         => [],
+            'held_out_pass_rate'       => 0.50,
+            'structural_leverage_score' => 8.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierControlPlane::MODE_FRONTIER_ESCALATION, $result['mode']);
+        $this->assertStringContainsString('frontier_model', $result['next_safe_action']);
+    }
+
+    public function test_absent_quality_signals_skip_frontier_escalation(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'         => 'healthy',
+            'blocking_signals'         => [],
+            'structural_leverage_score' => 9.0,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_FRONTIER_ESCALATION, $result['mode']);
+    }
+
     // ── AC4: provider_independence_status ─────────────────────────────────────
 
     public function test_provider_independence_status_is_always_provider_free(): void
