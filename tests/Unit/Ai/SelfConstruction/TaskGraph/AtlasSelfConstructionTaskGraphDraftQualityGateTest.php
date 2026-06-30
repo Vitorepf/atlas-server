@@ -14,6 +14,8 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
     {
         return $overrides + [
             'objective' => 'Implement Foo',
+            'expected_delta' => 'Adds Foo capability; proved by green artisan test',
+            'anti_proxy' => 'Changes real runtime behavior — not a rename or whitespace fix',
             'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
             'scope_in' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
             'acceptance_criteria' => ['Foo works'],
@@ -24,6 +26,7 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
             'requires_operator' => false,
             'requires_human' => false,
             'requires_external_provider' => false,
+            'task_shape' => 'feature',
         ];
     }
 
@@ -120,6 +123,58 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
         $this->assertContains('requires_operator_must_be_false', $verdict['blockers']);
         $this->assertContains('requires_human_must_be_false', $verdict['blockers']);
         $this->assertContains('requires_external_provider_must_be_false', $verdict['blockers']);
+    }
+
+    public function test_expected_delta_missing_blocks_draft(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft(['expected_delta' => '']));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('expected_delta_missing', $verdict['blockers']);
+        $this->assertNotEmpty($verdict['repair_hints']);
+    }
+
+    public function test_anti_proxy_missing_blocks_draft(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft(['anti_proxy' => '']));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('anti_proxy_missing', $verdict['blockers']);
+    }
+
+    public function test_bug_only_batch_fails_with_lane_overconcentration(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_shape' => 'bug-fix', 'objective' => 'Fix A']),
+            $this->validDraft(['task_shape' => 'bug-fix', 'objective' => 'Fix B']),
+            $this->validDraft(['task_shape' => 'bug-fix', 'objective' => 'Fix C']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $this->assertNotEmpty($result['batch_blockers']);
+        $batchBlockerStr = implode(',', $result['batch_blockers']);
+        $this->assertStringContainsString('lane_overconcentration:bug-fix', $batchBlockerStr);
+    }
+
+    public function test_balanced_batch_with_expected_delta_and_anti_proxy_passes(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_shape' => 'feature', 'objective' => 'Add X']),
+            $this->validDraft(['task_shape' => 'bug-fix', 'objective' => 'Fix Y']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['batch_blockers']);
+        $this->assertCount(2, $result['per_draft_results']);
+        foreach ($result['per_draft_results'] as $dr) {
+            $this->assertTrue($dr['passed']);
+        }
     }
 
     public function test_gate_source_has_no_side_effects(): void

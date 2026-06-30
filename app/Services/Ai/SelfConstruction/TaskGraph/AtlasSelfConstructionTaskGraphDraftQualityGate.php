@@ -25,6 +25,12 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
 {
     public const SCHEMA = 'atlas.self_construction.task_graph_draft_quality_gate.v1';
 
+    /** Fraction of the batch a single lane may occupy before triggering lane_overconcentration. */
+    private const LANE_QUOTA_MAX_FRACTION = 0.5;
+
+    /** Minimum batch size before the lane-quota check is applied. */
+    private const LANE_QUOTA_MIN_BATCH_SIZE = 2;
+
     /**
      * @param  array<string,mixed>  $draft
      * @param  array<string,mixed>  $queueFacts {known_packet_ids?: list<string>}
@@ -127,6 +133,22 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             }
         }
 
+        // expected_delta: measurable capability gain the task delivers
+        $delta = $draft['expected_delta'] ?? null;
+        $facts['expected_delta_present'] = is_string($delta) ? $delta !== '' : (is_array($delta) && $delta !== []);
+        if (! $facts['expected_delta_present']) {
+            $blockers[] = 'expected_delta_missing';
+            $repairHints[] = 'Provide expected_delta describing the measurable capability gain this task delivers.';
+        }
+
+        // anti_proxy: proof that the task changes real behavior, not just metrics or formatting
+        $antiProxy = $draft['anti_proxy'] ?? null;
+        $facts['anti_proxy_present'] = is_string($antiProxy) ? $antiProxy !== '' : (is_array($antiProxy) && $antiProxy !== []);
+        if (! $facts['anti_proxy_present']) {
+            $blockers[] = 'anti_proxy_missing';
+            $repairHints[] = 'Provide anti_proxy proof that this task changes real behavior, not just metrics or formatting.';
+        }
+
         $passed = $blockers === [];
 
         return [
@@ -135,6 +157,44 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             'blockers' => $blockers,
             'facts' => $facts,
             'repair_hints' => $repairHints,
+        ];
+    }
+
+    /**
+     * Evaluate a batch of drafts. Runs per-draft checks and adds a batch-level lane-quota check:
+     * if any single task_shape occupies more than LANE_QUOTA_MAX_FRACTION of the batch,
+     * the batch is rejected with lane_overconcentration:<lane>.
+     *
+     * @param  list<array<string,mixed>>  $drafts
+     * @param  array<string,mixed>        $queueFacts
+     * @return array<string,mixed>
+     */
+    public function evaluateBatch(array $drafts, array $queueFacts = []): array
+    {
+        $perDraftResults = array_map(fn (array $d): array => $this->evaluate($d, $queueFacts), $drafts);
+
+        $batchBlockers = [];
+        $total = count($drafts);
+        if ($total >= self::LANE_QUOTA_MIN_BATCH_SIZE) {
+            $laneCounts = [];
+            foreach ($drafts as $draft) {
+                $lane = (string) ($draft['task_shape'] ?? $draft['lane'] ?? 'unknown');
+                $laneCounts[$lane] = ($laneCounts[$lane] ?? 0) + 1;
+            }
+            foreach ($laneCounts as $lane => $count) {
+                if ($count / $total > self::LANE_QUOTA_MAX_FRACTION) {
+                    $batchBlockers[] = 'lane_overconcentration:'.$lane;
+                }
+            }
+        }
+
+        $allPerDraftPassed = array_reduce($perDraftResults, static fn (bool $carry, array $r): bool => $carry && $r['passed'], true);
+
+        return [
+            'schema_version'     => self::SCHEMA,
+            'passed'             => $batchBlockers === [] && $allPerDraftPassed,
+            'batch_blockers'     => $batchBlockers,
+            'per_draft_results'  => $perDraftResults,
         ];
     }
 
