@@ -14,6 +14,58 @@ class AgentCodexRealInvokerPostStartProviderExecutionContractGate
         private readonly AgentCodexProviderExecutionDriver $codexProviderExecution,
     ) {}
 
+    private const REQUIRED_CONTRACT_FIELDS = ['task_scope', 'evidence_requirements', 'failure_reporting'];
+
+    private const FORBIDDEN_FIELD_KEYWORDS = ['workspace', 'cwd', 'prompt', 'system_prompt', 'raw_'];
+
+    /**
+     * Pure, provider-free validation that a post-start provider execution
+     * contract is provider-safe: task scope, evidence requirements and
+     * failure reporting all present, with no raw prompts or unscoped
+     * workspace data leaking through. Never executes anything; only judges
+     * the contract shape.
+     *
+     * @param  array<string,mixed>  $contract
+     * @return array<string,mixed>
+     */
+    public function validateProviderExecutionContract(array $contract): array
+    {
+        $blockedFields = [];
+        $requiredContractPatch = [];
+
+        foreach (self::REQUIRED_CONTRACT_FIELDS as $field) {
+            $value = $contract[$field] ?? null;
+            if ($value === null || $value === '' || $value === []) {
+                $blockedFields[] = $field;
+                $requiredContractPatch[] = "add_{$field}";
+            }
+        }
+
+        foreach (array_keys($contract) as $key) {
+            if (in_array($key, self::REQUIRED_CONTRACT_FIELDS, true)) {
+                continue;
+            }
+            $lower = strtolower($key);
+            foreach (self::FORBIDDEN_FIELD_KEYWORDS as $keyword) {
+                if (str_contains($lower, $keyword)) {
+                    $blockedFields[] = $key;
+                    $requiredContractPatch[] = "remove_{$key}";
+                    break;
+                }
+            }
+        }
+
+        return [
+            'contract_valid' => $blockedFields === [],
+            'blocked_fields' => $blockedFields,
+            'required_contract_patch' => $requiredContractPatch,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

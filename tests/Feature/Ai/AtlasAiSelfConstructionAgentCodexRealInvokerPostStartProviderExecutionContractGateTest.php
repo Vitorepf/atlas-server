@@ -448,4 +448,55 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderExecutionCont
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── validateProviderExecutionContract() ──────────────────────────────────
+
+    private function contract(array $overrides = []): array
+    {
+        return array_merge([
+            'task_scope' => 'scope-hash-1',
+            'evidence_requirements' => ['test_output'],
+            'failure_reporting' => ['channel' => 'evidence_ledger'],
+        ], $overrides);
+    }
+
+    public function test_contract_valid_with_only_required_fields(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class);
+        $result = $gate->validateProviderExecutionContract($this->contract());
+
+        $this->assertTrue($result['contract_valid']);
+        $this->assertSame([], $result['blocked_fields']);
+        $this->assertSame([], $result['required_contract_patch']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_contract_invalid_when_failure_reporting_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class);
+        $result = $gate->validateProviderExecutionContract($this->contract(['failure_reporting' => []]));
+
+        $this->assertFalse($result['contract_valid']);
+        $this->assertContains('failure_reporting', $result['blocked_fields']);
+        $this->assertContains('add_failure_reporting', $result['required_contract_patch']);
+    }
+
+    public function test_contract_blocked_by_raw_prompt_field(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class);
+        $result = $gate->validateProviderExecutionContract($this->contract(['raw_system_prompt' => 'you are...']));
+
+        $this->assertFalse($result['contract_valid']);
+        $this->assertContains('raw_system_prompt', $result['blocked_fields']);
+        $this->assertContains('remove_raw_system_prompt', $result['required_contract_patch']);
+    }
+
+    public function test_contract_blocked_by_unscoped_workspace_data(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProviderExecutionContractGate::class);
+        $result = $gate->validateProviderExecutionContract($this->contract(['workspace_cwd' => '/secret']));
+
+        $this->assertFalse($result['contract_valid']);
+        $this->assertContains('workspace_cwd', $result['blocked_fields']);
+    }
 }
