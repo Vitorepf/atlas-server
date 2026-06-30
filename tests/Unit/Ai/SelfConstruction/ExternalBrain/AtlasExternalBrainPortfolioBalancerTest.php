@@ -1,0 +1,206 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPortfolioBalancer;
+use Tests\TestCase;
+
+final class AtlasExternalBrainPortfolioBalancerTest extends TestCase
+{
+    private function balancer(): AtlasExternalBrainPortfolioBalancer
+    {
+        return new AtlasExternalBrainPortfolioBalancer;
+    }
+
+    /** @param list<string> $categories */
+    private function candidates(array $categories, float $score = 0.5): array
+    {
+        return array_map(
+            static fn (string $cat, int $i): array => [
+                'label'       => $cat.'-'.$i,
+                'category'    => $cat,
+                'risk_tier'   => 'low',
+                'final_score' => $score,
+            ],
+            $categories,
+            array_keys($categories),
+        );
+    }
+
+    public function test_schema_constant(): void
+    {
+        $this->assertSame(
+            'atlas.external_brain.portfolio_balancer.v1',
+            AtlasExternalBrainPortfolioBalancer::SCHEMA,
+        );
+    }
+
+    public function test_diverse_wave_passes_as_balanced(): void
+    {
+        $cats = [
+            'bug_fix', 'architecture_unlock', 'test_gate',
+            'runtime_continuity', 'task_quality_repair', 'docs_sync', 'learning_loop',
+        ];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $this->assertSame('balanced', $result['status']);
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['deficits']);
+        $this->assertSame([], $result['surpluses']);
+        $this->assertSame(7, $result['total_out']);
+    }
+
+    public function test_bug_only_set_is_rebalanced_with_clear_deficits(): void
+    {
+        $candidates = $this->candidates(array_fill(0, 10, 'bug_fix'));
+        $result = $this->balancer()->balance($candidates);
+
+        $this->assertSame('rebalanced', $result['status']);
+        $this->assertFalse($result['passed']);
+
+        // All non-bug_fix categories are deficits.
+        $deficitCategories = array_column($result['deficits'], 'category');
+        $this->assertContains('architecture_unlock', $deficitCategories);
+        $this->assertContains('test_gate',           $deficitCategories);
+        $this->assertContains('runtime_continuity',  $deficitCategories);
+        $this->assertNotContains('bug_fix', $deficitCategories);
+
+        // bug_fix is in surplus.
+        $surplusCategories = array_column($result['surpluses'], 'category');
+        $this->assertContains('bug_fix', $surplusCategories);
+    }
+
+    public function test_wrapper_only_set_is_rebalanced_with_clear_deficits(): void
+    {
+        // architecture_unlock used as proxy for wrapper-only (all same category).
+        $candidates = $this->candidates(array_fill(0, 10, 'architecture_unlock'));
+        $result = $this->balancer()->balance($candidates);
+
+        $this->assertSame('rebalanced', $result['status']);
+        $this->assertFalse($result['passed']);
+
+        $surplusCategories = array_column($result['surpluses'], 'category');
+        $this->assertContains('architecture_unlock', $surplusCategories);
+
+        $deficitCategories = array_column($result['deficits'], 'category');
+        $this->assertContains('bug_fix',            $deficitCategories);
+        $this->assertContains('test_gate',           $deficitCategories);
+        $this->assertNotContains('architecture_unlock', $deficitCategories);
+    }
+
+    public function test_high_leverage_candidates_preserved_during_surplus_trim(): void
+    {
+        // 10 bug_fix candidates with varying scores; max_allowed = ceil(10×0.5) = 5.
+        $candidates = [
+            ['label' => 'low-1',  'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.1],
+            ['label' => 'low-2',  'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.2],
+            ['label' => 'low-3',  'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.3],
+            ['label' => 'low-4',  'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.4],
+            ['label' => 'low-5',  'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.5],
+            ['label' => 'high-1', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.9],
+            ['label' => 'high-2', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.8],
+            ['label' => 'high-3', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.7],
+            ['label' => 'high-4', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.6],
+            ['label' => 'high-5', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.55],
+        ];
+
+        $result = $this->balancer()->balance($candidates);
+
+        // After trim, no more than 5 bug_fix remain (max_allowed = ceil(10×0.5)=5).
+        $remaining = array_filter($result['candidates'], static fn (array $c): bool => $c['category'] === 'bug_fix');
+        $this->assertLessThanOrEqual(5, count($remaining));
+
+        // All kept candidates have score >= 0.55 (top 5).
+        foreach ($remaining as $c) {
+            $this->assertGreaterThanOrEqual(0.55, $c['final_score']);
+        }
+
+        // Low-score ones dropped.
+        $labels = array_column($result['candidates'], 'label');
+        $this->assertNotContains('low-1', $labels);
+        $this->assertNotContains('low-2', $labels);
+    }
+
+    public function test_small_wave_below_threshold_skips_minimum_enforcement(): void
+    {
+        // 5 bug_fix — below MIN_WAVE_SIZE=7, so no deficit enforcement.
+        $candidates = $this->candidates(array_fill(0, 5, 'bug_fix'));
+        $result = $this->balancer()->balance($candidates);
+
+        // No deficits (minimum not enforced), but still surplus if >50%.
+        $this->assertSame([], $result['deficits']);
+        // 5 of 5 = 100% > 50% → surplus.
+        $this->assertNotEmpty($result['surpluses']);
+        $this->assertSame('rebalanced', $result['status']);
+    }
+
+    public function test_empty_candidates_balanced(): void
+    {
+        $result = $this->balancer()->balance([]);
+
+        $this->assertSame('balanced', $result['status']);
+        $this->assertTrue($result['passed']);
+        $this->assertSame(0, $result['total_in']);
+        $this->assertSame(0, $result['total_out']);
+        $this->assertSame([], $result['deficits']);
+        $this->assertSame([], $result['surpluses']);
+    }
+
+    public function test_deficit_only_when_no_surplus(): void
+    {
+        // 7 candidates all in one category, but let's try: 7 entries with one category missing
+        // → deficit but no surplus if none exceeds 50%.
+        $cats = [
+            'bug_fix', 'bug_fix', 'architecture_unlock',
+            'test_gate', 'runtime_continuity', 'task_quality_repair', 'docs_sync',
+            // learning_loop missing
+        ];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        // bug_fix count=2 out of 7 = 28.5%, max_allowed=ceil(7×0.5)=4 → no surplus.
+        $this->assertSame([], $result['surpluses']);
+
+        // learning_loop is missing → deficit.
+        $deficitCategories = array_column($result['deficits'], 'category');
+        $this->assertContains('learning_loop', $deficitCategories);
+        $this->assertSame('deficit', $result['status']);
+        $this->assertFalse($result['passed']);
+    }
+
+    public function test_output_has_canonical_keys(): void
+    {
+        $result = $this->balancer()->balance($this->candidates(['bug_fix']));
+
+        foreach (['schema', 'status', 'passed', 'total_in', 'total_out', 'deficits', 'surpluses', 'category_counts', 'risk_tier_counts', 'candidates'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+        $this->assertSame(AtlasExternalBrainPortfolioBalancer::SCHEMA, $result['schema']);
+    }
+
+    public function test_category_counts_reflects_input(): void
+    {
+        $candidates = [
+            ['label' => 'a', 'category' => 'bug_fix',             'risk_tier' => 'low',    'final_score' => 0.5],
+            ['label' => 'b', 'category' => 'architecture_unlock',  'risk_tier' => 'medium', 'final_score' => 0.5],
+            ['label' => 'c', 'category' => 'bug_fix',             'risk_tier' => 'high',   'final_score' => 0.5],
+        ];
+        $result = $this->balancer()->balance($candidates);
+
+        $this->assertSame(2, $result['category_counts']['bug_fix']);
+        $this->assertSame(1, $result['category_counts']['architecture_unlock']);
+        $this->assertSame(0, $result['category_counts']['test_gate']);
+        $this->assertSame(1, $result['risk_tier_counts']['low']);
+        $this->assertSame(1, $result['risk_tier_counts']['medium']);
+        $this->assertSame(1, $result['risk_tier_counts']['high']);
+    }
+
+    public function test_categories_constant_has_seven_entries(): void
+    {
+        $this->assertCount(7, AtlasExternalBrainPortfolioBalancer::CATEGORIES);
+        $this->assertContains('bug_fix',            AtlasExternalBrainPortfolioBalancer::CATEGORIES);
+        $this->assertContains('architecture_unlock', AtlasExternalBrainPortfolioBalancer::CATEGORIES);
+        $this->assertContains('learning_loop',       AtlasExternalBrainPortfolioBalancer::CATEGORIES);
+    }
+}
