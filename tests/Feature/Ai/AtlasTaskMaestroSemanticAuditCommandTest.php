@@ -74,6 +74,21 @@ final class AtlasTaskMaestroSemanticAuditCommandTest extends TestCase
         $this->assertStringContainsString('packet_not_found', $out);
     }
 
+    public function test_empty_task_packet_id_falls_back_to_packet_id_option(): void
+    {
+        $file = $this->writePacket('empty-id', [
+            'task_packet_id' => '',
+            'objective' => 'Refactor AtlasMaestroSemanticAuditPanel internals.',
+            'allowed_files' => ['app/Nowhere/Unrelated.php'],
+            'acceptance_criteria' => ['Calls AtlasMaestroTotallyFabricatedSymbolXyz to do the work.'],
+        ]);
+
+        [$exit, $out] = $this->runCommand(['--packet-file' => $file, '--packet-id' => 'pkt-42']);
+
+        $this->assertSame(1, $exit, $out);
+        $this->assertStringContainsString('pkt-42', $out, 'receipt must use --packet-id fallback, not blank');
+    }
+
     /**
      * @param  array<string,mixed>  $packet
      */

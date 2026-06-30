@@ -48,7 +48,8 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
             return 0;
         }
 
-        $packetId = (string) ($packet['task_packet_id'] ?? ((string) $this->option('packet-id') ?: 'unknown'));
+        $rawId = trim((string) ($packet['task_packet_id'] ?? ''));
+        $packetId = $rawId !== '' ? $rawId : ((string) $this->option('packet-id') ?: 'unknown');
         $receipt = (new AtlasMaestroSemanticRejectionReceipt)->compose($packetId, $result);
         $this->persistReceipt($packetId, $receipt);
         $this->line($receipt);
