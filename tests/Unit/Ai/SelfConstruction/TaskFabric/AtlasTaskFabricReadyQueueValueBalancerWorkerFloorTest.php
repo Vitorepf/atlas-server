@@ -83,4 +83,50 @@ final class AtlasTaskFabricReadyQueueValueBalancerWorkerFloorTest extends TestCa
         $this->assertFalse($r['diagnostics']['below_worker_floor']);
         $this->assertSame('stop_or_consolidate', $r['recommendation']);
     }
+
+    public function test_deep_dimension_sparse_queue_with_replenish_soon_recommends_originate_targeted(): void
+    {
+        $r = $this->balancer()->balance([
+            'task_groups' => [
+                $this->group('implementation', 25),
+            ],
+            'worker_count' => 1,
+            'minimum_ready_per_worker' => 1,
+            'queue_facts' => ['replenish_recommendation' => 'replenish_soon'],
+        ]);
+
+        $this->assertSame('originate_targeted', $r['recommendation']);
+        $this->assertNotEmpty($r['target_dimensions']);
+        $this->assertTrue($r['diagnostics']['external_worker_floor_signal']);
+    }
+
+    public function test_deep_dimension_sparse_queue_with_worker_floor_breach_recommends_originate_targeted(): void
+    {
+        $r = $this->balancer()->balance([
+            'task_groups' => [
+                $this->group('implementation', 25),
+            ],
+            'worker_count' => 1,
+            'minimum_ready_per_worker' => 1,
+            'queue_facts' => ['worker_floor_breach' => true],
+        ]);
+
+        $this->assertSame('originate_targeted', $r['recommendation']);
+        $this->assertNotEmpty($r['target_dimensions']);
+    }
+
+    public function test_poison_heavy_queue_with_worker_floor_signal_still_stops_or_consolidates(): void
+    {
+        $r = $this->balancer()->balance([
+            'task_groups' => [
+                $this->group('implementation', 25, 0.5, 0.9),
+            ],
+            'worker_count' => 1,
+            'minimum_ready_per_worker' => 1,
+            'queue_facts' => ['replenish_recommendation' => 'replenish_soon'],
+        ]);
+
+        $this->assertSame('stop_or_consolidate', $r['recommendation']);
+        $this->assertSame('high_poison_ratio_blocks_progress', $r['reason']);
+    }
 }

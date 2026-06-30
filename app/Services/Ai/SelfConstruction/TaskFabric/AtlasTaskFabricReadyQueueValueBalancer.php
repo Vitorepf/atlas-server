@@ -78,6 +78,15 @@ final class AtlasTaskFabricReadyQueueValueBalancer
         $workerFloor        = $workerCount * $minimumReadyPerWorker;
         $belowWorkerFloor   = $totalTasks < $workerFloor;
 
+        // External worker-floor signals (e.g. from the live task health / Maestro urgency lens) are
+        // additional evidence the queue is thin for ACTIVE workers right now — but they must NEVER
+        // bypass dimension diversity: a deep, dimension-sparse queue still needs targeted filling,
+        // not blind volume, even while workers are starved.
+        $queueFacts = is_array($facts['queue_facts'] ?? null) ? $facts['queue_facts'] : [];
+        $externalWorkerFloorSignal = (bool) ($queueFacts['worker_floor_breach'] ?? false)
+            || in_array((string) ($queueFacts['replenish_recommendation'] ?? ''), ['replenish_soon', 'replenish_urgently'], true);
+        $belowWorkerFloor   = $belowWorkerFloor || $externalWorkerFloorSignal;
+
         [$recommendation, $reason] = $this->decide($poisonRatio, $deepQueue, $diverse, $totalTasks, $belowWorkerFloor);
 
         $targetDimensions = ($recommendation === 'originate_targeted') ? array_slice($missingDims, 0, 3) : [];
@@ -98,6 +107,7 @@ final class AtlasTaskFabricReadyQueueValueBalancer
                 'missing_dimensions' => $missingDims,
                 'worker_floor'       => $workerFloor,
                 'below_worker_floor' => $belowWorkerFloor,
+                'external_worker_floor_signal' => $externalWorkerFloorSignal,
             ],
         ];
     }
