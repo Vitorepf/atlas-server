@@ -48,14 +48,25 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlan
 
     public const GIVE_BACK_RESPEC_THRESHOLD = 3;
 
+    public const BUCKET_REFUSED = 'refused';
+
+    /** claimable_per_active_worker at/below this is a worker-floor breach. */
+    public const WORKER_FLOOR_THRESHOLD = 2.0;
+
     /**
-     * @param  list<array{packet_id?:string, malformed?:bool, repeated_returns?:int, missing_dependency?:string, stuck?:bool, scope_repaired?:bool, emergency_kind?:string}>  $packets
+     * @param  list<array{packet_id?:string, malformed?:bool, repeated_returns?:int, missing_dependency?:string, stuck?:bool, scope_repaired?:bool, emergency_kind?:string, recoverable_blocked_family?:string, has_implementation_scope?:bool, has_runnable_acceptance?:bool, prefer_top_up?:bool}>  $packets
+     * @param  array{claimable_per_active_worker?: float}  $context
      * @return array{schema:string, actions:list<array{bucket:string, packet_id:string, action:string, reason:string}>, summary:array<string,int>}
      */
-    public function plan(array $packets): array
+    public function plan(array $packets, array $context = []): array
     {
         $actions = [];
         $summary = [];
+
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $context) && $context['claimable_per_active_worker'] !== null
+            ? (float) $context['claimable_per_active_worker']
+            : null;
+        $lowWorkerFloor = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::WORKER_FLOOR_THRESHOLD;
 
         foreach ($packets as $p) {
             if (! is_array($p)) {
@@ -71,6 +82,40 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlan
             if ($emergency !== '') {
                 $actions[] = ['bucket' => self::BUCKET_OPERATOR_VISIBLE, 'packet_id' => $id, 'action' => 'visibility_only', 'reason' => 'emergency:'.$emergency];
                 $summary[self::BUCKET_OPERATOR_VISIBLE] = ($summary[self::BUCKET_OPERATOR_VISIBLE] ?? 0) + 1;
+
+                continue;
+            }
+
+            // Low claimable_per_active_worker: convert a RECOVERABLE blocked family into a
+            // concrete respec/top-up repair plan — but fail closed (refuse, never guess) when
+            // the packet has no implementation scope or no runnable acceptance to repair from.
+            $recoverableFamily = trim((string) ($p['recoverable_blocked_family'] ?? ''));
+            if ($lowWorkerFloor && $recoverableFamily !== '') {
+                $hasImplementationScope = (bool) ($p['has_implementation_scope'] ?? false);
+                $hasRunnableAcceptance = (bool) ($p['has_runnable_acceptance'] ?? false);
+
+                if (! $hasImplementationScope || ! $hasRunnableAcceptance) {
+                    $actions[] = [
+                        'bucket' => self::BUCKET_REFUSED,
+                        'packet_id' => $id,
+                        'action' => 'refuse_repair',
+                        'reason' => 'missing_implementation_scope_or_runnable_acceptance',
+                    ];
+                    $summary[self::BUCKET_REFUSED] = ($summary[self::BUCKET_REFUSED] ?? 0) + 1;
+
+                    continue;
+                }
+
+                $preferTopUp = (bool) ($p['prefer_top_up'] ?? false);
+                $bucket = $preferTopUp ? self::BUCKET_TOP_UP : self::BUCKET_RESPEC;
+                $action = $preferTopUp ? 'enqueue_top_up_packet' : 'enqueue_respec_packet';
+                $actions[] = [
+                    'bucket' => $bucket,
+                    'packet_id' => $id,
+                    'action' => $action,
+                    'reason' => 'worker_floor_low_recoverable_family:'.$recoverableFamily,
+                ];
+                $summary[$bucket] = ($summary[$bucket] ?? 0) + 1;
 
                 continue;
             }

@@ -111,4 +111,103 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlanTest extends TestCase
         $ids = array_column($r['actions'], 'packet_id');
         $this->assertSame(['p-a', 'p-z', 'p-m'], $ids); // quarantine bucket sorted first, then template
     }
+
+    // ── worker-floor-driven recoverable-family repair (AC) ──────────────────────
+
+    public function test_low_worker_floor_with_recoverable_family_and_safe_shape_produces_respec(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-1',
+                'recoverable_blocked_family' => 'missing_scope_fields',
+                'has_implementation_scope' => true,
+                'has_runnable_acceptance' => true,
+            ],
+        ], ['claimable_per_active_worker' => 1.5]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_RESPEC, $r['actions'][0]['bucket']);
+        $this->assertSame('enqueue_respec_packet', $r['actions'][0]['action']);
+    }
+
+    public function test_low_worker_floor_prefer_top_up_produces_top_up_bucket(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-1',
+                'recoverable_blocked_family' => 'missing_scope_fields',
+                'has_implementation_scope' => true,
+                'has_runnable_acceptance' => true,
+                'prefer_top_up' => true,
+            ],
+        ], ['claimable_per_active_worker' => 1.5]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_TOP_UP, $r['actions'][0]['bucket']);
+    }
+
+    public function test_low_worker_floor_without_implementation_scope_refuses_repair(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-1',
+                'recoverable_blocked_family' => 'missing_scope_fields',
+                'has_implementation_scope' => false,
+                'has_runnable_acceptance' => true,
+            ],
+        ], ['claimable_per_active_worker' => 1.5]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_REFUSED, $r['actions'][0]['bucket']);
+        $this->assertSame('refuse_repair', $r['actions'][0]['action']);
+    }
+
+    public function test_low_worker_floor_without_runnable_acceptance_refuses_repair(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-1',
+                'recoverable_blocked_family' => 'missing_scope_fields',
+                'has_implementation_scope' => true,
+                'has_runnable_acceptance' => false,
+            ],
+        ], ['claimable_per_active_worker' => 1.5]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_REFUSED, $r['actions'][0]['bucket']);
+    }
+
+    public function test_comfortable_worker_floor_does_not_trigger_recoverable_family_repair(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-1',
+                'recoverable_blocked_family' => 'missing_scope_fields',
+                'has_implementation_scope' => true,
+                'has_runnable_acceptance' => true,
+            ],
+        ], ['claimable_per_active_worker' => 10.0]);
+
+        $this->assertSame([], $r['actions']);
+    }
+
+    public function test_emergency_still_takes_precedence_over_worker_floor_repair(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            [
+                'packet_id' => 'p-1',
+                'emergency_kind' => 'constitution_edit',
+                'recoverable_blocked_family' => 'missing_scope_fields',
+                'has_implementation_scope' => true,
+                'has_runnable_acceptance' => true,
+            ],
+        ], ['claimable_per_active_worker' => 1.0]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_OPERATOR_VISIBLE, $r['actions'][0]['bucket']);
+    }
+
+    public function test_plan_without_context_argument_still_works_backward_compatibly(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-1', 'malformed' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_TEMPLATE, $r['actions'][0]['bucket']);
+    }
 }
