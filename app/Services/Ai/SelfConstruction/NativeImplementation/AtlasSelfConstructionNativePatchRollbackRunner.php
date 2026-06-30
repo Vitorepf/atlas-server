@@ -44,6 +44,32 @@ final class AtlasSelfConstructionNativePatchRollbackRunner
         $removed = [];
         $blockers = [];
 
+        // Pre-flight: structural checks before any disk access.
+        $seenPaths = [];
+        foreach ($receipts as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+            $rPath = (string) ($r['path'] ?? '');
+            $rMode = (string) ($r['mode'] ?? '');
+            if ($rPath === '' || str_contains($rPath, '..') || ! in_array($rPath, $allowed, true)) {
+                continue; // caught in main loop
+            }
+            if (isset($seenPaths[$rPath])) {
+                $blockers[] = 'duplicate_receipt_path:'.$rPath;
+            }
+            $seenPaths[$rPath] = true;
+            if (! in_array($rMode, ['create', 'modify'], true)) {
+                $blockers[] = 'unknown_mode:'.$rMode;
+            }
+            if ($rMode === 'modify' && (string) ($r['preimage_hash'] ?? '') === '') {
+                $blockers[] = 'modify_missing_preimage_hash:'.$rPath;
+            }
+        }
+        if ($blockers !== []) {
+            return ['schema_version' => self::SCHEMA, 'restored' => [], 'removed' => [], 'refused' => true, 'blockers' => array_values($blockers)];
+        }
+
         foreach ($receipts as $r) {
             if (! is_array($r)) {
                 $blockers[] = 'malformed_receipt_row';

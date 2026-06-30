@@ -152,4 +152,75 @@ final class AtlasSelfConstructionNativePatchRollbackRunnerTest extends TestCase
         $this->assertTrue($verdict['refused']);
         $this->assertContains('outside_allowed_files:lib/Bar.php', $verdict['blockers']);
     }
+
+    public function test_traversal_path_refuses_rollback(): void
+    {
+        $runner = new AtlasSelfConstructionNativePatchRollbackRunner($this->root);
+        $verdict = $runner->rollback([
+            'allowed_files' => ['../etc/passwd'],
+            'receipts' => [[
+                'path' => '../etc/passwd',
+                'mode' => 'modify',
+                'preimage_contents' => 'x',
+                'preimage_hash' => hash('sha256', 'x'),
+                'post_hash' => '',
+            ]],
+        ]);
+
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('path_traversal_or_empty:../etc/passwd', $verdict['blockers']);
+    }
+
+    public function test_unknown_mode_refuses_rollback_before_touching_disk(): void
+    {
+        $this->writeFile('app/Foo.php', "existing\n");
+        $runner = new AtlasSelfConstructionNativePatchRollbackRunner($this->root);
+        $verdict = $runner->rollback([
+            'allowed_files' => ['app/Foo.php'],
+            'receipts' => [[
+                'path' => 'app/Foo.php',
+                'mode' => 'purge',
+                'post_hash' => '',
+            ]],
+        ]);
+
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('unknown_mode:purge', $verdict['blockers']);
+        $this->assertSame("existing\n", file_get_contents($this->root.'/app/Foo.php'), 'file must be untouched');
+    }
+
+    public function test_duplicate_receipt_path_refuses_rollback_before_touching_disk(): void
+    {
+        $this->writeFile('app/Foo.php', "original\n");
+        $postHash = hash_file('sha256', $this->root.'/app/Foo.php');
+        $runner = new AtlasSelfConstructionNativePatchRollbackRunner($this->root);
+        $verdict = $runner->rollback([
+            'allowed_files' => ['app/Foo.php'],
+            'receipts' => [
+                ['path' => 'app/Foo.php', 'mode' => 'modify', 'preimage_contents' => "v1\n", 'preimage_hash' => hash('sha256', "v1\n"), 'post_hash' => $postHash],
+                ['path' => 'app/Foo.php', 'mode' => 'modify', 'preimage_contents' => "v2\n", 'preimage_hash' => hash('sha256', "v2\n"), 'post_hash' => $postHash],
+            ],
+        ]);
+
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('duplicate_receipt_path:app/Foo.php', $verdict['blockers']);
+        $this->assertSame("original\n", file_get_contents($this->root.'/app/Foo.php'), 'file must be untouched');
+    }
+
+    public function test_modify_without_preimage_hash_refuses_rollback(): void
+    {
+        $runner = new AtlasSelfConstructionNativePatchRollbackRunner($this->root);
+        $verdict = $runner->rollback([
+            'allowed_files' => ['app/Foo.php'],
+            'receipts' => [[
+                'path' => 'app/Foo.php',
+                'mode' => 'modify',
+                'preimage_contents' => "old\n",
+                'post_hash' => '',
+            ]],
+        ]);
+
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('modify_missing_preimage_hash:app/Foo.php', $verdict['blockers']);
+    }
 }
