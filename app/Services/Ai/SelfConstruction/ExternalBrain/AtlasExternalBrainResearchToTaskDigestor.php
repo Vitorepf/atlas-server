@@ -88,6 +88,7 @@ final class AtlasExternalBrainResearchToTaskDigestor
         $allowedFiles      = array_filter(array_map('trim', (array) ($item['allowed_files']       ?? [])));
         $antiGoodhart      = array_filter(array_map('trim', (array) ($item['anti_goodhart_risks'] ?? [])));
         $runnableAcceptance = trim((string) ($item['runnable_acceptance']  ?? ''));
+        $sourceType        = trim((string) ($item['source_type']           ?? ''));
 
         if ($failureMode === '') {
             return [false, self::REJECTION_HYPE_ONLY];
@@ -105,7 +106,7 @@ final class AtlasExternalBrainResearchToTaskDigestor
             return [false, self::REJECTION_NO_RUNNABLE_ACCEPTANCE];
         }
 
-        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '' || $antiGoodhart === []) {
+        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '' || $antiGoodhart === [] || $sourceType === '') {
             return [false, self::REJECTION_INCOMPLETE_CANDIDATE];
         }
 
@@ -122,6 +123,7 @@ final class AtlasExternalBrainResearchToTaskDigestor
 
         return [
             'source'              => $source,
+            'source_type'         => trim((string) ($item['source_type'] ?? '')),
             'pattern_summary'     => trim((string) ($item['pattern_summary']    ?? '')),
             'atlas_failure_mode'  => trim((string) ($item['atlas_failure_mode'] ?? '')),
             'target_path'         => trim((string) ($item['target_path']        ?? '')),

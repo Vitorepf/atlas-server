@@ -20,6 +20,7 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
     {
         return array_merge([
             'source'              => 'arxiv:2603.15031',
+            'source_type'         => 'paper',
             'pattern_summary'     => 'Attention residuals over depth layers improve recall',
             'atlas_failure_mode'  => 'Brain comprehension degrades when depth signals are ignored',
             'target_path'         => 'comprehension-deepening',
@@ -64,7 +65,7 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
         $result = $this->digestor->digest($this->input($this->goodItem()));
         $candidate = $result['promoted'][0];
 
-        foreach (['source', 'pattern_summary', 'atlas_failure_mode', 'target_path', 'adaptation_notes', 'allowed_files', 'test_path', 'anti_goodhart_risks', 'runnable_acceptance'] as $k) {
+        foreach (['source', 'source_type', 'pattern_summary', 'atlas_failure_mode', 'target_path', 'adaptation_notes', 'allowed_files', 'test_path', 'anti_goodhart_risks', 'runnable_acceptance'] as $k) {
             $this->assertArrayHasKey($k, $candidate, "Promoted candidate missing field: {$k}");
         }
     }
@@ -171,6 +172,24 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
             AtlasExternalBrainResearchToTaskDigestor::REJECTION_INCOMPLETE_CANDIDATE,
             $result['rejected'][0]['rejection_reason'],
         );
+    }
+
+    public function test_rejects_item_missing_source_type(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem(['source_type' => ''])));
+
+        $this->assertSame(0, $result['promoted_count']);
+        $this->assertSame(
+            AtlasExternalBrainResearchToTaskDigestor::REJECTION_INCOMPLETE_CANDIDATE,
+            $result['rejected'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_promoted_candidate_carries_source_type(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem(['source_type' => 'oss_repo'])));
+
+        $this->assertSame('oss_repo', $result['promoted'][0]['source_type']);
     }
 
     // ── Mixed batch ───────────────────────────────────────────────────────────
