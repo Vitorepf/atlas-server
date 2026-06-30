@@ -42,7 +42,11 @@ final class AtlasExternalBrainCrossModelConsensusNormalizerTest extends TestCase
     {
         $result = $this->normalizer->normalize($this->input($this->proposal()));
 
-        foreach (['schema', 'selected_proposals', 'rejected_proposals', 'evidence_ranking', 'disagreements', 'merge_notes'] as $k) {
+        foreach ([
+            'schema', 'selected_proposals', 'rejected_proposals',
+            'evidence_ranking', 'disagreements', 'merge_notes',
+            'consensus_confidence', 'verification_required', 'verification_reason',
+        ] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainCrossModelConsensusNormalizer::SCHEMA, $result['schema']);
@@ -221,5 +225,120 @@ final class AtlasExternalBrainCrossModelConsensusNormalizerTest extends TestCase
         $this->assertSame([], $result['rejected_proposals']);
         $this->assertSame([], $result['evidence_ranking']);
         $this->assertSame([], $result['disagreements']);
+    }
+
+    // ── AC1: canonical_dimensions ─────────────────────────────────────────────
+
+    public function test_selected_proposal_has_canonical_dimensions_field(): void
+    {
+        $result = $this->normalizer->normalize($this->input($this->proposal(['proposal_id' => 'x'])));
+
+        $this->assertArrayHasKey('canonical_dimensions', $result['selected_proposals'][0]);
+    }
+
+    public function test_canonical_dimensions_includes_all_six_required_dimensions(): void
+    {
+        $result = $this->normalizer->normalize($this->input($this->proposal(['proposal_id' => 'x'])));
+        $dims   = $result['selected_proposals'][0]['canonical_dimensions'];
+
+        foreach (AtlasExternalBrainCrossModelConsensusNormalizer::CANONICAL_DIMENSIONS as $dim) {
+            $this->assertArrayHasKey($dim, $dims, "Missing canonical dimension: {$dim}");
+        }
+    }
+
+    public function test_missing_dimension_uses_default_value(): void
+    {
+        // No proxy_risk or novelty supplied → defaults used (0.0 and 0.5 respectively)
+        $result = $this->normalizer->normalize($this->input($this->proposal(['proposal_id' => 'x'])));
+        $dims   = $result['selected_proposals'][0]['canonical_dimensions'];
+
+        $this->assertSame(0.0, $dims['proxy_risk']);
+        $this->assertSame(0.5, $dims['novelty']);
+    }
+
+    public function test_canonical_dimensions_values_are_provider_independent_floats(): void
+    {
+        $p = $this->proposal([
+            'proposal_id'    => 'x',
+            'model_source'   => 'some_frontier_model_internal_id',
+            'implementability' => 0.85,
+            'proxy_risk'     => 0.12,
+            'novelty'        => 0.70,
+            'confidence'     => 0.90,
+        ]);
+        $result = $this->normalizer->normalize($this->input($p));
+        $dims   = $result['selected_proposals'][0]['canonical_dimensions'];
+
+        // Values map 1:1 — no model-specific scaling applied.
+        $this->assertEqualsWithDelta(0.85, $dims['implementability'], 0.001);
+        $this->assertEqualsWithDelta(0.12, $dims['proxy_risk'],       0.001);
+        $this->assertEqualsWithDelta(0.70, $dims['novelty'],          0.001);
+        $this->assertEqualsWithDelta(0.90, $dims['confidence'],       0.001);
+    }
+
+    // ── AC2: disagreement on proxy_risk or implementability ───────────────────
+
+    public function test_proxy_risk_split_lowers_consensus_confidence(): void
+    {
+        // Two proposals with very different proxy_risk values → disagreement.
+        $p1 = $this->proposal(['proposal_id' => 'p1', 'proxy_risk' => 0.05, 'confidence' => 0.8]);
+        $p2 = $this->proposal(['proposal_id' => 'p2', 'proxy_risk' => 0.90, 'confidence' => 0.8]);
+
+        $noSplit  = $this->normalizer->normalize($this->input($p1));           // single proposal
+        $withSplit = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertGreaterThan($withSplit['consensus_confidence'], $noSplit['consensus_confidence']);
+    }
+
+    public function test_proxy_risk_disagreement_triggers_verification_required(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'a', 'proxy_risk' => 0.05]);
+        $p2 = $this->proposal(['proposal_id' => 'b', 'proxy_risk' => 0.90]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertTrue($result['verification_required']);
+        $this->assertStringContainsString('proxy_risk', (string) $result['verification_reason']);
+    }
+
+    public function test_implementability_disagreement_triggers_verification_required(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'a', 'implementability' => 0.10]);
+        $p2 = $this->proposal(['proposal_id' => 'b', 'implementability' => 0.95]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertTrue($result['verification_required']);
+        $this->assertStringContainsString('implementability', (string) $result['verification_reason']);
+    }
+
+    public function test_merge_notes_mention_verify_before_enqueue_when_disagreement(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'a', 'proxy_risk' => 0.05]);
+        $p2 = $this->proposal(['proposal_id' => 'b', 'proxy_risk' => 0.90]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $notesStr = strtolower(implode(' ', $result['merge_notes']));
+        $this->assertStringContainsString('verify', $notesStr);
+    }
+
+    public function test_no_disagreement_when_critical_dims_agree(): void
+    {
+        $p1 = $this->proposal(['proposal_id' => 'a', 'proxy_risk' => 0.10, 'implementability' => 0.80]);
+        $p2 = $this->proposal(['proposal_id' => 'b', 'proxy_risk' => 0.15, 'implementability' => 0.85]);
+
+        $result = $this->normalizer->normalize($this->input($p1, $p2));
+
+        $this->assertFalse($result['verification_required']);
+        $this->assertNull($result['verification_reason']);
+    }
+
+    public function test_consensus_confidence_is_high_when_single_proposal(): void
+    {
+        $p = $this->proposal(['proposal_id' => 'x', 'confidence' => 0.9]);
+        $result = $this->normalizer->normalize($this->input($p));
+
+        $this->assertGreaterThan(0.5, $result['consensus_confidence']);
     }
 }

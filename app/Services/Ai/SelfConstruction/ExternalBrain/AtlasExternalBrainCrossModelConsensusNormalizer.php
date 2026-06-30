@@ -39,6 +39,15 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
 
     private const LOW_LEVERAGE_THRESHOLD = 0.30;
 
+    // Canonical dimensions emitted per proposal.
+    public const CANONICAL_DIMENSIONS = ['implementability', 'leverage', 'evidence_strength', 'proxy_risk', 'novelty', 'confidence'];
+
+    // If proxy_risk or implementability differ by this much across proposals → disagreement.
+    private const CRITICAL_DIM_DISAGREEMENT_THRESHOLD = 0.30;
+
+    // Per-critical-dimension confidence penalty when disagreement is detected.
+    private const DISAGREEMENT_CONFIDENCE_PENALTY = 0.15;
+
     /**
      * @param  array{proposals?: list<array<string,mixed>>}  $input
      * @return array{schema:string, selected_proposals:list<array<string,mixed>>, rejected_proposals:list<array<string,mixed>>, evidence_ranking:list<string>, disagreements:list<array<string,mixed>>, merge_notes:list<string>}
@@ -76,6 +85,14 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
                 'model_source'           => (string) ($proposal['model_source'] ?? ''),
                 'contradiction_with'     => (string) ($proposal['contradiction_with'] ?? ''),
                 'contradiction_severity' => (string) ($proposal['contradiction_severity'] ?? ''),
+                'canonical_dimensions'   => [
+                    'implementability'  => max(0.0, min(1.0, (float) ($proposal['implementability'] ?? 0.5))),
+                    'leverage'          => $leverage,
+                    'evidence_strength' => $evidence,
+                    'proxy_risk'        => max(0.0, min(1.0, (float) ($proposal['proxy_risk']  ?? 0.0))),
+                    'novelty'           => max(0.0, min(1.0, (float) ($proposal['novelty']     ?? 0.5))),
+                    'confidence'        => max(0.0, min(1.0, (float) ($proposal['confidence']  ?? 0.5))),
+                ],
             ];
         }
 
@@ -118,16 +135,71 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
             => $b['evidence_strength'] <=> $a['evidence_strength']);
         $evidenceRanking = array_column($allForRanking, 'proposal_id');
 
-        $mergeNotes = $this->buildMergeNotes(count($selected), count($rejected), array_values($disagreements));
+        // Compute consensus confidence and critical-dimension disagreement.
+        [$consensusConfidence, $verificationRequired, $verificationReason] =
+            $this->computeConsensus($selected);
+
+        $mergeNotes = $this->buildMergeNotes(
+            count($selected),
+            count($rejected),
+            array_values($disagreements),
+            $verificationRequired,
+        );
 
         return [
-            'schema'              => self::SCHEMA,
-            'selected_proposals'  => $selected,
-            'rejected_proposals'  => $rejected,
-            'evidence_ranking'    => $evidenceRanking,
-            'disagreements'       => array_values($disagreements),
-            'merge_notes'         => $mergeNotes,
+            'schema'                => self::SCHEMA,
+            'selected_proposals'    => $selected,
+            'rejected_proposals'    => $rejected,
+            'evidence_ranking'      => $evidenceRanking,
+            'disagreements'         => array_values($disagreements),
+            'merge_notes'           => $mergeNotes,
+            'consensus_confidence'  => $consensusConfidence,
+            'verification_required' => $verificationRequired,
+            'verification_reason'   => $verificationReason,
         ];
+    }
+
+    /**
+     * Compute consensus confidence and whether verification is required.
+     *
+     * @return array{float, bool, string|null}  [confidence, verificationRequired, verificationReason]
+     */
+    private function computeConsensus(array $selected): array
+    {
+        if ($selected === []) {
+            return [0.0, false, null];
+        }
+
+        $dims = array_column(array_column($selected, 'canonical_dimensions'), null);
+
+        // Base confidence: mean of individual confidence dims.
+        $baseConfidence = count($dims) > 0
+            ? array_sum(array_column($dims, 'confidence')) / count($dims)
+            : 0.5;
+
+        $penalty            = 0.0;
+        $verificationReason = null;
+        $criticalReasons    = [];
+
+        foreach (['proxy_risk', 'implementability'] as $critDim) {
+            $values = array_column($dims, $critDim);
+            if (count($values) < 2) {
+                continue;
+            }
+            $spread = max($values) - min($values);
+            if ($spread > self::CRITICAL_DIM_DISAGREEMENT_THRESHOLD) {
+                $penalty       += self::DISAGREEMENT_CONFIDENCE_PENALTY;
+                $criticalReasons[] = $critDim.'_disagreement:spread='.round($spread, 3);
+            }
+        }
+
+        if ($criticalReasons !== []) {
+            $verificationReason = 'critical_dimension_disagreement:'.implode(';', $criticalReasons);
+        }
+
+        $finalConfidence = max(0.0, round($baseConfidence - $penalty, 4));
+
+        return [$finalConfidence, $criticalReasons !== [], $verificationReason];
     }
 
     private function rejectionReason(bool $isDup, bool $isVague, float $leverage): ?string
@@ -156,7 +228,7 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
     }
 
     /** @return list<string> */
-    private function buildMergeNotes(int $selected, int $rejected, array $disagreements): array
+    private function buildMergeNotes(int $selected, int $rejected, array $disagreements, bool $verificationRequired = false): array
     {
         $notes = [
             sprintf('%d proposal(s) selected by evidence quality; %d rejected.', $selected, $rejected),
@@ -167,6 +239,10 @@ final class AtlasExternalBrainCrossModelConsensusNormalizer
                 '%d unresolved high-severity disagreement(s) withheld from selection — operator review required.',
                 count($disagreements),
             );
+        }
+
+        if ($verificationRequired) {
+            $notes[] = 'Critical dimension disagreement detected — verify before enqueue.';
         }
 
         if ($rejected > 0) {
