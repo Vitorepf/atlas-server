@@ -59,11 +59,13 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
             'recommended_task_family' => $facts['recommended_task_family'],
             'serving_impact' => $facts['serving_impact'],
             'task_quality_impact' => $facts['task_quality_impact'],
+            'recurrence_risk' => $facts['recurrence_risk'],
+            'next_policy_update' => $facts['next_policy_update'],
         ];
     }
 
     /**
-     * @return array{root_cause:string, detection_signal:string, prevention_guard:list<string>, recommended_task_family:string, serving_impact:string, task_quality_impact:string}
+     * @return array{root_cause:string, detection_signal:string, prevention_guard:list<string>, recommended_task_family:string, serving_impact:string, task_quality_impact:string, recurrence_risk:string, next_policy_update:string}
      */
     private function factsForType(string $incidentType): array
     {
@@ -75,6 +77,8 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
                 'recommended_task_family' => 'schema_validation_hardening',
                 'serving_impact' => 'malformed_batch_blocks_serving_until_swept',
                 'task_quality_impact' => 'none_packet_never_reached_a_worker',
+                'recurrence_risk' => 'medium',
+                'next_policy_update' => 'add_packet_schema_validation_gate_before_serving',
             ],
             self::TYPE_LEASE_MISMATCH => [
                 'root_cause' => 'lease_id_stale_or_mismatched',
@@ -85,6 +89,8 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
                 // mismatch is a serving/contention failure, never evidence the underlying task is bad.
                 'serving_impact' => 'lease_contention_delays_serving_throughput',
                 'task_quality_impact' => 'none_task_quality_unaffected',
+                'recurrence_risk' => 'low',
+                'next_policy_update' => 'enforce_lease_id_match_at_claim_and_report_time',
             ],
             self::TYPE_POISON_RESERVE => [
                 'root_cause' => 'poisoned_packet_reserved_without_quarantine',
@@ -93,6 +99,8 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
                 'recommended_task_family' => 'poison_quarantine_hardening',
                 'serving_impact' => 'wastes_worker_lease_cycles_on_unfixable_packet',
                 'task_quality_impact' => 'task_was_never_completable_as_scoped',
+                'recurrence_risk' => 'high',
+                'next_policy_update' => 'quarantine_after_n_give_backs_and_block_re_serve',
             ],
             self::TYPE_WEAK_GREEN_COMMIT => [
                 'root_cause' => 'tests_pass_without_behavior_assertion',
@@ -101,6 +109,8 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
                 'recommended_task_family' => 'acceptance_quality_gate_hardening',
                 'serving_impact' => 'none_packet_served_and_committed_successfully',
                 'task_quality_impact' => 'green_signal_did_not_prove_real_behavior',
+                'recurrence_risk' => 'high',
+                'next_policy_update' => 'require_behavior_assertion_in_acceptance_gate_not_just_exit_zero',
             ],
             self::TYPE_QUOTA_FARMING => [
                 'root_cause' => 'high_task_count_with_no_real_leverage_evidence',
@@ -112,6 +122,8 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
                 'recommended_task_family' => 'quota_farming_detection_hardening',
                 'serving_impact' => 'crowds_out_real_work_in_the_queue',
                 'task_quality_impact' => 'volume_without_leverage_does_not_advance_the_scope',
+                'recurrence_risk' => 'high',
+                'next_policy_update' => 'require_value_proof_per_task_and_enforce_template_diversity_check',
             ],
             default => [
                 'root_cause' => 'unclassified_incident',
@@ -120,6 +132,8 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMiner
                 'recommended_task_family' => 'incident_taxonomy_hardening',
                 'serving_impact' => 'unknown',
                 'task_quality_impact' => 'unknown',
+                'recurrence_risk' => 'unknown',
+                'next_policy_update' => 'classify_incident_type_and_add_it_to_the_known_taxonomy',
             ],
         };
     }

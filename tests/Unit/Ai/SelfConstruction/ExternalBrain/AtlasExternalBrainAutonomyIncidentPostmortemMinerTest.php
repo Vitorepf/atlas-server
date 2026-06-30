@@ -20,10 +20,35 @@ final class AtlasExternalBrainAutonomyIncidentPostmortemMinerTest extends TestCa
     {
         $r = $this->svc()->mine(['incident_type' => 'malformed_batch']);
 
-        foreach (['schema', 'incident_type', 'root_cause', 'wasted_token_risk', 'prevention_guard', 'recommended_task_family'] as $key) {
+        foreach (['schema', 'incident_type', 'root_cause', 'detection_signal', 'wasted_token_risk', 'prevention_guard',
+                  'recommended_task_family', 'serving_impact', 'task_quality_impact', 'recurrence_risk', 'next_policy_update'] as $key) {
             $this->assertArrayHasKey($key, $r, "missing key: {$key}");
         }
         $this->assertSame(AtlasExternalBrainAutonomyIncidentPostmortemMiner::SCHEMA, $r['schema']);
+    }
+
+    public function test_unknown_incident_type_produces_taxonomy_hardening_not_fake_precision(): void
+    {
+        $r = $this->svc()->mine(['incident_type' => 'some_brand_new_incident']);
+
+        $this->assertSame('incident_taxonomy_hardening', $r['recommended_task_family']);
+        $this->assertSame('unknown', $r['recurrence_risk']);
+        $this->assertNotEmpty($r['next_policy_update']);
+    }
+
+    public function test_each_known_incident_type_has_non_empty_recurrence_risk_and_policy_update(): void
+    {
+        foreach ([
+            AtlasExternalBrainAutonomyIncidentPostmortemMiner::TYPE_MALFORMED_BATCH,
+            AtlasExternalBrainAutonomyIncidentPostmortemMiner::TYPE_LEASE_MISMATCH,
+            AtlasExternalBrainAutonomyIncidentPostmortemMiner::TYPE_POISON_RESERVE,
+            AtlasExternalBrainAutonomyIncidentPostmortemMiner::TYPE_WEAK_GREEN_COMMIT,
+            AtlasExternalBrainAutonomyIncidentPostmortemMiner::TYPE_QUOTA_FARMING,
+        ] as $type) {
+            $r = $this->svc()->mine(['incident_type' => $type]);
+            $this->assertNotEmpty($r['recurrence_risk'], "{$type} missing recurrence_risk");
+            $this->assertNotEmpty($r['next_policy_update'], "{$type} missing next_policy_update");
+        }
     }
 
     // ── AC1: malformed batch → schema validation guard ──────────────────────────
