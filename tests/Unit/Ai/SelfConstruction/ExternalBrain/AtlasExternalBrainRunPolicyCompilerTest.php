@@ -191,6 +191,90 @@ final class AtlasExternalBrainRunPolicyCompilerTest extends TestCase
         $this->assertSame(AtlasExternalBrainRunPolicyCompiler::SCHEMA_VERDICT, $verdict['schema']);
     }
 
+    // ── AC1: runtime_quality_gates in compiled policy ────────────────────────
+
+    public function test_compile_includes_runtime_quality_gates_with_all_four_keys(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 10]);
+
+        $this->assertArrayHasKey('runtime_quality_gates', $policy);
+        $gates = $policy['runtime_quality_gates'];
+
+        foreach (['min_freshness_ratio', 'min_avg_value_score', 'max_give_back_ratio', 'max_template_repetition_rate'] as $key) {
+            $this->assertArrayHasKey($key, $gates, "runtime_quality_gates must include {$key}");
+        }
+    }
+
+    public function test_compile_avg_value_score_gate_matches_min_value_score(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 10, 'min_value_score' => 0.75]);
+
+        $this->assertSame(0.75, $policy['runtime_quality_gates']['min_avg_value_score']);
+    }
+
+    // ── AC2: gates block can_stop even when quota reached ────────────────────
+
+    public function test_low_freshness_ratio_blocks_can_stop_at_quota(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 5]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count'  => 5,
+            'freshness_ratio' => 0.50, // below 0.80 default
+        ]);
+
+        $this->assertFalse($verdict['can_stop'], 'low freshness must block stop even at quota');
+        $violationStr = implode(' ', $verdict['violations']);
+        $this->assertStringContainsString('runtime_quality_gate:freshness_ratio', $violationStr);
+        $this->assertContains('refresh_stale_evidence_before_continuing', $verdict['required_actions']);
+    }
+
+    public function test_high_give_back_ratio_blocks_can_stop_at_quota(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 5]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count'  => 5,
+            'give_back_ratio' => 0.50, // above 0.30 default
+        ]);
+
+        $this->assertFalse($verdict['can_stop'], 'high give_back ratio must block stop even at quota');
+        $violationStr = implode(' ', $verdict['violations']);
+        $this->assertStringContainsString('runtime_quality_gate:give_back_ratio', $violationStr);
+        $this->assertContains('reduce_give_back_rate_before_continuing', $verdict['required_actions']);
+    }
+
+    public function test_high_template_repetition_blocks_can_stop_at_quota(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 5]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count'          => 5,
+            'template_repetition_rate' => 0.40, // above 0.20 default
+        ]);
+
+        $this->assertFalse($verdict['can_stop'], 'high template repetition must block stop even at quota');
+        $violationStr = implode(' ', $verdict['violations']);
+        $this->assertStringContainsString('runtime_quality_gate:template_repetition_rate', $violationStr);
+        $this->assertContains('diversify_task_templates_before_continuing', $verdict['required_actions']);
+    }
+
+    public function test_all_quality_gates_passing_does_not_add_violations(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 5]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count'           => 5,
+            'freshness_ratio'          => 1.0,
+            'give_back_ratio'          => 0.10,
+            'template_repetition_rate' => 0.05,
+        ]);
+
+        $this->assertTrue($verdict['can_stop']);
+        $gateViolations = array_filter($verdict['violations'], fn (string $v): bool => str_starts_with($v, 'runtime_quality_gate'));
+        $this->assertEmpty($gateViolations, 'no gate violations when all gates pass');
+    }
+
     // ── non-stalled quota shortfall ───────────────────────────────────────────
 
     public function test_non_stalled_quota_shortfall_requires_continue_searching(): void

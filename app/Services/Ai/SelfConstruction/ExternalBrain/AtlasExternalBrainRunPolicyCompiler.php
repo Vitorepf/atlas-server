@@ -64,6 +64,11 @@ final class AtlasExternalBrainRunPolicyCompiler
         'breakthrough_planner_returned_honest_exhausted',
     ];
 
+    /** Runtime quality gate defaults (applied on top of quota, even when quota is reached). */
+    private const DEFAULT_MIN_FRESHNESS_RATIO          = 0.80; // ≥80% evidence records must be fresh
+    private const DEFAULT_MAX_GIVE_BACK_RATIO          = 0.30; // ≤30% tasks returned without value
+    private const DEFAULT_MAX_TEMPLATE_REPETITION_RATE = 0.20; // ≤20% tasks from same template
+
     /**
      * @param  array{
      *   target_quota?:int,
@@ -103,6 +108,12 @@ final class AtlasExternalBrainRunPolicyCompiler
             'continuation_rules' => $continuationRules,
             'breakthrough_required_after_stall' => $breakthroughRequired,
             'honest_exhausted_criteria' => self::DEFAULT_HONEST_EXHAUSTED_CRITERIA,
+            'runtime_quality_gates' => [
+                'min_freshness_ratio'          => self::DEFAULT_MIN_FRESHNESS_RATIO,
+                'min_avg_value_score'          => $minValueScore,
+                'max_give_back_ratio'          => self::DEFAULT_MAX_GIVE_BACK_RATIO,
+                'max_template_repetition_rate' => self::DEFAULT_MAX_TEMPLATE_REPETITION_RATE,
+            ],
         ];
     }
 
@@ -176,6 +187,30 @@ final class AtlasExternalBrainRunPolicyCompiler
         if ($valueScore < $minValueScore) {
             $violations[] = 'value_score_below_minimum:'.round($valueScore, 4).':min:'.round($minValueScore, 4);
             $requiredActions[] = 'raise_value_bar_before_continuing';
+        }
+
+        // RUNTIME QUALITY GATES — applied even when quota is reached.
+        $gates = is_array($policy['runtime_quality_gates'] ?? null) ? $policy['runtime_quality_gates'] : [];
+
+        $freshnessRatio = (float) ($runState['freshness_ratio'] ?? 1.0);
+        $minFreshness   = (float) ($gates['min_freshness_ratio'] ?? self::DEFAULT_MIN_FRESHNESS_RATIO);
+        if ($freshnessRatio < $minFreshness) {
+            $violations[] = 'runtime_quality_gate:freshness_ratio:'.round($freshnessRatio, 4).':min:'.round($minFreshness, 4);
+            $requiredActions[] = 'refresh_stale_evidence_before_continuing';
+        }
+
+        $giveBackRatio    = (float) ($runState['give_back_ratio'] ?? 0.0);
+        $maxGiveBack      = (float) ($gates['max_give_back_ratio'] ?? self::DEFAULT_MAX_GIVE_BACK_RATIO);
+        if ($giveBackRatio > $maxGiveBack) {
+            $violations[] = 'runtime_quality_gate:give_back_ratio:'.round($giveBackRatio, 4).':max:'.round($maxGiveBack, 4);
+            $requiredActions[] = 'reduce_give_back_rate_before_continuing';
+        }
+
+        $templateRepetition    = (float) ($runState['template_repetition_rate'] ?? 0.0);
+        $maxTemplateRepetition = (float) ($gates['max_template_repetition_rate'] ?? self::DEFAULT_MAX_TEMPLATE_REPETITION_RATE);
+        if ($templateRepetition > $maxTemplateRepetition) {
+            $violations[] = 'runtime_quality_gate:template_repetition_rate:'.round($templateRepetition, 4).':max:'.round($maxTemplateRepetition, 4);
+            $requiredActions[] = 'diversify_task_templates_before_continuing';
         }
 
         $violations = array_values($violations);
