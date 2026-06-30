@@ -91,11 +91,11 @@ final class AtlasTaskMaestroMultiProviderCommand extends Command
         $rule = $classifier->reasonFor($packet);
         $assignment = $policy->assignmentFor($class);
         $receiptHash = $ledger->record([
-            'packet_id' => (string) ($packet['task_packet_id'] ?? $packet['id'] ?? ''),
-            'class' => $class,
-            'rule_id' => $rule,
-            'primary' => $assignment['primary'],
-            'fallback' => $assignment['fallback'],
+            'task_packet_id' => (string) ($packet['task_packet_id'] ?? $packet['id'] ?? ''),
+            'classified_class' => $class,
+            'classifier_rule_id' => $rule,
+            'primary_provider' => $assignment['primary'],
+            'fallback_chain' => $assignment['fallback'],
         ]);
         $this->emit([
             'class' => $class,
