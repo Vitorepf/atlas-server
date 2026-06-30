@@ -5,38 +5,28 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Turns organ sprawl-reduction plans into concrete simplification task specs.
+ * Turns organ sprawl-reduction plans into graph-safe simplification task batches.
  * PURE / DETERMINISTIC. Never deletes code or enqueues tasks.
  *
  * SUPPORTED ACTION TYPES: merge | retire | simplify
  *
- * REFUSAL RULES (any match → refused entry, action skipped from task_specs):
+ * REFUSAL RULES (first match → refused, action skipped):
  *   1. type=merge AND replacement_owner is missing/empty
- *   2. behavior_preservation_tests is missing or empty list
- *   3. allowed_files is missing or empty list
+ *   2. behavior_preservation_tests is missing or empty
+ *   3. allowed_files is missing or empty
+ *   4. allowed_files contains ONLY test files (no implementation file)
+ *   5. allowed_files contains NO test file (implementation-only)
  *
- * DEPENDENCY ORDER (stable, lowest first):
+ * DEPENDENCY ORDER (stable, lowest index first):
  *   merge=0 → simplify=1 → retire=2
- *   retire actions for an organ also depend on any merge that lists the same organ.
+ *   retire for an organ also depends on any merge listing the same organ.
  *
- * INPUT:
- *   {
- *     actions: list<{
- *       type:                        string  (merge|retire|simplify)
- *       organ:                       string
- *       replacement_owner?:          string  (required for merge)
- *       behavior_preservation_tests: list<string>
- *       allowed_files:               list<string>
- *     }>
- *   }
+ * OUTPUT task_spec shape (per action):
+ *   action_type, organ, implementation_file, test_file, allowed_files,
+ *   acceptance_criteria (runnable), required_evidence,
+ *   behavior_preservation_gates, depends_on
  *
- * OUTPUT:
- *   {
- *     schema,
- *     task_specs:  list<{ action_type, organ, implementation_file, test_file,
- *                         acceptance_criteria, required_evidence, depends_on }>,
- *     refused:     list<{ organ, action_type, reason }>
- *   }
+ * Pure / deterministic / no I/O.
  */
 final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
 {
@@ -55,7 +45,6 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
         $taskSpecs = [];
         $refused   = [];
 
-        // Track which organs are targets of merge (for retire dependency resolution).
         $mergeOrgans = [];
         foreach ($rawActions as $action) {
             if (is_array($action) && ($action['type'] ?? '') === 'merge') {
@@ -68,50 +57,37 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
                 continue;
             }
 
-            $type   = trim(strtolower((string) ($action['type'] ?? '')));
-            $organ  = trim((string) ($action['organ'] ?? ''));
-            $owner  = trim((string) ($action['replacement_owner'] ?? ''));
-            $tests  = is_array($action['behavior_preservation_tests'] ?? null)
-                        ? array_filter(array_map('strval', $action['behavior_preservation_tests']))
+            $type  = trim(strtolower((string) ($action['type']  ?? '')));
+            $organ = trim((string) ($action['organ'] ?? ''));
+            $owner = trim((string) ($action['replacement_owner'] ?? ''));
+            $tests = is_array($action['behavior_preservation_tests'] ?? null)
+                        ? array_values(array_filter(array_map('strval', $action['behavior_preservation_tests'])))
                         : [];
-            $files  = is_array($action['allowed_files'] ?? null)
-                        ? array_filter(array_map('strval', $action['allowed_files']))
+            $files = is_array($action['allowed_files'] ?? null)
+                        ? array_values(array_filter(array_map('strval', $action['allowed_files'])))
                         : [];
 
-            // Validate.
-            $refusalReason = null;
-            if ($type === 'merge' && $owner === '') {
-                $refusalReason = 'merge_requires_replacement_owner';
-            } elseif (empty($tests)) {
-                $refusalReason = 'behavior_preservation_tests_required';
-            } elseif (empty($files)) {
-                $refusalReason = 'allowed_files_required';
-            }
-
+            $refusalReason = $this->refusalReason($type, $owner, $tests, $files);
             if ($refusalReason !== null) {
-                $refused[] = [
-                    'organ'       => $organ,
-                    'action_type' => $type,
-                    'reason'      => $refusalReason,
-                ];
+                $refused[] = ['organ' => $organ, 'action_type' => $type, 'reason' => $refusalReason];
                 continue;
             }
 
-            $files = array_values($files);
-            [$implFile, $testFile] = $this->splitImplAndTest($files, $organ, $type);
+            [$implFile, $testFile] = $this->splitImplAndTest($files, $organ);
 
             $taskSpecs[] = [
-                'action_type'         => $type,
-                'organ'               => $organ,
-                'implementation_file' => $implFile,
-                'test_file'           => $testFile,
-                'acceptance_criteria' => $this->buildAcceptance($type, $organ, $owner, array_values($tests)),
-                'required_evidence'   => $this->buildEvidence($type, $organ, $owner),
-                'depends_on'          => $this->buildDeps($type, $organ, $mergeOrgans),
+                'action_type'                => $type,
+                'organ'                      => $organ,
+                'implementation_file'        => $implFile,
+                'test_file'                  => $testFile,
+                'allowed_files'              => $files,
+                'acceptance_criteria'        => $this->buildAcceptance($type, $organ, $owner, $tests),
+                'required_evidence'          => $this->buildEvidence($type, $organ, $owner),
+                'behavior_preservation_gates' => $this->buildGates($tests, $organ),
+                'depends_on'                 => $this->buildDeps($type, $organ, $mergeOrgans),
             ];
         }
 
-        // Sort task_specs by action order (stable: merge → simplify → retire).
         usort($taskSpecs, fn(array $a, array $b): int =>
             (self::ACTION_ORDER[$a['action_type']] ?? 99) <=> (self::ACTION_ORDER[$b['action_type']] ?? 99)
         );
@@ -123,12 +99,33 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
         ];
     }
 
+    private function refusalReason(string $type, string $owner, array $tests, array $files): ?string
+    {
+        if ($type === 'merge' && $owner === '') {
+            return 'merge_requires_replacement_owner';
+        }
+        if ($tests === []) {
+            return 'behavior_preservation_tests_required';
+        }
+        if ($files === []) {
+            return 'allowed_files_required';
+        }
+        $hasImpl = (bool) array_filter($files, fn(string $f): bool => ! str_ends_with($f, 'Test.php'));
+        $hasTest = (bool) array_filter($files, fn(string $f): bool => str_ends_with($f, 'Test.php'));
+        if (! $hasImpl) {
+            return 'test_only_allowed_files_refused';
+        }
+        if (! $hasTest) {
+            return 'implementation_only_allowed_files_refused';
+        }
+        return null;
+    }
+
     /** @return array{string,string} [implFile, testFile] */
-    private function splitImplAndTest(array $files, string $organ, string $type): array
+    private function splitImplAndTest(array $files, string $organ): array
     {
         $implFile = '';
         $testFile = '';
-
         foreach ($files as $f) {
             if (str_ends_with($f, 'Test.php')) {
                 $testFile = $f;
@@ -136,15 +133,12 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
                 $implFile = $f;
             }
         }
-
-        // Fallback derivation from organ name.
         if ($implFile === '' && $organ !== '') {
             $implFile = 'app/Services/Ai/SelfConstruction/'.$organ.'.php';
         }
         if ($testFile === '' && $organ !== '') {
             $testFile = 'tests/Unit/Ai/SelfConstruction/'.$organ.'Test.php';
         }
-
         return [$implFile, $testFile];
     }
 
@@ -160,7 +154,7 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
             default    => $criteria[] = ucfirst($type).' '.$organ.'.',
         };
 
-        $criteria[] = './vendor/bin/phpunit exits 0 with all behavior-preservation tests green.';
+        $criteria[] = 'Run /opt/homebrew/bin/php artisan test with all behavior-preservation gates green.';
 
         foreach ($tests as $t) {
             $criteria[] = 'Behavior preserved: '.$t;
@@ -172,8 +166,8 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
     private function buildEvidence(string $type, string $organ, string $owner): array
     {
         $evidence = [
-            'Confirm allowed_files contains exactly the implementation + test file pair.',
-            'Confirm all behavior_preservation_tests are included in the test file.',
+            'tests_or_gates_result',
+            'implementation_notes',
         ];
 
         if ($type === 'merge') {
@@ -187,18 +181,24 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslator
         return $evidence;
     }
 
-    /** @param list<string> $mergeOrgans lowercase organ names being merged */
+    /** @param list<string> $tests */
+    private function buildGates(array $tests, string $organ): array
+    {
+        return array_map(static fn(string $t): array => [
+            'description' => $t,
+            'command'     => '/opt/homebrew/bin/php artisan test --filter='.escapeshellarg($t),
+        ], $tests);
+    }
+
+    /** @param list<string> $mergeOrgans */
     private function buildDeps(string $type, string $organ, array $mergeOrgans): array
     {
         if ($type !== 'retire') {
             return [];
         }
-
-        // A retire depends on any merge that affects the same organ.
         if (in_array(strtolower($organ), $mergeOrgans, true)) {
             return ['merge:'.$organ];
         }
-
         return [];
     }
 }

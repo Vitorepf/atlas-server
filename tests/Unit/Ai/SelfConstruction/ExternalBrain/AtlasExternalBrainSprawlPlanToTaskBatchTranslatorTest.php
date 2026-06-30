@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainSprawlPlanToTaskBatchTranslator;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCase
 {
@@ -98,14 +98,78 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
         $this->assertStringEndsWith('Test.php', $spec['test_file']);
     }
 
+    // ── AC2: task_spec carries allowed_files ──────────────────────────────────
+
+    public function test_task_spec_has_allowed_files_field(): void
+    {
+        $result = $this->translator()->translate(['actions' => [$this->validAction()]]);
+
+        $this->assertArrayHasKey('allowed_files', $result['task_specs'][0]);
+        $this->assertNotEmpty($result['task_specs'][0]['allowed_files']);
+    }
+
+    public function test_allowed_files_contains_impl_and_test_file(): void
+    {
+        $files = [
+            'app/Services/Ai/SelfConstruction/Foo/AtlasFooOrgan.php',
+            'tests/Unit/Ai/SelfConstruction/Foo/AtlasFooOrganTest.php',
+        ];
+        $result = $this->translator()->translate(['actions' => [$this->validAction(['allowed_files' => $files])]]);
+
+        $specFiles = $result['task_specs'][0]['allowed_files'];
+        $this->assertContains('app/Services/Ai/SelfConstruction/Foo/AtlasFooOrgan.php', $specFiles);
+        $this->assertContains('tests/Unit/Ai/SelfConstruction/Foo/AtlasFooOrganTest.php', $specFiles);
+    }
+
+    // ── AC1: behavior_preservation_gates ─────────────────────────────────────
+
+    public function test_task_spec_has_behavior_preservation_gates_field(): void
+    {
+        $result = $this->translator()->translate(['actions' => [$this->validAction()]]);
+
+        $this->assertArrayHasKey('behavior_preservation_gates', $result['task_specs'][0]);
+    }
+
+    public function test_behavior_preservation_gates_are_non_empty(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['behavior_preservation_tests' => ['foo returns score']]),
+        ]]);
+
+        $gates = $result['task_specs'][0]['behavior_preservation_gates'];
+        $this->assertNotEmpty($gates);
+    }
+
+    public function test_behavior_preservation_gates_have_description_and_command(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['behavior_preservation_tests' => ['foo returns score']]),
+        ]]);
+
+        $gate = $result['task_specs'][0]['behavior_preservation_gates'][0];
+        $this->assertArrayHasKey('description', $gate);
+        $this->assertArrayHasKey('command', $gate);
+        $this->assertSame('foo returns score', $gate['description']);
+    }
+
+    public function test_behavior_preservation_gates_command_is_runnable(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['behavior_preservation_tests' => ['bar is idempotent']]),
+        ]]);
+
+        $command = $result['task_specs'][0]['behavior_preservation_gates'][0]['command'];
+        $this->assertStringContainsString('/opt/homebrew/bin/php artisan test', $command);
+    }
+
     // ── acceptance_criteria ───────────────────────────────────────────────────
 
-    public function test_acceptance_criteria_contains_phpunit_gate(): void
+    public function test_acceptance_criteria_contains_artisan_test_command(): void
     {
         $result = $this->translator()->translate(['actions' => [$this->validAction()]]);
 
         $criteria = implode(' ', $result['task_specs'][0]['acceptance_criteria']);
-        $this->assertStringContainsString('phpunit', strtolower($criteria));
+        $this->assertStringContainsString('/opt/homebrew/bin/php artisan test', $criteria);
     }
 
     public function test_acceptance_criteria_includes_behavior_preservation_tests(): void
@@ -150,7 +214,7 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
         $this->assertStringContainsString('DeprecatedOrgan', $evidence);
     }
 
-    // ── refusals ─────────────────────────────────────────────────────────────
+    // ── refusals: existing rules ──────────────────────────────────────────────
 
     public function test_merge_without_replacement_owner_is_refused(): void
     {
@@ -170,9 +234,7 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
         ]]);
 
         $this->assertCount(0, $result['task_specs']);
-        $refused = $result['refused'];
-        $this->assertCount(1, $refused);
-        $this->assertSame('behavior_preservation_tests_required', $refused[0]['reason']);
+        $this->assertSame('behavior_preservation_tests_required', $result['refused'][0]['reason']);
     }
 
     public function test_action_without_allowed_files_is_refused(): void
@@ -185,7 +247,33 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
         $this->assertSame('allowed_files_required', $result['refused'][0]['reason']);
     }
 
-    // ── dependency ordering ───────────────────────────────────────────────────
+    // ── AC1: refusals for test-only and implementation-only malformed actions ──
+
+    public function test_test_only_allowed_files_is_refused(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['allowed_files' => [
+                'tests/Unit/Ai/SelfConstruction/Foo/AtlasFooOrganTest.php',
+            ]]),
+        ]]);
+
+        $this->assertCount(0, $result['task_specs']);
+        $this->assertSame('test_only_allowed_files_refused', $result['refused'][0]['reason']);
+    }
+
+    public function test_implementation_only_allowed_files_is_refused(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['allowed_files' => [
+                'app/Services/Ai/SelfConstruction/Foo/AtlasFooOrgan.php',
+            ]]),
+        ]]);
+
+        $this->assertCount(0, $result['task_specs']);
+        $this->assertSame('implementation_only_allowed_files_refused', $result['refused'][0]['reason']);
+    }
+
+    // ── AC1: dependency ordering ──────────────────────────────────────────────
 
     public function test_merge_sorts_before_simplify_before_retire(): void
     {
@@ -215,13 +303,22 @@ final class AtlasExternalBrainSprawlPlanToTaskBatchTranslatorTest extends TestCa
         $this->assertStringContainsString('merge', $retireSpec['depends_on'][0]);
     }
 
+    public function test_retire_without_matching_merge_has_empty_deps(): void
+    {
+        $result = $this->translator()->translate(['actions' => [
+            $this->validAction(['type' => 'retire', 'organ' => 'StandaloneOrgan']),
+        ]]);
+
+        $this->assertSame([], $result['task_specs'][0]['depends_on']);
+    }
+
     // ── mixed valid and refused ───────────────────────────────────────────────
 
     public function test_valid_and_refused_actions_coexist(): void
     {
         $result = $this->translator()->translate(['actions' => [
             $this->validAction(['type' => 'simplify', 'organ' => 'GoodOrgan']),
-            $this->validAction(['type' => 'merge', 'replacement_owner' => '']), // refused
+            $this->validAction(['type' => 'merge', 'replacement_owner' => '']),
         ]]);
 
         $this->assertCount(1, $result['task_specs']);
