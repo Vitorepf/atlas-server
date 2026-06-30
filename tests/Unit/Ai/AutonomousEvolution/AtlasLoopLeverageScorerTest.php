@@ -82,4 +82,63 @@ class AtlasLoopLeverageScorerTest extends TestCase
         $this->assertIsFloat($s['leverage']);
         $this->assertSame(0.30, $s['components']['strategic_impact']); // STRATEGIC_DEFAULT
     }
+
+    public function test_new_signals_accepted_without_throwing_when_absent(): void
+    {
+        $s = $this->scorer()->score([
+            'caller_count' => 10, 'cyclomatic' => 15, 'strategic_impact' => 0.8,
+            'cost' => 0.5, 'risk' => 0.5, 'verifiable' => true,
+            // new signals absent — must not throw and must leave existing leverage unchanged
+        ]);
+        $this->assertSame(0.8, $s['leverage'], 'absent new signals must not change the base formula');
+        foreach (['unblock', 'risk_reduction', 'autonomy_gain', 'simplification_gain', 'dependency_unlock'] as $k) {
+            $this->assertArrayHasKey($k, $s['components'], "component '{$k}' must always be present");
+            $this->assertSame(0.0, $s['components'][$k], "absent signal '{$k}' must default to 0.0");
+        }
+    }
+
+    public function test_new_signals_included_as_normalized_components_when_supplied(): void
+    {
+        $s = $this->scorer()->score([
+            'caller_count' => 0, 'strategic_impact' => 0.5, 'cost' => 0.5, 'risk' => 0.5, 'verifiable' => true,
+            'unblock_count' => 5,          // 5/10 = 0.5
+            'risk_reduction' => 0.6,
+            'autonomy_gain' => 0.8,
+            'simplification_gain' => 0.4,
+            'dependency_unlock_count' => 5, // 5/5 = 1.0
+        ]);
+        $this->assertSame(0.5, $s['components']['unblock']);
+        $this->assertSame(0.6, $s['components']['risk_reduction']);
+        $this->assertSame(0.8, $s['components']['autonomy_gain']);
+        $this->assertSame(0.4, $s['components']['simplification_gain']);
+        $this->assertSame(1.0, $s['components']['dependency_unlock']);
+    }
+
+    public function test_rank_prefers_candidate_with_higher_autonomy_gain_when_base_inputs_tied(): void
+    {
+        $ranked = $this->scorer()->rank([
+            ['path' => 'low-auto',  'caller_count' => 10, 'cyclomatic' => 15, 'strategic_impact' => 0.8, 'cost' => 0.5, 'risk' => 0.5, 'verifiable' => true, 'autonomy_gain' => 0.1],
+            ['path' => 'high-auto', 'caller_count' => 10, 'cyclomatic' => 15, 'strategic_impact' => 0.8, 'cost' => 0.5, 'risk' => 0.5, 'verifiable' => true, 'autonomy_gain' => 0.9],
+        ]);
+        $this->assertSame('high-auto', $ranked[0]['path'], 'higher autonomy_gain must rank first when all other inputs are equal');
+        $this->assertGreaterThan($ranked[1]['_score']['leverage'], $ranked[0]['_score']['leverage']);
+    }
+
+    public function test_ambition_floor_still_rejects_verifiable_false_even_with_high_autonomy(): void
+    {
+        $sc = $this->scorer();
+        $dream = $sc->score([
+            'caller_count' => 20, 'cyclomatic' => 30, 'strategic_impact' => 1.0,
+            'cost' => 0.5, 'risk' => 0.5, 'verifiable' => false,
+            'autonomy_gain' => 1.0, 'unblock_count' => 10,
+        ]);
+        $this->assertFalse($sc->passesAmbitionFloor($dream), 'verifiable=false must always be rejected regardless of new signals');
+    }
+
+    public function test_ambition_floor_still_rejects_no_unblock_trivia_with_new_signals_zero(): void
+    {
+        $sc = $this->scorer();
+        $trivial = $sc->score(['caller_count' => 1, 'cyclomatic' => 1, 'verifiable' => true]);
+        $this->assertFalse($sc->passesAmbitionFloor($trivial), 'trivial candidates with no new signals must still be rejected');
+    }
 }

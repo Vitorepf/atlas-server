@@ -45,6 +45,12 @@ final class AtlasLoopLeverageScorer
      */
     private const STRATEGIC_DEFAULT = 0.30;
 
+    /** unblock_count at/above which the explicit unblock signal saturates to 1.0. */
+    private const UNBLOCK_SATURATION = 10.0;
+
+    /** dependency_unlock_count at/above which the dependency-unlock signal saturates to 1.0. */
+    private const DEP_UNLOCK_SATURATION = 5.0;
+
     /**
      * Score ONE candidate. The candidate is a normalized signal packet; missing signals
      * fail-open to conservative defaults rather than throwing.
@@ -80,7 +86,17 @@ final class AtlasLoopLeverageScorer
         $cost = $this->clampCostRisk($c['cost'] ?? 0.5);
         $risk = $this->clampCostRisk($c['risk'] ?? 0.5);
 
-        $leverage = ($impact * $breadth * $compounding) / ($cost * $risk);
+        // New structural signals — default 0 so absent callers get identical scores to the old formula.
+        $unblock = min(1.0, max(0, (int) ($c['unblock_count'] ?? 0)) / self::UNBLOCK_SATURATION);
+        $riskRed = $this->clamp01((float) ($c['risk_reduction'] ?? 0.0));
+        $autonomy = $this->clamp01((float) ($c['autonomy_gain'] ?? 0.0));
+        $simplif = $this->clamp01((float) ($c['simplification_gain'] ?? 0.0));
+        $depUnlock = min(1.0, max(0, (int) ($c['dependency_unlock_count'] ?? 0)) / self::DEP_UNLOCK_SATURATION);
+
+        // Bonus multiplier — zero when all new signals absent, so existing scores are unchanged.
+        $bonus = 0.2 * $autonomy + 0.1 * $simplif + 0.1 * $unblock + 0.1 * $riskRed + 0.1 * $depUnlock;
+
+        $leverage = ($impact * $breadth * $compounding) / ($cost * $risk) * (1.0 + $bonus);
 
         $components = [
             'strategic_impact' => round($impact, 4),
@@ -88,6 +104,11 @@ final class AtlasLoopLeverageScorer
             'compounding' => round($compounding, 4),
             'cost' => round($cost, 4),
             'risk' => round($risk, 4),
+            'unblock' => round($unblock, 4),
+            'risk_reduction' => round($riskRed, 4),
+            'autonomy_gain' => round($autonomy, 4),
+            'simplification_gain' => round($simplif, 4),
+            'dependency_unlock' => round($depUnlock, 4),
         ];
 
         return [
@@ -140,6 +161,8 @@ final class AtlasLoopLeverageScorer
         $unblock = max(
             (float) ($score['components']['breadth'] ?? 0.0),
             (float) ($score['components']['compounding'] ?? 0.0),
+            (float) ($score['components']['unblock'] ?? 0.0),
+            (float) ($score['components']['autonomy_gain'] ?? 0.0),
         );
 
         return $unblock >= $minBreadthOrCompounding;
