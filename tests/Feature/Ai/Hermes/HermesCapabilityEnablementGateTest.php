@@ -132,6 +132,44 @@ class HermesCapabilityEnablementGateTest extends TestCase
         $this->assertSame($receipt['receipt_hash'], data_get($candidate->gate_json, 'enablement_receipt_hash'));
     }
 
+    public function test_high_risk_with_authority_but_no_probe_safety_receipt_fails_closed_and_row_unchanged(): void
+    {
+        $candidate = $this->highRiskCandidateWithoutProbeReceipt();
+
+        $receipt = $this->gate()->approve($candidate, [
+            'operator_confirmed' => true,
+            'operator_authority' => true,
+        ]);
+
+        $this->assertSame('rejected_high_risk_requires_probe_safety_receipt', $receipt['status']);
+        $this->assertFalse((bool) $receipt['enablement_allowed_now']);
+        $this->assertSame('quarantined_for_atlas_capability_review', $receipt['gate_status_after']);
+        $this->assertNotEmpty($receipt['receipt_hash']);
+
+        $candidate->refresh();
+        $this->assertFalse((bool) $candidate->enabled);
+        $this->assertSame('quarantined_for_atlas_capability_review', $candidate->gate_status);
+        $this->assertTrue((bool) $candidate->review_required);
+        $this->assertNull($candidate->reviewed_at);
+        $this->assertNull(data_get($candidate->gate_json, 'enablement_receipt_hash'));
+    }
+
+    public function test_high_risk_with_mismatched_probe_safety_receipt_fails_closed(): void
+    {
+        $candidate = $this->highRiskCandidateWithMismatchedProbeReceipt();
+
+        $receipt = $this->gate()->approve($candidate, [
+            'operator_confirmed' => true,
+            'operator_authority' => true,
+        ]);
+
+        $this->assertSame('rejected_high_risk_requires_probe_safety_receipt', $receipt['status']);
+        $this->assertFalse((bool) $receipt['enablement_allowed_now']);
+
+        $candidate->refresh();
+        $this->assertFalse((bool) $candidate->enabled);
+    }
+
     public function test_already_enabled_candidate_is_rejected_not_a_candidate(): void
     {
         $candidate = $this->candidate([
@@ -194,13 +232,51 @@ class HermesCapabilityEnablementGateTest extends TestCase
     }
 
     /**
-     * High-risk always-quarantine candidate (mcp_server:github).
+     * High-risk always-quarantine candidate (mcp_server:github) with a
+     * matching probe safety receipt already sealed onto gate_json, as the
+     * registry/probe would leave it.
      *
      * @param  array<string,mixed>  $overrides
      */
     private function highRiskCandidate(array $overrides = []): HermesCapabilityCandidate
     {
-        return $this->makeCandidate('mcp_server', 'github', 'high', $overrides);
+        $candidate = $this->makeCandidate('mcp_server', 'github', 'high', $overrides);
+
+        if (! array_key_exists('gate_json', $overrides)) {
+            $candidate->update(['gate_json' => array_merge($candidate->gate_json, [
+                'probe_safety_receipt' => [
+                    'capability_id' => 'mcp_server:github',
+                    'receipt_hash' => hash('sha256', 'probe:mcp_server:github'),
+                ],
+            ])]);
+        }
+
+        return $candidate;
+    }
+
+    /**
+     * High-risk candidate with NO probe safety receipt on gate_json.
+     */
+    private function highRiskCandidateWithoutProbeReceipt(): HermesCapabilityCandidate
+    {
+        return $this->makeCandidate('mcp_server', 'github', 'high');
+    }
+
+    /**
+     * High-risk candidate whose probe safety receipt belongs to a different
+     * capability — must not be reusable across capabilities.
+     */
+    private function highRiskCandidateWithMismatchedProbeReceipt(): HermesCapabilityCandidate
+    {
+        $candidate = $this->makeCandidate('mcp_server', 'github', 'high');
+        $candidate->update(['gate_json' => array_merge($candidate->gate_json, [
+            'probe_safety_receipt' => [
+                'capability_id' => 'mcp_server:slack',
+                'receipt_hash' => hash('sha256', 'probe:mcp_server:slack'),
+            ],
+        ])]);
+
+        return $candidate;
     }
 
     /**

@@ -79,6 +79,14 @@ class HermesCapabilityEnablementGate
             return $this->reject($receipt, 'rejected_high_risk_requires_operator_authority');
         }
 
+        // (3b) High-risk always-quarantine classes additionally require a probe
+        // safety receipt already sealed onto the candidate's own gate_json,
+        // matching this exact capability id, so discovery (probe) and
+        // enablement can never drift apart.
+        if (in_array($class, self::ALWAYS_QUARANTINE, true) && ! $this->hasMatchingProbeSafetyReceipt($candidate, $class.':'.$key)) {
+            return $this->reject($receipt, 'rejected_high_risk_requires_probe_safety_receipt');
+        }
+
         // (4) Success. Seal the receipt BEFORE mutating the row so the persisted
         // gate_json.enablement_receipt_hash equals this receipt's receipt_hash.
         $gateStatusAfter = 'approved_for_atlas_capability_use';
@@ -129,6 +137,25 @@ class HermesCapabilityEnablementGate
     private function reviewable(HermesCapabilityCandidate $candidate): bool
     {
         return $candidate->enabled !== true;
+    }
+
+    /**
+     * A probe safety receipt is valid only when it is present on the
+     * candidate's own gate_json, carries a non-empty hash, and its
+     * capability_id matches this exact candidate — preventing a receipt for
+     * one capability from being reused to enable a different one.
+     */
+    private function hasMatchingProbeSafetyReceipt(HermesCapabilityCandidate $candidate, string $capabilityId): bool
+    {
+        $gateJson = is_array($candidate->gate_json) ? $candidate->gate_json : [];
+        $receipt = $gateJson['probe_safety_receipt'] ?? null;
+
+        if (! is_array($receipt)) {
+            return false;
+        }
+
+        return ($receipt['capability_id'] ?? null) === $capabilityId
+            && $this->string($receipt['receipt_hash'] ?? null) !== null;
     }
 
     private function string(mixed $value): ?string
