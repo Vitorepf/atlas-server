@@ -154,4 +154,72 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegrationTest ext
         $this->assertSame(0, $verdict['request']['target_new_packet_count']);
         $this->assertArrayNotHasKey('depth_policy', $verdict['request']);
     }
+
+    // ── hold: duplicate-target exclusion ──────────────────────────────────────
+
+    public function test_hold_when_live_targets_fill_all_needed_slots(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle'        => ['cycle_id' => 'cyc-hold'],
+            'queue_health'         => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'live_target_exclusions' => ['cap_a', 'cap_b', 'cap_c', 'cap_d', 'cap_e'], // 5 live ≥ bounded(5)
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeReplenisherIntegration::ACTION_HOLD, $verdict['request']['action']);
+        $this->assertSame(0, $verdict['request']['target_new_packet_count']);
+        $this->assertSame(5, $verdict['request']['live_target_exclusion_count']);
+    }
+
+    public function test_hold_carries_explicit_reason_with_live_count_and_slots_needed(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle'          => ['cycle_id' => 'cyc-hold2'],
+            'queue_health'           => ['malformed_count' => 0, 'claimable_depth' => 0, 'depth_floor' => 3, 'target_depth' => 4],
+            'live_target_exclusions' => ['t1', 't2', 't3', 't4'],
+        ]);
+
+        $this->assertSame('hold', $verdict['request']['action']);
+        $this->assertStringContainsString('all_candidates_excluded_as_live_targets', $verdict['request']['reasons'][0]);
+        $this->assertStringContainsString('4', $verdict['request']['reasons'][0]);
+    }
+
+    public function test_partial_live_targets_below_bounded_still_top_up(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle'          => ['cycle_id' => 'cyc-partial'],
+            'queue_health'           => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'live_target_exclusions' => ['cap_a', 'cap_b'], // 2 live < bounded(5) → top_up
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertSame(2, $verdict['request']['live_excluded_count']);
+    }
+
+    // ── maturity_gaps + recent_outcome_learning signals ───────────────────────
+
+    public function test_top_up_includes_maturity_gap_count_when_gaps_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle'  => ['cycle_id' => 'cyc-gaps'],
+            'queue_health'   => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'maturity_gaps'  => ['organ_a:alpha', 'organ_b:experimental'],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertSame(2, $verdict['request']['maturity_gap_count']);
+        $this->assertArrayNotHasKey('outcome_signal_count', $verdict['request']);
+    }
+
+    public function test_top_up_includes_outcome_signal_count_when_signals_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle'           => ['cycle_id' => 'cyc-outcomes'],
+            'queue_health'            => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'recent_outcome_learning' => ['outcome:success:cap_x', 'outcome:failure:cap_y', 'outcome:success:cap_z'],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertSame(3, $verdict['request']['outcome_signal_count']);
+        $this->assertArrayNotHasKey('maturity_gap_count', $verdict['request']);
+    }
 }
