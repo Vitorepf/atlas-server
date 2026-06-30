@@ -322,4 +322,93 @@ final class AtlasExternalBrainOriginatorStopConditionGateTest extends TestCase
             $this->assertSame($expected, $this->eval($input)['verdict'], "Expected verdict {$expected}");
         }
     }
+
+    // ── live signal normalization (next_action) ───────────────────────────────
+
+    public function test_live_self_heal_signal_maps_to_repair_first_and_beats_create_signal(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'self_heal_queue_before_creating',
+            'quality_target_reached' => true,
+            'quality_target_evidence' => ['tests_green'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REPAIR_FIRST, $result['verdict']);
+    }
+
+    public function test_live_self_heal_signal_beats_escalate_signal(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'self_heal_queue',
+            'quality_target_evidence' => ['partial_score:7.0'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REPAIR_FIRST, $result['verdict']);
+    }
+
+    public function test_live_drain_signal_maps_to_drain_first_without_duplicated_boolean(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'drain_existing_queue',
+            'task_urgency' => 'non_urgent',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_DRAIN_FIRST, $result['verdict']);
+    }
+
+    public function test_live_consolidate_signal_maps_to_consolidate_first_without_duplicated_boolean(): void
+    {
+        $result = $this->eval(['next_action' => 'consolidate_existing_tasks']);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONSOLIDATE_FIRST, $result['verdict']);
+    }
+
+    public function test_live_create_high_leverage_batch_continues_when_modes_remain(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'create_high_leverage_batch',
+            'remaining_escalation_modes' => 2,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_SEARCH, $result['verdict']);
+    }
+
+    public function test_live_create_high_leverage_batch_escalates_when_evidence_exists_and_nothing_left(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'create_high_leverage_batch',
+            'quality_target_evidence' => ['partial_score:7.0'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_ESCALATE_AMBITION, $result['verdict']);
+    }
+
+    public function test_live_create_high_leverage_batch_never_introduces_evidence_free_honest_stop(): void
+    {
+        $result = $this->eval(['next_action' => 'create_high_leverage_batch']);
+
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_PREMATURE_STOP, $result['verdict']);
+    }
+
+    public function test_live_observe_and_wait_signal_does_not_override_anything(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'observe_and_wait',
+            'quality_target_reached' => true,
+            'quality_target_evidence' => ['tests_green'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+    }
+
+    public function test_live_signal_never_weakens_explicit_gate_regression(): void
+    {
+        $result = $this->eval([
+            'next_action' => 'create_high_leverage_batch',
+            'gate_regression_detected' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REPAIR_FIRST, $result['verdict']);
+    }
 }

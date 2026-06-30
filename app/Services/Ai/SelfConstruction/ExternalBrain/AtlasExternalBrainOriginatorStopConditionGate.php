@@ -19,6 +19,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * AC1: refuses premature stop when remaining_escalation_modes > 0,
  *      open_surfaces_remaining > 0, first_pass_only=true, or evidence missing.
  * AC2: always includes blocking_reasons and evidence_cited.
+ *
+ * LIVE SIGNAL NORMALIZATION: accepts an optional `next_action` (Maestro/queue-policy vocabulary —
+ * wait, monitor, drain_existing_queue, consolidate_existing_tasks, self_heal_queue,
+ * create_high_leverage_batch, or the longer real bridge variants like
+ * `self_heal_queue_before_creating`/`observe_and_wait`) and normalizes it into the SAME boolean facts
+ * the verdict ladder already reads (gate_regression_detected, queue_pressure_high,
+ * consolidation_pressure_high). The normalization is PURELY ADDITIVE (OR-merge) — it can only turn a
+ * fact ON, never weaken an explicit caller-supplied true into false, and `create_high_leverage_batch`
+ * sets NO override at all (it must still pass through the existing quality/evidence/surface rules,
+ * never forcing an evidence-free honest_stop).
  */
 final class AtlasExternalBrainOriginatorStopConditionGate
 {
@@ -46,6 +56,8 @@ final class AtlasExternalBrainOriginatorStopConditionGate
 
     public function evaluate(array $input): array
     {
+        $input = $this->mergeLiveSignal($input);
+
         $qualityReached        = (bool)  ($input['quality_target_reached']            ?? false);
         $qualityEvidence       = (array) ($input['quality_target_evidence']            ?? []);
         $allEscalationTried    = (bool)  ($input['all_escalation_modes_tried']         ?? false);
@@ -163,6 +175,31 @@ final class AtlasExternalBrainOriginatorStopConditionGate
             ['no_honest_stop_condition_met', 'no_evidence_cited'],
             [],
         );
+    }
+
+    /**
+     * Normalizes an optional `next_action` live signal into the existing boolean facts. Additive
+     * OR-merge only — never turns an explicit caller-supplied true into false, and
+     * create_high_leverage_batch sets no override (must still earn its verdict honestly).
+     */
+    private function mergeLiveSignal(array $input): array
+    {
+        $nextAction = (string) ($input['next_action'] ?? '');
+        if ($nextAction === '') {
+            return $input;
+        }
+
+        if (str_contains($nextAction, 'self_heal_queue')) {
+            $input['gate_regression_detected'] = true;
+        } elseif (str_contains($nextAction, 'drain_existing_queue') || $nextAction === 'wait') {
+            $input['queue_pressure_high'] = true;
+        } elseif (str_contains($nextAction, 'consolidate_existing_tasks')) {
+            $input['consolidation_pressure_high'] = true;
+        }
+        // 'monitor' and 'create_high_leverage_batch' (and 'observe_and_wait') set no override —
+        // they must pass through the existing quality/evidence/surface rules honestly.
+
+        return $input;
     }
 
     private function result(string $verdict, ?string $stopReason, array $blocking, array $evidence): array
