@@ -78,10 +78,23 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
         usort($recommendations, static fn (array $a, array $b): int => strcmp($a['task_packet_id'], $b['task_packet_id']));
         ksort($classCounts);
 
+        // Group by packet_shape_key (structural, not free-text) to surface repeated patterns.
+        $patternGroups = [];
+        foreach ($recommendations as $rec) {
+            $key = $rec['packet_shape_key'];
+            $patternGroups[$key]['packet_shape_key'] = $key;
+            $patternGroups[$key]['failure_class']    = $rec['failure_class'];
+            $patternGroups[$key]['packet_ids'][]     = $rec['task_packet_id'];
+            $patternGroups[$key]['count']            = count($patternGroups[$key]['packet_ids'] ?? []);
+        }
+        $defectPatterns = array_values(array_filter($patternGroups, static fn (array $p): bool => ($p['count'] ?? 0) >= 2));
+        usort($defectPatterns, static fn (array $a, array $b): int => strcmp($a['packet_shape_key'], $b['packet_shape_key']));
+
         return [
             'schema'                => self::SCHEMA,
             'recommendations'       => $recommendations,
             'grouped_by_class'      => $classCounts,
+            'defect_patterns'       => $defectPatterns,
             'worker_shape_learning' => $this->buildWorkerShapeLearning($events),
         ];
     }
@@ -156,20 +169,58 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
             default              => null,
         };
 
+        // Stable structural fingerprint: failure_class + sorted allowed_files across all events.
+        $allAllowedFiles = [];
+        foreach ($events as $ev) {
+            $files = is_array($ev['allowed_files'] ?? null) ? array_map('strval', $ev['allowed_files']) : [];
+            $allAllowedFiles = array_unique(array_merge($allAllowedFiles, $files));
+        }
+        sort($allAllowedFiles);
+        $packetShapeKey = substr(hash('sha256', $maxClass.'|'.implode(',', $allAllowedFiles)), 0, 20);
+
+        $nextPacketRequirements = $this->buildNextPacketRequirements($recommendation, $missingImplCandidate, $maxDeficiencyCount);
+
         return [
-            'task_packet_id'        => $taskId,
-            'give_back_count'       => $totalGiveBacks,
-            'failure_class'         => $maxClass,
-            'recommendation'        => $recommendation,
-            'evidence'              => [
+            'task_packet_id'           => $taskId,
+            'give_back_count'          => $totalGiveBacks,
+            'failure_class'            => $maxClass,
+            'recommendation'           => $recommendation,
+            'packet_shape_key'         => $packetShapeKey,
+            'next_packet_requirements' => $nextPacketRequirements,
+            'evidence'                 => [
                 'event_count'            => count($events),
                 'sample_deficiencies'    => array_slice($sampleDeficiencies, 0, 10),
                 'missing_impl_candidate' => $missingImplCandidate,
                 'reasons'                => array_values(array_unique($allReasons)),
             ],
-            'respec_contract_draft' => $respecContractDraft,
-            'do_not_requeue_reason' => $doNotRequeueReason,
+            'respec_contract_draft'    => $respecContractDraft,
+            'do_not_requeue_reason'    => $doNotRequeueReason,
         ];
+    }
+
+    /** @return array<string,mixed>|null */
+    private function buildNextPacketRequirements(string $recommendation, ?string $missingImplCandidate, int $maxDeficiencyCount): ?array
+    {
+        return match ($recommendation) {
+            self::REC_ADD_IMPL    => [
+                'add_to_allowed_files'         => $missingImplCandidate !== null ? [$missingImplCandidate] : [],
+                'recheck_acceptance_criteria'  => true,
+            ],
+            self::REC_RESPEC      => [
+                'remove_contradictory_constraints'       => true,
+                'ensure_acceptance_criteria_runnable'    => true,
+                'required_evidence_fields'               => ['tests_or_gates_result'],
+            ],
+            self::REC_SPLIT       => [
+                'split_into_packets'         => (int) ceil($maxDeficiencyCount / 2),
+                'max_deficiencies_per_packet' => 2,
+            ],
+            self::REC_OPERATOR    => [
+                'escalate_to_operator'         => true,
+                'operator_fields_required'     => ['operator_approval', 'manual_review_notes'],
+            ],
+            default               => null,  // QUARANTINE, CANCEL: do not requeue
+        };
     }
 
     /**

@@ -238,6 +238,98 @@ final class AtlasTaskFabricGiveBackLearningIntegratorTest extends TestCase
         $this->assertSame(0, $groups[0]['success_count']);
     }
 
+    // ── packet_shape_key ──────────────────────────────────────────────────────
+
+    public function test_packet_shape_key_is_stable_across_invocations(): void
+    {
+        $ig = new AtlasTaskFabricGiveBackLearningIntegrator;
+        $event = ['task_packet_id' => 'pkt-s1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => ['app/Foo.php', 'tests/FooTest.php']];
+        $a = $ig->integrate([$event]);
+        $b = $ig->integrate([$event]);
+        $this->assertSame($a['recommendations'][0]['packet_shape_key'], $b['recommendations'][0]['packet_shape_key']);
+    }
+
+    public function test_same_allowed_files_and_failure_class_yield_identical_packet_shape_key(): void
+    {
+        $ig = new AtlasTaskFabricGiveBackLearningIntegrator;
+        $files = ['app/Svc/Bar.php', 'tests/BarTest.php'];
+        $r1 = $ig->integrate([['task_packet_id' => 'pkt-x1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => $files]]);
+        $r2 = $ig->integrate([['task_packet_id' => 'pkt-x2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => $files]]);
+        $this->assertSame(
+            $r1['recommendations'][0]['packet_shape_key'],
+            $r2['recommendations'][0]['packet_shape_key'],
+            'same allowed_files + failure_class must produce identical packet_shape_key regardless of packet id',
+        );
+    }
+
+    public function test_different_allowed_files_yield_different_packet_shape_key(): void
+    {
+        $ig = new AtlasTaskFabricGiveBackLearningIntegrator;
+        $r1 = $ig->integrate([['task_packet_id' => 'p1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => ['app/Foo.php']]]);
+        $r2 = $ig->integrate([['task_packet_id' => 'p2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => ['app/Bar.php']]]);
+        $this->assertNotSame($r1['recommendations'][0]['packet_shape_key'], $r2['recommendations'][0]['packet_shape_key']);
+    }
+
+    // ── defect_patterns ───────────────────────────────────────────────────────
+
+    public function test_defect_patterns_groups_repeated_structural_patterns(): void
+    {
+        $files = ['app/Alpha.php'];
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-a1', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => $files],
+            ['task_packet_id' => 'pkt-a2', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'allowed_files' => $files],
+        ]);
+
+        $this->assertArrayHasKey('defect_patterns', $r);
+        $this->assertCount(1, $r['defect_patterns']);
+        $this->assertSame(2, $r['defect_patterns'][0]['count']);
+        $this->assertContains('pkt-a1', $r['defect_patterns'][0]['packet_ids']);
+        $this->assertContains('pkt-a2', $r['defect_patterns'][0]['packet_ids']);
+    }
+
+    public function test_single_packet_does_not_appear_in_defect_patterns(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-solo', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl']],
+        ]);
+        $this->assertSame([], $r['defect_patterns']);
+    }
+
+    // ── next_packet_requirements ──────────────────────────────────────────────
+
+    public function test_respec_recommendation_has_next_packet_requirements(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-respec', 'reason' => 'acceptance_contradiction', 'blocking_deficiencies' => ['scalar_score_required_but_anti_goodhart_forbids']],
+        ]);
+        $req = $r['recommendations'][0]['next_packet_requirements'];
+        $this->assertNotNull($req);
+        $this->assertTrue($req['remove_contradictory_constraints']);
+        $this->assertContains('tests_or_gates_result', $req['required_evidence_fields']);
+    }
+
+    public function test_split_recommendation_has_next_packet_requirements_with_split_count(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-split', 'reason' => 'too_broad', 'blocking_deficiencies' => ['a', 'b', 'c', 'd', 'e']],
+        ]);
+        $req = $r['recommendations'][0]['next_packet_requirements'];
+        $this->assertNotNull($req);
+        $this->assertArrayHasKey('split_into_packets', $req);
+        $this->assertGreaterThanOrEqual(1, $req['split_into_packets']);
+    }
+
+    public function test_quarantine_and_cancel_have_null_next_packet_requirements(): void
+    {
+        $ig = new AtlasTaskFabricGiveBackLearningIntegrator;
+
+        $qr = $ig->integrate([['task_packet_id' => 'pkt-q9', 'reason' => 'scope_repair', 'blocking_deficiencies' => [], 'give_back_count' => 8]]);
+        $this->assertNull($qr['recommendations'][0]['next_packet_requirements']);
+
+        $cr = $ig->integrate([['task_packet_id' => 'pkt-clb2', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']]]);
+        $this->assertNull($cr['recommendations'][0]['next_packet_requirements']);
+    }
+
     public function test_worker_shape_learning_counts_success_outcome(): void
     {
         $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
