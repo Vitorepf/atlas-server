@@ -47,12 +47,41 @@ final class AtlasMaestroPacketProvenanceComposer
             $chain[] = $this->composeLink($taskPacketId, $index, $link);
         }
 
-        return [
+        $record = [
             'packet_id' => $taskPacketId,
             'origin_kind' => $originKind,
             'origin_id' => $originId,
             'chain' => $chain,
         ];
+
+        // Allowed-files hash: deterministic hash of the sorted allowed_files list.
+        if (isset($inputs['allowed_files']) && is_array($inputs['allowed_files'])) {
+            $files = array_values(array_map('strval', $inputs['allowed_files']));
+            sort($files, SORT_STRING);
+            $record['allowed_files_hash'] = hash('sha256', $this->canonicalJson($files));
+        }
+
+        // Acceptance hash: deterministic hash of the sorted acceptance_criteria list.
+        if (isset($inputs['acceptance_criteria']) && is_array($inputs['acceptance_criteria'])) {
+            $criteria = array_values(array_map('strval', $inputs['acceptance_criteria']));
+            sort($criteria, SORT_STRING);
+            $record['acceptance_hash'] = hash('sha256', $this->canonicalJson($criteria));
+        }
+
+        // Missing source: mark when the origin source is absent from the declared inventory.
+        if (array_key_exists('source_missing', $inputs)) {
+            $record['source_missing'] = (bool) $inputs['source_missing'];
+        }
+
+        // Author/critic separation: who generated vs who reviewed the packet.
+        if (isset($inputs['author']) && trim((string) $inputs['author']) !== '') {
+            $record['author'] = trim((string) $inputs['author']);
+        }
+        if (isset($inputs['critic']) && trim((string) $inputs['critic']) !== '') {
+            $record['critic'] = trim((string) $inputs['critic']);
+        }
+
+        return $record;
     }
 
     /**

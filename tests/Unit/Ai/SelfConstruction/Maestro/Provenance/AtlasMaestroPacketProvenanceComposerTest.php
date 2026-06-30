@@ -95,6 +95,65 @@ final class AtlasMaestroPacketProvenanceComposerTest extends TestCase
         $this->assertArrayHasKey('parent_id', $link);
     }
 
+    private function minimalInputs(): array
+    {
+        return [
+            'origin_kind' => 'cortex_fact',
+            'origin_id'   => 'fact-min',
+            'chain'       => [['parent_id' => null, 'source_kind' => 'cortex_fact', 'source_id' => 'fact-min', 'captured_at' => '2026-06-30T10:00:00Z', 'content' => []]],
+        ];
+    }
+
+    public function test_allowed_files_hash_is_deterministic_and_order_independent(): void
+    {
+        $base = $this->minimalInputs();
+        $base['allowed_files'] = ['app/B.php', 'app/A.php']; // unsorted intentionally
+        $r1 = (new AtlasMaestroPacketProvenanceComposer)->compose('pkt-af', $base);
+
+        $base2 = $base;
+        $base2['allowed_files'] = ['app/A.php', 'app/B.php']; // sorted already
+        $r2 = (new AtlasMaestroPacketProvenanceComposer)->compose('pkt-af', $base2);
+
+        $this->assertArrayHasKey('allowed_files_hash', $r1);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r1['allowed_files_hash']);
+        $this->assertSame($r1['allowed_files_hash'], $r2['allowed_files_hash'], 'order must not affect hash');
+    }
+
+    public function test_acceptance_hash_is_deterministic(): void
+    {
+        $base = $this->minimalInputs();
+        $base['acceptance_criteria'] = ['passes all gates', 'green tests'];
+        $r = (new AtlasMaestroPacketProvenanceComposer)->compose('pkt-ac', $base);
+
+        $this->assertArrayHasKey('acceptance_hash', $r);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['acceptance_hash']);
+
+        $r2 = (new AtlasMaestroPacketProvenanceComposer)->compose('pkt-ac', $base);
+        $this->assertSame($r['acceptance_hash'], $r2['acceptance_hash']);
+    }
+
+    public function test_missing_source_marking_is_included_when_declared(): void
+    {
+        $base = $this->minimalInputs();
+        $base['source_missing'] = true;
+        $r = (new AtlasMaestroPacketProvenanceComposer)->compose('pkt-ms', $base);
+
+        $this->assertArrayHasKey('source_missing', $r);
+        $this->assertTrue($r['source_missing']);
+    }
+
+    public function test_author_and_critic_are_separated_in_record(): void
+    {
+        $base = $this->minimalInputs();
+        $base['author'] = 'atlas-originator';
+        $base['critic'] = 'atlas-critic';
+        $r = (new AtlasMaestroPacketProvenanceComposer)->compose('pkt-ac-sep', $base);
+
+        $this->assertSame('atlas-originator', $r['author']);
+        $this->assertSame('atlas-critic', $r['critic']);
+        $this->assertNotSame($r['author'], $r['critic'], 'author and critic must be distinct');
+    }
+
     public function test_record_with_custom_content_key_verifies_ok_no_false_hash_mismatch(): void
     {
         $composer = new AtlasMaestroPacketProvenanceComposer;
