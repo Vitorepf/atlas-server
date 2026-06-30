@@ -105,6 +105,27 @@ class AtlasSelfConstructionTaskGraphDraftEnqueuePlanTest extends TestCase
         self::assertStringStartsWith('plan_', $a['plan_hash']);
     }
 
+    public function test_plan_hash_changes_when_enqueue_content_changes(): void
+    {
+        $planner = new AtlasSelfConstructionTaskGraphDraftEnqueuePlan();
+        $a = $planner->plan([$this->validDraft('a-1')]);
+        $b = $planner->plan([$this->validDraft('a-1', priority: 9)]); // different priority → different enqueue_now content
+
+        self::assertNotSame($a['plan_hash'], $b['plan_hash']);
+    }
+
+    public function test_plan_hash_changes_when_defer_or_reject_bucket_changes(): void
+    {
+        $planner = new AtlasSelfConstructionTaskGraphDraftEnqueuePlan();
+        $clean = $planner->plan([$this->validDraft('a-1')]);
+
+        $deferred = $this->validDraft('a-1');
+        $deferred['depends_on'] = ['ghost-999'];
+        $withDefer = $planner->plan([$deferred]);
+
+        self::assertNotSame($clean['plan_hash'], $withDefer['plan_hash']);
+    }
+
     public function test_planner_performs_no_queue_writes_via_source_inspection(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/TaskGraph/AtlasSelfConstructionTaskGraphDraftEnqueuePlan.php'));
