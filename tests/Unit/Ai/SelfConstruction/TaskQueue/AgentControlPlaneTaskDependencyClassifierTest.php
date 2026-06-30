@@ -234,6 +234,66 @@ class AgentControlPlaneTaskDependencyClassifierTest extends TestCase
         ));
     }
 
+    public function test_classify_deeper_transitive_cycle_returns_met(): void
+    {
+        // tp1 → A → B → C → tp1 (depth-4 cycle): must fail-open to met, not deadlock.
+        $cache = [];
+        $records = [
+            'A' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['B']]],
+            'B' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['C']]],
+            'C' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['tp1']]],
+        ];
+        $result = AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
+            $this->makeLoader($records),
+            ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['A']]],
+            $cache,
+        );
+        self::assertSame('met', $result, 'deep cycle must fail-open to met');
+    }
+
+    public function test_classify_duplicate_dependency_ids_loads_each_once(): void
+    {
+        // depends_on: ['dep1', 'dep1'] — loader must be called exactly once (cache hit on second).
+        $callCount = 0;
+        $loader = function (string $id) use (&$callCount): ?array {
+            $callCount++;
+            return ['status' => 'completed_dry_run', 'metadata' => []];
+        };
+        $cache = [];
+        $result = AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
+            $loader,
+            ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['dep1', 'dep1']]],
+            $cache,
+        );
+        self::assertSame('met', $result);
+        self::assertSame(1, $callCount, 'duplicate dep id must hit cache on second occurrence — loader called exactly once');
+    }
+
+    public function test_classify_classify_path_uses_cache_across_multiple_deps(): void
+    {
+        // Two deps share one transitive dep — that transitive dep must be loaded once only.
+        $callCount = 0;
+        $loader = function (string $id) use (&$callCount): ?array {
+            $callCount++;
+
+            return match ($id) {
+                'A' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['shared']]],
+                'B' => ['status' => 'claimable', 'metadata' => ['depends_on' => ['shared']]],
+                'shared' => ['status' => 'completed_dry_run', 'metadata' => []],
+                default => null,
+            };
+        };
+        $cache = [];
+        $result = AgentControlPlaneTaskDependencyClassifier::classifyDependencies(
+            $loader,
+            ['task_packet_id' => 'tp1', 'metadata' => ['depends_on' => ['A', 'B']]],
+            $cache,
+        );
+        // A is claimable but A → shared (completed) → cycle check loads 'shared'; B → shared hits cache
+        self::assertSame(3, $callCount, 'A, B, shared each loaded once; cache prevents a second shared load');
+        self::assertSame('inflight', $result, 'A and B are claimable so result is inflight');
+    }
+
     public function test_satisfied_states_constant_contains_expected(): void
     {
         self::assertContains('completed_dry_run', AgentControlPlaneTaskDependencyClassifier::DEPENDENCY_SATISFIED_STATES);
