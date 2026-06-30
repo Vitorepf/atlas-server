@@ -278,4 +278,74 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridgeTest extends TestCas
         $this->assertSame([], $r['weak_green_quality_reviews']);
         $this->assertSame([], $r['poison_family_blocks']);
     }
+
+    // ── dispatch_hints (AC2 + AC3) ────────────────────────────────────────────
+
+    public function test_dispatch_hints_key_always_present(): void
+    {
+        $r = $this->bridge([]);
+        $this->assertArrayHasKey('dispatch_hints', $r);
+        $this->assertSame([], $r['dispatch_hints']);
+    }
+
+    public function test_dispatch_hint_has_canonical_fields(): void
+    {
+        $r = $this->bridge([$this->row()]);
+
+        $hint = $r['dispatch_hints'][0];
+        $this->assertArrayHasKey('task_family', $hint);
+        $this->assertArrayHasKey('prefer',      $hint);
+        $this->assertArrayHasKey('avoid',       $hint);
+        $this->assertArrayHasKey('escalate',    $hint);
+        $this->assertArrayHasKey('rationale',   $hint);
+    }
+
+    public function test_poison_dispatch_hint_avoids_current_tier_and_prefers_cheaper(): void
+    {
+        $r = $this->bridge([$this->row([
+            'worker_tier'    => 'scaffolded_small_model',
+            'give_back_rate' => 0.80,
+        ])]);
+
+        $hint = $r['dispatch_hints'][0];
+        $this->assertSame('test_family',      $hint['task_family']);
+        $this->assertSame('small_model',      $hint['prefer']);
+        $this->assertSame('scaffolded_small_model', $hint['avoid']);
+        $this->assertFalse($hint['escalate']);
+        $this->assertStringContainsString('poison_block', $hint['rationale']);
+    }
+
+    public function test_proven_success_dispatch_hint_prefers_current_tier(): void
+    {
+        $r = $this->bridge([$this->row([
+            'success_rate'    => 0.90,
+            'worker_tier'     => 'frontier_model',
+            'has_value_proof' => true,
+        ])]);
+
+        $hint = $r['dispatch_hints'][0];
+        $this->assertSame('frontier_model', $hint['prefer']);
+        $this->assertNull($hint['avoid']);
+        $this->assertFalse($hint['escalate']);
+        $this->assertStringContainsString('proven_success', $hint['rationale']);
+    }
+
+    public function test_stale_learning_excluded_from_dispatch_hints(): void
+    {
+        $r = $this->bridge([
+            $this->row(['task_family' => 'fresh_family']),
+            $this->row(['task_family' => 'stale_family', 'learning_age_days' => 31]),
+        ]);
+
+        $families = array_column($r['dispatch_hints'], 'task_family');
+        $this->assertContains('fresh_family', $families);
+        $this->assertNotContains('stale_family', $families);
+    }
+
+    public function test_exactly_stale_threshold_is_included(): void
+    {
+        $r = $this->bridge([$this->row(['learning_age_days' => 30])]);
+
+        $this->assertCount(1, $r['dispatch_hints']);
+    }
 }

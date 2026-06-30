@@ -64,11 +64,12 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
 {
     public const SCHEMA = 'atlas.external_brain.outcome_learning_to_maestro_bridge.v1';
 
-    private const MIN_SAMPLES       = 3;
-    private const SUCCESS_FLOOR     = 0.80;
-    private const GIVE_BACK_CEILING = 0.40;
-    private const POISON_GIVE_BACK  = 0.70;
-    private const POISON_QUARANTINE = 0.50;
+    private const MIN_SAMPLES         = 3;
+    private const SUCCESS_FLOOR       = 0.80;
+    private const GIVE_BACK_CEILING   = 0.40;
+    private const POISON_GIVE_BACK    = 0.70;
+    private const POISON_QUARANTINE   = 0.50;
+    private const STALE_LEARNING_DAYS = 30;
 
     private const TIER_ORDER = [
         'small_model'            => 0,
@@ -95,6 +96,7 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
         $poisonBlocks         = [];
         $weakGreenReviews     = [];
         $replenisherFeedback  = [];
+        $dispatchHints        = [];
 
         foreach ($rows as $row) {
             if (! is_array($row)) {
@@ -108,6 +110,7 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
             $quarantineRate = (float)  ($row['quarantine_rate'] ?? 0.0);
             $sampleCount    = (int)    ($row['sample_count'] ?? 0);
             $hasValueProof  = (bool)   ($row['has_value_proof'] ?? false);
+            $ageDays        = max(0, (int) ($row['learning_age_days'] ?? 0));
 
             if ($sampleCount < $minSamples || $family === '') {
                 continue;
@@ -138,6 +141,9 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                     'recommended_tier' => $this->cheaperTier($tier),
                     'reason'           => 'poison_family_downgrade_to_cheaper_tier',
                 ];
+                if ($ageDays <= self::STALE_LEARNING_DAYS) {
+                    $dispatchHints[] = $this->buildDispatchHint($family, $tier, true, $giveBackRate, $giveBackCeiling, 0.0, $successFloor, false);
+                }
                 continue;
             }
 
@@ -199,6 +205,10 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                     default          => 'no_dominant_supply_signal',
                 },
             ];
+
+            if ($ageDays <= self::STALE_LEARNING_DAYS) {
+                $dispatchHints[] = $this->buildDispatchHint($family, $tier, false, $giveBackRate, $giveBackCeiling, $successRate, $successFloor, $hasValueProof);
+            }
         }
 
         return [
@@ -208,6 +218,67 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
             'poison_family_blocks'            => $poisonBlocks,
             'weak_green_quality_reviews'      => $weakGreenReviews,
             'replenisher_feedback'            => $replenisherFeedback,
+            'dispatch_hints'                  => $dispatchHints,
+        ];
+    }
+
+    private function buildDispatchHint(
+        string $family,
+        string $tier,
+        bool $isPoison,
+        float $giveBackRate,
+        float $giveBackCeiling,
+        float $successRate,
+        float $successFloor,
+        bool $hasValueProof,
+    ): array {
+        if ($isPoison) {
+            $cheaper = $this->cheaperTier($tier);
+            return [
+                'task_family' => $family,
+                'prefer'      => $cheaper,
+                'avoid'       => $tier,
+                'escalate'    => $cheaper === $tier,
+                'rationale'   => sprintf('poison_block: route_to_%s_or_escalate', $cheaper),
+            ];
+        }
+
+        if ($giveBackRate >= $giveBackCeiling) {
+            return [
+                'task_family' => $family,
+                'prefer'      => $this->cheaperTier($tier),
+                'avoid'       => $tier,
+                'escalate'    => false,
+                'rationale'   => sprintf('high_give_back_%.2f: prefer_cheaper_tier', $giveBackRate),
+            ];
+        }
+
+        if ($successRate >= $successFloor && $hasValueProof) {
+            return [
+                'task_family' => $family,
+                'prefer'      => $tier,
+                'avoid'       => null,
+                'escalate'    => false,
+                'rationale'   => sprintf('proven_success_%.2f: confirm_tier_%s', $successRate, $tier),
+            ];
+        }
+
+        if ($successRate >= $successFloor) {
+            return [
+                'task_family' => $family,
+                'prefer'      => null,
+                'avoid'       => null,
+                'escalate'    => false,
+                'rationale'   => sprintf('weak_green_%.2f: tighten_fabric_before_confirming_tier', $successRate),
+            ];
+        }
+
+        return [
+            'task_family' => $family,
+            'prefer'      => null,
+            'avoid'       => null,
+            'escalate'    => false,
+            'rationale'   => 'no_dominant_signal: hold_current_routing',
         ];
     }
 
