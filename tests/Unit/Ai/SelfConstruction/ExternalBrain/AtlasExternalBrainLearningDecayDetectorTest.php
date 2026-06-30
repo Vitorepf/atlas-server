@@ -289,4 +289,167 @@ final class AtlasExternalBrainLearningDecayDetectorTest extends TestCase
 
         $this->assertSame($this->detector()->detect($input), $this->detector()->detect($input));
     }
+
+    // ── AC2: architecture compatibility ───────────────────────────────────────
+
+    public function test_architecture_incompatible_lesson_gets_quarantine(): void
+    {
+        $result = $this->detector()->detect([
+            'current_architecture_version' => 'v2',
+            'lessons' => [[
+                'lesson_id'              => 'arch-old',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'architecture_version'   => 'v1',
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_ARCHITECTURE_INCOMPATIBLE, $entry['status']);
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::REC_QUARANTINE, $entry['recommendation']);
+        $this->assertFalse($entry['architecture_compatible']);
+        $this->assertNotEmpty($entry['decay_reason']);
+        $this->assertSame(1, $result['architecture_incompatible_count']);
+    }
+
+    public function test_matching_architecture_version_remains_fresh(): void
+    {
+        $result = $this->detector()->detect([
+            'current_architecture_version' => 'v2',
+            'lessons' => [[
+                'lesson_id'              => 'arch-current',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'architecture_version'   => 'v2',
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_FRESH, $entry['status']);
+        $this->assertTrue($entry['architecture_compatible']);
+        $this->assertSame(0, $result['architecture_incompatible_count']);
+    }
+
+    public function test_lesson_without_architecture_version_is_not_quarantined(): void
+    {
+        $result = $this->detector()->detect([
+            'current_architecture_version' => 'v2',
+            'lessons' => [$this->freshLesson('no-arch')],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_FRESH, $result['lessons'][0]['status']);
+    }
+
+    public function test_contradicted_beats_architecture_incompatible(): void
+    {
+        $result = $this->detector()->detect([
+            'current_architecture_version' => 'v2',
+            'lessons' => [[
+                'lesson_id'              => 'P3',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => ['o-99'],
+                'architecture_version'   => 'v1',  // also incompatible
+            ]],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_CONTRADICTED, $result['lessons'][0]['status']);
+    }
+
+    public function test_architecture_incompatible_beats_decayed(): void
+    {
+        $result = $this->detector()->detect([
+            'current_architecture_version' => 'v2',
+            'lessons' => [[
+                'lesson_id'              => 'P4',
+                'created_at_seconds_ago' => 999999,  // would be decayed
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => [],
+                'architecture_version'   => 'v1',     // also arch-incompatible
+            ]],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_ARCHITECTURE_INCOMPATIBLE, $result['lessons'][0]['status']);
+    }
+
+    // ── AC2: confirmation count scoring ──────────────────────────────────────
+
+    public function test_overfit_with_high_confirmation_gets_downrank(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'conf-overfit',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['only-one'],
+                'contradicted_by'        => [],
+                'confirmation_count'     => 5,  // >= default 3
+            ]],
+        ]);
+
+        $entry = $result['lessons'][0];
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_OVERFIT, $entry['status']);
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::REC_DOWNRANK, $entry['recommendation']);
+    }
+
+    // ── AC4: fresh high-quality evidence stays usable ─────────────────────────
+
+    public function test_fresh_confirmed_lesson_stays_keep_despite_older_conflicting_lesson(): void
+    {
+        $result = $this->detector()->detect([
+            'lessons' => [
+                // Old, stale lesson
+                ['lesson_id' => 'old-stale', 'created_at_seconds_ago' => 999999,
+                 'campaign_ids' => ['a', 'b'], 'contradicted_by' => []],
+                // Fresh, well-confirmed lesson
+                ['lesson_id' => 'fresh-good', 'created_at_seconds_ago' => 100,
+                 'campaign_ids' => ['a', 'b'], 'contradicted_by' => [],
+                 'confirmation_count' => 10],
+            ],
+        ]);
+
+        $entries = array_column($result['lessons'], null, 'lesson_id');
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::STATUS_FRESH, $entries['fresh-good']['status']);
+        $this->assertSame(AtlasExternalBrainLearningDecayDetector::REC_KEEP, $entries['fresh-good']['recommendation']);
+    }
+
+    // ── AC2: decay_score and architecture_compatible fields ───────────────────
+
+    public function test_each_lesson_entry_has_decay_score_and_architecture_compatible(): void
+    {
+        $result = $this->detector()->detect(['lessons' => [$this->freshLesson()]]);
+        $entry  = $result['lessons'][0];
+
+        $this->assertArrayHasKey('decay_score', $entry);
+        $this->assertArrayHasKey('architecture_compatible', $entry);
+        $this->assertArrayHasKey('confirmation_count', $entry);
+        $this->assertIsFloat($entry['decay_score']);
+        $this->assertIsBool($entry['architecture_compatible']);
+    }
+
+    public function test_contradicted_lesson_has_lower_decay_score_than_fresh(): void
+    {
+        $fresh = $this->detector()->detect(['lessons' => [$this->freshLesson('F')]]);
+        $contradicted = $this->detector()->detect([
+            'lessons' => [[
+                'lesson_id'              => 'C',
+                'created_at_seconds_ago' => 100,
+                'campaign_ids'           => ['a', 'b'],
+                'contradicted_by'        => ['o1'],
+            ]],
+        ]);
+
+        $this->assertGreaterThan(
+            $contradicted['lessons'][0]['decay_score'],
+            $fresh['lessons'][0]['decay_score'],
+        );
+    }
+
+    public function test_architecture_incompatible_count_in_output(): void
+    {
+        $result = $this->detector()->detect(['lessons' => [$this->freshLesson()]]);
+        $this->assertArrayHasKey('architecture_incompatible_count', $result);
+        $this->assertSame(0, $result['architecture_incompatible_count']);
+    }
 }
