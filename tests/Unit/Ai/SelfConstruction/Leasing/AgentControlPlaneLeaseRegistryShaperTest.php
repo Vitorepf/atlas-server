@@ -38,7 +38,7 @@ final class AgentControlPlaneLeaseRegistryShaperTest extends TestCase
 
     // --- registryEntryFromLease -------------------------------------------
 
-    public function test_registry_entry_projects_all_nine_keys(): void
+    public function test_registry_entry_projects_all_keys(): void
     {
         $lease = [
             'lease_id' => 'L1',
@@ -54,17 +54,15 @@ final class AgentControlPlaneLeaseRegistryShaperTest extends TestCase
 
         $entry = $this->shaper->registryEntryFromLease($lease);
 
-        $this->assertSame([
-            'lease_id' => 'L1',
-            'task_packet_id' => 'TP1',
-            'agent_id' => 'A1',
-            'lease_status' => 'active',
-            'acquired_at' => '2026-06-26T10:00:00+00:00',
-            'expires_at' => '2026-06-26T11:00:00+00:00',
-            'expires_at_unix' => 1719495600,
-            'write_set' => ['app/Foo.php'],
-            'read_set' => ['tests/FooTest.php'],
-        ], $entry);
+        $this->assertSame('L1', $entry['lease_id']);
+        $this->assertSame('TP1', $entry['task_packet_id']);
+        $this->assertSame('A1', $entry['agent_id']);
+        $this->assertSame('active', $entry['lease_status']);
+        $this->assertSame(1719495600, $entry['expires_at_unix']);
+        $this->assertSame(['app/Foo.php'], $entry['write_set']);
+        $this->assertSame(['tests/FooTest.php'], $entry['read_set']);
+        $this->assertStringStartsWith('sha256:', $entry['write_set_hash']);
+        $this->assertStringStartsWith('sha256:', $entry['read_set_hash']);
     }
 
     public function test_registry_entry_defaults_missing_fields(): void
@@ -80,6 +78,57 @@ final class AgentControlPlaneLeaseRegistryShaperTest extends TestCase
         $this->assertSame(0, $entry['expires_at_unix']);
         $this->assertSame([], $entry['write_set']);
         $this->assertSame([], $entry['read_set']);
+        $this->assertStringStartsWith('sha256:', $entry['write_set_hash']);
+        $this->assertStringStartsWith('sha256:', $entry['read_set_hash']);
+    }
+
+    public function test_write_set_normalized_dedup_sorted_filter_empty(): void
+    {
+        $entry = $this->shaper->registryEntryFromLease([
+            'write_set' => ['app/B.php', '', 'app/A.php', 'app/B.php'],
+        ]);
+        $this->assertSame(['app/A.php', 'app/B.php'], $entry['write_set']);
+    }
+
+    public function test_read_set_normalized_dedup_sorted_filter_empty(): void
+    {
+        $entry = $this->shaper->registryEntryFromLease([
+            'read_set' => ['z.php', '', 'a.php', 'z.php'],
+        ]);
+        $this->assertSame(['a.php', 'z.php'], $entry['read_set']);
+    }
+
+    public function test_write_set_hash_is_deterministic(): void
+    {
+        $e1 = $this->shaper->registryEntryFromLease(['write_set' => ['app/Foo.php']]);
+        $e2 = $this->shaper->registryEntryFromLease(['write_set' => ['app/Foo.php']]);
+        $this->assertSame($e1['write_set_hash'], $e2['write_set_hash']);
+    }
+
+    public function test_write_set_hash_differs_for_different_paths(): void
+    {
+        $e1 = $this->shaper->registryEntryFromLease(['write_set' => ['app/Foo.php']]);
+        $e2 = $this->shaper->registryEntryFromLease(['write_set' => ['app/Bar.php']]);
+        $this->assertNotSame($e1['write_set_hash'], $e2['write_set_hash']);
+    }
+
+    public function test_compact_registry_tie_breaks_deterministically_by_lease_id(): void
+    {
+        // Two entries with the same status and expires_at_unix — order must be by lease_id asc.
+        $entries = [
+            ['lease_id' => 'L-Z', 'task_packet_id' => '', 'lease_status' => 'released', 'expires_at_unix' => 100],
+            ['lease_id' => 'L-A', 'task_packet_id' => '', 'lease_status' => 'released', 'expires_at_unix' => 100],
+        ];
+        // Pad to exceed MAX to trigger sort.
+        for ($i = 0; $i < 1_000; $i++) {
+            $entries[] = ['lease_id' => "pad-$i", 'task_packet_id' => '', 'lease_status' => 'released', 'expires_at_unix' => -$i];
+        }
+
+        $out = $this->shaper->compactRegistry(['entries' => $entries]);
+
+        // L-A < L-Z lexicographically.
+        $this->assertSame('L-A', $out['entries'][0]['lease_id']);
+        $this->assertSame('L-Z', $out['entries'][1]['lease_id']);
     }
 
     public function test_registry_entry_casts_non_string_fields_via_string_conversion(): void

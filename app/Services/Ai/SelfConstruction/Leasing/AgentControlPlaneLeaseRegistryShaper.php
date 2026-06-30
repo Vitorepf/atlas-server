@@ -37,6 +37,9 @@ class AgentControlPlaneLeaseRegistryShaper
      */
     public function registryEntryFromLease(array $lease): array
     {
+        $writeSet = $this->normalizePathSet((array) ($lease['write_set'] ?? []));
+        $readSet = $this->normalizePathSet((array) ($lease['read_set'] ?? []));
+
         return [
             'lease_id' => (string) ($lease['lease_id'] ?? ''),
             'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
@@ -45,9 +48,26 @@ class AgentControlPlaneLeaseRegistryShaper
             'acquired_at' => (string) ($lease['acquired_at'] ?? ''),
             'expires_at' => (string) ($lease['expires_at'] ?? ''),
             'expires_at_unix' => (int) ($lease['expires_at_unix'] ?? 0),
-            'write_set' => (array) ($lease['write_set'] ?? []),
-            'read_set' => (array) ($lease['read_set'] ?? []),
+            'write_set' => $writeSet,
+            'write_set_hash' => 'sha256:'.hash('sha256', json_encode($writeSet, JSON_THROW_ON_ERROR)),
+            'read_set' => $readSet,
+            'read_set_hash' => 'sha256:'.hash('sha256', json_encode($readSet, JSON_THROW_ON_ERROR)),
         ];
+    }
+
+    /**
+     * @param  array<mixed>  $paths
+     * @return list<string>
+     */
+    private function normalizePathSet(array $paths): array
+    {
+        $normalized = array_values(array_unique(array_filter(
+            array_map('strval', $paths),
+            static fn (string $p): bool => $p !== '',
+        )));
+        sort($normalized);
+
+        return $normalized;
     }
 
     /**
@@ -72,8 +92,16 @@ class AgentControlPlaneLeaseRegistryShaper
             if ($aActive !== $bActive) {
                 return $aActive ? -1 : 1;
             }
+            $timeDiff = ((int) ($b['expires_at_unix'] ?? 0)) <=> ((int) ($a['expires_at_unix'] ?? 0));
+            if ($timeDiff !== 0) {
+                return $timeDiff;
+            }
+            $idDiff = strcmp((string) ($a['lease_id'] ?? ''), (string) ($b['lease_id'] ?? ''));
+            if ($idDiff !== 0) {
+                return $idDiff;
+            }
 
-            return ((int) ($b['expires_at_unix'] ?? 0)) <=> ((int) ($a['expires_at_unix'] ?? 0));
+            return strcmp((string) ($a['task_packet_id'] ?? ''), (string) ($b['task_packet_id'] ?? ''));
         });
 
         $registry['entries'] = array_slice($entries, 0, self::MAX_REGISTRY_ENTRIES);
