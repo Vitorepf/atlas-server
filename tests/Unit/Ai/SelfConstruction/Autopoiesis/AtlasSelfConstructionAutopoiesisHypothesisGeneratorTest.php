@@ -91,4 +91,31 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGeneratorTest extends Test
             $this->assertStringNotContainsString('score', (string) $k);
         }
     }
+
+    public function test_duplicate_organ_class_pairs_are_suppressed(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'failures' => [
+                ['organ' => 'cortex', 'class' => 'recall_miss', 'evidence_refs' => ['r1']],
+                ['organ' => 'cortex', 'class' => 'recall_miss', 'evidence_refs' => ['r2']],
+            ],
+        ]);
+
+        $this->assertCount(1, $verdict['hypotheses']);
+        $this->assertSame('cortex', $verdict['hypotheses'][0]['target_organ']);
+    }
+
+    public function test_hypotheses_are_ranked_by_impact_score_then_organ(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'failures' => [
+                ['organ' => 'z_organ', 'class' => 'alpha', 'evidence_refs' => ['r1']],
+                ['organ' => 'a_organ', 'class' => 'alpha', 'evidence_refs' => ['r2']],
+            ],
+        ]);
+
+        // Equal impact → alphabetical by target_organ (a_organ < z_organ).
+        $this->assertSame('a_organ', $verdict['hypotheses'][0]['target_organ']);
+        $this->assertSame('z_organ', $verdict['hypotheses'][1]['target_organ']);
+    }
 }

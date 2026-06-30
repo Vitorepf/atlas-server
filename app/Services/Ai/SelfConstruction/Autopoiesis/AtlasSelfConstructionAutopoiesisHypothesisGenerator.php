@@ -92,8 +92,26 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGenerator
             ];
         }
 
-        // Deterministic ordering by target_organ, then class.
+        // Deduplicate by (target_organ, class) — keep first occurrence.
+        $seen = [];
+        $deduped = [];
+        foreach ($hypotheses as $h) {
+            $key = $h['target_organ'].'::'.$h['class'];
+            if (! isset($seen[$key])) {
+                $seen[$key] = true;
+                $deduped[] = $h;
+            }
+        }
+        $hypotheses = $deduped;
+
+        // Rank by impact score (sum of leverage values) descending, then organ/class for determinism.
         usort($hypotheses, static function (array $a, array $b): int {
+            $ia = array_sum(array_values((array) ($a['expected_leverage'] ?? [])));
+            $ib = array_sum(array_values((array) ($b['expected_leverage'] ?? [])));
+            if ($ia !== $ib) {
+                return $ib <=> $ia;
+            }
+
             return strcmp($a['target_organ'], $b['target_organ']) ?: strcmp($a['class'], $b['class']);
         });
 
