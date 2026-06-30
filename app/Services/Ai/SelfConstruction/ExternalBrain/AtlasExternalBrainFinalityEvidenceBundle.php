@@ -10,23 +10,31 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Input facts:
  *   dimensions          — list of {name, is_proven, is_stale, is_unwired, is_contradicted,
- *                          evidence_refs?}.
+ *                          is_unintegrated, is_undocumented, is_queue_unsafe,
+ *                          has_outcome_learning, evidence_refs?}.
  *   required_dimensions — list of dimension names that must all pass to reach finality.
  *                          Defaults to every dimension in the input list if omitted.
  *
- * AC2 — Blocker check order per required dimension:
- *   1. missing       — dimension not present in the input list at all.
- *   2. contradicted  — is_contradicted === true.
- *   3. stale         — is_stale === true.
- *   4. unwired       — is_unwired === true.
- *   5. unproven      — is_proven !== true.
+ * Blocker check order per required dimension:
+ *   1. missing             — dimension not present in the input list at all.
+ *   2. contradicted        — is_contradicted === true.
+ *   3. stale               — is_stale === true.
+ *   4. unwired             — is_unwired === true.
+ *   5. unintegrated        — is_unintegrated === true.
+ *   6. undocumented        — is_undocumented === true.
+ *   7. queue_unsafe        — is_queue_unsafe === true.
+ *   8. no_outcome_learning — has_outcome_learning === false.
+ *   9. unproven            — is_proven !== true OR evidence_refs is empty.
  *
- * A dimension is satisfied only when it passes all five checks.
+ * A dimension is satisfied only when it passes all nine checks.
  *
  * is_final = true when every required dimension is satisfied.
  *
- * AC4 outputs: is_final, blockers, satisfied_dimensions, bundle_evidence,
- *   finality_summary.
+ * readiness_band:
+ *   final      — finality_score = 1.0
+ *   near_final — finality_score >= 0.80
+ *   developing — finality_score >= 0.50
+ *   incomplete — finality_score < 0.50
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -40,8 +48,8 @@ final class AtlasExternalBrainFinalityEvidenceBundle
      */
     public function assemble(array $facts): array
     {
-        $rawDimensions = is_array($facts['dimensions']           ?? null) ? $facts['dimensions']           : [];
-        $required      = is_array($facts['required_dimensions']  ?? null) ? $facts['required_dimensions']  : null;
+        $rawDimensions = is_array($facts['dimensions']          ?? null) ? $facts['dimensions']          : [];
+        $required      = is_array($facts['required_dimensions'] ?? null) ? $facts['required_dimensions'] : null;
 
         // Index dimensions by name.
         $indexed = [];
@@ -68,16 +76,26 @@ final class AtlasExternalBrainFinalityEvidenceBundle
             }
 
             $dim    = $indexed[$name];
-            $refs   = is_array($dim['evidence_refs'] ?? null) ? $dim['evidence_refs'] : [];
+            $refs   = is_array($dim['evidence_refs'] ?? null)
+                ? array_values(array_map('strval', $dim['evidence_refs']))
+                : [];
             $blocker = null;
 
-            if ((bool) ($dim['is_contradicted'] ?? false)) {
+            if ((bool) ($dim['is_contradicted']    ?? false)) {
                 $blocker = 'contradicted';
-            } elseif ((bool) ($dim['is_stale'] ?? false)) {
+            } elseif ((bool) ($dim['is_stale']     ?? false)) {
                 $blocker = 'stale';
-            } elseif ((bool) ($dim['is_unwired'] ?? false)) {
+            } elseif ((bool) ($dim['is_unwired']   ?? false)) {
                 $blocker = 'unwired';
-            } elseif (! (bool) ($dim['is_proven'] ?? false)) {
+            } elseif ((bool) ($dim['is_unintegrated'] ?? false)) {
+                $blocker = 'unintegrated';
+            } elseif ((bool) ($dim['is_undocumented'] ?? false)) {
+                $blocker = 'undocumented';
+            } elseif ((bool) ($dim['is_queue_unsafe'] ?? false)) {
+                $blocker = 'queue_unsafe';
+            } elseif (! (bool) ($dim['has_outcome_learning'] ?? false)) {
+                $blocker = 'no_outcome_learning';
+            } elseif (! (bool) ($dim['is_proven'] ?? false) || $refs === []) {
                 $blocker = 'unproven';
             }
 
@@ -86,12 +104,16 @@ final class AtlasExternalBrainFinalityEvidenceBundle
             } else {
                 $satisfiedDimensions[] = $name;
                 foreach ($refs as $ref) {
-                    $bundleEvidence[(string) $ref] = true;
+                    $bundleEvidence[$ref] = true;
                 }
             }
         }
 
-        $isFinal = empty($blockers);
+        $isFinal       = empty($blockers);
+        $totalRequired = count($requiredNames);
+        $satisfied     = count($satisfiedDimensions);
+        $finalityScore = $totalRequired > 0 ? round($satisfied / $totalRequired, 4) : 1.0;
+        $readinessBand = $this->readinessBand($finalityScore, $isFinal);
 
         return [
             'schema_version'       => self::SCHEMA,
@@ -99,8 +121,25 @@ final class AtlasExternalBrainFinalityEvidenceBundle
             'blockers'             => $blockers,
             'satisfied_dimensions' => $satisfiedDimensions,
             'bundle_evidence'      => array_values(array_keys($bundleEvidence)),
-            'finality_summary'     => $this->summary($isFinal, count($requiredNames), count($satisfiedDimensions), $blockers),
+            'finality_score'       => $finalityScore,
+            'readiness_band'       => $readinessBand,
+            'finality_summary'     => $this->summary($isFinal, $totalRequired, $satisfied, $blockers),
         ];
+    }
+
+    private function readinessBand(float $score, bool $isFinal): string
+    {
+        if ($isFinal) {
+            return 'final';
+        }
+        if ($score >= 0.80) {
+            return 'near_final';
+        }
+        if ($score >= 0.50) {
+            return 'developing';
+        }
+
+        return 'incomplete';
     }
 
     private function summary(bool $isFinal, int $total, int $satisfied, array $blockers): string

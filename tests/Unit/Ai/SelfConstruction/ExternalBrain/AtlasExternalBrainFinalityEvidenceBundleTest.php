@@ -17,12 +17,16 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
     private function dim(array $overrides = []): array
     {
         return array_merge([
-            'name'            => 'coverage',
-            'is_proven'       => true,
-            'is_stale'        => false,
-            'is_unwired'      => false,
-            'is_contradicted' => false,
-            'evidence_refs'   => ['ref:coverage-proof'],
+            'name'                => 'coverage',
+            'is_proven'           => true,
+            'is_stale'            => false,
+            'is_unwired'          => false,
+            'is_contradicted'     => false,
+            'is_unintegrated'     => false,
+            'is_undocumented'     => false,
+            'is_queue_unsafe'     => false,
+            'has_outcome_learning' => true,
+            'evidence_refs'       => ['ref:coverage-proof'],
         ], $overrides);
     }
 
@@ -32,11 +36,9 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
     {
         $r = $this->bundle()->assemble([]);
         $this->assertSame(AtlasExternalBrainFinalityEvidenceBundle::SCHEMA, $r['schema_version']);
-        $this->assertArrayHasKey('is_final',             $r);
-        $this->assertArrayHasKey('blockers',             $r);
-        $this->assertArrayHasKey('satisfied_dimensions', $r);
-        $this->assertArrayHasKey('bundle_evidence',      $r);
-        $this->assertArrayHasKey('finality_summary',     $r);
+        foreach (['is_final', 'blockers', 'satisfied_dimensions', 'bundle_evidence', 'finality_score', 'readiness_band', 'finality_summary'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
     }
 
     // ── is_final=true path ────────────────────────────────────────────────────
@@ -69,10 +71,8 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
             'required_dimensions' => ['coverage', 'integration'],
         ]);
         $this->assertFalse($r['is_final']);
-        $blockerTypes = array_column($r['blockers'], 'blocker_type');
-        $this->assertContains('missing', $blockerTypes);
-        $dims = array_column($r['blockers'], 'dimension');
-        $this->assertContains('integration', $dims);
+        $this->assertContains('missing', array_column($r['blockers'], 'blocker_type'));
+        $this->assertContains('integration', array_column($r['blockers'], 'dimension'));
     }
 
     // ── AC2: contradicted blocker ─────────────────────────────────────────────
@@ -106,6 +106,50 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
         $this->assertSame('unwired', $r['blockers'][0]['blocker_type']);
     }
 
+    // ── AC2: unintegrated blocker ─────────────────────────────────────────────
+
+    public function test_unintegrated_dimension_blocked(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_unintegrated' => true])],
+        ]);
+        $this->assertSame('unintegrated', $r['blockers'][0]['blocker_type']);
+        $this->assertFalse($r['is_final']);
+    }
+
+    // ── AC2: undocumented blocker ─────────────────────────────────────────────
+
+    public function test_undocumented_dimension_blocked(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_undocumented' => true])],
+        ]);
+        $this->assertSame('undocumented', $r['blockers'][0]['blocker_type']);
+        $this->assertFalse($r['is_final']);
+    }
+
+    // ── AC2: queue_unsafe blocker ─────────────────────────────────────────────
+
+    public function test_queue_unsafe_dimension_blocked(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_queue_unsafe' => true])],
+        ]);
+        $this->assertSame('queue_unsafe', $r['blockers'][0]['blocker_type']);
+        $this->assertFalse($r['is_final']);
+    }
+
+    // ── AC2: no_outcome_learning blocker ─────────────────────────────────────
+
+    public function test_no_outcome_learning_dimension_blocked(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['has_outcome_learning' => false])],
+        ]);
+        $this->assertSame('no_outcome_learning', $r['blockers'][0]['blocker_type']);
+        $this->assertFalse($r['is_final']);
+    }
+
     // ── AC2: unproven blocker ─────────────────────────────────────────────────
 
     public function test_unproven_dimension_blocked(): void
@@ -116,7 +160,16 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
         $this->assertSame('unproven', $r['blockers'][0]['blocker_type']);
     }
 
-    // ── Priority: contradicted > stale > unwired > unproven ──────────────────
+    public function test_empty_evidence_refs_blocks_as_unproven_even_when_proven_flag_true(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_proven' => true, 'evidence_refs' => []])],
+        ]);
+        $this->assertSame('unproven', $r['blockers'][0]['blocker_type']);
+        $this->assertFalse($r['is_final']);
+    }
+
+    // ── Blocker priority order ────────────────────────────────────────────────
 
     public function test_contradicted_takes_priority_over_stale(): void
     {
@@ -126,11 +179,84 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
         $this->assertSame('contradicted', $r['blockers'][0]['blocker_type']);
     }
 
+    public function test_stale_takes_priority_over_unwired(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_stale' => true, 'is_unwired' => true])],
+        ]);
+        $this->assertSame('stale', $r['blockers'][0]['blocker_type']);
+    }
+
+    public function test_unwired_takes_priority_over_unintegrated(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['is_unwired' => true, 'is_unintegrated' => true])],
+        ]);
+        $this->assertSame('unwired', $r['blockers'][0]['blocker_type']);
+    }
+
+    public function test_no_outcome_learning_takes_priority_over_unproven(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['has_outcome_learning' => false, 'is_proven' => false])],
+        ]);
+        $this->assertSame('no_outcome_learning', $r['blockers'][0]['blocker_type']);
+    }
+
+    // ── finality_score and readiness_band ─────────────────────────────────────
+
+    public function test_finality_score_is_one_when_all_satisfied(): void
+    {
+        $r = $this->bundle()->assemble(['dimensions' => [$this->dim()]]);
+        $this->assertSame(1.0, $r['finality_score']);
+        $this->assertSame('final', $r['readiness_band']);
+    }
+
+    public function test_finality_score_reflects_ratio_of_satisfied(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [
+                $this->dim(['name' => 'a']),
+                $this->dim(['name' => 'b']),
+                $this->dim(['name' => 'c', 'is_stale' => true]),
+                $this->dim(['name' => 'd', 'is_stale' => true]),
+            ],
+        ]);
+        $this->assertSame(0.5, $r['finality_score']);
+        $this->assertSame('developing', $r['readiness_band']);
+    }
+
+    public function test_readiness_band_near_final_when_score_above_80(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [
+                $this->dim(['name' => 'a']),
+                $this->dim(['name' => 'b']),
+                $this->dim(['name' => 'c']),
+                $this->dim(['name' => 'd']),
+                $this->dim(['name' => 'e', 'is_stale' => true]),
+            ],
+        ]);
+        $this->assertSame('near_final', $r['readiness_band']);
+    }
+
+    public function test_readiness_band_incomplete_when_score_below_50(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [
+                $this->dim(['name' => 'a']),
+                $this->dim(['name' => 'b', 'is_stale' => true]),
+                $this->dim(['name' => 'c', 'is_stale' => true]),
+                $this->dim(['name' => 'd', 'is_stale' => true]),
+            ],
+        ]);
+        $this->assertSame('incomplete', $r['readiness_band']);
+    }
+
     // ── required_dimensions filter ────────────────────────────────────────────
 
     public function test_only_required_dimensions_evaluated(): void
     {
-        // 'extra' is not required → its failure should not block.
         $r = $this->bundle()->assemble([
             'dimensions' => [
                 $this->dim(['name' => 'coverage']),
