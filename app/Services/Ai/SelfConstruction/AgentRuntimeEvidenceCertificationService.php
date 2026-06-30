@@ -34,6 +34,29 @@ final class AgentRuntimeEvidenceCertificationService
         $incompleteIndex = $this->indexer->build(array_slice($sampleEntries, 0, 2));
         $summary = $this->journal->summary(['limit' => 25]);
 
+        $journalIntegrity = $this->journal->integrityAudit();
+        $realEntries = $this->journal->list();
+        $realIndex = $this->indexer->build($realEntries);
+        $globallyComplete = ($realIndex['missing_required_evidence_types'] ?? []) === [];
+        $anyTaskChainComplete = false;
+        foreach ((array) ($realIndex['per_task_continuity'] ?? []) as $row) {
+            if (($row['complete'] ?? false) === true) {
+                $anyTaskChainComplete = true;
+                break;
+            }
+        }
+        // A stitched-together proxy: required types only exist when scattered across different
+        // task_packet_id values, so no single task chain is actually complete.
+        $continuityIsStitchedProxy = $realEntries !== [] && $globallyComplete && ! $anyTaskChainComplete;
+
+        $perTaskContinuitySummary = [
+            'task_count' => count((array) ($realIndex['per_task_continuity'] ?? [])),
+            'complete_task_count' => count(array_filter((array) ($realIndex['per_task_continuity'] ?? []), static fn (array $r): bool => ($r['complete'] ?? false) === true)),
+            'globally_complete' => $globallyComplete,
+            'any_task_chain_complete' => $anyTaskChainComplete,
+            'stitched_proxy_detected' => $continuityIsStitchedProxy,
+        ];
+
         $invariants = [
             $this->inv('journal_repository_available', $this->journal->isAvailable(), 'journal storage prefix must be writable for local dry-run evidence'),
             $this->inv('receipt_builder_emits_stable_hash', $receiptA['receipt_hash'] === $receiptB['receipt_hash'], 'same journal entry must produce same receipt hash'),
@@ -42,6 +65,8 @@ final class AgentRuntimeEvidenceCertificationService
             $this->inv('continuity_index_detects_missing_required_set', ($incompleteIndex['status'] ?? '') === 'continuity_index_incomplete', 'partial sample evidence set should stay incomplete'),
             $this->inv('journal_summary_emits_hash', preg_match('/^[a-f0-9]{64}$/', (string) ($summary['journal_summary_hash'] ?? '')) === 1, 'journal summary must be hashable'),
             $this->inv('runtime_safety_all_false', $this->runtimeSafetyAllFalse($receiptA, $completeIndex), 'runtime flags must stay false across the evidence layer'),
+            $this->inv('journal_integrity_ok', ($journalIntegrity['status'] ?? '') === 'ok', 'local journal records must not be corrupt or hash-mismatched'),
+            $this->inv('per_task_continuity_not_stitched_proxy', ! $continuityIsStitchedProxy, 'required evidence types must be complete within a single task chain, not stitched across different task_packet_id values'),
         ];
 
         $violations = array_values(array_filter($invariants, static fn (array $i): bool => $i['ok'] === false));
@@ -56,6 +81,8 @@ final class AgentRuntimeEvidenceCertificationService
             'violation_count' => count($violations),
             'violations' => $violations,
             'journal_summary' => $summary,
+            'journal_integrity' => $journalIntegrity,
+            'per_task_continuity_summary' => $perTaskContinuitySummary,
             'sample_receipt_hash' => (string) ($receiptA['receipt_hash'] ?? ''),
             'complete_continuity_index_hash' => (string) ($completeIndex['continuity_index_hash'] ?? ''),
             'runtime_safety' => [
