@@ -14,6 +14,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   simplify — line_count >= growth_threshold + test_coverage=true
  *   keep     — line_count >= growth_threshold but no coverage
  *
+ * COMPRESSION SCORE (deterministic, higher = more valuable to execute first):
+ *   Base:    delete=40, merge=30, simplify=20, keep=0
+ *   +line_delta_bonus: abs(expected_line_delta) / 10
+ *   +risk_bonus:       low=10, medium=5, high=0
+ *   +coverage_bonus:   test_coverage=true → +10
+ *   -owner_penalty:    no replacement_owner → -5
+ *
+ * SUMMARY:
+ *   total_expected_line_delta, safe_delete_count, merge_count, simplify_count, blocked_count
+ *
  * INVARIANTS:
  *   - Never proposes delete without replacement_owner AND test_coverage.
  *   - Pure: no I/O, no provider calls.
@@ -87,15 +97,18 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 $totalLines += max(0, (int) ($organ['line_count'] ?? 0));
             }
             sort($files);
+            $mergeDelta   = -(int) round($totalLines * 0.20);
+            $mergeRisk    = count($uniqueIds) > 3 ? 'high' : 'medium';
             $candidates[] = [
                 'candidate_id'        => 'merge:'.implode('+', $uniqueIds),
                 'action'              => self::ACTION_MERGE,
                 'impacted_files'      => $files,
-                'expected_line_delta' => -(int) round($totalLines * 0.20),
-                'risk_level'          => count($uniqueIds) > 3 ? 'high' : 'medium',
+                'expected_line_delta' => $mergeDelta,
+                'risk_level'          => $mergeRisk,
                 'evidence_floor'      => 'duplicate_capability_label:'.$label.':organs:'.implode(',', $uniqueIds),
                 'duplicate_label'     => $label,
                 'organ_ids'           => $uniqueIds,
+                'compression_score'   => $this->scoreCandidate(self::ACTION_MERGE, $mergeDelta, $mergeRisk, false, true),
             ];
             foreach ($uniqueIds as $id) {
                 $mergedOrganIds[$id] = true;
@@ -121,6 +134,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'expected_line_delta' => -$lineCount,
                         'risk_level'          => 'low',
                         'evidence_floor'      => 'stale_scaffold_marker:true AND test_coverage:true AND replacement_owner:'.$organ['replacement_owner'],
+                        'compression_score'   => $this->scoreCandidate(self::ACTION_DELETE, -$lineCount, 'low', true, true),
                     ];
                 } else {
                     $reason = ! $hasOwner ? 'no_replacement_owner' : 'missing_test_coverage';
@@ -132,6 +146,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'risk_level'          => 'high',
                         'evidence_floor'      => 'stale_scaffold_marker:true',
                         'reason'              => $reason,
+                        'compression_score'   => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
                     ];
                 }
                 continue;
@@ -139,13 +154,15 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
 
             if ($lineCount >= $growthThreshold) {
                 if ($hasCoverage) {
+                    $simplifyDelta = -(int) round($lineCount * 0.15);
                     $candidates[] = [
                         'candidate_id'        => 'simplify:'.$id,
                         'action'              => self::ACTION_SIMPLIFY,
                         'impacted_files'      => $files,
-                        'expected_line_delta' => -(int) round($lineCount * 0.15),
+                        'expected_line_delta' => $simplifyDelta,
                         'risk_level'          => 'low',
                         'evidence_floor'      => 'line_count:gte_'.$growthThreshold.' AND test_coverage:true',
+                        'compression_score'   => $this->scoreCandidate(self::ACTION_SIMPLIFY, $simplifyDelta, 'low', true, $hasOwner),
                     ];
                 } else {
                     $candidates[] = [
@@ -156,6 +173,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'risk_level'          => 'medium',
                         'evidence_floor'      => 'line_count:gte_'.$growthThreshold,
                         'reason'              => 'missing_test_coverage_for_simplification',
+                        'compression_score'   => $this->scoreCandidate(self::ACTION_KEEP, 0, 'medium', false, $hasOwner),
                     ];
                 }
             }
@@ -168,10 +186,48 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             return $ao !== $bo ? $ao <=> $bo : strcmp((string) $a['candidate_id'], (string) $b['candidate_id']);
         });
 
+        $summary = [
+            'total_expected_line_delta' => (int) array_sum(array_column($candidates, 'expected_line_delta')),
+            'safe_delete_count'         => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_DELETE)),
+            'merge_count'               => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_MERGE)),
+            'simplify_count'            => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_SIMPLIFY)),
+            'blocked_count'             => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_KEEP)),
+        ];
+
         return [
             'schema'     => self::SCHEMA,
             'candidates' => $candidates,
+            'summary'    => $summary,
             'plan_hash'  => 'compression_'.substr(hash('sha256', (string) json_encode($candidates, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 32),
         ];
+    }
+
+    private function scoreCandidate(
+        string $action,
+        int $expectedLineDelta,
+        string $riskLevel,
+        bool $hasCoverage,
+        bool $hasOwner,
+    ): float {
+        $score = match ($action) {
+            self::ACTION_DELETE   => 40.0,
+            self::ACTION_MERGE    => 30.0,
+            self::ACTION_SIMPLIFY => 20.0,
+            default               => 0.0,
+        };
+        $score += abs($expectedLineDelta) / 10.0;
+        $score += match ($riskLevel) {
+            'low'    => 10.0,
+            'medium' => 5.0,
+            default  => 0.0,
+        };
+        if ($hasCoverage) {
+            $score += 10.0;
+        }
+        if (! $hasOwner) {
+            $score -= 5.0;
+        }
+
+        return round($score, 2);
     }
 }

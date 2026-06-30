@@ -168,4 +168,131 @@ final class AtlasExternalBrainArchitectureCompressionPlannerTest extends TestCas
 
         $this->assertSame($planner->plan($inventory)['plan_hash'], $planner->plan($inventory)['plan_hash']);
     }
+
+    // ── compression_score ─────────────────────────────────────────────────────
+
+    public function test_delete_candidate_has_compression_score(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [$this->organ('del', [
+                'stale_scaffold_marker' => true,
+                'test_coverage'         => true,
+                'replacement_owner'     => 'owner',
+                'line_count'            => 100,
+            ])],
+        ]);
+
+        $c = array_values(array_filter($result['candidates'], fn ($c) => $c['action'] === 'delete'))[0];
+        $this->assertArrayHasKey('compression_score', $c);
+        $this->assertIsFloat($c['compression_score']);
+        $this->assertGreaterThan(0.0, $c['compression_score']);
+    }
+
+    public function test_merge_candidate_has_compression_score(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('ma', ['capability_labels' => ['shared']]),
+                $this->organ('mb', ['capability_labels' => ['shared']]),
+            ],
+        ]);
+
+        $c = array_values(array_filter($result['candidates'], fn ($c) => $c['action'] === 'merge'))[0];
+        $this->assertArrayHasKey('compression_score', $c);
+        $this->assertGreaterThan(0.0, $c['compression_score']);
+    }
+
+    public function test_simplify_candidate_has_compression_score(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs'           => [$this->organ('big', ['line_count' => 300, 'test_coverage' => true])],
+            'growth_threshold' => 200,
+        ]);
+
+        $c = array_values(array_filter($result['candidates'], fn ($c) => $c['action'] === 'simplify'))[0];
+        $this->assertArrayHasKey('compression_score', $c);
+        $this->assertGreaterThan(0.0, $c['compression_score']);
+    }
+
+    public function test_blocked_keep_candidate_has_compression_score(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [$this->organ('stale_blocked', [
+                'stale_scaffold_marker' => true,
+                'test_coverage'         => false,
+                'replacement_owner'     => '',
+            ])],
+        ]);
+
+        $c = array_values(array_filter($result['candidates'], fn ($c) => $c['action'] === 'keep'))[0];
+        $this->assertArrayHasKey('compression_score', $c);
+        $this->assertIsFloat($c['compression_score']);
+    }
+
+    public function test_delete_scores_higher_than_simplify(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs'           => [
+                $this->organ('del', [
+                    'stale_scaffold_marker' => true,
+                    'test_coverage'         => true,
+                    'replacement_owner'     => 'owner',
+                    'line_count'            => 100,
+                ]),
+                $this->organ('big', ['line_count' => 100, 'test_coverage' => true]),
+            ],
+            'growth_threshold' => 50,
+        ]);
+
+        $delScore      = array_values(array_filter($result['candidates'], fn ($c) => $c['action'] === 'delete'))[0]['compression_score'];
+        $simplifyScore = array_values(array_filter($result['candidates'], fn ($c) => $c['action'] === 'simplify'))[0]['compression_score'];
+        $this->assertGreaterThan($simplifyScore, $delScore);
+    }
+
+    // ── summary ───────────────────────────────────────────────────────────────
+
+    public function test_summary_has_all_required_keys(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => []]);
+
+        foreach (['total_expected_line_delta', 'safe_delete_count', 'merge_count', 'simplify_count', 'blocked_count'] as $key) {
+            $this->assertArrayHasKey($key, $result['summary'], "summary missing key: {$key}");
+        }
+    }
+
+    public function test_summary_counts_are_accurate(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs'           => [
+                $this->organ('ma', ['capability_labels' => ['shared']]),
+                $this->organ('mb', ['capability_labels' => ['shared']]),
+                $this->organ('del', [
+                    'stale_scaffold_marker' => true,
+                    'test_coverage'         => true,
+                    'replacement_owner'     => 'x',
+                    'line_count'            => 80,
+                    'capability_labels'     => ['unique_del'],
+                ]),
+                $this->organ('big', [
+                    'line_count'        => 300,
+                    'test_coverage'     => true,
+                    'capability_labels' => ['unique_big'],
+                ]),
+                $this->organ('block', [
+                    'stale_scaffold_marker' => true,
+                    'test_coverage'         => false,
+                    'replacement_owner'     => '',
+                    'capability_labels'     => ['unique_block'],
+                ]),
+            ],
+            'growth_threshold' => 200,
+        ]);
+
+        $s = $result['summary'];
+        $this->assertSame(1, $s['safe_delete_count']);
+        $this->assertSame(1, $s['merge_count']);
+        $this->assertSame(1, $s['simplify_count']);
+        $this->assertSame(1, $s['blocked_count']);
+        $this->assertLessThan(0, $s['total_expected_line_delta']);
+    }
 }
