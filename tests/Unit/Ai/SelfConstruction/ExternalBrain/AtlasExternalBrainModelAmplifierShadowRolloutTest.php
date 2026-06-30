@@ -199,4 +199,107 @@ final class AtlasExternalBrainModelAmplifierShadowRolloutTest extends TestCase
         $this->assertFalse($result['promotion_candidate']);
         $this->assertNotEmpty($result['safety_findings']);
     }
+
+    // ── recommendRollout ────────────────────────────────────────────────────────
+
+    public function test_recommend_rollout_has_required_keys(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(3),
+            'amplified_proposals' => $this->nProposals(3),
+        ]);
+
+        foreach (['schema', 'recommendation', 'reason', 'baseline_risk_rates', 'amplified_risk_rates', 'baseline_summary', 'amplified_summary', 'safety_findings'] as $k) {
+            $this->assertArrayHasKey($k, $result);
+        }
+        $this->assertSame(AtlasExternalBrainModelAmplifierShadowRollout::SCHEMA, $result['schema']);
+    }
+
+    public function test_shadow_disabled_recommends_keep_shadowing(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'shadow_enabled'      => false,
+            'baseline_proposals'  => $this->nProposals(3),
+            'amplified_proposals' => $this->nProposals(3, ['quality_score' => 0.95]),
+        ]);
+
+        $this->assertSame('keep_shadowing', $result['recommendation']);
+        $this->assertSame('shadow_disabled', $result['reason']);
+    }
+
+    public function test_amplified_with_clear_lift_and_no_risk_increase_promotes(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(5, ['quality_score' => 0.70]),
+            'amplified_proposals' => $this->nProposals(5, ['quality_score' => 0.90]),
+        ]);
+
+        $this->assertSame('promote', $result['recommendation']);
+    }
+
+    public function test_increased_proxy_risk_blocks_promotion_even_with_quality_lift(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(5, ['quality_score' => 0.70, 'proxy_risk' => false]),
+            'amplified_proposals' => $this->nProposals(5, ['quality_score' => 0.95, 'proxy_risk' => true]),
+        ]);
+
+        $this->assertSame('rollback', $result['recommendation']);
+        $this->assertSame('candidate_increases_proxy_risk', $result['reason']);
+    }
+
+    public function test_increased_give_back_risk_blocks_promotion_even_with_quality_lift(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(5, ['quality_score' => 0.70, 'give_back_risk' => false]),
+            'amplified_proposals' => $this->nProposals(5, ['quality_score' => 0.95, 'give_back_risk' => true]),
+        ]);
+
+        $this->assertSame('rollback', $result['recommendation']);
+        $this->assertSame('candidate_increases_give_back_risk', $result['reason']);
+    }
+
+    public function test_no_lift_and_no_risk_increase_keeps_shadowing(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(5, ['quality_score' => 0.70]),
+            'amplified_proposals' => $this->nProposals(5, ['quality_score' => 0.71]),
+        ]);
+
+        $this->assertSame('keep_shadowing', $result['recommendation']);
+    }
+
+    public function test_quality_regression_keeps_shadowing_via_safety_findings(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(5, ['quality_score' => 0.80]),
+            'amplified_proposals' => $this->nProposals(5, ['quality_score' => 0.50]),
+        ]);
+
+        $this->assertSame('keep_shadowing', $result['recommendation']);
+        $this->assertSame('safety_findings_present', $result['reason']);
+    }
+
+    public function test_risk_increase_outranks_safety_findings_reason(): void
+    {
+        $result = $this->rollout->recommendRollout([
+            'baseline_proposals'  => $this->nProposals(5, ['quality_score' => 0.80, 'proxy_risk' => false]),
+            'amplified_proposals' => $this->nProposals(5, ['quality_score' => 0.50, 'proxy_risk' => true]),
+        ]);
+
+        $this->assertSame('rollback', $result['recommendation']);
+    }
+
+    public function test_does_not_mutate_input_proposals(): void
+    {
+        $baseline = $this->nProposals(2);
+        $amplified = $this->nProposals(2, ['quality_score' => 0.9]);
+        $baselineCopy = $baseline;
+        $amplifiedCopy = $amplified;
+
+        $this->rollout->recommendRollout(['baseline_proposals' => $baseline, 'amplified_proposals' => $amplified]);
+
+        $this->assertSame($baselineCopy, $baseline);
+        $this->assertSame($amplifiedCopy, $amplified);
+    }
 }

@@ -176,4 +176,82 @@ final class AtlasExternalBrainModelAmplifierShadowRollout
 
         return $findings;
     }
+
+    /**
+     * Compares the current (baseline) and candidate (amplified) decisions on
+     * the same shadow cases — never mutating production decisions — and
+     * recommends promote, keep_shadowing, or rollback.
+     *
+     * Promotion is blocked outright whenever the candidate's proxy_risk_rate
+     * or give_back_risk_rate is higher than the baseline's, regardless of
+     * any quality lift, because a candidate that games proxies or increases
+     * give-backs is never safe to promote.
+     *
+     * DECISION (first matching rule wins):
+     *   shadow_enabled=false                                   -> keep_shadowing
+     *   amplified proxy_risk_rate > baseline proxy_risk_rate     -> rollback
+     *   amplified give_back_risk_rate > baseline give_back_risk_rate -> rollback
+     *   evaluate()'s safety_findings is non-empty                -> keep_shadowing
+     *   evaluate()'s promotion_candidate=true                    -> promote
+     *   otherwise                                                 -> keep_shadowing
+     *
+     * @param  array<string,mixed>  $input  same shape as evaluate(); proposals
+     *   may additionally carry proxy_risk and give_back_risk booleans.
+     * @return array<string,mixed>
+     */
+    public function recommendRollout(array $input): array
+    {
+        $shadowEnabled = (bool) ($input['shadow_enabled'] ?? true);
+        $baseline = (array) ($input['baseline_proposals'] ?? []);
+        $amplified = (array) ($input['amplified_proposals'] ?? []);
+
+        $evaluation = $this->evaluate($input);
+
+        $baselineRiskRates = $this->riskRates($baseline);
+        $amplifiedRiskRates = $this->riskRates($amplified);
+
+        $proxyRiskIncreased = $amplifiedRiskRates['proxy_risk_rate'] > $baselineRiskRates['proxy_risk_rate'];
+        $giveBackRiskIncreased = $amplifiedRiskRates['give_back_risk_rate'] > $baselineRiskRates['give_back_risk_rate'];
+
+        [$recommendation, $reason] = match (true) {
+            ! $shadowEnabled => ['keep_shadowing', 'shadow_disabled'],
+            $proxyRiskIncreased => ['rollback', 'candidate_increases_proxy_risk'],
+            $giveBackRiskIncreased => ['rollback', 'candidate_increases_give_back_risk'],
+            $evaluation['safety_findings'] !== [] => ['keep_shadowing', 'safety_findings_present'],
+            $evaluation['promotion_candidate'] => ['promote', 'lift_proven_with_no_regressions'],
+            default => ['keep_shadowing', 'insufficient_lift_evidence'],
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'recommendation' => $recommendation,
+            'reason' => $reason,
+            'baseline_risk_rates' => $baselineRiskRates,
+            'amplified_risk_rates' => $amplifiedRiskRates,
+            'baseline_summary' => $evaluation['baseline_summary'],
+            'amplified_summary' => $evaluation['amplified_summary'],
+            'safety_findings' => $evaluation['safety_findings'],
+        ];
+    }
+
+    /** @return array{proxy_risk_rate:float, give_back_risk_rate:float} */
+    private function riskRates(array $proposals): array
+    {
+        $n = count($proposals);
+        if ($n === 0) {
+            return ['proxy_risk_rate' => 0.0, 'give_back_risk_rate' => 0.0];
+        }
+
+        $proxyRiskCount = 0;
+        $giveBackRiskCount = 0;
+        foreach ($proposals as $p) {
+            $proxyRiskCount += (int) (bool) ($p['proxy_risk'] ?? false);
+            $giveBackRiskCount += (int) (bool) ($p['give_back_risk'] ?? false);
+        }
+
+        return [
+            'proxy_risk_rate' => round($proxyRiskCount / $n, 4),
+            'give_back_risk_rate' => round($giveBackRiskCount / $n, 4),
+        ];
+    }
 }
