@@ -52,7 +52,7 @@ final class AtlasSelfConstructionCompletionRealityProjector
      *     knowledge_sync_receipt?:array{conformant?:bool}|null,
      *     worker_claim?:string
      * }  $receipts
-     * @return array{schema:string, reality:string, residual_risks:list<string>, missing_proofs:list<string>}
+     * @return array{schema:string, reality:string, final_state:string, residual_risks:list<string>, missing_proofs:list<string>, deltas:list<array{kind:string,ref:string}>}
      */
     public function project(array $receipts): array
     {
@@ -101,11 +101,31 @@ final class AtlasSelfConstructionCompletionRealityProjector
         sort($missingProofs, SORT_STRING);
         sort($residualRisks, SORT_STRING);
 
+        // final_state: explicit verdict on how far this completion claim can be trusted.
+        // blocked = actively rejected/unsafe; stale = completed but evidence outdated or absent;
+        // ready = fully proven with no outstanding proofs; hold = waiting for proofs.
+        $finalState = match (true) {
+            $reality === self::REALITY_REJECTED => 'blocked',
+            $reality === self::REALITY_ROLLED_BACK
+                && in_array('residual_risk:passed_but_rolled_back', $residualRisks, true) => 'blocked',
+            $reality === self::REALITY_COMPLETED && $missingProofs === [] && $residualRisks === [] => 'ready',
+            $reality === self::REALITY_COMPLETED => 'stale',
+            default => 'hold',
+        };
+
+        // deltas: one missing_evidence entry per missing or non-conformant proof.
+        $deltas = array_map(
+            static fn (string $proof): array => ['kind' => 'missing_evidence', 'ref' => $proof],
+            $missingProofs,
+        );
+
         return [
             'schema' => self::SCHEMA,
             'reality' => $reality,
+            'final_state' => $finalState,
             'residual_risks' => $residualRisks,
             'missing_proofs' => $missingProofs,
+            'deltas' => $deltas,
         ];
     }
 }

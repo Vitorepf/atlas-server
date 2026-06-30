@@ -92,4 +92,88 @@ final class AtlasSelfConstructionCompletionRealityProjectorTest extends TestCase
         ]);
         $this->assertContains('knowledge_sync_not_conformant', $r['missing_proofs']);
     }
+
+    // --- final_state and deltas -------------------------------------------
+
+    public function test_fully_proven_completion_yields_final_state_ready(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ]);
+        $this->assertSame('ready', $r['final_state']);
+        $this->assertSame([], $r['deltas']);
+    }
+
+    public function test_missing_verification_produces_missing_evidence_delta_and_hold(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'merge_receipt' => ['decision' => 'admitted'],
+        ]);
+        $this->assertSame('hold', $r['final_state']);
+        $kinds = array_column($r['deltas'], 'kind');
+        $this->assertContains('missing_evidence', $kinds);
+        $refs = array_column($r['deltas'], 'ref');
+        $this->assertContains('missing_proof:verification', $refs);
+    }
+
+    public function test_missing_evidence_on_empty_input_yields_hold_with_three_deltas(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([]);
+        $this->assertSame('hold', $r['final_state']);
+        $this->assertCount(3, $r['deltas']);
+        foreach ($r['deltas'] as $delta) {
+            $this->assertSame('missing_evidence', $delta['kind']);
+        }
+    }
+
+    public function test_rejected_verification_yields_final_state_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'failed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+        ]);
+        $this->assertSame('blocked', $r['final_state']);
+    }
+
+    public function test_stale_is_distinct_from_blocked(): void
+    {
+        // Stale: completed but knowledge_sync missing — outdated evidence, not actively unsafe.
+        $stale = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            // knowledge_sync_receipt absent → stale
+        ]);
+        // Blocked: actively rejected — unsafe.
+        $blocked = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'failed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+        ]);
+
+        $this->assertSame('stale', $stale['final_state']);
+        $this->assertSame('blocked', $blocked['final_state']);
+        $this->assertNotSame($stale['final_state'], $blocked['final_state']);
+    }
+
+    public function test_stale_carries_missing_evidence_delta_for_knowledge_sync(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+        ]);
+        $this->assertSame('stale', $r['final_state']);
+        $refs = array_column($r['deltas'], 'ref');
+        $this->assertContains('missing_proof:knowledge_sync', $refs);
+    }
+
+    public function test_output_has_no_percent_complete_field(): void
+    {
+        $r = (new AtlasSelfConstructionCompletionRealityProjector)->project([
+            'verification_receipt' => ['verdict' => 'passed'],
+            'merge_receipt' => ['decision' => 'admitted'],
+            'knowledge_sync_receipt' => ['conformant' => true],
+        ]);
+        $this->assertArrayNotHasKey('percent_complete', $r);
+    }
 }
