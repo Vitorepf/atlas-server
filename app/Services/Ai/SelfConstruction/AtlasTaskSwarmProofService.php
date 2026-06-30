@@ -40,15 +40,22 @@ final class AtlasTaskSwarmProofService
     /**
      * Judge a multi-round, multi-client run. Pure: same observations ⇒ byte-identical verdict.
      *
+     * $expectedWorkerFloor (default 0) is the originator's expectation of how many concurrent
+     * workers should have found claimable work. When > 0, a `no_claimable_task` observation is
+     * STILL honest (never an R2 serving error — the queue genuinely had nothing), but it is also
+     * surfaced as an SLO breach: the originator expected this worker to be fed and it wasn't. With
+     * the default of 0 (no expectation set), behavior is unchanged — no SLO signal is computed.
+     *
      * @param  list<array{round?:int, enqueued?:list<array<string,mixed>>, observations?:list<array<string,mixed>>}>  $rounds
      * @return array<string, mixed>
      */
-    public function analyze(array $rounds): array
+    public function analyze(array $rounds, int $expectedWorkerFloor = 0): array
     {
         $doubleClaims = [];
         $heldOverlaps = [];
         $r2Breaches = [];
         $phantomServes = [];
+        $noClaimableSloBreaches = [];
 
         $totalObservations = 0;
         $totalServed = 0;
@@ -90,6 +97,10 @@ final class AtlasTaskSwarmProofService
 
                 if ($status !== 'served') {
                     $totalNoClaimable++;
+
+                    if ($status === 'no_claimable_task' && $expectedWorkerFloor > 0) {
+                        $noClaimableSloBreaches[] = ['round' => $roundNo, 'client_id' => $client];
+                    }
 
                     continue;
                 }
@@ -159,6 +170,9 @@ final class AtlasTaskSwarmProofService
                 'waiting_on_dependencies' => $totalWaitingOnDependencies,
                 'served_distinct_across_rounds' => $servedDistinctSum,
             ],
+            'expected_worker_floor' => $expectedWorkerFloor,
+            'no_claimable_slo_breach' => $noClaimableSloBreaches !== [],
+            'no_claimable_slo_breaches' => $noClaimableSloBreaches,
         ];
     }
 
