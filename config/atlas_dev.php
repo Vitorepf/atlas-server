@@ -185,7 +185,19 @@ return [
         ],
 
         // E2: Definition of Done + Semantic Acceptance Criteria (M1 milestone).
-        'e2' => ['mode' => env('ATLAS_DEV_ELEVATION_E2_MODE', 'advisory')],
+        //   - M2 (m2-e2-hard): promoted advisory -> hard. The trip condition
+        //     (an intent NOT backed by any behavioral AC with a real
+        //     verification_ref on a green gate) was verified on a fixture
+        //     pair (E2HardGateTest: trip -> failed + flag retained; clear ->
+        //     no false-fail when a behavioral AC with a real verification_ref
+        //     backs the intent) BEFORE the config default flipped, per the
+        //     VAL-M2-028 rollout guard. A hard E2 trip forces STATUS_FAILED
+        //     (completion `failed`, NOT the advisory `needs_review`) while
+        //     preserving the `intent_not_tested` honesty flag for
+        //     auditability (VAL-M2-006). A behavioral AC with a real
+        //     verification_ref does not trip (VAL-M2-007). Operators can opt
+        //     back down to advisory/off via ATLAS_DEV_ELEVATION_E2_MODE.
+        'e2' => ['mode' => env('ATLAS_DEV_ELEVATION_E2_MODE', 'hard')],
 
         // E3: Mutation Testing Gate (M3 milestone).
         //   - mode: tri-state off|advisory|hard governing the mutation-score

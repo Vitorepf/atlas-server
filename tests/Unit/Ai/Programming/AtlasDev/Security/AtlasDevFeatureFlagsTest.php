@@ -115,6 +115,46 @@ final class AtlasDevFeatureFlagsTest extends TestCase
         $this->assertFalse($e1->isOff());
     }
 
+    /**
+     * VAL-M2-005: the E2 (intent coverage / behavioral-AC) elevation is
+     * promoted advisory -> hard. The canonical config source
+     * config/atlas_dev.php ships `elevations.e2.mode` with an env fallback of
+     * `hard` (not `advisory`). This is the single switch that makes the E2
+     * hard branch live by default: a hard E2 trip (intent not backed by a
+     * behavioral AC with a real verification_ref) produces a `failed`
+     * completion (not `needs_review`).
+     */
+    public function test_e2_mode_config_source_defaults_to_hard(): void
+    {
+        $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
+
+        $this->assertStringContainsString(
+            "'mode' => env('ATLAS_DEV_ELEVATION_E2_MODE', 'hard')",
+            $configSource,
+            'VAL-M2-005: the e2.mode config source default must be hard (promoted from advisory).',
+        );
+    }
+
+    /**
+     * VAL-M2-005: with no ATLAS_DEV_ELEVATION_E2_MODE env var set, a runtime
+     * read of the canonical config yields `elevations.e2.mode === 'hard'`, and
+     * the elevation resolver classifies E2 as hard
+     * (ElevationConfig::for('e2', $block)->isHard() === true). This proves the
+     * hard default is live at the resolution layer, not just in the source.
+     */
+    public function test_e2_mode_resolves_hard_when_env_unset(): void
+    {
+        $this->clearEnv('ATLAS_DEV_ELEVATION_E2_MODE');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertSame('hard', $config['elevations']['e2']['mode']);
+
+        $e2 = ElevationConfig::for('e2', $config['elevations']['e2']);
+        $this->assertTrue($e2->isHard(), 'VAL-M2-005: ElevationConfig must classify e2 as hard by default.');
+        $this->assertFalse($e2->isAdvisory());
+        $this->assertFalse($e2->isOff());
+    }
+
     public function test_plan_enabled_is_on_under_testing_environment(): void
     {
         $this->assertTrue((bool) $this->atlasDevConfig['efficient']['plan_enabled']);

@@ -10,13 +10,13 @@ use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
-use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
+use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
-use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
+use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\VerificationReceipt;
 use Illuminate\Container\Container;
 use Tests\TestCase;
@@ -25,32 +25,32 @@ use Tests\Unit\Ai\Programming\AtlasDev\Provider\AtlasDevProviderFixtures;
 use Tests\Unit\Ai\Programming\AtlasDev\Provider\FakeClaudeCliGateway;
 
 /**
- * E1 hard-gate promotion (m2-e1-hard).
+ * E2 hard-gate promotion (m2-e2-hard).
  *
- * Drives a REAL {@see PipelineRunExecutor} with `e1.mode=hard` against the
- * fake-provider harness and proves the four M2-E1 assertions:
+ * Drives a REAL {@see PipelineRunExecutor} with `e2.mode=hard` against the
+ * fake-provider harness and proves the three M2-E2 assertions:
  *
- *   - VAL-M2-002: a hard E1 trip on an intent-missing diff produces a
- *     `failed` completion (NOT the advisory `needs_review`), with the
- *     verification gate forced to STATUS_FAILED.
- *   - VAL-M2-003: a hard E1 does NOT false-fail on a genuine-intent diff
- *     (the gate stays STATUS_PASSED; the completion is not `failed` due to
- *     E1; no `intent_likely_not_addressed` flag).
- *   - VAL-M2-004: when E1 hard forces STATUS_FAILED, the
- *     `intent_likely_not_addressed` honesty flag is retained in the rebuilt
- *     VerificationGateResult / persisted receipt for auditability.
+ *   - VAL-M2-006: a hard E2 trip (intent NOT backed by any behavioral AC
+ *     with a real verification_ref) on a green gate produces a `failed`
+ *     completion (NOT the advisory `needs_review`), with the verification
+ *     gate forced to STATUS_FAILED and the `intent_not_tested` flag retained.
+ *   - VAL-M2-007: a hard E2 does NOT false-fail when a behavioral AC with a
+ *     real verification_ref backs the intent (the gate stays STATUS_PASSED,
+ *     no `intent_not_tested` flag, the completion is not `failed` due to E2).
  *
- * The hard branch already exists in PipelineRunExecutor (precondition); this
- * class is the fixture proof the rollout guard (VAL-M2-028) requires BEFORE
- * the `e1.mode` config default flips to `hard`. The trip-fires and
+ * Pre-M2 only the `isAdvisory()` branch was wired (flag -> needs_review);
+ * this class proves the NEW hard branch that rebuilds the gate result to
+ * STATUS_FAILED (mirroring E1's hard rebuild). The trip-fires and
  * does-not-false-fail methods are registered in
  * ElevationRolloutGuardTest::VERIFIED_FIXTURES.
  *
- * These tests set `e1.mode=hard` explicitly (via the config kernel) so they
- * prove the hard branch regardless of the shipped config default, and remain
- * green after the default is promoted.
+ * E1 is set to `off` in setUp so only E2 is active (E1 inspects the diff,
+ * E2 inspects the spec — they are independent probes and must not cross-
+ * contaminate). These tests set `e2.mode=hard` explicitly so they prove the
+ * hard branch regardless of the shipped config default, and remain green
+ * after the default is promoted.
  */
-final class E1HardGateTest extends TestCase
+final class E2HardGateTest extends TestCase
 {
     use AtlasDevProviderFixtures;
 
@@ -63,24 +63,22 @@ final class E1HardGateTest extends TestCase
         parent::setUp();
 
         // Disable the deterministic fast path so the fake provider gateway is
-        // invoked and the E1 post-gate probe runs on the gateway-returned diff
-        // (the fast path bypasses the provider and would short-circuit E1).
+        // invoked and the E2 post-gate probe runs on the gateway-returned diff
+        // (the fast path bypasses the provider and would short-circuit E2).
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
 
-        // E1 hard: the elevation under test.
-        config()->set('atlas_dev.elevations.e1.mode', 'hard');
+        // E2 hard: the elevation under test.
+        config()->set('atlas_dev.elevations.e2.mode', 'hard');
 
-        // Isolate E1 from E2: E2 inspects the spec for behavioral ACs and is
-        // irrelevant to the E1 diff-intent probe. The default miniSpec fixture
-        // carries no behavioral AC, so a hard E2 would trip and force
-        // STATUS_FAILED independently of E1 — setting E2 off keeps these
-        // fixtures focused on E1's hard-channel behavior only.
-        config()->set('atlas_dev.elevations.e2.mode', 'off');
+        // Isolate E2 from E1: E1 inspects the diff against intent verbs and
+        // is irrelevant to the E2 spec-coverage probe. Setting E1 off ensures
+        // only E2 can trip in these fixtures.
+        config()->set('atlas_dev.elevations.e1.mode', 'off');
 
-        $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e1-hard-'.bin2hex(random_bytes(4));
+        $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-e2-hard-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
 
-        $this->tmpWorkspace = sys_get_temp_dir().'/atlas-dev-e1-hard-ws-'.bin2hex(random_bytes(4));
+        $this->tmpWorkspace = sys_get_temp_dir().'/atlas-dev-e2-hard-ws-'.bin2hex(random_bytes(4));
         mkdir($this->tmpWorkspace, 0o755, true);
     }
 
@@ -92,35 +90,40 @@ final class E1HardGateTest extends TestCase
     }
 
     /**
-     * VAL-M2-002 + VAL-M2-004: a hard E1 trip on an intent-missing diff
-     * produces a `failed` completion (not `needs_review`), the verification
-     * gate is forced to STATUS_FAILED, and the `intent_likely_not_addressed`
-     * honesty flag is retained for auditability.
+     * VAL-M2-006: a hard E2 trip — the intent is NOT backed by any behavioral
+     * AC with a real verification_ref (the default spec carries only a
+     * tautological `ac_1`, not a `ac_behavior_*` AC) — produces a `failed`
+     * completion (not `needs_review`), the verification gate is forced to
+     * STATUS_FAILED, and the `intent_not_tested` honesty flag is retained for
+     * auditability.
      *
-     * This is the trip-fires fixture registered in the rollout guard.
+     * This is the trip-fires fixture registered in the rollout guard. The NEW
+     * hard branch (absent pre-M2) rebuilds the gate result to STATUS_FAILED,
+     * mirroring E1's hard rebuild.
      */
-    public function test_e1_hard_trip_produces_failed_on_intent_missing_diff(): void
+    public function test_e2_hard_trip_produces_failed_when_intent_not_backed_by_behavioral_ac(): void
     {
-        $runId = 'dev-e1-hard-trip-'.bin2hex(random_bytes(3));
+        $runId = 'dev-e2-hard-trip-'.bin2hex(random_bytes(3));
         $storage = new ReceiptStorage($this->tmpStorage);
+
+        // Seed with the DEFAULT miniSpec (only `ac_1`, no `ac_behavior_*`
+        // AC) so the IntentCoverageProbe reports intent_not_tested = true.
         $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
 
         $target = $this->tmpWorkspace.'/app/RateLimitService.php';
         mkdir(dirname($target), 0o755, true);
         file_put_contents($target, "<?php\nreturn true;\n");
 
-        // Intent-missing diff: the added line "return 42;" implements NEITHER
-        // the 'corrigir' verb surface form ('fix'/'corrigir') NOR any
-        // distinctive intent subject token (ratelimitservice/check/false/...).
-        // The verification gate is GREEN (command runner exit 0); only E1
-        // hard trips.
+        // E2 inspects the SPEC, not the diff. The diff just needs to pass the
+        // verification gate (green) so the E2 hard trip is the only thing
+        // forcing STATUS_FAILED.
         $diff = <<<'DIFF'
 --- a/app/RateLimitService.php
 +++ b/app/RateLimitService.php
 @@ -1,2 +1,2 @@
  <?php
 -return true;
-+return 42;
++return false;
 DIFF;
 
         $executor = $this->makeExecutor($storage, $diff);
@@ -148,64 +151,81 @@ DIFF;
             runId: $runId,
         );
 
-        // VAL-M2-002: completion is `failed` (the firm block), NOT the
+        // VAL-M2-006: completion is `failed` (the firm block), NOT the
         // advisory `needs_review` soft flag.
         $this->assertSame(
             'failed',
             $result->completionState,
-            'VAL-M2-002: E1 hard trip must produce a failed completion, not needs_review. '
+            'VAL-M2-006: E2 hard trip must produce a failed completion, not needs_review. '
             .'Got: '.$result->completionState,
         );
 
-        // VAL-M2-002: the verification gate aggregate is forced to
-        // STATUS_FAILED by the E1 hard rebuild (the sanctioned hard channel).
+        // VAL-M2-006: the verification gate aggregate is forced to
+        // STATUS_FAILED by the E2 hard rebuild (the sanctioned hard channel).
         $this->assertSame(
             VerificationGateResult::STATUS_FAILED,
             $result->verificationStatus,
-            'VAL-M2-002: E1 hard must force the verification gate to STATUS_FAILED.',
+            'VAL-M2-006: E2 hard must force the verification gate to STATUS_FAILED.',
         );
 
-        // VAL-M2-004: the `intent_likely_not_addressed` honesty flag is
-        // retained in the rebuilt VerificationGateResult / persisted receipt
-        // for auditability (the operator can see WHY it failed).
+        // VAL-M2-006: the `intent_not_tested` honesty flag is retained in the
+        // rebuilt VerificationGateResult / persisted receipt for auditability
+        // (the operator can see WHY it failed).
         $receipt = $this->loadReceipt($storage, $runId);
         $this->assertContains(
-            IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
+            IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
             $receipt->completion->honestyFlags,
-            'VAL-M2-004: the intent_likely_not_addressed flag must be retained for auditability '
-            .'when E1 hard forces STATUS_FAILED. Flags: '.json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
+            'VAL-M2-006: the intent_not_tested flag must be retained for auditability '
+            .'when E2 hard forces STATUS_FAILED. Flags: '
+            .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
         );
     }
 
     /**
-     * VAL-M2-003: a hard E1 does NOT false-fail on a genuine-intent diff.
-     * The diff traceably implements the 'corrigir' verb (the added line
-     * carries the 'fix' surface form + the intent subject), so E1 does not
-     * trip: the gate stays STATUS_PASSED, no `intent_likely_not_addressed`
-     * flag is appended, and the completion is not `failed` due to E1.
+     * VAL-M2-007: a hard E2 does NOT false-fail when a behavioral AC with a
+     * real verification_ref backs the intent. The spec carries an
+     * `ac_behavior_*` AC with a non-empty verification_ref, so the
+     * IntentCoverageProbe reports intent_not_tested = false: E2 does not
+     * trip, the gate stays STATUS_PASSED, no `intent_not_tested` flag is
+     * appended, and the completion is not `failed` due to E2.
      *
      * This is the does-not-false-fail fixture registered in the rollout guard.
      */
-    public function test_e1_hard_does_not_false_fail_on_genuine_intent_diff(): void
+    public function test_e2_hard_does_not_false_fail_when_behavioral_ac_backs_intent(): void
     {
-        $runId = 'dev-e1-hard-clear-'.bin2hex(random_bytes(3));
+        $runId = 'dev-e2-hard-clear-'.bin2hex(random_bytes(3));
         $storage = new ReceiptStorage($this->tmpStorage);
-        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+
+        // Seed with a miniSpec that carries a behavioral AC
+        // (`ac_behavior_1`) with a real, non-empty verification_ref so the
+        // IntentCoverageProbe reports intent_not_tested = false (the intent
+        // IS tested).
+        $this->seedRun(
+            $storage,
+            $runId,
+            taskKind: 'repair',
+            riskLevel: 'R2',
+            acceptanceCriteria: [
+                [
+                    'description' => 'the rate-limit guard returns false after the fix',
+                    'id' => 'ac_behavior_1',
+                    'verification' => 'test',
+                    'verification_ref' => 'tests/Unit/RateLimitServiceTest.php::test_check_returns_false',
+                ],
+            ],
+        );
 
         $target = $this->tmpWorkspace.'/app/RateLimitService.php';
         mkdir(dirname($target), 0o755, true);
         file_put_contents($target, "<?php\nreturn true;\n");
 
-        // Genuine-intent diff: the added line carries the 'fix' verb surface
-        // form (TIER 1) AND the intent subject ('false'/'ratelimit'), so the
-        // IntentFalsificationProbe clears and E1 hard does not trip.
         $diff = <<<'DIFF'
 --- a/app/RateLimitService.php
 +++ b/app/RateLimitService.php
 @@ -1,2 +1,2 @@
  <?php
 -return true;
-+return false; // fix the rate-limit guard
++return false;
 DIFF;
 
         $executor = $this->makeExecutor($storage, $diff);
@@ -233,67 +253,84 @@ DIFF;
             runId: $runId,
         );
 
-        // VAL-M2-003: E1 hard did NOT force STATUS_FAILED — the gate stays
-        // STATUS_PASSED (the intent IS addressed). This is the core
-        // false-fail guard: a legitimate green run is not blocked by E1.
+        // VAL-M2-007: E2 hard did NOT force STATUS_FAILED — the gate stays
+        // STATUS_PASSED (the intent IS tested by a behavioral AC). This is
+        // the core false-fail guard: a legitimate green run is not blocked
+        // by E2.
         $this->assertSame(
             VerificationGateResult::STATUS_PASSED,
             $result->verificationStatus,
-            'VAL-M2-003: E1 hard must not force STATUS_FAILED on a genuine-intent diff.',
+            'VAL-M2-007: E2 hard must not force STATUS_FAILED when a behavioral AC backs the intent.',
         );
 
-        // VAL-M2-003: no `intent_likely_not_addressed` flag is appended.
+        // VAL-M2-007: no `intent_not_tested` flag is appended.
         $receipt = $this->loadReceipt($storage, $runId);
         $this->assertNotContains(
-            IntentFalsificationProbe::FLAG_INTENT_LIKELY_NOT_ADDRESSED,
+            IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
             $receipt->completion->honestyFlags,
-            'VAL-M2-003: no intent_likely_not_addressed flag on a genuine-intent diff. Flags: '
+            'VAL-M2-007: no intent_not_tested flag when a behavioral AC backs the intent. Flags: '
             .json_encode($receipt->completion->honestyFlags, JSON_THROW_ON_ERROR),
         );
 
-        // VAL-M2-003: the completion is not `failed` due to E1. It may be
+        // VAL-M2-007: the completion is not `failed` due to E2. It may be
         // `passed` or an honest non-success from OTHER gates (e.g. the
         // senior critic flagging a test_gap), but never `failed` caused by
-        // E1 hard on a genuine-intent diff.
+        // E2 hard on a behavioral-AC-backed intent.
         $this->assertNotSame(
             'failed',
             $result->completionState,
-            'VAL-M2-003: a genuine-intent diff must not be failed by E1 hard. Got: '
+            'VAL-M2-007: a behavioral-AC-backed intent must not be failed by E2 hard. Got: '
             .$result->completionState,
         );
     }
 
     /**
-     * VAL-M2-004 (isolated): assert the IntentFalsificationProbe itself fires
-     * on the intent-missing fixture and clears on the genuine-intent fixture,
-     * so the hard-channel behavior is anchored to a correct probe verdict
-     * (not a coincidence of the diff parser).
+     * VAL-M2-006/007 (isolated): assert the IntentCoverageProbe itself fires
+     * on the trip fixture (no behavioral AC) and clears on the clear fixture
+     * (behavioral AC with real verification_ref), so the hard-channel
+     * behavior is anchored to a correct probe verdict (not a coincidence of
+     * the spec parser).
      */
-    public function test_e1_probe_verdict_matches_the_trip_and_clear_fixtures(): void
+    public function test_e2_probe_verdict_matches_the_trip_and_clear_fixtures(): void
     {
         $contract = $this->taskContractFixture([
-            'intent_text' => 'Corrija o bug em app/RateLimitService.php para que o metodo check retorne false.',
-            'intent_verbs' => ['corrigir'],
+            'intent_text' => 'Corrija o bug em app/RateLimitService.php.',
         ]);
 
-        $probe = new IntentFalsificationProbe;
+        $probe = new IntentCoverageProbe;
 
-        $intentMissingDiff = DiffParseResult::patch(
-            diff: "--- a/app/RateLimitService.php\n+++ b/app/RateLimitService.php\n@@\n+return 42;\n",
-            changedFiles: ['app/RateLimitService.php'],
+        // Trip fixture: spec with only a tautological AC (no `ac_behavior_*`).
+        $tripSpec = MiniProgrammingSpec::fromArray(
+            $this->loadSpecPayload(acceptanceCriteria: [
+                ['description' => 'teste passa', 'id' => 'ac_1', 'verification' => 'test', 'verification_ref' => 'tests/SomeTest.php'],
+            ]),
         );
         $this->assertTrue(
-            $probe->isIntentLikelyNotAddressed($contract, $intentMissingDiff),
-            'The trip fixture diff must be classified intent-missing by the probe.',
+            $probe->isIntentNotTested($contract, $tripSpec),
+            'The trip fixture spec (no behavioral AC) must be classified intent-not-tested by the probe.',
         );
 
-        $genuineIntentDiff = DiffParseResult::patch(
-            diff: "--- a/app/RateLimitService.php\n+++ b/app/RateLimitService.php\n@@\n+return false; // fix the rate-limit guard\n",
-            changedFiles: ['app/RateLimitService.php'],
+        // Clear fixture: spec with a behavioral AC carrying a real verification_ref.
+        $clearSpec = MiniProgrammingSpec::fromArray(
+            $this->loadSpecPayload(acceptanceCriteria: [
+                ['description' => 'behavioral AC', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => 'tests/Unit/RateLimitServiceTest.php::test_check_returns_false'],
+            ]),
         );
         $this->assertFalse(
-            $probe->isIntentLikelyNotAddressed($contract, $genuineIntentDiff),
-            'The clear fixture diff must be classified intent-addressed by the probe.',
+            $probe->isIntentNotTested($contract, $clearSpec),
+            'The clear fixture spec (behavioral AC with real verification_ref) must be classified intent-tested by the probe.',
+        );
+
+        // Edge: behavioral AC with an EMPTY verification_ref still trips
+        // (the ref must be real/non-empty, not just the id prefix).
+        $emptyRefSpec = MiniProgrammingSpec::fromArray(
+            $this->loadSpecPayload(acceptanceCriteria: [
+                ['description' => 'behavioral AC empty ref', 'id' => 'ac_behavior_1', 'verification' => 'test', 'verification_ref' => ''],
+            ]),
+        );
+        $this->assertTrue(
+            $probe->isIntentNotTested($contract, $emptyRefSpec),
+            'A behavioral AC with an empty verification_ref must still trip (the ref must be real).',
         );
     }
 
@@ -353,19 +390,49 @@ DIFF;
         return new PipelineRunExecutor($container, $storage);
     }
 
-    private function seedRun(ReceiptStorage $storage, string $runId, string $taskKind, string $riskLevel): void
-    {
+    /**
+     * Seed the persisted run artifacts. When $acceptanceCriteria is provided,
+     * the miniSpec is overridden to carry those ACs (so the E2 probe sees a
+     * behavioral AC or not, depending on the test).
+     *
+     * @param  list<array{id: string, description: string, verification: string, verification_ref: string}>  $acceptanceCriteria
+     */
+    private function seedRun(
+        ReceiptStorage $storage,
+        string $runId,
+        string $taskKind,
+        string $riskLevel,
+        array $acceptanceCriteria = [],
+    ): void {
         $compactSdd = $this->compactSddFixture(['task_kind' => $taskKind, 'risk_level' => $riskLevel]);
         $compactPayload = $compactSdd->toCanonicalArray();
         $compactPayload['compact_sdd_hash'] = $compactSdd->hash();
         $storage->writeAtomic($runId, ArtifactNames::COMPACT_SDD, $compactPayload);
 
-        $miniSpec = $this->miniSpecFixture(['compact_sdd_hash' => $compactPayload['compact_sdd_hash']]);
+        $miniSpecOverrides = ['compact_sdd_hash' => $compactPayload['compact_sdd_hash']];
+        if ($acceptanceCriteria !== []) {
+            $miniSpecOverrides['acceptance_criteria'] = $acceptanceCriteria;
+        }
+        $miniSpec = $this->miniSpecFixture($miniSpecOverrides);
         $storage->writeAtomic($runId, ArtifactNames::MINI_PROGRAMMING_SPEC, $miniSpec->toCanonicalArray());
 
         $storage->writeAtomic($runId, ArtifactNames::OPEN_BRAIN_PROJECTION, [
             'context_pack_hash' => 'atlas-dev:context_pack:'.bin2hex(random_bytes(4)),
         ]);
+    }
+
+    /**
+     * Build a raw mini-spec payload (array) with the given acceptance
+     * criteria, for the isolated probe verdict test.
+     *
+     * @param  list<array{id: string, description: string, verification: string, verification_ref: string}>  $acceptanceCriteria
+     */
+    private function loadSpecPayload(array $acceptanceCriteria): array
+    {
+        $base = $this->miniSpecFixture()->toCanonicalArray();
+        $base['acceptance_criteria'] = $acceptanceCriteria;
+
+        return $base;
     }
 
     private function loadReceipt(ReceiptStorage $storage, string $runId): VerificationReceipt

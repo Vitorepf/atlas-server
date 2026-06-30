@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Support\Elevations;
 
 use PHPUnit\Framework\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Probe\E1HardGateTest;
+use Tests\Unit\Ai\Programming\AtlasDev\Probe\E2HardGateTest;
 
 /**
  * VAL-M2-028: Rollout guard — each elevation's trip condition must be verified
@@ -72,6 +73,23 @@ final class ElevationRolloutGuardTest extends TestCase
         'e1' => [
             'trip' => [E1HardGateTest::class, 'test_e1_hard_trip_produces_failed_on_intent_missing_diff'],
             'clear' => [E1HardGateTest::class, 'test_e1_hard_does_not_false_fail_on_genuine_intent_diff'],
+        ],
+
+        // m2-e2-hard: E2 (intent coverage / behavioral-AC probe) promoted
+        // advisory -> hard. Pre-M2 only the isAdvisory() branch was wired
+        // (flag -> needs_review); M2 adds the isHard() branch that rebuilds
+        // the gate result to STATUS_FAILED (mirroring E1's hard rebuild).
+        // The trip condition (an intent NOT backed by any behavioral AC with
+        // a real verification_ref on a green gate forces STATUS_FAILED ->
+        // `failed`, flag retained) and the does-not-false-fail condition (a
+        // behavioral AC with a real verification_ref backs the intent -> no
+        // trip) are proven on a fixture pair in E2HardGateTest, which drives
+        // a real PipelineRunExecutor with e2.mode=hard. Registered BEFORE the
+        // config default flipped to hard, per the VAL-M2-028 rollout
+        // discipline.
+        'e2' => [
+            'trip' => [E2HardGateTest::class, 'test_e2_hard_trip_produces_failed_when_intent_not_backed_by_behavioral_ac'],
+            'clear' => [E2HardGateTest::class, 'test_e2_hard_does_not_false_fail_when_behavioral_ac_backs_intent'],
         ],
     ];
 

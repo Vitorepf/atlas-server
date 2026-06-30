@@ -430,20 +430,31 @@ final class PipelineRunExecutor implements RunExecutor
             $diffResult->toCanonicalArray(),
         );
 
-        // E2: Intent coverage probe — advisory honesty flag intent_not_tested.
+        // E2: Intent coverage probe — behavioral-AC backing check.
         //
         // When a write task's intent is NOT backed by any behavioral AC
         // carrying a real verification_ref (only tautological command/scope
-        // ACs, or no behavioral AC at all), append the `intent_not_tested`
-        // honesty flag so the CompletionStateGate auto-downgrades PASSED ->
+        // ACs, or no behavioral AC at all), the `intent_not_tested` honesty
+        // flag fires so the CompletionStateGate auto-downgrades PASSED ->
         // needs_review (the passed-forbids-flags invariant guarantees no
-        // green-with-flag). This is the advisory channel: no STATUS_FAILED,
-        // no critic escalate; the flag alone drives the downgrade.
+        // green-with-flag). In hard mode the gate is rebuilt to STATUS_FAILED
+        // (completion `failed`, NOT the advisory `needs_review`) while
+        // preserving the flag for auditability.
         //
         // VAL-E2-009: fires when only tautological ACs back the intent.
         // VAL-E2-010: absent when a behavioral AC with a real verification_ref
         // backs the intent (the intent IS tested).
         // VAL-E2-013: off => no flag raised (byte-identical to pre-E2).
+        // VAL-M2-006: hard trip => STATUS_FAILED (the NEW hard branch, absent
+        //             pre-M2 which wired only isAdvisory). The flag is retained.
+        // VAL-M2-007: hard does NOT false-fail when a behavioral AC with a
+        //             real verification_ref backs the intent (probe clears).
+        //
+        // Channels (no third way):
+        //   - off      => no surfacing at all (byte-identical to pre-E2).
+        //   - advisory => honesty flag only (drives the downgrade, never
+        //                 STATUS_FAILED for the flag alone).
+        //   - hard     => STATUS_FAILED gate (sanctioned hard channel).
         //
         // The probe reads the persisted MiniProgrammingSpec (the source of
         // acceptanceCriteria) from storage. When the spec is unreadable, a
@@ -453,14 +464,36 @@ final class PipelineRunExecutor implements RunExecutor
         //
         // This runs for EVERY provider (not just hermes_cli): the intent
         // coverage check is a property of the SPEC, not the provider, and
-        // the honesty-flag channel is provider-agnostic by design.
+        // the honesty-flag / STATUS_FAILED channels are provider-agnostic by
+        // design.
         $e2Config = $this->resolveE2Config();
-        if ($e2Config->isAdvisory()) {
+        if (! $e2Config->isOff()) {
             $intentNotTested = $this->probeIntentCoverage($runId, $taskContract);
             if ($intentNotTested) {
-                $verificationResult = $verificationResult->withHonestyFlags([
-                    IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
-                ]);
+                if ($e2Config->isHard()) {
+                    // Hard mode => sanctioned hard gate channel (STATUS_FAILED).
+                    // The verification gate becomes red so completion resolves
+                    // to failed/blocked (never silently passed). Rebuild the
+                    // gate result preserving the gathered tests/gates while
+                    // forcing the aggregate to STATUS_FAILED and recording
+                    // the flag for auditability (mirrors E1's hard rebuild).
+                    $verificationResult = new VerificationGateResult(
+                        tests: $verificationResult->tests,
+                        gates: $verificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $verificationResult->withHonestyFlags([
+                            IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
+                        ])->honestyFlags,
+                        evidenceRefs: $verificationResult->evidenceRefs,
+                        profile: $verificationResult->profile,
+                    );
+                } else {
+                    // Advisory => honesty flag only (drives the
+                    // CompletionStateGate PASSED -> needs_review downgrade).
+                    $verificationResult = $verificationResult->withHonestyFlags([
+                        IntentCoverageProbe::FLAG_INTENT_NOT_TESTED,
+                    ]);
+                }
             }
         }
 
