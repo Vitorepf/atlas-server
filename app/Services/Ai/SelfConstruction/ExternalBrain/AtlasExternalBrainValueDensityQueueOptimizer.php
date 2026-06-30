@@ -87,6 +87,8 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         $capacity = max(1, (int) ($input['capacity'] ?? 1));
         $workerFloor = max(0, (int) ($input['worker_floor'] ?? 0));
         $starvationImminent = $claimableCount < $workerFloor;
+        $activeWorkerCount = max(0, (int) ($input['active_worker_count'] ?? 0));
+        $minimumWorkerFeedCount = max(0, (int) ($input['minimum_worker_feed_count'] ?? $activeWorkerCount));
 
         $queuePressure = round($claimableCount / $capacity, 4);
         $cutoff = $starvationImminent
@@ -134,6 +136,22 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         }
 
         usort($ranked, static fn (array $a, array $b): int => $b['value_density'] <=> $a['value_density']);
+
+        // Reserve a minimum worker-feed buffer: a handful of high-value tasks must never starve
+        // active muscles. The top-density candidates (up to minimum_worker_feed_count) are
+        // guaranteed enqueue when workers are active, regardless of cutoff — value density still
+        // governs WHICH tasks fill the buffer, it just can't defer ALL of them away.
+        if ($activeWorkerCount > 0 && $minimumWorkerFeedCount > 0) {
+            foreach ($ranked as $i => $candidate) {
+                if ($i >= $minimumWorkerFeedCount) {
+                    break;
+                }
+                if ($candidate['decision'] === self::DECISION_DEFER) {
+                    $ranked[$i]['decision'] = self::DECISION_ENQUEUE;
+                    $ranked[$i]['decision_reason'] = 'worker_feed_buffer_reserved';
+                }
+            }
+        }
 
         return [
             'schema' => self::SCHEMA,
