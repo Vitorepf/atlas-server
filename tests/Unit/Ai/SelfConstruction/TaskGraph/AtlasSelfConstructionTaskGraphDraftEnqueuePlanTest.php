@@ -34,6 +34,8 @@ class AtlasSelfConstructionTaskGraphDraftEnqueuePlanTest extends TestCase
             'requires_operator' => false,
             'requires_human' => false,
             'requires_external_provider' => false,
+            'expected_delta' => 'fills organ '.$id.' with real implementation',
+            'anti_proxy' => 'test suite verifies behavior change, not metric or formatting shift',
         ];
     }
 
