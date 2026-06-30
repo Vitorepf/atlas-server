@@ -84,4 +84,19 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
 
         $this->assertNotSame($a['envelope_hash'], $b['envelope_hash']);
     }
+
+    public function test_envelope_hash_is_independent_of_associative_key_order(): void
+    {
+        $svc = new AtlasSelfConstructionWorkerScopedExecutionEnvelope;
+        $a = $svc->compose($this->input([
+            'rollback_plan' => ['mode' => 'revert_commit', 'timeout' => 60],
+            'worker_capability' => ['capabilities' => ['php'], 'worker_id' => 'w-alpha'],
+        ]));
+        $b = $svc->compose($this->input([
+            'rollback_plan' => ['timeout' => 60, 'mode' => 'revert_commit'],
+            'worker_capability' => ['worker_id' => 'w-alpha', 'capabilities' => ['php']],
+        ]));
+
+        $this->assertSame($a['envelope_hash'], $b['envelope_hash'], 'hash must be independent of associative key order');
+    }
 }
