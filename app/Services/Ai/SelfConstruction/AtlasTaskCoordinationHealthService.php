@@ -112,6 +112,15 @@ final class AtlasTaskCoordinationHealthService
             default => 'sufficient_depth',
         };
 
+        // DRAIN TELEMETRY CONFIDENCE — serve_total is the DIRECT signal. When it's silent
+        // (zero) but the queue's own status transitions (completed_dry_run, released — work
+        // actually moved) show progress, report that as an ESTIMATED fallback instead of an
+        // opaque zero-serve state that looks identical to "nothing is happening".
+        $serveTotal = (int) ($serving['serve_total'] ?? 0);
+        $queueTransitionCount = $distribution['completed_dry_run'] + $distribution['released'];
+        $drainTelemetryConfidence = $serveTotal > 0 ? 'direct' : ($queueTransitionCount > 0 ? 'estimated' : 'unavailable');
+        $drainFallbackSource = $drainTelemetryConfidence === 'estimated' ? 'queue_transitions' : null;
+
         return [
             'schema' => self::SCHEMA,
             'healthy' => $healthy,
@@ -145,6 +154,8 @@ final class AtlasTaskCoordinationHealthService
                 'claimable_per_active_worker' => $claimablePerWorker,
                 'queue_pressure' => $queuePressure,
                 'replenish_recommendation' => $replenishRecommendation,
+                'drain_telemetry_confidence' => $drainTelemetryConfidence,
+                'fallback_source' => $drainFallbackSource,
             ],
         ];
     }
