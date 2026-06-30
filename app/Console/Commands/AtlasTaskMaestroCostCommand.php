@@ -88,12 +88,14 @@ final class AtlasTaskMaestroCostCommand extends Command
     {
         $aggregator = new AtlasMaestroCostAggregator($this->costLedger());
         $by = (string) $this->option('by');
+        if (! in_array($by, ['task_class', 'provider', 'cycle'], true)) {
+            throw new \InvalidArgumentException('unknown_by:'.$by);
+        }
         $cycle = $this->option('cycle') !== null && (string) $this->option('cycle') !== '' ? (string) $this->option('cycle') : null;
         $rows = match ($by) {
             'task_class' => $aggregator->aggregateByTaskClass($cycle),
             'provider' => $aggregator->aggregateByProvider($cycle),
             'cycle' => $aggregator->aggregateByCycle($cycle),
-            default => $aggregator->aggregateByTaskClass($cycle),
         };
 
         return ['by' => $by, 'rows' => $this->canonicalRows((array) $rows)];

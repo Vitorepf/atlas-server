@@ -126,6 +126,15 @@ final class AtlasTaskMaestroCostCommandTest extends TestCase
         $this->assertSame($a['out'], $b['out']);
     }
 
+    public function test_aggregate_with_invalid_by_returns_error_not_mislabeled_result(): void
+    {
+        $r = $this->runCli('aggregate', ['--by' => 'bogus_axis']);
+        $p = json_decode($r['out'], true);
+        $this->assertSame(1, $r['exit']);
+        $this->assertSame('error', $p['status']);
+        $this->assertStringContainsString('unknown_by', $p['payload']['error']);
+    }
+
     public function test_command_source_has_no_write_tokens(): void
     {
         $src = (string) file_get_contents(base_path('app/Console/Commands/AtlasTaskMaestroCostCommand.php'));
