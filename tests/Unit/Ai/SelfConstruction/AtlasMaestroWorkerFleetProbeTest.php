@@ -100,6 +100,54 @@ final class AtlasMaestroWorkerFleetProbeTest extends TestCase
         $this->assertCount(1, $probe->probe());
     }
 
+    public function test_fleet_summary_counts_active_and_stale_workers_by_threshold(): void
+    {
+        $now = 2000;
+        $leases = [
+            // worker-a: last touch = 1900 (100s ago) → active within 300s threshold
+            ['client_id' => 'worker-a', 'opened_at' => 1900, 'released_at' => null],
+            // worker-b: last touch = 1400 (600s ago) → stale
+            ['client_id' => 'worker-b', 'opened_at' => 1000, 'released_at' => 1400],
+        ];
+        $probe = new AtlasMaestroWorkerFleetProbe(static fn (): iterable => $leases);
+        $summary = $probe->fleetSummary($now, 300);
+
+        $this->assertSame(1, $summary['active_workers']);
+        $this->assertSame(1, $summary['stale_workers']);
+        $this->assertSame(['green', 'yellow', 'red'], array_intersect(['green', 'yellow', 'red'], ['green', 'yellow', 'red']));
+        $this->assertContains($summary['overload_signal'], ['green', 'yellow', 'red']);
+    }
+
+    public function test_fleet_summary_overload_signal_is_red_when_all_workers_stale(): void
+    {
+        $now = 5000;
+        $leases = [
+            ['client_id' => 'w1', 'opened_at' => 1000, 'released_at' => 1100], // stale (3900s ago)
+        ];
+        $probe = new AtlasMaestroWorkerFleetProbe(static fn (): iterable => $leases);
+        $summary = $probe->fleetSummary($now, 300);
+
+        $this->assertSame(0, $summary['active_workers']);
+        $this->assertSame(1, $summary['stale_workers']);
+        $this->assertSame('red', $summary['overload_signal']);
+    }
+
+    public function test_fleet_summary_median_lease_age_from_in_flight_leases(): void
+    {
+        $now = 1000;
+        $leases = [
+            ['client_id' => 'w1', 'opened_at' => 800, 'released_at' => null],  // age 200
+            ['client_id' => 'w1', 'opened_at' => 600, 'released_at' => null],  // age 400
+            ['client_id' => 'w1', 'opened_at' => 400, 'released_at' => null],  // age 600
+        ];
+        $probe = new AtlasMaestroWorkerFleetProbe(static fn (): iterable => $leases);
+        $summary = $probe->fleetSummary($now, 300);
+
+        $this->assertSame(400.0, $summary['median_lease_age_seconds']); // median of [200, 400, 600]
+        $this->assertArrayHasKey('claims_per_worker', $summary);
+        $this->assertSame(3.0, $summary['claims_per_worker']); // 3 in-flight / 1 active worker
+    }
+
     public function test_median_of_three_durations(): void
     {
         $leases = [

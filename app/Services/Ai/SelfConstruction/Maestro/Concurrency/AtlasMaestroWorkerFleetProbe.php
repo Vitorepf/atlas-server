@@ -36,6 +36,70 @@ final class AtlasMaestroWorkerFleetProbe
     }
 
     /**
+     * Fleet-level summary: active/stale worker counts, median in-flight lease age, claims-per-worker,
+     * and a categorical overload_signal. Pure read — never mutates leases or queues.
+     *
+     * @return array{active_workers:int, stale_workers:int, median_lease_age_seconds:float, claims_per_worker:float, overload_signal:string}
+     */
+    public function fleetSummary(int $now, int $staleThresholdSeconds = 300): array
+    {
+        $staleThresholdSeconds = max(1, $staleThresholdSeconds);
+        $activeThreshold = $now - $staleThresholdSeconds;
+
+        $lastSeenByWorker = [];
+        $inFlightByWorker = [];
+        $inFlightAges = [];
+
+        try {
+            foreach (($this->leaseSource)() as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $clientId = (string) ($row['client_id'] ?? '');
+                if ($clientId === '') {
+                    continue;
+                }
+                $opened = (int) ($row['opened_at'] ?? 0);
+                $released = array_key_exists('released_at', $row) && $row['released_at'] !== null
+                    ? (int) $row['released_at']
+                    : null;
+
+                $touchedAt = max($opened, $released ?? 0);
+                $lastSeenByWorker[$clientId] = max($lastSeenByWorker[$clientId] ?? 0, $touchedAt);
+
+                if ($released === null) {
+                    $inFlightByWorker[$clientId] = ($inFlightByWorker[$clientId] ?? 0) + 1;
+                    $inFlightAges[] = max(0, $now - $opened);
+                }
+            }
+        } catch (Throwable) {
+        }
+
+        $activeWorkers = 0;
+        $staleWorkers = 0;
+        $totalInFlight = 0;
+
+        foreach ($lastSeenByWorker as $clientId => $lastSeen) {
+            if ($lastSeen >= $activeThreshold) {
+                $activeWorkers++;
+            } else {
+                $staleWorkers++;
+            }
+            $totalInFlight += $inFlightByWorker[$clientId] ?? 0;
+        }
+
+        $claimsPerWorker = $activeWorkers > 0 ? round($totalInFlight / $activeWorkers, 4) : 0.0;
+
+        return [
+            'active_workers' => $activeWorkers,
+            'stale_workers' => $staleWorkers,
+            'median_lease_age_seconds' => $this->median($inFlightAges),
+            'claims_per_worker' => $claimsPerWorker,
+            'overload_signal' => $this->overloadSignal($claimsPerWorker, $staleWorkers, $activeWorkers),
+        ];
+    }
+
+    /**
      * @return list<array{client_id:string, last_seen_at:int, in_flight_count:int, lifetime_throughput:int, median_lease_duration_seconds:float}>
      */
     public function probe(): array
@@ -84,6 +148,21 @@ final class AtlasMaestroWorkerFleetProbe
         usort($out, static fn (array $x, array $y): int => $x['client_id'] <=> $y['client_id']);
 
         return $out;
+    }
+
+    private function overloadSignal(float $claimsPerWorker, int $staleWorkers, int $activeWorkers): string
+    {
+        if ($activeWorkers === 0 && $staleWorkers > 0) {
+            return 'red';
+        }
+        if ($claimsPerWorker >= 3.0) {
+            return 'red';
+        }
+        if ($claimsPerWorker >= 1.5 || $staleWorkers > 0) {
+            return 'yellow';
+        }
+
+        return 'green';
     }
 
     /**
