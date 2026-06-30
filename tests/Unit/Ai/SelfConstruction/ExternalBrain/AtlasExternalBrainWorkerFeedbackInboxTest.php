@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerFeedbackInbox;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
 {
@@ -21,6 +21,9 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
             'outcome_type' => $outcome,
             'note'         => 'All tests pass, implementation complete.',
             'evidence'     => 'vendor/bin/phpunit tests/Unit/Foo/BarTest.php GREEN',
+            'task_family'  => 'external_brain',
+            'worker_id'    => 'claude-muscle-3',
+            'model_tier'   => 'small',
         ], $overrides);
     }
 
@@ -38,7 +41,7 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
         $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::SCHEMA, $result['schema']);
     }
 
-    // ── success with evidence ─────────────────────────────────────────────────
+    // ── success with runnable evidence ────────────────────────────────────────
 
     public function test_success_with_evidence_is_verified_high_confidence(): void
     {
@@ -62,7 +65,7 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
         $this->assertFalse($result['requires_action']);
     }
 
-    // ── success with too-terse note ───────────────────────────────────────────
+    // ── AC2: shallow-success marked needs_review ──────────────────────────────
 
     public function test_success_with_terse_note_needs_review_even_with_evidence(): void
     {
@@ -70,6 +73,16 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
 
         $this->assertTrue($result['needs_review']);
         $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::CONFIDENCE_MEDIUM, $result['confidence']);
+    }
+
+    public function test_success_with_non_runnable_evidence_is_shallow_and_needs_review(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', [
+            'evidence' => 'I ran the tests and they passed',
+        ]));
+
+        $this->assertTrue($result['needs_review']);
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::EVIDENCE_UNVERIFIED, $result['evidence_status']);
     }
 
     // ── give_back ─────────────────────────────────────────────────────────────
@@ -158,6 +171,157 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
         $this->assertSame('task-xyz-42', $result['task_id']);
     }
 
+    // ── AC1: new pass-through routing fields ──────────────────────────────────
+
+    public function test_task_family_worker_id_model_tier_passed_through(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', [
+            'task_family' => 'gate_repair',
+            'worker_id'   => 'codex-worker-7',
+            'model_tier'  => 'frontier',
+        ]));
+
+        $this->assertSame('gate_repair',    $result['task_family']);
+        $this->assertSame('codex-worker-7', $result['worker_id']);
+        $this->assertSame('frontier',       $result['model_tier']);
+    }
+
+    public function test_output_has_evidence_strength_field(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+        $this->assertArrayHasKey('evidence_strength', $result);
+    }
+
+    public function test_output_has_root_cause_hint_field(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+        $this->assertArrayHasKey('root_cause_hint', $result);
+    }
+
+    public function test_output_has_routing_signal_field(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+        $this->assertArrayHasKey('routing_signal', $result);
+    }
+
+    // ── AC1: evidence_strength values ─────────────────────────────────────────
+
+    public function test_strong_evidence_when_runnable_and_non_terse(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::STRENGTH_STRONG, $result['evidence_strength']);
+    }
+
+    public function test_weak_evidence_when_runnable_but_terse_note(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', ['note' => 'ok']));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::STRENGTH_WEAK, $result['evidence_strength']);
+    }
+
+    public function test_none_evidence_when_no_evidence_provided(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', ['evidence' => '']));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::STRENGTH_NONE, $result['evidence_strength']);
+    }
+
+    public function test_weak_evidence_when_non_runnable_string(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', [
+            'evidence' => 'I checked and it looked fine',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::STRENGTH_WEAK, $result['evidence_strength']);
+    }
+
+    // ── AC1: root_cause_hint ──────────────────────────────────────────────────
+
+    public function test_root_cause_hint_null_for_verified_success(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+
+        $this->assertNull($result['root_cause_hint']);
+    }
+
+    public function test_root_cause_hint_shallow_for_unverified_success(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', ['evidence' => '']));
+
+        $this->assertSame('shallow_success_no_runnable_evidence', $result['root_cause_hint']);
+    }
+
+    public function test_root_cause_hint_scope_too_wide_for_scope_give_back(): void
+    {
+        $result = $this->inbox()->normalize($this->note('give_back', [
+            'note' => 'Scope is too wide, cannot fit in allowed_files.',
+        ]));
+
+        $this->assertSame('scope_too_wide', $result['root_cause_hint']);
+    }
+
+    public function test_root_cause_hint_dependency_missing_for_blocked(): void
+    {
+        $result = $this->inbox()->normalize($this->note('blocked', [
+            'note' => 'Required dependency is missing from composer.',
+        ]));
+
+        $this->assertSame('dependency_missing', $result['root_cause_hint']);
+    }
+
+    public function test_root_cause_hint_unclear_outcome_for_ambiguous(): void
+    {
+        $result = $this->inbox()->normalize($this->note('ambiguous', [
+            'note' => 'Not sure what happened with the tests here.',
+        ]));
+
+        $this->assertSame('unclear_outcome', $result['root_cause_hint']);
+    }
+
+    // ── AC1: routing_signal ───────────────────────────────────────────────────
+
+    public function test_routing_signal_compounding_for_verified_success(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success'));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_COMPOUNDING, $result['routing_signal']);
+    }
+
+    public function test_routing_signal_review_queue_for_shallow_success(): void
+    {
+        $result = $this->inbox()->normalize($this->note('success', ['evidence' => '']));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_REVIEW_QUEUE, $result['routing_signal']);
+    }
+
+    public function test_routing_signal_give_back_repair_for_give_back(): void
+    {
+        $result = $this->inbox()->normalize($this->note('give_back', [
+            'note' => 'Scope is too wide to complete.',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_GIVE_BACK_REPAIR, $result['routing_signal']);
+    }
+
+    public function test_routing_signal_blocker_resolution_for_blocked(): void
+    {
+        $result = $this->inbox()->normalize($this->note('blocked', [
+            'note' => 'CI environment is not available.',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_BLOCKER_RESOLUTION, $result['routing_signal']);
+    }
+
+    public function test_routing_signal_triage_for_ambiguous(): void
+    {
+        $result = $this->inbox()->normalize($this->note('ambiguous', [
+            'note' => 'Not sure what outcome to report here.',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_TRIAGE, $result['routing_signal']);
+    }
+
     // ── ingest batch ─────────────────────────────────────────────────────────
 
     public function test_ingest_empty_batch(): void
@@ -174,7 +338,7 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
         $result = $this->inbox()->ingest([
             $this->note('success'),                          // verified → no needs_review, no action
             $this->note('success', ['evidence' => '']),      // unverified → needs_review
-            $this->note('give_back', ['note' => 'Scope too wide, cannot fit in allowed_files.']),  // → requires_action
+            $this->note('give_back', ['note' => 'Scope too wide, cannot fit in allowed_files.']),
             $this->note('ambiguous'),                        // → needs_review
         ]);
 
