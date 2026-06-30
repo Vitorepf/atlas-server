@@ -111,6 +111,23 @@ final class AgentControlPlaneCompletionEvidenceValidator
             $blockers[] = 'commands_run_missing';
             $missingFields[] = 'commands_run';
         }
+        $requiredCommands = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($expectedBinding['required_commands'] ?? []));
+        $missingRequiredCommands = $requiredCommands !== []
+            ? array_values(array_diff($requiredCommands, $commandsRun))
+            : [];
+        if ($missingRequiredCommands !== []) {
+            $blockers[] = 'required_command_not_run';
+        }
+        $requiredEvidenceLabels = AtlasLoopRefillerPayloadNormalizer::stringList((array) ($expectedBinding['required_evidence'] ?? []));
+        $missingRequiredEvidence = [];
+        foreach ($requiredEvidenceLabels as $label) {
+            if (trim((string) ($evidence[$label] ?? '')) === '') {
+                $missingRequiredEvidence[] = $label;
+            }
+        }
+        if ($missingRequiredEvidence !== []) {
+            $blockers[] = 'required_evidence_missing';
+        }
         $gitStatusShort = trim((string) ($evidence['git_status_short'] ?? ''));
         if ($gitStatusShort === '') {
             $blockers[] = 'git_status_short_missing';
@@ -140,6 +157,8 @@ final class AgentControlPlaneCompletionEvidenceValidator
             && $allowedFiles !== []
             && $filesChangedOutsideAllowedScope === []
             && $commandsRun !== []
+            && $missingRequiredCommands === []
+            && $missingRequiredEvidence === []
             && $gitStatusShort !== ''
             && in_array($diffCheckResult, ['clean', 'passed', 'pass', 'ok'], true);
 
@@ -180,6 +199,10 @@ final class AgentControlPlaneCompletionEvidenceValidator
             'files_changed_within_allowed_scope' => $filesChanged !== [] && $allowedFiles !== [] && $filesChangedOutsideAllowedScope === [],
             'files_changed_outside_allowed_scope' => $filesChangedOutsideAllowedScope,
             'commands_run_count' => count($commandsRun),
+            'required_commands' => $requiredCommands,
+            'missing_required_commands' => $missingRequiredCommands,
+            'required_evidence_labels' => $requiredEvidenceLabels,
+            'missing_required_evidence_labels' => $missingRequiredEvidence,
             'tests_or_gates_result' => $testsOrGates,
             'tests_or_gates_passing' => in_array($testsOrGates, ['pass', 'passed', 'green'], true),
             'git_status_short_present' => $gitStatusShort !== '',

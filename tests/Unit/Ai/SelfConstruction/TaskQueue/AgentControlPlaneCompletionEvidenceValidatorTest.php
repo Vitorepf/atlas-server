@@ -244,4 +244,83 @@ class AgentControlPlaneCompletionEvidenceValidatorTest extends TestCase
 
         self::assertSame(['c', 'a', 'b'], $normalized);
     }
+
+    public function test_required_command_not_run_blocks_validation(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['git status'],
+            'tests_or_gates_result' => 'pass',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+            'required_commands' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertContains('required_command_not_run', $result['blockers']);
+        self::assertSame(['vendor/bin/phpunit tests/Unit/FooTest.php'], $result['missing_required_commands']);
+        self::assertFalse($result['structured_completion_evidence_valid']);
+    }
+
+    public function test_required_evidence_missing_blocks_validation(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
+            'tests_or_gates_result' => 'pass',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+            // implementation_notes intentionally absent
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('blocked', $result['status']);
+        self::assertContains('required_evidence_missing', $result['blockers']);
+        self::assertSame(['implementation_notes'], $result['missing_required_evidence_labels']);
+        self::assertFalse($result['structured_completion_evidence_valid']);
+    }
+
+    public function test_complete_evidence_with_required_binding_passes(): void
+    {
+        $evidence = [
+            'packet_id' => 'tp1', 'lease_id' => 'l1',
+            'files_changed' => ['app/Foo.php'],
+            'commands_run' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
+            'tests_or_gates_result' => 'pass',
+            'implementation_notes' => 'Implemented Foo via bar contract.',
+            'git_status_short' => 'clean',
+            'git_diff_check_result' => 'clean',
+        ];
+        $evidence['evidence_hash'] = AgentControlPlaneCompletionEvidenceValidator::canonicalCompletionEvidenceHash($evidence);
+        $binding = [
+            'task_packet_id' => 'tp1', 'lease_id' => 'l1',
+            'allowed_files' => ['app/Foo.php'],
+            'required_commands' => ['vendor/bin/phpunit tests/Unit/FooTest.php'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+        ];
+
+        $result = AgentControlPlaneCompletionEvidenceValidator::validateCompletionEvidence($evidence, $binding);
+
+        self::assertSame('valid', $result['status']);
+        self::assertSame([], $result['blockers']);
+        self::assertSame([], $result['missing_required_commands']);
+        self::assertSame([], $result['missing_required_evidence_labels']);
+        self::assertTrue($result['structured_completion_evidence_valid']);
+    }
 }
