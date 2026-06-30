@@ -385,4 +385,75 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartExternalProcessRuntim
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── evaluateRuntimeTrust() ───────────────────────────────────────────────
+
+    private function trustFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'observability' => ['live' => true],
+            'command_proof' => [
+                'scoped_to_authorized_command' => true,
+                'command_hash' => 'cmd-hash-1',
+                'authorized_command_hash' => 'cmd-hash-1',
+            ],
+            'failure_classification' => ['class' => 'none'],
+        ], $overrides);
+    }
+
+    public function test_runtime_trusted_when_live_scoped_and_classified(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartExternalProcessRuntimeGate::class);
+        $result = $gate->evaluateRuntimeTrust($this->trustFacts());
+
+        $this->assertTrue($result['runtime_trusted']);
+        $this->assertNull($result['block_reason']);
+        $this->assertNull($result['observability_gap']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_blocks_unobserved_runtime(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartExternalProcessRuntimeGate::class);
+        $result = $gate->evaluateRuntimeTrust($this->trustFacts(['observability' => ['live' => false]]));
+
+        $this->assertFalse($result['runtime_trusted']);
+        $this->assertSame('unobserved_runtime', $result['block_reason']);
+        $this->assertSame('runtime_not_observed_live', $result['observability_gap']);
+    }
+
+    public function test_blocks_unscoped_command(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartExternalProcessRuntimeGate::class);
+        $result = $gate->evaluateRuntimeTrust($this->trustFacts([
+            'command_proof' => [
+                'scoped_to_authorized_command' => true,
+                'command_hash' => 'cmd-hash-1',
+                'authorized_command_hash' => 'cmd-hash-DIFFERENT',
+            ],
+        ]));
+
+        $this->assertFalse($result['runtime_trusted']);
+        $this->assertSame('unscoped_command', $result['block_reason']);
+    }
+
+    public function test_blocks_missing_failure_classification(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartExternalProcessRuntimeGate::class);
+        $result = $gate->evaluateRuntimeTrust($this->trustFacts(['failure_classification' => null]));
+
+        $this->assertFalse($result['runtime_trusted']);
+        $this->assertSame('missing_failure_classification', $result['block_reason']);
+    }
+
+    public function test_unobserved_takes_priority_over_other_blockers(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartExternalProcessRuntimeGate::class);
+        $result = $gate->evaluateRuntimeTrust($this->trustFacts([
+            'observability' => ['live' => false],
+            'failure_classification' => null,
+        ]));
+
+        $this->assertSame('unobserved_runtime', $result['block_reason']);
+    }
 }

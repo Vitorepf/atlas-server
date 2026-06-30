@@ -15,6 +15,53 @@ class AgentCodexRealInvokerPostStartExternalProcessRuntimeGate
     ) {}
 
     /**
+     * Pure, provider-free decision on whether a post-start external process
+     * runtime is trustworthy: requires live observability (not a stale or
+     * self-reported snapshot), a scoped command proof tying the running
+     * process to its authorized command, and a failure-class report slot
+     * (even when the process is currently healthy). Never starts or
+     * observes a process itself; only judges supplied runtime facts.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function evaluateRuntimeTrust(array $facts): array
+    {
+        $observability = (array) ($facts['observability'] ?? []);
+        $isLive = (bool) ($observability['live'] ?? false);
+
+        $commandProof = (array) ($facts['command_proof'] ?? []);
+        $commandScoped = (bool) ($commandProof['scoped_to_authorized_command'] ?? false);
+        $commandHash = (string) ($commandProof['command_hash'] ?? '');
+        $authorizedCommandHash = (string) ($commandProof['authorized_command_hash'] ?? '');
+
+        $failureClassification = $facts['failure_classification'] ?? null;
+        $failureClassificationPresent = is_array($failureClassification)
+            && array_key_exists('class', $failureClassification);
+
+        $observabilityGap = ! $isLive ? 'runtime_not_observed_live' : null;
+
+        $blockReason = null;
+        if (! $isLive) {
+            $blockReason = 'unobserved_runtime';
+        } elseif (! $commandScoped || $commandHash === '' || $commandHash !== $authorizedCommandHash) {
+            $blockReason = 'unscoped_command';
+        } elseif (! $failureClassificationPresent) {
+            $blockReason = 'missing_failure_classification';
+        }
+
+        return [
+            'runtime_trusted' => $blockReason === null,
+            'block_reason' => $blockReason,
+            'observability_gap' => $observabilityGap,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
