@@ -210,4 +210,172 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainModelCapabilityAmplifier::SCHEMA, $r['schema_version']);
     }
+
+    // ── heldout_lift_proof ───────────────────────────────────────────────────────
+
+    public function test_output_has_heldout_lift_proof_with_required_fields(): void
+    {
+        $r = $this->svc()->amplify([]);
+
+        $this->assertArrayHasKey('heldout_lift_proof', $r);
+        foreach (['baseline_pass_rate', 'scaffolded_pass_rate', 'lift_delta', 'cost_delta', 'confidence', 'proof_status'] as $key) {
+            $this->assertArrayHasKey($key, $r['heldout_lift_proof'], "heldout_lift_proof missing key: {$key}");
+        }
+    }
+
+    public function test_heldout_lift_proof_computes_positive_lift_delta(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_pass_rate'   => 0.4,
+            'scaffolded_pass_rate' => 0.8,
+            'heldout_sample_size'  => 20,
+        ]);
+
+        $this->assertEqualsWithDelta(0.4, $r['heldout_lift_proof']['lift_delta'], 0.0001);
+        $this->assertSame('proven_positive_lift', $r['heldout_lift_proof']['proof_status']);
+    }
+
+    public function test_heldout_lift_proof_negative_lift(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_pass_rate'   => 0.8,
+            'scaffolded_pass_rate' => 0.4,
+            'heldout_sample_size'  => 20,
+        ]);
+
+        $this->assertLessThan(0.0, $r['heldout_lift_proof']['lift_delta']);
+        $this->assertSame('negative_lift', $r['heldout_lift_proof']['proof_status']);
+    }
+
+    public function test_heldout_lift_proof_insufficient_sample(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_pass_rate'   => 0.4,
+            'scaffolded_pass_rate' => 0.9,
+            'heldout_sample_size'  => 1,
+        ]);
+
+        $this->assertSame('insufficient_sample', $r['heldout_lift_proof']['proof_status']);
+    }
+
+    public function test_heldout_lift_proof_cost_delta_reflects_cost_difference(): void
+    {
+        $r = $this->svc()->amplify([
+            'baseline_cost'   => 100.0,
+            'scaffolded_cost' => 150.0,
+        ]);
+
+        $this->assertEqualsWithDelta(50.0, $r['heldout_lift_proof']['cost_delta'], 0.0001);
+    }
+
+    // ── AC3: autonomous_execution_allowed gated on lift + proxy + confidence ───
+
+    public function test_small_model_autonomous_execution_allowed_when_all_three_conditions_met(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size'            => 'small',
+            'baseline_pass_rate'    => 0.4,
+            'scaffolded_pass_rate'  => 0.9,
+            'heldout_sample_size'   => 20,
+            'proxy_leak_rate'       => 0.0,
+            'confidence'            => 0.9,
+        ]);
+
+        $this->assertTrue($r['autonomous_execution_allowed']);
+    }
+
+    public function test_small_model_autonomous_execution_not_allowed_when_lift_not_positive(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size'            => 'small',
+            'baseline_pass_rate'    => 0.9,
+            'scaffolded_pass_rate'  => 0.9,
+            'heldout_sample_size'   => 20,
+            'proxy_leak_rate'       => 0.0,
+            'confidence'            => 0.9,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+    }
+
+    public function test_small_model_autonomous_execution_not_allowed_when_proxy_leakage_above_ceiling(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size'            => 'small',
+            'baseline_pass_rate'    => 0.4,
+            'scaffolded_pass_rate'  => 0.9,
+            'heldout_sample_size'   => 20,
+            'proxy_leak_rate'       => 0.5,
+            'confidence'            => 0.9,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+    }
+
+    public function test_small_model_autonomous_execution_not_allowed_when_confidence_below_profile_floor(): void
+    {
+        // small profile floor = 0.80
+        $r = $this->svc()->amplify([
+            'model_size'            => 'small',
+            'baseline_pass_rate'    => 0.4,
+            'scaffolded_pass_rate'  => 0.9,
+            'heldout_sample_size'   => 20,
+            'proxy_leak_rate'       => 0.0,
+            'confidence'            => 0.5,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+    }
+
+    public function test_autonomous_execution_not_allowed_when_proxy_leak_detected_boolean(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size'            => 'small',
+            'baseline_pass_rate'    => 0.4,
+            'scaffolded_pass_rate'  => 0.9,
+            'heldout_sample_size'   => 20,
+            'proxy_leak_detected'   => true,
+            'confidence'            => 0.9,
+        ]);
+
+        $this->assertFalse($r['autonomous_execution_allowed']);
+    }
+
+    // ── AC4: frontier is accelerator/escalation only; steady-state is provider-agnostic ──
+
+    public function test_steady_state_output_is_provider_agnostic_for_every_profile(): void
+    {
+        foreach (['frontier', 'mid', 'small'] as $size) {
+            $r = $this->amplify($size);
+            $this->assertSame('none_provider_agnostic', $r['steady_state_provider_requirement']);
+        }
+    }
+
+    public function test_frontier_only_reachable_via_escalation_recommendation_for_small_profile(): void
+    {
+        $r = $this->svc()->amplify([
+            'model_size'          => 'small',
+            'proxy_leak_detected' => true,
+        ]);
+
+        $this->assertTrue($r['escalation_recommendation']['escalate']);
+        $this->assertStringContainsString('frontier_or_human_review', $r['escalation_recommendation']['reason']);
+        // Escalation offers human review as an alternative — never strictly requires frontier.
+        $this->assertStringContainsString('human_review', $r['escalation_recommendation']['reason']);
+    }
+
+    public function test_heldout_lift_proof_is_deterministic(): void
+    {
+        $input = [
+            'model_size'            => 'mid',
+            'baseline_pass_rate'    => 0.4,
+            'scaffolded_pass_rate'  => 0.7,
+            'heldout_sample_size'   => 12,
+        ];
+
+        $a = $this->svc()->amplify($input);
+        $b = $this->svc()->amplify($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }

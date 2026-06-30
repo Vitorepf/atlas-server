@@ -34,6 +34,12 @@ final class AtlasExternalBrainModelCapabilityAmplifier
 {
     public const SCHEMA = 'atlas.external_brain.model_capability_amplifier.v1';
 
+    /** Proxy leakage rate at/above this ceiling blocks autonomous_execution_allowed. */
+    private const PROXY_LEAK_CEILING = 0.10;
+
+    /** A held-out comparison below this sample size cannot prove a lift either way. */
+    private const MIN_HELDOUT_SAMPLE_SIZE = 5;
+
     private const PROFILES = [
         'frontier' => [
             'scaffold_steps'            => ['write_spec', 'run_critique', 'gate_check'],
@@ -137,6 +143,9 @@ final class AtlasExternalBrainModelCapabilityAmplifier
         $confidence         = (float) ($input['confidence'] ?? 1.0);
         $proxyLeakDetected  = (bool) ($input['proxy_leak_detected'] ?? false);
         $architecturalRisk  = (string) ($input['architectural_risk'] ?? 'low');
+        $proxyLeakRate      = isset($input['proxy_leak_rate'])
+            ? (float) $input['proxy_leak_rate']
+            : ($proxyLeakDetected ? 1.0 : 0.0);
 
         $escalation = $this->evaluateEscalation(
             $proxyLeakDetected,
@@ -144,6 +153,16 @@ final class AtlasExternalBrainModelCapabilityAmplifier
             $architecturalRisk,
             $profile['evidence_confidence_floor'],
         );
+
+        $heldoutLiftProof = $this->heldoutLiftProof($input, $confidence);
+
+        // AC3: autonomous execution is allowed ONLY when held-out lift is positive, proxy leakage
+        // is below ceiling, evidence confidence meets the profile floor, and no escalation trigger
+        // fired — never inferred from prompt strictness alone.
+        $autonomousExecutionAllowed = ! $escalation['escalate']
+            && $heldoutLiftProof['lift_delta'] > 0.0
+            && $proxyLeakRate < self::PROXY_LEAK_CEILING
+            && $confidence >= $profile['evidence_confidence_floor'];
 
         return [
             'schema_version'             => self::SCHEMA,
@@ -161,6 +180,47 @@ final class AtlasExternalBrainModelCapabilityAmplifier
             'guardrails'                 => $profile['guardrails'],
             'proof_required'             => $profile['proof_required'],
             'escalation_recommendation'  => $escalation,
+            'heldout_lift_proof'         => $heldoutLiftProof,
+            'autonomous_execution_allowed' => $autonomousExecutionAllowed,
+            // AC4: frontier is reachable ONLY via escalation_recommendation (advisory: frontier OR
+            // human review) — steady-state output never requires a frontier provider to function.
+            'steady_state_provider_requirement' => 'none_provider_agnostic',
+        ];
+    }
+
+    /**
+     * Compares baseline vs scaffolded held-out pass rates so amplification is PROVEN, never
+     * claimed from prompt strictness alone.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{baseline_pass_rate:float, scaffolded_pass_rate:float, lift_delta:float, cost_delta:float, confidence:float, proof_status:string, heldout_sample_size:int}
+     */
+    private function heldoutLiftProof(array $input, float $confidence): array
+    {
+        $baselinePassRate   = max(0.0, min(1.0, (float) ($input['baseline_pass_rate']   ?? 0.0)));
+        $scaffoldedPassRate = max(0.0, min(1.0, (float) ($input['scaffolded_pass_rate'] ?? 0.0)));
+        $baselineCost       = (float) ($input['baseline_cost']   ?? 0.0);
+        $scaffoldedCost     = (float) ($input['scaffolded_cost'] ?? 0.0);
+        $sampleSize         = max(0, (int) ($input['heldout_sample_size'] ?? 0));
+
+        $liftDelta = round($scaffoldedPassRate - $baselinePassRate, 4);
+        $costDelta = round($scaffoldedCost - $baselineCost, 4);
+
+        $proofStatus = match (true) {
+            $sampleSize < self::MIN_HELDOUT_SAMPLE_SIZE => 'insufficient_sample',
+            $liftDelta > 0.0  => 'proven_positive_lift',
+            $liftDelta < 0.0  => 'negative_lift',
+            default           => 'no_lift_detected',
+        };
+
+        return [
+            'baseline_pass_rate'   => round($baselinePassRate, 4),
+            'scaffolded_pass_rate' => round($scaffoldedPassRate, 4),
+            'lift_delta'           => $liftDelta,
+            'cost_delta'           => $costDelta,
+            'confidence'           => round($confidence, 4),
+            'proof_status'         => $proofStatus,
+            'heldout_sample_size'  => $sampleSize,
         ];
     }
 
