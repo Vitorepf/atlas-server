@@ -113,6 +113,70 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoopTest extends TestCa
         $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::TEMPLATE_STUB_CLASS, $verdict['proposals'][0]['template_id']);
     }
 
+    // --- bounded repair contract tests ---
+
+    public function test_proposal_has_next_attempt_with_incremented_retry_count(): void
+    {
+        $plan = array_merge($this->plan(), ['max_retry_count' => 5]);
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'retry_count' => 2],
+        ], $plan);
+
+        $next = $verdict['proposals'][0]['next_attempt'];
+        $this->assertSame(3, $next['retry_count']);
+        $this->assertArrayHasKey('original_payload', $next);
+        $this->assertTrue($next['retryable']);
+    }
+
+    public function test_proposal_next_attempt_preserves_original_payload(): void
+    {
+        $failure = ['failure_kind' => 'import_error', 'target_path' => 'app/Foo.php', 'missing_symbol' => 'App\\X', 'retry_count' => 0];
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([$failure], $this->plan());
+
+        $this->assertSame($failure, $verdict['proposals'][0]['next_attempt']['original_payload']);
+        $this->assertSame(1, $verdict['proposals'][0]['next_attempt']['retry_count']);
+    }
+
+    public function test_exhausted_failure_has_terminal_repair_blocked_and_not_retryable(): void
+    {
+        $plan = array_merge($this->plan(), ['max_retry_count' => 3]);
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'retry_count' => 3],
+        ], $plan);
+
+        $unk = $verdict['unknown_failures'][0];
+        $this->assertTrue($unk['terminal_repair_blocked']);
+        $this->assertFalse($unk['retryable']);
+        $this->assertArrayNotHasKey('asks_for_human', $unk);
+        $this->assertArrayNotHasKey('external_provider', $unk);
+    }
+
+    public function test_unknown_kind_has_terminal_repair_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'cosmic_ray', 'target_path' => 'app/Foo.php'],
+        ], $this->plan());
+
+        $unk = $verdict['unknown_failures'][0];
+        $this->assertTrue($unk['terminal_repair_blocked']);
+        $this->assertFalse($unk['retryable']);
+    }
+
+    public function test_mixed_retryable_and_terminal_preserves_both_deterministically(): void
+    {
+        $plan = array_merge($this->plan(), ['max_retry_count' => 3]);
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'retry_count' => 1],  // retryable
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'retry_count' => 3],  // exhausted → terminal
+        ], $plan);
+
+        $this->assertCount(1, $verdict['proposals']);
+        $this->assertCount(1, $verdict['unknown_failures']);
+        $this->assertTrue($verdict['proposals'][0]['next_attempt']['retryable']);
+        $this->assertTrue($verdict['unknown_failures'][0]['terminal_repair_blocked']);
+        $this->assertSame('partial_or_complete', $verdict['response']);
+    }
+
     public function test_repair_loop_does_not_call_providers_or_edit_files(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionNativeTestFeedbackRepairLoop.php'));

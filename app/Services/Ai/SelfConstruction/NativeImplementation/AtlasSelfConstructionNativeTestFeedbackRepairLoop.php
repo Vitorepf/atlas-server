@@ -62,24 +62,33 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
 
             if ($retryCount >= $maxRetryCount) {
                 $unknown[] = [
-                    'failure_kind' => $kind ?: 'unknown',
-                    'original_payload' => $f,
-                    'reason' => 'retry_budget_exhausted',
+                    'failure_kind'          => $kind ?: 'unknown',
+                    'original_payload'      => $f,
+                    'reason'                => 'retry_budget_exhausted',
+                    'terminal_repair_blocked' => true,
+                    'retryable'             => false,
                 ];
 
                 continue;
             }
 
             if (! isset(self::KIND_TEMPLATE_MAP[$kind])) {
-                $unknown[] = ['failure_kind' => $kind ?: 'unknown', 'original_payload' => $f];
+                $unknown[] = [
+                    'failure_kind'          => $kind ?: 'unknown',
+                    'original_payload'      => $f,
+                    'terminal_repair_blocked' => true,
+                    'retryable'             => false,
+                ];
 
                 continue;
             }
             if ($targetPath === '' || ! in_array($targetPath, $allowed, true)) {
                 $unknown[] = [
-                    'failure_kind' => $kind,
-                    'original_payload' => $f,
-                    'reason' => 'target_path_not_in_allowed_files',
+                    'failure_kind'          => $kind,
+                    'original_payload'      => $f,
+                    'reason'                => 'target_path_not_in_allowed_files',
+                    'terminal_repair_blocked' => true,
+                    'retryable'             => false,
                 ];
 
                 continue;
@@ -87,9 +96,14 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
 
             $proposals[] = [
                 'failure_kind' => $kind,
-                'target_path' => $targetPath,
-                'template_id' => self::KIND_TEMPLATE_MAP[$kind],
-                'hint' => $this->hintFor($kind, $f),
+                'target_path'  => $targetPath,
+                'template_id'  => self::KIND_TEMPLATE_MAP[$kind],
+                'hint'         => $this->hintFor($kind, $f),
+                'next_attempt' => [
+                    'retry_count'      => $retryCount + 1,
+                    'original_payload' => $f,
+                    'retryable'        => true,
+                ],
             ];
         }
 
