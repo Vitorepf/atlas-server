@@ -91,6 +91,62 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'wiring_to_consumer_verified',
             ],
         ],
+        'over_complexity' => [
+            'challenge_cases' => [
+                'Implementation adds abstractions not required by acceptance criteria',
+                'Class has more than 3 responsibilities or > 200 LOC for a simple task',
+            ],
+            'runbook_reminders' => [
+                'Verify each added class / interface is directly required by acceptance criteria',
+                'Delete abstraction layers that survive only for hypothetical future use',
+            ],
+            'preflight_checks' => [
+                'no_speculative_abstractions',
+                'class_count_within_task_scope',
+            ],
+        ],
+        'missed_dedup' => [
+            'challenge_cases' => [
+                'Same logic duplicated across two or more classes within the same PR',
+                'New helper replicates an existing utility already in the codebase',
+            ],
+            'runbook_reminders' => [
+                'Grep for existing utilities before implementing a new helper',
+                'Consolidate duplicated logic into the canonical home before adding new callers',
+            ],
+            'preflight_checks' => [
+                'no_duplicate_logic_in_allowed_files',
+                'existing_utility_search_done',
+            ],
+        ],
+        'no_runnable_evidence' => [
+            'challenge_cases' => [
+                'Acceptance criterion cannot be tested by running the code directly',
+                'Evidence path requires a live external system unavailable in CI',
+            ],
+            'runbook_reminders' => [
+                'Each acceptance criterion must map to a runnable assertion (PHPUnit, artisan, or CLI)',
+                'Replace live-system evidence with a hermetic fixture or in-process stub',
+            ],
+            'preflight_checks' => [
+                'all_acceptance_criteria_have_runnable_evidence_path',
+                'no_external_system_dependency_in_evidence',
+            ],
+        ],
+        'provider_dependency' => [
+            'challenge_cases' => [
+                'Implementation calls an LLM provider directly instead of going through Atlas gateway',
+                'Output includes raw provider prompts, session IDs, or unredacted trace data',
+            ],
+            'runbook_reminders' => [
+                'Route all provider calls through AtlasAiGateway; never call provider SDKs directly',
+                'Redact provider_prompt, provider_session_id, and private_trace before any output',
+            ],
+            'preflight_checks' => [
+                'no_direct_provider_sdk_calls',
+                'output_is_provider_safe',
+            ],
+        ],
     ];
 
     private const GENERIC = [
@@ -161,12 +217,23 @@ final class AtlasExternalBrainBlindSpotCurriculum
             }
         }
 
+        $allChecks = [];
+        foreach ($curriculumItems as $item) {
+            foreach ($item['preflight_checks'] as $check) {
+                $allChecks[$check] = true;
+            }
+        }
+
         return [
-            'schema_version' => self::SCHEMA,
+            'schema_version'       => self::SCHEMA,
             'promoted_blind_spots' => $promotedBlindSpots,
-            'rejected_candidates' => $rejectedCandidates,
-            'curriculum_items' => $curriculumItems,
-            'injection_rules' => $injectionRules,
+            'rejected_candidates'  => $rejectedCandidates,
+            'curriculum_items'     => $curriculumItems,
+            'injection_rules'      => $injectionRules,
+            'preflight_contract'   => [
+                'checks'        => array_values(array_keys($allChecks)),
+                'applied_types' => array_column($promotedBlindSpots, 'type'),
+            ],
         ];
     }
 }

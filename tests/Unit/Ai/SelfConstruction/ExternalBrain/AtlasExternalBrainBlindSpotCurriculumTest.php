@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainBlindSpotCurriculumTest extends TestCase
 {
@@ -153,5 +153,106 @@ final class AtlasExternalBrainBlindSpotCurriculumTest extends TestCase
         $r = $this->svc()->build([]);
 
         $this->assertSame(AtlasExternalBrainBlindSpotCurriculum::SCHEMA, $r['schema_version']);
+    }
+
+    // ── preflight_contract ────────────────────────────────────────────────────
+
+    public function test_output_has_preflight_contract_key(): void
+    {
+        $r = $this->svc()->build([]);
+
+        $this->assertArrayHasKey('preflight_contract', $r);
+        $this->assertArrayHasKey('checks', $r['preflight_contract']);
+        $this->assertArrayHasKey('applied_types', $r['preflight_contract']);
+    }
+
+    public function test_preflight_contract_aggregates_checks_from_promoted_items(): void
+    {
+        $r = $this->build([
+            $this->obs('proxy_risk', 'run-1'),
+            $this->obs('proxy_risk', 'run-2'),
+        ]);
+
+        $checks = $r['preflight_contract']['checks'];
+        $this->assertContains('objective_contains_no_proxy_keywords', $checks);
+        $this->assertContains('acceptance_requires_behavior_test', $checks);
+    }
+
+    public function test_preflight_contract_is_empty_when_nothing_promoted(): void
+    {
+        $r = $this->build([$this->obs('proxy_risk', 'run-1')]);
+
+        $this->assertSame([], $r['preflight_contract']['checks']);
+        $this->assertSame([], $r['preflight_contract']['applied_types']);
+    }
+
+    public function test_preflight_contract_applied_types_matches_promoted(): void
+    {
+        $r = $this->build([
+            $this->obs('operator_dependency', 'run-1'),
+            $this->obs('operator_dependency', 'run-2'),
+        ]);
+
+        $this->assertContains('operator_dependency', $r['preflight_contract']['applied_types']);
+    }
+
+    public function test_preflight_contract_deduplicates_checks_across_types(): void
+    {
+        // Two types promoted — checks from both merged, no duplicates
+        $r = $this->build([
+            $this->obs('proxy_risk', 'run-1'),
+            $this->obs('proxy_risk', 'run-2'),
+            $this->obs('low_leverage', 'run-3'),
+            $this->obs('low_leverage', 'run-4'),
+        ]);
+
+        $checks = $r['preflight_contract']['checks'];
+        $this->assertSame(count($checks), count(array_unique($checks)));
+    }
+
+    // ── new catalog entries ───────────────────────────────────────────────────
+
+    public function test_over_complexity_uses_catalog(): void
+    {
+        $r = $this->build([
+            $this->obs('over_complexity', 'run-1'),
+            $this->obs('over_complexity', 'run-2'),
+        ]);
+
+        $item = $r['curriculum_items'][0];
+        $this->assertContains('no_speculative_abstractions', $item['preflight_checks']);
+    }
+
+    public function test_missed_dedup_uses_catalog(): void
+    {
+        $r = $this->build([
+            $this->obs('missed_dedup', 'run-1'),
+            $this->obs('missed_dedup', 'run-2'),
+        ]);
+
+        $item = $r['curriculum_items'][0];
+        $this->assertContains('existing_utility_search_done', $item['preflight_checks']);
+    }
+
+    public function test_no_runnable_evidence_uses_catalog(): void
+    {
+        $r = $this->build([
+            $this->obs('no_runnable_evidence', 'run-1'),
+            $this->obs('no_runnable_evidence', 'run-2'),
+        ]);
+
+        $item = $r['curriculum_items'][0];
+        $this->assertContains('all_acceptance_criteria_have_runnable_evidence_path', $item['preflight_checks']);
+    }
+
+    public function test_provider_dependency_uses_catalog(): void
+    {
+        $r = $this->build([
+            $this->obs('provider_dependency', 'run-1'),
+            $this->obs('provider_dependency', 'run-2'),
+        ]);
+
+        $item = $r['curriculum_items'][0];
+        $this->assertContains('output_is_provider_safe', $item['preflight_checks']);
     }
 }
