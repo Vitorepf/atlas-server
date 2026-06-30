@@ -108,4 +108,43 @@ class TaskPacketCanonicalizerTest extends TestCase
     {
         self::assertSame([], $this->c()->stringList([]));
     }
+
+    public function test_normalize_strips_all_four_volatile_fields(): void
+    {
+        $result = $this->c()->normalizePacketForHash([
+            'task_packet_id'   => 'tp1',
+            'generated_at'     => '2026-01-01T00:00:00Z',
+            'task_packet_hash' => 'abc123',
+            'human_summary'    => 'do stuff',
+            'objective'        => 'build X',
+        ]);
+
+        self::assertArrayNotHasKey('task_packet_id', $result);
+        self::assertArrayNotHasKey('generated_at', $result);
+        self::assertArrayNotHasKey('task_packet_hash', $result);
+        self::assertArrayNotHasKey('human_summary', $result);
+        self::assertArrayHasKey('objective', $result);
+    }
+
+    public function test_normalize_nested_sorts_assoc_preserves_list_order(): void
+    {
+        $result = $this->c()->normalizePacketForHash([
+            'task_packet_id' => 'tp1',
+            'z_key'          => ['z_nested' => 2, 'a_nested' => 1],
+            'a_key'          => ['first', 'second', 'third'],
+        ]);
+
+        // Assoc nested keys are sorted.
+        self::assertSame(['a_nested' => 1, 'z_nested' => 2], $result['z_key']);
+        // List order is preserved.
+        self::assertSame(['first', 'second', 'third'], $result['a_key']);
+        // Top-level assoc keys also sorted.
+        self::assertSame(['a_key', 'z_key'], array_keys($result));
+    }
+
+    public function test_stable_hash_is_bit_identical_for_same_nested_payload(): void
+    {
+        $payload = ['z' => ['b' => 2, 'a' => 1], 'a' => [1, 2, 3]];
+        self::assertSame($this->c()->stableHash($payload), $this->c()->stableHash($payload));
+    }
 }

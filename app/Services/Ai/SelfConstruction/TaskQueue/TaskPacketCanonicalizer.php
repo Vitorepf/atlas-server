@@ -24,6 +24,8 @@ namespace App\Services\Ai\SelfConstruction\TaskQueue;
  */
 class TaskPacketCanonicalizer
 {
+    private const JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+
     /**
      * @param  array<string, mixed>  $current
      * @param  array<string, mixed>  $default
@@ -77,10 +79,7 @@ class TaskPacketCanonicalizer
      */
     public function encode(array $payload): string
     {
-        return (string) json_encode(
-            $payload,
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT,
-        );
+        return (string) json_encode($payload, self::JSON_FLAGS | JSON_PRETTY_PRINT);
     }
 
     /**
@@ -88,7 +87,7 @@ class TaskPacketCanonicalizer
      */
     public function stableHash(array $payload): string
     {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return hash('sha256', (string) json_encode($payload, self::JSON_FLAGS));
     }
 
     /**
