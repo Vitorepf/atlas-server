@@ -30,25 +30,28 @@ class AtlasMaestroFairnessAlertEmitterTest extends TestCase
         parent::tearDown();
     }
 
-    private function stubReporter(array $giniWorkersSequence, array $giniTaskClassesSequence = []): object
+    private function stubReporter(array $giniWorkersSequence, array $giniTaskClassesSequence = [], array $idleRatioSequence = []): object
     {
-        return new class($giniWorkersSequence, $giniTaskClassesSequence)
+        return new class($giniWorkersSequence, $giniTaskClassesSequence, $idleRatioSequence)
         {
             private int $cursor = 0;
 
-            public function __construct(private array $giniWorkersSequence, private array $giniTaskClassesSequence) {}
+            public function __construct(private array $giniWorkersSequence, private array $giniTaskClassesSequence, private array $idleRatioSequence) {}
 
             public function report(): array
             {
                 $workers = $this->giniWorkersSequence[$this->cursor] ?? 0.0;
                 $taskClasses = $this->giniTaskClassesSequence[$this->cursor] ?? 0.0;
+                $idle = $this->idleRatioSequence[$this->cursor] ?? 0.0;
                 $this->cursor++;
 
                 return [
                     'gini_workers' => $workers,
                     'gini_task_classes' => $taskClasses,
+                    'idle_worker_ratio' => $idle,
                     'max_worker_share_id' => 'worker-A',
                     'max_task_class_share_id' => 'class-X',
+                    'max_idle_worker_id' => 'worker-B',
                 ];
             }
         };
@@ -140,5 +143,52 @@ class AtlasMaestroFairnessAlertEmitterTest extends TestCase
         $bytesAfterS3 = (string) file_get_contents($this->alertsPath);
         self::assertSame($bytesAfterS2, substr($bytesAfterS3, 0, strlen($bytesAfterS2)), 'prior bytes unchanged');
         self::assertGreaterThan(strlen($bytesAfterS2), strlen($bytesAfterS3), 'session 3 should append at least one alert');
+    }
+
+    public function test_hogging_alert_has_categorical_severity_and_deterministic_reason_code(): void
+    {
+        // gini=0.95 with threshold=0.6 → CRITICAL_RATIO=1.5 → critical floor=0.9 → 0.95 >= 0.9 → critical
+        $reporter = $this->stubReporter([0.95, 0.95, 0.95, 0.95, 0.95]);
+        $emitter = new AtlasMaestroFairnessAlertEmitter($reporter, $this->windowPath, $this->alertsPath, windowSize: 5, threshold: 0.6);
+        for ($i = 1; $i <= 5; $i++) {
+            $emitter->emit('2026-06-25T00:00:0'.$i.'Z');
+        }
+        $alerts = $emitter->readAlerts();
+
+        self::assertCount(1, $alerts);
+        self::assertSame('hogging_onset', $alerts[0]['reason_code']);
+        self::assertSame(AtlasMaestroFairnessAlertEmitter::SEVERITY_CRITICAL, $alerts[0]['severity']);
+    }
+
+    public function test_imbalance_alert_has_imbalance_onset_reason_code(): void
+    {
+        // Only task_classes axis is over threshold; workers and idle stay at 0.
+        $reporter = $this->stubReporter([], [0.8, 0.8, 0.8, 0.8, 0.8]);
+        $emitter = new AtlasMaestroFairnessAlertEmitter($reporter, $this->windowPath, $this->alertsPath, windowSize: 5, threshold: 0.6);
+        for ($i = 1; $i <= 5; $i++) {
+            $emitter->emit('2026-06-25T00:00:0'.$i.'Z');
+        }
+        $alerts = $emitter->readAlerts();
+
+        self::assertCount(1, $alerts);
+        self::assertSame('task_classes', $alerts[0]['axis']);
+        self::assertSame('imbalance_onset', $alerts[0]['reason_code']);
+        self::assertContains($alerts[0]['severity'], [AtlasMaestroFairnessAlertEmitter::SEVERITY_WARNING, AtlasMaestroFairnessAlertEmitter::SEVERITY_CRITICAL]);
+    }
+
+    public function test_starvation_fact_emits_starvation_onset_alert(): void
+    {
+        // idle_worker_ratio=0.8 for 5 cycles with threshold=0.6 → starvation_onset
+        $reporter = $this->stubReporter([], [], [0.8, 0.8, 0.8, 0.8, 0.8]);
+        $emitter = new AtlasMaestroFairnessAlertEmitter($reporter, $this->windowPath, $this->alertsPath, windowSize: 5, threshold: 0.6);
+        for ($i = 1; $i <= 5; $i++) {
+            $emitter->emit('2026-06-25T00:00:0'.$i.'Z');
+        }
+        $alerts = $emitter->readAlerts();
+
+        self::assertCount(1, $alerts);
+        self::assertSame('idle_workers', $alerts[0]['axis']);
+        self::assertSame('starvation_onset', $alerts[0]['reason_code']);
+        self::assertSame('worker-B', $alerts[0]['max_share_id']);
     }
 }

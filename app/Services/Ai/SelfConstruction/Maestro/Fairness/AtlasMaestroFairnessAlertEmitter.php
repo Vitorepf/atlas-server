@@ -9,9 +9,12 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Fairness;
  * {@see AtlasMaestroFairnessGiniReporter} and appends one alert per breach onset to
  * `alerts.jsonl`.
  *
- * A breach is "N consecutive snapshots whose gini for an axis (workers OR task_classes) exceeds
- * the configured threshold". On breach-ONSET (current window all-over, previous window not all-over),
- * one alert per breaching axis is appended.
+ * Breach types (all share the same window-based onset logic):
+ *   - hogging_onset    : gini_workers exceeds threshold for N consecutive cycles
+ *   - imbalance_onset  : gini_task_classes exceeds threshold for N consecutive cycles
+ *   - starvation_onset : idle_worker_ratio exceeds threshold for N consecutive cycles
+ *
+ * Each alert carries { severity, reason_code } for actionable, categorical output.
  *
  * STRICTLY FACT-only: emits records, persists rolling window, NEVER mutates the queue, NEVER kills
  * workers, NEVER rebalances.
@@ -21,6 +24,21 @@ final class AtlasMaestroFairnessAlertEmitter
     public const ALERT_KIND = 'maestro_fairness_alert';
 
     public const SCHEMA = 'atlas.maestro.fairness_alert.v1';
+
+    public const SEVERITY_CRITICAL = 'critical';
+
+    public const SEVERITY_WARNING = 'warning';
+
+    public const SEVERITY_INFO = 'info';
+
+    /** Multiplier above threshold that escalates severity to CRITICAL. */
+    private const CRITICAL_RATIO = 1.5;
+
+    private const AXES = [
+        ['axis' => 'workers',     'key' => 'gini_workers',      'reason_code' => 'hogging_onset',    'share_id_key' => 'max_worker_share_id'],
+        ['axis' => 'task_classes', 'key' => 'gini_task_classes', 'reason_code' => 'imbalance_onset',  'share_id_key' => 'max_task_class_share_id'],
+        ['axis' => 'idle_workers', 'key' => 'idle_worker_ratio', 'reason_code' => 'starvation_onset', 'share_id_key' => 'max_idle_worker_id'],
+    ];
 
     /** @var object */
     private object $reporter;
@@ -41,7 +59,7 @@ final class AtlasMaestroFairnessAlertEmitter
     }
 
     /**
-     * Run one observation cycle. Returns the alerts emitted on this call (0..2).
+     * Run one observation cycle. Returns the alerts emitted on this call (0..N).
      *
      * @return list<array<string,mixed>>
      */
@@ -59,8 +77,10 @@ final class AtlasMaestroFairnessAlertEmitter
             'observed_at' => $observedAt,
             'gini_workers' => (float) ($report['gini_workers'] ?? 0),
             'gini_task_classes' => (float) ($report['gini_task_classes'] ?? 0),
+            'idle_worker_ratio' => (float) ($report['idle_worker_ratio'] ?? 0),
             'max_worker_share_id' => (string) ($report['max_worker_share_id'] ?? ''),
             'max_task_class_share_id' => (string) ($report['max_task_class_share_id'] ?? ''),
+            'max_idle_worker_id' => (string) ($report['max_idle_worker_id'] ?? ''),
         ];
         if (count($window) > $this->windowSize) {
             $window = array_slice($window, -$this->windowSize);
@@ -68,19 +88,24 @@ final class AtlasMaestroFairnessAlertEmitter
 
         $alerts = [];
         if (count($window) >= $this->windowSize) {
-            foreach (['workers', 'task_classes'] as $axis) {
-                $key = 'gini_'.$axis;
+            foreach (self::AXES as $axisConf) {
+                $key = $axisConf['key'];
                 $currentOver = $this->allOver($window, $key, $this->threshold);
-                $previousOver = count($previousWindow) >= $this->windowSize && $this->allOver(array_slice($previousWindow, -$this->windowSize), $key, $this->threshold);
+                $previousOver = count($previousWindow) >= $this->windowSize
+                    && $this->allOver(array_slice($previousWindow, -$this->windowSize), $key, $this->threshold);
                 if ($currentOver && ! $previousOver) {
+                    $lastRow = $window[count($window) - 1];
+                    $scoreObserved = (float) ($lastRow[$key] ?? 0);
                     $alert = [
                         'schema' => self::SCHEMA,
                         'kind' => self::ALERT_KIND,
-                        'axis' => $axis,
-                        'gini_observed' => (float) $window[count($window) - 1][$key],
+                        'axis' => $axisConf['axis'],
+                        'severity' => $this->severity($scoreObserved),
+                        'reason_code' => $axisConf['reason_code'],
+                        'gini_observed' => $scoreObserved,
                         'threshold' => $this->threshold,
                         'cycles_over' => count($window),
-                        'max_share_id' => (string) $window[count($window) - 1][$axis === 'workers' ? 'max_worker_share_id' : 'max_task_class_share_id'],
+                        'max_share_id' => (string) ($lastRow[$axisConf['share_id_key']] ?? ''),
                         'observed_at' => $observedAt,
                     ];
                     $this->appendAlert($alert);
@@ -129,10 +154,7 @@ final class AtlasMaestroFairnessAlertEmitter
         return array_values($decoded['window']);
     }
 
-    /**
-     * @param  list<array<string,mixed>>  $window
-     * @param  list<array<string,mixed>>  $window
-     */
+    /** @param list<array<string,mixed>> $window */
     private function allOver(array $window, string $key, float $threshold): bool
     {
         foreach ($window as $row) {
@@ -144,9 +166,14 @@ final class AtlasMaestroFairnessAlertEmitter
         return $window !== [];
     }
 
-    /**
-     * @param  array<string,mixed>  $alert
-     */
+    private function severity(float $observed): string
+    {
+        return $observed >= min(1.0, $this->threshold * self::CRITICAL_RATIO)
+            ? self::SEVERITY_CRITICAL
+            : self::SEVERITY_WARNING;
+    }
+
+    /** @param array<string,mixed> $alert */
     private function appendAlert(array $alert): void
     {
         $line = json_encode($alert, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -162,9 +189,7 @@ final class AtlasMaestroFairnessAlertEmitter
         }
     }
 
-    /**
-     * @param  list<array<string,mixed>>  $window
-     */
+    /** @param list<array<string,mixed>> $window */
     private function saveWindow(array $window): void
     {
         $bytes = json_encode(['window' => $window], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
