@@ -156,6 +156,101 @@ final class AtlasExternalBrainImplementabilitySimulatorTest extends TestCase
         $this->assertStringContainsString('test_without_impl', $r['reasons'][0]);
     }
 
+    // ── AC1: live_queued_targets collision pool ───────────────────────────────
+
+    public function test_live_queued_target_causes_collision(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate(),
+            ['live_queued_targets' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php']],
+        );
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_COLLISION, $r['verdict']);
+        $this->assertContains('file_held:app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php', $r['reasons']);
+    }
+
+    public function test_both_active_and_queued_targets_checked_for_collision(): void
+    {
+        // active_allowed_files holds one file, live_queued_targets holds another — both trigger collision.
+        $r = $this->sim->simulate(
+            $this->candidate(['allowed_files' => [
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php',
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php',
+            ]]),
+            [
+                'active_allowed_files' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+                'live_queued_targets'  => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php'],
+            ],
+        );
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_COLLISION, $r['verdict']);
+        $this->assertContains('file_held:app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php', $r['reasons']);
+        $this->assertContains('file_held:app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php', $r['reasons']);
+    }
+
+    public function test_no_collision_when_files_not_in_either_pool(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate(),
+            [
+                'active_allowed_files' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasOther.php'],
+                'live_queued_targets'  => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasAnother.php'],
+            ],
+        );
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_ENQUEUEABLE, $r['verdict']);
+    }
+
+    // ── AC2: test-only contradiction respects live_queued_targets ─────────────
+
+    public function test_test_only_with_impl_in_queue_is_not_contradictory(): void
+    {
+        // The missing impl IS in live_queued_targets → impl will be created, not contradictory.
+        $r = $this->sim->simulate(
+            $this->candidate([
+                'allowed_files' => ['tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooTest.php'],
+            ]),
+            [
+                'missing_prod_files'   => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+                'live_queued_targets'  => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+            ],
+        );
+        $this->assertNotSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_CONTRADICTORY, $r['verdict']);
+    }
+
+    public function test_test_only_with_impl_not_queued_is_contradictory(): void
+    {
+        // Missing impl is NOT in live_queued_targets → nothing will create it → contradictory.
+        $r = $this->sim->simulate(
+            $this->candidate([
+                'allowed_files' => ['tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooTest.php'],
+            ]),
+            [
+                'missing_prod_files'   => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+                'live_queued_targets'  => [],
+            ],
+        );
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_CONTRADICTORY, $r['verdict']);
+        $this->assertStringContainsString('test_without_impl', $r['reasons'][0]);
+    }
+
+    public function test_partial_queuing_of_missing_impls_still_contradictory_for_unqueued(): void
+    {
+        // Two missing prod files; only one is queued — the unqueued one still triggers contradiction.
+        $r = $this->sim->simulate(
+            $this->candidate([
+                'allowed_files' => ['tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooTest.php'],
+            ]),
+            [
+                'missing_prod_files'  => [
+                    'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php',
+                    'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php',
+                ],
+                'live_queued_targets' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+            ],
+        );
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_CONTRADICTORY, $r['verdict']);
+        $this->assertStringContainsString('AtlasBar.php', $r['reasons'][0]);
+        $this->assertStringNotContainsString('AtlasFoo.php', $r['reasons'][0]); // queued → not listed
+    }
+
     // ── invariant: no suggested_allowed_files stripping impl files ────────────
 
     public function test_result_never_contains_suggested_allowed_files(): void

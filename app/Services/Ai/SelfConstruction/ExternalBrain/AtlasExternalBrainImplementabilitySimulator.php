@@ -52,14 +52,16 @@ final class AtlasExternalBrainImplementabilitySimulator
         $criteria = is_array($candidate['acceptance_criteria'] ?? null) ? $candidate['acceptance_criteria'] : [];
         $unblocked_by = is_array($candidate['unblocked_by'] ?? null) ? $candidate['unblocked_by'] : [];
 
-        $implementedFiles = is_array($context['implemented_files'] ?? null) ? $context['implemented_files'] : [];
+        $implementedFiles   = is_array($context['implemented_files']    ?? null) ? $context['implemented_files']    : [];
         $activeAllowedFiles = is_array($context['active_allowed_files'] ?? null) ? $context['active_allowed_files'] : [];
-        $pendingTaskIds = is_array($context['pending_task_ids'] ?? null) ? $context['pending_task_ids'] : [];
-        $propertyGates = is_array($context['property_gates'] ?? null) ? $context['property_gates'] : [];
-        $missingProdFiles = is_array($context['missing_prod_files'] ?? null) ? $context['missing_prod_files'] : [];
+        $liveQueuedTargets  = is_array($context['live_queued_targets']  ?? null) ? $context['live_queued_targets']  : [];
+        $pendingTaskIds     = is_array($context['pending_task_ids']      ?? null) ? $context['pending_task_ids']     : [];
+        $propertyGates      = is_array($context['property_gates']        ?? null) ? $context['property_gates']       : [];
+        $missingProdFiles   = is_array($context['missing_prod_files']    ?? null) ? $context['missing_prod_files']   : [];
 
-        // 1. Contradictory — criteria negate each other OR test-only with missing impl.
-        $contradictions = $this->detectContradictions($criteria, $allowedFiles, $missingProdFiles);
+        // 1. Contradictory — criteria negate each other OR test-only with missing impl not in queue.
+        // AC2: test-only contradiction only fires when the missing impl files are also absent from live_queued_targets.
+        $contradictions = $this->detectContradictions($criteria, $allowedFiles, $missingProdFiles, $liveQueuedTargets);
         if ($contradictions !== []) {
             return $this->result($id, self::VERDICT_CONTRADICTORY, $contradictions);
         }
@@ -75,8 +77,9 @@ final class AtlasExternalBrainImplementabilitySimulator
             return $this->result($id, self::VERDICT_PROPERTY_GATED, ['property_gate_not_satisfied:'.$id]);
         }
 
-        // 4. Collision with active leases.
-        $collisions = array_values(array_intersect($allowedFiles, $activeAllowedFiles));
+        // 4. Collision with active leases OR live queued targets (AC1: same collision pool).
+        $collisionPool = array_values(array_unique(array_merge($activeAllowedFiles, $liveQueuedTargets)));
+        $collisions    = array_values(array_intersect($allowedFiles, $collisionPool));
         if ($collisions !== []) {
             return $this->result(
                 $id,
@@ -113,17 +116,20 @@ final class AtlasExternalBrainImplementabilitySimulator
      * @param  list<string>  $criteria
      * @param  list<string>  $allowedFiles
      * @param  list<string>  $missingProdFiles
+     * @param  list<string>  $liveQueuedTargets
      * @return list<string>
      */
-    private function detectContradictions(array $criteria, array $allowedFiles, array $missingProdFiles): array
+    private function detectContradictions(array $criteria, array $allowedFiles, array $missingProdFiles, array $liveQueuedTargets = []): array
     {
         $reasons = [];
 
-        // Test-only with missing impl: all allowed_files are tests and prod files are missing.
+        // Test-only with missing impl that is also absent from live_queued_targets (AC2).
+        // If the missing prod files are already queued, the impl will be created — not contradictory.
         $testFiles = array_filter($allowedFiles, fn (string $f): bool => $this->isTestFile($f));
         $implFiles = array_filter($allowedFiles, fn (string $f): bool => ! $this->isTestFile($f));
-        if ($testFiles !== [] && $implFiles === [] && $missingProdFiles !== []) {
-            $reasons[] = 'test_without_impl:missing_prod_files:'.implode(',', $missingProdFiles);
+        $uncoveredMissing = array_values(array_diff($missingProdFiles, $liveQueuedTargets));
+        if ($testFiles !== [] && $implFiles === [] && $uncoveredMissing !== []) {
+            $reasons[] = 'test_without_impl:missing_prod_files:'.implode(',', $uncoveredMissing);
         }
 
         // Criteria negation: "must X" paired with "must not X".
