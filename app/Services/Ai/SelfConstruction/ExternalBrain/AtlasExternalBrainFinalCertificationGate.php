@@ -40,6 +40,17 @@ final class AtlasExternalBrainFinalCertificationGate
 
     private const NEAR_FINAL_THRESHOLD = 5; // of 7 required dimensions
 
+    /** Minimum evidence refs required per dimension to reach final_95_candidate. */
+    private const REQUIRED_REFS = [
+        'live_cycle_evidence'           => ['cycle_run_receipt'],
+        'anti_goodhart_pass'            => ['audit_report'],
+        'self_improvement_cycle_output' => ['recommendation_receipt'],
+        'muscle_outcome_learning'       => ['outcome_ledger_ref'],
+        'property_gated_path'           => ['gate_readiness_cert'],
+        'doc_proposal_readiness'        => ['doc_draft_ref'],
+        'autonomy_steady_state'         => ['autonomy_assessment_ref'],
+    ];
+
     /**
      * @param  array<string,mixed>  $evidence
      * @return array{
@@ -55,12 +66,14 @@ final class AtlasExternalBrainFinalCertificationGate
     {
         $results  = [];
         $blockers = [];
+        $dossier  = [];
 
         // Dimension 1: live cycle evidence
         $cycleCount    = (int) ($evidence['live_cycle_evidence']['cycle_count'] ?? 0);
         $resolvedCount = (int) ($evidence['live_cycle_evidence']['resolved_task_count'] ?? 0);
         $liveCyclePass = $cycleCount >= 1 && $resolvedCount >= 1;
         $results['live_cycle_evidence'] = $liveCyclePass;
+        $dossier[] = $this->dossierEntry('live_cycle_evidence', $liveCyclePass, $evidence['live_cycle_evidence']['evidence_refs'] ?? []);
         if (! $liveCyclePass) {
             $blockers[] = [
                 'dimension' => 'live_cycle_evidence',
@@ -73,6 +86,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $auditVerdict = (string) ($evidence['anti_goodhart']['verdict'] ?? 'unknown');
         $auditPass    = $auditVerdict === 'pass';
         $results['anti_goodhart_pass'] = $auditPass;
+        $dossier[] = $this->dossierEntry('anti_goodhart_pass', $auditPass, $evidence['anti_goodhart']['evidence_refs'] ?? []);
         if (! $auditPass) {
             $blockers[] = [
                 'dimension' => 'anti_goodhart_pass',
@@ -86,6 +100,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $recommendationCount = (int) ($evidence['self_improvement_cycle']['recommendation_count'] ?? 0);
         $selfImprovementPass = $hasOutput && $recommendationCount >= 1;
         $results['self_improvement_cycle_output'] = $selfImprovementPass;
+        $dossier[] = $this->dossierEntry('self_improvement_cycle_output', $selfImprovementPass, $evidence['self_improvement_cycle']['evidence_refs'] ?? []);
         if (! $selfImprovementPass) {
             $blockers[] = [
                 'dimension' => 'self_improvement_cycle_output',
@@ -99,6 +114,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $successRate  = (float) ($evidence['muscle_learning']['success_rate'] ?? 0.0);
         $musclePass   = $outcomeCount >= 1 && $successRate > 0.0;
         $results['muscle_outcome_learning'] = $musclePass;
+        $dossier[] = $this->dossierEntry('muscle_outcome_learning', $musclePass, $evidence['muscle_learning']['evidence_refs'] ?? []);
         if (! $musclePass) {
             $blockers[] = [
                 'dimension' => 'muscle_outcome_learning',
@@ -112,6 +128,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $blockingGates     = (array) ($evidence['property_gated_path']['blocking_gates'] ?? []);
         $propertyGatedPass = $pgReady && $blockingGates === [];
         $results['property_gated_path'] = $propertyGatedPass;
+        $dossier[] = $this->dossierEntry('property_gated_path', $propertyGatedPass, $evidence['property_gated_path']['evidence_refs'] ?? []);
         if (! $propertyGatedPass) {
             $gateList = $blockingGates !== [] ? implode(', ', $blockingGates) : 'ready=false';
             $blockers[] = [
@@ -126,6 +143,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $docCertBlocked = (bool) ($evidence['doc_proposal']['certification_blocked'] ?? true);
         $docPass        = $docDrafted && ! $docCertBlocked;
         $results['doc_proposal_readiness'] = $docPass;
+        $dossier[] = $this->dossierEntry('doc_proposal_readiness', $docPass, $evidence['doc_proposal']['evidence_refs'] ?? []);
         if (! $docPass) {
             $reason = ! $docDrafted ? 'proposals not drafted' : 'doc certification is blocked';
             $blockers[] = [
@@ -140,6 +158,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $providerDep  = (bool) ($evidence['autonomy']['provider_dependency_in_steady_state'] ?? true);
         $autonomyPass = ! $humanDep && ! $providerDep;
         $results['autonomy_steady_state'] = $autonomyPass;
+        $dossier[] = $this->dossierEntry('autonomy_steady_state', $autonomyPass, $evidence['autonomy']['evidence_refs'] ?? []);
         if (! $autonomyPass) {
             $deps = [];
             if ($humanDep) {
@@ -158,19 +177,26 @@ final class AtlasExternalBrainFinalCertificationGate
         $passedCount   = count(array_filter($results));
         $requiredCount = count($results);
 
+        // Passing dimensions with missing evidence_refs block final_95_candidate.
+        $hasMissingRefs = (bool) count(array_filter(
+            $dossier,
+            fn(array $e): bool => $e['passed'] && $e['missing_refs'] !== [],
+        ));
+
         return [
             'schema'            => self::SCHEMA,
-            'verdict'           => $this->computeVerdict($passedCount, $requiredCount),
+            'verdict'           => $this->computeVerdict($passedCount, $requiredCount, $hasMissingRefs),
             'passed_count'      => $passedCount,
             'required_count'    => $requiredCount,
             'blockers'          => $blockers,
             'dimension_results' => $results,
+            'evidence_dossier'  => $dossier,
         ];
     }
 
-    private function computeVerdict(int $passed, int $required): string
+    private function computeVerdict(int $passed, int $required, bool $hasMissingRefs = false): string
     {
-        if ($passed === $required) {
+        if ($passed === $required && ! $hasMissingRefs) {
             return self::VERDICT_FINAL_95;
         }
         if ($passed >= self::NEAR_FINAL_THRESHOLD) {
@@ -178,5 +204,19 @@ final class AtlasExternalBrainFinalCertificationGate
         }
 
         return self::VERDICT_BELOW_FINAL;
+    }
+
+    /** @return array{dimension:string, passed:bool, evidence_refs:list<string>, missing_refs:list<string>} */
+    private function dossierEntry(string $dimension, bool $passed, array $providedRefs): array
+    {
+        $required    = self::REQUIRED_REFS[$dimension] ?? [];
+        $missingRefs = array_values(array_diff($required, $providedRefs));
+
+        return [
+            'dimension'    => $dimension,
+            'passed'       => $passed,
+            'evidence_refs' => array_values($providedRefs),
+            'missing_refs'  => $missingRefs,
+        ];
     }
 }

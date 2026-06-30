@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFinalCertificationGate;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
 {
@@ -17,13 +17,13 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
     private function fullEvidence(): array
     {
         return [
-            'live_cycle_evidence'    => ['cycle_count' => 3, 'resolved_task_count' => 12],
-            'anti_goodhart'          => ['verdict' => 'pass'],
-            'self_improvement_cycle' => ['has_output' => true, 'recommendation_count' => 2],
-            'muscle_learning'        => ['outcome_count' => 10, 'success_rate' => 0.8],
-            'property_gated_path'    => ['ready' => true, 'blocking_gates' => []],
-            'doc_proposal'           => ['drafted' => true, 'certification_blocked' => false],
-            'autonomy'               => ['human_dependency_in_loop' => false, 'provider_dependency_in_steady_state' => false],
+            'live_cycle_evidence'    => ['cycle_count' => 3, 'resolved_task_count' => 12, 'evidence_refs' => ['cycle_run_receipt']],
+            'anti_goodhart'          => ['verdict' => 'pass', 'evidence_refs' => ['audit_report']],
+            'self_improvement_cycle' => ['has_output' => true, 'recommendation_count' => 2, 'evidence_refs' => ['recommendation_receipt']],
+            'muscle_learning'        => ['outcome_count' => 10, 'success_rate' => 0.8, 'evidence_refs' => ['outcome_ledger_ref']],
+            'property_gated_path'    => ['ready' => true, 'blocking_gates' => [], 'evidence_refs' => ['gate_readiness_cert']],
+            'doc_proposal'           => ['drafted' => true, 'certification_blocked' => false, 'evidence_refs' => ['doc_draft_ref']],
+            'autonomy'               => ['human_dependency_in_loop' => false, 'provider_dependency_in_steady_state' => false, 'evidence_refs' => ['autonomy_assessment_ref']],
         ];
     }
 
@@ -39,7 +39,7 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
     {
         $result = $this->gate()->certify($this->fullEvidence());
 
-        foreach (['schema', 'verdict', 'passed_count', 'required_count', 'blockers', 'dimension_results'] as $key) {
+        foreach (['schema', 'verdict', 'passed_count', 'required_count', 'blockers', 'dimension_results', 'evidence_dossier'] as $key) {
             $this->assertArrayHasKey($key, $result);
         }
         $this->assertSame(AtlasExternalBrainFinalCertificationGate::SCHEMA, $result['schema']);
@@ -233,5 +233,70 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
 
         $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
         $this->assertGreaterThan(0, count($result['blockers']));
+    }
+
+    // ── AC1: evidence_dossier ─────────────────────────────────────────────────
+
+    public function test_evidence_dossier_covers_all_seven_dimensions(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+
+        $this->assertCount(7, $result['evidence_dossier']);
+        foreach ($result['evidence_dossier'] as $entry) {
+            $this->assertArrayHasKey('dimension',     $entry);
+            $this->assertArrayHasKey('passed',        $entry);
+            $this->assertArrayHasKey('evidence_refs', $entry);
+            $this->assertArrayHasKey('missing_refs',  $entry);
+        }
+    }
+
+    public function test_evidence_dossier_reflects_provided_refs(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+        $byDim  = array_column($result['evidence_dossier'], null, 'dimension');
+
+        $this->assertContains('cycle_run_receipt', $byDim['live_cycle_evidence']['evidence_refs']);
+        $this->assertContains('audit_report',      $byDim['anti_goodhart_pass']['evidence_refs']);
+    }
+
+    // ── AC2: final_95_candidate requires evidence_refs per passing dim ────────
+
+    public function test_final_95_candidate_requires_evidence_refs_for_each_passing_dimension(): void
+    {
+        // Full evidence WITH refs → should be final_95_candidate.
+        $result = $this->gate()->certify($this->fullEvidence());
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+    }
+
+    public function test_missing_evidence_refs_blocks_final_95_candidate_even_when_all_dims_pass(): void
+    {
+        // Remove evidence_refs from one passing dimension.
+        $evidence = $this->fullEvidence();
+        unset($evidence['live_cycle_evidence']['evidence_refs']);
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+    }
+
+    public function test_evidence_dossier_lists_missing_refs_for_dim_without_refs(): void
+    {
+        $evidence = $this->fullEvidence();
+        unset($evidence['live_cycle_evidence']['evidence_refs']);
+
+        $result = $this->gate()->certify($evidence);
+        $byDim  = array_column($result['evidence_dossier'], null, 'dimension');
+
+        $this->assertNotEmpty($byDim['live_cycle_evidence']['missing_refs']);
+        $this->assertContains('cycle_run_receipt', $byDim['live_cycle_evidence']['missing_refs']);
+    }
+
+    public function test_no_missing_refs_when_all_required_refs_are_provided(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+
+        foreach ($result['evidence_dossier'] as $entry) {
+            $this->assertSame([], $entry['missing_refs'], "Unexpected missing_refs for {$entry['dimension']}");
+        }
     }
 }
