@@ -147,4 +147,44 @@ class AtlasSelfConstructionAutonomyLevelLadderTest extends TestCase
         self::assertTrue($assisted['autonomy_dependencies']['depends_on_claude_code']);
         self::assertTrue($assisted['autonomy_dependencies']['depends_on_codex']);
     }
+
+    public function test_evaluate_promotes_at_delivery_threshold(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $result = $ladder->evaluate([
+            'current_level' => AtlasSelfConstructionAutonomyLevelLadder::LEVEL_BOOTSTRAP,
+            'green_deliveries' => AtlasSelfConstructionAutonomyLevelLadder::PROMOTION_DELIVERY_THRESHOLD,
+        ]);
+
+        self::assertSame(AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ASSISTED, $result['level']);
+        self::assertFalse($result['is_paused']);
+        self::assertFalse($result['is_degraded']);
+        self::assertStringContainsString('promote', $result['reasons'][0]);
+    }
+
+    public function test_evaluate_degrades_at_failure_threshold(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $result = $ladder->evaluate([
+            'current_level' => AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7,
+            'failures' => AtlasSelfConstructionAutonomyLevelLadder::DEGRADATION_FAILURE_THRESHOLD,
+        ]);
+
+        self::assertSame('degraded', $result['level']);
+        self::assertTrue($result['is_degraded']);
+        self::assertStringContainsString('degraded', $result['reasons'][0]);
+    }
+
+    public function test_evaluate_pauses_at_safety_threshold(): void
+    {
+        $ladder = new AtlasSelfConstructionAutonomyLevelLadder();
+        $result = $ladder->evaluate([
+            'current_level' => AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7,
+            'safety_stops' => AtlasSelfConstructionAutonomyLevelLadder::PAUSED_SAFETY_THRESHOLD,
+        ]);
+
+        self::assertSame('paused', $result['level']);
+        self::assertTrue($result['is_paused']);
+        self::assertStringContainsString('paused', $result['reasons'][0]);
+    }
 }

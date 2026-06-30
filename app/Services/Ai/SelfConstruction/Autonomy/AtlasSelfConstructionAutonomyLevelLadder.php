@@ -35,6 +35,12 @@ final class AtlasSelfConstructionAutonomyLevelLadder
 
     public const STEADY_STATE_RUNTIME_OWNER = 'atlas_server';
 
+    public const PROMOTION_DELIVERY_THRESHOLD = 3;
+
+    public const DEGRADATION_FAILURE_THRESHOLD = 2;
+
+    public const PAUSED_SAFETY_THRESHOLD = 1;
+
     /**
      * Deterministic order — bootstrap first, atlas_native_24_7 last.
      *
@@ -110,6 +116,37 @@ final class AtlasSelfConstructionAutonomyLevelLadder
         }
 
         return ['allowed' => true, 'reason' => null, 'from' => $from, 'to' => $to];
+    }
+
+    /**
+     * Evaluate runtime signals against thresholds and return the recommended autonomy state.
+     *
+     * @param  array{current_level?:string, green_deliveries?:int, failures?:int, safety_stops?:int}  $signals
+     * @return array{level:string, is_paused:bool, is_degraded:bool, reasons:list<string>}
+     */
+    public function evaluate(array $signals): array
+    {
+        $currentLevel = (string) ($signals['current_level'] ?? self::LEVEL_BOOTSTRAP);
+        $greenDeliveries = (int) ($signals['green_deliveries'] ?? 0);
+        $failures = (int) ($signals['failures'] ?? 0);
+        $safetyStops = (int) ($signals['safety_stops'] ?? 0);
+
+        if ($safetyStops >= self::PAUSED_SAFETY_THRESHOLD) {
+            return ['level' => 'paused', 'is_paused' => true, 'is_degraded' => false, 'reasons' => ['paused:safety_threshold_reached:'.$safetyStops]];
+        }
+
+        if ($failures >= self::DEGRADATION_FAILURE_THRESHOLD) {
+            return ['level' => 'degraded', 'is_paused' => false, 'is_degraded' => true, 'reasons' => ['degraded:failure_threshold_reached:'.$failures]];
+        }
+
+        if ($greenDeliveries >= self::PROMOTION_DELIVERY_THRESHOLD) {
+            $idx = array_search($currentLevel, self::ORDER, true);
+            $nextLevel = ($idx !== false && $idx < count(self::ORDER) - 1) ? self::ORDER[$idx + 1] : $currentLevel;
+
+            return ['level' => $nextLevel, 'is_paused' => false, 'is_degraded' => false, 'reasons' => ['promote:delivery_threshold_reached:'.$greenDeliveries]];
+        }
+
+        return ['level' => $currentLevel, 'is_paused' => false, 'is_degraded' => false, 'reasons' => ['hold:insufficient_evidence']];
     }
 
     /**
