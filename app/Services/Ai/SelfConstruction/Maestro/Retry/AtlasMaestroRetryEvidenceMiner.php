@@ -18,10 +18,13 @@ final class AtlasMaestroRetryEvidenceMiner
 {
     public const FORBIDDEN_FIELDS = ['score', 'rank', 'rating', 'quality'];
 
+    /** Minimum attempts needed before a pattern becomes actionable policy. */
+    public const MIN_SAMPLE_FOR_POLICY = 5;
+
     /**
      * @param  list<array<string,mixed>>  $ledgerRows  raw rows from AtlasMaestroGiveBackRetryReceiptLedger::forTask()
      * @param  array<string,bool>  $successByTaskPacketId  truth signal: did the next attempt land green?
-     * @return list<ReshapePatternFact>
+     * @return list<array<string,mixed>>
      */
     public function mine(array $ledgerRows, array $successByTaskPacketId): array
     {
@@ -56,16 +59,19 @@ final class AtlasMaestroRetryEvidenceMiner
 
         $facts = [];
         foreach ($buckets as $fp => $bucket) {
-            $facts[] = new ReshapePatternFact(
-                reshapePatternFingerprint: (string) $fp,
-                structuralDelta: $bucket['delta'],
-                observedAttempts: $bucket['attempts'],
-                observedSuccesses: $bucket['successes'],
-                observedFailures: $bucket['failures'],
-                lastSeenSeq: $bucket['last_seen_seq'],
-            );
+            $insufficient = $bucket['attempts'] < self::MIN_SAMPLE_FOR_POLICY;
+            $facts[] = [
+                'reshape_pattern_fingerprint' => (string) $fp,
+                'structural_delta' => $bucket['delta'],
+                'observed_attempts' => $bucket['attempts'],
+                'observed_successes' => $bucket['successes'],
+                'observed_failures' => $bucket['failures'],
+                'last_seen_seq' => $bucket['last_seen_seq'],
+                'regression_after_reshape' => ! $insufficient && $bucket['failures'] > $bucket['successes'],
+                'insufficient_sample' => $insufficient,
+            ];
         }
-        usort($facts, static fn (ReshapePatternFact $a, ReshapePatternFact $b): int => strcmp($a->reshapePatternFingerprint, $b->reshapePatternFingerprint));
+        usort($facts, static fn (array $a, array $b): int => strcmp($a['reshape_pattern_fingerprint'], $b['reshape_pattern_fingerprint']));
 
         return $facts;
     }
