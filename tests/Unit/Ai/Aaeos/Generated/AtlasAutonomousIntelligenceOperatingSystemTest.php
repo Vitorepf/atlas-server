@@ -275,4 +275,96 @@ class AtlasAutonomousIntelligenceOperatingSystemTest extends TestCase
         $this->assertSame('internal_capability_only', $capabilityOnly['disposition']);
         $this->assertFalse($capabilityOnly['may_assert_external_advantage']);
     }
+
+    // ── decideNextLayer ──────────────────────────────────────────────────────
+
+    public function test_deep_low_poison_queue_abstains_with_wait_audit_action(): void
+    {
+        $svc = $this->service();
+
+        $decision = $svc->decideNextLayer([
+            'servable_count' => 8,
+            'claimable_count' => 6,
+            'poison_pressure' => 0.05,
+            'blocked_pressure' => 0.0,
+            'give_back_pressure' => 0.0,
+        ]);
+
+        $this->assertSame(4, $decision['layer_number']);
+        $this->assertSame('audit_and_verification', $decision['layer_name']);
+        $this->assertSame('wait_and_audit', $decision['action']);
+        $this->assertTrue($decision['abstain']);
+        $this->assertNotEmpty($decision['ranked_reasons']);
+    }
+
+    public function test_low_servable_queue_routes_to_task_creation_with_replenish_action(): void
+    {
+        $svc = $this->service();
+
+        $decision = $svc->decideNextLayer([
+            'servable_count' => 1,
+            'claimable_count' => 0,
+            'poison_pressure' => 0.0,
+            'blocked_pressure' => 0.0,
+            'give_back_pressure' => 0.0,
+        ]);
+
+        $this->assertSame(1, $decision['layer_number']);
+        $this->assertSame('task_creation', $decision['layer_name']);
+        $this->assertSame('replenish_queue', $decision['action']);
+        $this->assertFalse($decision['abstain']);
+    }
+
+    public function test_high_blocked_pressure_routes_to_queue_self_healing(): void
+    {
+        $svc = $this->service();
+
+        $decision = $svc->decideNextLayer([
+            'servable_count' => 10,
+            'claimable_count' => 10,
+            'poison_pressure' => 0.05,
+            'blocked_pressure' => 0.6,
+            'give_back_pressure' => 0.1,
+        ]);
+
+        $this->assertSame(2, $decision['layer_number']);
+        $this->assertSame('queue_self_healing', $decision['layer_name']);
+        $this->assertSame('repair_queue', $decision['action']);
+        $this->assertFalse($decision['abstain']);
+    }
+
+    public function test_high_give_back_pressure_routes_to_outcome_learning(): void
+    {
+        $svc = $this->service();
+
+        $decision = $svc->decideNextLayer([
+            'servable_count' => 10,
+            'claimable_count' => 10,
+            'poison_pressure' => 0.05,
+            'blocked_pressure' => 0.1,
+            'give_back_pressure' => 0.7,
+        ]);
+
+        $this->assertSame(3, $decision['layer_number']);
+        $this->assertSame('outcome_learning', $decision['layer_name']);
+        $this->assertSame('learn_from_outcomes', $decision['action']);
+    }
+
+    public function test_envelope_names_canonical_layer_and_machine_readable_reasons(): void
+    {
+        $svc = $this->service();
+
+        $decision = $svc->decideNextLayer([
+            'servable_count' => 1,
+            'claimable_count' => 0,
+        ]);
+
+        $this->assertSame(AtlasAutonomousIntelligenceOperatingSystemService::RECEIPT_SCHEMA, $decision['schema']);
+        $this->assertArrayHasKey('layer_number', $decision);
+        $this->assertArrayHasKey('ranked_reasons', $decision);
+        $this->assertIsArray($decision['ranked_reasons']);
+        foreach ($decision['ranked_reasons'] as $reason) {
+            $this->assertIsString($reason);
+        }
+    }
 }

@@ -123,6 +123,126 @@ final class AtlasAutonomousIntelligenceOperatingSystemService
     ];
 
     /**
+     * The 9 canonical layers the Autonomous OS can hand control to next,
+     * numbered in the order the doc presents them. Layer number is part of
+     * the receipt contract — callers route on it, not on the name string.
+     *
+     * @var array<int,string>
+     */
+    public const CANONICAL_LAYERS = [
+        1 => 'task_creation',
+        2 => 'queue_self_healing',
+        3 => 'outcome_learning',
+        4 => 'audit_and_verification',
+        5 => 'capability_expansion',
+        6 => 'compounding_memory',
+        7 => 'architecture_evolution',
+        8 => 'provider_routing',
+        9 => 'strategic_origination',
+    ];
+
+    /** Above this pressure, blocked/give-back signals override everything else. */
+    private const HIGH_PRESSURE_THRESHOLD = 0.4;
+
+    /** At/above this poison pressure the queue is no longer "low poison". */
+    private const LOW_POISON_CEILING = 0.2;
+
+    /** Default queue depth (claimable + servable) considered "sufficiently deep". */
+    private const DEFAULT_SUFFICIENT_QUEUE_DEPTH = 10;
+
+    /** Default servable count floor below which replenishment is needed. */
+    private const DEFAULT_LOW_SERVABLE_FLOOR = 3;
+
+    /**
+     * Choose the next canonical layer from live queue, blocker, model and
+     * simplification signals — never simply "the layer that creates the
+     * most tasks". A deep, healthy queue means WAIT/AUDIT, not more task
+     * creation; high blocked/give-back pressure means repair the queue or
+     * learn from outcomes before originating anything new; only a
+     * genuinely thin queue routes to Task Creation.
+     *
+     * Decision order (first match wins):
+     *   1. blocked/give_back pressure over HIGH_PRESSURE_THRESHOLD routes to
+     *      Queue Self-Healing (blocked-dominant) or Outcome Learning
+     *      (give-back-dominant) — an unhealthy queue must be repaired
+     *      before originating more work onto it.
+     *   2. a queue that is already deep (claimable+servable >= target) AND
+     *      low-poison abstains with a wait/audit action — raw task count is
+     *      never the optimization target.
+     *   3. a thin servable queue (below the floor) routes to Task Creation
+     *      with a replenish action.
+     *   4. otherwise the queue is in a steady, unremarkable state: default
+     *      to Audit & Verification rather than originating blindly.
+     *
+     * @param array<string,mixed> $signals
+     *        servable_count        : int    tasks currently servable to a worker
+     *        claimable_count       : int    tasks currently claimable (queued)
+     *        poison_pressure       : float  0..1 fraction of poisoned/contradictory packets
+     *        blocked_pressure      : float  0..1 fraction of tasks stuck blocked
+     *        give_back_pressure    : float  0..1 fraction of recent give-backs
+     *        sufficient_queue_depth: int    optional override of the "deep enough" target
+     *        low_servable_floor    : int    optional override of the "thin queue" floor
+     *
+     * @return array<string,mixed>
+     */
+    public function decideNextLayer(array $signals): array
+    {
+        $servable = max(0, (int) ($signals['servable_count'] ?? 0));
+        $claimable = max(0, (int) ($signals['claimable_count'] ?? 0));
+        $poisonPressure = (float) ($signals['poison_pressure'] ?? 0.0);
+        $blockedPressure = (float) ($signals['blocked_pressure'] ?? 0.0);
+        $giveBackPressure = (float) ($signals['give_back_pressure'] ?? 0.0);
+        $sufficientDepth = (int) ($signals['sufficient_queue_depth'] ?? self::DEFAULT_SUFFICIENT_QUEUE_DEPTH);
+        $lowServableFloor = (int) ($signals['low_servable_floor'] ?? self::DEFAULT_LOW_SERVABLE_FLOOR);
+
+        $queueDepth = $servable + $claimable;
+        $lowPoison = $poisonPressure < self::LOW_POISON_CEILING;
+
+        $reasons = [];
+        $abstain = false;
+
+        if ($blockedPressure > self::HIGH_PRESSURE_THRESHOLD || $giveBackPressure > self::HIGH_PRESSURE_THRESHOLD) {
+            if ($blockedPressure >= $giveBackPressure) {
+                $layerNumber = 2;
+                $action = 'repair_queue';
+                $reasons[] = "blocked_pressure_{$blockedPressure}_exceeds_threshold_" . self::HIGH_PRESSURE_THRESHOLD;
+            } else {
+                $layerNumber = 3;
+                $action = 'learn_from_outcomes';
+                $reasons[] = "give_back_pressure_{$giveBackPressure}_exceeds_threshold_" . self::HIGH_PRESSURE_THRESHOLD;
+            }
+            $reasons[] = 'unhealthy_queue_must_be_repaired_before_origination';
+        } elseif ($queueDepth >= $sufficientDepth && $lowPoison) {
+            $layerNumber = 4;
+            $action = 'wait_and_audit';
+            $abstain = true;
+            $reasons[] = "queue_depth_{$queueDepth}_meets_sufficient_depth_{$sufficientDepth}";
+            $reasons[] = "poison_pressure_{$poisonPressure}_is_low";
+            $reasons[] = 'no_new_task_creation_raw_count_is_not_the_target';
+        } elseif ($servable < $lowServableFloor) {
+            $layerNumber = 1;
+            $action = 'replenish_queue';
+            $reasons[] = "servable_count_{$servable}_below_floor_{$lowServableFloor}";
+        } else {
+            $layerNumber = 4;
+            $action = 'audit_and_verify';
+            $reasons[] = 'queue_in_steady_unremarkable_state_default_to_audit';
+        }
+
+        return [
+            'schema' => self::RECEIPT_SCHEMA,
+            'layer_number' => $layerNumber,
+            'layer_name' => self::CANONICAL_LAYERS[$layerNumber],
+            'action' => $action,
+            'abstain' => $abstain,
+            'ranked_reasons' => $reasons,
+            'queue_depth' => $queueDepth,
+            'servable_count' => $servable,
+            'claimable_count' => $claimable,
+        ];
+    }
+
+    /**
      * Classify a prompt into exactly one execution tier ("Fluxo" step 2) and
      * decide whether it becomes a governed mission with a Definition of Done.
      *
