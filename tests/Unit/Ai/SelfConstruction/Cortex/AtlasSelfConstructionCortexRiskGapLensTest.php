@@ -99,4 +99,60 @@ final class AtlasSelfConstructionCortexRiskGapLensTest extends TestCase
         sort($copy, SORT_STRING);
         $this->assertSame($copy, $classes);
     }
+
+    public function test_inventory_blockers_are_trimmed_deduped_and_sorted(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'source_inventory' => ['blockers' => [
+                '  missing_required_source:docs  ',
+                'stale_source:code_index',
+                'missing_required_source:docs', // duplicate
+                '',                             // empty — should be stripped
+            ]],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $this->assertArrayHasKey(AtlasSelfConstructionCortexRiskGapLens::GAP_STALE_CONTEXT, $byClass);
+        $blockers = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_STALE_CONTEXT]['evidence']['inventory_blockers'];
+        // trimmed: no leading/trailing spaces
+        foreach ($blockers as $b) {
+            $this->assertSame(trim($b), $b, 'blockers must be trimmed');
+        }
+        // deduped: no duplicates
+        $this->assertSame(array_unique($blockers), $blockers, 'blockers must be unique');
+        // sorted
+        $sorted = $blockers;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $blockers, 'blockers must be sorted');
+        // empty string stripped
+        $this->assertNotContains('', $blockers);
+    }
+
+    public function test_negative_malformed_count_treated_as_zero(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'queue_health' => ['malformed_count' => -5],
+        ]);
+        $classes = array_column($r['gaps'], 'class');
+        $this->assertNotContains(AtlasSelfConstructionCortexRiskGapLens::GAP_MALFORMED_QUEUE, $classes);
+    }
+
+    public function test_negative_repeated_give_back_count_treated_as_zero(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'queue_health' => ['repeated_give_back_count' => -99],
+            'sweep_health' => ['coverage_unknown' => false],
+        ]);
+        $classes = array_column($r['gaps'], 'class');
+        $this->assertNotContains(AtlasSelfConstructionCortexRiskGapLens::GAP_UNPROVED_RUNTIME, $classes);
+    }
+
+    public function test_invalid_merge_posture_yields_unsafe_merge_gap_with_observed_posture(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'merge' => ['posture' => 'totally_invalid_posture'],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $this->assertArrayHasKey(AtlasSelfConstructionCortexRiskGapLens::GAP_UNSAFE_MERGE, $byClass);
+        $this->assertSame('totally_invalid_posture', $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_UNSAFE_MERGE]['evidence']['posture']);
+    }
 }

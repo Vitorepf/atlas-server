@@ -51,7 +51,12 @@ final class AtlasSelfConstructionCortexRiskGapLens
         $gaps = [];
 
         $inventory = is_array($facts['source_inventory'] ?? null) ? $facts['source_inventory'] : [];
-        $invBlockers = is_array($inventory['blockers'] ?? null) ? array_map('strval', $inventory['blockers']) : [];
+        $invBlockersRaw = is_array($inventory['blockers'] ?? null) ? array_map('strval', $inventory['blockers']) : [];
+        $invBlockers = array_values(array_unique(array_filter(
+            array_map('trim', $invBlockersRaw),
+            static fn (string $b): bool => $b !== '',
+        )));
+        sort($invBlockers, SORT_STRING);
         $hasStale = false;
         foreach ($invBlockers as $b) {
             if (str_contains($b, 'missing_required_source') || str_contains($b, 'stale')) {
@@ -82,13 +87,13 @@ final class AtlasSelfConstructionCortexRiskGapLens
         }
 
         $queueHealth = is_array($facts['queue_health'] ?? null) ? $facts['queue_health'] : [];
-        $malformed = (int) ($queueHealth['malformed_count'] ?? 0);
+        $malformed = max(0, (int) ($queueHealth['malformed_count'] ?? 0));
         if ($malformed > 0) {
             $gaps[] = ['class' => self::GAP_MALFORMED_QUEUE, 'evidence' => ['malformed_count' => $malformed]];
         }
 
         $sweep = is_array($facts['sweep_health'] ?? null) ? $facts['sweep_health'] : [];
-        $gbCount = (int) ($queueHealth['repeated_give_back_count'] ?? 0);
+        $gbCount = max(0, (int) ($queueHealth['repeated_give_back_count'] ?? 0));
         $unproved = (bool) ($sweep['coverage_unknown'] ?? false) || $gbCount >= 3;
         if ($unproved) {
             $gaps[] = ['class' => self::GAP_UNPROVED_RUNTIME, 'evidence' => ['coverage_unknown' => (bool) ($sweep['coverage_unknown'] ?? false), 'repeated_give_back_count' => $gbCount]];
