@@ -80,6 +80,18 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             ? max(1, $linesDeleted - ($consumerCount * 5))
             : 0;
 
+        $behaviorProofStatus = match (true) {
+            ! $behaviorCoverage => 'missing',
+            $kind === self::KIND_MERGE && $preservedBehaviorTests === [] => 'missing',
+            default => 'proven',
+        };
+
+        $consumerMigrationStatus = match (true) {
+            $consumerCount === 0 => 'no_consumers',
+            $migrationPlan !== '' => 'migration_planned',
+            default => 'unmigrated_consumers',
+        };
+
         return [
             'schema' => self::SCHEMA,
             'candidate_id' => $candidateId,
@@ -88,6 +100,8 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             'blockers' => $blockers,
             'required_tests' => array_values(array_unique($requiredTests)),
             'rollback_requirement' => $rollbackRequirement,
+            'behavior_proof_status' => $behaviorProofStatus,
+            'consumer_migration_status' => $consumerMigrationStatus,
         ];
     }
 }

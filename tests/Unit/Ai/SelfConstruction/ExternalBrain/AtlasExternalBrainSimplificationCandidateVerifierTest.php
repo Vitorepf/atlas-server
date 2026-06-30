@@ -130,4 +130,55 @@ final class AtlasExternalBrainSimplificationCandidateVerifierTest extends TestCa
 
         $this->assertSame($verifier->verify($candidate), $verifier->verify($candidate));
     }
+
+    // ── AC1: behavior_proof_status + consumer_migration_status ───────────────
+
+    public function test_output_includes_behavior_proof_status_and_consumer_migration_status(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate());
+
+        $this->assertArrayHasKey('behavior_proof_status', $result);
+        $this->assertArrayHasKey('consumer_migration_status', $result);
+        $this->assertSame('proven', $result['behavior_proof_status']);
+        $this->assertSame('no_consumers', $result['consumer_migration_status']);
+    }
+
+    public function test_behavior_proof_status_missing_when_behavior_coverage_false(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'behavior_coverage' => false,
+        ]));
+
+        $this->assertSame('missing', $result['behavior_proof_status']);
+    }
+
+    public function test_behavior_proof_status_missing_for_merge_without_preserved_tests(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'kind' => 'merge',
+            'preserved_behavior_tests' => [],
+        ]));
+
+        $this->assertSame('missing', $result['behavior_proof_status']);
+    }
+
+    public function test_consumer_migration_status_migration_planned(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'consumer_count' => 3,
+            'migration_plan' => 'swap callers over two releases',
+        ]));
+
+        $this->assertSame('migration_planned', $result['consumer_migration_status']);
+    }
+
+    public function test_consumer_migration_status_unmigrated_consumers(): void
+    {
+        $result = (new AtlasExternalBrainSimplificationCandidateVerifier)->verify($this->candidate([
+            'consumer_count' => 3,
+            'migration_plan' => null,
+        ]));
+
+        $this->assertSame('unmigrated_consumers', $result['consumer_migration_status']);
+    }
 }
