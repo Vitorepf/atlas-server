@@ -57,9 +57,12 @@ final class AtlasTaskHighLeverageBatchAuditor
 
     /**
      * @param  list<array<string,mixed>>  $specs  raw task packet arrays
+     * @param  array<string,mixed>  $batchContext  optional batch-level facts:
+     *         target_claimable_floor : int  minimum specs the batch must replenish
+     *         active_worker_count    : int  workers currently drawing from the queue
      * @return array{schema:string, creditable:bool, anti_proxy_facts:list<array<string,mixed>>, remediation_hints:list<string>}
      */
-    public function audit(array $specs): array
+    public function audit(array $specs, array $batchContext = []): array
     {
         if ($specs === []) {
             return $this->result(true, [], []);
@@ -235,22 +238,73 @@ final class AtlasTaskHighLeverageBatchAuditor
             }
         }
 
-        return $this->result($antiProxy === [], $antiProxy, $hints);
+        // 10. Worker coverage: only meaningful when the caller supplies replenishment targets. A batch
+        // that passes every per-spec gate can still fail to feed workers if it's too small for demand,
+        // or if every spec concentrates in a single allowed_files family (one worker can claim it all,
+        // the rest starve).
+        $workerCoverage = null;
+        $requiredCoverage = max(
+            max(0, (int) ($batchContext['target_claimable_floor'] ?? 0)),
+            max(0, (int) ($batchContext['active_worker_count'] ?? 0)),
+        );
+        if ($requiredCoverage > 0) {
+            $families = [];
+            foreach ($specs as $s) {
+                $files = is_array($s['allowed_files'] ?? null) ? array_map('strval', (array) $s['allowed_files']) : [];
+                $family = $files !== [] ? (dirname($files[0]) ?: 'unknown') : 'unknown';
+                $families[$family] = true;
+            }
+            $distinctFamilies = count($families);
+            $belowFloor = $total < $requiredCoverage;
+            $concentrated = $total > 1 && $distinctFamilies <= 1;
+            $satisfied = ! $belowFloor && ! $concentrated;
+            $gap = $belowFloor ? ($requiredCoverage - $total) : 0;
+
+            $workerCoverage = [
+                'required_coverage' => $requiredCoverage,
+                'total_specs' => $total,
+                'distinct_families' => $distinctFamilies,
+                'satisfied' => $satisfied,
+            ];
+
+            if (! $satisfied) {
+                $antiProxy[] = [
+                    'pattern' => 'worker_coverage_insufficient',
+                    'worker_coverage_gap' => $gap,
+                    'distinct_families' => $distinctFamilies,
+                    'required_coverage' => $requiredCoverage,
+                    'total' => $total,
+                    'concentrated_in_single_family' => $concentrated,
+                ];
+                $hints[] = $belowFloor
+                    ? "Batch supplies {$total} specs but worker demand requires at least {$requiredCoverage}; add {$gap} more creditable specs."
+                    : 'All specs concentrate allowed_files in a single family; diversify so multiple workers can claim in parallel.';
+            }
+        }
+
+        return $this->result($antiProxy === [], $antiProxy, $hints, $workerCoverage);
     }
 
     /**
      * @param  list<array<string,mixed>>  $antiProxy
      * @param  list<string>  $hints
+     * @param  array<string,mixed>|null  $workerCoverage
      * @return array{schema:string, creditable:bool, anti_proxy_facts:list<array<string,mixed>>, remediation_hints:list<string>}
      */
-    private function result(bool $creditable, array $antiProxy, array $hints): array
+    private function result(bool $creditable, array $antiProxy, array $hints, ?array $workerCoverage = null): array
     {
-        return [
+        $out = [
             'schema' => self::SCHEMA,
             'creditable' => $creditable,
             'anti_proxy_facts' => array_values($antiProxy),
             'remediation_hints' => array_values($hints),
         ];
+
+        if ($workerCoverage !== null) {
+            $out['worker_coverage'] = $workerCoverage;
+        }
+
+        return $out;
     }
 
     /**
