@@ -147,6 +147,89 @@ class AiProviderChoiceResolverTest extends TestCase
         }
     }
 
+    // ── provider_choice_outcome_receipt ──────────────────────────────────────
+
+    public function test_receipt_present_for_switch_provider(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'switch_provider', 'action' => 'switch_provider', 'provider' => 'claude_cli', 'model' => null],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'switch_provider');
+        $job->refresh();
+
+        $receipt = data_get($job->metadata, 'provider_choice_outcome_receipt');
+        $this->assertIsArray($receipt);
+        $this->assertSame('switch_provider', $receipt['action']);
+        $this->assertSame('switch_provider', $receipt['option_id']);
+        $this->assertSame('codex_cli', $receipt['previous_provider']);
+        $this->assertSame('claude_cli', $receipt['resulting_provider']);
+        $this->assertSame('queued', $receipt['resulting_status']);
+        $this->assertFalse($receipt['external_provider_call']);
+        $this->assertFalse($receipt['provider_tokens_spent']);
+        $this->assertArrayHasKey('resolved_at', $receipt);
+    }
+
+    public function test_receipt_present_for_fail(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'login_required', 'action' => 'fail', 'reason' => 'login_required', 'cli_command' => 'codex login'],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'login_required');
+        $job->refresh();
+
+        $receipt = data_get($job->metadata, 'provider_choice_outcome_receipt');
+        $this->assertIsArray($receipt);
+        $this->assertSame('fail', $receipt['action']);
+        $this->assertSame('failed', $receipt['resulting_status']);
+        $this->assertFalse($receipt['external_provider_call']);
+        $this->assertFalse($receipt['provider_tokens_spent']);
+    }
+
+    public function test_receipt_present_for_cancel(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'cancel', 'action' => 'cancel'],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'cancel');
+        $job->refresh();
+
+        $receipt = data_get($job->metadata, 'provider_choice_outcome_receipt');
+        $this->assertSame('cancelled', $receipt['resulting_status']);
+        $this->assertFalse($receipt['external_provider_call']);
+    }
+
+    public function test_receipt_present_for_retry_same(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'retry_same', 'action' => 'retry_same'],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'retry_same');
+        $job->refresh();
+
+        $receipt = data_get($job->metadata, 'provider_choice_outcome_receipt');
+        $this->assertSame('retry_same', $receipt['action']);
+        $this->assertSame('queued', $receipt['resulting_status']);
+    }
+
+    public function test_receipt_previous_fields_capture_original_job_state(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'downgrade_model', 'action' => 'downgrade_model', 'model' => 'gpt-5-4-mini'],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'downgrade_model');
+        $job->refresh();
+
+        $receipt = data_get($job->metadata, 'provider_choice_outcome_receipt');
+        $this->assertSame('codex_cli', $receipt['previous_provider']);
+        $this->assertSame('gpt-5.5', $receipt['previous_model']);
+        $this->assertSame('gpt-5-4-mini', $receipt['resulting_model']);
+    }
+
     private function makePausedJob(array $options): AiJob
     {
         $trace = AiTrace::create([

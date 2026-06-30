@@ -36,10 +36,41 @@ class AiProviderChoiceResolver
                 throw AiProviderChoiceException::optionNotFound($optionId);
             }
         }
+
+        $prevProvider = $job->provider;
+        $prevModel    = $job->model;
+
+        $resultingProvider = match ($action) {
+            'switch_provider' => (string) ($option['provider'] ?? $job->provider),
+            default           => $job->provider,
+        };
+        $resultingModel = match ($action) {
+            'switch_provider' => array_key_exists('model', $option) ? $option['model'] : $job->model,
+            'downgrade_model' => (string) ($option['model'] ?? $job->model),
+            default           => $job->model,
+        };
+        $resultingStatus = match ($action) {
+            'fail'   => 'failed',
+            'cancel' => 'cancelled',
+            default  => 'queued',
+        };
+
         $baseMetadata = array_merge($job->metadata ?? [], [
-            'provider_choice_resolved_at' => now()->toIso8601String(),
-            'provider_choice_resolved_option' => $optionId,
+            'provider_choice_resolved_at'              => now()->toIso8601String(),
+            'provider_choice_resolved_option'          => $optionId,
             'provider_choice_last_attempted_option_id' => $optionId,
+            'provider_choice_outcome_receipt'          => [
+                'action'                 => $action,
+                'option_id'              => $optionId,
+                'previous_provider'      => $prevProvider,
+                'previous_model'         => $prevModel,
+                'resulting_provider'     => $resultingProvider,
+                'resulting_model'        => $resultingModel,
+                'resulting_status'       => $resultingStatus,
+                'resolved_at'            => now()->toIso8601String(),
+                'external_provider_call' => false,
+                'provider_tokens_spent'  => false,
+            ],
         ]);
 
         match ($action) {
