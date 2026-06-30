@@ -75,8 +75,9 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
                 : 'insufficient_overlap';
 
             return ['collapse_safe' => false, 'refusal' => [
-                'organ_pair' => [$aId, $bId],
-                'reason' => $reason,
+                'organ_pair'       => [$aId, $bId],
+                'reason'           => $reason,
+                'recommendation'   => 'keep_separate',
                 'shared_decisions' => $sharedDecisions,
             ]];
         }
@@ -84,8 +85,9 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         $sharedConsumers = array_values(array_intersect($aConsumers, $bConsumers));
         if ($aConsumers !== [] && $bConsumers !== [] && $sharedConsumers === []) {
             return ['collapse_safe' => false, 'refusal' => [
-                'organ_pair' => [$aId, $bId],
-                'reason' => 'consumers_differ_materially',
+                'organ_pair'       => [$aId, $bId],
+                'reason'           => 'consumers_differ_materially',
+                'recommendation'   => 'keep_separate',
                 'shared_decisions' => $sharedDecisions,
             ]];
         }
@@ -93,10 +95,11 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         $delta = abs($aEvidence - $bEvidence);
         if ($delta < self::MIN_EVIDENCE_DELTA) {
             return ['collapse_safe' => false, 'refusal' => [
-                'organ_pair' => [$aId, $bId],
-                'reason' => 'no_canonical_owner_stronger_evidence',
+                'organ_pair'       => [$aId, $bId],
+                'reason'           => 'no_canonical_owner_stronger_evidence',
+                'recommendation'   => 'needs_more_evidence',
                 'shared_decisions' => $sharedDecisions,
-                'evidence_delta' => $delta,
+                'evidence_delta'   => $delta,
             ]];
         }
 
@@ -111,6 +114,7 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
             return ['collapse_safe' => false, 'refusal' => [
                 'organ_pair'       => [$aId, $bId],
                 'reason'           => 'no_behavior_preservation_tests',
+                'recommendation'   => 'needs_more_evidence',
                 'shared_decisions' => $sharedDecisions,
             ]];
         }
@@ -141,19 +145,22 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         $overlapRatio  = $sharedCount / max(1, max(count($aDecisions), count($bDecisions)));
         $collapseConfidence = round(min(1.0, ($evidenceDelta / 10.0) * 0.6 + $overlapRatio * 0.4), 3);
 
+        $recommendation = $deletionBlockers === [] ? 'retire' : 'merge';
+
         return ['collapse_safe' => true, 'candidate' => [
-            'canonical_owner'        => $ownerId,
-            'canonical_owner_reason' => 'higher_evidence_strength',
-            'absorbed_organs'        => [$absorbedId],
-            'shared_decisions'       => $sharedDecisions,
-            'preserved_behaviors'    => $preserved,
+            'canonical_owner'          => $ownerId,
+            'canonical_owner_reason'   => 'higher_evidence_strength',
+            'absorbed_organs'          => [$absorbedId],
+            'recommendation'           => $recommendation,
+            'shared_decisions'         => $sharedDecisions,
+            'preserved_behaviors'      => $preserved,
             'deleted_responsibilities' => $deletedResponsibilities,
-            'migration_notes'        => "Route all {$absorbedId} callers to {$ownerId}",
-            'risk_level'             => $this->riskLevel(count($deletedResponsibilities), count($absorbedExclusiveConsumers)),
-            'required_tests'         => $requiredTests,
-            'required_behavior_tests' => $requiredTests,
-            'deletion_blockers'      => $deletionBlockers,
-            'collapse_confidence'    => $collapseConfidence,
+            'migration_notes'          => "Route all {$absorbedId} callers to {$ownerId}",
+            'risk_level'               => $this->riskLevel(count($deletedResponsibilities), count($absorbedExclusiveConsumers)),
+            'required_tests'           => $requiredTests,
+            'required_behavior_tests'  => $requiredTests,
+            'deletion_blockers'        => $deletionBlockers,
+            'collapse_confidence'      => $collapseConfidence,
         ]];
     }
 
