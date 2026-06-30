@@ -85,13 +85,12 @@ final class AtlasLoopSimulationSandboxBuilder
      */
     private function gitLsFiles(string $root): array
     {
-        $proc = new Process(['git', 'ls-files'], $root);
+        $proc = new Process(['git', 'ls-files', '-z'], $root);
         $proc->run();
         if (! $proc->isSuccessful()) {
             return [];
         }
-        $lines = preg_split('/\r?\n/', trim($proc->getOutput())) ?: [];
-        $files = array_values(array_filter($lines, static fn (string $l): bool => $l !== ''));
+        $files = array_values(array_filter(explode("\0", $proc->getOutput()), static fn (string $l): bool => $l !== ''));
         sort($files, SORT_STRING);
 
         return $files;
@@ -103,15 +102,12 @@ final class AtlasLoopSimulationSandboxBuilder
      */
     private function dirtyFingerprints(string $root, array $tracked): array
     {
-        $proc = new Process(['git', 'status', '--porcelain=v1'], $root);
+        $proc = new Process(['git', 'status', '--porcelain=v1', '-z'], $root);
         $proc->run();
         $dirty = [];
         if ($proc->isSuccessful()) {
-            foreach (preg_split('/\r?\n/', trim($proc->getOutput())) ?: [] as $line) {
-                if ($line === '') {
-                    continue;
-                }
-                $rel = trim(substr($line, 3));
+            foreach (array_filter(explode("\0", $proc->getOutput()), static fn (string $e): bool => $e !== '') as $line) {
+                $rel = substr($line, 3);
                 $abs = $root.'/'.$rel;
                 $dirty[] = [
                     'path' => $rel,

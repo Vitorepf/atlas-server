@@ -99,6 +99,33 @@ class AtlasLoopSimulationSandboxBuilderTest extends TestCase
         }
     }
 
+    public function test_non_ascii_tracked_file_is_copied_and_fingerprinted_correctly(): void
+    {
+        $nonAsciiName = "café.txt";
+        file_put_contents($this->sourceRoot.'/'.$nonAsciiName, "données spéciales\n");
+        $this->git('add', $nonAsciiName);
+        $this->git('commit', '-q', '-m', 'add non-ascii file');
+
+        // Make it dirty so it appears in dirtyFingerprints too.
+        file_put_contents($this->sourceRoot.'/'.$nonAsciiName, "modified données\n");
+
+        $builder = new AtlasLoopSimulationSandboxBuilder($this->sandboxParent);
+        $handle = $builder->build($this->sourceRoot, 'nonascii');
+
+        self::assertFileExists($handle->sandboxPath.'/'.$nonAsciiName, 'non-ASCII tracked file must be copied into sandbox');
+
+        $dirtyPaths = array_column($handle->dirtyFiles, 'path');
+        self::assertContains($nonAsciiName, $dirtyPaths, 'dirty fingerprint must use real path, not quoted');
+
+        $dirtyEntry = array_values(array_filter($handle->dirtyFiles, static fn (array $e) => $e['path'] === $nonAsciiName));
+        self::assertNotEmpty($dirtyEntry);
+        self::assertSame(
+            hash_file('sha256', $this->sourceRoot.'/'.$nonAsciiName),
+            $dirtyEntry[0]['sha256'],
+            'sha256 must be the actual file hash, not "0"',
+        );
+    }
+
     private function git(string ...$args): void
     {
         $cmd = 'git -C '.escapeshellarg($this->sourceRoot);
