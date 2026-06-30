@@ -216,52 +216,67 @@ final class AtlasTaskFabricRoadmapGapMiner
      * implementability leverage so the originator always sees the highest-impact work first.
      *
      * Leverage score = ORGAN_PRIORITY[organ] + min(count(suggested_files), 5)
-     * Output sorted: leverage_score DESC, organ ASC, capability ASC.
+     * Candidates sorted: leverage_score DESC, organ ASC, capability ASC.
+     * Rejections sorted deterministically: by reason ASC, organ ASC, capability ASC.
      *
-     * Additional filter vs mine():
-     *   - row['family'] present AND in $blockedFamilies → skipped (cannot be implemented now)
-     *   - organ:capability key in $liveTargets → deduplicated
+     * Rejection reasons (exposed so the brain can diagnose gaps, not just count them):
+     *   resolved              — row['resolved'] === true
+     *   cosmetic_or_proxy     — kind matches COSMETIC_KIND_REGEX
+     *   missing_evidence      — evidence_path empty
+     *   unsupported_organ     — organ not in SUPPORTED_ORGANS
+     *   blocked_family        — row['family'] in $blockedFamilies
+     *   live_target_duplicate — organ:capability key in $liveTargets
      *
      * @param  list<array<string,mixed>>  $rows
      * @param  list<string>  $blockedFamilies  Task-family names that are currently blocked
      * @param  list<string>  $liveTargets      Existing "organ:capability" keys to deduplicate against
-     * @return list<array<string,mixed>>  Candidates with added `leverage_score` key
+     * @return array{candidates:list<array<string,mixed>>, rejections:list<array{reason:string,organ:string,capability:string}>}
      */
     public function mineRanked(array $rows, array $blockedFamilies = [], array $liveTargets = []): array
     {
         $blockedSet = array_flip($blockedFamilies);
         $liveSet    = array_flip($liveTargets);
         $candidates = [];
+        $rejections = [];
 
         foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
+
+            $organ      = trim((string) ($row['organ'] ?? ''));
+            $capability = trim((string) ($row['capability'] ?? ''));
+            $label      = ['organ' => $organ, 'capability' => $capability];
+
             if ((bool) ($row['resolved'] ?? false)) {
+                $rejections[] = $label + ['reason' => 'resolved'];
                 continue;
             }
             $kind = (string) ($row['kind'] ?? '');
             if ($kind !== '' && preg_match(self::COSMETIC_KIND_REGEX, $kind)) {
+                $rejections[] = $label + ['reason' => 'cosmetic_or_proxy'];
                 continue;
             }
             $evidence = trim((string) ($row['evidence_path'] ?? ''));
             if ($evidence === '') {
+                $rejections[] = $label + ['reason' => 'missing_evidence'];
                 continue;
             }
-            $organ = trim((string) ($row['organ'] ?? ''));
             if (! in_array($organ, self::SUPPORTED_ORGANS, true)) {
+                $rejections[] = $label + ['reason' => 'unsupported_organ'];
                 continue;
             }
-            $capability = trim((string) ($row['capability'] ?? ''));
             if ($capability === '') {
                 continue;
             }
             $family = trim((string) ($row['family'] ?? ''));
             if ($family !== '' && isset($blockedSet[$family])) {
+                $rejections[] = $label + ['reason' => 'blocked_family'];
                 continue;
             }
             $liveKey = $organ.':'.$capability;
             if (isset($liveSet[$liveKey])) {
+                $rejections[] = $label + ['reason' => 'live_target_duplicate'];
                 continue;
             }
 
@@ -310,6 +325,10 @@ final class AtlasTaskFabricRoadmapGapMiner
             return strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability']);
         });
 
-        return $candidates;
+        usort($rejections, static fn (array $a, array $b): int =>
+            strcmp($a['reason'], $b['reason']) ?: strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability'])
+        );
+
+        return ['candidates' => $candidates, 'rejections' => $rejections];
     }
 }

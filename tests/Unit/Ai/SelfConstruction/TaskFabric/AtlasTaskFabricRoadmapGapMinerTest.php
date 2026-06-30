@@ -171,10 +171,10 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
     public function test_mine_ranked_output_has_leverage_score(): void
     {
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Task Fabric', 'dependency_ladder')]);
-        $this->assertCount(1, $out);
-        $this->assertArrayHasKey('leverage_score', $out[0]);
-        $this->assertIsInt($out[0]['leverage_score']);
-        $this->assertGreaterThan(0, $out[0]['leverage_score']);
+        $this->assertCount(1, $out['candidates']);
+        $this->assertArrayHasKey('leverage_score', $out['candidates'][0]);
+        $this->assertIsInt($out['candidates'][0]['leverage_score']);
+        $this->assertGreaterThan(0, $out['candidates'][0]['leverage_score']);
     }
 
     public function test_mine_ranked_sorts_by_leverage_score_descending(): void
@@ -187,9 +187,9 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         ];
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows);
 
-        $this->assertCount(2, $out);
-        $this->assertSame('Task Fabric', $out[0]['organ']);
-        $this->assertGreaterThan($out[1]['leverage_score'], $out[0]['leverage_score']);
+        $this->assertCount(2, $out['candidates']);
+        $this->assertSame('Task Fabric', $out['candidates'][0]['organ']);
+        $this->assertGreaterThan($out['candidates'][1]['leverage_score'], $out['candidates'][0]['leverage_score']);
     }
 
     public function test_mine_ranked_tie_broken_by_organ_then_capability(): void
@@ -201,8 +201,8 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         ];
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows);
 
-        $this->assertSame('a_cap', $out[0]['capability']);
-        $this->assertSame('z_cap', $out[1]['capability']);
+        $this->assertSame('a_cap', $out['candidates'][0]['capability']);
+        $this->assertSame('z_cap', $out['candidates'][1]['capability']);
     }
 
     public function test_mine_ranked_skips_blocked_family(): void
@@ -213,8 +213,8 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         ];
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows, ['fabric-alpha']);
 
-        $this->assertCount(1, $out);
-        $this->assertSame('Maestro', $out[0]['organ']);
+        $this->assertCount(1, $out['candidates']);
+        $this->assertSame('Maestro', $out['candidates'][0]['organ']);
     }
 
     public function test_mine_ranked_passes_through_row_with_no_family_field(): void
@@ -222,7 +222,7 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $row = $this->row('Maestro', 'fleet_probe'); // no 'family' key
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row], ['fabric-alpha']);
 
-        $this->assertCount(1, $out, 'row without a family field must not be blocked');
+        $this->assertCount(1, $out['candidates'], 'row without a family field must not be blocked');
     }
 
     public function test_mine_ranked_deduplicates_live_targets(): void
@@ -233,8 +233,8 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         ];
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows, [], ['Task Fabric:dep_ladder']);
 
-        $this->assertCount(1, $out);
-        $this->assertSame('Maestro', $out[0]['organ']);
+        $this->assertCount(1, $out['candidates']);
+        $this->assertSame('Maestro', $out['candidates'][0]['organ']);
     }
 
     public function test_mine_ranked_rejects_proxy_gaps(): void
@@ -244,7 +244,7 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
             $this->row('Worker Swarm', 'comment_polish', ['kind' => 'cosmetic']),
         ]);
 
-        $this->assertSame([], $out);
+        $this->assertSame([], $out['candidates']);
     }
 
     public function test_mine_ranked_caps_file_bonus_at_five(): void
@@ -255,6 +255,42 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         ]);
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
 
-        $this->assertSame(15, $out[0]['leverage_score']);
+        $this->assertSame(15, $out['candidates'][0]['leverage_score']);
+    }
+
+    public function test_mine_ranked_rejection_reasons_are_deterministic_for_all_six_classes(): void
+    {
+        $miner = new AtlasTaskFabricRoadmapGapMiner;
+        $rows = [
+            $this->row('Task Fabric', 'resolved_cap', ['resolved' => true]),
+            $this->row('Task Fabric', 'proxy_cap', ['kind' => 'cosmetic']),
+            $this->row('Task Fabric', 'no_evidence', ['evidence_path' => '']),
+            $this->row('Marketing Domain', 'unsupported_organ_cap'),    // unsupported organ
+            $this->row('Maestro', 'blocked_cap', ['family' => 'beta']),
+            $this->row('Worker Swarm', 'live_dup'),                      // live target duplicate
+            $this->row('Verification Court', 'accepted_cap'),           // should be accepted
+        ];
+        $out = $miner->mineRanked($rows, ['beta'], ['Worker Swarm:live_dup']);
+
+        // One candidate survives
+        $this->assertCount(1, $out['candidates']);
+        $this->assertSame('Verification Court', $out['candidates'][0]['organ']);
+
+        // Six rejections, sorted by reason asc
+        $this->assertCount(6, $out['rejections']);
+        $reasons = array_column($out['rejections'], 'reason');
+
+        // All six rejection classes present
+        $this->assertContains('resolved', $reasons);
+        $this->assertContains('cosmetic_or_proxy', $reasons);
+        $this->assertContains('missing_evidence', $reasons);
+        $this->assertContains('unsupported_organ', $reasons);
+        $this->assertContains('blocked_family', $reasons);
+        $this->assertContains('live_target_duplicate', $reasons);
+
+        // Rejections are sorted deterministically (reason asc is primary)
+        $sorted = $reasons;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $reasons, 'rejections must be sorted by reason asc');
     }
 }
