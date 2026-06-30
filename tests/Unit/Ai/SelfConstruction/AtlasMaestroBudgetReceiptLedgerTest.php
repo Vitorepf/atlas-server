@@ -89,4 +89,34 @@ class AtlasMaestroBudgetReceiptLedgerTest extends TestCase
 
         self::assertSame($a['receipt_hash'], $b['receipt_hash']);
     }
+
+    public function test_append_throws_for_empty_task_packet_id(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new AtlasMaestroBudgetReceiptLedger($this->ledgerPath))->append('', 'cycle-A', $this->decision(), '2026-06-25T00:00:00Z');
+    }
+
+    public function test_append_throws_for_empty_gate(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new AtlasMaestroBudgetReceiptLedger($this->ledgerPath))->append('pk-1', 'cycle-A', $this->decision(['gate' => '']), '2026-06-25T00:00:00Z');
+    }
+
+    public function test_duplicate_receipt_not_written_twice(): void
+    {
+        $ledger = new AtlasMaestroBudgetReceiptLedger($this->ledgerPath);
+        $ledger->append('pk-1', 'cycle-A', $this->decision(), '2026-06-25T00:00:00Z');
+        $ledger->append('pk-1', 'cycle-A', $this->decision(), '2026-06-25T00:00:00Z');
+
+        self::assertCount(1, $ledger->all());
+    }
+
+    public function test_different_recorded_at_is_not_a_duplicate(): void
+    {
+        $ledger = new AtlasMaestroBudgetReceiptLedger($this->ledgerPath);
+        $ledger->append('pk-1', 'cycle-A', $this->decision(), '2026-06-25T00:00:00Z');
+        $ledger->append('pk-1', 'cycle-A', $this->decision(), '2026-06-25T00:00:01Z');
+
+        self::assertCount(2, $ledger->all());
+    }
 }

@@ -28,17 +28,31 @@ final class AtlasMaestroBudgetReceiptLedger
      */
     public function append(string $taskPacketId, ?string $cycleId, array $decision, ?string $recordedAt = null): array
     {
+        if (trim($taskPacketId) === '') {
+            throw new \InvalidArgumentException('budget_receipt_ledger: task_packet_id must not be empty');
+        }
+        $gate = (string) ($decision['gate'] ?? '');
+        if ($gate === '') {
+            throw new \InvalidArgumentException('budget_receipt_ledger: decision.gate must not be empty');
+        }
+
         $row = [
             'schema' => self::SCHEMA,
             'task_packet_id' => $taskPacketId,
             'cycle_id' => $cycleId,
-            'gate' => (string) ($decision['gate'] ?? ''),
+            'gate' => $gate,
             'reason' => (string) ($decision['reason'] ?? ''),
             'window' => isset($decision['window']) ? (string) $decision['window'] : null,
             'overage_cents' => (int) ($decision['overage_cents'] ?? 0),
             'recorded_at' => $recordedAt ?? gmdate('Y-m-d\TH:i:s\Z'),
         ];
         $row['receipt_hash'] = $this->receiptHash($row);
+
+        $hash = $row['receipt_hash'];
+        $duplicate = $this->orderedFilter(static fn (array $r): bool => ($r['receipt_hash'] ?? '') === $hash);
+        if ($duplicate !== []) {
+            return $row;
+        }
 
         $line = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $handle = @fopen($this->ledgerPath, 'a');
