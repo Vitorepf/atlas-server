@@ -119,7 +119,7 @@ final class AtlasExternalBrainContextBudgetDistillerTest extends TestCase
             'budget_tokens'    => 10000,
         ]);
         $this->assertEmpty($r['retained_sections']);
-        $this->assertSame('low_signal', $r['omitted_sections'][0]['reason']);
+        $this->assertSame('low_composite_rank', $r['omitted_sections'][0]['reason']);
     }
 
     // ── Budget enforcement ────────────────────────────────────────────────────
@@ -276,5 +276,43 @@ final class AtlasExternalBrainContextBudgetDistillerTest extends TestCase
         foreach (['canonical_decision', 'ac_definition', 'anti_proxy_rule', 'queue_constraint', 'target_path'] as $type) {
             $this->assertContains($type, $missing);
         }
+    }
+
+    // ── AC1: canonical field names (retained/omitted/loss_report/required_expansion_handles) ──
+
+    public function test_output_has_ac1_canonical_field_names(): void
+    {
+        $r = $this->distiller()->distill([]);
+
+        foreach (['retained', 'omitted', 'loss_report', 'required_expansion_handles'] as $key) {
+            $this->assertArrayHasKey($key, $r, "missing AC1 canonical field: {$key}");
+        }
+        $this->assertSame($r['retained_sections'], $r['retained']);
+        $this->assertSame($r['omitted_sections'], $r['omitted']);
+        $this->assertSame($r['missing_critical_sections'], $r['required_expansion_handles']);
+        $this->assertIsString($r['loss_report']);
+    }
+
+    public function test_loss_report_mentions_high_risk_when_tier1_omitted_for_budget(): void
+    {
+        $r = $this->distiller()->distill([
+            'context_sections' => [$this->sec(['type' => 'canonical_decision', 'token_count' => 500])],
+            'budget_tokens'    => 100,
+        ]);
+        $this->assertStringContainsString('risk_of_loss=high', $r['loss_report']);
+    }
+
+    // ── duplicate collapsing: singleton group still recorded but omitted ─────
+
+    public function test_singleton_duplicate_group_still_recorded_in_canonical_summaries(): void
+    {
+        $r = $this->distiller()->distill([
+            'context_sections' => [$this->sec(['id' => 'lone-dup', 'type' => 'other', 'is_duplicate' => true])],
+            'budget_tokens'    => 10000,
+        ]);
+
+        $this->assertCount(1, $r['duplicate_canonical_summaries']);
+        $this->assertSame(1, $r['duplicate_canonical_summaries'][0]['provenance_count']);
+        $this->assertEmpty($r['retained_sections']);
     }
 }

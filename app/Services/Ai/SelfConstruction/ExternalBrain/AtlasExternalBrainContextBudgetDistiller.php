@@ -117,13 +117,22 @@ final class AtlasExternalBrainContextBudgetDistiller
         }
 
         // Promote collapsed duplicate winners into classified (with their provenance metadata).
+        // Every group — even a singleton — is recorded in duplicate_canonical_summaries. But a
+        // singleton "duplicate" (no sibling sharing the canonical_key) has nothing to collapse
+        // into — it is just a stale copy with no surviving original, so it is omitted outright
+        // rather than promoted into classified for tiered retention.
         foreach ($duplicateGroups as $key => $best) {
-            $classified[] = $best;
             $duplicateCanonicalSummaries[] = [
                 'canonical_key'   => $key,
                 'retained_id'     => $best['id'],
                 'provenance_count' => $best['provenance_count'],
             ];
+
+            if ($best['provenance_count'] <= 1) {
+                $omitted[] = ['id' => $best['id'], 'type' => $best['type'], 'reason' => 'duplicate'];
+                continue;
+            }
+            $classified[] = $best;
         }
 
         // Phase 2: fill budget by tier then by composite rank.
@@ -192,6 +201,10 @@ final class AtlasExternalBrainContextBudgetDistiller
             static fn (string $t) => ! in_array($t, $inputTypes, true),
         ));
 
+        $lossReport = $missingCritical === []
+            ? "risk_of_loss={$risk}: all tier-1 safety sections present in input."
+            : "risk_of_loss={$risk}: missing tier-1 canonical sections: ".implode(', ', $missingCritical).'.';
+
         return [
             'schema_version'               => self::SCHEMA,
             'distilled_context'            => $distilledContext,
@@ -201,6 +214,12 @@ final class AtlasExternalBrainContextBudgetDistiller
             'risk_of_loss'                 => $risk,
             'missing_critical_sections'    => $missingCritical,
             'duplicate_canonical_summaries' => $duplicateCanonicalSummaries,
+            // Canonical AC1 field names — aliases of the fields above, kept for callers using the
+            // literal contract wording (retained/omitted/loss_report/required_expansion_handles).
+            'retained'                     => $retainedPublic,
+            'omitted'                      => $omitted,
+            'loss_report'                  => $lossReport,
+            'required_expansion_handles'   => $missingCritical,
         ];
     }
 }
