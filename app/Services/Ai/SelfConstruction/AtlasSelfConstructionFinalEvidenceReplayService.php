@@ -33,15 +33,23 @@ final class AtlasSelfConstructionFinalEvidenceReplayService
         if ((string) data_get($bundle, 'bundle_identity.bundle_hash', '') !== $this->bundleHash($bundle)) {
             $violations[] = ['code' => 'final_bundle_hash_mismatch'];
         }
+        $componentStatusMap = [];
         foreach ([
             'runtime_gap_matrix',
             'completion_audit_status',
             'completion_operator_action_packet',
             'completion_audit_blocker_explainer',
         ] as $component) {
-            if (! (bool) data_get($bundle, "component_registry.{$component}.available", false)) {
+            $present = (bool) data_get($bundle, "component_registry.{$component}.available", false);
+            if (! $present) {
                 $violations[] = ['code' => 'required_final_bundle_component_missing', 'component' => $component];
             }
+            $componentStatusMap[] = [
+                'component' => $component,
+                'present' => $present,
+                'violation_code' => $present ? null : 'required_final_bundle_component_missing',
+                'action_hint' => $present ? null : "produce the {$component} component before the final evidence bundle can replay green",
+            ];
         }
         foreach (['no_execution', 'no_provider_call', 'no_token_spend', 'no_dispatch', 'no_adapter_execution', 'no_self_programming'] as $flag) {
             if (! (bool) data_get($bundle, "safety_invariants.{$flag}", false)) {
@@ -66,6 +74,7 @@ final class AtlasSelfConstructionFinalEvidenceReplayService
             'replay_green' => $status === 'passed',
             'violation_count' => count($violations),
             'violations' => $violations,
+            'component_status_map' => $componentStatusMap,
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
