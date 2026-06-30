@@ -42,7 +42,7 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
     {
         $result = $this->optimizer()->optimize([]);
 
-        foreach (['schema', 'action', 'value_density_score', 'top_packet_classes', 'low_value_tail', 'muscle_minutes_capacity'] as $k) {
+        foreach (['schema', 'action', 'value_density_score', 'aggregate_risk_score', 'top_packet_classes', 'low_value_tail', 'muscle_minutes_capacity'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
     }
@@ -248,6 +248,90 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
         ]);
 
         $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_DRAIN_FIRST, $result['action']);
+    }
+
+    // ── self_heal_or_respec ───────────────────────────────────────────────────
+
+    private function riskyPacket(string $id, string $riskField, float $riskValue = 0.80): array
+    {
+        return array_merge($this->packet($id, 0.01, 100.0), [$riskField => $riskValue]);
+    }
+
+    public function test_self_heal_when_shallow_queue_has_high_malformed_risk(): void
+    {
+        // 1 muscle, depth_floor=2; only 1 packet → would be feed_queue, but malformed_risk=0.80
+        $result = $this->optimizer()->optimize([
+            'packets'      => [$this->riskyPacket('p0', 'malformed_risk', 0.80)],
+            'muscle_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_SELF_HEAL_OR_RESPEC, $result['action']);
+    }
+
+    public function test_self_heal_when_shallow_queue_has_high_poison_risk(): void
+    {
+        $result = $this->optimizer()->optimize([
+            'packets'      => [$this->riskyPacket('p0', 'poison_family_risk', 0.75)],
+            'muscle_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_SELF_HEAL_OR_RESPEC, $result['action']);
+    }
+
+    public function test_self_heal_when_shallow_queue_has_high_give_back_risk(): void
+    {
+        $result = $this->optimizer()->optimize([
+            'packets'      => [$this->riskyPacket('p0', 'give_back_risk', 0.80)],
+            'muscle_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_SELF_HEAL_OR_RESPEC, $result['action']);
+    }
+
+    public function test_clean_shallow_queue_still_returns_feed_queue(): void
+    {
+        // 1 packet (shallow), but zero risk → feed_queue
+        $result = $this->optimizer()->optimize([
+            'packets'      => [$this->packet('clean', 1.0, 1.0)],
+            'muscle_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_FEED_QUEUE, $result['action']);
+    }
+
+    public function test_saturated_queue_returns_drain_first_even_with_high_risk(): void
+    {
+        // oversaturation for 1 muscle = 5; 5 risky packets → drain_first takes priority
+        $packets = array_map(
+            fn (int $i) => $this->riskyPacket("p{$i}", 'malformed_risk', 0.90),
+            range(0, 4),
+        );
+        $result = $this->optimizer()->optimize([
+            'packets'      => $packets,
+            'muscle_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainValueDensityQueueOptimizer::ACTION_DRAIN_FIRST, $result['action']);
+    }
+
+    public function test_aggregate_risk_score_reflects_max_of_mean_signals(): void
+    {
+        $result = $this->optimizer()->optimize([
+            'packets' => [
+                array_merge($this->packet('p0'), ['malformed_risk' => 0.60, 'give_back_risk' => 0.20]),
+            ],
+            'muscle_count' => 1,
+        ]);
+
+        // max(mean_give_back=0.20, mean_malformed=0.60, mean_poison=0.0) = 0.60
+        $this->assertEqualsWithDelta(0.60, $result['aggregate_risk_score'], 0.001);
+    }
+
+    public function test_aggregate_risk_score_zero_when_no_packets(): void
+    {
+        $result = $this->optimizer()->optimize(['packets' => []]);
+
+        $this->assertSame(0.0, $result['aggregate_risk_score']);
     }
 
     // ── determinism ──────────────────────────────────────────────────────────
