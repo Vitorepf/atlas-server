@@ -223,6 +223,82 @@ final class AgentRuntimeEvidenceJournalRepository
         return $summary;
     }
 
+    /**
+     * Read-only index-vs-record drift audit. Detects index entries without a
+     * record file, record files with corrupt JSON, journal_entry_hash
+     * mismatches, and entries that claim canonical evidence ledger status
+     * (is_canonical_evidence_ledger_entry=true) despite this journal being
+     * local-only dry-run storage. Never writes records, updates the index,
+     * or changes any runtime flag.
+     *
+     * @return array<string, mixed>
+     */
+    public function integrityAudit(): array
+    {
+        $index = $this->loadIndex();
+        $issues = [];
+
+        foreach ($index as $entry) {
+            $journalEntryId = (string) ($entry['journal_entry_id'] ?? '');
+            $path = $this->recordPath($journalEntryId);
+            $disk = $this->disk();
+
+            if (! $disk->exists($path)) {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'missing_record_file',
+                ];
+
+                continue;
+            }
+
+            try {
+                $record = json_decode((string) $disk->get($path), true, flags: JSON_THROW_ON_ERROR);
+            } catch (Throwable) {
+                $record = null;
+            }
+
+            if (! is_array($record)) {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'corrupt_record_json',
+                ];
+
+                continue;
+            }
+
+            $recordedHash = (string) ($record['journal_entry_hash'] ?? '');
+            $forHash = $record;
+            unset($forHash['journal_entry_hash']);
+            $expectedHash = $this->stableHash($this->hashableRecord($forHash));
+            if ($recordedHash !== $expectedHash) {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'journal_entry_hash_mismatch',
+                    'recorded_hash' => $recordedHash,
+                    'expected_hash' => $expectedHash,
+                ];
+            }
+
+            if ((bool) ($record['is_canonical_evidence_ledger_entry'] ?? false)) {
+                $issues[] = [
+                    'journal_entry_id' => $journalEntryId,
+                    'issue' => 'non_local_evidence_claims_canonical_ledger_entry',
+                ];
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => 'read_only_agent_runtime_evidence_journal_integrity_audit',
+            'status' => $issues === [] ? 'ok' : 'drift_detected',
+            'checked_count' => count($index),
+            'issue_count' => count($issues),
+            'issues' => $issues,
+            'runtime_safety' => $this->runtimeFlagsWithAllFalse(),
+        ] + $this->runtimeFlags();
+    }
+
     public function isAvailable(): bool
     {
         try {
