@@ -315,4 +315,54 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
     }
+
+    // ── final-readiness + integration facts ──────────────────────────────────
+
+    public function test_stale_evidence_routes_to_consolidation_instead_of_create(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['evidence_freshness_status' => 'stale']));
+
+        $this->assertContains($result['stop_go_decision'], [
+            AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION,
+            AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE,
+        ]);
+        $this->assertNotSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+    }
+
+    public function test_low_integration_coverage_routes_to_consolidation_instead_of_create(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['integration_coverage_percent' => 20.0]));
+
+        $this->assertContains($result['stop_go_decision'], [
+            AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION,
+            AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE,
+        ]);
+        $this->assertNotSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+    }
+
+    public function test_high_quality_healthy_queue_with_open_final95_gaps_escalates_ambition(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['final95_gap_count' => 3]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_ESCALATE_AMBITION, $result['stop_go_decision']);
+        $this->assertNotSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+    }
+
+    public function test_fresh_evidence_and_adequate_coverage_with_no_gaps_still_creates(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'evidence_freshness_status' => 'fresh',
+            'integration_coverage_percent' => 95.0,
+            'final95_gap_count' => 0,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+    }
+
+    public function test_final_readiness_percent_is_accepted_without_error(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['final_readiness_percent' => 42.0]));
+
+        $this->assertArrayHasKey('stop_go_decision', $result);
+    }
 }

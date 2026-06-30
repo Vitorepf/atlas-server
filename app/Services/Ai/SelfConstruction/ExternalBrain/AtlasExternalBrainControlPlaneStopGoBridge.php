@@ -40,6 +40,9 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
     public const DECISION_CREATE_MORE_TASKS    = 'create_more_tasks';
     public const DECISION_PAUSE                = 'pause';
 
+    /** integration_coverage_percent below this reads as weak — mirrors the unified snapshot's floor. */
+    private const WEAK_INTEGRATION_COVERAGE_FLOOR = 50.0;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array{schema:string, stop_go_decision:string, reasons:list<string>, next_action:string, provider_free:bool}
@@ -60,6 +63,11 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         $forceConsolidate = (bool)   ($input['force_consolidation'] ?? false);
         $forceDrain       = (bool)   ($input['force_drain']         ?? false);
 
+        $finalReadinessPercent    = max(0.0, min(100.0, (float) ($input['final_readiness_percent']    ?? 100.0)));
+        $integrationCoverage      = max(0.0, min(100.0, (float) ($input['integration_coverage_percent'] ?? 100.0)));
+        $evidenceFreshnessStatus  = (string) ($input['evidence_freshness_status'] ?? 'fresh');
+        $final95GapCount          = max(0, (int) ($input['final95_gap_count'] ?? 0));
+
         $isHealthy   = $queueHealth === 'healthy';
         $isHighValue = $qualityTrend === 'high';
 
@@ -68,6 +76,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             $malformedRisk, $isHealthy, $isHighValue, $maturityGaps,
             $claimableDepth, $valueDensity, $giveBackPressure, $queueHealth,
             $forceConsolidate, $forceDrain,
+            $evidenceFreshnessStatus, $integrationCoverage, $final95GapCount,
         );
 
         return [
@@ -95,6 +104,9 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         string $queueHealth,
         bool   $forceConsolidate,
         bool   $forceDrain,
+        string $evidenceFreshnessStatus,
+        float  $integrationCoverage,
+        int    $final95GapCount,
     ): array {
         // 1. SELF_HEAL_QUEUE — safety net first
         $healReasons = [];
@@ -119,13 +131,20 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             return [self::DECISION_DRAIN_EXISTING_QUEUE, ['upstream_decision:drain']];
         }
 
-        // 2. RUN_CONSOLIDATION — quality or sprawl degradation
+        // 2. RUN_CONSOLIDATION — quality or sprawl degradation, or stale evidence / weak integration
+        //    coverage (a claim of readiness is not credible without fresh, well-integrated proof).
         $consolidateReasons = [];
         if ($qualityTrend === 'low') {
             $consolidateReasons[] = 'quality_trend:low';
         }
         if ($sprawlPressure === 'high') {
             $consolidateReasons[] = 'sprawl_pressure:high';
+        }
+        if ($evidenceFreshnessStatus === 'stale') {
+            $consolidateReasons[] = 'evidence_freshness_status:stale';
+        }
+        if ($integrationCoverage < self::WEAK_INTEGRATION_COVERAGE_FLOOR) {
+            $consolidateReasons[] = sprintf('integration_coverage_percent:%.2f<%.2f', $integrationCoverage, self::WEAK_INTEGRATION_COVERAGE_FLOOR);
         }
         if ($consolidateReasons !== []) {
             return [self::DECISION_RUN_CONSOLIDATION, $consolidateReasons];
@@ -156,6 +175,13 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
                     'queue_health:healthy',
                     'quality_trend:high',
                     "maturity_gap_count:{$maturityGaps}",
+                ]];
+            }
+            if ($final95GapCount > 0) {
+                return [self::DECISION_ESCALATE_AMBITION, [
+                    'queue_health:healthy',
+                    'quality_trend:high',
+                    "final95_gap_count:{$final95GapCount}",
                 ]];
             }
             return [self::DECISION_CREATE_MORE_TASKS, ['queue_health:healthy', 'quality_trend:high']];
