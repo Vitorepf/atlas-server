@@ -52,6 +52,30 @@ final class TerminalLoopHealthDigestQueueReader
     }
 
     /**
+     * Aggregate a flat list of queue records into a health digest.
+     *
+     * @param  list<array<string, mixed>>  $records
+     * @return array{queue_depth:int, servable_depth:int, active_leases:int, recoverables:int, blocked_pressure:int, malformed_risk:int, is_healthy:bool, is_dry:bool, provider_safe:bool}
+     */
+    public static function digest(array $records): array
+    {
+        $servable  = self::classificationCount($records, 'servable', []);
+        $malformed = self::classificationCount($records, 'malformed', []);
+
+        return [
+            'queue_depth'      => count($records),
+            'servable_depth'   => $servable,
+            'active_leases'    => self::classificationCount($records, 'leased', []),
+            'recoverables'     => self::classificationCount($records, 'recoverable', []),
+            'blocked_pressure' => self::classificationCount($records, 'blocked', []),
+            'malformed_risk'   => $malformed,
+            'is_healthy'       => count($records) > 0 && $servable > 0 && $malformed === 0,
+            'is_dry'           => count($records) === 0 || $servable === 0,
+            'provider_safe'    => true,
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $classifications
      * @param  list<string>  $queueTags
      */

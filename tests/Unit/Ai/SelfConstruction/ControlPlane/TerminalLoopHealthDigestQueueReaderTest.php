@@ -80,4 +80,79 @@ class TerminalLoopHealthDigestQueueReaderTest extends TestCase
 
         self::assertSame(1, TerminalLoopHealthDigestQueueReader::classificationCount($items, 'servable', ['a', 'b']));
     }
+
+    public function test_digest_healthy_queue(): void
+    {
+        $records = [
+            ['classification' => 'servable'],
+            ['classification' => 'servable'],
+            ['classification' => 'leased'],
+        ];
+        $d = TerminalLoopHealthDigestQueueReader::digest($records);
+
+        self::assertSame(3, $d['queue_depth']);
+        self::assertSame(2, $d['servable_depth']);
+        self::assertSame(1, $d['active_leases']);
+        self::assertTrue($d['is_healthy']);
+        self::assertFalse($d['is_dry']);
+    }
+
+    public function test_digest_dry_queue(): void
+    {
+        $d = TerminalLoopHealthDigestQueueReader::digest([]);
+
+        self::assertSame(0, $d['queue_depth']);
+        self::assertSame(0, $d['servable_depth']);
+        self::assertTrue($d['is_dry']);
+        self::assertFalse($d['is_healthy']);
+    }
+
+    public function test_digest_recoverable_backlog(): void
+    {
+        $records = [
+            ['classification' => 'servable'],
+            ['classification' => 'recoverable'],
+            ['classification' => 'recoverable'],
+        ];
+        $d = TerminalLoopHealthDigestQueueReader::digest($records);
+
+        self::assertSame(2, $d['recoverables']);
+        self::assertTrue($d['is_healthy']);
+    }
+
+    public function test_digest_blocked_pressure(): void
+    {
+        $records = [
+            ['classification' => 'servable'],
+            ['classification' => 'blocked'],
+        ];
+        $d = TerminalLoopHealthDigestQueueReader::digest($records);
+
+        self::assertSame(1, $d['blocked_pressure']);
+    }
+
+    public function test_digest_malformed_risk_marks_unhealthy(): void
+    {
+        $records = [
+            ['classification' => 'servable'],
+            ['classification' => 'malformed'],
+        ];
+        $d = TerminalLoopHealthDigestQueueReader::digest($records);
+
+        self::assertSame(1, $d['malformed_risk']);
+        self::assertFalse($d['is_healthy']);
+    }
+
+    public function test_digest_provider_safe_output(): void
+    {
+        $d = TerminalLoopHealthDigestQueueReader::digest([['classification' => 'servable']]);
+
+        self::assertTrue($d['provider_safe']);
+        self::assertArrayHasKey('queue_depth', $d);
+        self::assertArrayHasKey('servable_depth', $d);
+        self::assertArrayHasKey('active_leases', $d);
+        self::assertArrayHasKey('recoverables', $d);
+        self::assertArrayHasKey('blocked_pressure', $d);
+        self::assertArrayHasKey('malformed_risk', $d);
+    }
 }
