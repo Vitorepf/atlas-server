@@ -84,6 +84,27 @@ final class AtlasLoopCycleReceiptLedgerTest extends TestCase
         $this->ledger()->append($signed);
     }
 
+    public function test_zero_fraction_float_verifies_true_after_disk_round_trip(): void
+    {
+        $signer = new AtlasLoopCycleReceiptSigner;
+        // score 2.0 — zero-fraction float that json_encode drops to `2` without PRESERVE_ZERO_FRACTION
+        $signed = $signer->sign([
+            'schema_version' => AtlasLoopCycleReceiptSigner::BODY_SCHEMA,
+            'cycle_id' => 'float-roundtrip',
+            'facts' => ['impact' => [['target' => 'app/Foo.php', 'impact_score' => 2.0]]],
+        ]);
+
+        $ledger = $this->ledger();
+        $ledger->append($signed);
+
+        $entries = iterator_to_array($ledger->all());
+        $this->assertCount(1, $entries);
+        $this->assertTrue(
+            $signer->verify($entries[0]['signed_receipt']),
+            'a zero-fraction float receipt must verify true after disk round-trip (no false tamper alarm)',
+        );
+    }
+
     public function test_concurrent_appends_from_two_processes_keep_consecutive_seqs(): void
     {
         $base = base_path();

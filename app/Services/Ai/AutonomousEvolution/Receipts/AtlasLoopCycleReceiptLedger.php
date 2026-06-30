@@ -82,7 +82,7 @@ final class AtlasLoopCycleReceiptLedger
             ];
 
             fseek($fp, 0, SEEK_END);
-            fwrite($fp, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR).PHP_EOL);
+            fwrite($fp, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR).PHP_EOL);
             fflush($fp);
 
             return $entry;
