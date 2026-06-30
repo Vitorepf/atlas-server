@@ -259,6 +259,109 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketBuilderTest extend
         $this->assertSame('simulated_worktree', $packet['workspace_policy']['legacy_isolation_normalized_from']);
     }
 
+    // ── AC1/AC2: hard value contract (opt-in) ───────────────────────────────────
+
+    private function hardValueContractInput(): array
+    {
+        return array_merge($this->validInput(), [
+            'require_hard_value_contract' => true,
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/Foo.php',
+                'tests/Unit/Ai/SelfConstruction/FooTest.php',
+            ],
+            'acceptance_criteria' => ['Runnable proof: ./vendor/bin/phpunit tests/Unit/Ai/SelfConstruction/FooTest.php'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'structural_value_rationale' => 'Closes a verified gap in dedup detection.',
+        ]);
+    }
+
+    public function test_hard_value_contract_passes_when_all_four_requirements_present(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValueContractInput());
+
+        $this->assertSame('planned', $packet['status']);
+        $this->assertSame([], $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_missing_implementation_file(): void
+    {
+        $input = $this->hardValueContractInput();
+        $input['allowed_files'] = ['tests/Unit/Ai/SelfConstruction/FooTest.php'];
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertContains('missing_implementation_file', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_missing_runnable_test_file(): void
+    {
+        $input = $this->hardValueContractInput();
+        $input['allowed_files'] = ['app/Services/Ai/SelfConstruction/Foo.php'];
+        $input['acceptance_criteria'] = ['ok'];
+        $input['required_evidence'] = ['implementation_notes'];
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertContains('missing_runnable_test_file', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_runnable_proof_in_acceptance_satisfies_test_requirement(): void
+    {
+        $input = $this->hardValueContractInput();
+        $input['allowed_files'] = ['app/Services/Ai/SelfConstruction/Foo.php'];
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertNotContains('missing_runnable_test_file', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_missing_required_evidence(): void
+    {
+        $input = $this->hardValueContractInput();
+        $input['required_evidence'] = [];
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertContains('missing_required_evidence', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_missing_structural_value_rationale(): void
+    {
+        $input = $this->hardValueContractInput();
+        unset($input['structural_value_rationale']);
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertContains('missing_structural_value_rationale', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_not_enforced_when_flag_absent(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->validInput());
+
+        $this->assertSame([], $packet['blocking_reasons']);
+    }
+
+    public function test_packet_includes_dedup_target_and_expected_structural_leverage(): void
+    {
+        $input = $this->validInput();
+        $input['dedup_target'] = 'custom-dedup-key';
+        $input['expected_structural_leverage'] = 0.85;
+
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
+
+        $this->assertSame('custom-dedup-key', $packet['dedup_target']);
+        $this->assertSame(0.85, $packet['expected_structural_leverage']);
+    }
+
+    public function test_dedup_target_defaults_to_scope_hash_when_absent(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->validInput());
+
+        $this->assertSame($packet['scope_hash'], $packet['dedup_target']);
+        $this->assertSame(0.0, $packet['expected_structural_leverage']);
+    }
+
     /**
      * @return array<string, mixed>
      */

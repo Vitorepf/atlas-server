@@ -66,6 +66,15 @@ final class AgentControlPlaneTaskPacketBuilder
         'voice/',
     ];
 
+    private const RUNNABLE_PROOF_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
+
+    /**
+     * Hard value contract (AC1/AC2) — opt-in via input['require_hard_value_contract'] = true.
+     * The simulator's default dry-run packets stay backward compatible (AC3); only callers that
+     * explicitly request the hard contract get the four new blocking checks below.
+     */
+    private const REQUIRE_HARD_VALUE_CONTRACT_KEY = 'require_hard_value_contract';
+
     /**
      * @param  array<string, mixed>  $input
      * @return array<string, mixed>
@@ -122,6 +131,16 @@ final class AgentControlPlaneTaskPacketBuilder
         }
         if ($axisHits !== []) {
             $blockingReasons[] = 'forbidden_axis_in_allowed_files';
+        }
+
+        $requireHardValueContract = (bool) ($input[self::REQUIRE_HARD_VALUE_CONTRACT_KEY] ?? false);
+        if ($requireHardValueContract) {
+            $blockingReasons = array_merge($blockingReasons, $this->hardValueContractBlockingReasons(
+                $allowed,
+                $acceptance,
+                $requiredEvidence,
+                $input,
+            ));
         }
 
         $riskLevel = strtolower(trim((string) ($input['risk_level'] ?? 'low')));
@@ -242,6 +261,8 @@ final class AgentControlPlaneTaskPacketBuilder
             'continuation_requirements' => $continuationRequirements,
             'cost_budget_requirements' => $costBudgetRequirements,
             'continuation_context' => $continuationContext,
+            'dedup_target' => (string) ($input['dedup_target'] ?? $scopeHash),
+            'expected_structural_leverage' => (float) ($input['expected_structural_leverage'] ?? 0.0),
             'blocking_reasons' => $blockingReasons,
             'warnings' => $warnings,
             'read_only' => true,
@@ -275,6 +296,66 @@ final class AgentControlPlaneTaskPacketBuilder
         AtlasMaestroPacketSchemaDeprecationGate::assertServeable($packet);
 
         return $packet;
+    }
+
+    /**
+     * AC1: hard value contract blocking reasons — only evaluated when
+     * require_hard_value_contract = true was explicitly requested.
+     *
+     * @param  list<string>  $allowed
+     * @param  list<string>  $acceptance
+     * @param  list<string>  $requiredEvidence
+     * @param  array<string,mixed>  $input
+     * @return list<string>
+     */
+    private function hardValueContractBlockingReasons(
+        array $allowed,
+        array $acceptance,
+        array $requiredEvidence,
+        array $input,
+    ): array {
+        $reasons = [];
+
+        $isTestPath = static fn (string $path): bool => str_contains(strtolower($path), '/tests/')
+            || str_ends_with(strtolower($path), 'test.php');
+
+        $hasImplementationFile = false;
+        $hasTestFile = false;
+        foreach ($allowed as $path) {
+            if ($isTestPath($path)) {
+                $hasTestFile = true;
+            } else {
+                $hasImplementationFile = true;
+            }
+        }
+
+        if (! $hasImplementationFile) {
+            $reasons[] = 'missing_implementation_file';
+        }
+
+        $hasRunnableProofMention = false;
+        foreach (array_merge($acceptance, $requiredEvidence) as $text) {
+            foreach (self::RUNNABLE_PROOF_MARKERS as $marker) {
+                if (str_contains(strtolower($text), $marker)) {
+                    $hasRunnableProofMention = true;
+                    break 2;
+                }
+            }
+        }
+        if (! $hasTestFile && ! $hasRunnableProofMention) {
+            $reasons[] = 'missing_runnable_test_file';
+        }
+
+        if ($requiredEvidence === []) {
+            $reasons[] = 'missing_required_evidence';
+        }
+
+        $structuralValueRationale = trim((string) ($input['structural_value_rationale'] ?? ''));
+        if ($structuralValueRationale === '') {
+            $reasons[] = 'missing_structural_value_rationale';
+        }
+
+        return $reasons;
     }
 
     /**
