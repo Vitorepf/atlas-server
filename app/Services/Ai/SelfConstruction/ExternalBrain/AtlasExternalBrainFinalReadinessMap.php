@@ -110,6 +110,8 @@ final class AtlasExternalBrainFinalReadinessMap
             $status     = (string) ($evidence['status'] ?? self::STATUS_MISSING);
             $unresolved = max(0, (int) ($evidence['unresolved_count'] ?? 0));
             $isCritical = in_array($area, self::AUTO_CRITICAL_AREAS, true) || (bool) ($evidence['critical'] ?? false);
+            $impactStr  = strtolower(trim((string) ($evidence['impact'] ?? 'medium')));
+            $impactScore = match ($impactStr) { 'high' => 3, 'low' => 1, default => 2 };
 
             // Audit evidence signals (critical gates beyond static status).
             $missingSignals = [];
@@ -125,12 +127,36 @@ final class AtlasExternalBrainFinalReadinessMap
             $fullyReady = $status === self::STATUS_PROVEN && $unresolved === 0 && $missingSignals === [];
             $areaAction = $this->areaClosureAction($area, $status, $unresolved, $missingSignals);
 
+            // Risks: missing signals + stale + structural.
+            $risks = [];
+            foreach ($missingSignals as $sig) {
+                $risks[] = 'missing_signal:'.$sig;
+            }
+            if ($unresolved > 0) {
+                $risks[] = "unresolved_items:{$unresolved}";
+            }
+            if ($status !== self::STATUS_PROVEN) {
+                $risks[] = 'status_not_proven';
+            }
+            // Stale knowledge: not missing but knowledge_sync_current is false.
+            if (! (bool) ($evidence['knowledge_sync_current'] ?? false) && $status !== self::STATUS_MISSING) {
+                $risks[] = 'stale_knowledge_sync';
+            }
+
+            // Priority: high-impact low-readiness areas outrank cosmetic mature areas.
+            $priorityScore = $fullyReady ? 0 : $impactScore;
+
             $areaReadiness[] = [
-                'area'                    => $area,
-                'status'                  => $status,
-                'is_critical'             => $isCritical,
-                'next_closure_action'     => $areaAction,
+                'area'                     => $area,
+                'status'                   => $status,
+                'is_critical'              => $isCritical,
+                'next_closure_action'      => $areaAction,
                 'missing_evidence_signals' => $missingSignals,
+                'risks'                    => $risks,
+                'gaps'                     => $missingSignals,
+                'next_leverage'            => $areaAction,
+                'impact'                   => $impactStr,
+                'priority_score'           => $priorityScore,
             ];
 
             if ($isCritical) {
@@ -174,6 +200,13 @@ final class AtlasExternalBrainFinalReadinessMap
 
         sort($blockingAreas, SORT_STRING);
         ksort($missingEvidenceByArea);
+
+        // Sort area_readiness: high priority_score (high-impact low-readiness) first; area name as tie-breaker.
+        usort($areaReadiness, static fn (array $a, array $b): int =>
+            $b['priority_score'] !== $a['priority_score']
+                ? $b['priority_score'] <=> $a['priority_score']
+                : strcmp($a['area'], $b['area'])
+        );
 
         return [
             'schema'                   => self::SCHEMA,
