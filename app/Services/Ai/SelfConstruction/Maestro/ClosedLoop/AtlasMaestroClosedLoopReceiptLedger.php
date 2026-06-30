@@ -31,9 +31,11 @@ final class AtlasMaestroClosedLoopReceiptLedger
             'mined_bucket_count' => max(0, (int) ($payload['mined_bucket_count'] ?? 0)),
             'guarded_pass_or_reject' => $this->passOrReject($payload['guarded_pass_or_reject'] ?? null),
             'feedback_block_sha256' => $this->feedbackHash((string) ($payload['feedback_block'] ?? '')),
+            'promoted_rules' => $this->sanitizePromotedRules((array) ($payload['promoted_rules'] ?? [])),
             'replenisher_consumed' => (bool) ($payload['replenisher_consumed'] ?? false),
             'flag_enabled' => (bool) ($payload['flag_enabled'] ?? false),
         ];
+        $entry['entry_hash'] = $this->entryHash($entry);
 
         $this->append($entry);
 
@@ -104,6 +106,23 @@ final class AtlasMaestroClosedLoopReceiptLedger
         }
     }
 
+    /**
+     * Returns false when any audited field has been tampered with after recording.
+     *
+     * @param  array<string,mixed>  $entry
+     */
+    public function verifyEntry(array $entry): bool
+    {
+        $stored = (string) ($entry['entry_hash'] ?? '');
+        if ($stored === '') {
+            return false;
+        }
+        $copy = $entry;
+        unset($copy['entry_hash']);
+
+        return $stored === $this->entryHash($copy);
+    }
+
     private function passOrReject(mixed $value): string
     {
         return $value === 'pass' ? 'pass' : 'reject';
@@ -112,6 +131,21 @@ final class AtlasMaestroClosedLoopReceiptLedger
     private function feedbackHash(string $block): string
     {
         return hash('sha256', $block);
+    }
+
+    /** @param  array<string,mixed>  $entry */
+    private function entryHash(array $entry): string
+    {
+        unset($entry['entry_hash']);
+        ksort($entry);
+
+        return hash('sha256', (string) json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /** @return list<string> */
+    private function sanitizePromotedRules(array $rules): array
+    {
+        return array_values(array_filter(array_map('strval', $rules)));
     }
 
     private function ledgerSnapshotHash(): string

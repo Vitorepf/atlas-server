@@ -90,6 +90,60 @@ final class AtlasMaestroClosedLoopReceiptLedgerTest extends TestCase
         $this->assertFalse($rows[0]['replenisher_consumed']);
     }
 
+    public function test_two_cycles_with_same_payload_produce_deterministic_hashes_and_ordered_stream(): void
+    {
+        $ledger = $this->ledger();
+        $payload = [
+            'feedback_block' => 'origin_kind=orphan: 7 delivered / 10 total',
+            'mined_bucket_count' => 2,
+            'guarded_pass_or_reject' => 'pass',
+            'promoted_rules' => ['rule-A', 'rule-B'],
+            'replenisher_consumed' => true,
+            'flag_enabled' => true,
+            'timestamp' => '2026-06-24T07:00:00+00:00',
+        ];
+
+        $first = $ledger->recordCycle($payload);
+        $second = $ledger->recordCycle($payload);
+
+        $this->assertSame($first['feedback_block_sha256'], $second['feedback_block_sha256']);
+        $this->assertSame($first['ledger_snapshot_hash'], $second['ledger_snapshot_hash']);
+        $this->assertSame($first['entry_hash'], $second['entry_hash']);
+        $this->assertSame(['rule-A', 'rule-B'], $first['promoted_rules']);
+
+        // Stream preserves insertion order
+        $rows = iterator_to_array($ledger->stream());
+        $this->assertCount(2, $rows);
+        $this->assertSame($first['entry_hash'], $rows[0]['entry_hash']);
+        $this->assertSame($second['entry_hash'], $rows[1]['entry_hash']);
+    }
+
+    public function test_altering_audited_fields_makes_entry_hash_invalid(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->recordCycle([
+            'feedback_block' => 'some feedback',
+            'guarded_pass_or_reject' => 'pass',
+            'promoted_rules' => ['rule-X'],
+            'timestamp' => '2026-06-24T08:00:00+00:00',
+        ]);
+        $original = iterator_to_array($ledger->stream())[0];
+
+        $this->assertTrue($ledger->verifyEntry($original));
+
+        $t1 = $original;
+        $t1['feedback_block_sha256'] = str_repeat('a', 64);
+        $this->assertFalse($ledger->verifyEntry($t1), 'tampered feedback_block_sha256 must fail verification');
+
+        $t2 = $original;
+        $t2['promoted_rules'] = ['injected'];
+        $this->assertFalse($ledger->verifyEntry($t2), 'tampered promoted_rules must fail verification');
+
+        $t3 = $original;
+        $t3['guarded_pass_or_reject'] = 'reject';
+        $this->assertFalse($ledger->verifyEntry($t3), 'tampered guarded_pass_or_reject must fail verification');
+    }
+
     private function ledger(): AtlasMaestroClosedLoopReceiptLedger
     {
         return new AtlasMaestroClosedLoopReceiptLedger($this->receiptPath, $this->shapePath);
