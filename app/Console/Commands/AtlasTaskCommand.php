@@ -73,7 +73,7 @@ class AtlasTaskCommand extends Command
 
         $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
 
-        $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled', 'ok', 'adaptive_disabled'], true);
+        $ok = in_array((string) ($result['status'] ?? ''), ['served', 'no_claimable_task', 'no_self_sufficient_task', 'reported', 'resolved', 'disabled', 'ok', 'adaptive_disabled', 'waiting_on_dependencies'], true);
 
         return $ok ? self::SUCCESS : self::FAILURE;
     }

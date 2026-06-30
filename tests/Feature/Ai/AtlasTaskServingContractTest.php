@@ -182,6 +182,23 @@ final class AtlasTaskServingContractTest extends TestCase
         $this->assertStringContainsString('"reindexed_from_disk": true', $out, 'the disk self-heal fired');
     }
 
+    public function test_waiting_on_dependencies_exits_success_not_failure(): void
+    {
+        $orch = $this->orchestrator();
+        $prereq = $this->input('dep-prereq');
+        $orch->prepareAndEnqueue(['task_packet' => $prereq]);
+        $claim = $orch->claimNext('blocker-agent');
+        $this->assertSame('claimed', $claim['event']);
+
+        $dependent = array_merge($this->input('dep-child'), ['depends_on' => ['dep-prereq']]);
+        $orch->prepareAndEnqueue(['task_packet' => $dependent]);
+
+        $exit = Artisan::call('atlas:task', ['action' => 'next', '--client' => 'dep-waiter', '--json' => true]);
+        $out = Artisan::output();
+        $this->assertSame(0, $exit, 'waiting_on_dependencies must exit SUCCESS: '.$out);
+        $this->assertStringContainsString('"status": "waiting_on_dependencies"', $out);
+    }
+
     // --- helpers ---------------------------------------------------------------------------------------------
 
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
