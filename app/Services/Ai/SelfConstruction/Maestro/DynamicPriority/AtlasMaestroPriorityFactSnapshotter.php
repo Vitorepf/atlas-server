@@ -71,12 +71,14 @@ final class AtlasMaestroPriorityFactSnapshotter
         $queueDepthByTag = $this->countByTag($packets);
         $idlePredictionMs = $this->predictIdleMs($leases, $inFlight);
         $criticality = $this->dependencyCriticality($packets);
+        $familyBacklog = $this->taskFamilyBacklog($packets);
 
         $row = [
             'schema' => self::SCHEMA,
             'taken_at_ns' => (int) ($this->clockNs)(),
             'facts' => [
                 'queue_depth_by_tag' => $queueDepthByTag,
+                'task_family_backlog' => $familyBacklog,
                 'worker_idle_prediction_ms' => $idlePredictionMs,
                 'dependency_criticality_by_task_id' => $criticality,
             ],
@@ -185,6 +187,26 @@ final class AtlasMaestroPriorityFactSnapshotter
         ksort($criticality, SORT_STRING);
 
         return $criticality;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $packets
+     * @return array<string,int>  family_prefix => count of packets in that family
+     */
+    private function taskFamilyBacklog(array $packets): array
+    {
+        $families = [];
+        foreach ($packets as $p) {
+            $id = (string) ($p['task_packet_id'] ?? '');
+            $family = strstr($id, '-', true) ?: $id;
+            if ($family === '') {
+                continue;
+            }
+            $families[$family] = ($families[$family] ?? 0) + 1;
+        }
+        ksort($families, SORT_STRING);
+
+        return $families;
     }
 
     /**

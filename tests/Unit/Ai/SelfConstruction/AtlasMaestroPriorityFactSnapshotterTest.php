@@ -90,6 +90,44 @@ class AtlasMaestroPriorityFactSnapshotterTest extends TestCase
         self::assertSame(2, $this->rowCount());
     }
 
+    public function test_task_family_backlog_groups_by_first_hyphen_segment(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-A', 'tags' => [], 'depends_on' => []],
+            ['task_packet_id' => 'pkt-B', 'tags' => [], 'depends_on' => []],
+            ['task_packet_id' => 'pkt-C', 'tags' => [], 'depends_on' => []],
+        ];
+        $verdict = $this->snapshotter($packets)->snapshot();
+        $this->assertSame(['pkt' => 3], $verdict['facts']['task_family_backlog']);
+    }
+
+    public function test_task_family_backlog_counts_multiple_families(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'codex-001', 'tags' => [], 'depends_on' => []],
+            ['task_packet_id' => 'codex-002', 'tags' => [], 'depends_on' => []],
+            ['task_packet_id' => 'forge-001', 'tags' => [], 'depends_on' => []],
+        ];
+        $verdict = $this->snapshotter($packets)->snapshot();
+        $this->assertSame(['codex' => 2, 'forge' => 1], $verdict['facts']['task_family_backlog']);
+    }
+
+    public function test_task_family_backlog_sorted_alphabetically(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'zz-1', 'tags' => [], 'depends_on' => []],
+            ['task_packet_id' => 'aa-1', 'tags' => [], 'depends_on' => []],
+        ];
+        $verdict = $this->snapshotter($packets)->snapshot();
+        $this->assertSame(['aa', 'zz'], array_keys($verdict['facts']['task_family_backlog']));
+    }
+
+    public function test_task_family_backlog_empty_for_empty_queue(): void
+    {
+        $verdict = $this->snapshotter([])->snapshot();
+        $this->assertSame([], $verdict['facts']['task_family_backlog']);
+    }
+
     public function test_canonical_json_is_deterministic_with_fixed_clock_and_state(): void
     {
         $packets = [['task_packet_id' => 'p', 'tags' => ['t'], 'depends_on' => []]];
