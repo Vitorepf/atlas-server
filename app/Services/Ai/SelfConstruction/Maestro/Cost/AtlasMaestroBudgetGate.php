@@ -32,10 +32,19 @@ final class AtlasMaestroBudgetGate
     public function __construct(private readonly AtlasMaestroCostAggregator $aggregator) {}
 
     /**
+     * @param  array<string,mixed>  $facts  Optional per-call context: cost_cents, fact_source.
      * @return array<string,mixed>
      */
-    public function decide(string $taskPacketId, string $provider, string $taskClass, ?string $cycleId): array
+    public function decide(string $taskPacketId, string $provider, string $taskClass, ?string $cycleId, array $facts = []): array
     {
+        $env = fn (string $gate, string $reason, ?string $window, int $overageCents, string $factSource = 'aggregator'): array =>
+            $this->envelope($gate, $reason, $window, $overageCents, $taskPacketId, $provider, $taskClass, $factSource);
+
+        // Atlas-native zero-cost exemption: local execution has no provider spend.
+        if ($provider === 'atlas_native' && array_key_exists('cost_cents', $facts) && (int) $facts['cost_cents'] === 0) {
+            return $env(self::GATE_ALLOW, 'atlas_native_zero_cost', null, 0, 'native_declared');
+        }
+
         $budgets = $this->loadBudgets();
         $enforce = $this->enforceModeOn();
 
@@ -49,7 +58,7 @@ final class AtlasMaestroBudgetGate
             $byProvider = $this->aggregator->aggregateByProvider();
             $byTaskClass = $this->aggregator->aggregateByTaskClass();
         } catch (\Throwable) {
-            return $this->envelope(self::GATE_ALLOW, 'no_facts', null, 0);
+            return $env(self::GATE_ALLOW, 'no_facts', null, 0, 'none');
         }
 
         // Check each window in order; first overage wins.
@@ -57,7 +66,7 @@ final class AtlasMaestroBudgetGate
             $sum = (int) ($byCycle[$cycleId]['sum_cost_cents'] ?? 0);
             $budget = (int) $budgets[self::WINDOW_PER_CYCLE];
             if ($budget > 0 && $sum > $budget) {
-                return $this->envelope($enforce ? self::GATE_REFUSE : self::GATE_ADVISE, 'cycle_budget_exceeded', self::WINDOW_PER_CYCLE, $sum - $budget);
+                return $env($enforce ? self::GATE_REFUSE : self::GATE_ADVISE, 'cycle_budget_exceeded', self::WINDOW_PER_CYCLE, $sum - $budget);
             }
         }
 
@@ -70,7 +79,7 @@ final class AtlasMaestroBudgetGate
             }
             $budget = (int) $budgets[self::WINDOW_PER_PROVIDER_PER_DAY];
             if ($budget > 0 && $sum > $budget) {
-                return $this->envelope($enforce ? self::GATE_REFUSE : self::GATE_ADVISE, 'provider_day_budget_exceeded', self::WINDOW_PER_PROVIDER_PER_DAY, $sum - $budget);
+                return $env($enforce ? self::GATE_REFUSE : self::GATE_ADVISE, 'provider_day_budget_exceeded', self::WINDOW_PER_PROVIDER_PER_DAY, $sum - $budget);
             }
         }
 
@@ -78,15 +87,15 @@ final class AtlasMaestroBudgetGate
             $sum = (int) ($byTaskClass[$taskClass]['sum_cost_cents'] ?? 0);
             $budget = (int) $budgets[self::WINDOW_PER_TASK_CLASS_PER_DAY];
             if ($budget > 0 && $sum > $budget) {
-                return $this->envelope($enforce ? self::GATE_REFUSE : self::GATE_ADVISE, 'task_class_day_budget_exceeded', self::WINDOW_PER_TASK_CLASS_PER_DAY, $sum - $budget);
+                return $env($enforce ? self::GATE_REFUSE : self::GATE_ADVISE, 'task_class_day_budget_exceeded', self::WINDOW_PER_TASK_CLASS_PER_DAY, $sum - $budget);
             }
         }
 
         if ($byCycle === [] && $byProvider === [] && $byTaskClass === []) {
-            return $this->envelope(self::GATE_ALLOW, 'no_facts', null, 0);
+            return $env(self::GATE_ALLOW, 'no_facts', null, 0, 'none');
         }
 
-        return $this->envelope(self::GATE_ALLOW, 'within_budget', null, 0);
+        return $env(self::GATE_ALLOW, 'within_budget', null, 0);
     }
 
     /**
@@ -123,13 +132,17 @@ final class AtlasMaestroBudgetGate
     /**
      * @return array<string,mixed>
      */
-    private function envelope(string $gate, string $reason, ?string $window, int $overageCents): array
+    private function envelope(string $gate, string $reason, ?string $window, int $overageCents, string $taskPacketId = '', string $provider = '', string $taskClass = '', string $factSource = 'aggregator'): array
     {
         return [
             'gate' => $gate,
             'reason' => $reason,
             'window' => $window,
             'overage_cents' => $overageCents,
+            'task_packet_id' => $taskPacketId,
+            'provider' => $provider,
+            'task_class' => $taskClass,
+            'fact_source' => $factSource,
         ];
     }
 }

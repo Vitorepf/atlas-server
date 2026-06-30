@@ -116,6 +116,38 @@ class AtlasMaestroBudgetGateTest extends TestCase
         self::assertNotSame(AtlasMaestroBudgetGate::GATE_REFUSE, $verdict['gate']);
     }
 
+    public function test_atlas_native_zero_cost_is_allowed_even_when_provider_budget_exceeded(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_provider_per_day_cents' => 20]);
+        Config::set('atlas.maestro.cost.budget_gate_enforce', true);
+        $ledger = $this->ledgerWithFacts(5, 10); // sum = 50, exceeds 20
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))
+            ->decide('pk-native', 'atlas_native', 'coverage', null, ['cost_cents' => 0]);
+
+        self::assertSame(AtlasMaestroBudgetGate::GATE_ALLOW, $verdict['gate']);
+        self::assertSame('atlas_native_zero_cost', $verdict['reason']);
+        self::assertSame('native_declared', $verdict['fact_source']);
+        self::assertNull($verdict['window']);
+        self::assertSame(0, $verdict['overage_cents']);
+    }
+
+    public function test_every_decision_envelope_includes_required_audit_fields(): void
+    {
+        Config::set('atlas.maestro.cost.budgets', ['per_cycle_cents' => 50]);
+        $ledger = $this->ledgerWithFacts(3, 30); // advise
+
+        $verdict = (new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator($ledger)))
+            ->decide('audit-pk', 'codex', 'refactor', 'cycle-A');
+
+        foreach (['task_packet_id', 'provider', 'task_class', 'window', 'overage_cents', 'fact_source'] as $field) {
+            self::assertArrayHasKey($field, $verdict, "envelope must include '{$field}'");
+        }
+        self::assertSame('audit-pk', $verdict['task_packet_id']);
+        self::assertSame('codex', $verdict['provider']);
+        self::assertSame('refactor', $verdict['task_class']);
+    }
+
     public function test_source_has_zero_direct_db_calls(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/Maestro/Cost/AtlasMaestroBudgetGate.php'));
