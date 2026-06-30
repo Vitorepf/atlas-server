@@ -78,4 +78,102 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopCertificationH
 
         $this->assertSame($hash1, $hash2, 'stableHash must be deterministic for identical input');
     }
+
+    // ── evidenceIdentityHash / classifyEvidence ────────────────────────────────
+
+    private function evidence(array $overrides = []): array
+    {
+        return array_merge([
+            'task_id' => 'codex-meta-task-1',
+            'worker_id' => 'worker-vipvtpwy',
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'proof_command' => 'php artisan test --filter=FooTest',
+            'outcome_class' => 'success',
+        ], $overrides);
+    }
+
+    public function test_identity_hash_is_stable_sha256(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+        $hash = $hasher->evidenceIdentityHash($this->evidence());
+
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $hash);
+        $this->assertSame($hash, $hasher->evidenceIdentityHash($this->evidence()));
+    }
+
+    public function test_identity_hash_ignores_allowed_files_ordering(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+
+        $a = $hasher->evidenceIdentityHash($this->evidence(['allowed_files' => ['app/Foo.php', 'tests/FooTest.php']]));
+        $b = $hasher->evidenceIdentityHash($this->evidence(['allowed_files' => ['tests/FooTest.php', 'app/Foo.php']]));
+
+        $this->assertSame($a, $b, 'allowed_files ordering must not change the identity hash');
+    }
+
+    public function test_identity_hash_changes_when_meaningful_field_changes(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+
+        $base = $hasher->evidenceIdentityHash($this->evidence());
+        $differentTask = $hasher->evidenceIdentityHash($this->evidence(['task_id' => 'codex-meta-task-2']));
+        $differentWorker = $hasher->evidenceIdentityHash($this->evidence(['worker_id' => 'worker-other']));
+        $differentProof = $hasher->evidenceIdentityHash($this->evidence(['proof_command' => 'php artisan test --filter=BarTest']));
+        $differentOutcome = $hasher->evidenceIdentityHash($this->evidence(['outcome_class' => 'failed']));
+
+        $this->assertNotSame($base, $differentTask);
+        $this->assertNotSame($base, $differentWorker);
+        $this->assertNotSame($base, $differentProof);
+        $this->assertNotSame($base, $differentOutcome);
+    }
+
+    public function test_classify_evidence_flags_duplicate_when_hash_already_seen(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+        $evidence = $this->evidence();
+        $hash = $hasher->evidenceIdentityHash($evidence);
+
+        $result = $hasher->classifyEvidence($evidence, [$hash]);
+
+        $this->assertSame($hash, $result['identity_hash']);
+        $this->assertTrue($result['duplicate_evidence']);
+        $this->assertFalse($result['tamper_suspected']);
+    }
+
+    public function test_classify_evidence_no_duplicate_when_hash_not_seen(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+        $result = $hasher->classifyEvidence($this->evidence(), ['some-other-hash']);
+
+        $this->assertFalse($result['duplicate_evidence']);
+    }
+
+    public function test_classify_evidence_flags_tamper_when_expected_hash_mismatches(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+        $evidence = $this->evidence(['expected_identity_hash' => 'deadbeef']);
+
+        $result = $hasher->classifyEvidence($evidence);
+
+        $this->assertTrue($result['tamper_suspected']);
+    }
+
+    public function test_classify_evidence_no_tamper_when_expected_hash_matches(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+        $evidence = $this->evidence();
+        $hash = $hasher->evidenceIdentityHash($evidence);
+
+        $result = $hasher->classifyEvidence($evidence + ['expected_identity_hash' => $hash]);
+
+        $this->assertFalse($result['tamper_suspected']);
+    }
+
+    public function test_classify_evidence_no_tamper_when_expected_hash_absent(): void
+    {
+        $hasher = new AgentControlPlaneMultiAgentLoopCertificationHasher();
+        $result = $hasher->classifyEvidence($this->evidence());
+
+        $this->assertFalse($result['tamper_suspected']);
+    }
 }
