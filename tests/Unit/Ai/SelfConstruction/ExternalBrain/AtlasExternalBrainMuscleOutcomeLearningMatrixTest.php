@@ -201,4 +201,157 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
         $b = $this->matrix()->analyze($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: new output keys ──────────────────────────────────────────────────
+
+    public function test_output_has_new_required_keys(): void
+    {
+        $r = $this->matrix()->analyze([]);
+        $this->assertArrayHasKey('worker_reliability_signals', $r);
+        $this->assertArrayHasKey('repeat_offenders',           $r);
+    }
+
+    // ── AC2: give_back rate computed ──────────────────────────────────────────
+
+    public function test_give_back_rate_tracked_in_family_matrix(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'give_back']),
+                $this->row(['outcome' => 'success']),
+            ],
+        ]);
+        $this->assertEqualsWithDelta(0.50, $r['family_matrix']['refactor']['give_back_rate'], 0.001);
+    }
+
+    // ── AC2: quarantine rate ──────────────────────────────────────────────────
+
+    public function test_quarantine_rate_tracked_in_family_matrix(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'quarantine']),
+                $this->row(['outcome' => 'success']),
+            ],
+        ]);
+        $this->assertEqualsWithDelta(0.50, $r['family_matrix']['refactor']['quarantine_rate'], 0.001);
+    }
+
+    // ── AC2: duplicate rate ───────────────────────────────────────────────────
+
+    public function test_duplicate_rate_tracked_in_family_matrix(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'duplicate']),
+                $this->row(['outcome' => 'duplicate']),
+                $this->row(['outcome' => 'success']),
+            ],
+        ]);
+        $this->assertEqualsWithDelta(0.6667, $r['family_matrix']['refactor']['duplicate_rate'], 0.001);
+    }
+
+    // ── AC2: weak_green rate ──────────────────────────────────────────────────
+
+    public function test_weak_green_rate_tracked_in_family_matrix(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'weak_green']),
+                $this->row(['outcome' => 'success']),
+            ],
+        ]);
+        $this->assertEqualsWithDelta(0.50, $r['family_matrix']['refactor']['weak_green_rate'], 0.001);
+    }
+
+    // ── AC3: quarantine_prone signal → respec ────────────────────────────────
+
+    public function test_quarantine_prone_family_routed_to_respec(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'quarantine']),
+                $this->row(['outcome' => 'quarantine']),
+                $this->row(['outcome' => 'success']),
+            ],
+            'quarantine_threshold' => 0.30,
+        ]);
+        $this->assertSame('quarantine_prone', $r['family_matrix']['refactor']['signal']);
+        $this->assertContains('refactor', $r['respec_families']);
+    }
+
+    // ── AC3: duplicate_prone signal → respec ─────────────────────────────────
+
+    public function test_duplicate_prone_family_routed_to_respec(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'duplicate']),
+                $this->row(['outcome' => 'duplicate']),
+                $this->row(['outcome' => 'success']),
+            ],
+            'duplicate_threshold' => 0.30,
+        ]);
+        $this->assertSame('duplicate_prone', $r['family_matrix']['refactor']['signal']);
+        $this->assertContains('refactor', $r['respec_families']);
+    }
+
+    // ── AC4: worker_reliability_signals for repeat give_back ─────────────────
+
+    public function test_worker_with_repeat_give_back_flagged_in_reliability_signals(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'give_back']),
+                $this->row(['outcome' => 'give_back']),
+                $this->row(['outcome' => 'success']),
+            ],
+            'min_give_back_flag' => 2,
+        ]);
+        $this->assertNotEmpty($r['worker_reliability_signals']);
+        $this->assertSame('w1',              $r['worker_reliability_signals'][0]['worker_id']);
+        $this->assertSame(2,                 $r['worker_reliability_signals'][0]['give_back_count']);
+        $this->assertSame('repeat_give_back', $r['worker_reliability_signals'][0]['signal']);
+    }
+
+    public function test_worker_below_give_back_threshold_not_flagged(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows'      => [$this->row(['outcome' => 'give_back'])],
+            'min_give_back_flag' => 2,
+        ]);
+        $this->assertEmpty($r['worker_reliability_signals']);
+    }
+
+    // ── AC4: repeat_offenders for low-success workers ─────────────────────────
+
+    public function test_low_success_worker_appears_in_repeat_offenders(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'failure']),
+                $this->row(['outcome' => 'failure']),
+                $this->row(['outcome' => 'failure']),
+            ],
+            'repeat_offender_floor'    => 0.30,
+            'repeat_offender_min_rows' => 3,
+        ]);
+        $this->assertNotEmpty($r['repeat_offenders']);
+        $this->assertSame('w1', $r['repeat_offenders'][0]['worker_id']);
+        $this->assertSame('low_success_worker', $r['repeat_offenders'][0]['offender_type']);
+    }
+
+    public function test_worker_with_enough_success_not_repeat_offender(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'success']),
+                $this->row(['outcome' => 'success']),
+                $this->row(['outcome' => 'failure']),
+            ],
+            'repeat_offender_floor'    => 0.30,
+            'repeat_offender_min_rows' => 3,
+        ]);
+        $this->assertEmpty($r['repeat_offenders']);
+    }
 }
