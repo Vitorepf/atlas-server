@@ -52,7 +52,11 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         $result = $this->ledger->aggregate(['samples' => [$this->sample(['area' => 'maestro'])]]);
 
         $area = $result['areas']['maestro'];
-        foreach (['area', 'capability_gain', 'observability_gain', 'scaffolding_risk', 'total_tasks', 'has_integration_evidence', 'volume_without_evidence', 'next_action'] as $k) {
+        foreach ([
+            'area', 'capability_gain', 'observability_gain', 'scaffolding_risk',
+            'total_tasks', 'integration_evidence', 'volume_without_evidence',
+            'maturity_band', 'risk_level', 'owner_signal', 'next_structural_lever',
+        ] as $k) {
             $this->assertArrayHasKey($k, $area, "Missing field: {$k}");
         }
     }
@@ -108,7 +112,6 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
             $this->sample(['value_class' => 'real_capability', 'integration_evidence' => false]),
         ]]);
 
-        // No integration evidence → treated as observability (unproven capability)
         $this->assertSame(0, $result['areas']['loop']['capability_gain']);
     }
 
@@ -123,7 +126,7 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         ]]);
 
         $this->assertTrue($result['areas']['loop']['volume_without_evidence']);
-        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_REVIEW_SCAFFOLDING, $result['areas']['loop']['next_action']);
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_REVIEW_SCAFFOLDING, $result['areas']['loop']['next_structural_lever']);
     }
 
     public function test_volume_without_evidence_not_flagged_when_capability_exists(): void
@@ -137,9 +140,9 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         $this->assertFalse($result['areas']['loop']['volume_without_evidence']);
     }
 
-    // ── next_action ───────────────────────────────────────────────────────────
+    // ── next_structural_lever ─────────────────────────────────────────────────
 
-    public function test_next_action_invest_when_capability_gain_3_or_more(): void
+    public function test_lever_invest_when_capability_gain_3_or_more(): void
     {
         $result = $this->ledger->aggregate(['samples' => [
             $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
@@ -147,10 +150,33 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
             $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
         ]]);
 
-        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_INVEST, $result['areas']['loop']['next_action']);
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_INVEST, $result['areas']['loop']['next_structural_lever']);
     }
 
-    public function test_next_action_observe_when_observability_dominates(): void
+    public function test_lever_review_scaffolding_when_scaffolding_dominates(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_REVIEW_SCAFFOLDING, $result['areas']['loop']['next_structural_lever']);
+    }
+
+    public function test_lever_investigate_when_volume_without_evidence_and_no_scaffolding_risk(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertTrue($result['areas']['loop']['volume_without_evidence']);
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_INVESTIGATE, $result['areas']['loop']['next_structural_lever']);
+    }
+
+    public function test_lever_observe_when_observability_dominates(): void
     {
         $result = $this->ledger->aggregate(['samples' => [
             $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
@@ -158,16 +184,127 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
             $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
         ]]);
 
-        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_OBSERVE, $result['areas']['loop']['next_action']);
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_OBSERVE, $result['areas']['loop']['next_structural_lever']);
     }
 
-    public function test_next_action_monitor_by_default(): void
+    public function test_lever_consolidate_when_consolidation_count_dominates(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'consolidation', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'consolidation', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_CONSOLIDATE, $result['areas']['loop']['next_structural_lever']);
+    }
+
+    public function test_lever_monitor_by_default(): void
     {
         $result = $this->ledger->aggregate(['samples' => [
             $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
         ]]);
 
-        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_MONITOR, $result['areas']['loop']['next_action']);
+        $this->assertSame(AtlasExternalBrainAreaImpactLedger::ACTION_MONITOR, $result['areas']['loop']['next_structural_lever']);
+    }
+
+    // ── maturity_band ─────────────────────────────────────────────────────────
+
+    public function test_maturity_band_mature_when_high_capability_with_evidence(): void
+    {
+        $samples = array_fill(0, 3, $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]));
+        $result = $this->ledger->aggregate(['samples' => $samples]);
+
+        $this->assertSame('mature', $result['areas']['loop']['maturity_band']);
+    }
+
+    public function test_maturity_band_developing_when_some_capability_with_evidence(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertSame('developing', $result['areas']['loop']['maturity_band']);
+    }
+
+    public function test_maturity_band_stagnant_when_volume_without_evidence(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertSame('stagnant', $result['areas']['loop']['maturity_band']);
+    }
+
+    public function test_maturity_band_emerging_by_default(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertSame('emerging', $result['areas']['loop']['maturity_band']);
+    }
+
+    // ── risk_level ────────────────────────────────────────────────────────────
+
+    public function test_risk_level_high_when_scaffolding_dominates(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertSame('high', $result['areas']['loop']['risk_level']);
+    }
+
+    public function test_risk_level_medium_when_some_scaffolding_but_not_dominant(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertSame('medium', $result['areas']['loop']['risk_level']);
+    }
+
+    public function test_risk_level_low_when_no_scaffolding(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertSame('low', $result['areas']['loop']['risk_level']);
+    }
+
+    // ── owner_signal ──────────────────────────────────────────────────────────
+
+    public function test_owner_signal_proven_when_evidence_and_capability(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertSame('proven', $result['areas']['loop']['owner_signal']);
+    }
+
+    public function test_owner_signal_claimed_when_evidence_but_no_capability(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertSame('claimed', $result['areas']['loop']['owner_signal']);
+    }
+
+    public function test_owner_signal_unowned_when_no_evidence(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'observability', 'integration_evidence' => false]),
+        ]]);
+
+        $this->assertSame('unowned', $result['areas']['loop']['owner_signal']);
     }
 
     // ── Multi-area isolation ──────────────────────────────────────────────────
@@ -175,8 +312,8 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
     public function test_samples_are_isolated_per_area(): void
     {
         $result = $this->ledger->aggregate(['samples' => [
-            $this->sample(['area' => 'loop',   'value_class' => 'real_capability', 'integration_evidence' => true]),
-            $this->sample(['area' => 'maestro', 'value_class' => 'scaffolding',    'integration_evidence' => false]),
+            $this->sample(['area' => 'loop',    'value_class' => 'real_capability', 'integration_evidence' => true]),
+            $this->sample(['area' => 'maestro', 'value_class' => 'scaffolding',     'integration_evidence' => false]),
         ]]);
 
         $this->assertSame(2, $result['area_count']);
