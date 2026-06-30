@@ -16,11 +16,25 @@ final class AtlasMaestroProviderClassRegistry
     ];
 
     /**
-     * @return array<string,array{provider_id:string,axes:array<string,int>,cost_band:string,memory_anchor:string}>
+     * @return array<string,array{provider_id:string,axes:array<string,int>,cost_band:string,memory_anchor:string,autonomy_level:string,steady_state_allowed:bool,supports_task_classes:list<string>}>
      */
     public function providers(): array
     {
         $providers = [
+            'atlas_native' => [
+                'provider_id' => 'atlas_native',
+                'axes' => [
+                    'architecture-depth' => 0,
+                    'multi-file-coherence' => 0,
+                    'grind-throughput' => 100,
+                    'doc-fidelity' => 0,
+                ],
+                'cost_band' => 'zero',
+                'memory_anchor' => 'loop-provider-minimax-impl-codex-hard',
+                'autonomy_level' => 'native',
+                'steady_state_allowed' => true,
+                'supports_task_classes' => ['*'],
+            ],
             'minimax-m3' => [
                 'provider_id' => 'minimax-m3',
                 'axes' => [
@@ -31,6 +45,9 @@ final class AtlasMaestroProviderClassRegistry
                 ],
                 'cost_band' => 'cheap',
                 'memory_anchor' => 'loop-provider-minimax-impl-codex-hard',
+                'autonomy_level' => 'ai_api',
+                'steady_state_allowed' => true,
+                'supports_task_classes' => ['refactor', 'wiring', 'docs', 'test', 'grind'],
             ],
             'codex-gpt-5-5' => [
                 'provider_id' => 'codex-gpt-5-5',
@@ -42,6 +59,9 @@ final class AtlasMaestroProviderClassRegistry
                 ],
                 'cost_band' => 'expensive',
                 'memory_anchor' => 'loop-provider-minimax-impl-codex-hard',
+                'autonomy_level' => 'ai_api',
+                'steady_state_allowed' => false,
+                'supports_task_classes' => ['architecture', 'planning', 'hard-refactor'],
             ],
             'claude-opus' => [
                 'provider_id' => 'claude-opus',
@@ -53,6 +73,9 @@ final class AtlasMaestroProviderClassRegistry
                 ],
                 'cost_band' => 'expensive',
                 'memory_anchor' => 'loop-provider-minimax-impl-codex-hard',
+                'autonomy_level' => 'ai_api',
+                'steady_state_allowed' => false,
+                'supports_task_classes' => ['architecture', 'planning', 'docs', 'hard-refactor'],
             ],
             'glm-5-2' => [
                 'provider_id' => 'glm-5-2',
@@ -64,6 +87,9 @@ final class AtlasMaestroProviderClassRegistry
                 ],
                 'cost_band' => 'standard',
                 'memory_anchor' => 'loop-provider-minimax-impl-codex-hard',
+                'autonomy_level' => 'ai_api',
+                'steady_state_allowed' => true,
+                'supports_task_classes' => ['refactor', 'wiring', 'docs', 'test', 'grind'],
             ],
         ];
 
@@ -90,6 +116,10 @@ final class AtlasMaestroProviderClassRegistry
      */
     private function assertWellFormed(array $providers): void
     {
+        if (! array_key_exists('atlas_native', $providers)) {
+            throw new LogicException('registry must declare atlas_native as the zero-cost native provider');
+        }
+
         foreach ($providers as $providerId => $provider) {
             $axes = (array) ($provider['axes'] ?? []);
             foreach (self::AXES as $axis) {
@@ -99,6 +129,15 @@ final class AtlasMaestroProviderClassRegistry
             }
             if ((string) ($provider['cost_band'] ?? '') === '') {
                 throw new LogicException(sprintf('provider %s must declare a cost band', $providerId));
+            }
+            if ((string) ($provider['autonomy_level'] ?? '') === '') {
+                throw new LogicException(sprintf('provider %s must declare autonomy_level', $providerId));
+            }
+            if (! is_bool($provider['steady_state_allowed'] ?? null)) {
+                throw new LogicException(sprintf('provider %s must declare steady_state_allowed as bool', $providerId));
+            }
+            if (! is_array($provider['supports_task_classes'] ?? null) || $provider['supports_task_classes'] === []) {
+                throw new LogicException(sprintf('provider %s must declare non-empty supports_task_classes', $providerId));
             }
         }
     }
