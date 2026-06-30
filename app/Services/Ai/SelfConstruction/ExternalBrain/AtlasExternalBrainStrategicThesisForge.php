@@ -60,6 +60,20 @@ final class AtlasExternalBrainStrategicThesisForge
         'wire_to_consumers'    => 'consumer_exercising_new_capability_in_ci',
     ];
 
+    /** Canonical dependency order: implement before verify before wire. Unknown shapes sort last, stable. */
+    private const CANONICAL_SHAPE_ORDER = [
+        'implement_capability' => 0,
+        'implement'             => 0,
+        'add_implementation'    => 0,
+        'implement_service'     => 0,
+        'verify_acceptance'    => 1,
+        'add_tests'             => 1,
+        'verify'                => 1,
+        'test_acceptance'       => 1,
+        'write_tests'           => 1,
+        'wire_to_consumers'    => 2,
+    ];
+
     /**
      * @param  list<array{
      *   cluster_id:string, theme:string, capability_delta:string, acceptance_path:string,
@@ -247,8 +261,20 @@ final class AtlasExternalBrainStrategicThesisForge
     /** @return array{steps:list<array<string,mixed>>} */
     private function buildTaskChain(array $shapes): array
     {
+        // Dependency-aware ordering: implement before verify before wire-to-consumers, regardless
+        // of the order task_shapes were supplied in. Stable sort (tagged with original index)
+        // preserves relative order within the same canonical tier (and for unknown shapes, which
+        // sort last).
+        $tagged = [];
+        foreach (array_values($shapes) as $originalIndex => $shape) {
+            $name = strtolower((string) ($shape['shape'] ?? ''));
+            $tagged[] = [self::CANONICAL_SHAPE_ORDER[$name] ?? 99, $originalIndex, $shape];
+        }
+        usort($tagged, static fn (array $a, array $b): int => $a[0] <=> $b[0] ?: $a[1] <=> $b[1]);
+        $indexed = array_column($tagged, 2);
+
         $steps = [];
-        foreach ($shapes as $i => $shape) {
+        foreach ($indexed as $i => $shape) {
             $name   = (string) ($shape['shape'] ?? "step_{$i}");
             $steps[] = [
                 'order'                   => $i + 1,

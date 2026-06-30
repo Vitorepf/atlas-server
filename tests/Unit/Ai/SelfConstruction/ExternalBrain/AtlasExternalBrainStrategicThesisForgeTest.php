@@ -314,4 +314,36 @@ final class AtlasExternalBrainStrategicThesisForgeTest extends TestCase
 
         $this->assertStringContainsString('missing_implementation_step', $r['rejected'][0]['reason']);
     }
+
+    // ── AC3: task chain is dependency-aware regardless of supplied order ─────
+
+    public function test_task_chain_reorders_out_of_order_shapes_implement_before_verify(): void
+    {
+        $r = $this->forge->forge([$this->validCluster([
+            'task_shapes' => [
+                ['shape' => 'verify_acceptance', 'description' => 'Add automated proof'],
+                ['shape' => 'implement_capability', 'description' => 'Implement the primitive'],
+            ],
+        ])]);
+
+        $steps = $r['theses'][0]['task_chain']['steps'];
+        $this->assertSame('implement_capability', $steps[0]['shape']);
+        $this->assertSame('verify_acceptance', $steps[1]['shape']);
+        $this->assertSame(1, $steps[0]['order']);
+        $this->assertSame(2, $steps[1]['order']);
+    }
+
+    public function test_task_chain_reorders_wire_to_consumers_after_verify_even_when_supplied_first(): void
+    {
+        $r = $this->forge->forge([$this->validCluster([
+            'task_shapes' => [
+                ['shape' => 'wire_to_consumers', 'description' => 'Wire to a consumer'],
+                ['shape' => 'verify_acceptance', 'description' => 'Add automated proof'],
+                ['shape' => 'implement_capability', 'description' => 'Implement the primitive'],
+            ],
+        ])]);
+
+        $shapeOrder = array_column($r['theses'][0]['task_chain']['steps'], 'shape');
+        $this->assertSame(['implement_capability', 'verify_acceptance', 'wire_to_consumers'], $shapeOrder);
+    }
 }
