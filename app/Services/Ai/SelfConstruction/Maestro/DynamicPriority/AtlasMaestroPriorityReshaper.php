@@ -46,8 +46,10 @@ final class AtlasMaestroPriorityReshaper
 
     /**
      * @param  list<array<string,mixed>>  $packets  each: {task_packet_id, enqueued_at (ISO-8601), tag}
-     * @param  array<string,mixed>        $snapshot fact snapshot whose facts.dependency_criticality_by_task_id
-     *                                              is consulted (0 default for missing entries)
+     * @param  array<string,mixed>        $snapshot fact snapshot consulted keys (all default to empty/false):
+     *                                              facts.dependency_criticality_by_task_id (int, higher wins),
+     *                                              facts.worker_starvation_unblock_by_task_id (bool, true rises above FIFO),
+     *                                              facts.poison_family_by_task_id (bool, true sinks below clean peers)
      * @param  string                     $queueTag  for the forbidden-scope guard
      * @return list<array<string,mixed>>  ordered packets (input order if master-off)
      */
@@ -59,14 +61,19 @@ final class AtlasMaestroPriorityReshaper
             return array_values($packets);
         }
 
-        $criticality = (array) ($snapshot['facts']['dependency_criticality_by_task_id'] ?? []);
+        $facts = (array) ($snapshot['facts'] ?? []);
+        $criticality = (array) ($facts['dependency_criticality_by_task_id'] ?? []);
+        $poison = (array) ($facts['poison_family_by_task_id'] ?? []);
+        $starvation = (array) ($facts['worker_starvation_unblock_by_task_id'] ?? []);
 
-        $augmented = array_map(static function (array $packet) use ($criticality): array {
+        $augmented = array_map(static function (array $packet) use ($criticality, $poison, $starvation): array {
             $id = (string) ($packet['task_packet_id'] ?? '');
 
             return [
                 'packet' => $packet,
                 '_criticality' => (int) ($criticality[$id] ?? 0),
+                '_starvation' => (bool) ($starvation[$id] ?? false),
+                '_poison' => (bool) ($poison[$id] ?? false),
                 '_enqueued_at' => (string) ($packet['enqueued_at'] ?? ''),
                 '_id' => $id,
             ];
@@ -78,13 +85,23 @@ final class AtlasMaestroPriorityReshaper
             if ($c !== 0) {
                 return $c;
             }
-            // (2) older enqueued_at first (strcmp on ISO-8601 sorts chronologically)
+            // (2) starvation-unblock: true before false (unblocks idle workers)
+            $c = ($b['_starvation'] ? 1 : 0) <=> ($a['_starvation'] ? 1 : 0);
+            if ($c !== 0) {
+                return $c;
+            }
+            // (3) poison: non-poison before poison (push quarantined families down)
+            $c = ($a['_poison'] ? 1 : 0) <=> ($b['_poison'] ? 1 : 0);
+            if ($c !== 0) {
+                return $c;
+            }
+            // (4) older enqueued_at first (strcmp on ISO-8601 sorts chronologically)
             $c = strcmp($a['_enqueued_at'], $b['_enqueued_at']);
             if ($c !== 0) {
                 return $c;
             }
 
-            // (3) lexical task_packet_id
+            // (5) lexical task_packet_id
             return strcmp($a['_id'], $b['_id']);
         });
 

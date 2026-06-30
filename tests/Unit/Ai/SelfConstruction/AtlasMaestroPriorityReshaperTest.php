@@ -122,4 +122,46 @@ final class AtlasMaestroPriorityReshaperTest extends TestCase
         $this->assertSame(['pkt-A', 'pkt-Z'], array_column($ordered, 'task_packet_id'));
         $this->assertSame([], glob($this->sandbox.'/*') ?: []);
     }
+
+    public function test_poison_family_pushes_task_below_clean_peer_with_equal_criticality(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'poison_family_by_task_id' => ['pkt-A' => true], // pkt-A is poison
+            ],
+        ];
+        $packets = [
+            // pkt-A is older but poisoned; pkt-B is clean.
+            ['task_packet_id' => 'pkt-A', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-B', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        // Clean pkt-B must precede poisoned pkt-A despite pkt-A being older (FIFO would pick A first).
+        $this->assertSame(['pkt-B', 'pkt-A'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_worker_starvation_unblock_raises_task_above_fifo_peers_master_off_is_no_op(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-old', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-new', 'enqueued_at' => '2026-06-25T05:00:00Z'],
+        ];
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'worker_starvation_unblock_by_task_id' => ['pkt-new' => true], // newer but unblocks idle worker
+            ],
+        ];
+
+        // Master-off: input order unchanged regardless of starvation fact.
+        $offOrder = $this->reshaper(masterOn: false)->reshape($packets, $snapshot, 'loop');
+        $this->assertSame(['pkt-old', 'pkt-new'], array_column($offOrder, 'task_packet_id'), 'master-off must be a no-op');
+
+        // Master-on: pkt-new rises above pkt-old because it unblocks an idle worker.
+        $onOrder = $this->reshaper(masterOn: true)->reshape($packets, $snapshot, 'loop');
+        $this->assertSame(['pkt-new', 'pkt-old'], array_column($onOrder, 'task_packet_id'), 'starvation-unblock must precede FIFO peers');
+    }
 }
