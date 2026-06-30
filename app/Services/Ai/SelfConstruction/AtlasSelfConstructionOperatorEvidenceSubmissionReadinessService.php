@@ -259,6 +259,12 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             completionAuditReady: (string) data_get($completionAudit, 'status') === 'complete'
                 && (bool) data_get($completionAudit, 'completion_allowed', false),
         );
+        $nextActionGraph = $this->nextActionGraph(
+            runtimePassed: $runtimePassed,
+            smokePassed: $smokePassed,
+            humanPassed: $humanPassed,
+            diagnostics: $diagnostics,
+        );
         $promptToArtifactChecklist = $this->promptToArtifactChecklist($closureArtifactSequence);
         $externalCompletionClaimPolicy = $this->externalCompletionClaimPolicy(
             completionAudit: $completionAudit,
@@ -290,6 +296,7 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
             'closure_artifact_sequence' => $closureArtifactSequence,
             'closure_artifact_sequence_count' => count($closureArtifactSequence),
             'closure_artifact_sequence_hash' => $this->stableHash($closureArtifactSequence),
+            'next_action_graph' => $nextActionGraph,
             'prompt_to_artifact_checklist' => $promptToArtifactChecklist,
             'prompt_to_artifact_checklist_count' => count($promptToArtifactChecklist),
             'prompt_to_artifact_checklist_passed_count' => count(array_filter($promptToArtifactChecklist, static fn (array $row): bool => (bool) $row['passed'])),
@@ -1643,6 +1650,88 @@ final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
                 'requires_provider_call' => false,
             ],
         ];
+    }
+
+    /**
+     * Orders the four closure steps with dependencies, readiness, the
+     * canonical command, and who owns running it. The worker can only
+     * advance rerun_completion_audit on its own; the other three steps
+     * require an operator signature or an externally-observed provider
+     * call and are explicitly marked non-worker.
+     *
+     * @param  array<string, array<string, mixed>>  $diagnostics
+     * @return array<string, mixed>
+     */
+    private function nextActionGraph(bool $runtimePassed, bool $smokePassed, bool $humanPassed, array $diagnostics): array
+    {
+        $completionAuditReady = $runtimePassed && $smokePassed && $humanPassed;
+
+        $nodes = [
+            [
+                'id' => 'runtime_promotion_receipt',
+                'order' => 1,
+                'depends_on' => [],
+                'ready' => $runtimePassed,
+                'blocking_reasons' => $runtimePassed ? [] : (array) data_get($diagnostics, 'runtime_promotion_receipt.errors', ['runtime_promotion_receipt_not_ready']),
+                'canonical_command' => $this->nextRequiredCommand('runtime_promotion_receipt'),
+                'worker_or_operator_owner' => 'operator',
+                'requires_operator_signature' => true,
+                'requires_provider_call' => false,
+            ],
+            [
+                'id' => 'real_provider_smoke',
+                'order' => 2,
+                'depends_on' => ['runtime_promotion_receipt'],
+                'ready' => $smokePassed,
+                'blocking_reasons' => $smokePassed ? [] : (array) data_get($diagnostics, 'real_provider_smoke.errors', ['real_provider_smoke_not_ready']),
+                'canonical_command' => $this->nextRequiredCommand('real_provider_smoke'),
+                'worker_or_operator_owner' => 'provider',
+                'requires_operator_signature' => false,
+                'requires_provider_call' => true,
+            ],
+            [
+                'id' => 'human_completion_receipt',
+                'order' => 3,
+                'depends_on' => ['runtime_promotion_receipt', 'real_provider_smoke'],
+                'ready' => $humanPassed,
+                'blocking_reasons' => $humanPassed ? [] : (array) data_get($diagnostics, 'human_completion_receipt.errors', ['human_completion_receipt_not_ready']),
+                'canonical_command' => $this->nextRequiredCommand('human_completion_receipt'),
+                'worker_or_operator_owner' => 'operator',
+                'requires_operator_signature' => true,
+                'requires_provider_call' => false,
+            ],
+            [
+                'id' => 'rerun_completion_audit',
+                'order' => 4,
+                'depends_on' => ['runtime_promotion_receipt', 'real_provider_smoke', 'human_completion_receipt'],
+                'ready' => $completionAuditReady,
+                'blocking_reasons' => $completionAuditReady ? [] : ['prior_closure_steps_not_all_green'],
+                'canonical_command' => $this->nextRequiredCommand('rerun_completion_audit'),
+                'worker_or_operator_owner' => 'worker',
+                'requires_operator_signature' => false,
+                'requires_provider_call' => false,
+            ],
+        ];
+
+        $graph = [
+            'schema_version' => 'atlas.self_construction.operator_evidence_next_action_graph.v1',
+            'mode' => 'read_only_operator_evidence_next_action_graph',
+            'status' => $completionAuditReady ? 'ready_for_completion_audit_rerun' : 'blocked_on_operator_or_provider_owned_steps',
+            'nodes' => $nodes,
+            'node_count' => count($nodes),
+            'can_run_from_graph' => false,
+            'non_execution_guarantees' => [
+                'next_action_graph_does_not_execute_command',
+                'next_action_graph_does_not_persist_receipts',
+                'next_action_graph_does_not_call_provider',
+                'next_action_graph_does_not_spend_tokens',
+                'next_action_graph_does_not_sign_for_operator',
+                'next_action_graph_does_not_promote_completion',
+            ],
+        ];
+        $graph['next_action_graph_hash'] = $this->stableHash($graph);
+
+        return $graph;
     }
 
     /**
