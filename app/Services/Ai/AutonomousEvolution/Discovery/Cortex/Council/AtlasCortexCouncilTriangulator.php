@@ -88,7 +88,8 @@ final class AtlasCortexCouncilTriangulator
                 $byDiscriminator[$d] ??= [];
                 $byDiscriminator[$d][] = $entry['lens_id'];
             }
-            if (count($byDiscriminator) >= 2) {
+            $distinctLensIds = array_values(array_unique(array_column($group, 'lens_id')));
+            if (count($byDiscriminator) >= 2 && count($distinctLensIds) >= 2) {
                 // Multiple discriminator values for the same kind+target ⇒ a real conflict.
                 ksort($byDiscriminator);
                 $disagreements[] = [

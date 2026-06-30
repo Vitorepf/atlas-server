@@ -66,6 +66,19 @@ final class AtlasCortexCouncilTriangulatorTest extends TestCase
         $this->assertStringContainsString('covered_method@X::go', (string) $crossConflicts[0]['signal']);
     }
 
+    public function test_single_lens_two_discriminators_does_not_fabricate_cross_lens_conflict(): void
+    {
+        $report = $this->triangulator()->triangulate([
+            $this->obs('testcoverage', [
+                ['kind' => 'covered_method', 'method' => 'X::go', 'count' => 7],
+                ['kind' => 'covered_method', 'method' => 'X::go', 'count' => 0],
+            ]),
+        ]);
+
+        $crossConflicts = array_values(array_filter($report->disagreements, static fn (array $d): bool => ($d['kind'] ?? '') === 'cross_lens_fact_conflict'));
+        $this->assertEmpty($crossConflicts, 'a single lens with differing discriminators must not produce a cross_lens_fact_conflict');
+    }
+
     public function test_raw_facts_are_preserved_verbatim_keyed_by_lens_id(): void
     {
         $a = [['kind' => 'fact_a', 'x' => 1]];
