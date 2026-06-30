@@ -45,6 +45,13 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceReceiptWriter
         $this->assertFalse($result['token_spend_allowed']);
         $this->assertTrue($result['provider_started']);
         $this->assertFalse($result['dispatch_allowed']);
+        $this->assertSame('codex-real-invoker-post-start-evidence-receipt-001', $result['receipt_id']);
+        $this->assertNotSame('', $result['receipt_digest']);
+        $this->assertSame('AP-001', $result['task_id']);
+        $this->assertSame('operator_external_start_attestation_no_atlas_spawn', $result['proof_command']);
+        $this->assertSame('accepted', $result['evidence_status']);
+        $this->assertSame('external_process_started_dispatch_disabled', $result['outcome_class']);
+        $this->assertSame('codex-real-invoker-post-start-evidence-receipt-001', $result['learning_payload']['receipt_id']);
 
         $run = AtlasSelfConstructionAgentRun::query()
             ->where('run_key', 'provider-start:attempt-001')
@@ -138,6 +145,19 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceReceiptWriter
 
         app(AgentCodexRealInvokerPostStartEvidenceReceiptWriter::class)
             ->writePostStartEvidenceReceipt($this->validInput());
+    }
+
+    public function test_post_start_evidence_receipt_rejects_unstructured_reason(): void
+    {
+        $this->createPostStartReceiptContractRun();
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('unstructured_or_provider_private_reason');
+
+        app(AgentCodexRealInvokerPostStartEvidenceReceiptWriter::class)
+            ->writePostStartEvidenceReceipt(array_merge($this->validInput(), [
+                'reason' => 'sk-live-secret token leaked here! not structured.',
+            ]));
     }
 
     public function test_post_start_evidence_receipt_rolls_back_metadata_when_ledger_write_fails(): void

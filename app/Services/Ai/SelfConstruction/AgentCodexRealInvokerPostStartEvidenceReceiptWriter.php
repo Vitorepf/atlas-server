@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
+use function hash;
+use function json_encode;
+
 class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
@@ -55,7 +58,17 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
 
             $this->assertPostStartReceiptContract($run, $metadata, $normalized);
 
+            $proofReceipt = $this->buildProofReceipt($run, $normalized);
+
             $metadata['codex_real_invoker_post_start_evidence_receipt'] = [
+                'receipt_id' => $proofReceipt['receipt_id'],
+                'receipt_digest' => $proofReceipt['receipt_digest'],
+                'task_id' => $proofReceipt['task_id'],
+                'lease_id' => $proofReceipt['lease_id'],
+                'proof_command' => $proofReceipt['proof_command'],
+                'evidence_status' => $proofReceipt['evidence_status'],
+                'outcome_class' => $proofReceipt['outcome_class'],
+                'learning_payload' => $proofReceipt['learning_payload'],
                 'post_start_evidence_receipt_id' => $normalized['post_start_evidence_receipt_id'],
                 'post_start_evidence_acceptance_bridge_id' => $normalized['post_start_evidence_acceptance_bridge_id'],
                 'post_start_receipt_contract_id' => $normalized['post_start_receipt_contract_id'],
@@ -177,6 +190,12 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
             }
         }
 
+        foreach (['actor', 'session', 'reason'] as $structuredField) {
+            if (! preg_match('/^[a-z0-9_\-:]{1,120}$/', (string) $input[$structuredField])) {
+                throw new InvalidArgumentException('unstructured_or_provider_private_'.$structuredField);
+            }
+        }
+
         $hashFields = [
             'external_process_identity_contract_hash',
             'startup_evidence_contract_hash',
@@ -274,6 +293,52 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
     }
 
     /**
+     * @param  array<string,mixed>  $normalized
+     * @return array<string,mixed>
+     */
+    private function buildProofReceipt(AtlasSelfConstructionAgentRun $run, array $normalized): array
+    {
+        $taskId = (string) $run->packet_id;
+        $leaseId = (string) ($run->reservation_id ?? '');
+        $proofCommand = 'operator_external_start_attestation_no_atlas_spawn';
+        $evidenceStatus = 'accepted';
+        $outcomeClass = 'external_process_started_dispatch_disabled';
+
+        $receiptDigest = hash('sha256', (string) json_encode([
+            'receipt_id' => $normalized['post_start_evidence_receipt_id'],
+            'task_id' => $taskId,
+            'lease_id' => $leaseId,
+            'proof_command' => $proofCommand,
+            'evidence_status' => $evidenceStatus,
+            'outcome_class' => $outcomeClass,
+            'codex_execution_id' => $normalized['codex_execution_id'],
+            'run_key' => $run->run_key,
+        ]));
+
+        return [
+            'receipt_id' => $normalized['post_start_evidence_receipt_id'],
+            'receipt_digest' => $receiptDigest,
+            'task_id' => $taskId,
+            'lease_id' => $leaseId,
+            'proof_command' => $proofCommand,
+            'evidence_status' => $evidenceStatus,
+            'outcome_class' => $outcomeClass,
+            'learning_payload' => [
+                'receipt_id' => $normalized['post_start_evidence_receipt_id'],
+                'receipt_digest' => $receiptDigest,
+                'task_id' => $taskId,
+                'lease_id' => $leaseId,
+                'proof_command' => $proofCommand,
+                'evidence_status' => $evidenceStatus,
+                'outcome_class' => $outcomeClass,
+                'provider' => 'codex',
+                'codex_execution_id' => $normalized['codex_execution_id'],
+                'run_key' => $run->run_key,
+            ],
+        ];
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function result(AtlasSelfConstructionAgentRun $run, bool $idempotent, ?string $ledgerEventId): array
@@ -281,6 +346,14 @@ class AgentCodexRealInvokerPostStartEvidenceReceiptWriter
         return [
             'status' => 'codex_real_invoker_post_start_evidence_receipt_recorded',
             'idempotent' => $idempotent,
+            'receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.receipt_id'),
+            'receipt_digest' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.receipt_digest'),
+            'task_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.task_id'),
+            'lease_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.lease_id'),
+            'proof_command' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.proof_command'),
+            'evidence_status' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.evidence_status'),
+            'outcome_class' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.outcome_class'),
+            'learning_payload' => (array) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.learning_payload', []),
             'post_start_evidence_receipt_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.post_start_evidence_receipt_id'),
             'post_start_evidence_acceptance_bridge_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.post_start_evidence_acceptance_bridge_id'),
             'post_start_receipt_contract_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_evidence_receipt.post_start_receipt_contract_id'),
