@@ -88,16 +88,19 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
         $promisedDeltaObserved = $hasImpl && $hasTests && $hasDelta && $behaviorDelta !== '';
 
         // AC3: causal_proof_strength = satisfied proof signals / 7 total.
-        $satisfied = array_sum([
-            (int) $hasImpl,
-            (int) $hasTests,
-            (int) $hasDelta,
-            (int) $queueUp,
-            (int) ($behaviorDelta !== ''),
-            (int) ($learningDelta !== ''),
-            (int) ($acceptanceDelta !== ''),
-        ]);
-        $causalProofStrength = round($satisfied / 7, 4);
+        $proofSignals = [
+            'impl_files'        => $hasImpl,
+            'test_files'        => $hasTests,
+            'capability_delta'  => $hasDelta,
+            'queue_improvement' => $queueUp,
+            'behavior_delta'    => $behaviorDelta !== '',
+            'learning_delta'    => $learningDelta !== '',
+            'acceptance_delta'  => $acceptanceDelta !== '',
+        ];
+        $satisfied = array_sum(array_map('intval', $proofSignals));
+        $causalProofStrength = round($satisfied / count($proofSignals), 4);
+
+        $missingProofSignals = array_keys(array_filter($proofSignals, static fn (bool $present): bool => ! $present));
 
         return [
             'schema'                  => self::SCHEMA,
@@ -108,7 +111,20 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
             'promised_delta_observed' => $promisedDeltaObserved,
             'ranking_signal'          => self::RANKING_SIGNALS[$label],
             'causal_proof_strength'   => $causalProofStrength,
+            'missing_proof_signals'   => array_values($missingProofSignals),
+            'next_learning_action'    => $this->nextLearningAction($label),
         ];
+    }
+
+    private function nextLearningAction(string $label): string
+    {
+        return match ($label) {
+            self::LABEL_HIGH     => 'compound_pattern_family_promote_for_more_origination',
+            self::LABEL_MEDIUM   => 'monitor_pattern_family_for_compounding_evidence',
+            self::LABEL_LOW      => 'request_missing_test_coverage_or_capability_delta',
+            self::LABEL_NEGATIVE => 'flag_pattern_family_for_review_and_demote_priority',
+            default              => 'request_implementation_and_test_evidence',
+        };
     }
 
     /**

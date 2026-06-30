@@ -27,6 +27,7 @@ final class AtlasExternalBrainPostCommitImpactProofSamplerTest extends TestCase
             'queue_health_effect'       => 'improved',
             'cosmetic_only'             => false,
             'test_only'                 => false,
+            'observed_behavior_delta'   => 'queue drain forecast now appears in dossier output',
         ], $overrides);
     }
 
@@ -36,10 +37,70 @@ final class AtlasExternalBrainPostCommitImpactProofSamplerTest extends TestCase
     {
         $result = $this->sampler->sample($this->base());
 
-        foreach (['schema', 'commit_sha', 'task_packet_id', 'impact_label', 'label_reason', 'promised_delta_observed', 'ranking_signal'] as $k) {
+        foreach (['schema', 'commit_sha', 'task_packet_id', 'impact_label', 'label_reason', 'promised_delta_observed',
+                  'ranking_signal', 'causal_proof_strength', 'missing_proof_signals', 'next_learning_action'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainPostCommitImpactProofSampler::SCHEMA, $result['schema']);
+    }
+
+    // ── green tests alone do not prove promised_delta_observed ────────────────
+
+    public function test_green_tests_alone_without_behavior_delta_do_not_prove_promised_delta(): void
+    {
+        $result = $this->sampler->sample($this->base(['observed_behavior_delta' => '']));
+
+        $this->assertFalse($result['promised_delta_observed']);
+        $this->assertContains('behavior_delta', $result['missing_proof_signals']);
+    }
+
+    // ── cosmetic-only / test-only / promised-without-impl → non-positive ranking ──
+
+    public function test_cosmetic_only_has_non_positive_ranking_signal(): void
+    {
+        $result = $this->sampler->sample($this->base(['cosmetic_only' => true]));
+
+        $this->assertContains($result['impact_label'], [
+            AtlasExternalBrainPostCommitImpactProofSampler::LABEL_NONE,
+            AtlasExternalBrainPostCommitImpactProofSampler::LABEL_NEGATIVE,
+        ]);
+        $this->assertLessThanOrEqual(0.0, $result['ranking_signal']);
+    }
+
+    public function test_test_only_has_non_positive_ranking_signal(): void
+    {
+        $result = $this->sampler->sample($this->base([
+            'test_only'           => true,
+            'observed_impl_files' => [],
+        ]));
+
+        $this->assertContains($result['impact_label'], [
+            AtlasExternalBrainPostCommitImpactProofSampler::LABEL_NONE,
+            AtlasExternalBrainPostCommitImpactProofSampler::LABEL_NEGATIVE,
+        ]);
+        $this->assertLessThanOrEqual(0.0, $result['ranking_signal']);
+    }
+
+    public function test_promised_delta_without_implementation_has_non_positive_ranking_signal(): void
+    {
+        $result = $this->sampler->sample($this->base([
+            'observed_impl_files' => [],
+            'observed_test_files' => [],
+        ]));
+
+        $this->assertContains($result['impact_label'], [
+            AtlasExternalBrainPostCommitImpactProofSampler::LABEL_NONE,
+            AtlasExternalBrainPostCommitImpactProofSampler::LABEL_NEGATIVE,
+        ]);
+        $this->assertLessThanOrEqual(0.0, $result['ranking_signal']);
+    }
+
+    // ── next_learning_action ───────────────────────────────────────────────────
+
+    public function test_next_learning_action_present_for_every_label(): void
+    {
+        $result = $this->sampler->sample($this->base());
+        $this->assertNotEmpty($result['next_learning_action']);
     }
 
     public function test_commit_sha_and_task_packet_id_echoed(): void
