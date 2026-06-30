@@ -105,6 +105,64 @@ final class AtlasExternalBrainAutonomyRegressionOracle
             $negativeScore += $assumptionDelta;
         }
 
+        $worsenedDimensions = [];
+        if ($humanDelta > 0) {
+            $worsenedDimensions[] = 'human_dependency';
+        }
+        if ($operatorDelta > 0) {
+            $worsenedDimensions[] = 'human_dependency';
+        }
+        if ($effectiveProviderDelta > 0 || $manualDelta > 0) {
+            $worsenedDimensions[] = 'provider_dependency';
+        }
+        if ($assumptionDelta > 0) {
+            $worsenedDimensions[] = 'stale_evidence';
+        }
+
+        // Stale evidence: medium — evidence freshness regressed.
+        $staleEvidenceDelta = $this->delta($after, $before, 'stale_evidence_count');
+        if ($staleEvidenceDelta > 0) {
+            $flags[] = "stale_evidence_count_increased_by_{$staleEvidenceDelta}";
+            $severity = $this->worseSeverity($severity, self::SEVERITY_MEDIUM);
+            $negativeScore += $staleEvidenceDelta;
+            $worsenedDimensions[] = 'stale_evidence';
+        }
+
+        // Proxy proof: high — accepted "looks done" evidence in place of real proof.
+        $proxyProofDelta = $this->delta($after, $before, 'proxy_proof_count');
+        if ($proxyProofDelta > 0) {
+            $flags[] = "proxy_proof_count_increased_by_{$proxyProofDelta}";
+            $severity = $this->worseSeverity($severity, self::SEVERITY_HIGH);
+            $negativeScore += $proxyProofDelta;
+            $worsenedDimensions[] = 'proxy_proof';
+        }
+
+        // Queue poison risk: critical — the queue itself can be silently poisoned.
+        $poisonRiskDelta = $this->delta($after, $before, 'queue_poison_risk_count');
+        if ($poisonRiskDelta > 0) {
+            $flags[] = "queue_poison_risk_count_increased_by_{$poisonRiskDelta}";
+            $severity = $this->worseSeverity($severity, self::SEVERITY_CRITICAL);
+            $negativeScore += $poisonRiskDelta;
+            $worsenedDimensions[] = 'queue_poison_risk';
+        }
+
+        // Neutral-refactor guard: a change with zero penalty deltas is ONLY a true
+        // non-regression when capability and evidence coverage were preserved too.
+        $capabilityDelta = $this->delta($after, $before, 'capability_count');
+        $evidenceCoverageDelta = $this->delta($after, $before, 'evidence_coverage_count');
+        if ($capabilityDelta < 0) {
+            $flags[] = "capability_count_decreased_by_{$capabilityDelta}";
+            $severity = $this->worseSeverity($severity, self::SEVERITY_MEDIUM);
+            $negativeScore += abs($capabilityDelta);
+            $worsenedDimensions[] = 'capability_coverage';
+        }
+        if ($evidenceCoverageDelta < 0) {
+            $flags[] = "evidence_coverage_count_decreased_by_{$evidenceCoverageDelta}";
+            $severity = $this->worseSeverity($severity, self::SEVERITY_MEDIUM);
+            $negativeScore += abs($evidenceCoverageDelta);
+            $worsenedDimensions[] = 'evidence_coverage';
+        }
+
         // Atlas native paths proven: positive signal (improvement_flags, not regression).
         $nativeDelta = $this->delta($after, $before, 'atlas_native_paths_proven');
         if ($nativeDelta > 0) {
@@ -114,6 +172,16 @@ final class AtlasExternalBrainAutonomyRegressionOracle
 
         $autonomyDelta = $this->computeAutonomyDelta($positiveScore, $negativeScore);
 
+        $worsenedDimensions = array_values(array_unique($worsenedDimensions));
+        $regressionStatus = match (true) {
+            $flags !== [] => 'regression',
+            $autonomyDelta > 0.0 => 'improvement',
+            default => 'none',
+        };
+        $blockingReason = in_array($severity, [self::SEVERITY_CRITICAL, self::SEVERITY_HIGH], true)
+            ? sprintf('autonomy regression severity=%s across dimensions: %s', $severity, implode(', ', $worsenedDimensions))
+            : null;
+
         return [
             'schema'                      => self::SCHEMA,
             'autonomy_delta'              => $autonomyDelta,
@@ -121,6 +189,9 @@ final class AtlasExternalBrainAutonomyRegressionOracle
             'improvement_flags'           => $improvementFlags,
             'severity'                    => $severity,
             'required_repair_task_family' => self::REPAIR_FAMILY[$severity] ?? null,
+            'regression_status'           => $regressionStatus,
+            'worsened_dimensions'         => $worsenedDimensions,
+            'blocking_reason'             => $blockingReason,
         ];
     }
 

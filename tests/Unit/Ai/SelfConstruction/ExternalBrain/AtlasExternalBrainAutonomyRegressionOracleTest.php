@@ -267,4 +267,116 @@ final class AtlasExternalBrainAutonomyRegressionOracleTest extends TestCase
         $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_MEDIUM, $result['severity']);
         $this->assertStringContainsString('unverified_runtime_assumptions_increased_by_1', $result['regression_flags'][0]);
     }
+
+    // ── new dimensions: stale evidence, proxy proof, queue poison risk ────────
+
+    public function test_stale_evidence_increase_is_medium_regression(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['stale_evidence_count' => 2]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_MEDIUM, $result['severity']);
+        $this->assertSame('regression', $result['regression_status']);
+        $this->assertContains('stale_evidence', $result['worsened_dimensions']);
+    }
+
+    public function test_proxy_proof_increase_is_high_regression(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['proxy_proof_count' => 1]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_HIGH, $result['severity']);
+        $this->assertContains('proxy_proof', $result['worsened_dimensions']);
+        $this->assertNotNull($result['blocking_reason']);
+    }
+
+    public function test_queue_poison_risk_increase_is_critical_regression(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['queue_poison_risk_count' => 1]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_CRITICAL, $result['severity']);
+        $this->assertContains('queue_poison_risk', $result['worsened_dimensions']);
+        $this->assertNotNull($result['blocking_reason']);
+    }
+
+    // ── regression_status / worsened_dimensions / blocking_reason ─────────────
+
+    public function test_no_change_yields_none_status_and_null_blocking_reason(): void
+    {
+        $result = $this->oracle->assess($this->base());
+
+        $this->assertSame('none', $result['regression_status']);
+        $this->assertSame([], $result['worsened_dimensions']);
+        $this->assertNull($result['blocking_reason']);
+    }
+
+    public function test_improvement_only_yields_improvement_status(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['atlas_native_paths_proven' => 4]));
+
+        $this->assertSame('improvement', $result['regression_status']);
+        $this->assertNull($result['blocking_reason']);
+    }
+
+    public function test_medium_severity_regression_has_null_blocking_reason(): void
+    {
+        // medium severity alone (assumption increase) does not hard-block, only high/critical do
+        $result = $this->oracle->assess($this->base([], ['unverified_runtime_assumptions' => 1]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_MEDIUM, $result['severity']);
+        $this->assertNull($result['blocking_reason']);
+    }
+
+    public function test_human_and_operator_regressions_both_map_to_human_dependency_dimension(): void
+    {
+        $result = $this->oracle->assess($this->base([], [
+            'human_in_steady_state' => 1,
+            'operator_in_steady_state' => 1,
+        ]));
+
+        $this->assertSame(['human_dependency'], $result['worsened_dimensions']);
+    }
+
+    // ── AC4: neutral refactors only non-regression when coverage preserved ────
+
+    public function test_pure_refactor_with_preserved_capability_and_evidence_is_not_a_regression(): void
+    {
+        $result = $this->oracle->assess($this->base(
+            ['capability_count' => 10, 'evidence_coverage_count' => 10],
+            ['capability_count' => 10, 'evidence_coverage_count' => 10],
+        ));
+
+        $this->assertSame('none', $result['regression_status']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_NONE, $result['severity']);
+    }
+
+    public function test_refactor_that_drops_capability_is_flagged_even_with_zero_dimension_deltas(): void
+    {
+        $result = $this->oracle->assess($this->base(
+            ['capability_count' => 10],
+            ['capability_count' => 8],
+        ));
+
+        $this->assertSame('regression', $result['regression_status']);
+        $this->assertContains('capability_coverage', $result['worsened_dimensions']);
+    }
+
+    public function test_refactor_that_drops_evidence_coverage_is_flagged_even_with_zero_dimension_deltas(): void
+    {
+        $result = $this->oracle->assess($this->base(
+            ['evidence_coverage_count' => 10],
+            ['evidence_coverage_count' => 6],
+        ));
+
+        $this->assertSame('regression', $result['regression_status']);
+        $this->assertContains('evidence_coverage', $result['worsened_dimensions']);
+    }
+
+    public function test_refactor_that_grows_capability_is_not_flagged(): void
+    {
+        $result = $this->oracle->assess($this->base(
+            ['capability_count' => 10],
+            ['capability_count' => 12],
+        ));
+
+        $this->assertNotContains('capability_coverage', $result['worsened_dimensions']);
+    }
 }
