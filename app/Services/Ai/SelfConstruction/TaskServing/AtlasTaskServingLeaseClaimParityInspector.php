@@ -43,6 +43,8 @@ final class AtlasTaskServingLeaseClaimParityInspector
 
     public const CLASSIFICATION_LEASE_REGISTRY_DRIFT = 'lease_registry_drift';
 
+    public const CLASSIFICATION_LEASE_REGISTRY_DUPLICATE_DRIFT = 'lease_registry_duplicate_drift';
+
     public const CLASSIFICATION_TERMINAL_WITH_ACTIVE_LEASE = 'terminal_with_active_lease_anomaly';
 
     public const ACTION_OBSERVE = 'observe';
@@ -67,13 +69,22 @@ final class AtlasTaskServingLeaseClaimParityInspector
     public function inspect(array $activeLeases, array $records): array
     {
         $activeLeaseTaskIds = [];
+        $leaseCountByTaskId = [];
         foreach ($activeLeases as $lease) {
             $taskId = (string) ($lease['task_packet_id'] ?? '');
             if ($taskId === '') {
                 continue;
             }
             $activeLeaseTaskIds[$taskId] = true;
+            $leaseCountByTaskId[$taskId] = ($leaseCountByTaskId[$taskId] ?? 0) + 1;
         }
+
+        // Duplicate active lease envelopes for the SAME task_packet_id, named explicitly instead
+        // of only surfacing as a raw active_leases > claimed_records count mismatch — so a repeated
+        // lease leak incident is diagnosable (which task ids, how many duplicate rows) without guessing.
+        $duplicateCounts = array_filter($leaseCountByTaskId, static fn (int $count): bool => $count >= 2);
+        ksort($duplicateCounts, SORT_STRING);
+        $duplicateTaskPacketIds = array_keys($duplicateCounts);
 
         $statusByTask = [];
         foreach ($records as $record) {
@@ -137,6 +148,13 @@ final class AtlasTaskServingLeaseClaimParityInspector
                 self::SEVERITY_HIGH,
                 self::ACTION_REAP_LEASES,
             ],
+            // More specific and more diagnosable than the generic count-mismatch drift below:
+            // names exactly which task_packet_ids have duplicate active lease rows.
+            $duplicateTaskPacketIds !== [] => [
+                self::CLASSIFICATION_LEASE_REGISTRY_DUPLICATE_DRIFT,
+                self::SEVERITY_MEDIUM,
+                self::ACTION_REPAIR_REGISTRY,
+            ],
             $activeLeaseCount > $claimedRecordCount && $recoverableCandidates['total'] === 0 => [
                 self::CLASSIFICATION_LEASE_REGISTRY_DRIFT,
                 self::SEVERITY_MEDIUM,
@@ -168,6 +186,8 @@ final class AtlasTaskServingLeaseClaimParityInspector
             'claim_without_lease' => $claimWithoutLease,
             'terminal_with_active_lease' => $terminalWithActiveLease,
             'recoverable_candidates' => $recoverableCandidates,
+            'duplicate_task_packet_ids' => $duplicateTaskPacketIds,
+            'duplicate_lease_counts' => $duplicateCounts,
             'severity' => $severity,
             'classification' => $classification,
             'recommended_next_action' => $action,

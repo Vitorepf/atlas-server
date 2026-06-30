@@ -123,12 +123,15 @@ final class AtlasTaskServingLeaseClaimParityInspectorTest extends TestCase
         $this->assertSame(AtlasTaskServingLeaseClaimParityInspector::CLASSIFICATION_TERMINAL_WITH_ACTIVE_LEASE, $r['classification']);
     }
 
-    // ── AC2: active_leases > claimed_records with recoverable.total=0 → lease_registry_drift ──
+    // ── AC2: duplicate active lease rows for the SAME task → lease_registry_duplicate_drift ──
 
     public function test_more_lease_rows_than_record_rows_with_zero_recoverable_is_lease_registry_drift(): void
     {
         // Two lease envelope rows for the SAME task (registry drift) but the task itself is cleanly
         // matched to its one claim record — recoverable=0, yet active_leases(2) > claimed_records(1).
+        // This is the MORE SPECIFIC duplicate-active-lease-envelope case: named explicitly as
+        // lease_registry_duplicate_drift (not the generic count-mismatch lease_registry_drift)
+        // so a repeated lease leak incident is diagnosable by task id without guessing.
         $r = $this->svc()->inspect(
             [$this->lease('L1', 't1'), $this->lease('L1-renewed', 't1')],
             [$this->record('t1', 'claimed')],
@@ -137,10 +140,13 @@ final class AtlasTaskServingLeaseClaimParityInspectorTest extends TestCase
         $this->assertSame(2, $r['active_leases']);
         $this->assertSame(1, $r['claimed_records']);
         $this->assertSame(0, $r['recoverable_candidates']['total']);
-        $this->assertSame(AtlasTaskServingLeaseClaimParityInspector::CLASSIFICATION_LEASE_REGISTRY_DRIFT, $r['classification']);
+        $this->assertSame(AtlasTaskServingLeaseClaimParityInspector::CLASSIFICATION_LEASE_REGISTRY_DUPLICATE_DRIFT, $r['classification']);
+        $this->assertNotSame(AtlasTaskServingLeaseClaimParityInspector::CLASSIFICATION_CLEAN_PARITY, $r['classification']);
         $this->assertNotSame('dry_queue', $r['classification']);
         $this->assertNotSame('worker_failure', $r['classification']);
         $this->assertSame(AtlasTaskServingLeaseClaimParityInspector::ACTION_REPAIR_REGISTRY, $r['recommended_next_action']);
+        $this->assertContains('t1', $r['duplicate_task_packet_ids']);
+        $this->assertSame(2, $r['duplicate_lease_counts']['t1']);
     }
 
     // ── recommended_next_action is limited to the 4 allowed values ──────────────
