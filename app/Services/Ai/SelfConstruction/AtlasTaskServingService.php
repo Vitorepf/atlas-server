@@ -191,6 +191,18 @@ final class AtlasTaskServingService
 
         $outcome = (string) ($payload['outcome'] ?? 'success');
 
+        // Explicit outcome whitelist: a typo or hostile outcome string must never fall through
+        // into the give_back path below — it would silently convert into a give_back loop.
+        if (! in_array($outcome, ['success', 'failed', 'give_back'], true)) {
+            return $this->reportEnvelope('invalid_report', $clientId, [
+                'reason' => 'invalid_outcome',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'outcome' => $outcome,
+            ]);
+        }
+
         // SHARED-MAIN resolve: commit EXACTLY this task's allowed_files (server-truth scope) as the AI's own
         // commit, then close. Only when the client asks to commit (the runbook flow); otherwise the legacy
         // dry-run path stays intact.
