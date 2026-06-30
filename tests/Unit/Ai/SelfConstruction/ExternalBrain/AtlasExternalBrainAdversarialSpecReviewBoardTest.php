@@ -35,21 +35,24 @@ final class AtlasExternalBrainAdversarialSpecReviewBoardTest extends TestCase
 
     // ── happy path: strong spec passes all 5 lenses ───────────────────────────
 
-    public function test_strong_spec_is_approved_with_all_five_lenses_passing(): void
+    public function test_strong_spec_is_approved_with_all_seven_lenses_passing(): void
     {
         $r = $this->board->review($this->strongSpec());
 
         $this->assertSame(AtlasExternalBrainAdversarialSpecReviewBoard::SCHEMA, $r['schema']);
         $this->assertTrue($r['approved'], 'strong spec must be approved');
-        $this->assertCount(5, $r['lens_results']);
+        $this->assertCount(7, $r['lens_results']);
         foreach ($r['lens_results'] as $lens) {
             $this->assertTrue($lens['passed'], "lens {$lens['lens']} must pass for a strong spec");
             $this->assertSame([], $lens['reasons']);
         }
         $this->assertSame([], $r['repair_hints']);
+        $this->assertSame(0, $r['risk_score']);
+        $this->assertSame([], $r['hard_blockers']);
+        $this->assertSame('enqueue', $r['enqueue_recommendation']);
     }
 
-    public function test_output_always_has_five_named_lenses(): void
+    public function test_output_always_has_seven_named_lenses(): void
     {
         $r = $this->board->review($this->strongSpec());
         $lensNames = array_column($r['lens_results'], 'lens');
@@ -59,6 +62,86 @@ final class AtlasExternalBrainAdversarialSpecReviewBoardTest extends TestCase
         $this->assertContains(AtlasExternalBrainAdversarialSpecReviewBoard::LENS_ANTI_PROXY, $lensNames);
         $this->assertContains(AtlasExternalBrainAdversarialSpecReviewBoard::LENS_COLLISION_SAFETY, $lensNames);
         $this->assertContains(AtlasExternalBrainAdversarialSpecReviewBoard::LENS_STEADY_STATE_AUTONOMY, $lensNames);
+        $this->assertContains(AtlasExternalBrainAdversarialSpecReviewBoard::LENS_EVIDENCE_STRENGTH, $lensNames);
+        $this->assertContains(AtlasExternalBrainAdversarialSpecReviewBoard::LENS_DUPLICATE_OBJECTIVE_SHAPE, $lensNames);
+    }
+
+    // ── New lenses: evidence_strength + duplicate_objective_shape ────────────
+
+    public function test_evidence_strength_fails_on_vague_evidence(): void
+    {
+        $r = $this->board->review($this->strongSpec(['required_evidence' => ['tests pass', 'looks good']]));
+        $lens = $this->lensByName($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_EVIDENCE_STRENGTH);
+
+        $this->assertFalse($lens['passed']);
+        $this->assertFalse($r['approved']);
+        $this->assertNotEmpty($lens['reasons']);
+    }
+
+    public function test_evidence_strength_passes_with_runnable_marker(): void
+    {
+        $r = $this->board->review($this->strongSpec(['required_evidence' => ['phpunit tests/Unit/FooTest.php']]));
+        $lens = $this->lensByName($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_EVIDENCE_STRENGTH);
+
+        $this->assertTrue($lens['passed']);
+    }
+
+    public function test_duplicate_objective_shape_flags_near_duplicate_wording(): void
+    {
+        $spec = $this->strongSpec([
+            'objective' => 'Implement AtlasFooBarBaz service to detect and emit capability gain',
+            'known_spec_objectives' => ['Implement AtlasFooBarBaz service to emit and detect capability gains for users'],
+        ]);
+        $r = $this->board->review($spec);
+        $lens = $this->lensByName($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_DUPLICATE_OBJECTIVE_SHAPE);
+
+        $this->assertFalse($lens['passed']);
+        $this->assertNotEmpty(array_filter($lens['reasons'], fn ($reason) => str_contains((string) $reason, 'near_duplicate')));
+    }
+
+    public function test_duplicate_objective_shape_passes_for_distinct_objectives(): void
+    {
+        $spec = $this->strongSpec([
+            'objective' => 'Implement AtlasFooBarBaz service to detect and emit capability gain',
+            'known_spec_objectives' => ['Build a completely unrelated billing reconciliation pipeline'],
+        ]);
+        $r = $this->board->review($spec);
+        $lens = $this->lensByName($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_DUPLICATE_OBJECTIVE_SHAPE);
+
+        $this->assertTrue($lens['passed']);
+    }
+
+    // ── risk_score / hard_blockers / enqueue_recommendation ──────────────────
+
+    public function test_hard_lens_failure_is_listed_in_hard_blockers(): void
+    {
+        $r = $this->board->review($this->strongSpec(['allowed_files' => []]));
+
+        $this->assertContains(AtlasExternalBrainAdversarialSpecReviewBoard::LENS_IMPLEMENTABILITY, $r['hard_blockers']);
+        $this->assertSame('reject_and_repair_hard_blockers', $r['enqueue_recommendation']);
+        $this->assertGreaterThan(0, $r['risk_score']);
+        $this->assertFalse($r['approved']);
+    }
+
+    public function test_soft_only_failure_recommends_repair_without_hard_blockers(): void
+    {
+        $r = $this->board->review($this->strongSpec(['required_evidence' => ['tests pass']]));
+
+        $this->assertSame([], $r['hard_blockers']);
+        $this->assertSame('repair_soft_findings_then_resubmit', $r['enqueue_recommendation']);
+        $this->assertFalse($r['approved']);
+    }
+
+    /** @return array<string,mixed> */
+    private function lensByName(array $result, string $name): array
+    {
+        foreach ($result['lens_results'] as $lens) {
+            if ($lens['lens'] === $name) {
+                return $lens;
+            }
+        }
+
+        $this->fail("lens {$name} not found");
     }
 
     // ── lens 1: implementability ──────────────────────────────────────────────

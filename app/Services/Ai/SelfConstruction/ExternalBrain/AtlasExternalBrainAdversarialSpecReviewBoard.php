@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Deterministic adversarial review board — critiques a candidate task spec through five cheap
+ * Deterministic adversarial review board — critiques a candidate task spec through seven cheap
  * structural lenses before enqueue (high-stakes originator mode).
  *
  * LENSES (each returns passed bool + reasons + repair_hints):
@@ -14,9 +14,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   3. anti_proxy            — is the objective real work, not a metric/count/cleanup proxy?
  *   4. collision_safety      — safe for parallel workers, no wildcard or contested file patterns?
  *   5. steady_state_autonomy — can Atlas execute this fully autonomously (no human dependency)?
+ *   6. evidence_strength     — is required_evidence concrete/runnable, not vague assurance?
+ *   7. duplicate_objective_shape — is the objective structurally distinct from queued specs
+ *                                  (token-overlap similarity), not a cosmetic rewording?
  *
  * The board does NOT mutate, enqueue, call providers, or rely on model judgment. Pure heuristics.
- * A task is APPROVED only when all five lenses pass.
+ * A task is APPROVED only when all seven lenses pass AND risk_score stays below the ceiling.
+ *
+ * risk_score: sum of per-lens weights for every FAILED lens (capped at 100). hard_blockers lists
+ * the failed lenses whose weight marks them as high-severity (implementability, anti_proxy,
+ * collision_safety); other failures are repairable soft findings.
  *
  * INPUT spec:
  *   { task_packet_id:string, objective:string, allowed_files:list<string>,
@@ -24,8 +31,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     unblocked_by?:list<string> }
  *
  * OUTPUT:
- *   { schema, task_packet_id, approved:bool, lens_results:list<LensResult>,
- *     repair_hints:list<string> }
+ *   { schema, task_packet_id, approved:bool, risk_score:int, lens_results:list<LensResult>,
+ *     repair_hints:list<string>, hard_blockers:list<string>, enqueue_recommendation:string }
  *
  * LensResult: { lens:string, passed:bool, reasons:list<string>, repair_hints:list<string> }
  * PURE / DETERMINISTIC. No I/O.
@@ -43,6 +50,30 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
     public const LENS_COLLISION_SAFETY = 'collision_safety';
 
     public const LENS_STEADY_STATE_AUTONOMY = 'steady_state_autonomy';
+
+    public const LENS_EVIDENCE_STRENGTH = 'evidence_strength';
+
+    public const LENS_DUPLICATE_OBJECTIVE_SHAPE = 'duplicate_objective_shape';
+
+    private const LENS_WEIGHTS = [
+        self::LENS_IMPLEMENTABILITY => 20,
+        self::LENS_LEVERAGE => 15,
+        self::LENS_ANTI_PROXY => 20,
+        self::LENS_COLLISION_SAFETY => 20,
+        self::LENS_STEADY_STATE_AUTONOMY => 15,
+        self::LENS_EVIDENCE_STRENGTH => 15,
+        self::LENS_DUPLICATE_OBJECTIVE_SHAPE => 10,
+    ];
+
+    private const HARD_LENSES = [
+        self::LENS_IMPLEMENTABILITY,
+        self::LENS_ANTI_PROXY,
+        self::LENS_COLLISION_SAFETY,
+    ];
+
+    private const APPROVAL_RISK_CEILING = 50;
+
+    private const STOPWORDS = ['a', 'an', 'the', 'to', 'of', 'for', 'so', 'that', 'and', 'with', 'from', 'into', 'is', 'on', 'in'];
 
     /**
      * @param  array{
@@ -71,18 +102,138 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
             $this->antiProxy($objective, $allowedFiles, $criteria),
             $this->collisionSafety($allowedFiles, $liveQueuedTargets, $objective, $knownSpecObjectives),
             $this->steadyStateAutonomy($objective, $criteria),
+            $this->evidenceStrength($evidence),
+            $this->duplicateObjectiveShape($objective, $knownSpecObjectives),
         ];
 
-        $approved = array_reduce($lenses, static fn (bool $carry, array $l): bool => $carry && $l['passed'], true);
+        $allLensesPassed = array_reduce($lenses, static fn (bool $carry, array $l): bool => $carry && $l['passed'], true);
         $repairHints = array_values(array_unique(array_merge(...array_column($lenses, 'repair_hints'))));
+
+        $riskScore = 0;
+        $hardBlockers = [];
+        foreach ($lenses as $l) {
+            if ($l['passed']) {
+                continue;
+            }
+            $riskScore += self::LENS_WEIGHTS[$l['lens']] ?? 10;
+            if (in_array($l['lens'], self::HARD_LENSES, true)) {
+                $hardBlockers[] = $l['lens'];
+            }
+        }
+        $riskScore = min(100, $riskScore);
+
+        $approved = $allLensesPassed && $riskScore < self::APPROVAL_RISK_CEILING;
+
+        $enqueueRecommendation = match (true) {
+            $approved => 'enqueue',
+            $hardBlockers !== [] => 'reject_and_repair_hard_blockers',
+            default => 'repair_soft_findings_then_resubmit',
+        };
 
         return [
             'schema' => self::SCHEMA,
             'task_packet_id' => $id,
             'approved' => $approved,
+            'risk_score' => $riskScore,
             'lens_results' => $lenses,
             'repair_hints' => $repairHints,
+            'hard_blockers' => $hardBlockers,
+            'enqueue_recommendation' => $enqueueRecommendation,
         ];
+    }
+
+    /** @param list<string> $evidence */
+    private function evidenceStrength(array $evidence): array
+    {
+        $reasons = [];
+        $hints = [];
+
+        if ($evidence === []) {
+            $reasons[] = 'required_evidence_empty';
+            $hints[] = 'add_required_evidence_fields_eg_tests_or_gates_result';
+
+            return $this->lens(self::LENS_EVIDENCE_STRENGTH, $reasons, $hints);
+        }
+
+        $vaguePhrases = ['tests pass', 'looks good', 'works fine', 'should be fine', 'seems ok', 'it works'];
+        $strongMarkers = ['phpunit', 'artisan', 'pytest', 'jest', 'rspec', 'gate', 'ledger', 'receipt', 'bin/php'];
+
+        $hasStrong = false;
+        foreach ($evidence as $e) {
+            $lower = strtolower((string) $e);
+            foreach ($strongMarkers as $marker) {
+                if (str_contains($lower, $marker)) {
+                    $hasStrong = true;
+                    break;
+                }
+            }
+            foreach ($vaguePhrases as $vague) {
+                if (str_contains($lower, $vague)) {
+                    $reasons[] = 'evidence_entry_is_vague:'.$vague;
+                    $hints[] = 'replace_vague_assurance_with_a_runnable_test_command_or_auditable_gate_reference';
+                    break;
+                }
+            }
+        }
+
+        if (! $hasStrong) {
+            $reasons[] = 'no_runnable_or_auditable_evidence_present';
+            $hints[] = 'evidence_must_reference_a_runnable_test_gate_or_auditable_ledger_entry';
+        }
+
+        return $this->lens(self::LENS_EVIDENCE_STRENGTH, array_values(array_unique($reasons)), array_values(array_unique($hints)));
+    }
+
+    /** @param list<string> $knownSpecObjectives */
+    private function duplicateObjectiveShape(string $objective, array $knownSpecObjectives): array
+    {
+        $reasons = [];
+        $hints = [];
+
+        if ($objective === '' || $knownSpecObjectives === []) {
+            return $this->lens(self::LENS_DUPLICATE_OBJECTIVE_SHAPE, $reasons, $hints);
+        }
+
+        $objectiveTokens = $this->shapeTokens($objective);
+        foreach ($knownSpecObjectives as $known) {
+            $known = (string) $known;
+            if (strtolower(trim($known)) === strtolower(trim($objective))) {
+                // Exact duplicate is already handled by collision_safety; skip here.
+                continue;
+            }
+
+            $knownTokens = $this->shapeTokens($known);
+            if ($objectiveTokens === [] || $knownTokens === []) {
+                continue;
+            }
+
+            $similarity = $this->jaccardSimilarity($objectiveTokens, $knownTokens);
+            if ($similarity >= 0.6) {
+                $reasons[] = 'objective_shape_near_duplicate_of_existing_spec:'.$known;
+                $hints[] = 'reword_objective_to_target_a_materially_different_capability_or_merge_with_existing_spec';
+                break;
+            }
+        }
+
+        return $this->lens(self::LENS_DUPLICATE_OBJECTIVE_SHAPE, $reasons, $hints);
+    }
+
+    /** @return list<string> */
+    private function shapeTokens(string $text): array
+    {
+        $clean = (string) preg_replace('/[^a-z0-9\s]/', ' ', strtolower($text));
+        $words = array_filter(preg_split('/\s+/', trim($clean)) ?: [], static fn (string $w): bool => $w !== '' && ! in_array($w, self::STOPWORDS, true));
+
+        return array_values(array_unique($words));
+    }
+
+    /** @param list<string> $a @param list<string> $b */
+    private function jaccardSimilarity(array $a, array $b): float
+    {
+        $intersection = count(array_intersect($a, $b));
+        $union = count(array_unique(array_merge($a, $b)));
+
+        return $union === 0 ? 0.0 : $intersection / $union;
     }
 
     /** @param list<string> $allowedFiles @param list<string> $criteria @param list<string> $evidence */
