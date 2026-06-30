@@ -290,6 +290,69 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchExecutorHando
         ];
     }
 
+    public function test_build_handoff_envelope_ready_with_all_required_fields(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchExecutorHandoff::class)->buildHandoffEnvelope([
+            'task_scope' => ['app/Foo.php', 'tests/FooTest.php'],
+            'proof_requirements' => ['php artisan test --filter=FooTest'],
+            'lease_id' => 'lease-1',
+            'lease_scope' => ['tests/FooTest.php', 'app/Foo.php'],
+            'worker_id' => 'worker-vipvtpwy',
+            'worker_routing_evidence' => ['fit_score' => 0.8],
+        ]);
+
+        $this->assertTrue($result['handoff_ready']);
+        $this->assertSame([], $result['missing_fields']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result['handoff_digest']);
+    }
+
+    public function test_build_handoff_envelope_rejects_missing_required_fields(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchExecutorHandoff::class)->buildHandoffEnvelope([
+            'task_scope' => ['app/Foo.php'],
+        ]);
+
+        $this->assertFalse($result['handoff_ready']);
+        $this->assertContains('proof_requirements', $result['missing_fields']);
+        $this->assertContains('lease_id', $result['missing_fields']);
+        $this->assertContains('worker_id', $result['missing_fields']);
+        $this->assertContains('worker_routing_evidence', $result['missing_fields']);
+        $this->assertNull($result['handoff_digest']);
+    }
+
+    public function test_build_handoff_envelope_rejects_contradictory_lease_scope(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchExecutorHandoff::class)->buildHandoffEnvelope([
+            'task_scope' => ['app/Foo.php'],
+            'proof_requirements' => ['php artisan test --filter=FooTest'],
+            'lease_id' => 'lease-1',
+            'lease_scope' => ['app/Bar.php'],
+            'worker_id' => 'worker-vipvtpwy',
+            'worker_routing_evidence' => ['fit_score' => 0.8],
+        ]);
+
+        $this->assertFalse($result['handoff_ready']);
+        $this->assertSame(['lease_scope_contradicts_task_scope'], $result['missing_fields']);
+        $this->assertNull($result['handoff_digest']);
+    }
+
+    public function test_build_handoff_envelope_digest_is_stable_for_identical_input(): void
+    {
+        $writer = app(AgentCodexRealInvokerPostStartDispatchExecutorHandoff::class);
+        $fields = [
+            'task_scope' => ['app/Foo.php'],
+            'proof_requirements' => ['php artisan test --filter=FooTest'],
+            'lease_id' => 'lease-1',
+            'worker_id' => 'worker-vipvtpwy',
+            'worker_routing_evidence' => ['fit_score' => 0.8],
+        ];
+
+        $first = $writer->buildHandoffEnvelope($fields);
+        $second = $writer->buildHandoffEnvelope($fields);
+
+        $this->assertSame($first['handoff_digest'], $second['handoff_digest']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');

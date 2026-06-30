@@ -152,6 +152,76 @@ class AgentCodexRealInvokerPostStartDispatchExecutorHandoff
         });
     }
 
+    private const ENVELOPE_REQUIRED_FIELDS = [
+        'task_scope',
+        'proof_requirements',
+        'lease_id',
+        'worker_id',
+        'worker_routing_evidence',
+    ];
+
+    /**
+     * Pure builder: assembles a lossless post-start handoff envelope
+     * carrying task scope, proof requirements, lease identity and worker
+     * routing evidence — without pulling in any unscoped context. Rejects
+     * the envelope when required fields are missing, or when the lease
+     * identity contradicts the task scope it is supposed to authorize
+     * (lease scope must equal task scope exactly).
+     *
+     * @param  array<string,mixed>  $fields  { task_scope?: list<string>,
+     *   proof_requirements?: list<string>, lease_id?: string,
+     *   lease_scope?: list<string>, worker_id?: string,
+     *   worker_routing_evidence?: array<string,mixed> }
+     * @return array<string,mixed>
+     */
+    public function buildHandoffEnvelope(array $fields): array
+    {
+        $missingFields = [];
+        foreach (self::ENVELOPE_REQUIRED_FIELDS as $field) {
+            $value = $fields[$field] ?? null;
+            if ($value === null || $value === '' || $value === []) {
+                $missingFields[] = $field;
+            }
+        }
+
+        if ($missingFields !== []) {
+            return [
+                'handoff_ready' => false,
+                'missing_fields' => $missingFields,
+                'handoff_digest' => null,
+            ];
+        }
+
+        $taskScope = array_values(array_map('strval', (array) $fields['task_scope']));
+        $leaseScope = array_key_exists('lease_scope', $fields)
+            ? array_values(array_map('strval', (array) $fields['lease_scope']))
+            : $taskScope;
+
+        sort($taskScope);
+        $sortedLeaseScope = $leaseScope;
+        sort($sortedLeaseScope);
+
+        if ($sortedLeaseScope !== $taskScope) {
+            return [
+                'handoff_ready' => false,
+                'missing_fields' => ['lease_scope_contradicts_task_scope'],
+                'handoff_digest' => null,
+            ];
+        }
+
+        return [
+            'handoff_ready' => true,
+            'missing_fields' => [],
+            'handoff_digest' => hash('sha256', json_encode([
+                'task_scope' => $taskScope,
+                'proof_requirements' => array_values(array_map('strval', (array) $fields['proof_requirements'])),
+                'lease_id' => (string) $fields['lease_id'],
+                'worker_id' => (string) $fields['worker_id'],
+                'worker_routing_evidence' => $fields['worker_routing_evidence'],
+            ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
