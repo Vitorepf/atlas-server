@@ -153,4 +153,96 @@ final class AtlasExternalBrainAmplifierEndToEndTrialTest extends TestCase
         $b = $this->trial()->run($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC1 + AC2: baseline_vs_scaffolded quality lift ────────────────────────
+
+    private function qm(array $baseline, array $scaffolded, int $sampleCount = 0): array
+    {
+        return ['quality_metrics' => ['baseline' => $baseline, 'scaffolded' => $scaffolded, 'sample_count' => $sampleCount]];
+    }
+
+    private function healthyBaseline(): array
+    {
+        return ['valid_seed_rate' => 0.60, 'accepted_by_gate_rate' => 0.55, 'later_green_rate' => 0.50, 'give_back_rate' => 0.30, 'proxy_rate' => 0.15, 'average_cost' => 1.00];
+    }
+
+    public function test_baseline_vs_scaffolded_key_present_when_no_quality_metrics(): void
+    {
+        $r = $this->trial()->run([]);
+        $this->assertArrayHasKey('baseline_vs_scaffolded', $r);
+        $this->assertSame('no_data', $r['baseline_vs_scaffolded']['verdict']);
+        $this->assertFalse($r['baseline_vs_scaffolded']['trial_passes']);
+    }
+
+    public function test_lift_verdict_when_scaffolded_meaningfully_better(): void
+    {
+        $scaffolded = ['valid_seed_rate' => 0.80, 'accepted_by_gate_rate' => 0.75, 'later_green_rate' => 0.70, 'give_back_rate' => 0.15, 'proxy_rate' => 0.08, 'average_cost' => 0.90];
+        $r = $this->trial()->run($this->qm($this->healthyBaseline(), $scaffolded));
+        $bvs = $r['baseline_vs_scaffolded'];
+        $this->assertSame('lift', $bvs['verdict']);
+        $this->assertTrue($bvs['trial_passes']);
+        $this->assertGreaterThan(0.0, $bvs['lift']);
+    }
+
+    public function test_no_lift_verdict_when_scaffolded_marginally_better(): void
+    {
+        // valid_seed_rate +0.01, others same → composite < 0.05 min lift
+        $scaffolded = array_merge($this->healthyBaseline(), ['valid_seed_rate' => 0.61]);
+        $r = $this->trial()->run($this->qm($this->healthyBaseline(), $scaffolded));
+        $bvs = $r['baseline_vs_scaffolded'];
+        $this->assertSame('no_lift', $bvs['verdict']);
+        $this->assertFalse($bvs['trial_passes']);
+    }
+
+    public function test_cheaper_but_worse_verdict_blocks_promotion(): void
+    {
+        // Cost goes down (good) but proxy_rate worsens by >0.05 (bad)
+        $scaffolded = array_merge($this->healthyBaseline(), [
+            'average_cost' => 0.50,   // cheaper
+            'proxy_rate'   => 0.25,   // worsened by 0.10 > threshold 0.05
+        ]);
+        $r = $this->trial()->run($this->qm($this->healthyBaseline(), $scaffolded));
+        $bvs = $r['baseline_vs_scaffolded'];
+        $this->assertSame('cheaper_but_worse', $bvs['verdict']);
+        $this->assertFalse($bvs['trial_passes']);
+        $this->assertLessThan(0.0, $bvs['cost_delta']);    // cost improved
+        $this->assertGreaterThan(0.0, $bvs['proxy_rate_delta']); // proxy worsened
+    }
+
+    public function test_cheaper_but_worse_via_give_back_worsening(): void
+    {
+        $scaffolded = array_merge($this->healthyBaseline(), [
+            'average_cost'   => 0.50,  // cheaper
+            'give_back_rate' => 0.40,  // worsened by 0.10 > threshold 0.05
+        ]);
+        $r = $this->trial()->run($this->qm($this->healthyBaseline(), $scaffolded));
+        $this->assertSame('cheaper_but_worse', $r['baseline_vs_scaffolded']['verdict']);
+        $this->assertFalse($r['baseline_vs_scaffolded']['trial_passes']);
+    }
+
+    public function test_low_sample_verdict_when_sample_count_below_threshold(): void
+    {
+        $scaffolded = array_merge($this->healthyBaseline(), ['valid_seed_rate' => 0.90]);
+        $r = $this->trial()->run($this->qm($this->healthyBaseline(), $scaffolded, sampleCount: 5));
+        $bvs = $r['baseline_vs_scaffolded'];
+        $this->assertSame('low_sample', $bvs['verdict']);
+        $this->assertFalse($bvs['trial_passes']);
+    }
+
+    public function test_sufficient_sample_count_does_not_trigger_low_sample(): void
+    {
+        $scaffolded = array_merge($this->healthyBaseline(), ['valid_seed_rate' => 0.90, 'accepted_by_gate_rate' => 0.85]);
+        $r = $this->trial()->run($this->qm($this->healthyBaseline(), $scaffolded, sampleCount: 10));
+        $this->assertNotSame('low_sample', $r['baseline_vs_scaffolded']['verdict']);
+    }
+
+    public function test_deterministic_quality_lift_summary(): void
+    {
+        $facts = $this->qm($this->healthyBaseline(), array_merge($this->healthyBaseline(), [
+            'valid_seed_rate' => 0.80, 'accepted_by_gate_rate' => 0.75, 'give_back_rate' => 0.10,
+        ]), sampleCount: 20);
+        $a = $this->trial()->run($facts);
+        $b = $this->trial()->run($facts);
+        $this->assertSame(json_encode($a['baseline_vs_scaffolded']), json_encode($b['baseline_vs_scaffolded']));
+    }
 }

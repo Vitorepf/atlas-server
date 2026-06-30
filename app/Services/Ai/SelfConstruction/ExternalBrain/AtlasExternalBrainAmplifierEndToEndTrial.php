@@ -28,6 +28,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * AC4: provider-free, deterministic, only supplied benchmark facts.
  *
+ * Extended input (all optional):
+ *   quality_metrics — {
+ *     baseline:   {valid_seed_rate, accepted_by_gate_rate, later_green_rate, give_back_rate, proxy_rate, average_cost},
+ *     scaffolded: {same keys},
+ *     sample_count: int,
+ *   }
+ *
+ * Extended output (additive):
+ *   baseline_vs_scaffolded — {verdict, trial_passes, lift, cost_delta, proxy_rate_delta, give_back_delta}
+ *     verdict: lift | no_lift | cheaper_but_worse | low_sample | no_data
+ *     trial_passes: false when cheaper_but_worse or low_sample
+ *
  * Pure, no providers, no I/O.
  */
 final class AtlasExternalBrainAmplifierEndToEndTrial
@@ -36,6 +48,11 @@ final class AtlasExternalBrainAmplifierEndToEndTrial
 
     private const DEFAULT_QUALITY_FLOOR = 0.75;
     private const DEFAULT_MIN_LIFT      = 0.10;
+
+    private const MIN_SAMPLE_COUNT          = 10;
+    private const MIN_QUALITY_LIFT          = 0.05;
+    private const PROXY_WORSE_THRESHOLD     = 0.05;
+    private const GIVE_BACK_WORSE_THRESHOLD = 0.05;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -89,6 +106,8 @@ final class AtlasExternalBrainAmplifierEndToEndTrial
 
         $recommendation = $this->recommend($scaffMeetsFloor, $frontMeetsFloor, $liftSufficient);
 
+        $qm = is_array($facts['quality_metrics'] ?? null) ? $facts['quality_metrics'] : [];
+
         return [
             'schema_version'     => self::SCHEMA,
             'tier_scores'        => [
@@ -105,7 +124,67 @@ final class AtlasExternalBrainAmplifierEndToEndTrial
                 'frontier_meets_floor' => $frontMeetsFloor,
                 'lift_sufficient'      => $liftSufficient,
             ],
+            'baseline_vs_scaffolded' => $this->computeQualityLift(
+                is_array($qm['baseline']   ?? null) ? $qm['baseline']   : [],
+                is_array($qm['scaffolded'] ?? null) ? $qm['scaffolded'] : [],
+                (int) ($qm['sample_count'] ?? 0),
+            ),
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private function computeQualityLift(array $baseline, array $scaffolded, int $sampleCount): array
+    {
+        if ($baseline === [] || $scaffolded === []) {
+            return ['verdict' => 'no_data', 'trial_passes' => false, 'lift' => 0.0];
+        }
+
+        if ($sampleCount > 0 && $sampleCount < self::MIN_SAMPLE_COUNT) {
+            return ['verdict' => 'low_sample', 'trial_passes' => false, 'lift' => 0.0, 'sample_count' => $sampleCount];
+        }
+
+        // Higher-is-better dims.
+        $positiveLifts = [];
+        foreach (['valid_seed_rate', 'accepted_by_gate_rate', 'later_green_rate'] as $dim) {
+            if (isset($baseline[$dim], $scaffolded[$dim])) {
+                $positiveLifts[] = (float) $scaffolded[$dim] - (float) $baseline[$dim];
+            }
+        }
+
+        // Lower-is-better dims (delta > 0 means worsening).
+        $proxyDelta    = isset($baseline['proxy_rate'],    $scaffolded['proxy_rate'])
+            ? (float) $scaffolded['proxy_rate']    - (float) $baseline['proxy_rate']    : null;
+        $giveBackDelta = isset($baseline['give_back_rate'], $scaffolded['give_back_rate'])
+            ? (float) $scaffolded['give_back_rate'] - (float) $baseline['give_back_rate'] : null;
+        $costDelta     = isset($baseline['average_cost'],  $scaffolded['average_cost'])
+            ? (float) $scaffolded['average_cost']  - (float) $baseline['average_cost']  : null;
+
+        // AC2: cheaper-but-worse guard.
+        $costImproved     = $costDelta !== null && $costDelta < 0;
+        $proxyWorsened    = $proxyDelta !== null    && $proxyDelta    > self::PROXY_WORSE_THRESHOLD;
+        $giveBackWorsened = $giveBackDelta !== null && $giveBackDelta > self::GIVE_BACK_WORSE_THRESHOLD;
+
+        // Composite lift: positive dims + improvement on negative dims.
+        $negativeLifts = [];
+        if ($proxyDelta !== null)    { $negativeLifts[] = -$proxyDelta; }
+        if ($giveBackDelta !== null) { $negativeLifts[] = -$giveBackDelta; }
+        $allLifts       = array_merge($positiveLifts, $negativeLifts);
+        $compositeScore = $allLifts !== [] ? array_sum($allLifts) / count($allLifts) : 0.0;
+
+        $result = [
+            'lift'             => round($compositeScore, 4),
+            'cost_delta'       => $costDelta     !== null ? round($costDelta, 4)     : null,
+            'proxy_rate_delta' => $proxyDelta    !== null ? round($proxyDelta, 4)    : null,
+            'give_back_delta'  => $giveBackDelta !== null ? round($giveBackDelta, 4) : null,
+        ];
+
+        if ($costImproved && ($proxyWorsened || $giveBackWorsened)) {
+            return array_merge($result, ['verdict' => 'cheaper_but_worse', 'trial_passes' => false]);
+        }
+
+        $verdict = $compositeScore >= self::MIN_QUALITY_LIFT ? 'lift' : 'no_lift';
+
+        return array_merge($result, ['verdict' => $verdict, 'trial_passes' => $verdict === 'lift']);
     }
 
     private function avg(array $scores): float
