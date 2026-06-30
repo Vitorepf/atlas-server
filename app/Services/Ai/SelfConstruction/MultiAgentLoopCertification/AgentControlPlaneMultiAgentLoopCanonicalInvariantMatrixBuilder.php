@@ -222,9 +222,21 @@ final class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder
         ];
 
         $violations = [];
+        $firstFailing = null;
         foreach ($matrix as $name => $entry) {
             if ($entry['value'] !== true) {
                 $violations[] = $name;
+                if ($firstFailing === null) {
+                    $firstFailing = $name;
+                }
+            }
+        }
+
+        $collisionProof = [];
+        foreach ($cycleEvidence as $i => $cycle) {
+            $count = (int) ($cycle['write_set_collision_count'] ?? 0);
+            if ($count > 0) {
+                $collisionProof[] = ['cycle_index' => $i, 'write_set_collision_count' => $count];
             }
         }
 
@@ -233,6 +245,8 @@ final class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder
             'violations' => $violations,
             'all_true' => $violations === [],
             'invariant_names' => array_keys($matrix),
+            'first_failing_invariant' => $firstFailing,
+            'collision_proof' => $collisionProof,
         ];
     }
 }

@@ -156,4 +156,94 @@ class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilderTest extends
         self::assertStringContainsString('2', $why);
         self::assertStringContainsString('3', $why);
     }
+
+    public function test_first_failing_invariant_is_first_false_key_in_matrix_order(): void
+    {
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::build([], [], 1, 0);
+        $firstKey = array_key_first($result['invariants']);
+        self::assertSame($firstKey, $result['first_failing_invariant']);
+    }
+
+    public function test_first_failing_invariant_is_null_when_all_invariants_hold(): void
+    {
+        $coreKeys = [
+            'no_duplicate_claims', 'no_cross_agent_completion', 'complete_dry_run_requires_queue_claim_binding',
+            'recovery_never_reopens_completed', 'no_legacy_reservation_used', 'runtime_safety_all_false',
+            'queue_transition_policy_enforced', 'terminal_worker_bootstrap_resumption_contract_present',
+            'terminal_worker_bootstrap_resumption_checkpoint_present', 'terminal_worker_bootstrap_iteration_runbook_present',
+            'terminal_worker_bootstrap_shell_recipe_present', 'terminal_loop_health_digest_present',
+            'terminal_loop_fleet_launch_plan_present', 'terminal_loop_fleet_launch_plan_ready_path_verified',
+            'terminal_loop_fleet_partial_supply_launch_blocked', 'terminal_loop_fleet_replenishment_plan_present',
+            'terminal_loop_fleet_resume_rollup_present', 'terminal_loop_fleet_resume_recovery_path_verified',
+            'terminal_loop_fleet_metadata_orphan_recovery_verified', 'terminal_loop_fleet_released_task_requeue_verified',
+            'terminal_loop_fleet_evidence_rollup_present', 'terminal_loop_fleet_evidence_rollup_green_path_verified',
+            'terminal_loop_fleet_operator_handoff_present', 'terminal_loop_fleet_operator_handoff_recovery_priority_verified',
+            'terminal_loop_fleet_lane_isolation_present', 'terminal_loop_fleet_lane_bound_commands_verified',
+            'terminal_loop_fleet_lane_no_cross_lane_launch_verified', 'terminal_loop_cycle_supervisor_present',
+            'terminal_loop_cycle_supervisor_launch_path_verified', 'terminal_loop_cycle_supervisor_evidence_review_path_verified',
+            'terminal_loop_fleet_launch_runbook_present', 'terminal_loop_fleet_launch_runbook_ready_path_verified',
+            'certification_cleanup_leaves_no_recoverable_terminal_loop_artifacts',
+            'terminal_worker_bootstrap_rejects_invalid_worker_scope',
+            'terminal_worker_bootstrap_completion_evidence_template_present',
+            'completion_evidence_files_within_scope',
+            'terminal_worker_bootstrap_completion_evidence_files_within_scope',
+            'terminal_worker_bootstrap_operator_commands_present',
+            'terminal_worker_bootstrap_preview_read_only',
+            'terminal_worker_bootstrap_partial_supply_blocks_before_claim',
+            'evidence_hash_present', 'structured_completion_evidence_valid',
+        ];
+        $cleanCycle = [
+            'claimable_before_claim' => 2, 'continuation_summary_count' => 1,
+            'recovery' => ['expired_resolved' => true, 'orphan_resolved' => true],
+            'reclaim_completed_blocked' => true, 'write_set_collision_count' => 0,
+            'agents' => [['id' => 1], ['id' => 2]], 'distinct_task_count' => 2, 'distinct_lease_count' => 2,
+        ];
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::build(
+            array_fill_keys($coreKeys, true), [$cleanCycle], 2, 1
+        );
+        self::assertNull($result['first_failing_invariant']);
+    }
+
+    public function test_collision_proof_is_empty_when_no_cycles_have_write_set_collisions(): void
+    {
+        $cycles = [
+            ['claimable_before_claim' => 2, 'write_set_collision_count' => 0],
+            ['claimable_before_claim' => 2, 'write_set_collision_count' => 0],
+        ];
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::build([], $cycles, 1, 2);
+        self::assertSame([], $result['collision_proof']);
+    }
+
+    public function test_collision_proof_captures_cycles_with_nonzero_write_set_collision_count(): void
+    {
+        $cycles = [
+            ['write_set_collision_count' => 0],
+            ['write_set_collision_count' => 2],
+            ['write_set_collision_count' => 0],
+            ['write_set_collision_count' => 1],
+        ];
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::build([], $cycles, 1, 4);
+        self::assertCount(2, $result['collision_proof']);
+        self::assertSame(1, $result['collision_proof'][0]['cycle_index']);
+        self::assertSame(2, $result['collision_proof'][0]['write_set_collision_count']);
+        self::assertSame(3, $result['collision_proof'][1]['cycle_index']);
+    }
+
+    public function test_safe_for_parallel_terminal_loop_blocked_when_collision_proof_non_empty(): void
+    {
+        // Any cycle with write_set_collision_count > 0 must keep the safe flag false.
+        $cycles = [['write_set_collision_count' => 1, 'claimable_before_claim' => 2, 'continuation_summary_count' => 1,
+            'recovery' => ['expired_resolved' => true, 'orphan_resolved' => true], 'reclaim_completed_blocked' => true]];
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::build([], $cycles, 2, 1);
+        self::assertNotEmpty($result['collision_proof']);
+        self::assertFalse($result['invariants']['safe_for_parallel_terminal_loop']['value']);
+    }
+
+    public function test_output_has_first_failing_invariant_and_collision_proof_keys(): void
+    {
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::build([], [], 1, 0);
+        self::assertArrayHasKey('first_failing_invariant', $result);
+        self::assertArrayHasKey('collision_proof', $result);
+        self::assertIsArray($result['collision_proof']);
+    }
 }
