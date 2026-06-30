@@ -82,19 +82,21 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         $highLeverage = $this->highLeverageSpecs($outcomes, $byCategory);
         $wasted       = $this->wastedSpecs($outcomes, $byCategory);
         $lessons      = $this->buildLessons($outcomes, $summary, $byCategory, $integrity);
-        $policies     = $this->buildPolicyAdjustments($outcomes, $byCategory, $integrity);
+        $rootCauseMap = $this->buildRootCauseMap($outcomes);
+        $policies     = $this->buildPolicyAdjustments($outcomes, $byCategory, $integrity, $rootCauseMap);
         $hints        = $this->buildNextCycleHints($summary, $byCategory, $integrity, $policies);
 
         return [
-            'schema'            => self::SCHEMA,
-            'run_id'            => $runId,
-            'integrity_signal'  => $integrity,
-            'summary'           => $summary,
+            'schema'              => self::SCHEMA,
+            'run_id'              => $runId,
+            'integrity_signal'    => $integrity,
+            'summary'             => $summary,
             'high_leverage_specs' => $highLeverage,
             'wasted_specs'        => $wasted,
-            'lessons'           => $lessons,
-            'policy_adjustments' => $policies,
-            'next_cycle_hints'  => $hints,
+            'lessons'             => $lessons,
+            'root_cause_map'      => $rootCauseMap,
+            'policy_adjustments'  => $policies,
+            'next_cycle_hints'    => $hints,
         ];
     }
 
@@ -328,33 +330,102 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
     }
 
     /**
+     * Map each non-success outcome to one of 5 root cause buckets.
+     *
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return array{bad_prompt:list<array<string,mixed>>, duplicate_target:list<array<string,mixed>>, weak_evidence:list<array<string,mixed>>, template_farm:list<array<string,mixed>>, worker_mismatch:list<array<string,mixed>>}
+     */
+    private function buildRootCauseMap(array $outcomes): array
+    {
+        $map = [
+            'bad_prompt'       => [],
+            'duplicate_target' => [],
+            'weak_evidence'    => [],
+            'template_farm'    => [],
+            'worker_mismatch'  => [],
+        ];
+
+        foreach ($outcomes as $o) {
+            if ((string) ($o['outcome'] ?? '') === self::OUTCOME_SUCCESS) {
+                continue;
+            }
+            $bucket = $this->classifyRootCause($o);
+            if ($bucket !== null) {
+                $map[$bucket][] = [
+                    'spec_id' => (string) ($o['spec_id'] ?? ''),
+                    'reason'  => (string) ($o['reason'] ?? ''),
+                    'outcome' => (string) ($o['outcome'] ?? ''),
+                ];
+            }
+        }
+
+        return $map;
+    }
+
+    private function classifyRootCause(array $outcome): ?string
+    {
+        $reason   = (string) ($outcome['reason']  ?? '');
+        $patterns = (array)  ($outcome['poison_patterns'] ?? []);
+        $type     = (string) ($outcome['outcome'] ?? '');
+
+        if (in_array($reason, self::BAD_PROMPT_REASONS, true)) {
+            return 'bad_prompt';
+        }
+        if (str_contains($reason, 'duplicate')) {
+            return 'duplicate_target';
+        }
+        if (in_array($reason, ['insufficient_context', 'weak_evidence', 'no_safe_implementation'], true)) {
+            return 'weak_evidence';
+        }
+        if (in_array('template_farm', $patterns, true) || $reason === 'template_farm' || $type === self::OUTCOME_PROXY_SMELL) {
+            return 'template_farm';
+        }
+        if (in_array($reason, ['requires_human_decision', 'worker_mismatch', 'scope_too_large', 'blocked_by_dependency'], true)) {
+            return 'worker_mismatch';
+        }
+
+        return null;
+    }
+
+    /**
      * @param  list<array<string,mixed>>        $outcomes
      * @param  array<string,array<string,mixed>> $byCategory
      * @return list<array<string,mixed>>
      */
-    private function buildPolicyAdjustments(array $outcomes, array $byCategory, string $integrity): array
+    private function buildPolicyAdjustments(array $outcomes, array $byCategory, string $integrity, array $rootCauseMap = []): array
     {
         $policies = [];
 
+        // Helper: is this root cause recurring (≥2 occurrences)?
+        $recurring = static fn(string $bucket) => count($rootCauseMap[$bucket] ?? []) >= 2;
+
         if ($integrity === self::SIGNAL_PADDING_DETECTED) {
-            $policies[] = [
+            $policy = [
                 'action'     => 'reject',
                 'applies_to' => 'quota_padding_patterns',
                 'reason'     => 'padding detected — integrity signal compromised',
             ];
+            if ($recurring('template_farm')) {
+                $policy['measurable_acceptance_target'] = 'template_farm:reduce_to_zero_in_next_cycle';
+            }
+            $policies[] = $policy;
         }
 
-        // Bad prompt reasons → reject or repair policy
+        // Bad prompt reasons → repair policy
         $seenBadReasons = [];
         foreach ($outcomes as $o) {
             $reason = (string) ($o['reason'] ?? '');
             if (in_array($reason, self::BAD_PROMPT_REASONS, true) && ! isset($seenBadReasons[$reason])) {
                 $seenBadReasons[$reason] = true;
-                $policies[] = [
+                $policy = [
                     'action'     => 'repair_prompt',
                     'applies_to' => "reason:{$reason}",
                     'reason'     => "spec authoring error leads to wasted cycles",
                 ];
+                if ($recurring('bad_prompt')) {
+                    $policy['measurable_acceptance_target'] = 'bad_prompt:reduce_to_zero_in_next_cycle';
+                }
+                $policies[] = $policy;
             }
         }
 
@@ -367,7 +438,20 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
             if ($yield >= 0.70) {
                 $policies[] = ['action' => 'prefer', 'applies_to' => "category:{$cat}", 'reason' => 'high yield'];
             } elseif ($yield < 0.35) {
-                $policies[] = ['action' => 'avoid', 'applies_to' => "category:{$cat}", 'reason' => 'low yield'];
+                // Count wasted specs from this category across all root cause buckets.
+                $catWastedCount = 0;
+                foreach ($rootCauseMap as $bucket => $entries) {
+                    foreach ($entries as $entry) {
+                        if ($entry['spec_id'] !== '' && in_array($entry['spec_id'], $stats['spec_ids'], true)) {
+                            $catWastedCount++;
+                        }
+                    }
+                }
+                $policy = ['action' => 'avoid', 'applies_to' => "category:{$cat}", 'reason' => 'low yield'];
+                if ($catWastedCount >= 2) {
+                    $policy['measurable_acceptance_target'] = "yield:increase_above_35_percent_in_next_cycle:{$cat}";
+                }
+                $policies[] = $policy;
             }
         }
 

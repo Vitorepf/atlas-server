@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRunRetrospectiveCompiler;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainRunRetrospectiveCompilerTest extends TestCase
 {
@@ -36,7 +36,7 @@ final class AtlasExternalBrainRunRetrospectiveCompilerTest extends TestCase
     {
         $result = $this->compiler()->compile([]);
 
-        foreach (['schema', 'run_id', 'integrity_signal', 'summary', 'high_leverage_specs', 'wasted_specs', 'lessons', 'policy_adjustments', 'next_cycle_hints'] as $key) {
+        foreach (['schema', 'run_id', 'integrity_signal', 'summary', 'high_leverage_specs', 'wasted_specs', 'lessons', 'root_cause_map', 'policy_adjustments', 'next_cycle_hints'] as $key) {
             $this->assertArrayHasKey($key, $result);
         }
         $this->assertSame(AtlasExternalBrainRunRetrospectiveCompiler::SCHEMA, $result['schema']);
@@ -261,5 +261,102 @@ final class AtlasExternalBrainRunRetrospectiveCompilerTest extends TestCase
         $result = $this->compiler()->compile($outcomes);
 
         $this->assertEqualsWithDelta(0.75, $result['summary']['wasted_token_ratio'], 0.001);
+    }
+
+    // ── AC1: root_cause_map — five canonical buckets ──────────────────────────
+
+    public function test_root_cause_map_has_five_canonical_buckets(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $rcm = $result['root_cause_map'];
+        foreach (['bad_prompt', 'duplicate_target', 'weak_evidence', 'template_farm', 'worker_mismatch'] as $bucket) {
+            $this->assertArrayHasKey($bucket, $rcm);
+        }
+    }
+
+    public function test_bad_prompt_reason_is_classified_under_bad_prompt(): void
+    {
+        $outcomes = [
+            $this->outcome('s1', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+            $this->outcome('s2', 'rejected', 'arch', ['reason' => 'missing_impl_file']),
+        ];
+        $result = $this->compiler()->compile($outcomes);
+
+        $this->assertCount(2, $result['root_cause_map']['bad_prompt']);
+        $specIds = array_column($result['root_cause_map']['bad_prompt'], 'spec_id');
+        $this->assertContains('s1', $specIds);
+        $this->assertContains('s2', $specIds);
+    }
+
+    public function test_proxy_smell_is_classified_under_template_farm(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('p1', 'proxy_smell', 'docs_sync'),
+        ]);
+
+        $this->assertCount(1, $result['root_cause_map']['template_farm']);
+        $this->assertSame('p1', $result['root_cause_map']['template_farm'][0]['spec_id']);
+    }
+
+    public function test_scope_too_large_is_classified_under_worker_mismatch(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('w1', 'give_back', 'arch', ['reason' => 'scope_too_large']),
+        ]);
+
+        $this->assertCount(1, $result['root_cause_map']['worker_mismatch']);
+    }
+
+    public function test_insufficient_context_is_classified_under_weak_evidence(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('e1', 'give_back', 'arch', ['reason' => 'insufficient_context']),
+        ]);
+
+        $this->assertCount(1, $result['root_cause_map']['weak_evidence']);
+    }
+
+    public function test_success_outcomes_do_not_appear_in_root_cause_map(): void
+    {
+        $result = $this->compiler()->compile([
+            $this->outcome('ok1', 'success', 'arch'),
+            $this->outcome('ok2', 'success', 'bug_fix'),
+        ]);
+
+        foreach ($result['root_cause_map'] as $bucket => $entries) {
+            $this->assertSame([], $entries, "Bucket '{$bucket}' must be empty for all-success run");
+        }
+    }
+
+    // ── AC2: measurable_acceptance_target on recurring root causes ────────────
+
+    public function test_recurring_bad_prompt_root_cause_adds_measurable_acceptance_target(): void
+    {
+        $outcomes = [
+            $this->outcome('s1', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+            $this->outcome('s2', 'rejected', 'arch', ['reason' => 'missing_impl_file']),
+        ];
+        $result = $this->compiler()->compile($outcomes);
+
+        $repairPolicies = array_filter($result['policy_adjustments'], fn(array $p): bool => $p['action'] === 'repair_prompt');
+        foreach ($repairPolicies as $policy) {
+            $this->assertArrayHasKey('measurable_acceptance_target', $policy);
+            $this->assertStringContainsString('bad_prompt', $policy['measurable_acceptance_target']);
+        }
+    }
+
+    public function test_single_occurrence_bad_prompt_has_no_measurable_acceptance_target(): void
+    {
+        $outcomes = [
+            $this->outcome('s1', 'rejected', 'arch', ['reason' => 'contradictory_acceptance']),
+            $this->outcome('s2', 'success',  'arch'),
+        ];
+        $result = $this->compiler()->compile($outcomes);
+
+        $repairPolicies = array_filter($result['policy_adjustments'], fn(array $p): bool => $p['action'] === 'repair_prompt');
+        foreach ($repairPolicies as $policy) {
+            $this->assertArrayNotHasKey('measurable_acceptance_target', $policy);
+        }
     }
 }
