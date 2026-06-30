@@ -17,19 +17,46 @@ final class AgentRuntimeEvidenceReceiptBuilder
     /** @return array<string, mixed> */
     public function build(array $journalEntry): array
     {
+        $journalEntryId = (string) ($journalEntry['journal_entry_id'] ?? '');
+        $taskPacketId = (string) ($journalEntry['task_packet_id'] ?? '');
+        $agentId = (string) ($journalEntry['agent_id'] ?? '');
+        $evidenceType = (string) ($journalEntry['evidence_type'] ?? '');
+        $evidenceHash = strtolower((string) ($journalEntry['evidence_hash'] ?? ''));
         $entryHash = strtolower((string) ($journalEntry['journal_entry_hash'] ?? ''));
-        $valid = preg_match('/^[a-f0-9]{64}$/', $entryHash) === 1;
+        $entryHashValid = preg_match('/^[a-f0-9]{64}$/', $entryHash) === 1;
+
+        $blockerReasons = [];
+        if ($journalEntryId === '') {
+            $blockerReasons[] = 'missing_journal_entry_id';
+        }
+        if ($taskPacketId === '') {
+            $blockerReasons[] = 'missing_task_packet_id';
+        }
+        if ($agentId === '') {
+            $blockerReasons[] = 'missing_agent_id';
+        }
+        if ($evidenceType === '') {
+            $blockerReasons[] = 'missing_evidence_type';
+        }
+        if ($evidenceHash === '') {
+            $blockerReasons[] = 'missing_evidence_hash';
+        }
+        if (! $entryHashValid) {
+            $blockerReasons[] = 'malformed_journal_entry_hash';
+        }
+
         $receipt = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
-            'status' => $valid ? 'receipt_ready' : 'blocked',
+            'status' => $blockerReasons === [] ? 'receipt_ready' : 'blocked',
+            'blocker_reasons' => $blockerReasons,
             'receipt_kind' => 'runtime_evidence_journal_entry',
-            'journal_entry_id' => (string) ($journalEntry['journal_entry_id'] ?? ''),
+            'journal_entry_id' => $journalEntryId,
             'journal_entry_hash' => $entryHash,
-            'task_packet_id' => (string) ($journalEntry['task_packet_id'] ?? ''),
-            'agent_id' => (string) ($journalEntry['agent_id'] ?? ''),
-            'evidence_type' => (string) ($journalEntry['evidence_type'] ?? ''),
-            'evidence_hash' => strtolower((string) ($journalEntry['evidence_hash'] ?? '')),
+            'task_packet_id' => $taskPacketId,
+            'agent_id' => $agentId,
+            'evidence_type' => $evidenceType,
+            'evidence_hash' => $evidenceHash,
             'is_canonical_evidence_ledger_entry' => false,
             'is_signed_dispatch_receipt' => false,
             'runtime_execution_allowed' => false,
