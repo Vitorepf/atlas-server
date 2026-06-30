@@ -31,6 +31,16 @@ final class AtlasExternalBrainResearchToTaskDigestor
 
     private const RUNNABLE_MARKERS = ['artisan', 'vendor/bin', 'phpunit'];
 
+    private const HYPE_KEYWORDS = [
+        'revolutionize', 'breakthrough', 'state-of-the-art', 'game-changer',
+        'transformative', 'unprecedented', 'revolutionary', 'paradigm-shift', 'mind-blowing',
+    ];
+
+    private const CODE_GROUNDING_SIGNALS = [
+        '.php', '()', '::', '->', '_rate', '_score', '_count',
+        '_threshold', '_delta', 'artisan', 'exit', 'command',
+    ];
+
     /**
      * @param  array{
      *   research_items?: list<array>,
@@ -83,6 +93,10 @@ final class AtlasExternalBrainResearchToTaskDigestor
             return [false, self::REJECTION_HYPE_ONLY];
         }
 
+        if ($this->isHypeOnlyText($failureMode)) {
+            return [false, self::REJECTION_HYPE_ONLY];
+        }
+
         if ($targetPath === '') {
             return [false, self::REJECTION_NO_TARGET_PATH];
         }
@@ -100,17 +114,30 @@ final class AtlasExternalBrainResearchToTaskDigestor
 
     private function buildCandidate(array $item): array
     {
+        $allowedFiles   = array_values(array_filter(array_map('trim', (array) ($item['allowed_files']       ?? []))));
+        $antiGoodhart   = array_values(array_filter(array_map('trim', (array) ($item['anti_goodhart_risks'] ?? []))));
+        $testPath       = trim((string) ($item['test_path']          ?? ''));
+        $runnableAcc    = trim((string) ($item['runnable_acceptance'] ?? ''));
+        $source         = trim((string) ($item['source']             ?? ''));
+
         return [
-            'source'              => trim((string) ($item['source']             ?? '')),
+            'source'              => $source,
             'pattern_summary'     => trim((string) ($item['pattern_summary']    ?? '')),
             'atlas_failure_mode'  => trim((string) ($item['atlas_failure_mode'] ?? '')),
             'target_path'         => trim((string) ($item['target_path']        ?? '')),
             'adaptation_notes'    => trim((string) ($item['adaptation_notes']   ?? '')),
-            'allowed_files'       => array_values(array_filter(array_map('trim', (array) ($item['allowed_files']       ?? [])))),
-            'test_path'           => trim((string) ($item['test_path']          ?? '')),
-            'anti_goodhart_risks' => array_values(array_filter(array_map('trim', (array) ($item['anti_goodhart_risks'] ?? [])))),
-            'runnable_acceptance' => trim((string) ($item['runnable_acceptance'] ?? '')),
-            // AC2: advisory benchmark grounding fields — present if supplied, null otherwise.
+            'allowed_files'       => $allowedFiles,
+            'test_path'           => $testPath,
+            'anti_goodhart_risks' => $antiGoodhart,
+            'runnable_acceptance' => $runnableAcc,
+            // AC2 required output fields.
+            'implementation_file' => $allowedFiles[0] ?? '',
+            'test_file'           => $testPath,
+            'leverage_claim'      => trim((string) ($item['leverage_claim'] ?? $this->deriveLeverageClaim($item))),
+            'risk'                => trim((string) ($item['risk'] ?? ($antiGoodhart[0] ?? ''))),
+            'acceptance_summary'  => trim((string) ($item['acceptance_summary'] ?? $runnableAcc)),
+            'source_evidence'     => trim((string) ($item['source_evidence']    ?? $source)),
+            // Advisory benchmark grounding — present if supplied, null otherwise.
             'benchmark_grounding' => [
                 'source_quality'         => isset($item['source_quality'])         ? (float) $item['source_quality']        : null,
                 'observed_failure_class' => isset($item['observed_failure_class'])  ? trim((string) $item['observed_failure_class']) : null,
@@ -118,6 +145,41 @@ final class AtlasExternalBrainResearchToTaskDigestor
                 'expected_quality_delta' => isset($item['expected_quality_delta'])  ? (float) $item['expected_quality_delta'] : null,
             ],
         ];
+    }
+
+    private function deriveLeverageClaim(array $item): string
+    {
+        $summary = trim((string) ($item['pattern_summary']    ?? ''));
+        $failure = trim((string) ($item['atlas_failure_mode'] ?? ''));
+        if ($summary !== '' && $failure !== '') {
+            return "Applying pattern ({$summary}) to resolve: {$failure}";
+        }
+        return $summary !== '' ? $summary : $failure;
+    }
+
+    private function isHypeOnlyText(string $text): bool
+    {
+        $lower = strtolower($text);
+
+        $hasHype = false;
+        foreach (self::HYPE_KEYWORDS as $kw) {
+            if (str_contains($lower, $kw)) {
+                $hasHype = true;
+                break;
+            }
+        }
+
+        if (! $hasHype) {
+            return false;
+        }
+
+        foreach (self::CODE_GROUNDING_SIGNALS as $signal) {
+            if (str_contains($lower, $signal)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function hasRunnableCommand(string $acceptance): bool
