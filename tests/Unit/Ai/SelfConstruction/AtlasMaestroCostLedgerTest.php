@@ -113,4 +113,37 @@ class AtlasMaestroCostLedgerTest extends TestCase
 
         self::assertSame($a['cost_hash'], $b['cost_hash']);
     }
+
+    public function test_idempotent_append_same_cost_hash_does_not_duplicate_row(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $rowA = $ledger->append($this->fact());
+        $rowB = $ledger->append($this->fact()); // identical fact → same cost_hash → no-op write
+
+        self::assertIsArray($rowA);
+        self::assertIsArray($rowB);
+        self::assertSame($rowA['cost_hash'], $rowB['cost_hash']);
+        self::assertCount(1, $ledger->all(), 'duplicate receipt must not appear twice in aggregate');
+    }
+
+    public function test_negative_cost_or_tokens_are_rejected(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+
+        self::assertNull($ledger->append($this->fact(['cost_cents' => -1])));
+        self::assertNull($ledger->append($this->fact(['tokens_in' => -100])));
+        self::assertNull($ledger->append($this->fact(['tokens_out' => -50])));
+        self::assertFileDoesNotExist($this->ledgerPath);
+    }
+
+    public function test_sensitive_fields_in_input_are_not_stored(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $row = $ledger->append($this->fact(['api_key' => 'sk-secret', 'raw_payload' => 'prompt text', 'authorization' => 'Bearer tok']));
+
+        self::assertIsArray($row);
+        self::assertArrayNotHasKey('api_key', $row);
+        self::assertArrayNotHasKey('raw_payload', $row);
+        self::assertArrayNotHasKey('authorization', $row);
+    }
 }

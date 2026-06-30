@@ -22,6 +22,17 @@ final class AtlasMaestroCostLedger
         'tokens_in', 'tokens_out', 'cost_cents', 'recorded_at',
     ];
 
+    /**
+     * Extra input fields that are explicitly NOT stored. The append() method only copies
+     * REQUIRED_FIELDS, so any field here is automatically dropped — this list documents intent.
+     *
+     * @var list<string>
+     */
+    private const SENSITIVE_FIELDS = [
+        'api_key', 'authorization', 'raw_payload', 'raw_response', 'prompt_text',
+        'provider_trace_id', 'internal_model_id',
+    ];
+
     public function __construct(private readonly string $ledgerPath)
     {
         $dir = dirname($this->ledgerPath);
@@ -51,6 +62,13 @@ final class AtlasMaestroCostLedger
             'recorded_at' => (string) $fact['recorded_at'],
         ];
         $row['cost_hash'] = $this->costHash($row);
+
+        // Idempotent: skip if this cost_hash is already in the ledger.
+        foreach ($this->readAll() as $existing) {
+            if ((string) ($existing['cost_hash'] ?? '') === $row['cost_hash']) {
+                return $existing;
+            }
+        }
 
         $line = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $handle = @fopen($this->ledgerPath, 'a');
@@ -109,7 +127,7 @@ final class AtlasMaestroCostLedger
             }
         }
         foreach (['tokens_in', 'tokens_out', 'cost_cents'] as $intKey) {
-            if (! is_numeric($fact[$intKey])) {
+            if (! is_numeric($fact[$intKey]) || (int) $fact[$intKey] < 0) {
                 return false;
             }
         }
