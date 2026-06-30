@@ -119,6 +119,72 @@ final class AgentMergeReviewCertificationService
         return $envelope;
     }
 
+    private const DEFAULT_MAX_EVIDENCE_AGE_SECONDS = 3600;
+
+    /**
+     * Certifies a task success CLAIM (not the merge review packet) by
+     * requiring scope cleanliness, runnable proof, rollback readiness and
+     * fresh evidence — never trusting a "green" report alone. A
+     * self-declared success (no runtime confirmation behind it) or a stale
+     * evidence timestamp is always rejected, no matter what the claim says.
+     *
+     * Pure: no I/O, no patch application, no file writes.
+     *
+     * @param  array<string, mixed>  $claim  { scope_clean?: bool,
+     *   runnable_proof_present?: bool, rollback_ready?: bool,
+     *   evidence_age_seconds?: int|null, self_declared?: bool,
+     *   max_evidence_age_seconds?: int }
+     * @return array{certified: bool, blocked_reason: string|null, missing_evidence: list<string>}
+     */
+    public function certifySuccessClaim(array $claim): array
+    {
+        $scopeClean = (bool) ($claim['scope_clean'] ?? false);
+        $runnableProofPresent = (bool) ($claim['runnable_proof_present'] ?? false);
+        $rollbackReady = (bool) ($claim['rollback_ready'] ?? false);
+        $evidenceAgeSeconds = array_key_exists('evidence_age_seconds', $claim) && $claim['evidence_age_seconds'] !== null
+            ? (int) $claim['evidence_age_seconds']
+            : null;
+        $selfDeclared = (bool) ($claim['self_declared'] ?? false);
+        $maxEvidenceAgeSeconds = max(1, (int) ($claim['max_evidence_age_seconds'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_SECONDS));
+
+        $missingEvidence = [];
+        if (! $scopeClean) {
+            $missingEvidence[] = 'scope_not_clean';
+        }
+        if (! $runnableProofPresent) {
+            $missingEvidence[] = 'missing_runnable_proof';
+        }
+        if (! $rollbackReady) {
+            $missingEvidence[] = 'rollback_not_ready';
+        }
+        if ($evidenceAgeSeconds === null) {
+            $missingEvidence[] = 'missing_evidence_freshness_timestamp';
+        } elseif ($evidenceAgeSeconds > $maxEvidenceAgeSeconds) {
+            $missingEvidence[] = 'stale_evidence';
+        }
+        if ($selfDeclared) {
+            $missingEvidence[] = 'self_declared_success_without_runtime_confirmation';
+        }
+
+        $certified = $missingEvidence === [];
+
+        $blockedReason = match (true) {
+            $certified => null,
+            $selfDeclared => 'self_declared_success_without_runtime_confirmation',
+            ! $scopeClean => 'scope_not_clean',
+            ! $runnableProofPresent => 'missing_runnable_proof',
+            ! $rollbackReady => 'rollback_not_ready',
+            $evidenceAgeSeconds === null => 'missing_evidence_freshness_timestamp',
+            default => 'stale_evidence',
+        };
+
+        return [
+            'certified' => $certified,
+            'blocked_reason' => $blockedReason,
+            'missing_evidence' => $missingEvidence,
+        ];
+    }
+
     /**
      * @return list<array{name: string, ok: bool, observation: string}>
      */

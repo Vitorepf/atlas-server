@@ -263,4 +263,115 @@ final class AgentMergeReviewCertificationServiceTest extends TestCase
             ['packet_id' => 'p-critical', 'claim_id' => 'c-critical', 'task_packet_id' => 't-critical', 'generated_at' => '2026-05-14T00:00:00+00:00'],
         ];
     }
+
+    // ── certifySuccessClaim ──────────────────────────────────────────────────────
+
+    private function cleanClaim(array $overrides = []): array
+    {
+        return array_merge([
+            'scope_clean' => true,
+            'runnable_proof_present' => true,
+            'rollback_ready' => true,
+            'evidence_age_seconds' => 60,
+            'self_declared' => false,
+        ], $overrides);
+    }
+
+    public function test_clean_claim_is_certified(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim());
+
+        $this->assertTrue($result['certified']);
+        $this->assertNull($result['blocked_reason']);
+        $this->assertSame([], $result['missing_evidence']);
+    }
+
+    public function test_self_declared_success_is_rejected_even_when_everything_else_is_green(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['self_declared' => true]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertSame('self_declared_success_without_runtime_confirmation', $result['blocked_reason']);
+        $this->assertContains('self_declared_success_without_runtime_confirmation', $result['missing_evidence']);
+    }
+
+    public function test_stale_evidence_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['evidence_age_seconds' => 7200]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertSame('stale_evidence', $result['blocked_reason']);
+    }
+
+    public function test_missing_evidence_timestamp_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['evidence_age_seconds' => null]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertSame('missing_evidence_freshness_timestamp', $result['blocked_reason']);
+    }
+
+    public function test_scope_not_clean_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['scope_clean' => false]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertContains('scope_not_clean', $result['missing_evidence']);
+    }
+
+    public function test_missing_runnable_proof_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['runnable_proof_present' => false]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertContains('missing_runnable_proof', $result['missing_evidence']);
+    }
+
+    public function test_rollback_not_ready_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['rollback_ready' => false]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertContains('rollback_not_ready', $result['missing_evidence']);
+    }
+
+    public function test_all_failures_accumulate_in_missing_evidence(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim([
+            'scope_clean' => false,
+            'runnable_proof_present' => false,
+            'rollback_ready' => false,
+            'evidence_age_seconds' => null,
+            'self_declared' => true,
+        ]);
+
+        $this->assertFalse($result['certified']);
+        $this->assertCount(5, $result['missing_evidence']);
+    }
+
+    public function test_custom_max_evidence_age_is_respected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['evidence_age_seconds' => 100, 'max_evidence_age_seconds' => 50]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertSame('stale_evidence', $result['blocked_reason']);
+    }
+
+    public function test_empty_claim_defaults_to_blocked_with_multiple_missing_evidence(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim([]);
+
+        $this->assertFalse($result['certified']);
+        $this->assertNotEmpty($result['missing_evidence']);
+    }
 }
