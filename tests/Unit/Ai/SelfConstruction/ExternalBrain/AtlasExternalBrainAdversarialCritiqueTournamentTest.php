@@ -181,4 +181,137 @@ final class AtlasExternalBrainAdversarialCritiqueTournamentTest extends TestCase
             $this->assertArrayHasKey($key, $r);
         }
     }
+
+    // ── lens 6: proxy_work ────────────────────────────────────────────────────
+
+    public function test_proxy_work_fires_for_proxy_objective(): void
+    {
+        $r = $this->tournament([
+            $this->packet('Cleanup unused imports and remove dead code'),
+        ]);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertContains('proxy_work', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    // ── lens 7: weak_runnable_proof ───────────────────────────────────────────
+
+    public function test_weak_runnable_proof_fires_for_empty_acceptance_criteria(): void
+    {
+        $r = $this->tournament([
+            $this->packet('Implement AtlasFoo to process routing events', []),
+        ]);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertContains('weak_runnable_proof', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    public function test_weak_runnable_proof_does_not_fire_when_criteria_present(): void
+    {
+        $r = $this->tournament([
+            $this->packet(
+                'Implement AtlasFoo to detect capability stalls and emit a retirement recommendation',
+                ['given a stalled capability the system must emit retire with evidence'],
+                ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            ),
+        ]);
+
+        $this->assertNotContains('weak_runnable_proof', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    // ── lens 8: template_farm_shape ───────────────────────────────────────────
+
+    public function test_template_farm_shape_fires_for_structurally_identical_packets(): void
+    {
+        $batch = array_map(static fn (int $i): array => [
+            'objective'           => "Implement AtlasAdapter{$i} to extend capacity",
+            'acceptance_criteria' => ['tests pass'],
+            'allowed_files'       => [
+                "app/Services/AtlasAdapter{$i}Service.php",
+                "tests/Unit/AtlasAdapter{$i}ServiceTest.php",
+            ],
+        ], range(1, 4));
+
+        $r = $this->tournament($batch);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertContains('template_farm_shape', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    public function test_template_farm_shape_does_not_fire_for_small_batches(): void
+    {
+        $r = $this->tournament([
+            $this->packet('Implement AtlasAlpha to process events', [], ['app/Alpha.php']),
+            $this->packet('Implement AtlasBeta to process events', [], ['app/Beta.php']),
+        ]);
+
+        $this->assertNotContains('template_farm_shape', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    // ── lens 9: hidden_human_dependency ──────────────────────────────────────
+
+    public function test_hidden_human_dependency_fires_for_manual_confirmation(): void
+    {
+        $r = $this->tournament([
+            $this->packet(
+                'Implement AtlasFoo to export daily stats',
+                ['operator must manually review the output before next step'],
+            ),
+        ]);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertContains('hidden_human_dependency', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    // ── lens 10: overwide_allowed_files ───────────────────────────────────────
+
+    public function test_overwide_allowed_files_fires_when_packet_has_too_many_files(): void
+    {
+        $r = $this->tournament([
+            $this->packet(
+                'Implement AtlasFoo to cover all edge cases across the system',
+                ['all tests pass'],
+                ['a.php', 'b.php', 'c.php', 'd.php', 'e.php', 'f.php', 'g.php'],
+            ),
+        ]);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertContains('overwide_allowed_files', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    public function test_overwide_allowed_files_does_not_fire_at_threshold(): void
+    {
+        $r = $this->tournament([
+            $this->packet(
+                'Implement AtlasFoo to cover all edge cases across the system',
+                ['all tests pass'],
+                ['a.php', 'b.php', 'c.php', 'd.php', 'e.php', 'f.php'],
+            ),
+        ]);
+
+        $this->assertNotContains('overwide_allowed_files', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    // ── lens 11: duplicate_scope ──────────────────────────────────────────────
+
+    public function test_duplicate_scope_fires_for_identical_objectives(): void
+    {
+        $r = $this->tournament([
+            $this->packet('Implement AtlasFoo to process routing events', [], ['app/A.php']),
+            $this->packet('Implement AtlasFoo to process routing events', [], ['app/B.php']),
+        ]);
+
+        $this->assertTrue($r['blocking']);
+        $this->assertContains('duplicate_scope', array_column($r['blocking_findings'], 'lens'));
+    }
+
+    public function test_duplicate_scope_is_case_insensitive(): void
+    {
+        $r = $this->tournament([
+            $this->packet('Implement AtlasFoo To Process Routing Events', [], ['app/A.php']),
+            $this->packet('implement atlasfoo to process routing events', [], ['app/B.php']),
+        ]);
+
+        $this->assertContains('duplicate_scope', array_column($r['blocking_findings'], 'lens'));
+    }
 }
