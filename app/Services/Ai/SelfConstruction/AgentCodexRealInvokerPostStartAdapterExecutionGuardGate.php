@@ -119,6 +119,65 @@ class AgentCodexRealInvokerPostStartAdapterExecutionGuardGate
     }
 
     /**
+     * Pure decision: given the authorized task envelope and the observed
+     * post-start runtime context, decides whether adapter execution may
+     * continue. Checks provider safety (process/token/dispatch must still
+     * be blocked at this stage), task scope (touched files must stay inside
+     * the authorized envelope), adapter capability (must match what was
+     * authorized) and runtime proof (a fresh proof artifact must exist)
+     * before allowing continuation. Any drift from the authorized envelope
+     * blocks execution.
+     *
+     * @param  array<string,mixed>  $context  { authorized_allowed_files: list<string>,
+     *   observed_touched_files?: list<string>, authorized_adapter?: string,
+     *   observed_adapter?: string, external_process_started?: bool,
+     *   token_spend_allowed?: bool, dispatch_allowed?: bool,
+     *   runtime_proof_present?: bool }
+     * @return array<string,mixed>
+     */
+    public function evaluateContinuedExecution(array $context): array
+    {
+        $authorizedFiles = array_values(array_map('strval', (array) ($context['authorized_allowed_files'] ?? [])));
+        $touchedFiles = array_values(array_map('strval', (array) ($context['observed_touched_files'] ?? [])));
+        $outOfScopeFiles = array_values(array_diff($touchedFiles, $authorizedFiles));
+
+        if ($outOfScopeFiles !== []) {
+            return $this->continuationResult(false, 'task_scope_drift_detected', 'restrict_execution_to_authorized_allowed_files');
+        }
+
+        $authorizedAdapter = (string) ($context['authorized_adapter'] ?? '');
+        $observedAdapter = (string) ($context['observed_adapter'] ?? '');
+
+        if ($authorizedAdapter !== '' && $observedAdapter !== '' && $authorizedAdapter !== $observedAdapter) {
+            return $this->continuationResult(false, 'adapter_capability_mismatch', 'reauthorize_for_observed_adapter_or_abort');
+        }
+
+        foreach (['external_process_started', 'token_spend_allowed', 'dispatch_allowed'] as $field) {
+            if ((bool) ($context[$field] ?? false) && ! (bool) ($context['runtime_proof_present'] ?? false)) {
+                return $this->continuationResult(false, 'provider_safety_unproven', 'capture_runtime_proof_before_resuming');
+            }
+        }
+
+        if (! (bool) ($context['runtime_proof_present'] ?? false)) {
+            return $this->continuationResult(false, 'missing_runtime_proof', 'attach_runtime_proof_artifact');
+        }
+
+        return $this->continuationResult(true, null, null);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function continuationResult(bool $continueExecution, ?string $blockReason, ?string $repairHint): array
+    {
+        return [
+            'continue_execution' => $continueExecution,
+            'block_reason' => $blockReason,
+            'repair_hint' => $repairHint,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

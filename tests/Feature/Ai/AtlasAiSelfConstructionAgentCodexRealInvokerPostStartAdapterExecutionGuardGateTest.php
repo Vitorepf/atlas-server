@@ -343,6 +343,71 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterExecutionGuard
         ];
     }
 
+    public function test_continuation_allowed_when_scope_adapter_and_proof_match(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)->evaluateContinuedExecution([
+            'authorized_allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'observed_touched_files' => ['app/Foo.php'],
+            'authorized_adapter' => 'codex',
+            'observed_adapter' => 'codex',
+            'runtime_proof_present' => true,
+        ]);
+
+        $this->assertTrue($result['continue_execution']);
+        $this->assertNull($result['block_reason']);
+    }
+
+    public function test_continuation_blocked_when_touched_files_drift_out_of_scope(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)->evaluateContinuedExecution([
+            'authorized_allowed_files' => ['app/Foo.php'],
+            'observed_touched_files' => ['app/Foo.php', 'app/Bar.php'],
+            'runtime_proof_present' => true,
+        ]);
+
+        $this->assertFalse($result['continue_execution']);
+        $this->assertSame('task_scope_drift_detected', $result['block_reason']);
+        $this->assertSame('restrict_execution_to_authorized_allowed_files', $result['repair_hint']);
+    }
+
+    public function test_continuation_blocked_when_adapter_mismatches_authorization(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)->evaluateContinuedExecution([
+            'authorized_allowed_files' => ['app/Foo.php'],
+            'observed_touched_files' => ['app/Foo.php'],
+            'authorized_adapter' => 'codex',
+            'observed_adapter' => 'cursor',
+            'runtime_proof_present' => true,
+        ]);
+
+        $this->assertFalse($result['continue_execution']);
+        $this->assertSame('adapter_capability_mismatch', $result['block_reason']);
+    }
+
+    public function test_continuation_blocked_when_process_started_without_runtime_proof(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)->evaluateContinuedExecution([
+            'authorized_allowed_files' => ['app/Foo.php'],
+            'observed_touched_files' => ['app/Foo.php'],
+            'external_process_started' => true,
+            'runtime_proof_present' => false,
+        ]);
+
+        $this->assertFalse($result['continue_execution']);
+        $this->assertSame('provider_safety_unproven', $result['block_reason']);
+    }
+
+    public function test_continuation_blocked_when_runtime_proof_missing(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartAdapterExecutionGuardGate::class)->evaluateContinuedExecution([
+            'authorized_allowed_files' => ['app/Foo.php'],
+            'observed_touched_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertFalse($result['continue_execution']);
+        $this->assertSame('missing_runtime_proof', $result['block_reason']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
