@@ -336,4 +336,73 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartAdapterInvocationBoun
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── enforceContextBoundary() ─────────────────────────────────────────────
+
+    public function test_clean_context_with_only_allowed_fields_is_boundary_clean(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $result = $gate->enforceContextBoundary([
+            'task_id' => 't-1',
+            'lease_id' => 'l-1',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['green tests'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertTrue($result['boundary_clean']);
+        $this->assertSame([], $result['redacted_fields']);
+        $this->assertNull($result['blocked_reason']);
+    }
+
+    public function test_redacts_unrelated_queue_state(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $result = $gate->enforceContextBoundary([
+            'task_id' => 't-1',
+            'lease_id' => 'l-1',
+            'unrelated_queue_state' => ['other-task' => 'queued'],
+        ]);
+
+        $this->assertFalse($result['boundary_clean']);
+        $this->assertContains('unrelated_queue_state', $result['redacted_fields']);
+        $this->assertArrayNotHasKey('unrelated_queue_state', $result['filtered_context']);
+    }
+
+    public function test_redacts_internal_prompts(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $result = $gate->enforceContextBoundary([
+            'task_id' => 't-1',
+            'lease_id' => 'l-1',
+            'internal_prompt' => 'system prompt text',
+        ]);
+
+        $this->assertContains('internal_prompt', $result['redacted_fields']);
+        $this->assertArrayNotHasKey('internal_prompt', $result['filtered_context']);
+    }
+
+    public function test_blocked_when_task_id_or_lease_id_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $result = $gate->enforceContextBoundary(['allowed_files' => []]);
+
+        $this->assertFalse($result['boundary_clean']);
+        $this->assertNotNull($result['blocked_reason']);
+        $this->assertSame([], $result['filtered_context']);
+    }
+
+    public function test_filtered_context_preserves_allowed_field_values(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate::class);
+        $result = $gate->enforceContextBoundary([
+            'task_id' => 't-1',
+            'lease_id' => 'l-1',
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
+            'other_workspace_state' => 'leak',
+        ]);
+
+        $this->assertSame(['app/Foo.php', 'app/Bar.php'], $result['filtered_context']['allowed_files']);
+        $this->assertArrayNotHasKey('other_workspace_state', $result['filtered_context']);
+    }
 }

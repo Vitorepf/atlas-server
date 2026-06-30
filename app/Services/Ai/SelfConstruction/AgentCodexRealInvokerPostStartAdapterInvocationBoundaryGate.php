@@ -121,6 +121,40 @@ class AgentCodexRealInvokerPostStartAdapterInvocationBoundaryGate
         });
     }
 
+    public const ALLOWED_CONTEXT_FIELDS = ['task_id', 'lease_id', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
+
+    /**
+     * Pure boundary filter: a post-start adapter context may contain ONLY the
+     * authorized task envelope fields. Everything else — unrelated queue state,
+     * internal prompts, other workspace state — is redacted, never passed
+     * through. Never mutates run state, never calls the adapter.
+     *
+     * @param  array<string,mixed>  $context
+     * @return array{boundary_clean:bool, redacted_fields:list<string>, blocked_reason:?string, filtered_context:array<string,mixed>}
+     */
+    public function enforceContextBoundary(array $context): array
+    {
+        $missingRequired = array_values(array_diff(['task_id', 'lease_id'], array_keys($context)));
+        if ($missingRequired !== []) {
+            return [
+                'boundary_clean' => false,
+                'redacted_fields' => [],
+                'blocked_reason' => 'missing_required_context_field:'.implode(',', $missingRequired),
+                'filtered_context' => [],
+            ];
+        }
+
+        $redactedFields = array_values(array_diff(array_keys($context), self::ALLOWED_CONTEXT_FIELDS));
+        $filteredContext = array_intersect_key($context, array_flip(self::ALLOWED_CONTEXT_FIELDS));
+
+        return [
+            'boundary_clean' => $redactedFields === [],
+            'redacted_fields' => $redactedFields,
+            'blocked_reason' => null,
+            'filtered_context' => $filteredContext,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
