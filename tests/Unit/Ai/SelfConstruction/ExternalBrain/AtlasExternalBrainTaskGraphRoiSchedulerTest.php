@@ -578,4 +578,26 @@ final class AtlasExternalBrainTaskGraphRoiSchedulerTest extends TestCase
         $penaltyReasons = array_filter($reasons, fn (string $s): bool => str_starts_with($s, 'risk_penalty:'));
         $this->assertEmpty($penaltyReasons, 'no risk_penalty when no family_risk context provided');
     }
+
+    // ── AC3: high worker_pressure narrows wave width ──────────────────────────
+
+    public function test_high_worker_pressure_narrows_wave_width_compared_to_zero_pressure(): void
+    {
+        $tasks = [
+            $this->task('t1', ['allowed_files' => ['app/Services/T1.php']]),
+            $this->task('t2', ['allowed_files' => ['app/Services/T2.php']]),
+            $this->task('t3', ['allowed_files' => ['app/Services/T3.php']]),
+            $this->task('t4', ['allowed_files' => ['app/Services/T4.php']]),
+        ];
+
+        $lowPressure  = $this->scheduler->schedule($tasks, ['worker_pressure' => 0.0, 'max_wave_width' => 4]);
+        $highPressure = $this->scheduler->schedule($tasks, ['worker_pressure' => 1.0, 'max_wave_width' => 4]);
+
+        $this->assertCount(4, $lowPressure['waves'][0]['tasks'], 'zero pressure uses full width');
+        $this->assertLessThan(
+            count($lowPressure['waves'][0]['tasks']),
+            count($highPressure['waves'][0]['tasks']),
+            'high worker_pressure must narrow the first wave width',
+        );
+    }
 }
