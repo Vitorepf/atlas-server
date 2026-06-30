@@ -63,20 +63,22 @@ final class AtlasExternalBrainStrategicThesisForge
     /**
      * @param  list<array{
      *   cluster_id:string, theme:string, capability_delta:string, acceptance_path:string,
-     *   opportunities?:list<array<string,mixed>>, urgency?:string, risk?:string
+     *   opportunities?:list<array<string,mixed>>, urgency?:string, risk?:string,
+     *   dependencies?:list<string>
      * }>  $clusters
      * @return array{schema:string, theses:list<array<string,mixed>>, rejected:list<array<string,string>>}
      */
     public function forge(array $clusters): array
     {
-        $theses = [];
+        $theses   = [];
         $rejected = [];
+        $seen     = []; // md5(theme|capability_delta) → cluster_id, for duplicate detection
 
         foreach ($clusters as $cluster) {
-            $clusterId = (string) ($cluster['cluster_id'] ?? '');
-            $theme = trim((string) ($cluster['theme'] ?? ''));
+            $clusterId       = (string) ($cluster['cluster_id'] ?? '');
+            $theme           = trim((string) ($cluster['theme'] ?? ''));
             $capabilityDelta = trim((string) ($cluster['capability_delta'] ?? ''));
-            $acceptancePath = trim((string) ($cluster['acceptance_path'] ?? ''));
+            $acceptancePath  = trim((string) ($cluster['acceptance_path'] ?? ''));
 
             // REJECTION: missing capability_delta.
             if ($capabilityDelta === '') {
@@ -96,40 +98,57 @@ final class AtlasExternalBrainStrategicThesisForge
                 continue;
             }
 
+            // REJECTION: duplicate cluster (same theme + capability_delta already accepted).
+            $dedupeKey = md5(strtolower($theme).'|'.strtolower($capabilityDelta));
+            if (isset($seen[$dedupeKey])) {
+                $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'duplicate_cluster:same_theme_and_capability_delta'];
+                continue;
+            }
+            $seen[$dedupeKey] = $clusterId;
+
             $opportunities = is_array($cluster['opportunities'] ?? null) ? $cluster['opportunities'] : [];
-            $urgency = strtolower(trim((string) ($cluster['urgency'] ?? 'medium')));
-            $risk = $this->normaliseRisk((string) ($cluster['risk'] ?? ''), $urgency);
+            $urgency       = strtolower(trim((string) ($cluster['urgency'] ?? 'medium')));
+            $risk          = $this->normaliseRisk((string) ($cluster['risk'] ?? ''), $urgency);
+            $dependencies  = is_array($cluster['dependencies'] ?? null)
+                ? array_values(array_filter(array_map('strval', $cluster['dependencies'])))
+                : [];
 
             // Use caller-supplied task_shapes if provided; otherwise auto-generate.
             $taskShapes = is_array($cluster['task_shapes'] ?? null)
                 ? array_values($cluster['task_shapes'])
                 : $this->taskShapes($theme, $capabilityDelta);
 
-            // AC2: reject if task_shapes cannot form a coherent implementation-plus-test chain.
+            // REJECTION: task_shapes cannot form a coherent implementation-plus-test chain.
             $coherence = $this->checkTaskChainCoherence($taskShapes);
             if (! $coherence['coherent']) {
                 $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'task_shapes_incoherent:'.$coherence['reason']];
                 continue;
             }
 
+            $chain = $this->buildTaskChain($taskShapes);
+
             $theses[] = [
-                'thesis_id' => 'thesis:'.$clusterId,
-                'cluster_id' => $clusterId,
-                'title' => $this->title($theme),
-                'why_it_matters' => $this->whyItMatters($theme, $opportunities),
-                'structural_leverage' => $this->structuralLeverage($theme, $capabilityDelta),
-                'capability_delta' => $capabilityDelta,
-                'acceptance_path' => $acceptancePath,
-                'evidence_demand' => $this->evidenceDemand($acceptancePath, $opportunities),
-                'risk' => $risk,
-                'task_shapes' => $taskShapes,
-                'task_chain'  => $this->buildTaskChain($taskShapes),
+                'thesis_id'             => 'thesis:'.$clusterId,
+                'cluster_id'            => $clusterId,
+                'title'                 => $this->title($theme),
+                'why_it_matters'        => $this->whyItMatters($theme, $opportunities),
+                'structural_leverage'   => $this->structuralLeverage($theme, $capabilityDelta),
+                'capability_delta'      => $capabilityDelta,
+                'acceptance_path'       => $acceptancePath,
+                'evidence_demand'       => $this->evidenceDemand($acceptancePath, $opportunities),
+                'evidence_refs'         => $this->evidenceRefs($opportunities),
+                'dependencies'          => $dependencies,
+                'expected_compound_lift' => $this->expectedCompoundLift($opportunities, $urgency, $risk),
+                'risk'                  => $risk,
+                'task_shapes'           => $taskShapes,
+                'steps'                 => $chain['steps'],
+                'task_chain'            => $chain,
             ];
         }
 
         return [
-            'schema' => self::SCHEMA,
-            'theses' => $theses,
+            'schema'   => self::SCHEMA,
+            'theses'   => $theses,
             'rejected' => $rejected,
         ];
     }
@@ -242,6 +261,29 @@ final class AtlasExternalBrainStrategicThesisForge
         }
 
         return ['steps' => $steps];
+    }
+
+    /** @param list<array<string,mixed>> $opportunities @return list<string> */
+    private function evidenceRefs(array $opportunities): array
+    {
+        $refs = [];
+        foreach ($opportunities as $opp) {
+            $ev = trim((string) ($opp['evidence'] ?? ''));
+            if ($ev !== '') {
+                $refs[] = $ev;
+            }
+        }
+
+        return array_values(array_unique($refs));
+    }
+
+    private function expectedCompoundLift(array $opportunities, string $urgency, string $risk): float
+    {
+        $base = min(1.0, count($opportunities) * 0.10);
+        $base += match ($urgency) { 'high' => 0.30, 'low' => 0.0, default => 0.15 };
+        $base -= match ($risk)    { 'high' => 0.10, 'low' => -0.05, default => 0.0 };
+
+        return round(max(0.0, min(1.0, $base)), 4);
     }
 
     /** @return list<array{shape:string, description:string}> */
