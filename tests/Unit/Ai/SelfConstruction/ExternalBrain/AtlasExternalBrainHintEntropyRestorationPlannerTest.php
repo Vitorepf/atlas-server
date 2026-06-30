@@ -173,4 +173,112 @@ final class AtlasExternalBrainHintEntropyRestorationPlannerTest extends TestCase
             $this->assertLessThanOrEqual(1.0, $result['target_entropy_floor']);
         }
     }
+
+    // ── measureAndRecommend ─────────────────────────────────────────────────────
+
+    private function hint(array $overrides = []): array
+    {
+        return array_merge([
+            'capability_area' => 'queue_governance',
+            'task_family' => 'lease_repair',
+            'evidence_source' => 'github_issues',
+            'expected_impact' => 'medium',
+            'normalized_template_signature' => 'sig_lease_repair',
+        ], $overrides);
+    }
+
+    public function test_measure_output_has_required_keys(): void
+    {
+        $r = $this->planner->measureAndRecommend(['recent_hints' => [$this->hint()]]);
+
+        foreach (['diversity_by_axis', 'overall_diversity_score', 'template_collapse_detected', 'recommendation', 'reason'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+        $this->assertSame(AtlasExternalBrainHintEntropyRestorationPlanner::SCHEMA, $r['schema']);
+    }
+
+    public function test_high_diversity_across_all_axes_recommends_maintain(): void
+    {
+        $r = $this->planner->measureAndRecommend(['recent_hints' => [
+            $this->hint(['capability_area' => 'a1', 'task_family' => 'f1', 'evidence_source' => 'e1', 'expected_impact' => 'high', 'normalized_template_signature' => 's1']),
+            $this->hint(['capability_area' => 'a2', 'task_family' => 'f2', 'evidence_source' => 'e2', 'expected_impact' => 'low', 'normalized_template_signature' => 's2']),
+            $this->hint(['capability_area' => 'a3', 'task_family' => 'f3', 'evidence_source' => 'e3', 'expected_impact' => 'medium', 'normalized_template_signature' => 's3']),
+            $this->hint(['capability_area' => 'a4', 'task_family' => 'f4', 'evidence_source' => 'e4', 'expected_impact' => 'critical', 'normalized_template_signature' => 's4']),
+        ]]);
+
+        $this->assertSame('maintain_current_breadth', $r['recommendation']);
+        $this->assertFalse($r['template_collapse_detected']);
+    }
+
+    public function test_collapsed_evidence_source_recommends_change_search_method(): void
+    {
+        $hints = [];
+        for ($i = 0; $i < 5; $i++) {
+            $hints[] = $this->hint(['capability_area' => "a{$i}", 'task_family' => "f{$i}", 'evidence_source' => 'same_source', 'normalized_template_signature' => "sig{$i}"]);
+        }
+
+        $r = $this->planner->measureAndRecommend(['recent_hints' => $hints]);
+
+        $this->assertSame('change_search_method', $r['recommendation']);
+    }
+
+    public function test_collapsed_capability_area_recommends_rotate_area(): void
+    {
+        $hints = [];
+        for ($i = 0; $i < 5; $i++) {
+            $hints[] = $this->hint(['capability_area' => 'same_area', 'task_family' => "f{$i}", 'evidence_source' => "e{$i}", 'normalized_template_signature' => "sig{$i}"]);
+        }
+
+        $r = $this->planner->measureAndRecommend(['recent_hints' => $hints]);
+
+        $this->assertSame('rotate_area', $r['recommendation']);
+    }
+
+    public function test_collapsed_expected_impact_recommends_consolidate(): void
+    {
+        $hints = [];
+        for ($i = 0; $i < 5; $i++) {
+            $hints[] = $this->hint(['capability_area' => "a{$i}", 'task_family' => "f{$i}", 'evidence_source' => "e{$i}", 'expected_impact' => 'medium', 'normalized_template_signature' => "sig{$i}"]);
+        }
+
+        $r = $this->planner->measureAndRecommend(['recent_hints' => $hints]);
+
+        $this->assertSame('consolidate', $r['recommendation']);
+    }
+
+    public function test_renamed_template_variants_detected_as_collapse_not_real_diversity(): void
+    {
+        // Different task_family labels (looks diverse) but identical underlying
+        // template signature (a renamed template-farm variant) — must NOT be
+        // accepted as restored diversity.
+        $hints = [];
+        for ($i = 0; $i < 6; $i++) {
+            $hints[] = $this->hint(['capability_area' => "a{$i}", 'task_family' => "renamed_family_{$i}", 'evidence_source' => "e{$i}", 'normalized_template_signature' => 'identical_template_signature']);
+        }
+
+        $r = $this->planner->measureAndRecommend(['recent_hints' => $hints]);
+
+        $this->assertTrue($r['template_collapse_detected']);
+        $this->assertSame('inspect_negative_results', $r['recommendation']);
+    }
+
+    public function test_template_collapse_outranks_other_axis_collapses(): void
+    {
+        $hints = [];
+        for ($i = 0; $i < 6; $i++) {
+            $hints[] = $this->hint(['capability_area' => 'same_area', 'task_family' => "renamed_family_{$i}", 'evidence_source' => 'same_source', 'normalized_template_signature' => 'identical_template_signature']);
+        }
+
+        $r = $this->planner->measureAndRecommend(['recent_hints' => $hints]);
+
+        $this->assertSame('inspect_negative_results', $r['recommendation']);
+    }
+
+    public function test_empty_hints_returns_zero_diversity_and_maintain(): void
+    {
+        $r = $this->planner->measureAndRecommend(['recent_hints' => []]);
+
+        $this->assertSame(0.0, $r['overall_diversity_score']);
+        $this->assertFalse($r['template_collapse_detected']);
+    }
 }

@@ -39,6 +39,12 @@ final class AtlasExternalBrainHintEntropyRestorationPlanner
 
     private const CONCENTRATION_BAN_FRACTION = 0.50;
 
+    private const AXES = ['capability_area', 'task_family', 'evidence_source', 'expected_impact'];
+
+    private const LOW_AXIS_DIVERSITY_THRESHOLD = 0.30;
+
+    private const TEMPLATE_COLLAPSE_GAP = 0.30;
+
     /**
      * @param  array{
      *   hint_entropy?: float,
@@ -149,5 +155,74 @@ final class AtlasExternalBrainHintEntropyRestorationPlanner
         }
 
         return $required;
+    }
+
+    /**
+     * Measures hint diversity across capability_area, task_family,
+     * evidence_source and expected_impact, and recommends a concrete
+     * restoration action when diversity collapses. Mere renaming/template
+     * variants are detected via normalized_template_signature and never
+     * count as real diversity restoration: when distinct task_family
+     * labels collapse onto far fewer distinct template signatures, the
+     * planner reports template_collapse_detected=true and recommends
+     * inspect_negative_results instead of trusting the apparent family
+     * diversity.
+     *
+     * diversity_by_axis[axis] = count(distinct values) / count(hints), in [0,1].
+     *
+     * RECOMMENDATION (first matching rule wins):
+     *   template_collapse_detected                         -> inspect_negative_results
+     *   evidence_source diversity < 0.30                    -> change_search_method
+     *   capability_area diversity < 0.30                    -> rotate_area
+     *   expected_impact diversity < 0.30 (others healthy)    -> consolidate
+     *   otherwise                                             -> maintain_current_breadth
+     *
+     * @param  array<string,mixed>  $input  { recent_hints: list<{
+     *   capability_area?, task_family?, evidence_source?, expected_impact?,
+     *   normalized_template_signature?}> }
+     * @return array<string,mixed>
+     */
+    public function measureAndRecommend(array $input): array
+    {
+        $hints = is_array($input['recent_hints'] ?? null) ? $input['recent_hints'] : [];
+        $total = count($hints);
+
+        $diversityByAxis = [];
+        foreach (self::AXES as $axis) {
+            $values = array_values(array_filter(array_map(
+                static fn ($h): string => is_array($h) ? trim((string) ($h[$axis] ?? '')) : '',
+                $hints,
+            ), static fn (string $v): bool => $v !== ''));
+            $diversityByAxis[$axis] = $total > 0 ? round(count(array_unique($values)) / $total, 4) : 0.0;
+        }
+
+        $signatures = array_values(array_filter(array_map(
+            static fn ($h): string => is_array($h) ? trim((string) ($h['normalized_template_signature'] ?? '')) : '',
+            $hints,
+        ), static fn (string $v): bool => $v !== ''));
+        $signatureDiversity = $total > 0 ? round(count(array_unique($signatures)) / $total, 4) : 0.0;
+
+        $templateCollapseDetected = $signatures !== []
+            && ($diversityByAxis['task_family'] - $signatureDiversity) >= self::TEMPLATE_COLLAPSE_GAP;
+
+        [$recommendation, $reason] = match (true) {
+            $templateCollapseDetected => ['inspect_negative_results', 'template_renaming_masks_collapsed_diversity_not_real_breadth'],
+            $diversityByAxis['evidence_source'] < self::LOW_AXIS_DIVERSITY_THRESHOLD => ['change_search_method', 'evidence_source_diversity_collapsed'],
+            $diversityByAxis['capability_area'] < self::LOW_AXIS_DIVERSITY_THRESHOLD => ['rotate_area', 'capability_area_diversity_collapsed'],
+            $diversityByAxis['expected_impact'] < self::LOW_AXIS_DIVERSITY_THRESHOLD => ['consolidate', 'expected_impact_diversity_collapsed_consolidate_into_fewer_high_quality_tasks'],
+            default => ['maintain_current_breadth', 'diversity_healthy_across_all_axes'],
+        };
+
+        $overallDiversityScore = $total > 0 ? round(array_sum($diversityByAxis) / count($diversityByAxis), 4) : 0.0;
+
+        return [
+            'schema' => self::SCHEMA,
+            'diversity_by_axis' => $diversityByAxis,
+            'overall_diversity_score' => $overallDiversityScore,
+            'signature_diversity' => $signatureDiversity,
+            'template_collapse_detected' => $templateCollapseDetected,
+            'recommendation' => $recommendation,
+            'reason' => $reason,
+        ];
     }
 }
