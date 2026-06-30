@@ -69,6 +69,38 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlanTest extends TestCase
         $this->assertSame('no_action', $r['actions'][0]['action']);
     }
 
+    public function test_low_servable_depth_produces_atlas_native_queue_top_up_action(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-depth', 'low_servable_depth' => true],
+        ]);
+        $this->assertCount(1, $r['actions']);
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_TOP_UP, $r['actions'][0]['bucket']);
+        $this->assertSame('enqueue_top_up_packet', $r['actions'][0]['action']);
+        $this->assertStringContainsString('low_servable_depth', $r['actions'][0]['reason']);
+    }
+
+    public function test_repeated_give_back_family_at_threshold_produces_respec_action(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-gb', 'give_back_family' => 'refactor', 'repeated_give_backs' => AtlasSelfConstructionSelfHealingQueueRepairPlan::GIVE_BACK_RESPEC_THRESHOLD],
+        ]);
+        $this->assertCount(1, $r['actions']);
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_RESPEC, $r['actions'][0]['bucket']);
+        $this->assertSame('enqueue_respec_packet', $r['actions'][0]['action']);
+        $this->assertStringContainsString('refactor', $r['actions'][0]['reason']);
+    }
+
+    public function test_emergency_kind_has_highest_precedence_over_top_up_and_respec(): void
+    {
+        $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([
+            ['packet_id' => 'p-both', 'emergency_kind' => 'constitution_edit_attempt', 'low_servable_depth' => true, 'give_back_family' => 'refactor', 'repeated_give_backs' => 10],
+        ]);
+        $this->assertCount(1, $r['actions']);
+        $this->assertSame(AtlasSelfConstructionSelfHealingQueueRepairPlan::BUCKET_OPERATOR_VISIBLE, $r['actions'][0]['bucket']);
+        $this->assertSame('visibility_only', $r['actions'][0]['action']);
+    }
+
     public function test_actions_sorted_byte_stably_by_bucket_then_packet_id(): void
     {
         $r = (new AtlasSelfConstructionSelfHealingQueueRepairPlan)->plan([

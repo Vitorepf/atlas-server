@@ -42,6 +42,12 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlan
 
     public const BUCKET_OPERATOR_VISIBLE = 'operator_visible';
 
+    public const BUCKET_TOP_UP = 'queue_top_up';
+
+    public const BUCKET_RESPEC = 'respec';
+
+    public const GIVE_BACK_RESPEC_THRESHOLD = 3;
+
     /**
      * @param  list<array{packet_id?:string, malformed?:bool, repeated_returns?:int, missing_dependency?:string, stuck?:bool, scope_repaired?:bool, emergency_kind?:string}>  $packets
      * @return array{schema:string, actions:list<array{bucket:string, packet_id:string, action:string, reason:string}>, summary:array<string,int>}
@@ -65,6 +71,24 @@ final class AtlasSelfConstructionSelfHealingQueueRepairPlan
             if ($emergency !== '') {
                 $actions[] = ['bucket' => self::BUCKET_OPERATOR_VISIBLE, 'packet_id' => $id, 'action' => 'visibility_only', 'reason' => 'emergency:'.$emergency];
                 $summary[self::BUCKET_OPERATOR_VISIBLE] = ($summary[self::BUCKET_OPERATOR_VISIBLE] ?? 0) + 1;
+
+                continue;
+            }
+
+            // Low servable depth: Atlas-native top-up, no operator required.
+            if ((bool) ($p['low_servable_depth'] ?? false)) {
+                $actions[] = ['bucket' => self::BUCKET_TOP_UP, 'packet_id' => $id, 'action' => 'enqueue_top_up_packet', 'reason' => 'low_servable_depth'];
+                $summary[self::BUCKET_TOP_UP] = ($summary[self::BUCKET_TOP_UP] ?? 0) + 1;
+
+                continue;
+            }
+
+            // Repeated give_back family: respec the family to unblock the queue.
+            $giveBackFamily = trim((string) ($p['give_back_family'] ?? ''));
+            $repeatedGiveBacks = (int) ($p['repeated_give_backs'] ?? 0);
+            if ($giveBackFamily !== '' && $repeatedGiveBacks >= self::GIVE_BACK_RESPEC_THRESHOLD) {
+                $actions[] = ['bucket' => self::BUCKET_RESPEC, 'packet_id' => $id, 'action' => 'enqueue_respec_packet', 'reason' => 'give_back_family:'.$giveBackFamily.':count:'.$repeatedGiveBacks];
+                $summary[self::BUCKET_RESPEC] = ($summary[self::BUCKET_RESPEC] ?? 0) + 1;
 
                 continue;
             }
