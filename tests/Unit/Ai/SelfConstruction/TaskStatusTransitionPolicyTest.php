@@ -82,4 +82,69 @@ class TaskStatusTransitionPolicyTest extends TestCase
         self::assertSame($h1, $h2);
         self::assertSame(64, strlen($h1));
     }
+
+    public function test_terminal_statuses_has_no_outgoing_transitions(): void
+    {
+        $terminals = TaskStatusTransitionPolicy::terminalStatuses();
+        self::assertContains('completed_dry_run', $terminals);
+        self::assertContains('cancelled', $terminals);
+        foreach ($terminals as $s) {
+            self::assertSame([], TaskStatusTransitionPolicy::ALLOWED_STATUS_TRANSITIONS[$s]);
+        }
+    }
+
+    public function test_recoverable_statuses_can_re_enter_claimable_pool(): void
+    {
+        $recoverable = TaskStatusTransitionPolicy::recoverableStatuses();
+        foreach (['lease_expired', 'released', 'blocked'] as $expected) {
+            self::assertContains($expected, $recoverable);
+        }
+        foreach ($recoverable as $s) {
+            self::assertContains('claimable', TaskStatusTransitionPolicy::ALLOWED_STATUS_TRANSITIONS[$s]);
+        }
+    }
+
+    public function test_active_lease_statuses_contains_claimed(): void
+    {
+        $active = TaskStatusTransitionPolicy::activeLeaseStatuses();
+        self::assertContains('claimed', $active);
+        foreach ($active as $s) {
+            self::assertContains('lease_expired', TaskStatusTransitionPolicy::ALLOWED_STATUS_TRANSITIONS[$s]);
+        }
+    }
+
+    public function test_explain_transition_returns_allowed_true_for_valid_transitions(): void
+    {
+        self::assertTrue(TaskStatusTransitionPolicy::explainTransition('queued', 'claimable')['allowed']);
+        self::assertTrue(TaskStatusTransitionPolicy::explainTransition('claimed', 'lease_expired')['allowed']);
+        self::assertTrue(TaskStatusTransitionPolicy::explainTransition('claimed', 'claimed')['allowed']);
+    }
+
+    public function test_explain_transition_returns_false_for_unknown_previous(): void
+    {
+        $r = TaskStatusTransitionPolicy::explainTransition('nonexistent', 'claimed');
+        self::assertFalse($r['allowed']);
+        self::assertSame('unknown_previous_status', $r['reason']);
+    }
+
+    public function test_explain_transition_returns_false_for_unknown_next(): void
+    {
+        $r = TaskStatusTransitionPolicy::explainTransition('claimed', 'nonexistent');
+        self::assertFalse($r['allowed']);
+        self::assertSame('unknown_next_status', $r['reason']);
+    }
+
+    public function test_explain_transition_returns_false_for_terminal_source(): void
+    {
+        $r = TaskStatusTransitionPolicy::explainTransition('cancelled', 'claimable');
+        self::assertFalse($r['allowed']);
+        self::assertSame('terminal_status_cannot_transition', $r['reason']);
+    }
+
+    public function test_explain_transition_returns_false_for_invalid_transition(): void
+    {
+        $r = TaskStatusTransitionPolicy::explainTransition('queued', 'claimed');
+        self::assertFalse($r['allowed']);
+        self::assertSame('transition_not_allowed', $r['reason']);
+    }
 }
