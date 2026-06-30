@@ -142,10 +142,21 @@ final class AtlasVerificationCourtVerdictLedger
         return false;
     }
 
+    private function lastVerdictHash(): ?string
+    {
+        $rows = $this->all();
+        if ($rows === []) {
+            return null;
+        }
+        $h = (string) (end($rows)['verdict_hash'] ?? '');
+
+        return $h !== '' ? $h : null;
+    }
+
     /**
      * @param  array<string,mixed>  $row
      */
-    private function appendOnly(array $row): void
+    private function appendOnly(array &$row): void
     {
         $dir = dirname($this->ledgerPath);
         if (! is_dir($dir)) {
@@ -159,6 +170,9 @@ final class AtlasVerificationCourtVerdictLedger
             if (! flock($fh, LOCK_EX)) {
                 throw new RuntimeException('verdict ledger cannot acquire LOCK_EX');
             }
+            $prevHash = $this->lastVerdictHash();
+            $row['previous_verdict_hash'] = $prevHash;
+            $row['ledger_chain_hash'] = hash('sha256', ($prevHash ?? '').$row['verdict_hash']);
             fwrite($fh, (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
             fflush($fh);
             @\fsync($fh);

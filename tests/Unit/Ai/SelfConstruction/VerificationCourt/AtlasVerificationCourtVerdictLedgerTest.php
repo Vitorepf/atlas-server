@@ -163,4 +163,56 @@ final class AtlasVerificationCourtVerdictLedgerTest extends TestCase
             $this->assertSame('pkt-a', $r['task_packet_id']);
         }
     }
+
+    // ── chain continuity ──────────────────────────────────────────────────────
+
+    public function test_first_row_has_null_previous_verdict_hash(): void
+    {
+        $row = $this->ledger->append($this->payload())['row'];
+        $this->assertArrayHasKey('previous_verdict_hash', $row);
+        $this->assertNull($row['previous_verdict_hash']);
+    }
+
+    public function test_first_row_has_deterministic_ledger_chain_hash(): void
+    {
+        $path2 = sys_get_temp_dir().'/atlas_court_verdicts_dup_'.bin2hex(random_bytes(6)).'.jsonl';
+        $ledger2 = new AtlasVerificationCourtVerdictLedger($path2);
+
+        $row1 = $this->ledger->append($this->payload())['row'];
+        $row2 = $ledger2->append($this->payload())['row'];
+
+        $this->assertSame(64, strlen($row1['ledger_chain_hash']));
+        $this->assertSame($row1['ledger_chain_hash'], $row2['ledger_chain_hash']);
+
+        if (is_file($path2)) {
+            unlink($path2);
+        }
+    }
+
+    public function test_second_row_links_previous_verdict_hash_to_first_row(): void
+    {
+        $r1 = $this->ledger->append($this->payload())['row'];
+        $r2 = $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-2']))['row'];
+
+        $this->assertSame($r1['verdict_hash'], $r2['previous_verdict_hash']);
+    }
+
+    public function test_second_row_has_distinct_ledger_chain_hash(): void
+    {
+        $r1 = $this->ledger->append($this->payload())['row'];
+        $r2 = $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-2']))['row'];
+
+        $this->assertSame(64, strlen($r2['ledger_chain_hash']));
+        $this->assertNotSame($r1['ledger_chain_hash'], $r2['ledger_chain_hash']);
+    }
+
+    public function test_duplicate_does_not_append_and_does_not_break_chain(): void
+    {
+        $r1 = $this->ledger->append($this->payload())['row'];
+        $dup = $this->ledger->append($this->payload());
+        $this->assertSame(AtlasVerificationCourtVerdictLedger::STATUS_ALREADY, $dup['status']);
+
+        $r3 = $this->ledger->append(array_merge($this->payload(), ['replay_outcome_hash' => 'out-h-3']))['row'];
+        $this->assertSame($r1['verdict_hash'], $r3['previous_verdict_hash']);
+    }
 }
