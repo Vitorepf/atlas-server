@@ -355,4 +355,71 @@ final class AtlasExternalBrainMaturityGapIndexTest extends TestCase
         $this->assertArrayHasKey('autonomy_blocker',     $gap);
         $this->assertArrayHasKey('simplification_needed', $gap);
     }
+
+    // ── AC1: next_chain_step structure ────────────────────────────────────────
+
+    public function test_next_chain_step_has_required_fields(): void
+    {
+        $rubric = [$this->dim('loop_origination', 0.9, ['loop_signal'], 'wiring')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => []])['gaps'][0];
+
+        $this->assertArrayHasKey('next_chain_step', $gap);
+        $ncs = $gap['next_chain_step'];
+        foreach (['task_family', 'required_proof_type', 'why_this_unblocks_autonomy'] as $key) {
+            $this->assertArrayHasKey($key, $ncs, "next_chain_step must contain {$key}");
+        }
+        $this->assertNotEmpty($ncs['why_this_unblocks_autonomy']);
+    }
+
+    // ── AC2: next_chain_step differs by blocker_class ─────────────────────────
+
+    public function test_next_chain_step_why_for_no_evidence_yet_mentions_bootstrap(): void
+    {
+        // proof_gap=1.0, no queue → no_evidence_yet
+        $rubric = [$this->dim('dim', 0.8, ['s1'], 'wiring')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => []])['gaps'][0];
+
+        $this->assertSame('no_evidence_yet', $gap['blocker_class']);
+        $this->assertStringContainsStringIgnoringCase('bootstrap', $gap['next_chain_step']['why_this_unblocks_autonomy']);
+    }
+
+    public function test_next_chain_step_why_for_queue_without_proof_mentions_proof(): void
+    {
+        // proof_gap=1.0, queue active → queue_without_proof
+        $rubric = [$this->dim('dim', 0.8, ['s1'], 'cert')];
+        $gap    = $this->index->compute($rubric, [
+            'proven_evidence' => [],
+            'queue_counts'    => ['dim' => 3],
+        ])['gaps'][0];
+
+        $this->assertSame('queue_without_proof', $gap['blocker_class']);
+        $this->assertStringContainsStringIgnoringCase('proof', $gap['next_chain_step']['why_this_unblocks_autonomy']);
+    }
+
+    public function test_next_chain_step_why_for_partial_evidence_gap_mentions_gap(): void
+    {
+        // partial proof → partial_evidence_gap
+        $rubric = [$this->dim('dim', 0.8, ['s1', 's2'], 'wiring')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => ['s1']])['gaps'][0];
+
+        $this->assertSame('partial_evidence_gap', $gap['blocker_class']);
+        $this->assertStringContainsStringIgnoringCase('gap', $gap['next_chain_step']['why_this_unblocks_autonomy']);
+    }
+
+    public function test_next_chain_step_task_family_matches_blocker_map(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1'], 'cert')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => []])['gaps'][0];
+
+        // next_chain_step.task_family must equal next_best_task_family
+        $this->assertSame($gap['next_best_task_family'], $gap['next_chain_step']['task_family']);
+    }
+
+    public function test_next_chain_step_required_proof_type_matches_missing_proof_type(): void
+    {
+        $rubric = [$this->dim('dim', 0.5, ['cert_issued'], 'cert')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => []])['gaps'][0];
+
+        $this->assertSame($gap['missing_proof_type'], $gap['next_chain_step']['required_proof_type']);
+    }
 }

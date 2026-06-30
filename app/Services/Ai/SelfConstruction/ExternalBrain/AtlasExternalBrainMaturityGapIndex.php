@@ -151,6 +151,16 @@ final class AtlasExternalBrainMaturityGapIndex
             ? (bool) $rubricDim['simplification_needed']
             : (count($missing) >= 3 && $proofGap >= 0.5);
 
+        $nextChainStep = [
+            'task_family'                => $nextBestTaskFamily,
+            'required_proof_type'        => $missingProofType,
+            'why_this_unblocks_autonomy' => match ($blockerClass) {
+                'no_evidence_yet'      => "Bootstrap {$taskFamily}: no evidence exists yet; the first task must prove the capability signal before autonomous operation can trust this dimension.",
+                'queue_without_proof'  => "Land proof for {$taskFamily}: tasks are queued but none have produced a proven signal; land one concrete proof before adding more queue work.",
+                default                => "Close {$taskFamily} gap: partial evidence exists; closing the remaining signals removes this as a blocker for autonomous operation.",
+            },
+        ];
+
         return [
             'blocker_class'         => $blockerClass,
             'next_best_task_family' => $nextBestTaskFamily,
@@ -158,6 +168,7 @@ final class AtlasExternalBrainMaturityGapIndex
             'autonomy_blocker'      => $autonomyBlocker,
             'simplification_needed' => $simplificationNeeded,
             'readiness_tier'        => $readinessTier,
+            'next_chain_step'       => $nextChainStep,
         ];
     }
 
