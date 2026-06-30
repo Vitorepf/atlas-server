@@ -14,13 +14,21 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         return new AtlasExternalBrainFinalReadinessMap();
     }
 
-    /** All 7 critical areas fully proven. */
+    /** All 7 critical areas fully proven with all evidence signals. */
     private function allProven(): array
     {
-        $areas = ['anti_goodhart', 'consolidation', 'learning', 'maestro', 'originator', 'runtime', 'task_fabric'];
+        $areas    = ['anti_goodhart', 'consolidation', 'learning', 'maestro', 'originator', 'runtime', 'task_fabric'];
         $evidence = [];
         foreach ($areas as $a) {
-            $evidence[$a] = ['status' => 'proven', 'evidence_count' => 3, 'unresolved_count' => 0];
+            $evidence[$a] = [
+                'status'                  => 'proven',
+                'evidence_count'          => 3,
+                'unresolved_count'        => 0,
+                'has_runnable_proof'      => true,
+                'knowledge_sync_current'  => true,
+                'operator_independence'   => true,
+                'poison_blocker_open'     => false,
+            ];
         }
 
         return $evidence;
@@ -39,7 +47,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     {
         $result = $this->map()->map($this->allProven());
 
-        foreach (['schema', 'area_readiness', 'overall_status', 'blocking_areas', 'next_closure_action'] as $k) {
+        foreach (['schema', 'area_readiness', 'overall_status', 'blocking_areas', 'next_closure_action', 'final_readiness_percent', 'missing_evidence_by_area'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
     }
@@ -77,7 +85,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_critical_area_missing_yields_not_ready(): void
     {
-        $evidence = $this->allProven();
+        $evidence               = $this->allProven();
         $evidence['originator'] = ['status' => 'missing'];
 
         $result = $this->map()->map($evidence);
@@ -88,7 +96,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_critical_area_partially_proven_yields_not_ready(): void
     {
-        $evidence = $this->allProven();
+        $evidence            = $this->allProven();
         $evidence['maestro'] = ['status' => 'partially_proven'];
 
         $result = $this->map()->map($evidence);
@@ -99,8 +107,14 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_critical_area_proven_but_with_unresolved_count_yields_not_ready(): void
     {
-        $evidence = $this->allProven();
-        $evidence['learning'] = ['status' => 'proven', 'unresolved_count' => 2];
+        $evidence             = $this->allProven();
+        $evidence['learning'] = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 2,
+            'has_runnable_proof'      => true,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => true,
+        ];
 
         $result = $this->map()->map($evidence);
 
@@ -110,7 +124,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_critical_area_duplicated_with_unresolved_yields_not_ready(): void
     {
-        $evidence = $this->allProven();
+        $evidence                = $this->allProven();
         $evidence['task_fabric'] = ['status' => 'duplicated', 'unresolved_count' => 3];
 
         $result = $this->map()->map($evidence);
@@ -120,7 +134,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_critical_area_overgrown_yields_not_ready(): void
     {
-        $evidence = $this->allProven();
+        $evidence            = $this->allProven();
         $evidence['runtime'] = ['status' => 'overgrown', 'unresolved_count' => 1];
 
         $result = $this->map()->map($evidence);
@@ -168,7 +182,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     public function test_non_critical_area_missing_does_not_block_final_ready(): void
     {
         // Only proven critical areas → final_ready even if a non-critical area is missing.
-        $evidence = $this->allProven();
+        $evidence               = $this->allProven();
         $evidence['bonus_area'] = ['status' => 'missing'];  // not critical
 
         $result = $this->map()->map($evidence);
@@ -210,9 +224,16 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         $this->assertSame('consolidate_overgrown:runtime', $entry['next_closure_action']);
     }
 
-    public function test_proven_area_closure_action_is_none(): void
+    public function test_proven_area_with_all_evidence_closure_action_is_none(): void
     {
-        $result = $this->map()->map(['learning' => ['status' => 'proven', 'unresolved_count' => 0]]);
+        $result = $this->map()->map(['learning' => [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => true,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => true,
+            'poison_blocker_open'     => false,
+        ]]);
 
         $entry = $result['area_readiness'][0];
         $this->assertSame('none', $entry['next_closure_action']);
@@ -222,7 +243,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_missing_area_takes_priority_over_partially_proven_in_global_action(): void
     {
-        $evidence = $this->allProven();
+        $evidence                = $this->allProven();
         $evidence['originator']  = ['status' => 'missing'];
         $evidence['task_fabric'] = ['status' => 'partially_proven'];
 
@@ -238,11 +259,161 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         $this->assertSame('none', $result['next_closure_action']);
     }
 
+    // ── 95%-honesty gate: evidence signals ───────────────────────────────────
+
+    public function test_critical_area_proven_but_missing_runnable_proof_blocks_final_ready(): void
+    {
+        $evidence               = $this->allProven();
+        $evidence['originator'] = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => false,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => true,
+        ];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+        $this->assertContains('originator', $result['blocking_areas']);
+    }
+
+    public function test_critical_area_proven_but_missing_knowledge_sync_blocks_final_ready(): void
+    {
+        $evidence            = $this->allProven();
+        $evidence['maestro'] = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => true,
+            'knowledge_sync_current'  => false,
+            'operator_independence'   => true,
+        ];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+        $this->assertContains('maestro', $result['blocking_areas']);
+    }
+
+    public function test_critical_area_proven_but_missing_operator_independence_blocks_final_ready(): void
+    {
+        $evidence             = $this->allProven();
+        $evidence['learning'] = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => true,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => false,
+        ];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+        $this->assertContains('learning', $result['blocking_areas']);
+    }
+
+    public function test_critical_area_with_poison_blocker_open_blocks_final_ready(): void
+    {
+        $evidence            = $this->allProven();
+        $evidence['runtime'] = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => true,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => true,
+            'poison_blocker_open'     => true,
+        ];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+        $this->assertContains('runtime', $result['blocking_areas']);
+    }
+
+    public function test_missing_evidence_by_area_reports_missing_signals(): void
+    {
+        $evidence                   = $this->allProven();
+        $evidence['consolidation']  = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => false,
+            'knowledge_sync_current'  => false,
+            'operator_independence'   => true,
+        ];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertArrayHasKey('consolidation', $result['missing_evidence_by_area']);
+        $gaps = $result['missing_evidence_by_area']['consolidation'];
+        $this->assertContains('has_runnable_proof',     $gaps);
+        $this->assertContains('knowledge_sync_current', $gaps);
+        $this->assertNotContains('operator_independence', $gaps);
+    }
+
+    public function test_missing_evidence_by_area_empty_when_all_areas_fully_ready(): void
+    {
+        $result = $this->map()->map($this->allProven());
+
+        $this->assertSame([], $result['missing_evidence_by_area']);
+    }
+
+    public function test_final_readiness_percent_100_when_all_critical_areas_fully_ready(): void
+    {
+        $result = $this->map()->map($this->allProven());
+
+        $this->assertSame(100.0, $result['final_readiness_percent']);
+    }
+
+    public function test_final_readiness_percent_reflects_proportion_of_fully_ready_critical_areas(): void
+    {
+        // 6 of 7 critical areas fully proven; 1 missing runnable proof.
+        $evidence               = $this->allProven();
+        $evidence['originator'] = [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => false,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => true,
+        ];
+
+        $result = $this->map()->map($evidence);
+
+        // 6/7 ≈ 85.71%
+        $this->assertEqualsWithDelta(85.71, $result['final_readiness_percent'], 0.1);
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+    }
+
+    public function test_proven_area_missing_evidence_signals_closure_action_is_add_evidence(): void
+    {
+        $result = $this->map()->map(['anti_goodhart' => [
+            'status'                  => 'proven',
+            'unresolved_count'        => 0,
+            'has_runnable_proof'      => false,
+            'knowledge_sync_current'  => true,
+            'operator_independence'   => true,
+        ]]);
+
+        $entry = $result['area_readiness'][0];
+        $this->assertSame('add_evidence_for:anti_goodhart', $entry['next_closure_action']);
+    }
+
+    public function test_non_critical_missing_evidence_signals_do_not_appear_in_missing_evidence_by_area(): void
+    {
+        $result = $this->map()->map([
+            'custom_non_critical' => [
+                'status'             => 'proven',
+                'has_runnable_proof' => false,
+            ],
+        ]);
+
+        $this->assertArrayNotHasKey('custom_non_critical', $result['missing_evidence_by_area']);
+    }
+
     // ── determinism ───────────────────────────────────────────────────────────
 
     public function test_identical_input_yields_identical_output(): void
     {
-        $evidence = $this->allProven();
+        $evidence               = $this->allProven();
         $evidence['originator'] = ['status' => 'missing'];
 
         $this->assertSame(
