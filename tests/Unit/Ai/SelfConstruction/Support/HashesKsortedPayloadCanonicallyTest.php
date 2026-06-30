@@ -105,33 +105,7 @@ final class HashesKsortedPayloadCanonicallyTest extends TestCase
 
             public function call(array $payload): string
             {
-                return $this->doHash($payload);
-            }
-
-            private function doHash(array $payload): string
-            {
                 return $this->stableHash($payload);
-            }
-
-            private function recursivelyKsort(array $value): array
-            {
-                if (array_is_list($value)) {
-                    foreach ($value as $index => $item) {
-                        if (is_array($item)) {
-                            $value[$index] = $this->recursivelyKsort($item);
-                        }
-                    }
-
-                    return $value;
-                }
-                ksort($value);
-                foreach ($value as $key => $item) {
-                    if (is_array($item)) {
-                        $value[$key] = $this->recursivelyKsort($item);
-                    }
-                }
-
-                return $value;
             }
         };
     }
