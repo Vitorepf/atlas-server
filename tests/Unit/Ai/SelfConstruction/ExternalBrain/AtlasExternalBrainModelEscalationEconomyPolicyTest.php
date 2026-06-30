@@ -205,4 +205,90 @@ final class AtlasExternalBrainModelEscalationEconomyPolicyTest extends TestCase
 
         $this->assertSame($this->policy()->decide($input), $this->policy()->decide($input));
     }
+
+    // ── AC2: defer_for_more_evidence (opt-in) ────────────────────────────────
+
+    public function test_defer_for_weak_evidence_when_opted_in(): void
+    {
+        $result = $this->policy()->decide([
+            'ambiguity_score'               => 0.20,
+            'evidence_quality'              => 0.40,
+            'scaffold_confidence'           => 0.80,
+            'prefer_defer_for_weak_evidence' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_DEFER_FOR_MORE_EVIDENCE, $result['decision']);
+        $this->assertTrue($result['anti_over_escalation']);
+    }
+
+    public function test_no_defer_when_not_opted_in(): void
+    {
+        // Same low-evidence input without the flag -> scaffolded_small_model (existing behaviour preserved)
+        $result = $this->policy()->decide([
+            'ambiguity_score'    => 0.20,
+            'evidence_quality'   => 0.40,
+            'scaffold_confidence' => 0.80,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_DEFER_FOR_MORE_EVIDENCE, $result['decision']);
+    }
+
+    public function test_defer_not_triggered_when_evidence_meets_floor(): void
+    {
+        $result = $this->policy()->decide([
+            'ambiguity_score'               => 0.20,
+            'evidence_quality'              => 0.85, // >= floor
+            'scaffold_confidence'           => 0.80,
+            'prefer_defer_for_weak_evidence' => true,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_DEFER_FOR_MORE_EVIDENCE, $result['decision']);
+    }
+
+    public function test_defer_not_triggered_when_frontier_triggered_first(): void
+    {
+        // High ambiguity -> frontier wins over defer (rule 2 before rule 4)
+        $result = $this->policy()->decide([
+            'ambiguity_score'               => 0.80,
+            'evidence_quality'              => 0.40,
+            'scaffold_confidence'           => 0.80,
+            'prefer_defer_for_weak_evidence' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_FRONTIER_MODEL, $result['decision']);
+    }
+
+    // ── AC3: quality delta gates leverage-path frontier ──────────────────────
+
+    public function test_frontier_blocked_when_quality_delta_below_minimum(): void
+    {
+        // High leverage + low scaffold, but quality delta is tiny -> should not escalate to frontier
+        $result = $this->policy()->decide([
+            'ambiguity_score'        => 0.30,
+            'evidence_quality'       => 0.80,
+            'scaffold_confidence'    => 0.40,
+            'leverage_score'         => 0.90,
+            'expected_quality_delta' => 0.05, // below default 0.20
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_FRONTIER_MODEL, $result['decision']);
+    }
+
+    public function test_frontier_chosen_when_quality_delta_meets_minimum(): void
+    {
+        $result = $this->policy()->decide([
+            'ambiguity_score'        => 0.30,
+            'evidence_quality'       => 0.80,
+            'scaffold_confidence'    => 0.40,
+            'leverage_score'         => 0.90,
+            'expected_quality_delta' => 0.25, // above default 0.20
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_FRONTIER_MODEL, $result['decision']);
+    }
+
+    public function test_defer_for_more_evidence_constant_exists(): void
+    {
+        $this->assertSame('defer_for_more_evidence', AtlasExternalBrainModelEscalationEconomyPolicy::DECISION_DEFER_FOR_MORE_EVIDENCE);
+    }
 }
