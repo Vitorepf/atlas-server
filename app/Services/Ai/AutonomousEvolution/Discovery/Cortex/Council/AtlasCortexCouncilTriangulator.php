@@ -25,7 +25,7 @@ final class AtlasCortexCouncilTriangulator
     public function triangulate(array $observations): CouncilReport
     {
         if ($observations === []) {
-            return new CouncilReport('', [], [], [], []);
+            return new CouncilReport('', [], [], [], [], ['areas' => [], 'maturity_signals' => [], 'risk_signals' => [], 'owner_hints' => [], 'gap_hints' => []]);
         }
 
         // All observations should share the same subject_id; we surface the first one.
@@ -106,7 +106,59 @@ final class AtlasCortexCouncilTriangulator
         $participating = array_values(array_unique($participating));
         sort($participating, SORT_STRING);
 
-        return new CouncilReport($subjectId, $rawFactsByLens, $agreements, $disagreements, $participating);
+        $allFacts = $rawFactsByLens !== [] ? array_merge(...array_values($rawFactsByLens)) : [];
+        $domainMapDigest = $this->buildDomainMapDigest($allFacts);
+
+        return new CouncilReport($subjectId, $rawFactsByLens, $agreements, $disagreements, $participating, $domainMapDigest);
+    }
+
+    /**
+     * Derive a fact-preserving domain summary from the collected lens facts.
+     * Never adds score, verdict, rank, or winner fields — only groups existing facts.
+     *
+     * @param  list<array<string,mixed>>  $allFacts
+     * @return array{areas:list<string>,maturity_signals:list<array<string,mixed>>,risk_signals:list<array<string,mixed>>,owner_hints:list<string>,gap_hints:list<string>}
+     */
+    private function buildDomainMapDigest(array $allFacts): array
+    {
+        $areas = [];
+        $maturitySignals = [];
+        $riskSignals = [];
+        $ownerHints = [];
+        $gapHints = [];
+
+        foreach ($allFacts as $fact) {
+            if (! is_array($fact)) {
+                continue;
+            }
+            $kind = (string) ($fact['kind'] ?? '');
+
+            if ($kind !== '') {
+                $areas[] = explode('_', $kind)[0];
+            }
+            if ($kind !== '' && preg_match('/proven|stable|covered|mature|established|certified/i', $kind)) {
+                $maturitySignals[] = $fact;
+            }
+            if ($kind !== '' && preg_match('/uncovered|missing|gap|risk|conflict|error|unused|fail|absent/i', $kind)) {
+                $riskSignals[] = $fact;
+            }
+            foreach (['owner', 'namespace', 'module'] as $ownerKey) {
+                if (isset($fact[$ownerKey]) && is_string($fact[$ownerKey]) && trim($fact[$ownerKey]) !== '') {
+                    $ownerHints[] = trim($fact[$ownerKey]);
+                }
+            }
+            if (isset($fact['gap']) && is_string($fact['gap']) && trim($fact['gap']) !== '') {
+                $gapHints[] = trim($fact['gap']);
+            }
+        }
+
+        return [
+            'areas'            => array_values(array_unique($areas)),
+            'maturity_signals' => $maturitySignals,
+            'risk_signals'     => $riskSignals,
+            'owner_hints'      => array_values(array_unique($ownerHints)),
+            'gap_hints'        => array_values(array_unique($gapHints)),
+        ];
     }
 
     /**

@@ -119,4 +119,44 @@ final class AtlasCortexCouncilTriangulatorTest extends TestCase
         $this->assertSame([], $report->disagreements);
         $this->assertSame([], $report->participatingLensIds);
     }
+
+    public function test_domain_map_digest_in_to_array_has_five_required_keys_and_no_scoring_fields(): void
+    {
+        $report = $this->triangulator()->triangulate([
+            $this->obs('callgraph', [
+                ['kind' => 'method_unused', 'method' => 'Sample::doStuff'],
+                ['kind' => 'covered_method', 'method' => 'Sample::go', 'count' => 5],
+            ]),
+        ]);
+
+        $arr = $report->toArray();
+        $this->assertArrayHasKey('domain_map_digest', $arr);
+        $digest = $arr['domain_map_digest'];
+
+        foreach (['areas', 'maturity_signals', 'risk_signals', 'owner_hints', 'gap_hints'] as $key) {
+            $this->assertArrayHasKey($key, $digest, "domain_map_digest must contain '{$key}'");
+        }
+
+        // fact-preserving: no scoring/verdict/rank/winner sub-keys
+        foreach (array_keys($digest) as $k) {
+            $this->assertDoesNotMatchRegularExpression('/score|verdict|rank|winner/i', (string) $k);
+        }
+
+        // covered_method → maturity_signals; method_unused → risk_signals; both → areas contain 'method' and 'covered'
+        $this->assertContains('method', $digest['areas']);
+        $this->assertContains('covered', $digest['areas']);
+        $this->assertNotEmpty($digest['maturity_signals'], 'covered_method must surface as a maturity signal');
+        $this->assertNotEmpty($digest['risk_signals'], 'method_unused must surface as a risk signal');
+    }
+
+    public function test_empty_observations_produce_empty_domain_map_digest(): void
+    {
+        $digest = $this->triangulator()->triangulate([])->toArray()['domain_map_digest'];
+
+        $this->assertSame([], $digest['areas']);
+        $this->assertSame([], $digest['maturity_signals']);
+        $this->assertSame([], $digest['risk_signals']);
+        $this->assertSame([], $digest['owner_hints']);
+        $this->assertSame([], $digest['gap_hints']);
+    }
 }
