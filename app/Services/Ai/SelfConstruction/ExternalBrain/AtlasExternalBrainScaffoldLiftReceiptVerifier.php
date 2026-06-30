@@ -5,34 +5,56 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure verifier. Proves that a scaffolded model run produced measurable lift
- * over a baseline on the same challenge set.
+ * Promotion-grade evidence chain verifier for model-amplifier scaffold lift.
+ * Proves scaffolded run produced measurable real-value lift over baseline on identical challenges.
  *
- * Input facts:
- *   pairs              — list of {challenge_id, baseline_scores{dim→float}, scaffolded_scores{dim→float}}.
- *   required_dimensions — list of dimension names that must be present and lifted.
- *   min_sample_size    — minimum valid pairs required (default 5).
- *   min_lift_threshold — minimum per-dimension average lift to count as lifted (default 0.05).
+ * INPUT:
+ *   pairs               — list of {challenge_id, baseline_scores{dim→float}, scaffolded_scores{dim→float}}
+ *   required_dimensions — dims that must be present and lifted (use real dims, not gate_pass_rate)
+ *   min_sample_size     — min valid pairs (default 5)
+ *   min_lift_threshold  — per-dimension average lift floor (default 0.05)
+ *   give_back_delta     — scaffolded_give_back_rate − baseline_give_back_rate (must be ≤ 0)
+ *   poison_delta        — scaffolded_poison_rate − baseline_poison_rate (must be ≤ 0)
+ *   cost_ceiling        — max allowed cost ratio scaffolded/baseline (e.g. 2.0)
+ *   token_cost_baseline — baseline token cost (for cost ratio check)
+ *   token_cost_scaffolded — scaffolded token cost
  *
- * AC2: Each pair must supply both baseline_scores and scaffolded_scores for the same
- *   challenge. Unpaired or asymmetric pairs are excluded before any calculation.
+ * REJECTION GATES (all evaluated; each match adds to rejected_claims):
+ *   insufficient_sample        — valid pair count < min_sample_size
+ *   missing_required_dimension — required dim absent from all pairs
+ *   lift_below_threshold       — required dim average lift < threshold
+ *   worse_give_back_delta      — give_back_delta > 0 (scaffolded regressions)
+ *   worse_poison_delta         — poison_delta > 0
+ *   cost_above_ceiling         — token_cost_scaffolded / token_cost_baseline > cost_ceiling
+ *   proxy_only_lift            — all lifted required dims are proxy-only (gate_pass_rate);
+ *                                none from REAL_LIFT_DIMENSIONS show lift
  *
- * AC3: Lift claim is rejected when any of:
- *   - valid pair count < min_sample_size           → insufficient_sample
- *   - a required dimension absent from all pairs   → missing_required_dimension
- *   - a required dimension average lift < threshold → lift_below_threshold
+ * REAL LIFT DIMENSIONS (non-proxy):
+ *   commit_success_prediction, implementability, dedup_honesty,
+ *   structural_leverage, compounding_impact
  *
- * AC4 outputs: verified, lift_by_dimension, rejected_claims, sample_size,
- *   next_measurement_recommendation.
+ * OUTPUT:
+ *   schema_version, verified, lift_by_dimension, rejected_claims, sample_size,
+ *   promotion_readiness, next_measurement_recommendation
  *
- * Pure, deterministic, no providers, no I/O.
+ * PURE / DETERMINISTIC / NO I/O.
  */
 final class AtlasExternalBrainScaffoldLiftReceiptVerifier
 {
     public const SCHEMA = 'atlas.external_brain.scaffold_lift_receipt_verifier.v1';
 
-    private const DEFAULT_MIN_SAMPLE      = 5;
-    private const DEFAULT_MIN_LIFT        = 0.05;
+    private const DEFAULT_MIN_SAMPLE = 5;
+    private const DEFAULT_MIN_LIFT   = 0.05;
+
+    private const REAL_LIFT_DIMENSIONS = [
+        'commit_success_prediction',
+        'implementability',
+        'dedup_honesty',
+        'structural_leverage',
+        'compounding_impact',
+    ];
+
+    private const PROXY_DIMENSIONS = ['gate_pass_rate'];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -40,18 +62,27 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
      */
     public function verify(array $facts): array
     {
-        $rawPairs          = is_array($facts['pairs'] ?? null) ? $facts['pairs'] : [];
-        $requiredDims      = is_array($facts['required_dimensions'] ?? null) ? $facts['required_dimensions'] : [];
-        $minSample         = max(1, (int) ($facts['min_sample_size']    ?? self::DEFAULT_MIN_SAMPLE));
-        $minLift           = (float) ($facts['min_lift_threshold'] ?? self::DEFAULT_MIN_LIFT);
+        $rawPairs     = is_array($facts['pairs'] ?? null) ? $facts['pairs'] : [];
+        $requiredDims = is_array($facts['required_dimensions'] ?? null)
+            ? array_map('strval', $facts['required_dimensions'])
+            : [];
+        $minSample = max(1, (int) ($facts['min_sample_size']   ?? self::DEFAULT_MIN_SAMPLE));
+        $minLift   = (float) ($facts['min_lift_threshold'] ?? self::DEFAULT_MIN_LIFT);
 
-        // AC2: Validate pairs — both sides must have scores.
+        // New delta / cost inputs.
+        $giveBackDelta       = isset($facts['give_back_delta'])       ? (float) $facts['give_back_delta']       : null;
+        $poisonDelta         = isset($facts['poison_delta'])          ? (float) $facts['poison_delta']          : null;
+        $costCeiling         = isset($facts['cost_ceiling'])          ? (float) $facts['cost_ceiling']          : null;
+        $tokenCostBaseline   = isset($facts['token_cost_baseline'])   ? (float) $facts['token_cost_baseline']   : null;
+        $tokenCostScaffolded = isset($facts['token_cost_scaffolded']) ? (float) $facts['token_cost_scaffolded'] : null;
+
+        // Validate pairs — both sides must have scores.
         $validPairs = $this->filterValidPairs($rawPairs);
         $sampleSize = count($validPairs);
 
         $rejectedClaims = [];
 
-        // AC3a: insufficient sample.
+        // Insufficient sample.
         if ($sampleSize < $minSample) {
             $rejectedClaims[] = [
                 'reason'  => 'insufficient_sample',
@@ -59,12 +90,11 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
             ];
         }
 
-        // Compute per-dimension lift across valid pairs.
+        // Per-dimension lift.
         $liftByDimension = $this->computeLift($validPairs);
 
-        // AC3b: required dimension missing from all pairs.
+        // Required dimension missing.
         foreach ($requiredDims as $dim) {
-            $dim = (string) $dim;
             if (! array_key_exists($dim, $liftByDimension)) {
                 $rejectedClaims[] = [
                     'reason'  => 'missing_required_dimension',
@@ -73,9 +103,8 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
             }
         }
 
-        // AC3c: required dimension lift below threshold.
+        // Required dimension lift below threshold.
         foreach ($requiredDims as $dim) {
-            $dim = (string) $dim;
             if (array_key_exists($dim, $liftByDimension) &&
                 $liftByDimension[$dim]['average_lift'] < $minLift) {
                 $rejectedClaims[] = [
@@ -90,14 +119,73 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
             }
         }
 
-        $verified = empty($rejectedClaims) && $sampleSize > 0;
+        // Worse give_back delta.
+        if ($giveBackDelta !== null && $giveBackDelta > 0.0) {
+            $rejectedClaims[] = [
+                'reason'  => 'worse_give_back_delta',
+                'details' => sprintf('give_back_delta %.4f > 0; scaffolded regresses give_back rate', $giveBackDelta),
+            ];
+        }
+
+        // Worse poison delta.
+        if ($poisonDelta !== null && $poisonDelta > 0.0) {
+            $rejectedClaims[] = [
+                'reason'  => 'worse_poison_delta',
+                'details' => sprintf('poison_delta %.4f > 0; scaffolded regresses poison rate', $poisonDelta),
+            ];
+        }
+
+        // Cost above ceiling.
+        if ($costCeiling !== null && $tokenCostBaseline !== null && $tokenCostBaseline > 0.0
+            && $tokenCostScaffolded !== null) {
+            $ratio = $tokenCostScaffolded / $tokenCostBaseline;
+            if ($ratio > $costCeiling) {
+                $rejectedClaims[] = [
+                    'reason'  => 'cost_above_ceiling',
+                    'details' => sprintf(
+                        'cost_ratio %.4f > ceiling %.4f (baseline %.4f, scaffolded %.4f)',
+                        $ratio,
+                        $costCeiling,
+                        $tokenCostBaseline,
+                        $tokenCostScaffolded,
+                    ),
+                ];
+            }
+        }
+
+        // Proxy-only lift: all lifted required dims are proxy (e.g. gate_pass_rate) with
+        // no real-value dimension showing lift.
+        if ($requiredDims !== []) {
+            $liftedRequired = array_values(array_filter(
+                $requiredDims,
+                fn(string $d): bool => array_key_exists($d, $liftByDimension)
+                    && $liftByDimension[$d]['is_lifted'],
+            ));
+            if ($liftedRequired !== []) {
+                $proxyLifted = array_values(array_filter(
+                    $liftedRequired,
+                    fn(string $d): bool => in_array($d, self::PROXY_DIMENSIONS, true),
+                ));
+                // Fire only when EVERY lifted required dim is a known proxy.
+                if (count($proxyLifted) === count($liftedRequired)) {
+                    $rejectedClaims[] = [
+                        'reason'  => 'proxy_only_lift',
+                        'details' => 'only proxy dimensions (e.g. gate_pass_rate) show lift; no real-value dimension lifted',
+                    ];
+                }
+            }
+        }
+
+        $verified           = empty($rejectedClaims) && $sampleSize > 0;
+        $promotionReadiness = $verified;
 
         return [
-            'schema_version'               => self::SCHEMA,
-            'verified'                     => $verified,
-            'lift_by_dimension'            => $liftByDimension,
-            'rejected_claims'              => $rejectedClaims,
-            'sample_size'                  => $sampleSize,
+            'schema_version'                  => self::SCHEMA,
+            'verified'                        => $verified,
+            'promotion_readiness'             => $promotionReadiness,
+            'lift_by_dimension'               => $liftByDimension,
+            'rejected_claims'                 => $rejectedClaims,
+            'sample_size'                     => $sampleSize,
             'next_measurement_recommendation' => $this->recommendation($verified, $sampleSize, $minSample, $rejectedClaims),
         ];
     }
