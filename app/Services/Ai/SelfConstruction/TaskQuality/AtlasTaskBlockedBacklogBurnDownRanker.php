@@ -53,10 +53,15 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
 
     /**
      * @param  list<array<string,mixed>>  $families
+     * @param  array<string,mixed>  $context  optional live worker-floor facts:
+     *         worker_floor_low?: bool  — the live worker floor is currently low; high-confidence
+     *                                    respec families carry extra urgency (worker_feed_opportunity)
+     *                                    over cosmetic retire/manual-review actions
      * @return array{schema:string, ranked_actions:list<array<string,mixed>>}
      */
-    public function rank(array $families): array
+    public function rank(array $families, array $context = []): array
     {
+        $workerFloorLow = (bool) ($context['worker_floor_low'] ?? false);
         $rankedActions = [];
 
         foreach ($families as $f) {
@@ -79,6 +84,9 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
                 $action = self::ACTION_RESPEC_AND_RESUBMIT;
                 $reasonCodes[] = 'can_submit_replacement_available';
                 $reasonCodes[] = $confidence.'_confidence_classification';
+                if ($workerFloorLow) {
+                    $reasonCodes[] = 'worker_feed_opportunity';
+                }
                 $expectedUnblocked = $packetCount;
             } elseif ($giveBackTotal >= self::POISON_GIVE_BACK_THRESHOLD && ! $canSubmitReplacement) {
                 $action = self::ACTION_RETIRE;

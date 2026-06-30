@@ -164,4 +164,38 @@ final class AtlasTaskBlockedBacklogBurnDownRankerTest extends TestCase
         $r = $this->ranker()->rank([]);
         $this->assertSame([], $r['ranked_actions']);
     }
+
+    // ── worker_feed_opportunity ──────────────────────────────────────────────
+
+    public function test_high_confidence_respec_family_includes_worker_feed_opportunity_when_worker_floor_low(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('alpha', ['can_submit_replacement' => true, 'recovered_field_confidence' => 'high']),
+        ], ['worker_floor_low' => true]);
+
+        $this->assertSame('respec_and_resubmit', $r['ranked_actions'][0]['action']);
+        $this->assertContains('worker_feed_opportunity', $r['ranked_actions'][0]['reason_codes']);
+    }
+
+    public function test_respec_family_omits_worker_feed_opportunity_when_worker_floor_not_low(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('alpha', ['can_submit_replacement' => true, 'recovered_field_confidence' => 'high']),
+        ]);
+
+        $this->assertNotContains('worker_feed_opportunity', $r['ranked_actions'][0]['reason_codes']);
+    }
+
+    public function test_repeated_give_back_poison_still_retired_when_no_replacement_even_with_low_worker_floor(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('poison_family', [
+                'can_submit_replacement' => false,
+                'give_back_total' => 6,
+            ]),
+        ], ['worker_floor_low' => true]);
+
+        $this->assertSame('retire', $r['ranked_actions'][0]['action']);
+        $this->assertNotContains('worker_feed_opportunity', $r['ranked_actions'][0]['reason_codes']);
+    }
 }
