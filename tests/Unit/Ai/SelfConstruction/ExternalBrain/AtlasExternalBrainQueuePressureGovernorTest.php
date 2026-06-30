@@ -35,10 +35,14 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
     {
         $result = $this->governor()->decide($this->input());
 
-        foreach (['schema', 'decision', 'reason', 'urgent_override'] as $key) {
+        foreach (['schema', 'decision', 'reason', 'urgent_override', 'batch_budget'] as $key) {
             $this->assertArrayHasKey($key, $result);
         }
         $this->assertSame(AtlasExternalBrainQueuePressureGovernor::SCHEMA, $result['schema']);
+
+        foreach (['max_tasks', 'minimum_leverage_score', 'evidence_floor', 'reason'] as $bk) {
+            $this->assertArrayHasKey($bk, $result['batch_budget']);
+        }
     }
 
     public function test_healthy_queue_high_leverage_enqueues_now(): void
@@ -188,5 +192,88 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
             $this->assertIsString($result['reason']);
             $this->assertNotEmpty($result['reason']);
         }
+    }
+
+    // ── batch_budget values by scenario ──────────────────────────────────────
+
+    public function test_healthy_queue_enqueue_budget_is_max_10(): void
+    {
+        $result = $this->governor()->decide($this->input());
+
+        $budget = $result['batch_budget'];
+        $this->assertSame(10, $budget['max_tasks']);
+        $this->assertSame(0.30, $budget['minimum_leverage_score']);
+        $this->assertSame(0.20, $budget['evidence_floor']);
+    }
+
+    public function test_high_pressure_bypass_enqueue_budget_is_tight_3(): void
+    {
+        // High claimable + high leverage → enqueue_now under pressure
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 40, 'active_leases' => 3],
+            candidate:  ['leverage_score' => 0.80, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $budget = $result['batch_budget'];
+        $this->assertSame(3, $budget['max_tasks']);
+        $this->assertSame(0.75, $budget['minimum_leverage_score']);
+        $this->assertSame(0.50, $budget['evidence_floor']);
+    }
+
+    public function test_defer_budget_is_max_1_high_floor(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 3],
+            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_DEFER, $result['decision']);
+        $budget = $result['batch_budget'];
+        $this->assertSame(1, $budget['max_tasks']);
+        $this->assertSame(0.75, $budget['minimum_leverage_score']);
+        $this->assertSame(0.60, $budget['evidence_floor']);
+    }
+
+    public function test_consolidate_budget_is_max_3_medium_floor(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            candidate: ['leverage_score' => 0.60, 'task_class' => 'normal'],
+            context:   ['blocked_families' => [], 'worker_pressure' => 'high'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_CONSOLIDATE, $result['decision']);
+        $budget = $result['batch_budget'];
+        $this->assertSame(3, $budget['max_tasks']);
+        $this->assertSame(0.50, $budget['minimum_leverage_score']);
+        $this->assertSame(0.40, $budget['evidence_floor']);
+    }
+
+    public function test_stop_budget_is_max_0_full_floor(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 20],
+            candidate:  ['leverage_score' => 0.95, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
+        $budget = $result['batch_budget'];
+        $this->assertSame(0, $budget['max_tasks']);
+        $this->assertSame(1.0, $budget['minimum_leverage_score']);
+        $this->assertSame(1.0, $budget['evidence_floor']);
+    }
+
+    public function test_urgent_repair_budget_has_no_floors(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 99, 'active_leases' => 99],
+            candidate:  ['leverage_score' => 0.0, 'task_class' => 'malformed'],
+        ));
+
+        $this->assertTrue($result['urgent_override']);
+        $budget = $result['batch_budget'];
+        $this->assertSame(1, $budget['max_tasks']);
+        $this->assertSame(0.0, $budget['minimum_leverage_score']);
+        $this->assertSame(0.0, $budget['evidence_floor']);
     }
 }

@@ -91,10 +91,10 @@ final class AtlasExternalBrainQueuePressureGovernor
         // --- High pressure on either dimension ---
         if ($highClaimable || $highLeases) {
             if ($leverageScore >= self::HIGH_LEVERAGE) {
-                return $this->result(self::DECISION_ENQUEUE_NOW, "high-leverage prerequisite (score={$leverageScore}) admitted despite elevated pressure");
+                return $this->result(self::DECISION_ENQUEUE_NOW, "high-leverage prerequisite (score={$leverageScore}) admitted despite elevated pressure", underPressure: true);
             }
 
-            return $this->result(self::DECISION_DEFER, "queue pressure elevated (claimable={$claimableDepth}, leases={$activeLeases}); low-leverage batch deferred");
+            return $this->result(self::DECISION_DEFER, "queue pressure elevated (claimable={$claimableDepth}, leases={$activeLeases}); low-leverage batch deferred", underPressure: true);
         }
 
         // --- Blocked family check ---
@@ -105,24 +105,68 @@ final class AtlasExternalBrainQueuePressureGovernor
         // --- Worker pressure ---
         if ($workerPressure === 'high') {
             if ($leverageScore >= self::MEDIUM_LEVERAGE) {
-                return $this->result(self::DECISION_CONSOLIDATE, "worker pressure high; consolidate to minimum viable batch (leverage={$leverageScore})");
+                return $this->result(self::DECISION_CONSOLIDATE, "worker pressure high; consolidate to minimum viable batch (leverage={$leverageScore})", underPressure: true);
             }
 
-            return $this->result(self::DECISION_DEFER, "worker pressure high and leverage below threshold (score={$leverageScore})");
+            return $this->result(self::DECISION_DEFER, "worker pressure high and leverage below threshold (score={$leverageScore})", underPressure: true);
         }
 
         // --- Healthy ---
         return $this->result(self::DECISION_ENQUEUE_NOW, "queue pressure nominal; leverage={$leverageScore}");
     }
 
-    /** @return array{schema:string,decision:string,reason:string,urgent_override:bool} */
-    private function result(string $decision, string $reason, bool $urgentOverride = false): array
+    /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,batch_budget:array<string,mixed>} */
+    private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false): array
     {
         return [
-            'schema'         => self::SCHEMA,
-            'decision'       => $decision,
-            'reason'         => $reason,
+            'schema'          => self::SCHEMA,
+            'decision'        => $decision,
+            'reason'          => $reason,
             'urgent_override' => $urgentOverride,
+            'batch_budget'    => $this->buildBatchBudget($decision, $urgentOverride, $underPressure),
         ];
+    }
+
+    /** @return array{max_tasks:int, minimum_leverage_score:float, evidence_floor:float, reason:string} */
+    private function buildBatchBudget(string $decision, bool $urgentOverride, bool $underPressure): array
+    {
+        if ($urgentOverride) {
+            return [
+                'max_tasks'              => 1,
+                'minimum_leverage_score' => 0.0,
+                'evidence_floor'         => 0.0,
+                'reason'                 => 'urgent repair bypass: no leverage or evidence floor applies',
+            ];
+        }
+
+        return match ($decision) {
+            self::DECISION_ENQUEUE_NOW => $underPressure
+                ? ['max_tasks' => 3,  'minimum_leverage_score' => 0.75, 'evidence_floor' => 0.50, 'reason' => 'high-leverage bypass under pressure: tight batch of 3']
+                : ['max_tasks' => 10, 'minimum_leverage_score' => 0.30, 'evidence_floor' => 0.20, 'reason' => 'healthy queue: standard batch of 10'],
+            self::DECISION_CONSOLIDATE => [
+                'max_tasks'              => 3,
+                'minimum_leverage_score' => 0.50,
+                'evidence_floor'         => 0.40,
+                'reason'                 => 'worker pressure high: minimum viable batch of 3',
+            ],
+            self::DECISION_DEFER => [
+                'max_tasks'              => 1,
+                'minimum_leverage_score' => 0.75,
+                'evidence_floor'         => 0.60,
+                'reason'                 => 'elevated pressure: at most 1 high-leverage task per digest cycle',
+            ],
+            self::DECISION_STOP => [
+                'max_tasks'              => 0,
+                'minimum_leverage_score' => 1.0,
+                'evidence_floor'         => 1.0,
+                'reason'                 => 'critical pressure: no new tasks may be enqueued',
+            ],
+            default => [
+                'max_tasks'              => 1,
+                'minimum_leverage_score' => 0.50,
+                'evidence_floor'         => 0.30,
+                'reason'                 => 'unknown decision: conservative fallback',
+            ],
+        };
     }
 }
