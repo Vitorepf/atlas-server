@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopSelfArchitectureScanner as ConsolidationScanner;
 use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfArchitectureScanner;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -56,5 +57,50 @@ class AtlasLoopSelfArchitectureScannerTest extends TestCase
         }
         self::assertArrayNotHasKey('ranking', $verdict);
         self::assertArrayNotHasKey('top', $verdict);
+    }
+
+    // --- Consolidation scanner tests ---
+
+    public function test_consolidation_scanner_emits_deterministic_snapshot_for_fixture(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-consol-scan-'.bin2hex(random_bytes(4));
+        mkdir($dir, 0755, true);
+        file_put_contents($dir.'/Alpha.php', "<?php\n\nnamespace App\\Services\\Ai\\AutonomousEvolution;\n\nuse App\\Services\\Ai\\AutonomousEvolution\\Beta;\n\nclass Alpha {}\n");
+        file_put_contents($dir.'/Beta.php', "<?php\n\nnamespace App\\Services\\Ai\\AutonomousEvolution;\n\nclass Beta {}\n");
+        file_put_contents($dir.'/AtlasLoopQueueRefiller.php', "<?php\n\nnamespace App\\Services\\Ai\\AutonomousEvolution;\n\nuse App\\Services\\Ai\\AutonomousEvolution\\Alpha;\nuse App\\Services\\Ai\\AutonomousEvolution\\Beta;\n\nclass AtlasLoopQueueRefiller\n{\n    public function run(): void {}\n}\n");
+
+        try {
+            $scanner = new ConsolidationScanner;
+            $result = $scanner->scan($dir);
+
+            self::assertSame(ConsolidationScanner::SCHEMA, $result['schema_version']);
+            self::assertSame(3, $result['fileCount']);
+            self::assertSame(15, $result['totalLoc']);
+            self::assertSame(8, $result['refillerLoc']);
+            self::assertSame(['App\\Services\\Ai\\AutonomousEvolution\\Beta'], $result['perFileEdges']['Alpha.php']);
+            self::assertSame([], $result['perFileEdges']['Beta.php']);
+
+            $firstRun = json_encode($result, JSON_UNESCAPED_SLASHES);
+            $secondRun = json_encode($scanner->scan($dir), JSON_UNESCAPED_SLASHES);
+            self::assertSame($firstRun, $secondRun, 'scan must be deterministic');
+        } finally {
+            array_map('unlink', glob($dir.'/*') ?: []);
+            @rmdir($dir);
+        }
+    }
+
+    public function test_consolidation_scanner_empty_directory_returns_zero(): void
+    {
+        $dir = sys_get_temp_dir().'/atlas-consol-empty-'.bin2hex(random_bytes(4));
+        mkdir($dir, 0755, true);
+
+        try {
+            $result = (new ConsolidationScanner)->scan($dir);
+            self::assertSame(0, $result['totalLoc']);
+            self::assertSame(0, $result['refillerLoc']);
+            self::assertSame(0, $result['fileCount']);
+        } finally {
+            @rmdir($dir);
+        }
     }
 }

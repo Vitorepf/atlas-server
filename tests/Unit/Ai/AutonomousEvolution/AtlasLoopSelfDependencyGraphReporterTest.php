@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopSelfDependencyGraphReporter as ConsolidationGraphReporter;
 use App\Services\Ai\AutonomousEvolution\Introspection\AtlasLoopSelfDependencyGraphReporter;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -110,5 +111,57 @@ PHP;
         self::assertGreaterThan(0, count($verdict['edges']));
         self::assertGreaterThanOrEqual(0, $verdict['graph_depth']);
         self::assertGreaterThanOrEqual(0, $verdict['graph_width']);
+    }
+
+    // --- Consolidation graph reporter tests ---
+
+    public function test_consolidation_tarjan_detects_known_3_node_cycle(): void
+    {
+        $graph = [
+            'A' => ['B'],
+            'B' => ['C'],
+            'C' => ['A'],
+            'D' => [],
+        ];
+        $reporter = new ConsolidationGraphReporter;
+        $result = $reporter->report($graph);
+
+        self::assertSame(ConsolidationGraphReporter::SCHEMA, $result['schema_version']);
+        self::assertSame(3, $result['edgeCount']);
+        self::assertSame(1, $result['cycleCount']);
+        self::assertCount(1, $result['cycleMembers']);
+        self::assertEqualsCanonicalizing(['A', 'B', 'C'], $result['cycleMembers'][0]);
+    }
+
+    public function test_consolidation_acyclic_graph_reports_zero_cycles(): void
+    {
+        $graph = [
+            'A' => ['B', 'C'],
+            'B' => ['D'],
+            'C' => [],
+            'D' => [],
+        ];
+        $result = (new ConsolidationGraphReporter)->report($graph);
+
+        self::assertSame(3, $result['edgeCount']);
+        self::assertSame(0, $result['cycleCount']);
+        self::assertSame([], $result['cycleMembers']);
+    }
+
+    public function test_consolidation_empty_graph(): void
+    {
+        $result = (new ConsolidationGraphReporter)->report([]);
+
+        self::assertSame(0, $result['edgeCount']);
+        self::assertSame(0, $result['cycleCount']);
+    }
+
+    public function test_consolidation_output_has_no_score_fields(): void
+    {
+        $result = (new ConsolidationGraphReporter)->report(['A' => ['B'], 'B' => []]);
+        $json = (string) json_encode($result);
+        foreach (['"score"', '"rating"', '"grade"', '"quality"'] as $forbidden) {
+            self::assertStringNotContainsString($forbidden, $json);
+        }
     }
 }
