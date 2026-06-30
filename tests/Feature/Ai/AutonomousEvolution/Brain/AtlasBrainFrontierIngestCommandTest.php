@@ -57,6 +57,20 @@ final class AtlasBrainFrontierIngestCommandTest extends TestCase
         self::assertSame(4, count(array_unique(array_column($rows, 'url'))));
     }
 
+    public function test_limit_zero_appends_zero_rows(): void
+    {
+        [$exit, $payload] = $this->callJson([
+            '--scope' => 'loop',
+            '--limit' => 0,
+            '--captured-at' => '2026-06-29T00:00:00Z',
+            '--json' => true,
+        ]);
+
+        self::assertSame(0, $exit);
+        self::assertSame(0, $payload['appended'], '--limit=0 must append 0 rows, not 1');
+        self::assertSame(0, app(AtlasBrainFrontierSourceRegistry::class)->count('loop'));
+    }
+
     /** @return array{0:int,1:array<string,mixed>} */
     private function callJson(array $args): array
     {

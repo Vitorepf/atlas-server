@@ -39,6 +39,9 @@ final class AtlasBrainFrontierIngestCommand extends Command
 
                 continue;
             }
+            if (count($candidates) >= $limit) {
+                break;
+            }
             $candidates[] = [
                 'title' => 'Harvest frontier from '.$url,
                 'url' => $url,
@@ -46,9 +49,6 @@ final class AtlasBrainFrontierIngestCommand extends Command
                 'source' => 'research-source-registry',
                 'captured_at' => $capturedAt,
             ];
-            if (count($candidates) >= $limit) {
-                break;
-            }
         }
 
         $written = [];
