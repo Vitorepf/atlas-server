@@ -26,7 +26,11 @@ final class AtlasMergeGovernorRollbackPlanGate
     /**
      * @param  array{
      *     affected_files?:list<string>,
+     *     changed_files?:list<string>,
      *     restore_strategy?:string,
+     *     restore_target?:string,
+     *     pre_image_hash?:string,
+     *     verification_command?:string,
      *     verification_after_rollback?:list<string>,
      *     owner_scope?:string,
      *     project_lane?:array{project_id?:string, allowed_scope_roots?:list<string>}
@@ -42,9 +46,35 @@ final class AtlasMergeGovernorRollbackPlanGate
             $blockers[] = 'missing_restore_strategy';
         }
 
+        // restore_target: concrete target to restore to (commit ref, backup path, etc.)
+        $restoreTarget = trim((string) ($plan['restore_target'] ?? ''));
+        if ($restoreTarget === '') {
+            $blockers[] = 'missing_restore_target';
+        }
+
+        // pre_image_hash: hash proving what state the files were in before the patch.
+        $preImageHash = trim((string) ($plan['pre_image_hash'] ?? ''));
+        if ($preImageHash === '') {
+            $blockers[] = 'missing_pre_image_hash';
+        }
+
+        // verification_command: single executable command to verify rollback succeeded.
+        $verificationCommand = trim((string) ($plan['verification_command'] ?? ''));
+        if ($verificationCommand === '') {
+            $blockers[] = 'missing_verification_command';
+        }
+
         $affected = is_array($plan['affected_files'] ?? null) ? array_values(array_map('strval', $plan['affected_files'])) : [];
         if ($affected === []) {
             $blockers[] = 'empty_affected_files';
+        }
+
+        // changed_files coverage: every changed file must appear in affected_files.
+        $changedFiles = is_array($plan['changed_files'] ?? null) ? array_values(array_map('strval', $plan['changed_files'])) : [];
+        foreach ($changedFiles as $cf) {
+            if (! in_array($cf, $affected, true)) {
+                $blockers[] = 'changed_file_not_covered_by_affected:'.$cf;
+            }
         }
 
         $postCheck = is_array($plan['verification_after_rollback'] ?? null) ? array_values(array_map('strval', $plan['verification_after_rollback'])) : [];
@@ -80,7 +110,11 @@ final class AtlasMergeGovernorRollbackPlanGate
             'blockers' => $blockers,
             'facts' => [
                 'restore_strategy' => $strategy,
+                'restore_target' => $restoreTarget,
+                'pre_image_hash' => $preImageHash,
+                'verification_command' => $verificationCommand,
                 'affected_file_count' => count($affected),
+                'changed_file_count' => count($changedFiles),
                 'post_check_count' => count($postCheck),
                 'owner_scope' => $ownerScope,
                 'lane_project_id' => $laneProjectId,

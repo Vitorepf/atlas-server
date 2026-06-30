@@ -19,7 +19,11 @@ final class AtlasMergeGovernorRollbackPlanGateTest extends TestCase
     {
         return [
             'affected_files' => ['app/Demo/Helper.php'],
+            'changed_files' => ['app/Demo/Helper.php'],
             'restore_strategy' => 'revert_commit',
+            'restore_target' => 'refs/backup/pre-demo-change',
+            'pre_image_hash' => 'abc123def456aabbccdd',
+            'verification_command' => 'vendor/bin/phpunit tests/Unit/Demo/HelperTest.php',
             'verification_after_rollback' => ['phpunit tests/Unit/Demo/HelperTest.php'],
             'owner_scope' => 'demo',
             'project_lane' => ['project_id' => 'demo', 'allowed_scope_roots' => ['app/Demo']],
@@ -80,5 +84,54 @@ final class AtlasMergeGovernorRollbackPlanGateTest extends TestCase
         $copy = $sorted;
         sort($copy, SORT_STRING);
         $this->assertSame($copy, $sorted, 'blockers are sorted');
+    }
+
+    // --- new required fields ----------------------------------------------
+
+    public function test_missing_restore_target_yields_named_blocker(): void
+    {
+        $p = $this->validPlan();
+        unset($p['restore_target']);
+        $r = (new AtlasMergeGovernorRollbackPlanGate)->evaluate($p);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('missing_restore_target', $r['blockers']);
+    }
+
+    public function test_missing_pre_image_hash_yields_named_blocker(): void
+    {
+        $p = $this->validPlan();
+        unset($p['pre_image_hash']);
+        $r = (new AtlasMergeGovernorRollbackPlanGate)->evaluate($p);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('missing_pre_image_hash', $r['blockers']);
+    }
+
+    public function test_missing_verification_command_yields_named_blocker(): void
+    {
+        $p = $this->validPlan();
+        $p['verification_command'] = '';
+        $r = (new AtlasMergeGovernorRollbackPlanGate)->evaluate($p);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('missing_verification_command', $r['blockers']);
+    }
+
+    public function test_changed_file_not_in_affected_files_yields_coverage_blocker(): void
+    {
+        $p = $this->validPlan();
+        $p['changed_files'] = ['app/Demo/Helper.php', 'app/Demo/Other.php'];
+        // app/Demo/Other.php not in affected_files
+        $r = (new AtlasMergeGovernorRollbackPlanGate)->evaluate($p);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('changed_file_not_covered_by_affected:app/Demo/Other.php', $r['blockers']);
+    }
+
+    public function test_full_rollback_plan_with_all_required_fields_passes(): void
+    {
+        $r = (new AtlasMergeGovernorRollbackPlanGate)->evaluate($this->validPlan());
+        $this->assertTrue($r['conformant']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertNotEmpty($r['facts']['restore_target']);
+        $this->assertNotEmpty($r['facts']['pre_image_hash']);
+        $this->assertNotEmpty($r['facts']['verification_command']);
     }
 }
