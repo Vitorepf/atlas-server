@@ -39,6 +39,115 @@ final class AtlasExternalBrainOutcomeBackpressurePolicy
     private const DEFAULT_RESPEC_THRESHOLD  = 0.30;
     private const DEFAULT_RETIRE_THRESHOLD  = 0.30;
 
+    public const PACE_CONTINUE = 'continue';
+    public const PACE_SLOW_DOWN = 'slow_down';
+    public const PACE_SWITCH_LANE = 'switch_lane';
+    public const PACE_CONSOLIDATE = 'consolidate';
+    public const PACE_STOP_ENQUEUE = 'stop_enqueue';
+
+    private const DEFAULT_GIVE_BACK_STOP_CEILING = 0.50;
+    private const DEFAULT_POISON_CLASS_STOP_FLOOR = 2;
+    private const DEFAULT_SATURATION_RATIO_CEILING = 5.0;
+    private const DEFAULT_LOW_LIFT_CEILING = 0.40;
+    private const DEFAULT_GIVE_BACK_SLOW_CEILING = 0.25;
+
+    private const PACE_ENQUEUE_VOLUME_MULTIPLIER = [
+        self::PACE_CONTINUE => 1.0,
+        self::PACE_SLOW_DOWN => 0.5,
+        self::PACE_SWITCH_LANE => 0.25,
+        self::PACE_CONSOLIDATE => 0.1,
+        self::PACE_STOP_ENQUEUE => 0.0,
+    ];
+
+    /**
+     * Origination-pace backpressure: should the originator keep creating new
+     * tasks at full volume, slow down, switch which lane it harvests, fold
+     * back into consolidation, or stop enqueueing entirely?
+     *
+     * DECISION PRIORITY (first match wins; AC3 — quality deterioration NEVER
+     * leaves enqueue_volume_multiplier at 1.0):
+     *   1. stop_enqueue  — poison_class_count >= poison_class_stop_floor, OR
+     *                      give_back_rate >= give_back_stop_ceiling
+     *   2. consolidate   — queue_depth / max(1, active_muscle_capacity) >
+     *                      saturation_ratio_ceiling (queue saturated relative
+     *                      to what muscles can actually absorb)
+     *   3. switch_lane   — low_lift_commit_rate >= low_lift_ceiling (commits
+     *                      are landing but not delivering real value)
+     *   4. slow_down     — give_back_rate >= give_back_slow_ceiling
+     *   5. continue      — default, healthy
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluateOriginationPace(array $input): array
+    {
+        $queueDepth = max(0, (int) ($input['queue_depth'] ?? 0));
+        $activeMuscleCapacity = max(0, (int) ($input['active_muscle_capacity'] ?? 0));
+        $giveBackRate = (float) ($input['give_back_rate'] ?? 0.0);
+        $lowLiftCommitRate = (float) ($input['low_lift_commit_rate'] ?? 0.0);
+        $poisonClassCount = max(0, (int) ($input['poison_class_count'] ?? 0));
+
+        $giveBackStopCeiling = (float) ($input['give_back_stop_ceiling'] ?? self::DEFAULT_GIVE_BACK_STOP_CEILING);
+        $poisonClassStopFloor = (int) ($input['poison_class_stop_floor'] ?? self::DEFAULT_POISON_CLASS_STOP_FLOOR);
+        $saturationRatioCeiling = (float) ($input['saturation_ratio_ceiling'] ?? self::DEFAULT_SATURATION_RATIO_CEILING);
+        $lowLiftCeiling = (float) ($input['low_lift_ceiling'] ?? self::DEFAULT_LOW_LIFT_CEILING);
+        $giveBackSlowCeiling = (float) ($input['give_back_slow_ceiling'] ?? self::DEFAULT_GIVE_BACK_SLOW_CEILING);
+
+        $saturationRatio = round($queueDepth / max(1, $activeMuscleCapacity), 4);
+
+        $evidence = [];
+
+        $shouldStop = $poisonClassCount >= $poisonClassStopFloor || $giveBackRate >= $giveBackStopCeiling;
+        if ($poisonClassCount >= $poisonClassStopFloor) {
+            $evidence[] = sprintf('poison_class_count=%d >= floor=%d', $poisonClassCount, $poisonClassStopFloor);
+        }
+        if ($giveBackRate >= $giveBackStopCeiling) {
+            $evidence[] = sprintf('give_back_rate=%.2f >= stop_ceiling=%.2f', $giveBackRate, $giveBackStopCeiling);
+        }
+
+        $shouldConsolidate = $saturationRatio > $saturationRatioCeiling;
+        if ($shouldConsolidate) {
+            $evidence[] = sprintf('saturation_ratio=%.2f (queue_depth=%d / capacity=%d) > ceiling=%.2f', $saturationRatio, $queueDepth, $activeMuscleCapacity, $saturationRatioCeiling);
+        }
+
+        $shouldSwitchLane = $lowLiftCommitRate >= $lowLiftCeiling;
+        if ($shouldSwitchLane) {
+            $evidence[] = sprintf('low_lift_commit_rate=%.2f >= ceiling=%.2f', $lowLiftCommitRate, $lowLiftCeiling);
+        }
+
+        $shouldSlowDown = $giveBackRate >= $giveBackSlowCeiling;
+        if ($shouldSlowDown) {
+            $evidence[] = sprintf('give_back_rate=%.2f >= slow_ceiling=%.2f', $giveBackRate, $giveBackSlowCeiling);
+        }
+
+        $decision = match (true) {
+            $shouldStop => self::PACE_STOP_ENQUEUE,
+            $shouldConsolidate => self::PACE_CONSOLIDATE,
+            $shouldSwitchLane => self::PACE_SWITCH_LANE,
+            $shouldSlowDown => self::PACE_SLOW_DOWN,
+            default => self::PACE_CONTINUE,
+        };
+
+        if ($evidence === []) {
+            $evidence[] = 'all signals within healthy bounds';
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'decision' => $decision,
+            'enqueue_volume_multiplier' => self::PACE_ENQUEUE_VOLUME_MULTIPLIER[$decision],
+            'evidence' => $evidence,
+            'metrics' => [
+                'queue_depth' => $queueDepth,
+                'active_muscle_capacity' => $activeMuscleCapacity,
+                'saturation_ratio' => $saturationRatio,
+                'give_back_rate' => $giveBackRate,
+                'low_lift_commit_rate' => $lowLiftCommitRate,
+                'poison_class_count' => $poisonClassCount,
+            ],
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

@@ -174,4 +174,148 @@ final class AtlasExternalBrainOutcomeBackpressurePolicyTest extends TestCase
 
         $this->assertSame($this->policy()->evaluate($input), $this->policy()->evaluate($input));
     }
+
+    // ── evaluateOriginationPace: continue ─────────────────────────────────────
+
+    private function healthyPaceInput(array $overrides = []): array
+    {
+        return array_merge([
+            'queue_depth' => 10,
+            'active_muscle_capacity' => 5,
+            'give_back_rate' => 0.05,
+            'low_lift_commit_rate' => 0.05,
+            'poison_class_count' => 0,
+        ], $overrides);
+    }
+
+    public function test_pace_continue_when_all_signals_healthy(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput());
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_CONTINUE, $result['decision']);
+        $this->assertSame(1.0, $result['enqueue_volume_multiplier']);
+    }
+
+    // ── stop_enqueue ───────────────────────────────────────────────────────────
+
+    public function test_pace_stop_enqueue_when_poison_class_count_at_floor(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['poison_class_count' => 2]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_STOP_ENQUEUE, $result['decision']);
+        $this->assertSame(0.0, $result['enqueue_volume_multiplier']);
+    }
+
+    public function test_pace_stop_enqueue_when_give_back_rate_at_stop_ceiling(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['give_back_rate' => 0.50]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_STOP_ENQUEUE, $result['decision']);
+    }
+
+    public function test_pace_stop_takes_priority_over_consolidate(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput([
+            'poison_class_count' => 3,
+            'queue_depth' => 100,
+            'active_muscle_capacity' => 1,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_STOP_ENQUEUE, $result['decision']);
+    }
+
+    // ── consolidate (queue saturation) ─────────────────────────────────────────
+
+    public function test_pace_consolidate_when_queue_saturated_relative_to_capacity(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput([
+            'queue_depth' => 60,
+            'active_muscle_capacity' => 5, // ratio = 12 > ceiling 5
+        ]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_CONSOLIDATE, $result['decision']);
+        $this->assertLessThan(1.0, $result['enqueue_volume_multiplier']);
+    }
+
+    public function test_pace_consolidate_with_zero_active_muscle_capacity_does_not_divide_by_zero(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput([
+            'queue_depth' => 10,
+            'active_muscle_capacity' => 0,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_CONSOLIDATE, $result['decision']);
+    }
+
+    // ── switch_lane (low lift commits) ─────────────────────────────────────────
+
+    public function test_pace_switch_lane_when_low_lift_commit_rate_high(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['low_lift_commit_rate' => 0.45]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_SWITCH_LANE, $result['decision']);
+        $this->assertLessThan(1.0, $result['enqueue_volume_multiplier']);
+    }
+
+    // ── slow_down ─────────────────────────────────────────────────────────────
+
+    public function test_pace_slow_down_when_give_back_rate_moderate(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['give_back_rate' => 0.30]));
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PACE_SLOW_DOWN, $result['decision']);
+        $this->assertSame(0.5, $result['enqueue_volume_multiplier']);
+    }
+
+    // ── AC3: deteriorating quality never leaves volume at full ────────────────
+
+    public function test_no_deteriorating_decision_ever_keeps_full_enqueue_volume(): void
+    {
+        foreach ([
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_SLOW_DOWN,
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_SWITCH_LANE,
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_CONSOLIDATE,
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_STOP_ENQUEUE,
+        ] as $decision) {
+            $this->assertLessThan(1.0, $this->multiplierFor($decision), "decision {$decision} must never allow full enqueue volume");
+        }
+    }
+
+    private function multiplierFor(string $decision): float
+    {
+        return match ($decision) {
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_SLOW_DOWN => $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['give_back_rate' => 0.30]))['enqueue_volume_multiplier'],
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_SWITCH_LANE => $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['low_lift_commit_rate' => 0.45]))['enqueue_volume_multiplier'],
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_CONSOLIDATE => $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['queue_depth' => 60]))['enqueue_volume_multiplier'],
+            AtlasExternalBrainOutcomeBackpressurePolicy::PACE_STOP_ENQUEUE => $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['poison_class_count' => 2]))['enqueue_volume_multiplier'],
+            default => 1.0,
+        };
+    }
+
+    // ── evidence + metrics ──────────────────────────────────────────────────────
+
+    public function test_pace_result_includes_evidence_and_metrics(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput(['give_back_rate' => 0.30]));
+
+        $this->assertNotEmpty($result['evidence']);
+        $this->assertArrayHasKey('metrics', $result);
+        $this->assertArrayHasKey('saturation_ratio', $result['metrics']);
+    }
+
+    public function test_pace_schema_present(): void
+    {
+        $result = $this->policy()->evaluateOriginationPace($this->healthyPaceInput());
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::SCHEMA, $result['schema']);
+    }
+
+    public function test_pace_is_deterministic(): void
+    {
+        $input = $this->healthyPaceInput(['give_back_rate' => 0.30]);
+
+        $this->assertSame(
+            $this->policy()->evaluateOriginationPace($input),
+            $this->policy()->evaluateOriginationPace($input),
+        );
+    }
 }
