@@ -22,6 +22,7 @@ final class AtlasMergeGovernorRiskClassifierTest extends TestCase
             'rollback_plan' => ['mode' => 'revert_commit'],
             'project_lane' => ['project_id' => 'demo', 'allowed_scope_roots' => ['app/']],
             'scope_deviations' => [],
+            'task_evidence_ref' => 'task-ref-001',
         ];
     }
 
@@ -110,5 +111,59 @@ final class AtlasMergeGovernorRiskClassifierTest extends TestCase
         $r = (new AtlasMergeGovernorRiskClassifier)->classify($candidate);
         $this->assertSame(AtlasMergeGovernorRiskClassifier::RISK_BLOCKED, $r['risk_level']);
         $this->assertStringContainsString('scope_deviations_present', implode(',', $r['reasons']));
+    }
+
+    public function test_empty_changed_files_blocks(): void
+    {
+        $r = (new AtlasMergeGovernorRiskClassifier)->classify(array_merge($this->baseGood(), [
+            'changed_files' => [],
+        ]));
+        $this->assertSame(AtlasMergeGovernorRiskClassifier::RISK_BLOCKED, $r['risk_level']);
+        $this->assertContains('empty_changed_files', $r['reasons']);
+    }
+
+    public function test_missing_project_lane_blocks(): void
+    {
+        $candidate = $this->baseGood();
+        unset($candidate['project_lane']);
+        $candidate['changed_files'] = ['app/Foo.php'];
+        $r = (new AtlasMergeGovernorRiskClassifier)->classify($candidate);
+        $this->assertSame(AtlasMergeGovernorRiskClassifier::RISK_BLOCKED, $r['risk_level']);
+        $this->assertContains('project_lane_missing', $r['reasons']);
+    }
+
+    public function test_unknown_risk_classification_blocks(): void
+    {
+        $r = (new AtlasMergeGovernorRiskClassifier)->classify(array_merge($this->baseGood(), [
+            'changed_files' => ['app/Foo.php'],
+            'risk_classification' => 'chaos',
+        ]));
+        $this->assertSame(AtlasMergeGovernorRiskClassifier::RISK_BLOCKED, $r['risk_level']);
+        $this->assertContains('unknown_risk_classification:chaos', $r['reasons']);
+    }
+
+    public function test_missing_task_evidence_ref_blocks(): void
+    {
+        $candidate = $this->baseGood();
+        unset($candidate['task_evidence_ref']);
+        $candidate['changed_files'] = ['app/Foo.php'];
+        $r = (new AtlasMergeGovernorRiskClassifier)->classify($candidate);
+        $this->assertSame(AtlasMergeGovernorRiskClassifier::RISK_BLOCKED, $r['risk_level']);
+        $this->assertContains('missing_task_evidence_ref', $r['reasons']);
+    }
+
+    public function test_docs_only_with_full_lane_verification_rollback_and_task_evidence_classifies_low(): void
+    {
+        $r = (new AtlasMergeGovernorRiskClassifier)->classify([
+            'changed_files' => ['docs/guide.md', 'docs/api.txt'],
+            'touched_organs' => [],
+            'verification_result' => ['passed' => true],
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'project_lane' => ['project_id' => 'atlas', 'allowed_scope_roots' => ['docs/']],
+            'scope_deviations' => [],
+            'task_evidence_ref' => 'task-docs-042',
+        ]);
+        $this->assertSame(AtlasMergeGovernorRiskClassifier::RISK_LOW, $r['risk_level']);
+        $this->assertContains('docs_only_change', $r['reasons']);
     }
 }

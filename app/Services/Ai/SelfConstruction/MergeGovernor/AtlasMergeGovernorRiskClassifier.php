@@ -64,11 +64,31 @@ final class AtlasMergeGovernorRiskClassifier
         $organs = is_array($candidate['touched_organs'] ?? null) ? array_values(array_map('strval', $candidate['touched_organs'])) : [];
         $verification = is_array($candidate['verification_result'] ?? null) ? $candidate['verification_result'] : [];
         $rollback = is_array($candidate['rollback_plan'] ?? null) ? $candidate['rollback_plan'] : [];
-        $lane = is_array($candidate['project_lane'] ?? null) ? $candidate['project_lane'] : [];
+        $lanePresent = array_key_exists('project_lane', $candidate) && is_array($candidate['project_lane']);
+        $lane = $lanePresent ? $candidate['project_lane'] : [];
         $deviations = is_array($candidate['scope_deviations'] ?? null) ? array_values($candidate['scope_deviations']) : [];
+        $riskClassification = (string) ($candidate['risk_classification'] ?? '');
+        $taskEvidenceRef = (string) ($candidate['task_evidence_ref'] ?? '');
 
         $reasons = [];
         $blocked = false;
+
+        if ($changed === []) {
+            $reasons[] = 'empty_changed_files';
+            $blocked = true;
+        }
+        if (! $lanePresent) {
+            $reasons[] = 'project_lane_missing';
+            $blocked = true;
+        }
+        if ($riskClassification !== '' && ! in_array($riskClassification, [self::RISK_LOW, self::RISK_MEDIUM, self::RISK_HIGH, self::RISK_BLOCKED], true)) {
+            $reasons[] = 'unknown_risk_classification:'.$riskClassification;
+            $blocked = true;
+        }
+        if ($taskEvidenceRef === '') {
+            $reasons[] = 'missing_task_evidence_ref';
+            $blocked = true;
+        }
 
         if ($deviations !== []) {
             $reasons[] = 'scope_deviations_present:'.count($deviations);
