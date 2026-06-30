@@ -12,13 +12,17 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflightTest extend
     private function happyProposal(array $overrides = []): array
     {
         return $overrides + [
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
-            'forbidden_targets' => ['config/atlas.php'],
-            'required_evidence' => ['phpunit', 'rollback_plan'],
-            'evidence_refs' => ['phpunit:t1', 'rollback_plan:revert_commit'],
-            'rollback_preimage' => ['app/Foo.php' => 'sha-prev'],
-            'merge_governor' => ['high_risk_change' => false],
+            'changed_files'             => ['app/Foo.php'],
+            'allowed_files'             => ['app/Foo.php', 'tests/FooTest.php'],
+            'forbidden_targets'         => ['config/atlas.php'],
+            'required_evidence'         => ['phpunit', 'rollback_plan'],
+            'evidence_refs'             => ['phpunit:t1', 'rollback_plan:revert_commit', 'bounded_rollback:sha-bounded'],
+            'rollback_preimage'         => ['app/Foo.php' => 'sha-prev'],
+            'merge_governor'            => ['high_risk_change' => false],
+            'final_runtime_owner'       => 'atlas_native',
+            'requires_human'            => false,
+            'requires_operator'         => false,
+            'requires_external_provider'=> false,
         ];
     }
 
@@ -123,5 +127,81 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflightTest extend
         foreach (['file_put_contents', 'shell_exec', 'exec(', 'system(', 'proc_open', 'git '] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $src);
         }
+    }
+
+    // ── autonomy proof floor ──────────────────────────────────────────────────
+
+    public function test_requires_human_true_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal(['requires_human' => true])
+        );
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('autonomy_violation:requires_human_must_be_false', $verdict['blockers']);
+    }
+
+    public function test_requires_operator_true_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal(['requires_operator' => true])
+        );
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('autonomy_violation:requires_operator_must_be_false', $verdict['blockers']);
+    }
+
+    public function test_requires_external_provider_true_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal(['requires_external_provider' => true])
+        );
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('autonomy_violation:requires_external_provider_must_be_false', $verdict['blockers']);
+    }
+
+    public function test_non_atlas_native_final_runtime_owner_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal(['final_runtime_owner' => 'claude_code'])
+        );
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('autonomy_violation:final_runtime_owner_not_atlas_native:claude_code', $verdict['blockers']);
+    }
+
+    public function test_missing_bounded_rollback_evidence_returns_needs_more_evidence(): void
+    {
+        // Has tests and rollback_preimage but no bounded_rollback in evidence_refs.
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal(['evidence_refs' => ['phpunit:t1', 'rollback_plan:revert_commit']])
+        );
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_NEEDS_MORE_EVIDENCE, $verdict['decision']);
+        $this->assertContains('autonomy_proof_floor_missing:bounded_rollback', $verdict['blockers']);
+    }
+
+    public function test_scope_violation_dominates_autonomy_floor_missing(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal([
+                'changed_files' => ['app/Foo.php', 'lib/Bar.php'],
+                'evidence_refs' => ['phpunit:t1', 'rollback_plan:r'],  // no bounded_rollback
+            ])
+        );
+
+        // REJECT wins over NEEDS_MORE.
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+    }
+
+    public function test_all_autonomy_floor_fields_correct_returns_allow(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight(
+            $this->happyProposal()  // happyProposal already has the full floor
+        );
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_ALLOW, $verdict['decision']);
+        $this->assertSame([], $verdict['blockers']);
     }
 }

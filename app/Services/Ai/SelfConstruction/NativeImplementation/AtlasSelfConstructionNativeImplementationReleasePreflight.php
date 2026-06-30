@@ -104,6 +104,23 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflight
             }
         }
 
+        // REJECT — autonomy proof floor: proposal must be Atlas-native; no external actor dependency.
+        foreach (['requires_human', 'requires_operator', 'requires_external_provider'] as $flag) {
+            if ((bool) ($proposal[$flag] ?? false)) {
+                $rejectBlockers[] = 'autonomy_violation:'.$flag.'_must_be_false';
+            }
+        }
+        $finalOwner = (string) ($proposal['final_runtime_owner'] ?? '');
+        if ($finalOwner !== '' && $finalOwner !== 'atlas_native') {
+            $rejectBlockers[] = 'autonomy_violation:final_runtime_owner_not_atlas_native:'.$finalOwner;
+        }
+
+        // NEEDS_MORE — bounded_rollback is a mandatory autonomy proof floor requirement;
+        // it must be evidenced regardless of what the caller lists in required_evidence.
+        if (! isset($coveredKinds['bounded_rollback'])) {
+            $needsMoreBlockers[] = 'autonomy_proof_floor_missing:bounded_rollback';
+        }
+
         if ($rejectBlockers !== []) {
             return $this->envelope(self::DECISION_REJECT, array_values($rejectBlockers));
         }
