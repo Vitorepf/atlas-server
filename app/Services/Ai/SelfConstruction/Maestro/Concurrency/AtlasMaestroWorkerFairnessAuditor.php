@@ -61,6 +61,7 @@ final class AtlasMaestroWorkerFairnessAuditor
 
         [$maxClient, $maxShare] = $this->maxShare($completedShare, $clientOrder);
         $gini = $this->gini(array_values($completedHistogram));
+        $fairnessAlerts = $this->fairnessAlerts($clientOrder, $inFlightHistogram, $completedHistogram, (int) $totalCompleted, $maxClient, $maxShare);
 
         return [
             'workers' => count($clientOrder),
@@ -71,7 +72,42 @@ final class AtlasMaestroWorkerFairnessAuditor
             'gini_coefficient' => $gini,
             'max_share_client_id' => $maxClient,
             'max_share_value' => $maxShare,
+            'fairness_alerts' => $fairnessAlerts,
         ];
+    }
+
+    /**
+     * @param  list<string>  $clientOrder
+     * @param  array<string,int>  $inFlightHistogram
+     * @param  array<string,int>  $completedHistogram
+     * @return list<array<string,mixed>>
+     */
+    private function fairnessAlerts(array $clientOrder, array $inFlightHistogram, array $completedHistogram, int $totalCompleted, ?string $maxClient, float $maxShare): array
+    {
+        $alerts = [];
+
+        if (count($clientOrder) > 1 && $maxShare > 0.5 && $maxClient !== null) {
+            $alerts[] = ['alert' => 'hogging', 'max_share_client_id' => $maxClient, 'max_share_value' => $maxShare];
+        }
+
+        if ($totalCompleted > 0) {
+            $starved = array_values(array_filter($clientOrder, fn (string $c): bool => ($completedHistogram[$c] ?? 0) === 0));
+            sort($starved, SORT_STRING);
+            if ($starved !== []) {
+                $alerts[] = ['alert' => 'starvation', 'starved_client_ids' => $starved];
+            }
+        }
+
+        $highInflightZeroThru = array_values(array_filter(
+            $clientOrder,
+            fn (string $c): bool => ($inFlightHistogram[$c] ?? 0) >= 2 && ($completedHistogram[$c] ?? 0) === 0,
+        ));
+        sort($highInflightZeroThru, SORT_STRING);
+        if ($highInflightZeroThru !== []) {
+            $alerts[] = ['alert' => 'high_in_flight_low_throughput', 'client_ids' => $highInflightZeroThru];
+        }
+
+        return $alerts;
     }
 
     /**

@@ -81,6 +81,55 @@ final class AtlasMaestroWorkerFairnessAuditorTest extends TestCase
         $this->assertSame('solo', $facts['max_share_client_id']);
     }
 
+    public function test_skewed_throughput_emits_hogging_alert_with_max_share_client_id(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([
+            ['client_id' => 'hog', 'in_flight_count' => 0, 'lifetime_throughput' => 90],
+            ['client_id' => 'peer', 'in_flight_count' => 0, 'lifetime_throughput' => 10],
+        ]));
+
+        $facts = $auditor->audit();
+
+        $hoggingAlerts = array_values(array_filter($facts['fairness_alerts'], fn ($a) => $a['alert'] === 'hogging'));
+        $this->assertCount(1, $hoggingAlerts);
+        $this->assertSame('hog', $hoggingAlerts[0]['max_share_client_id']);
+        $this->assertGreaterThan(0.5, $hoggingAlerts[0]['max_share_value']);
+    }
+
+    public function test_starved_workers_listed_deterministically_in_starvation_alert(): void
+    {
+        // Two equal dominant workers (max_share=0.5, no hogging) and two starved workers.
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([
+            ['client_id' => 'dom-a', 'in_flight_count' => 0, 'lifetime_throughput' => 25],
+            ['client_id' => 'dom-b', 'in_flight_count' => 0, 'lifetime_throughput' => 25],
+            ['client_id' => 'starved-b', 'in_flight_count' => 1, 'lifetime_throughput' => 0],
+            ['client_id' => 'starved-a', 'in_flight_count' => 1, 'lifetime_throughput' => 0],
+        ]));
+
+        $facts = $auditor->audit();
+
+        $starvAlerts = array_values(array_filter($facts['fairness_alerts'], fn ($a) => $a['alert'] === 'starvation'));
+        $this->assertCount(1, $starvAlerts);
+        $this->assertSame(['starved-a', 'starved-b'], $starvAlerts[0]['starved_client_ids']);
+        // No hogging alert (max_share == 0.5, not strictly greater than 0.5)
+        $hoggingAlerts = array_filter($facts['fairness_alerts'], fn ($a) => $a['alert'] === 'hogging');
+        $this->assertCount(0, $hoggingAlerts);
+    }
+
+    public function test_balanced_fleet_emits_no_fairness_alerts(): void
+    {
+        $auditor = new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([
+            ['client_id' => 'a', 'in_flight_count' => 0, 'lifetime_throughput' => 25],
+            ['client_id' => 'b', 'in_flight_count' => 0, 'lifetime_throughput' => 25],
+            ['client_id' => 'c', 'in_flight_count' => 0, 'lifetime_throughput' => 25],
+            ['client_id' => 'd', 'in_flight_count' => 0, 'lifetime_throughput' => 25],
+        ]));
+
+        $facts = $auditor->audit();
+
+        $this->assertSame([], $facts['fairness_alerts']);
+    }
+
     public function test_empty_probe_is_a_zero_facts_envelope(): void
     {
         $facts = (new AtlasMaestroWorkerFairnessAuditor($this->stubProbe([])))->audit();
