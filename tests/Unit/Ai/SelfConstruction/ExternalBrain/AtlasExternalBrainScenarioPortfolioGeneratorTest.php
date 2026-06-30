@@ -14,12 +14,12 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
         return new AtlasExternalBrainScenarioPortfolioGenerator;
     }
 
-    public function test_generate_emits_exactly_six_scenarios_by_default(): void
+    public function test_generate_emits_exactly_seven_scenarios_by_default(): void
     {
         $result = $this->gen()->generate();
 
-        $this->assertSame(6, $result['total_emitted']);
-        $this->assertCount(6, $result['scenarios']);
+        $this->assertSame(7, $result['total_emitted']);
+        $this->assertCount(7, $result['scenarios']);
     }
 
     public function test_output_has_canonical_keys(): void
@@ -32,13 +32,14 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
         $this->assertSame(AtlasExternalBrainScenarioPortfolioGenerator::SCHEMA, $result['schema']);
     }
 
-    public function test_all_six_family_constants_are_covered(): void
+    public function test_all_seven_family_constants_are_covered(): void
     {
         $result   = $this->gen()->generate();
         $families = $result['family_coverage'];
 
         $this->assertContains(AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_HIGH_YIELD,        $families);
         $this->assertContains(AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_LOW_YIELD,         $families);
+        $this->assertContains(AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_ADVERSARIAL,       $families);
         $this->assertContains(AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_CROSS_PROJECT,     $families);
         $this->assertContains(AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_BLOCKED_POISON,    $families);
         $this->assertContains(AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_STALE_DOC,         $families);
@@ -82,7 +83,7 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
         $this->assertCount(1, $result2['rejected_duplicates']);
         $this->assertSame('scenario:renamed_copy:v1', $result2['rejected_duplicates'][0]['scenario_id']);
         $this->assertStringContainsString('duplicate_structure', $result2['rejected_duplicates'][0]['reason']);
-        $this->assertSame(6, $result2['total_emitted']); // still 6, not 7
+        $this->assertSame(7, $result2['total_emitted']); // still 7, not 8
     }
 
     public function test_accepts_genuinely_new_scenario_as_seventh(): void
@@ -98,7 +99,7 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
 
         $result = $this->gen()->generate([$newScenario]);
 
-        $this->assertSame(7, $result['total_emitted']);
+        $this->assertSame(8, $result['total_emitted']);
         $this->assertSame([], $result['rejected_duplicates']);
         $this->assertContains('custom_family', $result['family_coverage']);
     }
@@ -170,11 +171,39 @@ final class AtlasExternalBrainScenarioPortfolioGeneratorTest extends TestCase
 
         $result2 = $this->gen()->generate([$dup1, $dup2]);
 
-        $this->assertSame(6, $result2['total_emitted']);
+        $this->assertSame(7, $result2['total_emitted']);
         $this->assertCount(2, $result2['rejected_duplicates']);
         $rejectedIds = array_column($result2['rejected_duplicates'], 'scenario_id');
         $this->assertContains('dup_1', $rejectedIds);
         $this->assertContains('dup_2', $rejectedIds);
+    }
+
+    public function test_adversarial_scenario_has_expected_failure_modes(): void
+    {
+        $result   = $this->gen()->generate();
+        $scenario = $this->findByFamily($result['scenarios'], AtlasExternalBrainScenarioPortfolioGenerator::FAMILY_ADVERSARIAL);
+
+        $this->assertContains('hallucinated_evidence',               $scenario['failure_modes']);
+        $this->assertContains('goodhart_proxy_disguised_as_leap',    $scenario['failure_modes']);
+        $this->assertContains('false_positive_capability_claim',     $scenario['failure_modes']);
+    }
+
+    public function test_each_scenario_declares_evidence_floor_expected_failure_mode_capability_delta(): void
+    {
+        $result = $this->gen()->generate();
+
+        foreach ($result['scenarios'] as $scenario) {
+            $id = $scenario['scenario_id'];
+            $this->assertArrayHasKey('evidence_floor',        $scenario, "Missing evidence_floor in {$id}");
+            $this->assertArrayHasKey('expected_failure_mode', $scenario, "Missing expected_failure_mode in {$id}");
+            $this->assertArrayHasKey('capability_delta',      $scenario, "Missing capability_delta in {$id}");
+            $this->assertIsString($scenario['evidence_floor'],        "evidence_floor must be string in {$id}");
+            $this->assertNotEmpty($scenario['evidence_floor'],        "evidence_floor must not be empty in {$id}");
+            $this->assertIsString($scenario['expected_failure_mode'], "expected_failure_mode must be string in {$id}");
+            $this->assertNotEmpty($scenario['expected_failure_mode'], "expected_failure_mode must not be empty in {$id}");
+            $this->assertIsString($scenario['capability_delta'],      "capability_delta must be string in {$id}");
+            $this->assertNotEmpty($scenario['capability_delta'],      "capability_delta must not be empty in {$id}");
+        }
     }
 
     // ---- helpers ----
