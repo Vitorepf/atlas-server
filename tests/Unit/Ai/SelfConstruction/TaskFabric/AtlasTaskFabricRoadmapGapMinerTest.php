@@ -416,4 +416,118 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $this->assertArrayNotHasKey('unlocks_capabilities', $out[0]);
         $this->assertArrayNotHasKey('next_unblock_hint',    $out[0]);
     }
+
+    // ── final-95 gap-index fields ─────────────────────────────────────────────
+
+    public function test_mine_by_lane_emits_maturity_level_when_supplied(): void
+    {
+        $row = $this->row('Task Fabric', 'maturity_cap', ['lane' => 'compounding', 'maturity_level' => 'emerging']);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out);
+        $this->assertArrayHasKey('maturity_level', $out[0]);
+        $this->assertSame('emerging', $out[0]['maturity_level']);
+    }
+
+    public function test_mine_by_lane_emits_blocked_state_when_supplied(): void
+    {
+        $row = $this->row('Maestro', 'blocked_cap', [
+            'lane'          => 'task-repair',
+            'blocked_state' => 'dependency_wait',
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out);
+        $this->assertSame('dependency_wait', $out[0]['blocked_state']);
+    }
+
+    public function test_mine_by_lane_emits_next_proof_required_when_supplied(): void
+    {
+        $row = $this->row('Worker Swarm', 'proof_cap', [
+            'lane'                => 'muscle-feedback',
+            'next_proof_required' => 'implement_green_gate',
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertArrayHasKey('next_proof_required', $out[0]);
+        $this->assertSame('implement_green_gate', $out[0]['next_proof_required']);
+    }
+
+    public function test_mine_by_lane_emits_lane_unlock_impact_when_supplied(): void
+    {
+        $row = $this->row('Verification Court', 'impact_cap', [
+            'lane'               => 'completion-certification',
+            'lane_unlock_impact' => 'unblocks_completion_lane',
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertArrayHasKey('lane_unlock_impact', $out[0]);
+        $this->assertSame('unblocks_completion_lane', $out[0]['lane_unlock_impact']);
+    }
+
+    public function test_new_final95_fields_absent_when_not_in_row(): void
+    {
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$this->row('Merge Governor', 'no_meta')]);
+
+        $this->assertCount(1, $out);
+        $this->assertArrayNotHasKey('maturity_level',      $out[0]);
+        $this->assertArrayNotHasKey('blocked_state',       $out[0]);
+        $this->assertArrayNotHasKey('next_proof_required', $out[0]);
+        $this->assertArrayNotHasKey('lane_unlock_impact',  $out[0]);
+    }
+
+    // ── poison_quarantined filter ─────────────────────────────────────────────
+
+    public function test_poison_quarantined_row_is_omitted_by_default(): void
+    {
+        $row = $this->row('Task Fabric', 'poisoned_cap', ['blocked_state' => 'poison_quarantined']);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertSame([], $out, 'poison_quarantined row must be omitted when not repairable');
+    }
+
+    public function test_poison_quarantined_row_included_when_repairable_with_evidence(): void
+    {
+        $row = $this->row('Task Fabric', 'repairable_cap', [
+            'blocked_state'       => 'poison_quarantined',
+            'repairable'          => true,
+            'repair_evidence_path'=> 'docs/repair/repairable_cap.md',
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out, 'repairable poison_quarantined row with evidence must be included');
+        $this->assertSame('poison_quarantined', $out[0]['blocked_state']);
+    }
+
+    public function test_poison_quarantined_repairable_without_evidence_is_still_omitted(): void
+    {
+        $row = $this->row('Maestro', 'no_evidence_repair', [
+            'blocked_state' => 'poison_quarantined',
+            'repairable'    => true,
+            // no repair_evidence_path
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertSame([], $out, 'repairable=true without repair_evidence_path must still be omitted');
+    }
+
+    public function test_non_poison_blocked_state_is_not_filtered(): void
+    {
+        // blocked_state with a non-poison value must not be filtered out
+        $row = $this->row('Worker Swarm', 'dep_wait_cap', ['blocked_state' => 'dependency_wait']);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out, 'non-poison blocked_state must not cause omission');
+    }
+
+    public function test_live_target_deduplication_still_works_with_final95_fields(): void
+    {
+        $row = $this->row('Task Fabric', 'dup_cap', [
+            'lane'           => 'compounding',
+            'maturity_level' => 'stable',
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row], ['Task Fabric:dup_cap']);
+
+        $this->assertSame([], $out, 'live-target deduplication must still drop the candidate even with final-95 fields');
+    }
 }

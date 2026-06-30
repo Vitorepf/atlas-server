@@ -162,6 +162,16 @@ final class AtlasTaskFabricRoadmapGapMiner
                 continue;
             }
 
+            // Poison quarantine: omit unless explicitly repairable with a repair evidence path.
+            $blockedState = trim((string) ($row['blocked_state'] ?? ''));
+            if ($blockedState === 'poison_quarantined') {
+                $repairable = ($row['repairable'] ?? false) === true;
+                $repairEvidence = trim((string) ($row['repair_evidence_path'] ?? ''));
+                if (! $repairable || $repairEvidence === '') {
+                    continue;
+                }
+            }
+
             // Deduplication: skip if an equivalent packet already exists.
             $liveKey = $organ.':'.$capability;
             if (isset($liveSet[$liveKey])) {
@@ -252,6 +262,27 @@ final class AtlasTaskFabricRoadmapGapMiner
         $hint = trim((string) ($row['next_unblock_hint'] ?? ''));
         if ($hint !== '') {
             $out['next_unblock_hint'] = $hint;
+        }
+
+        // final-95 gap index fields
+        $maturity = trim((string) ($row['maturity_level'] ?? ''));
+        if ($maturity !== '') {
+            $out['maturity_level'] = $maturity;
+        }
+
+        $blockedState = trim((string) ($row['blocked_state'] ?? ''));
+        if ($blockedState !== '') {
+            $out['blocked_state'] = $blockedState;
+        }
+
+        $nextProof = trim((string) ($row['next_proof_required'] ?? ''));
+        if ($nextProof !== '') {
+            $out['next_proof_required'] = $nextProof;
+        }
+
+        $laneImpact = trim((string) ($row['lane_unlock_impact'] ?? ''));
+        if ($laneImpact !== '') {
+            $out['lane_unlock_impact'] = $laneImpact;
         }
 
         return $out;
