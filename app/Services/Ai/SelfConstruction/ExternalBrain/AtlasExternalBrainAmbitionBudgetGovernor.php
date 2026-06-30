@@ -46,6 +46,12 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
     /** Yield at or below this value triggers reallocation to the next deeper mode. */
     private const LOW_YIELD_THRESHOLD = 0.25;
 
+    /** Yield at or above this value (with diverse evidence) grants a weight boost. */
+    private const HIGH_YIELD_THRESHOLD = 0.70;
+
+    /** Minimum evidence refs to qualify as "diverse" for a high-yield boost. */
+    private const DIVERSITY_MIN_REFS = 2;
+
     /** Base budget weight per mode before any yield-based reallocation. */
     private const BASE_WEIGHTS = [
         self::MODE_EASY_BUG_HUNT       => 0.40,
@@ -151,6 +157,30 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
         $reallocatedFrom       = array_values(array_unique($reallocatedFrom));
         $reallocationTriggered = $reallocatedFrom !== [];
 
+        // High-yield boost: modes with yield >= HIGH_YIELD_THRESHOLD AND diverse evidence get a +30% weight boost.
+        // Quota pressure (high consumption) is NOT checked here — only yield+evidence qualify (AC3).
+        $escalationEvidence = [];
+        foreach (self::LADDER as $mode) {
+            $yield = isset($effectiveYield[$mode]) ? (float) $effectiveYield[$mode] : -1.0;
+            $refs  = is_array($evidenceByMode[$mode] ?? null) ? array_values($evidenceByMode[$mode]) : [];
+            if ($yield >= self::HIGH_YIELD_THRESHOLD && count($refs) >= self::DIVERSITY_MIN_REFS) {
+                $boost             = $weights[$mode] * 0.30;
+                $weights[$mode]   += $boost;
+                $escalationEvidence[$mode] = [
+                    'yield'         => round($yield, 4),
+                    'evidence_refs' => $refs,
+                    'weight_boost'  => round($boost, 6),
+                ];
+            }
+        }
+
+        // Recommendation: self_healing when all modes are low-yield; consolidation when reallocation fired; continue otherwise.
+        $recommendation = match (true) {
+            count($lowYieldModes) === count(self::LADDER) => 'self_healing',
+            $reallocationTriggered                        => 'consolidation',
+            default                                       => 'continue',
+        };
+
         // Select next mode: first in ladder not yet attempted.
         $nextMode = null;
         foreach (self::LADDER as $mode) {
@@ -169,6 +199,7 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
                 self::MODE_HONEST_EXHAUSTED, 0, $quotaRemaining,
                 $reallocationTriggered, $reallocatedFrom, $withEvidence,
                 true, 'all_modes_exhausted_with_genuine_evidence', $weights, $marginalVerifiedYield,
+                'continue', $escalationEvidence,
             );
         }
 
@@ -197,14 +228,16 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
             $nextMode, $budgetSlice, $quotaRemaining,
             $reallocationTriggered, $reallocatedFrom, $withEvidence,
             false, $rationale, $weights, $marginalVerifiedYield,
+            $recommendation, $escalationEvidence,
         );
     }
 
     /**
-     * @param list<string>        $reallocatedFrom
-     * @param list<string>        $withEvidence
-     * @param array<string,float> $weights
-     * @param array<string,float> $marginalVerifiedYield
+     * @param list<string>              $reallocatedFrom
+     * @param list<string>              $withEvidence
+     * @param array<string,float>       $weights
+     * @param array<string,float>       $marginalVerifiedYield
+     * @param array<string,mixed>       $escalationEvidence
      */
     private function envelope(
         string $nextMode,
@@ -217,6 +250,8 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
         string $rationale,
         array $weights,
         array $marginalVerifiedYield = [],
+        string $recommendation = 'continue',
+        array $escalationEvidence = [],
     ): array {
         return [
             'schema'                  => self::SCHEMA,
@@ -230,6 +265,8 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
             'rationale'               => $rationale,
             'mode_weights'            => $weights,
             'marginal_verified_yield' => $marginalVerifiedYield,
+            'recommendation'          => $recommendation,
+            'escalation_evidence'     => $escalationEvidence,
         ];
     }
 }
