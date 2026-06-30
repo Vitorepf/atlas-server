@@ -159,4 +159,29 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocatorTest extends Test
             $this->assertGreaterThanOrEqual(0, $pct, "Lane {$lane} went negative");
         }
     }
+
+    // ── recommended_next_batch_shape ────────────────────────────────────────
+
+    public function test_output_has_recommended_next_batch_shape_key(): void
+    {
+        $r = $this->allocator()->allocate([]);
+        $this->assertArrayHasKey('recommended_next_batch_shape', $r);
+        $this->assertIsString($r['recommended_next_batch_shape']);
+    }
+
+    public function test_recommended_next_batch_shape_names_dominant_lane_under_high_distress(): void
+    {
+        $r = $this->allocator()->allocate([
+            'give_back_rate' => 0.9,
+            'poison_rate' => 0.9,
+        ]);
+
+        $this->assertStringContainsString('repair', $r['recommended_next_batch_shape']);
+    }
+
+    public function test_balanced_baseline_does_not_crash_shape_computation(): void
+    {
+        $r = $this->allocator()->allocate([]);
+        $this->assertNotEmpty($r['recommended_next_batch_shape']);
+    }
 }

@@ -124,11 +124,21 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
             }
         }
 
+        // recommended_next_batch_shape: name the dominant lane(s) (>=25%), highest first,
+        // so the originator knows what shape of work to fetch for the next batch.
+        $sortedLanes = $lanes;
+        arsort($sortedLanes);
+        $dominantLanes = array_keys(array_filter($sortedLanes, static fn (int $pct): bool => $pct >= 25));
+        $recommendedShape = $dominantLanes !== []
+            ? implode('_then_', $dominantLanes).'_focused'
+            : 'balanced';
+
         return [
-            'schema'          => self::SCHEMA,
-            'lane_percentages' => $lanes,
-            'rationale'        => $rationale,
-            'blocked_lanes'    => array_values(array_unique($blocked)),
+            'schema'                     => self::SCHEMA,
+            'lane_percentages'           => $lanes,
+            'rationale'                  => $rationale,
+            'blocked_lanes'              => array_values(array_unique($blocked)),
+            'recommended_next_batch_shape' => $recommendedShape,
         ];
     }
 
