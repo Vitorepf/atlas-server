@@ -59,6 +59,61 @@ final class AtlasSelfConstructionCompoundingOutcomeProjectionTest extends TestCa
         $this->assertSame($rec, $verdict['groups'][0]['outcomes'][0]['raw_fact'], 'raw_fact must be byte-equal to input');
     }
 
+    private function rec(string $organ, string $outcome, int $n = 1): array
+    {
+        $out = [];
+        for ($i = 0; $i < $n; $i++) {
+            $out[] = ['organ' => $organ, 'task_class' => 't', 'cycle_id' => "c-{$i}", 'evidence_hash' => "h{$i}", 'outcome' => $outcome];
+        }
+        return $out;
+    }
+
+    public function test_high_pass_rate_yields_compounding_trend(): void
+    {
+        $records = array_merge($this->rec('cortex', 'success', 4), $this->rec('maestro', 'passed', 4));
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertSame('compounding', $v['summary']['trend']);
+        $this->assertGreaterThanOrEqual(0.75, $v['summary']['rates']['passed_rate']);
+    }
+
+    public function test_mixed_results_yield_flat_volume_trend(): void
+    {
+        $records = array_merge($this->rec('a', 'success', 5), $this->rec('b', 'amber', 4), $this->rec('c', 'failed', 1));
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertSame('flat_volume', $v['summary']['trend']);
+    }
+
+    public function test_high_failure_rate_yields_quality_decay_trend(): void
+    {
+        $records = array_merge($this->rec('a', 'regression', 4), $this->rec('b', 'success', 2));
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertSame('quality_decay', $v['summary']['trend']);
+        $this->assertGreaterThanOrEqual(0.3, $v['summary']['rates']['failed_rate']);
+    }
+
+    public function test_give_back_dominant_yields_give_back_drag_trend(): void
+    {
+        $records = array_merge($this->rec('a', 'give_back', 4), $this->rec('b', 'success', 2));
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertSame('give_back_drag', $v['summary']['trend']);
+        $this->assertGreaterThanOrEqual(0.3, $v['summary']['rates']['give_back_rate']);
+    }
+
+    public function test_confidence_bounds_low_medium_high_by_sample_size(): void
+    {
+        $low    = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($this->rec('a', 'success', 1));
+        $medium = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($this->rec('a', 'success', 3));
+        $high   = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($this->rec('a', 'success', 10));
+
+        $this->assertSame('low',    $low['summary']['confidence']);
+        $this->assertSame('medium', $medium['summary']['confidence']);
+        $this->assertSame('high',   $high['summary']['confidence']);
+    }
+
     public function test_groups_are_sorted_deterministically_by_key(): void
     {
         $verdict = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project([

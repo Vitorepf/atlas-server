@@ -82,6 +82,71 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
         return [
             'schema_version' => self::SCHEMA,
             'groups' => $groups,
+            'summary' => $this->computeSummary($groups),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $groups
+     * @return array{trend:string, confidence:string, total_outcome_count:int, rates:array<string,float>}
+     */
+    private function computeSummary(array $groups): array
+    {
+        $passed = 0;
+        $failed = 0;
+        $giveBack = 0;
+        $learning = 0;
+        $total = 0;
+
+        foreach ($groups as $g) {
+            foreach ($g['outcomes'] as $o) {
+                $total++;
+                if (($o['raw_outcome'] ?? '') === 'give_back') {
+                    $giveBack++;
+                } elseif ($o['outcome'] === self::OUTCOME_PASSED) {
+                    $passed++;
+                } elseif ($o['outcome'] === self::OUTCOME_FAILED) {
+                    $failed++;
+                } else {
+                    $learning++;
+                }
+            }
+        }
+
+        $passedRate   = $total > 0 ? $passed / $total : 0.0;
+        $failedRate   = $total > 0 ? $failed / $total : 0.0;
+        $giveBackRate = $total > 0 ? $giveBack / $total : 0.0;
+
+        if ($total === 0) {
+            $trend = 'uncertain';
+        } elseif ($giveBackRate >= 0.3) {
+            $trend = 'give_back_drag';
+        } elseif ($failedRate >= 0.3) {
+            $trend = 'quality_decay';
+        } elseif ($passedRate >= 0.75) {
+            $trend = 'compounding';
+        } elseif ($passedRate >= 0.4) {
+            $trend = 'flat_volume';
+        } else {
+            $trend = 'uncertain';
+        }
+
+        $confidence = match (true) {
+            $total >= 10 => 'high',
+            $total >= 3  => 'medium',
+            default      => 'low',
+        };
+
+        return [
+            'trend'               => $trend,
+            'confidence'          => $confidence,
+            'total_outcome_count' => $total,
+            'rates'               => [
+                'passed_rate'    => round($passedRate, 4),
+                'failed_rate'    => round($failedRate, 4),
+                'give_back_rate' => round($giveBackRate, 4),
+                'learning_rate'  => $total > 0 ? round($learning / $total, 4) : 0.0,
+            ],
         ];
     }
 }
