@@ -47,6 +47,29 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
         $this->assertSame(AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RESCUE, $e['action']);
         $this->assertContains('wiring_proof', $e['evidence_requirements']);
         $this->assertContains('integration_test', $e['evidence_requirements']);
+        $this->assertArrayHasKey('next_action', $e);
+        $this->assertNotEmpty($e['next_action']);
+    }
+
+    public function test_every_entry_has_unblock_cause_rescue_priority_and_next_action(): void
+    {
+        $r = $this->svc()->plan([
+            $this->cap('cap-rescue',  'implemented'),
+            array_merge($this->cap('cap-collapse', 'implemented'), [
+                'replacement_owner_id' => 'owner-2', 'replacement_owner_integrated' => true,
+            ]),
+            array_merge($this->cap('cap-retire', 'planned'), ['stall_count' => 5]),
+            $this->cap('cap-monitor', 'planned'),
+        ]);
+
+        foreach (['cap-rescue', 'cap-collapse', 'cap-retire', 'cap-monitor'] as $id) {
+            $e = $this->entryFor($r, $id);
+            $this->assertNotNull($e, "missing entry for {$id}");
+            foreach (['unblock_cause', 'rescue_priority', 'next_action', 'evidence_requirements'] as $k) {
+                $this->assertArrayHasKey($k, $e, "{$id} missing key {$k}");
+            }
+            $this->assertNotEmpty($e['next_action']);
+        }
     }
 
     public function test_tested_not_integrated_is_rescue(): void

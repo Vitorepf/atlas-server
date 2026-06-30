@@ -106,13 +106,7 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
                 $action = self::ACTION_MONITOR;
             }
 
-            $entry = [
-                'capability_id'        => $id,
-                'action'               => $action,
-                'stall_count'          => $stallCount,
-                'evidence_requirements' => self::EVIDENCE_BY_ACTION[$action],
-            ];
-
+            $rescuePriority = 'n/a';
             if ($action === self::ACTION_RESCUE) {
                 $impactLevel   = (string) ($cap['impact_level']         ?? 'medium');
                 $estimatedCost = max(0.0, (float) ($cap['estimated_rescue_cost'] ?? 1.0));
@@ -120,13 +114,20 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
                     ? 'high'
                     : 'normal';
 
-                $entry['unblock_cause']   = $unblockCause;
-                $entry['rescue_priority'] = $rescuePriority;
-
                 if ($rescuePriority === 'high') {
                     $highPriorityRescueCount++;
                 }
             }
+
+            $entry = [
+                'capability_id'         => $id,
+                'action'                => $action,
+                'stall_count'           => $stallCount,
+                'evidence_requirements' => self::EVIDENCE_BY_ACTION[$action],
+                'unblock_cause'         => $unblockCause,
+                'rescue_priority'       => $rescuePriority,
+                'next_action'           => $this->nextAction($action, $unblockCause, $replacementOwner),
+            ];
 
             if ($action === self::ACTION_COLLAPSE && $replacementOwner !== '') {
                 $entry['collapse_into'] = $replacementOwner;
@@ -143,6 +144,20 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
             'entries'                    => $entries,
             'by_action'                  => $byAction,
         ];
+    }
+
+    private function nextAction(string $action, string $unblockCause, string $replacementOwner): string
+    {
+        return match ($action) {
+            self::ACTION_RESCUE   => $unblockCause === 'unknown'
+                ? 'wire_integration_and_add_proof'
+                : "resolve_{$unblockCause}_then_wire_integration",
+            self::ACTION_COLLAPSE => $replacementOwner !== ''
+                ? "collapse_into:{$replacementOwner}"
+                : 'collapse_into_canonical_owner',
+            self::ACTION_RETIRE  => 'retire_no_active_consumer',
+            default              => 'continue_monitoring_progress',
+        };
     }
 
     private function computeUnblockCause(array $cap): string
