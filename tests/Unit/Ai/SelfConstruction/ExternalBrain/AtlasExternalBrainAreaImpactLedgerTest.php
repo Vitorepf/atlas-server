@@ -55,6 +55,7 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         foreach ([
             'area', 'capability_gain', 'observability_gain', 'scaffolding_risk',
             'total_tasks', 'integration_evidence', 'volume_without_evidence',
+            'backlog_pressure', 'compound_impact_score', 'impact_rank',
             'maturity_band', 'risk_level', 'owner_signal', 'next_structural_lever',
         ] as $k) {
             $this->assertArrayHasKey($k, $area, "Missing field: {$k}");
@@ -305,6 +306,78 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
         ]]);
 
         $this->assertSame('unowned', $result['areas']['loop']['owner_signal']);
+    }
+
+    // ── backlog_pressure ──────────────────────────────────────────────────────
+
+    public function test_backlog_pressure_zero_when_only_proven_capability(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertSame(0.0, $result['areas']['loop']['backlog_pressure']);
+    }
+
+    public function test_backlog_pressure_high_when_mostly_scaffolding(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'scaffolding', 'integration_evidence' => false]),
+            $this->sample(['value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $this->assertGreaterThan(0.5, $result['areas']['loop']['backlog_pressure']);
+    }
+
+    // ── compound_impact_score and ranking (AC3) ───────────────────────────────
+
+    public function test_capable_area_ranks_above_scaffolded_area(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'capable',  'value_class' => 'real_capability', 'integration_evidence' => true,  'task_count' => 3]),
+            $this->sample(['area' => 'scaffold', 'value_class' => 'scaffolding',     'integration_evidence' => false, 'task_count' => 3]),
+        ]]);
+
+        $this->assertLessThan(
+            $result['areas']['scaffold']['impact_rank'],
+            $result['areas']['capable']['impact_rank'],
+            'capable area must have a lower (better) rank number than scaffold-heavy area',
+        );
+    }
+
+    public function test_impact_rank_starts_at_one(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [$this->sample()]]);
+
+        $this->assertSame(1, $result['areas']['loop']['impact_rank']);
+    }
+
+    // ── next_leverage_candidate (AC2) ────────────────────────────────────────
+
+    public function test_next_leverage_candidate_is_null_when_no_areas(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => []]);
+
+        $this->assertNull($result['next_leverage_candidate']);
+    }
+
+    public function test_next_leverage_candidate_points_to_top_nonmonitor_area(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            // 'risky' has scaffolding_risk≥2, capability_gain=0 → review_scaffolding lever
+            $this->sample(['area' => 'risky', 'value_class' => 'scaffolding', 'integration_evidence' => false, 'task_count' => 2]),
+            // 'growing' has only 1 capability → monitor lever
+            $this->sample(['area' => 'growing', 'value_class' => 'real_capability', 'integration_evidence' => true]),
+        ]]);
+
+        $candidate = $result['next_leverage_candidate'];
+        $this->assertNotNull($candidate);
+        $this->assertNotSame(
+            AtlasExternalBrainAreaImpactLedger::ACTION_MONITOR,
+            $result['areas'][$candidate]['next_structural_lever'],
+            'next_leverage_candidate must not point to a monitor area when a non-monitor area exists',
+        );
     }
 
     // ── Multi-area isolation ──────────────────────────────────────────────────

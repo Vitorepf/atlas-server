@@ -113,6 +113,13 @@ final class AtlasExternalBrainAreaImpactLedger
             $volumeWithoutEvidence = $b['total_tasks'] >= self::VOLUME_WITHOUT_EVIDENCE_THRESHOLD
                 && $b['capability_gain'] === 0;
 
+            $backlogPressure = $b['total_tasks'] > 0
+                ? round(min(1.0, ($b['scaffolding_risk'] + $b['unknown_count']) / $b['total_tasks']), 4)
+                : 0.0;
+
+            // Compound score: capability weighted highest, observability neutral, scaffolding penalised.
+            $compoundImpactScore = ($b['capability_gain'] * 3) + $b['observability_gain'] - ($b['scaffolding_risk'] * 2);
+
             $areas[$area] = [
                 'area'                    => $area,
                 'capability_gain'         => $b['capability_gain'],
@@ -122,6 +129,9 @@ final class AtlasExternalBrainAreaImpactLedger
                 'total_tasks'             => $b['total_tasks'],
                 'integration_evidence'    => $b['integration_evidence'],
                 'volume_without_evidence' => $volumeWithoutEvidence,
+                'backlog_pressure'        => $backlogPressure,
+                'compound_impact_score'   => $compoundImpactScore,
+                'impact_rank'             => 0,
                 'maturity_band'           => $this->computeMaturityBand($b, $volumeWithoutEvidence),
                 'risk_level'              => $this->computeRiskLevel($b),
                 'owner_signal'            => $this->computeOwnerSignal($b),
@@ -129,13 +139,34 @@ final class AtlasExternalBrainAreaImpactLedger
             ];
         }
 
-        ksort($areas);
+        // Sort by compound_impact_score descending; area name ascending as tiebreaker for determinism.
+        uasort($areas, static function (array $x, array $y): int {
+            return $y['compound_impact_score'] <=> $x['compound_impact_score']
+                ?: strcmp($x['area'], $y['area']);
+        });
+
+        $rank = 1;
+        foreach ($areas as &$areaEntry) {
+            $areaEntry['impact_rank'] = $rank++;
+        }
+        unset($areaEntry);
+
+        // Top-ranked area with a non-trivial lever is the next leverage candidate.
+        $nextLeverageCandidate = null;
+        foreach ($areas as $areaName => $areaEntry) {
+            if ($areaEntry['next_structural_lever'] !== self::ACTION_MONITOR) {
+                $nextLeverageCandidate = $areaName;
+                break;
+            }
+        }
+        $nextLeverageCandidate ??= array_key_first($areas);
 
         return [
-            'schema'       => self::SCHEMA,
-            'areas'        => $areas,
-            'area_count'   => count($areas),
-            'sample_count' => count($samples),
+            'schema'                  => self::SCHEMA,
+            'areas'                   => $areas,
+            'area_count'              => count($areas),
+            'sample_count'            => count($samples),
+            'next_leverage_candidate' => $nextLeverageCandidate,
         ];
     }
 
