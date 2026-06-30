@@ -29,6 +29,11 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourtTest extends TestCase
         return ['commit_success' => false, 'give_back' => true, 'duplicate' => false];
     }
 
+    private function proxyOutcome(): array
+    {
+        return ['commit_success' => false, 'give_back' => false, 'proxy' => true, 'duplicate' => false];
+    }
+
     private function nOutcomes(int $n, array $outcome): array
     {
         return array_fill(0, $n, $outcome);
@@ -235,5 +240,77 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourtTest extends TestCase
         ];
 
         $this->assertSame($this->court()->calibrate($input), $this->court()->calibrate($input));
+    }
+
+    // ── AC1: per-judge judge_results ──────────────────────────────────────────
+
+    public function test_judge_results_calibrated_has_required_fields(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.90, $this->nOutcomes(5, $this->successOutcome()))],
+        ]);
+
+        $jr = $r['judge_results']['j1'];
+        $this->assertSame('calibrated', $jr['judge_bias_class']);
+        $this->assertSame(5, $jr['outcome_sample_count']);
+        $this->assertNotNull($jr['calibration_error']);
+        $this->assertSame('keep', $jr['recommended_weight_adjustment']['direction']);
+        $this->assertFalse($jr['withhold_until_min_samples']);
+    }
+
+    public function test_judge_results_over_optimistic_bias_class(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.90, $this->nOutcomes(5, $this->failureOutcome()))],
+        ]);
+
+        $this->assertSame('over_optimistic', $r['judge_results']['j1']['judge_bias_class']);
+        $this->assertSame('decrease', $r['judge_results']['j1']['recommended_weight_adjustment']['direction']);
+    }
+
+    public function test_judge_results_under_optimistic_bias_class(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.30, $this->nOutcomes(5, $this->successOutcome()))],
+        ]);
+
+        $this->assertSame('under_optimistic', $r['judge_results']['j1']['judge_bias_class']);
+        $this->assertSame('increase', $r['judge_results']['j1']['recommended_weight_adjustment']['direction']);
+    }
+
+    public function test_judge_results_insufficient_sample_withholds(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.80, $this->nOutcomes(3, $this->successOutcome()))],
+        ]);
+
+        $jr = $r['judge_results']['j1'];
+        $this->assertSame('uncalibrated', $jr['judge_bias_class']);
+        $this->assertTrue($jr['withhold_until_min_samples']);
+        $this->assertNull($jr['calibration_error']);
+        $this->assertSame(3, $jr['outcome_sample_count']);
+    }
+
+    public function test_judge_results_give_back_treated_as_failure_in_bias_class(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.80, $this->nOutcomes(5, $this->giveBackOutcome()))],
+        ]);
+
+        $this->assertSame('over_optimistic', $r['judge_results']['j1']['judge_bias_class']);
+    }
+
+    // ── AC2: proxy outcome counts as failure ──────────────────────────────────
+
+    public function test_proxy_outcome_counted_as_failure(): void
+    {
+        // 5 proxy outcomes → actual_mean = 0.0; score 0.80 → over_optimistic
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.80, $this->nOutcomes(5, $this->proxyOutcome()))],
+        ]);
+
+        $this->assertSame('over_optimistic', $r['judge_results']['j1']['judge_bias_class']);
+        $suspect = current(array_filter($r['suspect_judges'], fn ($s) => $s['judge_id'] === 'j1'));
+        $this->assertSame('over_optimistic', $suspect['issue']);
     }
 }

@@ -89,6 +89,7 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourt
         $calibrationError           = [];
         $sampleCounts               = [];
         $recommendedWeightAdjustments = [];
+        $judgeResults               = [];
 
         foreach ($judges as $judge) {
             if (! is_array($judge) || ! isset($judge['judge_id'])) {
@@ -103,19 +104,30 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourt
             $sampleCounts[$judgeId] = $sampleCount;
 
             if ($sampleCount < $minSamples) {
-                $calibrationError[$judgeId]           = null;
-                $recommendedWeightAdjustments[$judgeId] = ['direction' => 'withhold', 'magnitude' => 0.0];
+                $adj = ['direction' => 'withhold', 'magnitude' => 0.0];
+                $calibrationError[$judgeId]             = null;
+                $recommendedWeightAdjustments[$judgeId] = $adj;
+                $judgeResults[$judgeId] = [
+                    'judge_id'                      => $judgeId,
+                    'judge_bias_class'              => self::STATUS_UNCALIBRATED,
+                    'calibration_error'             => null,
+                    'outcome_sample_count'          => $sampleCount,
+                    'recommended_weight_adjustment' => $adj,
+                    'withhold_until_min_samples'    => true,
+                ];
                 $suspectJudges[] = ['judge_id' => $judgeId, 'issue' => self::STATUS_UNCALIBRATED];
                 continue;
             }
 
             // Compute per-outcome actuals and MAE.
+            // give_back and proxy both count as failure (AC2).
             $actuals = [];
             foreach ($outcomes as $outcome) {
                 $commitSuccess = (bool) ($outcome['commit_success'] ?? false);
                 $giveBack      = (bool) ($outcome['give_back'] ?? false);
+                $proxy         = (bool) ($outcome['proxy'] ?? false);
                 $duplicate     = (bool) ($outcome['duplicate'] ?? false);
-                $actuals[]     = ($commitSuccess && ! $giveBack && ! $duplicate) ? 1.0 : 0.0;
+                $actuals[]     = ($commitSuccess && ! $giveBack && ! $proxy && ! $duplicate) ? 1.0 : 0.0;
             }
 
             $actualMean = array_sum($actuals) / $sampleCount;
@@ -157,19 +169,27 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourt
                 self::STATUS_UNDER_OPTIMISTIC => 'increase',
                 default                       => 'keep',
             };
-            $recommendedWeightAdjustments[$judgeId] = [
-                'direction' => $direction,
-                'magnitude' => $direction === 'keep' ? 0.0 : $magnitude,
+            $adj = ['direction' => $direction, 'magnitude' => $direction === 'keep' ? 0.0 : $magnitude];
+            $recommendedWeightAdjustments[$judgeId] = $adj;
+
+            $judgeResults[$judgeId] = [
+                'judge_id'                      => $judgeId,
+                'judge_bias_class'              => $status,
+                'calibration_error'             => round($mae, 6),
+                'outcome_sample_count'          => $sampleCount,
+                'recommended_weight_adjustment' => $adj,
+                'withhold_until_min_samples'    => false,
             ];
         }
 
         return [
-            'schema'                       => self::SCHEMA,
-            'calibrated_judges'            => $calibratedJudges,
-            'suspect_judges'               => $suspectJudges,
-            'calibration_error'            => $calibrationError,
-            'sample_counts'                => $sampleCounts,
+            'schema'                         => self::SCHEMA,
+            'calibrated_judges'              => $calibratedJudges,
+            'suspect_judges'                 => $suspectJudges,
+            'calibration_error'              => $calibrationError,
+            'sample_counts'                  => $sampleCounts,
             'recommended_weight_adjustments' => $recommendedWeightAdjustments,
+            'judge_results'                  => $judgeResults,
         ];
     }
 }
