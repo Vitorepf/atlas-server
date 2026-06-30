@@ -36,7 +36,26 @@ final class AtlasMaestroTaskTierClassifier
     ];
 
     /**
-     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, acceptance_criteria?:list<string>}  $packet
+     * allowed_files count at or above this value escalates to `hardest` (broad-scope signal).
+     */
+    public const BROAD_SCOPE_HARDEST_THRESHOLD = 10;
+
+    /**
+     * give_back_count at or above this value marks a task as poison-prone → `hardest`.
+     */
+    public const POISON_PRONE_THRESHOLD = 3;
+
+    /**
+     * Objective substrings (case-insensitive) that always escalate to `hardest`.
+     */
+    public const FINAL_CERT_KEYWORDS = [
+        'final certification',
+        'final certif',
+        'final approval',
+    ];
+
+    /**
+     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, acceptance_criteria?:list<string>, give_back_count?:int, required_evidence?:list<string>, provided_evidence?:list<string>}  $packet
      * @return array{schema:string, packet_id:string, tier:string, fact_basis:list<string>, content_hash:string, signals:array<string,int|string|bool>}
      */
     public function classify(array $packet): array
@@ -45,6 +64,9 @@ final class AtlasMaestroTaskTierClassifier
         $objective = (string) ($packet['objective'] ?? '');
         $allowedFiles = array_values(array_filter(array_map('strval', (array) ($packet['allowed_files'] ?? []))));
         $acceptance = array_values(array_filter(array_map('strval', (array) ($packet['acceptance_criteria'] ?? []))));
+        $giveBackCount = (int) ($packet['give_back_count'] ?? 0);
+        $requiredEvidence = array_values(array_filter(array_map('strval', (array) ($packet['required_evidence'] ?? []))));
+        $providedEvidence = array_values(array_filter(array_map('strval', (array) ($packet['provided_evidence'] ?? []))));
 
         $objectiveLineCount = $this->lineCount($objective);
         $objectiveLength = strlen($objective);
@@ -52,14 +74,47 @@ final class AtlasMaestroTaskTierClassifier
         $maxDepth = $this->maxPathDepth($allowedFiles);
         $acceptanceCount = count($acceptance);
 
+        // Evidence-backed signals.
+        $missingEvidenceCount = 0;
+        if ($requiredEvidence !== []) {
+            foreach ($requiredEvidence as $req) {
+                if (! in_array($req, $providedEvidence, true)) {
+                    $missingEvidenceCount++;
+                }
+            }
+        }
+
+        $hasFinalCertKeyword = false;
+        $lowerObjective = strtolower($objective);
+        foreach (self::FINAL_CERT_KEYWORDS as $kw) {
+            if (str_contains($lowerObjective, $kw)) {
+                $hasFinalCertKeyword = true;
+                break;
+            }
+        }
+
+        $hardestMarker = $this->firstHardestMarker($allowedFiles);
+        $broadScope = $fileCount >= self::BROAD_SCOPE_HARDEST_THRESHOLD;
+        $poisonProne = $giveBackCount >= self::POISON_PRONE_THRESHOLD;
+
         $factBasis = [];
         $tier = self::TIER_EASY;
 
-        // Rule 1 (HIGHEST PRIORITY): cross-cutting marker in any allowed_file ⇒ hardest.
-        $hardestMarker = $this->firstHardestMarker($allowedFiles);
-        if ($hardestMarker !== null) {
+        // Rule 1 (HIGHEST PRIORITY): hardest escalators.
+        if ($hardestMarker !== null || $hasFinalCertKeyword || $broadScope || $poisonProne) {
             $tier = self::TIER_HARDEST;
-            $factBasis[] = 'allowed_files includes cross-cutting marker: '.$hardestMarker;
+            if ($hardestMarker !== null) {
+                $factBasis[] = 'allowed_files includes cross-cutting marker: '.$hardestMarker;
+            }
+            if ($hasFinalCertKeyword) {
+                $factBasis[] = 'objective contains final-certification keyword';
+            }
+            if ($broadScope) {
+                $factBasis[] = 'broad_scope: allowed_files_count >= '.self::BROAD_SCOPE_HARDEST_THRESHOLD.': '.$fileCount;
+            }
+            if ($poisonProne) {
+                $factBasis[] = 'poison_prone: give_back_count >= '.self::POISON_PRONE_THRESHOLD.': '.$giveBackCount;
+            }
         } else {
             // Rule 2: large blast radius ⇒ hard.
             if ($fileCount >= 5 || $acceptanceCount >= 6 || $objectiveLength >= 1200) {
@@ -80,6 +135,14 @@ final class AtlasMaestroTaskTierClassifier
                 $tier = self::TIER_HARD;
                 $factBasis[] = 'medium surface (no easy / hardest rule matched)';
             }
+
+            // missing_evidence escalates easy → hard.
+            if ($missingEvidenceCount > 0) {
+                if ($tier === self::TIER_EASY) {
+                    $tier = self::TIER_HARD;
+                }
+                $factBasis[] = 'missing_evidence: '.$missingEvidenceCount.' of '.count($requiredEvidence).' required evidence refs absent';
+            }
         }
 
         $signals = [
@@ -89,6 +152,10 @@ final class AtlasMaestroTaskTierClassifier
             'allowed_files_max_depth' => $maxDepth,
             'acceptance_criteria_count' => $acceptanceCount,
             'hardest_marker_hit' => $hardestMarker ?? '',
+            'give_back_count' => $giveBackCount,
+            'missing_evidence_count' => $missingEvidenceCount,
+            'required_evidence_count' => count($requiredEvidence),
+            'final_cert_keyword_hit' => $hasFinalCertKeyword,
         ];
 
         $payload = [

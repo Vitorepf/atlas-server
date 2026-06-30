@@ -105,4 +105,95 @@ final class AtlasMaestroTaskTierClassifierTest extends TestCase
         $b = (new AtlasMaestroTaskTierClassifier)->classify(['packet_id' => 'p', 'objective' => 'b', 'allowed_files' => ['app/A.php'], 'acceptance_criteria' => []]);
         $this->assertNotSame($a['content_hash'], $b['content_hash']);
     }
+
+    // --- evidence-backed tiering ------------------------------------------
+
+    public function test_repeated_give_back_escalates_to_hardest(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-poison',
+            'objective' => 'Normal two-file implementation.',
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'acceptance_criteria' => ['tests green'],
+            'give_back_count' => 3,
+        ]);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARDEST, $r['tier']);
+        $foundPoisonFact = false;
+        foreach ($r['fact_basis'] as $fact) {
+            if (str_contains($fact, 'poison_prone')) {
+                $foundPoisonFact = true;
+            }
+        }
+        $this->assertTrue($foundPoisonFact, 'fact_basis must mention poison_prone');
+    }
+
+    public function test_broad_scope_file_count_escalates_to_hardest(): void
+    {
+        $files = array_map(fn ($i) => "app/File{$i}.php", range(1, 10));
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-broad',
+            'objective' => 'Touch many files.',
+            'allowed_files' => $files,
+            'acceptance_criteria' => ['tests green'],
+        ]);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARDEST, $r['tier']);
+        $foundBroadFact = false;
+        foreach ($r['fact_basis'] as $fact) {
+            if (str_contains($fact, 'broad_scope')) {
+                $foundBroadFact = true;
+            }
+        }
+        $this->assertTrue($foundBroadFact, 'fact_basis must mention broad_scope');
+    }
+
+    public function test_missing_required_evidence_escalates_easy_to_hard(): void
+    {
+        // 1 file + short objective = normally easy; missing evidence bumps to hard.
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-evidence',
+            'objective' => 'Tiny fix.',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'provided_evidence' => ['tests_or_gates_result'], // implementation_notes missing
+        ]);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARD, $r['tier']);
+        $foundEvidenceFact = false;
+        foreach ($r['fact_basis'] as $fact) {
+            if (str_contains($fact, 'missing_evidence')) {
+                $foundEvidenceFact = true;
+            }
+        }
+        $this->assertTrue($foundEvidenceFact, 'fact_basis must mention missing_evidence');
+    }
+
+    public function test_final_certification_keyword_escalates_to_hardest(): void
+    {
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-cert',
+            'objective' => 'Run the final certification suite and sign off.',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['ok'],
+        ]);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARDEST, $r['tier']);
+        $foundCertFact = false;
+        foreach ($r['fact_basis'] as $fact) {
+            if (str_contains($fact, 'final-certification')) {
+                $foundCertFact = true;
+            }
+        }
+        $this->assertTrue($foundCertFact, 'fact_basis must mention final-certification keyword');
+    }
+
+    public function test_narrow_app_plus_test_packet_stays_in_normal_hard_tier(): void
+    {
+        // 2 files, short objective, no evidence issues, no give_back → normal `hard`.
+        $r = (new AtlasMaestroTaskTierClassifier)->classify([
+            'packet_id' => 'p-normal',
+            'objective' => 'Add a small helper method.',
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['tests green'],
+        ]);
+        $this->assertSame(AtlasMaestroTaskTierClassifier::TIER_HARD, $r['tier']);
+    }
 }
