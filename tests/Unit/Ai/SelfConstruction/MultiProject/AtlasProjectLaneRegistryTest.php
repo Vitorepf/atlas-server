@@ -146,4 +146,56 @@ final class AtlasProjectLaneRegistryTest extends TestCase
         $this->expectException(RuntimeException::class);
         $reg->register(['project_id' => 'bad/id', 'repo_root' => '/repos/r', 'objective' => 'x']);
     }
+
+    public function test_relative_repo_root_is_rejected(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $this->expectException(RuntimeException::class);
+        $reg->register($this->lane('p', 'repos/relative'));
+    }
+
+    public function test_traversal_repo_root_is_rejected(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $this->expectException(RuntimeException::class);
+        $reg->register($this->lane('p', '/repos/../secret'));
+    }
+
+    public function test_stored_record_includes_stable_lane_hash(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $a = $reg->register($this->lane('p', '/repos/p'));
+        $reg2 = new AtlasProjectLaneRegistry;
+        $b = $reg2->register($this->lane('p', '/repos/p'));
+
+        $this->assertArrayHasKey('lane_hash', $a);
+        $this->assertSame(64, strlen($a['lane_hash']));
+        $this->assertSame($a['lane_hash'], $b['lane_hash']);
+    }
+
+    public function test_lane_hash_changes_when_repo_root_changes(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $a = $reg->register($this->lane('p', '/repos/alpha'));
+        $reg2 = new AtlasProjectLaneRegistry;
+        $b = $reg2->register($this->lane('p', '/repos/beta'));
+
+        $this->assertNotSame($a['lane_hash'], $b['lane_hash']);
+    }
+
+    public function test_expanded_credential_keys_are_stripped(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $stored = $reg->register($this->lane('sec', '/repos/sec', [
+            'password' => 'hunter2',
+            'token' => 'abc123',
+            'secret' => 'shh',
+            'bearer_token' => 'xyz',
+            'credential' => 'cred',
+        ]));
+
+        foreach (['password', 'token', 'secret', 'bearer_token', 'credential'] as $key) {
+            $this->assertArrayNotHasKey($key, $stored, "registry must strip credential key: {$key}");
+        }
+    }
 }

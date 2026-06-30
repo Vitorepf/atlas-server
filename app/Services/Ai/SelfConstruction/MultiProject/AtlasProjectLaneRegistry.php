@@ -33,10 +33,12 @@ final class AtlasProjectLaneRegistry
     public function register(array $record): array
     {
         $projectId = (string) ($record['project_id'] ?? '');
-        $repoRoot = (string) ($record['repo_root'] ?? '');
+        $repoRoot = rtrim((string) ($record['repo_root'] ?? ''), '/');
+        $record['repo_root'] = $repoRoot;
         if ($projectId === '' || $repoRoot === '') {
             throw new RuntimeException('atlas_project_lane_registry:project_id_and_repo_root_required');
         }
+        $this->assertRepoRootSafe($repoRoot);
         $supersedes = (bool) ($record['supersedes_prior_lane'] ?? false);
         $sanitized = $this->sanitize($record);
         $sanitized = $this->attachDerivedFacts($sanitized);
@@ -122,9 +124,16 @@ final class AtlasProjectLaneRegistry
         $repoHash = substr(hash('sha256', $repoRoot), 0, 8);
         $evidenceNs = 'evidence.'.$projectId.'.'.$repoHash;
 
-        $scopeRoots = is_array($record['allowed_scope_roots'] ?? null)
-            ? array_values(array_map('strval', $record['allowed_scope_roots']))
-            : [$repoRoot];
+        if (is_array($record['allowed_scope_roots'] ?? null)) {
+            $scopeRoots = array_filter(
+                array_map('strval', $record['allowed_scope_roots']),
+                static fn (string $p): bool => $p !== '' && str_starts_with($p, $repoRoot),
+            );
+            $scopeRoots = array_values(array_unique($scopeRoots));
+            sort($scopeRoots, SORT_STRING);
+        } else {
+            $scopeRoots = [$repoRoot];
+        }
 
         $record['queue_namespace_facts'] = $nsFacts;
         $record['evidence_namespace']    = $evidenceNs;
@@ -136,6 +145,15 @@ final class AtlasProjectLaneRegistry
             'code_index_required'  => true,
         ];
 
+        $hashable = [
+            'allowed_scope_roots' => $scopeRoots,
+            'mainline_branch'     => $record['mainline_branch'] ?? 'main',
+            'project_id'          => $projectId,
+            'repo_root'           => $repoRoot,
+            'status'              => $record['status'] ?? 'active',
+        ];
+        $record['lane_hash'] = hash('sha256', (string) json_encode($hashable, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
         return $record;
     }
 
@@ -145,13 +163,30 @@ final class AtlasProjectLaneRegistry
      */
     private function sanitize(array $record): array
     {
-        // PROVIDER-SAFE metadata only — strip any payload that suggests live execution.
-        $forbidden = ['provider_key', 'shell_cmd', 'git_credentials', 'session_token', 'api_key'];
+        // PROVIDER-SAFE metadata only — strip any payload that suggests live execution or credentials.
+        $forbidden = [
+            'api_key', 'auth_token', 'bearer_token', 'credential', 'credentials',
+            'git_credentials', 'password', 'private_key', 'provider_key',
+            'secret', 'secret_key', 'session_token', 'shell_cmd', 'token', 'webhook_secret',
+        ];
         foreach ($forbidden as $key) {
             unset($record[$key]);
         }
 
         return $record;
+    }
+
+    private function assertRepoRootSafe(string $repoRoot): void
+    {
+        if (! str_starts_with($repoRoot, '/')) {
+            throw new RuntimeException('atlas_project_lane_registry:repo_root_must_be_absolute:'.$repoRoot);
+        }
+        if (str_contains($repoRoot, '/..') || str_contains($repoRoot, '../')) {
+            throw new RuntimeException('atlas_project_lane_registry:repo_root_traversal_rejected:'.$repoRoot);
+        }
+        if (str_contains($repoRoot, '//')) {
+            throw new RuntimeException('atlas_project_lane_registry:repo_root_not_normalized:'.$repoRoot);
+        }
     }
 
     /**
