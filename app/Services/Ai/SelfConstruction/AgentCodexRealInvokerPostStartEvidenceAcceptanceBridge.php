@@ -240,6 +240,68 @@ class AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge
         ));
     }
 
+    private const GENERIC_SUCCESS_PHRASES = [
+        'done', 'ok', 'success', 'passed', 'tests passed', 'all good', 'works', 'completed', 'fine', 'good',
+    ];
+
+    private const MIN_EVIDENCE_LENGTH = 20;
+
+    /**
+     * Pure, read-only acceptance check: does this evidence actually satisfy the
+     * task's acceptance criteria, required_evidence fields and scope — never
+     * generic success text, stale proof, or output unrelated to the task. Never
+     * mutates run state, never writes the ledger.
+     *
+     * @param  array{
+     *   acceptance_criteria?: list<string>,
+     *   required_evidence?: list<string>,
+     *   evidence?: array<string,string>,
+     *   task_scope?: list<string>,
+     *   evidence_command_targets?: list<string>,
+     *   evidence_generated_at?: string,
+     *   task_started_at?: string,
+     * }  $input
+     * @return array{evidence_accepted:bool, missing_evidence:list<string>, rejection_reason:?string}
+     */
+    public function validateEvidence(array $input): array
+    {
+        $acceptanceCriteria = (array) ($input['acceptance_criteria'] ?? []);
+        $requiredEvidence = (array) ($input['required_evidence'] ?? []);
+        $evidence = is_array($input['evidence'] ?? null) ? $input['evidence'] : [];
+        $taskScope = (array) ($input['task_scope'] ?? []);
+        $evidenceCommandTargets = (array) ($input['evidence_command_targets'] ?? []);
+
+        $missingEvidence = array_values(array_diff($requiredEvidence, array_keys($evidence)));
+        if ($missingEvidence !== []) {
+            return ['evidence_accepted' => false, 'missing_evidence' => $missingEvidence, 'rejection_reason' => 'missing_required_evidence'];
+        }
+
+        if ($acceptanceCriteria === []) {
+            return ['evidence_accepted' => false, 'missing_evidence' => [], 'rejection_reason' => 'no_acceptance_criteria_to_validate_against'];
+        }
+
+        foreach ($evidence as $value) {
+            $normalizedValue = strtolower(trim((string) $value));
+            if (mb_strlen($normalizedValue) < self::MIN_EVIDENCE_LENGTH && in_array($normalizedValue, self::GENERIC_SUCCESS_PHRASES, true)) {
+                return ['evidence_accepted' => false, 'missing_evidence' => [], 'rejection_reason' => 'generic_success_text'];
+            }
+        }
+
+        $evidenceGeneratedAt = isset($input['evidence_generated_at']) ? (string) $input['evidence_generated_at'] : null;
+        $taskStartedAt = isset($input['task_started_at']) ? (string) $input['task_started_at'] : null;
+        if ($evidenceGeneratedAt !== null && $taskStartedAt !== null && strtotime($evidenceGeneratedAt) !== false && strtotime($taskStartedAt) !== false) {
+            if (strtotime($evidenceGeneratedAt) < strtotime($taskStartedAt)) {
+                return ['evidence_accepted' => false, 'missing_evidence' => [], 'rejection_reason' => 'stale_proof'];
+            }
+        }
+
+        if ($taskScope !== [] && $evidenceCommandTargets !== [] && array_intersect($evidenceCommandTargets, $taskScope) === []) {
+            return ['evidence_accepted' => false, 'missing_evidence' => [], 'rejection_reason' => 'unrelated_command_output'];
+        }
+
+        return ['evidence_accepted' => true, 'missing_evidence' => [], 'rejection_reason' => null];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,string>

@@ -314,4 +314,89 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartEvidenceAcceptanceBri
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── validateEvidence() ───────────────────────────────────────────────────
+
+    public function test_accepts_concrete_evidence_satisfying_required_fields(): void
+    {
+        $bridge = app(AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class);
+        $result = $bridge->validateEvidence([
+            'acceptance_criteria' => ['Runnable: phpunit tests/Unit/FooTest.php must pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'evidence' => ['tests_or_gates_result' => 'PHPUnit: 12 tests, 30 assertions, OK (12/12 passed)'],
+        ]);
+
+        $this->assertTrue($result['evidence_accepted']);
+        $this->assertSame([], $result['missing_evidence']);
+        $this->assertNull($result['rejection_reason']);
+    }
+
+    public function test_rejects_missing_required_evidence(): void
+    {
+        $bridge = app(AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class);
+        $result = $bridge->validateEvidence([
+            'acceptance_criteria' => ['Runnable: phpunit must pass'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'evidence' => ['tests_or_gates_result' => 'PHPUnit: 12 tests, 30 assertions, OK'],
+        ]);
+
+        $this->assertFalse($result['evidence_accepted']);
+        $this->assertSame(['implementation_notes'], $result['missing_evidence']);
+        $this->assertSame('missing_required_evidence', $result['rejection_reason']);
+    }
+
+    public function test_rejects_generic_success_text(): void
+    {
+        $bridge = app(AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class);
+        $result = $bridge->validateEvidence([
+            'acceptance_criteria' => ['Runnable: phpunit must pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'evidence' => ['tests_or_gates_result' => 'done'],
+        ]);
+
+        $this->assertFalse($result['evidence_accepted']);
+        $this->assertSame('generic_success_text', $result['rejection_reason']);
+    }
+
+    public function test_rejects_stale_proof(): void
+    {
+        $bridge = app(AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class);
+        $result = $bridge->validateEvidence([
+            'acceptance_criteria' => ['Runnable: phpunit must pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'evidence' => ['tests_or_gates_result' => 'PHPUnit: 12 tests, 30 assertions, OK (12/12 passed)'],
+            'evidence_generated_at' => '2026-01-01T00:00:00Z',
+            'task_started_at' => '2026-06-01T00:00:00Z',
+        ]);
+
+        $this->assertFalse($result['evidence_accepted']);
+        $this->assertSame('stale_proof', $result['rejection_reason']);
+    }
+
+    public function test_rejects_unrelated_command_output(): void
+    {
+        $bridge = app(AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class);
+        $result = $bridge->validateEvidence([
+            'acceptance_criteria' => ['Runnable: phpunit must pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'evidence' => ['tests_or_gates_result' => 'PHPUnit: 12 tests, 30 assertions, OK (12/12 passed)'],
+            'task_scope' => ['app/Services/Foo.php'],
+            'evidence_command_targets' => ['app/Services/UnrelatedBar.php'],
+        ]);
+
+        $this->assertFalse($result['evidence_accepted']);
+        $this->assertSame('unrelated_command_output', $result['rejection_reason']);
+    }
+
+    public function test_rejects_when_no_acceptance_criteria_to_validate_against(): void
+    {
+        $bridge = app(AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class);
+        $result = $bridge->validateEvidence([
+            'required_evidence' => ['tests_or_gates_result'],
+            'evidence' => ['tests_or_gates_result' => 'PHPUnit: 12 tests, 30 assertions, OK (12/12 passed)'],
+        ]);
+
+        $this->assertFalse($result['evidence_accepted']);
+        $this->assertSame('no_acceptance_criteria_to_validate_against', $result['rejection_reason']);
+    }
 }
