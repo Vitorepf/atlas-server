@@ -198,6 +198,72 @@ final class AtlasSelfConstructionNamingPolicyGateTest extends TestCase
         $this->assertSame(0, $result['summary']['new_checked']);
     }
 
+    public function test_batch_with_same_family_suffix_repeated_three_times_is_refused(): void
+    {
+        $batch = [
+            'app/Services/Ai/SelfConstruction/FooBarService.php',
+            'app/Services/Ai/SelfConstruction/BazQuxService.php',
+            'app/Services/Ai/SelfConstruction/QuxZapService.php',
+        ];
+        $result = $this->gate->evaluate($batch);
+        $this->assertSame('failed', $result['status']);
+        $densityViolations = array_values(array_filter(
+            $result['new_violations'],
+            static fn (array $v): bool => $v['violation'] === AtlasSelfConstructionNamingPolicyGate::VIOLATION_TEMPLATE_FARM_DENSITY,
+        ));
+        $this->assertNotEmpty($densityViolations, 'batch with 3 Service files must produce a template-farm density violation');
+        $this->assertSame(1, $result['summary']['families_failed']);
+    }
+
+    public function test_diverse_batch_under_density_limit_remains_ok(): void
+    {
+        $batch = [
+            'app/Services/Ai/SelfConstruction/FooService.php',
+            'app/Services/Ai/SelfConstruction/BarGate.php',
+            'app/Services/Ai/SelfConstruction/BazPolicy.php',
+        ];
+        $result = $this->gate->evaluate($batch);
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(0, $result['summary']['families_failed']);
+    }
+
+    public function test_single_new_file_remains_ok(): void
+    {
+        $result = $this->gate->evaluate(['app/Services/Ai/SelfConstruction/FooService.php']);
+        $this->assertSame('ok', $result['status']);
+    }
+
+    public function test_density_check_does_not_apply_to_existing_files(): void
+    {
+        // Existing files in sandbox — density check must NOT fire on them.
+        for ($i = 0; $i < 5; $i++) {
+            file_put_contents($this->sandbox."/Existing{$i}Service.php", '<?php');
+        }
+        // New batch has only 2 Service files — under density limit.
+        $batch = [
+            'app/Services/Ai/SelfConstruction/FooService.php',
+            'app/Services/Ai/SelfConstruction/BarService.php',
+        ];
+        $result = $this->gate->evaluate($batch);
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(0, $result['summary']['families_failed']);
+    }
+
+    public function test_summary_exposes_families_inspected_and_failed(): void
+    {
+        $batch = [
+            'app/Services/Ai/SelfConstruction/AService.php',
+            'app/Services/Ai/SelfConstruction/BService.php',
+            'app/Services/Ai/SelfConstruction/CService.php',
+            'app/Services/Ai/SelfConstruction/DGate.php',
+        ];
+        $result = $this->gate->evaluate($batch);
+        $this->assertArrayHasKey('families_inspected', $result['summary']);
+        $this->assertArrayHasKey('families_failed', $result['summary']);
+        $this->assertSame(2, $result['summary']['families_inspected']); // Service + Gate
+        $this->assertSame(1, $result['summary']['families_failed']); // only Service hits the limit
+    }
+
     private function purge(string $path): void
     {
         if (! is_dir($path)) {

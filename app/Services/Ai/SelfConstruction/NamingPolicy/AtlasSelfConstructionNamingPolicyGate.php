@@ -36,6 +36,10 @@ final class AtlasSelfConstructionNamingPolicyGate
 
     public const VIOLATION_FORBIDDEN_AP_SUFFIX = 'forbidden_ap_suffix_without_handoff_packet_schema';
 
+    public const VIOLATION_TEMPLATE_FARM_DENSITY = 'template_farm_naming_density';
+
+    public const FAMILY_DENSITY_LIMIT = 3;
+
     /**
      * @var non-empty-string
      */
@@ -90,6 +94,35 @@ final class AtlasSelfConstructionNamingPolicyGate
             }
         }
 
+        // Template-farm density check — applies only to newRelativePaths.
+        $familyCounts = [];
+        foreach ($newRelativePaths as $relative) {
+            if (! $this->isInScope($relative)) {
+                continue;
+            }
+            $className = preg_replace('/\.php$/', '', basename($relative)) ?? basename($relative);
+            $family = $this->extractFamily($className);
+            $familyCounts[$family] = ($familyCounts[$family] ?? 0) + 1;
+        }
+        $failedFamilies = [];
+        foreach ($familyCounts as $family => $count) {
+            if ($count >= self::FAMILY_DENSITY_LIMIT) {
+                $failedFamilies[] = $family;
+                $newViolations[] = [
+                    'file' => 'batch:family:'.$family,
+                    'class_name' => $family,
+                    'length' => $count,
+                    'violation' => self::VIOLATION_TEMPLATE_FARM_DENSITY,
+                    'detail' => sprintf(
+                        'template-farm density: family "%s" appears %d times in this batch (limit %d). Each new file must bring a distinct capability.',
+                        $family,
+                        $count,
+                        self::FAMILY_DENSITY_LIMIT,
+                    ),
+                ];
+            }
+        }
+
         $existing = $this->scanExisting();
 
         return [
@@ -109,6 +142,8 @@ final class AtlasSelfConstructionNamingPolicyGate
                 'new_checked' => count($newRelativePaths),
                 'new_failed' => count($newViolations),
                 'existing_violation_count' => count($existing),
+                'families_inspected' => count($familyCounts),
+                'families_failed' => count($failedFamilies),
             ],
         ];
     }
@@ -212,6 +247,16 @@ final class AtlasSelfConstructionNamingPolicyGate
 
         return str_starts_with($normalized, self::TARGET_ROOT.'/')
             && str_ends_with($normalized, '.php');
+    }
+
+    private function extractFamily(string $className): string
+    {
+        // Family = last PascalCase word (e.g. "Service", "Gate", "Policy").
+        if (preg_match('/([A-Z][a-z]+)$/', $className, $m) === 1) {
+            return $m[1];
+        }
+
+        return $className;
     }
 
     private function hasForbiddenApSuffix(string $className, string $relativePath): bool
