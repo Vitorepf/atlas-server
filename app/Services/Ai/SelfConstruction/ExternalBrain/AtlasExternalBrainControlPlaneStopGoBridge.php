@@ -8,26 +8,28 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Bridges unified brain control-plane snapshot facts into one operator-free
  * stop/go decision. Translates snapshot signals into a single actionable verdict.
  *
- * Decision priority (first match):
- *   consolidate_or_self_heal — malformed_risk=true OR quality_trend='low' OR sprawl_pressure='high'
- *   drain_queue              — queue_pressure='high' AND quality_trend != 'high'
- *   escalate_ambition        — healthy + high value + maturity_gap_count>0
- *   create_more_tasks        — healthy + high value
- *   pause                    — default
+ * Decision priority (first match wins):
+ *   self_heal_queue      — malformed_risk=true OR queue_health≠healthy OR give_back_pressure=high
+ *   run_consolidation    — quality_trend=low OR sprawl_pressure=high
+ *   drain_existing_queue — saturation guard: claimable_depth=high AND value_density=falling
+ *                         (overrides create/escalate even when quota_pressure is high)
+ *   drain_existing_queue — queue_pressure=high AND quality_trend≠high
+ *   escalate_ambition    — healthy + quality_trend=high + maturity_gap_count>0
+ *   create_more_tasks    — healthy + quality_trend=high
+ *   pause                — default
  *
- * AC3: consolidate_or_self_heal always wins over create_more_tasks when
- *      quality_trend is low OR malformed_risk is true.
- * AC4: pure PHP, no side effects, no provider calls.
+ * Pure: no I/O, no provider calls, no side effects.
  */
 final class AtlasExternalBrainControlPlaneStopGoBridge
 {
     public const SCHEMA = 'atlas.external_brain.control_plane_stop_go_bridge.v1';
 
-    public const DECISION_CONSOLIDATE_OR_SELF_HEAL = 'consolidate_or_self_heal';
-    public const DECISION_DRAIN_QUEUE              = 'drain_queue';
-    public const DECISION_ESCALATE_AMBITION        = 'escalate_ambition';
-    public const DECISION_CREATE_MORE_TASKS        = 'create_more_tasks';
-    public const DECISION_PAUSE                    = 'pause';
+    public const DECISION_SELF_HEAL_QUEUE      = 'self_heal_queue';
+    public const DECISION_RUN_CONSOLIDATION    = 'run_consolidation';
+    public const DECISION_DRAIN_EXISTING_QUEUE = 'drain_existing_queue';
+    public const DECISION_ESCALATE_AMBITION    = 'escalate_ambition';
+    public const DECISION_CREATE_MORE_TASKS    = 'create_more_tasks';
+    public const DECISION_PAUSE                = 'pause';
 
     /**
      * @param  array<string,mixed>  $input
@@ -35,12 +37,15 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
      */
     public function decide(array $input): array
     {
-        $queuePressure   = (string) ($input['queue_pressure']   ?? 'low');
-        $qualityTrend    = (string) ($input['quality_trend']    ?? 'medium');
-        $sprawlPressure  = (string) ($input['sprawl_pressure']  ?? 'low');
-        $malformedRisk   = (bool)   ($input['malformed_risk']   ?? false);
-        $queueHealth     = (string) ($input['queue_health']     ?? 'healthy');
-        $maturityGaps    = max(0,   (int) ($input['maturity_gap_count'] ?? 0));
+        $queuePressure    = (string) ($input['queue_pressure']     ?? 'low');
+        $qualityTrend     = (string) ($input['quality_trend']      ?? 'medium');
+        $sprawlPressure   = (string) ($input['sprawl_pressure']    ?? 'low');
+        $malformedRisk    = (bool)   ($input['malformed_risk']     ?? false);
+        $queueHealth      = (string) ($input['queue_health']       ?? 'healthy');
+        $maturityGaps     = max(0,   (int) ($input['maturity_gap_count']  ?? 0));
+        $claimableDepth   = (string) ($input['claimable_depth']    ?? 'low');
+        $valueDensity     = (string) ($input['value_density']      ?? 'stable');
+        $giveBackPressure = (string) ($input['give_back_pressure'] ?? 'low');
 
         $isHealthy   = $queueHealth === 'healthy';
         $isHighValue = $qualityTrend === 'high';
@@ -48,6 +53,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         [$decision, $reasons] = $this->classify(
             $queuePressure, $qualityTrend, $sprawlPressure,
             $malformedRisk, $isHealthy, $isHighValue, $maturityGaps,
+            $claimableDepth, $valueDensity, $giveBackPressure, $queueHealth,
         );
 
         return [
@@ -68,12 +74,28 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         bool   $isHealthy,
         bool   $isHighValue,
         int    $maturityGaps,
+        string $claimableDepth,
+        string $valueDensity,
+        string $giveBackPressure,
+        string $queueHealth,
     ): array {
-        // AC3 — consolidate/heal beats expansion when quality or safety is degraded
-        $consolidateReasons = [];
+        // 1. SELF_HEAL_QUEUE — safety net first
+        $healReasons = [];
         if ($malformedRisk) {
-            $consolidateReasons[] = 'malformed_risk:true';
+            $healReasons[] = 'malformed_risk:true';
         }
+        if (! $isHealthy) {
+            $healReasons[] = "queue_health:{$queueHealth}";
+        }
+        if ($giveBackPressure === 'high') {
+            $healReasons[] = 'give_back_pressure:high';
+        }
+        if ($healReasons !== []) {
+            return [self::DECISION_SELF_HEAL_QUEUE, $healReasons];
+        }
+
+        // 2. RUN_CONSOLIDATION — quality or sprawl degradation
+        $consolidateReasons = [];
         if ($qualityTrend === 'low') {
             $consolidateReasons[] = 'quality_trend:low';
         }
@@ -81,15 +103,28 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             $consolidateReasons[] = 'sprawl_pressure:high';
         }
         if ($consolidateReasons !== []) {
-            return [self::DECISION_CONSOLIDATE_OR_SELF_HEAL, $consolidateReasons];
+            return [self::DECISION_RUN_CONSOLIDATION, $consolidateReasons];
         }
 
-        // High pressure but not high value → drain first
+        // 3. Saturation guard — claimable_depth=high AND value_density=falling
+        //    Blocks task creation even when quota_pressure demands more
+        if ($claimableDepth === 'high' && $valueDensity === 'falling') {
+            return [self::DECISION_DRAIN_EXISTING_QUEUE, [
+                'claimable_depth:high',
+                'value_density:falling',
+                'saturation_guard:blocks_creation',
+            ]];
+        }
+
+        // 4. DRAIN_EXISTING_QUEUE — high queue pressure with non-high quality
         if ($queuePressure === 'high' && ! $isHighValue) {
-            return [self::DECISION_DRAIN_QUEUE, ['queue_pressure:high', "quality_trend:{$qualityTrend}"]];
+            return [self::DECISION_DRAIN_EXISTING_QUEUE, [
+                'queue_pressure:high',
+                "quality_trend:{$qualityTrend}",
+            ]];
         }
 
-        // Healthy + high value → expand; pick escalate if gaps exist
+        // 5. ESCALATE / CREATE — healthy + high value
         if ($isHealthy && $isHighValue) {
             if ($maturityGaps > 0) {
                 return [self::DECISION_ESCALATE_AMBITION, [
@@ -107,11 +142,12 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
     private function nextAction(string $decision): string
     {
         return match ($decision) {
-            self::DECISION_CONSOLIDATE_OR_SELF_HEAL => 'run_organ_sprawl_reduction_and_repair_malformed_packets',
-            self::DECISION_DRAIN_QUEUE              => 'assign_workers_to_drain_existing_queue_before_originating',
-            self::DECISION_ESCALATE_AMBITION        => 'fill_maturity_gaps_with_higher_leverage_tasks',
-            self::DECISION_CREATE_MORE_TASKS        => 'originate_next_batch_from_comprehension',
-            default                                 => 'observe_and_wait_for_next_signal',
+            self::DECISION_SELF_HEAL_QUEUE      => 'repair_malformed_packets_and_restore_queue_health',
+            self::DECISION_RUN_CONSOLIDATION    => 'run_organ_sprawl_reduction_and_quality_recovery',
+            self::DECISION_DRAIN_EXISTING_QUEUE => 'assign_workers_to_drain_existing_queue_before_originating',
+            self::DECISION_ESCALATE_AMBITION    => 'fill_maturity_gaps_with_higher_leverage_tasks',
+            self::DECISION_CREATE_MORE_TASKS    => 'originate_next_batch_from_comprehension',
+            default                             => 'observe_and_wait_for_next_signal',
         };
     }
 }

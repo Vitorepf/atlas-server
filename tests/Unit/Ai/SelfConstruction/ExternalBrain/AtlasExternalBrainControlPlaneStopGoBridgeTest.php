@@ -25,6 +25,9 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
             'malformed_risk'     => false,
             'queue_health'       => 'healthy',
             'maturity_gap_count' => 0,
+            'claimable_depth'    => 'low',
+            'value_density'      => 'stable',
+            'give_back_pressure' => 'low',
         ], $overrides);
     }
 
@@ -41,7 +44,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $this->assertTrue($result['provider_free']);
     }
 
-    // ── AC2: healthy + high quality → create ─────────────────────────────────
+    // ── create_more_tasks ─────────────────────────────────────────────────────
 
     public function test_healthy_high_quality_returns_create_more_tasks(): void
     {
@@ -50,7 +53,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
     }
 
-    // ── AC2: healthy + high quality + gaps → escalate ────────────────────────
+    // ── escalate_ambition ─────────────────────────────────────────────────────
 
     public function test_healthy_high_quality_with_gaps_escalates_ambition(): void
     {
@@ -60,37 +63,23 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         $this->assertStringContainsString('maturity_gap_count:3', implode(' ', $result['reasons']));
     }
 
-    // ── AC3: consolidate when quality_trend is low ────────────────────────────
+    // ── run_consolidation ─────────────────────────────────────────────────────
 
-    public function test_low_quality_trend_returns_consolidate_or_self_heal(): void
+    public function test_low_quality_trend_returns_run_consolidation(): void
     {
         $result = $this->bridge->decide($this->healthy(['quality_trend' => 'low']));
 
-        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CONSOLIDATE_OR_SELF_HEAL, $result['stop_go_decision']);
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION, $result['stop_go_decision']);
         $this->assertStringContainsString('quality_trend:low', implode(' ', $result['reasons']));
     }
 
-    // ── AC3: consolidate when malformed_risk is true ──────────────────────────
-
-    public function test_malformed_risk_returns_consolidate_or_self_heal(): void
-    {
-        $result = $this->bridge->decide($this->healthy(['malformed_risk' => true]));
-
-        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CONSOLIDATE_OR_SELF_HEAL, $result['stop_go_decision']);
-        $this->assertStringContainsString('malformed_risk:true', implode(' ', $result['reasons']));
-    }
-
-    // ── AC3: consolidate when sprawl_pressure is high ────────────────────────
-
-    public function test_high_sprawl_returns_consolidate_or_self_heal(): void
+    public function test_high_sprawl_returns_run_consolidation(): void
     {
         $result = $this->bridge->decide($this->healthy(['sprawl_pressure' => 'high']));
 
-        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CONSOLIDATE_OR_SELF_HEAL, $result['stop_go_decision']);
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION, $result['stop_go_decision']);
         $this->assertStringContainsString('sprawl_pressure:high', implode(' ', $result['reasons']));
     }
-
-    // ── AC3: consolidate beats create when value is low (even with gaps) ──────
 
     public function test_low_quality_beats_maturity_gaps(): void
     {
@@ -99,23 +88,57 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
             'maturity_gap_count' => 10,
         ]));
 
-        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CONSOLIDATE_OR_SELF_HEAL, $result['stop_go_decision']);
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION, $result['stop_go_decision']);
     }
 
-    // ── AC3: consolidate beats create when malformed risk is high ─────────────
+    // ── self_heal_queue ───────────────────────────────────────────────────────
+
+    public function test_malformed_risk_returns_self_heal_queue(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['malformed_risk' => true]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+        $this->assertStringContainsString('malformed_risk:true', implode(' ', $result['reasons']));
+    }
 
     public function test_malformed_risk_beats_create(): void
     {
         $result = $this->bridge->decide($this->healthy([
-            'malformed_risk'  => true,
-            'quality_trend'   => 'high',
-            'queue_health'    => 'healthy',
+            'malformed_risk' => true,
+            'quality_trend'  => 'high',
+            'queue_health'   => 'healthy',
         ]));
 
-        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CONSOLIDATE_OR_SELF_HEAL, $result['stop_go_decision']);
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
     }
 
-    // ── AC2: drain when high pressure but not high quality ────────────────────
+    public function test_degraded_queue_health_triggers_self_heal(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['queue_health' => 'degraded']));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+        $this->assertStringContainsString('queue_health:degraded', implode(' ', $result['reasons']));
+    }
+
+    public function test_give_back_pressure_high_triggers_self_heal(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['give_back_pressure' => 'high']));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+        $this->assertStringContainsString('give_back_pressure:high', implode(' ', $result['reasons']));
+    }
+
+    public function test_self_heal_beats_consolidation_when_both_signals_present(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'malformed_risk' => true,
+            'quality_trend'  => 'low',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+    }
+
+    // ── drain_existing_queue ──────────────────────────────────────────────────
 
     public function test_high_queue_pressure_with_medium_quality_drains(): void
     {
@@ -124,30 +147,79 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
             'quality_trend'  => 'medium',
         ]));
 
-        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_QUEUE, $result['stop_go_decision']);
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
     }
 
-    // ── Pause as default ──────────────────────────────────────────────────────
+    // ── AC2: saturation guard ─────────────────────────────────────────────────
 
-    public function test_degraded_queue_medium_quality_returns_pause(): void
+    public function test_saturation_guard_drains_when_depth_high_and_value_falling(): void
     {
         $result = $this->bridge->decide($this->healthy([
-            'queue_health'  => 'degraded',
-            'quality_trend' => 'medium',
+            'claimable_depth' => 'high',
+            'value_density'   => 'falling',
         ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
+        $reasons = implode(' ', $result['reasons']);
+        $this->assertStringContainsString('claimable_depth:high', $reasons);
+        $this->assertStringContainsString('value_density:falling', $reasons);
+        $this->assertStringContainsString('saturation_guard', $reasons);
+    }
+
+    public function test_saturation_guard_blocks_even_when_quota_pressure_high(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'queue_pressure'  => 'high',
+            'claimable_depth' => 'high',
+            'value_density'   => 'falling',
+            'quality_trend'   => 'high',
+        ]));
+
+        // Saturation guard fires BEFORE drain-from-queue-pressure check
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
+        $this->assertStringContainsString('saturation_guard', implode(' ', $result['reasons']));
+    }
+
+    public function test_saturation_guard_does_not_fire_when_value_stable(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'claimable_depth' => 'high',
+            'value_density'   => 'stable',
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
+    }
+
+    public function test_saturation_guard_does_not_fire_when_depth_not_high(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'claimable_depth' => 'medium',
+            'value_density'   => 'falling',
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
+    }
+
+    // ── pause as default ──────────────────────────────────────────────────────
+
+    public function test_medium_quality_no_pressure_returns_pause(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['quality_trend' => 'medium']));
 
         $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_PAUSE, $result['stop_go_decision']);
     }
 
-    // ── Reasons are always present ────────────────────────────────────────────
+    // ── reasons always present, next_action always non-empty ─────────────────
 
-    public function test_reasons_are_non_empty_for_action_decisions(): void
+    public function test_reasons_are_non_empty_for_all_decisions(): void
     {
         $cases = [
             $this->healthy(['malformed_risk' => true]),
             $this->healthy(['quality_trend' => 'low']),
             $this->healthy(['maturity_gap_count' => 5]),
             $this->healthy(),
+            $this->healthy(['give_back_pressure' => 'high']),
+            $this->healthy(['claimable_depth' => 'high', 'value_density' => 'falling']),
         ];
 
         foreach ($cases as $input) {
@@ -156,12 +228,18 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
         }
     }
 
-    // ── next_action is always non-empty ──────────────────────────────────────
-
     public function test_next_action_is_always_non_empty(): void
     {
         $result = $this->bridge->decide($this->healthy());
 
         $this->assertNotEmpty($result['next_action']);
+    }
+
+    public function test_next_action_differs_by_decision(): void
+    {
+        $healAction   = $this->bridge->decide($this->healthy(['malformed_risk' => true]))['next_action'];
+        $createAction = $this->bridge->decide($this->healthy())['next_action'];
+
+        $this->assertNotSame($healAction, $createAction);
     }
 }
