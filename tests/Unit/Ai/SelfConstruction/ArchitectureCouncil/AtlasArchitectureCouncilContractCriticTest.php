@@ -98,4 +98,62 @@ final class AtlasArchitectureCouncilContractCriticTest extends TestCase
         sort($copy, SORT_STRING);
         $this->assertSame($copy, $r['findings']);
     }
+
+    public function test_singleton_interface_in_responsibilities_is_flagged(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['expose singleton interface with one implementation for compiler'];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('overengineering:singleton_interface', $r['findings']);
+    }
+
+    public function test_factory_for_one_in_responsibilities_is_flagged(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['provide a factory for one product only'];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('overengineering:factory_for_one', $r['findings']);
+    }
+
+    public function test_speculative_config_in_responsibilities_is_flagged(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['expose speculative config knobs for future extensibility'];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('overengineering:speculative_config', $r['findings']);
+    }
+
+    public function test_template_farm_wording_is_flagged(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['manage a template-farm for scaffolding new organs'];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('template_farm', $r['findings']);
+    }
+
+    public function test_non_atlas_steady_state_runtime_ownership_is_flagged(): void
+    {
+        $c = $this->goodContract();
+        $c['responsibilities'] = ['operator drives steady-state execution pipeline'];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('non_atlas_steady_state_runtime', $r['findings']);
+    }
+
+    public function test_compact_simple_contract_with_evidence_invariants_non_authority_passes(): void
+    {
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($this->goodContract());
+        $this->assertTrue($r['accepted']);
+        $this->assertSame([], $r['findings']);
+        // Confirm no overengineering/template_farm/non_atlas finding leaked in.
+        foreach ($r['findings'] as $f) {
+            $this->assertStringNotContainsString('overengineering', $f);
+            $this->assertStringNotContainsString('template_farm', $f);
+            $this->assertStringNotContainsString('non_atlas_steady_state_runtime', $f);
+        }
+    }
 }

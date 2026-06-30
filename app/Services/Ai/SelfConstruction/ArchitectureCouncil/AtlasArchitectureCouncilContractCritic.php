@@ -46,6 +46,14 @@ final class AtlasArchitectureCouncilContractCritic
         '/(?<!do not |never )call\s+(an\s+)?external\s+provider/i' => 'hidden_side_effects:provider_call',
     ];
 
+    public const OVERENGINEERING_PATTERNS = [
+        '/\bsingleton[\s\-]interface\b|\binterface\b.+\bone\s+implementation\b|\bone\s+implementation\b/i' => 'overengineering:singleton_interface',
+        '/\bfactory[\s\-]for[\s\-]one\b|\bfactory\b.+\bone\s+product\b/i' => 'overengineering:factory_for_one',
+        '/\bspeculative\s+config(uration)?\b/i' => 'overengineering:speculative_config',
+        '/\btemplate[\s\-]farm\b/i' => 'template_farm',
+        '/\b(operator|human|provider)\b.+\bsteady[\s\-]state\b|\bsteady[\s\-]state\b.+\b(operator|human|provider)\b/i' => 'non_atlas_steady_state_runtime',
+    ];
+
     /**
      * @param  array{
      *     organ?:string,
@@ -121,6 +129,11 @@ final class AtlasArchitectureCouncilContractCritic
                 if (! $covered) {
                     $findings[] = $key;
                 }
+            }
+        }
+        foreach (self::OVERENGINEERING_PATTERNS as $pattern => $key) {
+            if (preg_match($pattern, $haystack)) {
+                $findings[] = $key;
             }
         }
 
