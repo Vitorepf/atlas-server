@@ -38,6 +38,14 @@ final class AtlasMaestroOrphanCallerVerifier
         $short = $this->shortName($target);
         $orphanTokens = $this->roleTokens($short);
 
+        // Validate explicit caller list when provided — live callsite evidence is required.
+        if (array_key_exists('callers', $orphanPacket)) {
+            $callerCheck = $this->validateCallers(array_values((array) ($orphanPacket['callers'] ?? [])), $short);
+            if (! $callerCheck['ok']) {
+                return $callerCheck;
+            }
+        }
+
         // FACT-anchor the orphan target (best-effort; the role-token check stands on the name either way).
         $resolved = ($this->resolver ?? new AtlasMaestroSemanticSymbolResolver)->resolve($target);
 
@@ -64,6 +72,35 @@ final class AtlasMaestroOrphanCallerVerifier
             'observed_sibling' => $siblings[0],
             'target_resolved' => (bool) ($resolved['exists'] ?? false),
         ];
+    }
+
+    /**
+     * @param  list<string>  $callers
+     * @return array<string,mixed>
+     */
+    private function validateCallers(array $callers, string $targetShort): array
+    {
+        if ($callers === []) {
+            return ['ok' => false, 'reason' => 'no_live_callers'];
+        }
+        foreach ($callers as $caller) {
+            $c = (string) $caller;
+            if (! str_contains($c, '/')) {
+                if ($c === $targetShort) {
+                    return ['ok' => false, 'reason' => 'basename_only_match', 'caller' => $c];
+                }
+                if ($c !== '' && str_ends_with($targetShort, $c)) {
+                    return ['ok' => false, 'reason' => 'suffix_only_match', 'caller' => $c];
+                }
+
+                return ['ok' => false, 'reason' => 'caller_no_path_component', 'caller' => $c];
+            }
+            if (! str_contains($c, '::') && ! str_contains($c, '->')) {
+                return ['ok' => false, 'reason' => 'caller_no_method_reference', 'caller' => $c];
+            }
+        }
+
+        return ['ok' => true];
     }
 
     private function readEnclosing(string $relFile, int $line): string

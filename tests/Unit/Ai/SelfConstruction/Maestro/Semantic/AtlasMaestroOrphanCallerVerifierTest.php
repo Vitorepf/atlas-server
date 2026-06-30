@@ -65,6 +65,59 @@ final class AtlasMaestroOrphanCallerVerifierTest extends TestCase
         $this->assertContains('panel', $out['expected_role_tokens']);
     }
 
+    public function test_empty_callers_are_rejected(): void
+    {
+        $out = $this->verifier()->verify([
+            'orphan_target' => 'App\\Services\\AtlasTaskClaimInspector',
+            'callers' => [],
+            'insertion_site' => ['file' => 'app/Foo.php', 'line' => 10, 'enclosing_source' => 'some source'],
+        ]);
+
+        $this->assertFalse($out['ok']);
+        $this->assertSame('no_live_callers', $out['reason']);
+    }
+
+    public function test_suffix_only_caller_is_rejected(): void
+    {
+        $out = $this->verifier()->verify([
+            'orphan_target' => 'App\\Services\\AtlasTaskClaimInspector',
+            'callers' => ['ClaimInspector'],
+            'insertion_site' => ['file' => 'app/Foo.php', 'line' => 10, 'enclosing_source' => 'some source'],
+        ]);
+
+        $this->assertFalse($out['ok']);
+        $this->assertSame('suffix_only_match', $out['reason']);
+        $this->assertSame('ClaimInspector', $out['caller']);
+    }
+
+    public function test_basename_only_caller_is_rejected(): void
+    {
+        $out = $this->verifier()->verify([
+            'orphan_target' => 'App\\Services\\AtlasTaskClaimInspector',
+            'callers' => ['AtlasTaskClaimInspector'],
+            'insertion_site' => ['file' => 'app/Foo.php', 'line' => 10, 'enclosing_source' => 'some source'],
+        ]);
+
+        $this->assertFalse($out['ok']);
+        $this->assertSame('basename_only_match', $out['reason']);
+        $this->assertSame('AtlasTaskClaimInspector', $out['caller']);
+    }
+
+    public function test_real_caller_path_with_method_reference_passes(): void
+    {
+        $out = $this->verifier(true)->verify([
+            'orphan_target' => 'App\\Services\\Ai\\SelfConstruction\\AtlasTaskClaimInspector',
+            'callers' => ['app/Services/Ai/SelfConstruction/Orchestrator.php::handle'],
+            'insertion_site' => [
+                'file' => 'app/Foo.php',
+                'line' => 10,
+                'enclosing_source' => 'public function handle(): void { $this->run(new AtlasTaskPacketQualityInspector()); }',
+            ],
+        ]);
+
+        $this->assertTrue($out['ok']);
+    }
+
     public function test_skips_non_orphan_wiring_packets(): void
     {
         $out = $this->verifier()->verify([
