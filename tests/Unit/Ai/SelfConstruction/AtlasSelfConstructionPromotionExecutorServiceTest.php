@@ -168,6 +168,25 @@ class AtlasSelfConstructionPromotionExecutorServiceTest extends TestCase
         $this->assertSame('syntax_invalid:ZzAtlasBrokenDemoService.php', $r['reason']);
     }
 
+    public function test_space_in_path_does_not_cause_false_deny(): void
+    {
+        config(['atlas.ai.self_construction.promote_to_source_enabled' => true]);
+
+        $contents = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Services\\Ai\\SelfConstruction;\n\nfinal class ZzAtlasSpaceDemoService\n{\n    public function ping(): string { return 'pong'; }\n}\n";
+        $staged = $this->stageFile('ZzAtlasSpaceDemoService.php', $contents);
+
+        $subDir = $this->stagingDir.'/sub dir';
+        @mkdir($subDir, 0o755, true);
+        $staged2 = $subDir.'/ZzAtlasSpaceHelperService.php';
+        file_put_contents($staged2, "<?php\n\nclass ZzAtlasSpaceHelperService {}\n");
+
+        $this->writeStagedReceipt('p-space', 'sha256:space', [$staged, $staged2]);
+
+        $r = $this->executor->promote('p-space', 'sha256:space', ['operator_id' => 'vitor', 'approved' => true]);
+
+        $this->assertTrue($r['promoted'], 'space-in-path must not false-deny: '.(string) $r['reason']);
+    }
+
     public function test_promotes_staged_scaffold_to_new_branch_never_main_never_working_tree(): void
     {
         config(['atlas.ai.self_construction.promote_to_source_enabled' => true]);

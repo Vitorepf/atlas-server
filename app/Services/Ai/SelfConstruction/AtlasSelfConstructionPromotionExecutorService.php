@@ -118,8 +118,8 @@ final class AtlasSelfConstructionPromotionExecutorService
 
             // Diff-verify: o worktree contém EXATAMENTE os arquivos planejados.
             $porcelain = array_values(array_filter(array_map(
-                static fn (string $line): string => trim(substr($line, 3)),
-                array_filter(explode("\n", $this->gitOutput($worktree, ['status', '--porcelain', '--untracked-files=all']))),
+                static fn (string $entry): string => substr($entry, 3),
+                array_filter(explode("\0", $this->gitOutput($worktree, ['status', '--porcelain', '-z', '--untracked-files=all']))),
             )));
             sort($porcelain);
             $expected = $relativeTargets;
