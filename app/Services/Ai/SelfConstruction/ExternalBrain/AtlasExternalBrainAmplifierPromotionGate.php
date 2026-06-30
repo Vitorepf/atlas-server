@@ -79,6 +79,10 @@ final class AtlasExternalBrainAmplifierPromotionGate
             $rollbackTriggers[] = 'quality_regression_detected';
             $missingEvidence[]  = 'quality_lift_evidence_showing_no_regression';
         }
+        if ($poisonDelta > self::MAX_POISON_DELTA) {
+            $rollbackTriggers[] = 'poison_risk_increased';
+            $missingEvidence[]  = 'poison_rate_audit_showing_no_increase';
+        }
 
         // ── Shadow-more conditions ───────────────────────────────────────────
         if ($heldoutPassRate < self::MIN_HELDOUT_PASS_RATE) {
@@ -110,9 +114,6 @@ final class AtlasExternalBrainAmplifierPromotionGate
         }
         if ($giveBackDelta > self::MAX_GIVE_BACK_DELTA) {
             $blockingReasons[] = 'give_back_risk_increased';
-        }
-        if ($poisonDelta > self::MAX_POISON_DELTA) {
-            $blockingReasons[] = 'poison_risk_increased';
         }
         if (! $slo) {
             $blockingReasons[] = 'slo_not_passed';
