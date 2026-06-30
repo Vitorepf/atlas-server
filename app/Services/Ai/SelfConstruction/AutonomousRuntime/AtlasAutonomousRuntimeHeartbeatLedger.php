@@ -104,6 +104,84 @@ final class AtlasAutonomousRuntimeHeartbeatLedger
         return $rows;
     }
 
+    public const STALE_THRESHOLD_SECONDS = 300;
+
+    /**
+     * Classify the latest heartbeat per phase as stale or fresh relative to a supplied now.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array{stale:list<string>,fresh:list<string>}
+     */
+    public function classifyStalePhases(array $records, int $nowUnix, int $staleThresholdSeconds = self::STALE_THRESHOLD_SECONDS): array
+    {
+        $latest = [];
+        foreach ($records as $record) {
+            $phase = (string) ($record['state'] ?? '');
+            $ts = (int) ($record['ts_unix'] ?? 0);
+            if ($phase !== '' && (! isset($latest[$phase]) || $ts > $latest[$phase])) {
+                $latest[$phase] = $ts;
+            }
+        }
+
+        $stale = [];
+        $fresh = [];
+        foreach ($latest as $phase => $latestTs) {
+            if (($nowUnix - $latestTs) > $staleThresholdSeconds) {
+                $stale[] = $phase;
+            } else {
+                $fresh[] = $phase;
+            }
+        }
+
+        sort($stale);
+        sort($fresh);
+
+        return ['stale' => $stale, 'fresh' => $fresh];
+    }
+
+    /**
+     * Return required phases that have no record in the supplied list.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @param  list<string>  $requiredPhases
+     * @return list<string>
+     */
+    public function detectMissingPhases(array $records, array $requiredPhases): array
+    {
+        $present = [];
+        foreach ($records as $record) {
+            $phase = (string) ($record['state'] ?? '');
+            if ($phase !== '') {
+                $present[$phase] = true;
+            }
+        }
+
+        $missing = array_values(array_filter($requiredPhases, static fn (string $p): bool => ! isset($present[$p])));
+        sort($missing);
+
+        return $missing;
+    }
+
+    /**
+     * Count records per phase; result is ksort-stable (deterministic ordering).
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array{phases:array<string,int>,total:int}
+     */
+    public function summarize(array $records): array
+    {
+        $phases = [];
+        foreach ($records as $record) {
+            $phase = (string) ($record['state'] ?? '');
+            if ($phase !== '') {
+                $phases[$phase] = ($phases[$phase] ?? 0) + 1;
+            }
+        }
+        ksort($phases);
+
+        return ['phases' => $phases, 'total' => count($records)];
+    }
+
     public function path(): string
     {
         return $this->path;

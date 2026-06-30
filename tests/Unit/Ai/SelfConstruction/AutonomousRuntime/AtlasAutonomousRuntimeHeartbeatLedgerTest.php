@@ -92,6 +92,55 @@ final class AtlasAutonomousRuntimeHeartbeatLedgerTest extends TestCase
         $this->assertSame(['c-2', 'c-3', 'c-4'], array_column($rows, 'cycle_id'));
     }
 
+    public function test_classify_stale_phases_from_now_timestamp(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        // observe: 400s ago (> 300 threshold) → stale; plan: 300s ago (not >) → fresh; execute: 200s ago → fresh
+        $records = [
+            ['state' => 'observe', 'ts_unix' => 1700000000],
+            ['state' => 'plan', 'ts_unix' => 1700000100],
+            ['state' => 'execute', 'ts_unix' => 1700000200],
+        ];
+
+        $result = $ledger->classifyStalePhases($records, nowUnix: 1700000400, staleThresholdSeconds: 300);
+
+        $this->assertSame(['observe'], $result['stale']);
+        $this->assertSame(['execute', 'plan'], $result['fresh']); // sorted
+    }
+
+    public function test_detect_missing_phases_when_required_phases_absent_from_records(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $records = [
+            ['state' => 'observe'],
+            ['state' => 'execute'],
+        ];
+
+        $missing = $ledger->detectMissingPhases($records, ['observe', 'plan', 'execute', 'certify']);
+
+        $this->assertSame(['certify', 'plan'], $missing); // sorted alphabetically
+    }
+
+    public function test_summarize_has_deterministic_ordering_without_scalar_health_score(): void
+    {
+        $ledger = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
+        $records = [
+            ['state' => 'execute'],
+            ['state' => 'observe'],
+            ['state' => 'execute'],
+            ['state' => 'plan'],
+            ['state' => 'observe'],
+            ['state' => 'observe'],
+        ];
+
+        $summary = $ledger->summarize($records);
+
+        $this->assertSame(['execute', 'observe', 'plan'], array_keys($summary['phases'])); // ksorted
+        $this->assertSame(['execute' => 2, 'observe' => 3, 'plan' => 1], $summary['phases']);
+        $this->assertSame(6, $summary['total']);
+        $this->assertArrayNotHasKey('health_score', $summary);
+    }
+
     public function test_path_round_trip_is_idempotent_two_instances_share_one_file(): void
     {
         $a = new AtlasAutonomousRuntimeHeartbeatLedger($this->path);
