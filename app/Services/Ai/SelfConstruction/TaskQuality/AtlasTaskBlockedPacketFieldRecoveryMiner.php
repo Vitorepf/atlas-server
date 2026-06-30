@@ -37,20 +37,33 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         $scopeIn = array_values(array_map('strval', (array) ($packet['scope_in'] ?? [])));
         $knownExistingPaths = array_values(array_map('strval', (array) ($packet['known_existing_paths'] ?? [])));
         $sourcePacketId = trim((string) ($packet['source_packet_id'] ?? ''));
+        $taskPacketId = trim((string) ($packet['task_packet_id'] ?? ''));
 
         $evidenceSources = [];
         $refusalReasons = [];
         $confidence = 0.0;
 
-        $recoveredAllowed = $this->recoverAllowedFiles(
+        $recoveredAllowed = $this->recoverAllowedFilesFromSlug(
             $existingAllowed,
+            $taskPacketId,
             $scopeIn,
             $knownExistingPaths,
-            $objective,
             $evidenceSources,
-            $refusalReasons,
-            $confidence,
         );
+
+        if ($recoveredAllowed !== []) {
+            $confidence += 0.75;
+        } else {
+            $recoveredAllowed = $this->recoverAllowedFiles(
+                $existingAllowed,
+                $scopeIn,
+                $knownExistingPaths,
+                $objective,
+                $evidenceSources,
+                $refusalReasons,
+                $confidence,
+            );
+        }
 
         if ($recoveredAllowed !== [] && $sourcePacketId !== '') {
             // A source_packet_id alone never fabricates a field — it only corroborates a recovery
@@ -204,6 +217,64 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         $confidence += 0.4;
 
         return $candidates;
+    }
+
+    /**
+     * Recovers allowed_files from a safe `codex-meta-<slug>-<...>` task_packet_id pattern when the
+     * slug names an EXISTING implementation+test pair already present in known_existing_paths or
+     * scope_in — never invents a path. Only fires when exactly one implementation path and at least
+     * one test path corroborate the slug; any ambiguity (0 or 2+ implementation matches) refuses
+     * silently here and falls through to the generic recovery path instead.
+     *
+     * @param  list<string>  $existingAllowed
+     * @param  list<string>  $scopeIn
+     * @param  list<string>  $knownExistingPaths
+     * @param  list<string>  $evidenceSources
+     * @return list<string>
+     */
+    private function recoverAllowedFilesFromSlug(
+        array $existingAllowed,
+        string $taskPacketId,
+        array $scopeIn,
+        array $knownExistingPaths,
+        array &$evidenceSources,
+    ): array {
+        if ($existingAllowed !== [] || $taskPacketId === '') {
+            return [];
+        }
+
+        if (preg_match('/^codex-meta-([a-z0-9-]+?)(?:-\d{8,}.*)?$/', $taskPacketId, $m) !== 1) {
+            return [];
+        }
+        $slug = $m[1];
+        $slugTokens = array_values(array_filter(explode('-', $slug)));
+        if ($slugTokens === []) {
+            return [];
+        }
+        $className = implode('', array_map(static fn (string $t): string => ucfirst($t), $slugTokens));
+
+        $allPaths = array_values(array_unique(array_merge($scopeIn, $knownExistingPaths)));
+        $allPaths = array_values(array_filter($allPaths, static fn (string $p): bool => str_ends_with($p, '.php')));
+
+        $implMatches = array_values(array_filter(
+            $allPaths,
+            static fn (string $p): bool => basename($p) === $className.'.php',
+        ));
+        $testMatches = array_values(array_filter(
+            $allPaths,
+            static fn (string $p): bool => basename($p) === $className.'Test.php',
+        ));
+
+        if (count($implMatches) !== 1 || $testMatches === []) {
+            return [];
+        }
+
+        $evidenceSources[] = 'codex_meta_slug_target_path_corroboration';
+
+        $recovered = array_values(array_unique(array_merge($implMatches, $testMatches)));
+        sort($recovered, SORT_STRING);
+
+        return $recovered;
     }
 
     /**

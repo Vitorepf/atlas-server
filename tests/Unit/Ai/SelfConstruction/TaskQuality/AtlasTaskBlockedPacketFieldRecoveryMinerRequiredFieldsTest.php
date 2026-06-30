@@ -56,4 +56,64 @@ final class AtlasTaskBlockedPacketFieldRecoveryMinerRequiredFieldsTest extends T
         $this->assertContains('acceptance_criteria', $result['missing_fields']);
         $this->assertNotEmpty($result['refusal_reasons']);
     }
+
+    // ── codex-meta slug recovery ─────────────────────────────────────────────
+
+    public function test_codex_meta_slug_with_corroborating_impl_and_test_pair_recovers_with_high_confidence(): void
+    {
+        $result = $this->svc()->recover([
+            'task_packet_id' => 'codex-meta-foo-bar-validator-20260630-351',
+            'objective' => 'Some blocked draft with no other usable signal.',
+            'known_existing_paths' => [
+                'app/Services/Ai/SelfConstruction/TaskQuality/FooBarValidator.php',
+                'tests/Unit/Ai/SelfConstruction/TaskQuality/FooBarValidatorTest.php',
+            ],
+        ]);
+
+        $this->assertContains(
+            'app/Services/Ai/SelfConstruction/TaskQuality/FooBarValidator.php',
+            $result['recovered_fields']['allowed_files'],
+        );
+        $this->assertContains(
+            'tests/Unit/Ai/SelfConstruction/TaskQuality/FooBarValidatorTest.php',
+            $result['recovered_fields']['allowed_files'],
+        );
+        $this->assertContains('codex_meta_slug_target_path_corroboration', $result['evidence_sources']);
+        $this->assertGreaterThanOrEqual(0.75, $result['confidence']);
+    }
+
+    public function test_ambiguous_slug_with_two_implementation_candidates_remains_refused(): void
+    {
+        $result = $this->svc()->recover([
+            'task_packet_id' => 'codex-meta-foo-bar-validator-20260630-351',
+            'objective' => 'Some blocked draft with no other usable signal.',
+            'known_existing_paths' => [
+                'app/Services/Ai/SelfConstruction/TaskQuality/FooBarValidator.php',
+                'app/Services/Ai/Other/FooBarValidator.php',
+                'tests/Unit/Ai/SelfConstruction/TaskQuality/FooBarValidatorTest.php',
+            ],
+        ]);
+
+        $this->assertSame([], $result['recovered_fields']['allowed_files']);
+        $this->assertContains('allowed_files', $result['missing_fields']);
+    }
+
+    public function test_slug_forbidden_target_without_governance_evidence_remains_refused(): void
+    {
+        $result = $this->svc()->recover([
+            'task_packet_id' => 'codex-meta-foo-bar-validator-20260630-351',
+            'objective' => 'Some blocked draft with no other usable signal.',
+            'known_existing_paths' => [
+                'app/Services/Ai/SelfConstruction/TaskQuality/FooBarValidator.php',
+                'tests/Unit/Ai/SelfConstruction/TaskQuality/FooBarValidatorTest.php',
+            ],
+            'metadata' => [
+                'forbidden_or_property_gated' => ['app/Services/Ai/SelfConstruction/TaskQuality/FooBarValidator.php'],
+                'governance_evidence_present' => false,
+            ],
+        ]);
+
+        $this->assertSame([], $result['recovered_fields']['allowed_files']);
+        $this->assertContains('target_forbidden_or_property_gated_without_evidence', $result['refusal_reasons']);
+    }
 }
