@@ -132,6 +132,66 @@ final class AtlasArchitectureCouncilBoundaryMap
         });
         sort($risks, SORT_STRING);
 
+        // Build per-organ profiles — after all edges are sorted so inbound/outbound slices are stable.
+        $organProfiles = [];
+        foreach ($organs as $organ) {
+            $contractForOrgan = null;
+            foreach ($contracts as $c) {
+                if (is_array($c) && trim((string) ($c['organ'] ?? '')) === $organ) {
+                    $contractForOrgan = $c;
+                    break;
+                }
+            }
+
+            $responsibilities = is_array($contractForOrgan['responsibilities'] ?? null)
+                ? array_values(array_map('strval', $contractForOrgan['responsibilities']))
+                : [];
+            $nonAuth = is_array($contractForOrgan['non_authority'] ?? null) ? array_values($contractForOrgan['non_authority']) : [];
+
+            $inbound  = array_values(array_filter($allowed, static fn (array $e): bool => $e['to']   === $organ));
+            $outbound = array_values(array_filter($allowed, static fn (array $e): bool => $e['from'] === $organ));
+
+            $artifactsTouched = [];
+            foreach ([...$inbound, ...$outbound] as $e) {
+                foreach (self::SHARED_ARTIFACTS as $artifact) {
+                    if (str_contains($e['action'], $artifact) && ! in_array($artifact, $artifactsTouched, true)) {
+                        $artifactsTouched[] = $artifact;
+                    }
+                }
+            }
+            sort($artifactsTouched, SORT_STRING);
+
+            $organRisks = [];
+            if ($nonAuth === []) {
+                $organRisks[] = 'missing_non_authority';
+            }
+            foreach ($forbidden as $fe) {
+                if ($fe['edge']['from'] === $organ || $fe['edge']['to'] === $organ) {
+                    $organRisks[] = 'forbidden_edge:'.$fe['edge']['from'].'->'.$fe['edge']['to'].':'.$fe['edge']['action'];
+                }
+            }
+            sort($organRisks, SORT_STRING);
+
+            if (in_array('missing_non_authority', $organRisks, true)) {
+                $hint = 'declare non_authority list for this organ';
+            } elseif ($organRisks !== []) {
+                $firstFe = current(array_filter($forbidden, static fn (array $fe): bool => $fe['edge']['from'] === $organ || $fe['edge']['to'] === $organ));
+                $hint = 'remove forbidden edge: '.(is_array($firstFe) ? $firstFe['reason'] : 'see forbidden_edges');
+            } else {
+                $hint = 'no immediate repair needed';
+            }
+
+            $organProfiles[$organ] = [
+                'responsibilities'       => $responsibilities,
+                'non_authority'          => $nonAuth,
+                'inbound_edges'          => $inbound,
+                'outbound_edges'         => $outbound,
+                'shared_artifacts_touched' => $artifactsTouched,
+                'boundary_risks'         => $organRisks,
+                'next_repair_hint'       => $hint,
+            ];
+        }
+
         return [
             'schema' => self::SCHEMA,
             'organs' => $organs,
@@ -139,6 +199,7 @@ final class AtlasArchitectureCouncilBoundaryMap
             'forbidden_edges' => $forbidden,
             'shared_artifacts' => self::SHARED_ARTIFACTS,
             'boundary_risks' => array_values(array_unique($risks)),
+            'organ_profiles' => $organProfiles,
         ];
     }
 }

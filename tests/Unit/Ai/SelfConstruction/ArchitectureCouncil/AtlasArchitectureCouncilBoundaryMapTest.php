@@ -131,4 +131,71 @@ final class AtlasArchitectureCouncilBoundaryMapTest extends TestCase
         $risksStr = implode('|', $r['boundary_risks']);
         $this->assertStringContainsString('Ghost Organ', $risksStr);
     }
+
+    public function test_organ_profiles_keyed_by_organ_with_all_required_fields(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['cannot verify'], 'responsibilities' => ['originate packets'], 'integrations' => []],
+        ]);
+        $this->assertArrayHasKey('organ_profiles', $r);
+        $this->assertArrayHasKey('Task Fabric', $r['organ_profiles']);
+        $profile = $r['organ_profiles']['Task Fabric'];
+        foreach (['responsibilities', 'non_authority', 'inbound_edges', 'outbound_edges', 'shared_artifacts_touched', 'boundary_risks', 'next_repair_hint'] as $key) {
+            $this->assertArrayHasKey($key, $profile, "organ_profiles[Task Fabric] must have {$key}");
+        }
+        $this->assertSame(['originate packets'], $profile['responsibilities']);
+        $this->assertSame(['cannot verify'], $profile['non_authority']);
+        $this->assertIsString($profile['next_repair_hint']);
+    }
+
+    public function test_organ_profiles_inbound_and_outbound_edges_are_correct(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['x'], 'integrations' => [
+                ['from' => 'Task Fabric', 'to' => 'Worker Swarm', 'action' => 'enqueue'],
+            ]],
+            ['organ' => 'Worker Swarm', 'non_authority' => ['y'], 'integrations' => []],
+        ]);
+        $tf = $r['organ_profiles']['Task Fabric'];
+        $ws = $r['organ_profiles']['Worker Swarm'];
+
+        $this->assertCount(1, $tf['outbound_edges']);
+        $this->assertSame('enqueue', $tf['outbound_edges'][0]['action']);
+        $this->assertSame([], $tf['inbound_edges']);
+
+        $this->assertCount(1, $ws['inbound_edges']);
+        $this->assertSame('enqueue', $ws['inbound_edges'][0]['action']);
+        $this->assertSame([], $ws['outbound_edges']);
+    }
+
+    public function test_organ_profiles_boundary_risks_includes_forbidden_edge_for_organ(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Worker Swarm', 'non_authority' => ['x'], 'integrations' => [
+                ['from' => 'Worker Swarm', 'to' => 'Merge Governor', 'action' => 'execute_merge'],
+            ]],
+        ]);
+        $profile = $r['organ_profiles']['Worker Swarm'];
+        $risksStr = implode('|', $profile['boundary_risks']);
+        $this->assertStringContainsString('forbidden_edge:', $risksStr);
+        $this->assertStringContainsString('execute_merge', $risksStr);
+    }
+
+    public function test_organ_profiles_missing_non_authority_surfaces_as_boundary_risk_and_repair_hint(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'integrations' => []],
+        ]);
+        $profile = $r['organ_profiles']['Task Fabric'];
+        $this->assertContains('missing_non_authority', $profile['boundary_risks']);
+        $this->assertStringContainsString('non_authority', $profile['next_repair_hint']);
+    }
+
+    public function test_organ_profiles_clean_organ_has_no_repair_needed_hint(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['cannot merge'], 'integrations' => []],
+        ]);
+        $this->assertSame('no immediate repair needed', $r['organ_profiles']['Task Fabric']['next_repair_hint']);
+    }
 }
