@@ -22,6 +22,22 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
      */
     public function append(array $plan, array $context = []): array
     {
+        // Admission guards — throw before hash or disk access.
+        $sourceRefs = array_values(array_filter(array_map('strval', (array) ($plan['source_evidence_refs'] ?? []))));
+        if ($sourceRefs === []) {
+            throw new \InvalidArgumentException('learning_transfer_admission_refused:missing_source_evidence_refs');
+        }
+
+        $classLabel = strtolower((string) ($context['classification']['label'] ?? $context['classification']['class'] ?? ''));
+        if (in_array($classLabel, ['proxy', 'cosmetic'], true)) {
+            throw new \InvalidArgumentException('learning_transfer_admission_refused:proxy_or_cosmetic:'.$classLabel);
+        }
+
+        $gateVerdict = strtolower((string) ($context['gate_decision']['verdict'] ?? $context['gate_decision']['decision'] ?? ''));
+        if ($gateVerdict !== '' && ! in_array($gateVerdict, ['admit', 'allow'], true)) {
+            throw new \InvalidArgumentException('learning_transfer_admission_refused:invalid_gate_decision:'.$gateVerdict);
+        }
+
         $planHash = $this->planHash($plan);
         if ($this->findByHash($planHash) !== null) {
             return [
