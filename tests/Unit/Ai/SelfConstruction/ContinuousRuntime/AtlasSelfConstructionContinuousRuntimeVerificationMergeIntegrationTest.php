@@ -103,4 +103,55 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegrationTe
         $this->assertFalse($req['ready_for_court']);
         $this->assertContains('evidence_refs_missing', $req['blockers']);
     }
+
+    public function test_verify_request_blocks_when_gate_outputs_empty(): void
+    {
+        $svc = new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration;
+        $req = $svc->buildVerificationRequest($this->evidence(['gate_outputs' => []]));
+        $this->assertFalse($req['ready_for_court']);
+        $this->assertContains('gate_outputs_missing', $req['blockers']);
+    }
+
+    public function test_verify_request_blocks_when_no_gate_output_is_passed(): void
+    {
+        $svc = new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration;
+        $req = $svc->buildVerificationRequest($this->evidence(['gate_outputs' => ['phpunit' => false, 'static_analysis' => false]]));
+        $this->assertFalse($req['ready_for_court']);
+        $this->assertContains('gate_outputs_no_passed_fact', $req['blockers']);
+    }
+
+    public function test_verify_request_passes_when_at_least_one_gate_output_is_passed(): void
+    {
+        $svc = new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration;
+        $req = $svc->buildVerificationRequest($this->evidence(['gate_outputs' => ['phpunit' => true, 'other' => false]]));
+        $this->assertTrue($req['ready_for_court']);
+        $this->assertNotContains('gate_outputs_no_passed_fact', $req['blockers']);
+    }
+
+    public function test_merge_decision_blocks_when_rollback_mode_is_unknown(): void
+    {
+        $svc = new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration;
+        $merge = $svc->buildMergeDecision(
+            ['passed' => true, 'evidence_refs' => ['r1']],
+            ['mode' => 'delete_everything'],
+        );
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_BLOCK, $merge['decision']);
+        $this->assertContains('rollback_mode_not_safe', $merge['blockers']);
+    }
+
+    public function test_merge_decision_passes_all_safe_rollback_modes(): void
+    {
+        $svc = new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration;
+        foreach (AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::SAFE_ROLLBACK_MODES as $mode) {
+            $merge = $svc->buildMergeDecision(
+                ['passed' => true, 'evidence_refs' => ['r1']],
+                ['mode' => $mode],
+            );
+            $this->assertSame(
+                AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_REQUEST_MERGE,
+                $merge['decision'],
+                "safe mode '$mode' must yield request_merge"
+            );
+        }
+    }
 }

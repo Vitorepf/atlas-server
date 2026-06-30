@@ -25,6 +25,8 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
 
     public const DECISION_BLOCK = 'block';
 
+    public const SAFE_ROLLBACK_MODES = ['feature_flag_off', 'hotfix_branch', 'revert_commit'];
+
     /**
      * @param  array<string,mixed>  $workerEvidence
      * @return array<string,mixed>
@@ -46,6 +48,11 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
         }
         if (array_values(array_diff($changed, $allowed)) !== []) {
             $blockers[] = 'changed_files_outside_allowed_scope';
+        }
+        if ($gates === []) {
+            $blockers[] = 'gate_outputs_missing';
+        } elseif (! in_array(true, $gates, true)) {
+            $blockers[] = 'gate_outputs_no_passed_fact';
         }
 
         return [
@@ -84,6 +91,8 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
         }
         if ($rollbackPlan === [] || ! isset($rollbackPlan['mode'])) {
             $blockers[] = 'rollback_plan_missing';
+        } elseif (! in_array((string) $rollbackPlan['mode'], self::SAFE_ROLLBACK_MODES, true)) {
+            $blockers[] = 'rollback_mode_not_safe';
         }
         if ($blockers !== []) {
             return $this->envelope(self::DECISION_BLOCK, $blockers);
