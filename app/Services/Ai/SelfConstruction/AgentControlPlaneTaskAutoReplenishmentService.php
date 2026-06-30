@@ -112,7 +112,14 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             ];
         }
 
-        $need = max(1, $activeLeases - $claimableDepth);
+        // Plan enough packets to restore the minimum claimable-per-active-worker buffer —
+        // not a token 1-packet top-up. A claimable_depth that already exceeds active_leases
+        // (e.g. depth=20 with 7 leases) can still be a worker-feed risk when the buffer per
+        // worker is thin (claimable_per_active_worker <= min_claimable_per_worker); the gap
+        // to close is against the FLOOR (min_claimable_per_worker * active_leases), not
+        // against raw lease count.
+        $desiredClaimable = (int) ceil($minClaimablePerWorker * $activeLeases);
+        $need = max(1, $desiredClaimable - $claimableDepth);
         $targetNewPackets = min($batchCap, $need);
 
         return [

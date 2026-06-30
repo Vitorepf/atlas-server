@@ -108,6 +108,36 @@ final class AgentControlPlaneTaskAutoReplenishmentServiceWorkerFloorTest extends
         $this->assertSame($service->evaluateWorkerFeedRisk($context), $service->evaluateWorkerFeedRisk($context));
     }
 
+    public function test_thin_buffer_with_deep_claimable_depth_plans_more_than_a_token_top_up(): void
+    {
+        $result = $this->service()->evaluateWorkerFeedRisk([
+            'active_leases' => 7,
+            'claimable_depth' => 20,
+            'claimable_per_active_worker' => 2,
+            'min_claimable_per_worker' => 5,
+            'batch_cap' => 10,
+        ]);
+
+        $this->assertTrue($result['top_up_required']);
+        $this->assertGreaterThan(1, $result['target_new_packets']);
+        $this->assertLessThanOrEqual(10, $result['target_new_packets']);
+    }
+
+    public function test_comfortable_buffer_with_no_recommendation_remains_a_no_op(): void
+    {
+        $result = $this->service()->evaluateWorkerFeedRisk([
+            'active_leases' => 7,
+            'claimable_depth' => 70,
+            'claimable_per_active_worker' => 10,
+            'min_claimable_per_worker' => 5,
+            'batch_cap' => 10,
+        ]);
+
+        $this->assertFalse($result['top_up_required']);
+        $this->assertSame(0, $result['target_new_packets']);
+        $this->assertNull($result['reason']);
+    }
+
     private function service(): AgentControlPlaneTaskAutoReplenishmentService
     {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;
