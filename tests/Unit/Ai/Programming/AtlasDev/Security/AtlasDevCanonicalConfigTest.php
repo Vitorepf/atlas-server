@@ -64,11 +64,18 @@ final class AtlasDevCanonicalConfigTest extends TestCase
         $this->assertSame(15, (int) $this->atlasDevConfig['stream']['keepalive_seconds']);
     }
 
-    public function test_run_and_desktop_default_off_for_safety(): void
+    /**
+     * VAL-M1-001 / VAL-M1-015: the canonical spine ships `run_enabled` ON by
+     * default (env fallback true, not false). `desktop_enabled` remains OFF
+     * for safety until the desktop surface is explicitly opted in. The old
+     * pre-M1 assertion of a `false` run_enabled default is retired — no stale
+     * `false` default assertion remains for the run surface.
+     */
+    public function test_run_enabled_default_on_and_desktop_default_off(): void
     {
         $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
 
-        $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false)", $configSource);
+        $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', true)", $configSource);
         $this->assertStringContainsString("'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false)", $configSource);
     }
 

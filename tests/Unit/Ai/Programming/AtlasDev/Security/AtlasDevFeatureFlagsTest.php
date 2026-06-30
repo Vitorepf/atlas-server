@@ -29,12 +29,50 @@ final class AtlasDevFeatureFlagsTest extends TestCase
         $this->assertArrayHasKey('desktop_enabled', $flags);
     }
 
-    public function test_run_and_desktop_are_off_by_default(): void
+    /**
+     * VAL-M1-001 / VAL-M1-015: the canonical spine is ON by default. The
+     * `run_enabled` env fallback in config/atlas_dev.php flips from false to
+     * true so `atlas dev '<task>' --yes` executes the governed pipeline out of
+     * the box. `desktop_enabled` stays OFF until the desktop UX is explicitly
+     * opted in (M1 turns the run spine on, not the desktop surface).
+     */
+    public function test_run_enabled_is_on_by_default_and_desktop_remains_off(): void
     {
         $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
 
-        $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false)", $configSource);
+        $this->assertStringContainsString("'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', true)", $configSource);
         $this->assertStringContainsString("'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false)", $configSource);
+    }
+
+    /**
+     * VAL-M1-001: with no ATLAS_DEV_EFFICIENT_RUN_ENABLED env var set, a
+     * runtime read of the canonical config yields a truthy run_enabled — the
+     * single switch that makes the spine live by default.
+     */
+    public function test_run_enabled_resolves_true_when_env_unset(): void
+    {
+        $this->clearEnv('ATLAS_DEV_EFFICIENT_RUN_ENABLED');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertTrue((bool) $config['efficient']['run_enabled']);
+    }
+
+    /**
+     * VAL-M1-004: the operator can still opt out. Explicit
+     * ATLAS_DEV_EFFICIENT_RUN_ENABLED=false makes the canonical config resolve
+     * run_enabled to false, so the guard sites re-engage the hard block
+     * (CLI exit 2 / HTTP 503 ATLAS_DEV_RUN_DISABLED). The guard remains a
+     * safety/capability check; it just no longer hard-blocks by default.
+     */
+    public function test_explicit_run_enabled_env_false_re_enables_hard_block(): void
+    {
+        $this->forceEnv('ATLAS_DEV_EFFICIENT_RUN_ENABLED', 'false');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertFalse((bool) $config['efficient']['run_enabled']);
+
+        // Restore the process env so the override never leaks into later tests.
+        $this->clearEnv('ATLAS_DEV_EFFICIENT_RUN_ENABLED');
     }
 
     public function test_plan_enabled_is_on_under_testing_environment(): void
@@ -68,5 +106,11 @@ final class AtlasDevFeatureFlagsTest extends TestCase
         putenv($key.'='.$value);
         $_ENV[$key] = $value;
         $_SERVER[$key] = $value;
+    }
+
+    private function clearEnv(string $key): void
+    {
+        putenv($key); // no argument unsets the variable.
+        unset($_ENV[$key], $_SERVER[$key]);
     }
 }

@@ -234,6 +234,57 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
         $this->assertStringContainsString('ATLAS_DEV_RUN_DISABLED', $output);
     }
 
+    /**
+     * VAL-M1-002: with run_enabled ON (the new default), `atlas dev '<task>'
+     * --yes` proceeds past the run_enabled guard into the full pipeline and
+     * returns a run result — it does NOT short-circuit with the
+     * ATLAS_DEV_RUN_DISABLED flag-disabled error. The fake executor is reached
+     * (the gate is open) and a completion_state is surfaced.
+     */
+    public function test_efficient_yes_proceeds_past_run_enabled_gate_without_run_disabled(): void
+    {
+        $fake = $this->bindFakeRunExecutor();
+        // run_enabled is on (setUp mirrors the new canonical default).
+        config()->set('atlas_dev.efficient.run_enabled', true);
+
+        $output = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--yes' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertStringNotContainsString('ATLAS_DEV_RUN_DISABLED', $output, '--yes must not surface the run-disabled error when run_enabled is on.');
+        $this->assertStringContainsString('"completion_state": "passed"', $output, '--yes must proceed into the pipeline and surface a completion_state.');
+        $this->assertCount(1, $fake->calls, 'The run_enabled gate must be open so the RunExecutor is reached.');
+    }
+
+    /**
+     * VAL-M1-003: turning the spine ON gates execution, not planning. Without
+     * --yes the CLI computes the plan and returns confirmation_required (exit
+     * 0) with NO run object and NO ATLAS_DEV_RUN_DISABLED error — the run
+     * surface being on by default must never auto-execute an unconfirmed run.
+     */
+    public function test_efficient_plan_only_without_yes_emits_confirmation_required_and_no_run(): void
+    {
+        $fake = $this->bindFakeRunExecutor();
+        config()->set('atlas_dev.efficient.run_enabled', true);
+
+        $output = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--json' => true,
+        ]);
+
+        $this->assertStringContainsString('"confirmation_required": true', $output);
+        $this->assertStringNotContainsString('ATLAS_DEV_RUN_DISABLED', $output);
+        $this->assertStringNotContainsString('"run": {', $output, 'An unconfirmed plan must not auto-execute and emit a run object.');
+        $this->assertStringContainsString('"run_id"', $output, 'The plan body must still be present.');
+        $this->assertCount(0, $fake->calls, 'Plan-only must never reach the RunExecutor, regardless of run_enabled.');
+    }
+
     public function test_efficient_without_task_returns_validation_error(): void
     {
         $output = $this->captureJsonRun([

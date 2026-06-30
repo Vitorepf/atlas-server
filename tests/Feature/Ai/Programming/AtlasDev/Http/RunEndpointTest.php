@@ -482,6 +482,37 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
             ->assertJsonPath('error.code', 'ATLAS_DEV_RUN_DISABLED');
     }
 
+    /**
+     * VAL-M1-005: with run_enabled ON (the new canonical default), POST /run
+     * no longer short-circuits with a 503 ATLAS_DEV_RUN_DISABLED response. The
+     * run_enabled gate is the FIRST check in RunController, so any response
+     * that is NOT a 503 ATLAS_DEV_RUN_DISABLED envelope proves the gate is open
+     * and the request reached downstream validation. (The pre-existing /run
+     * 422 baseline — validation rules out of sync with fixtures — is tracked
+     * in library/environment.md and is not this feature's concern; a 422 here
+     * is a valid "gate is open" proof.) The 503-run-disabled envelope is
+     * reserved for the explicit opt-out (see
+     * test_run_disabled_by_feature_flag_returns_503 above).
+     */
+    public function test_run_endpoint_does_not_short_circuit_with_run_disabled_when_run_enabled(): void
+    {
+        $plan = $this->plan();
+        // run_enabled is on (setUp mirrors the new canonical default); do not
+        // disable it — this exercises the default-on path.
+        config()->set('atlas_dev.efficient.run_enabled', true);
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/run', [
+                'run_id' => $plan['run_id'],
+                'task_contract_hash' => $plan['task_contract_hash'],
+                'confirmation_token' => $plan['confirmation_token'],
+                'operator_confirmed' => true,
+            ]);
+
+        $this->assertNotSame(503, $response->status(), 'POST /run must not 503-run-disabled when run_enabled is on.');
+        $this->assertStringNotContainsString('ATLAS_DEV_RUN_DISABLED', (string) $response->getContent(), 'The run-disabled envelope must not appear when run_enabled is on.');
+    }
+
     public function test_run_rejects_desktop_surface_when_desktop_flag_is_disabled(): void
     {
         $plan = $this->desktopPlan();

@@ -13,12 +13,16 @@
 |   3. provider run surface              (`run_enabled`)
 |   4. desktop integration surface       (`desktop_enabled`)
 |
-| Atlas Dev efficient is now the **canonical** path. Defaults are ON for
-| `enabled` and `plan_enabled` in every environment; `run_enabled` and
-| `desktop_enabled` remain OFF until provider invocation / desktop UX are
-| explicitly opted in. `default_path` is the canonical CLI default. To fall
-| back to the legacy pipeline, set `ATLAS_DEV_DEFAULT_PATH=legacy` or pass
-| the `--legacy` flag explicitly.
+| Atlas Dev efficient is now the **canonical** path and the governed delivery
+| spine is ON by default. `enabled`, `plan_enabled` and `run_enabled` default
+| ON in every environment; `desktop_enabled` remains OFF until the desktop UX is
+| explicitly opted in. Turning `run_enabled` on by default is safe because the
+| spine is governed: scope (ScopeGuard), verification (VerificationGate),
+| honesty (CompletionStateGate) and the operator consent gate (`--yes`) still
+| gate every provider spend. An operator can still hard-block the run surface
+| by setting `ATLAS_DEV_EFFICIENT_RUN_ENABLED=false`. `default_path` is the
+| canonical CLI default. To fall back to the legacy pipeline, set
+| `ATLAS_DEV_DEFAULT_PATH=legacy` or pass the `--legacy` flag explicitly.
 |
 | Canon: docs/engineering-knowledge-base/atlas-dev-efficient-programming-flow-v1.md
 */
@@ -29,7 +33,13 @@ return [
 
         'plan_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_PLAN_ENABLED', true),
 
-        'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', false),
+        // The canonical governed run spine is ON by default (M1). The guard
+        // sites (AtlasCliDevEfficientHandler, RunController) keep reading this
+        // flag as a safety/capability check, but no longer hard-block by
+        // default — the honesty/scope/verification gates + the operator
+        // consent gate (--yes) are what make "on by default" safe. Set
+        // ATLAS_DEV_EFFICIENT_RUN_ENABLED=false to re-engage the hard block.
+        'run_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_RUN_ENABLED', true),
 
         'desktop_enabled' => (bool) env('ATLAS_DEV_EFFICIENT_DESKTOP_ENABLED', false),
 
