@@ -277,6 +277,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
         ));
         $recovered = [];
         $skipped = [];
+        $releasedSkipped = [];
 
         foreach ($releasedRecords as $record) {
             $id = (string) ($record['task_packet_id'] ?? '');
@@ -303,13 +304,16 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                     'skip_reason' => 'released_task_requires_operator_investigation',
                     'recovered_by' => $actor,
                 ]);
-                $skipped[] = [
+                $releasedSkipReason = [
                     'status' => 'skipped',
                     'task_packet_id' => $id,
                     'queue_status' => $status,
                     'release_reason' => $releaseReason,
                     'skip_reason' => 'released_task_requires_operator_investigation',
+                    'receipt_kind' => self::RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED,
                 ];
+                $skipped[] = $releasedSkipReason;
+                $releasedSkipped[] = $releasedSkipReason;
 
                 continue;
             }
@@ -322,14 +326,23 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                 'recovery_id' => 'recovery_'.(string) Str::ulid(),
             ]);
             if ((string) ($transition['status'] ?? '') !== 'ok') {
-                $skipped[] = [
+                $queueRepo->appendReceipt($id, [
+                    'receipt_kind' => self::RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED,
+                    'release_reason' => $releaseReason,
+                    'skip_reason' => 'claimable_transition_failed',
+                    'recovered_by' => $actor,
+                ]);
+                $releasedSkipReason = [
                     'status' => 'skipped',
                     'task_packet_id' => $id,
                     'queue_status' => $status,
                     'release_reason' => $releaseReason,
                     'skip_reason' => 'claimable_transition_failed',
+                    'receipt_kind' => self::RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED,
                     'transition' => $transition,
                 ];
+                $skipped[] = $releasedSkipReason;
+                $releasedSkipped[] = $releasedSkipReason;
 
                 continue;
             }
@@ -356,6 +369,11 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'released_record_count' => count($releasedRecords),
             'recovered_count' => count($recovered),
             'skipped_count' => count($skipped),
+            // Distinct from generic skipped totals: a released task that could NOT be requeued is
+            // surfaced here with its released_task_requeue_skipped evidence, so recovery reporting
+            // never claims a healthy state while a released record sits unrequeued.
+            'released_skipped_count' => count($releasedSkipped),
+            'released_skipped' => $releasedSkipped,
             'recovered' => $recovered,
             'skipped' => $skipped,
             'actor' => $actor,

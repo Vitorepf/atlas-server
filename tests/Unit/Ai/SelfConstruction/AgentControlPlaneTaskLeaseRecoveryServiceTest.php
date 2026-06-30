@@ -94,4 +94,43 @@ final class AgentControlPlaneTaskLeaseRecoveryServiceTest extends TestCase
         $this->assertSame(1, $summary['stale_claimed_leases']['count']);
         $this->assertSame(['task-claimed'], $summary['stale_claimed_leases']['examples']);
     }
+
+    public function test_released_task_that_cannot_be_requeued_is_counted_under_released_skipped(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->enqueue($queue, 'task-released-blocked', 'claimable');
+        $queue->updateStatus('task-released-blocked', 'claimed', ['lease_id' => 'lease-x', 'agent_id' => 'agent-x']);
+        $queue->updateStatus('task-released-blocked', 'released', ['release_reason' => 'worker_packet_blocked_before_handoff']);
+
+        $service = new AgentControlPlaneTaskLeaseRecoveryService;
+        $result = $service->recoverReleasedTasks();
+
+        $this->assertSame(1, $result['released_skipped_count']);
+        $this->assertSame('task-released-blocked', $result['released_skipped'][0]['task_packet_id']);
+        $this->assertSame(
+            AgentControlPlaneTaskLeaseRecoveryService::RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED,
+            $result['released_skipped'][0]['receipt_kind'],
+        );
+        $this->assertSame('released_task_requires_operator_investigation', $result['released_skipped'][0]['skip_reason']);
+
+        // Not hidden in the generic skipped total — it's the SAME entry, counted both places.
+        $this->assertSame(1, $result['skipped_count']);
+        // The released-but-blocked task must NOT have transitioned to claimable.
+        $this->assertSame('released', $queue->get('task-released-blocked')['status']);
+    }
+
+    public function test_released_task_successfully_requeued_is_not_counted_as_released_skipped(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->enqueue($queue, 'task-released-ok', 'claimable');
+        $queue->updateStatus('task-released-ok', 'claimed', ['lease_id' => 'lease-y', 'agent_id' => 'agent-y']);
+        $queue->updateStatus('task-released-ok', 'released', ['release_reason' => 'paused_for_replan']);
+
+        $service = new AgentControlPlaneTaskLeaseRecoveryService;
+        $result = $service->recoverReleasedTasks();
+
+        $this->assertSame(0, $result['released_skipped_count']);
+        $this->assertSame(1, $result['recovered_count']);
+        $this->assertSame('claimable', $queue->get('task-released-ok')['status']);
+    }
 }

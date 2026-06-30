@@ -89,4 +89,43 @@ final class AtlasAgentControlPlaneReapLeasesServingDiskTest extends TestCase
         $defaultRecord = (new \App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository)->get('serving-expired-1');
         $this->assertNull($defaultRecord, 'seeded packet must live on the serving disk only');
     }
+
+    public function test_reaper_requeues_a_released_task_on_the_serving_disk_and_recoverable_total_is_zero(): void
+    {
+        $queue = AtlasTaskServingStack::queueRepo();
+        $orchestrator = new AgentControlPlaneTaskQueueOrchestrator(
+            new AgentControlPlaneTaskPacketBuilder,
+            new AgentControlPlaneScopeLockRuntimeValidator,
+            $queue,
+            AtlasTaskServingStack::leaseRepo(),
+            new AgentControlPlaneEvidenceLedgerDryRun,
+            new AgentControlPlaneContinuationSummaryBuilder,
+        );
+
+        $orchestrator->prepareAndEnqueue(['task_packet' => [
+            'task_packet_id' => 'serving-released-1',
+            'objective' => 'serving disk released-task recovery test',
+            'operator_id' => 'tester',
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/serving-released-1.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/serving-released-1.php'],
+            'acceptance_criteria' => ['ok'],
+            'required_evidence' => ['task_packet_created'],
+        ]]);
+
+        $queue->updateStatus('serving-released-1', 'claimed', ['lease_id' => 'lease-r', 'agent_id' => 'agent-r']);
+        $queue->updateStatus('serving-released-1', 'released', ['release_reason' => 'paused_for_replan']);
+
+        $exit = Artisan::call('atlas:acp:reap-leases', ['--json' => true]);
+        $this->assertSame(0, $exit);
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertIsArray($payload);
+        $this->assertTrue((bool) $payload['ok']);
+        $this->assertArrayHasKey('post_recovery_health', $payload);
+        $health = $payload['post_recovery_health'];
+        $this->assertSame(0, (int) $health['recoverable_total'], 'no recoverable tasks should remain after a released-task requeue');
+
+        $record = $queue->get('serving-released-1');
+        $this->assertIsArray($record);
+        $this->assertSame('claimable', $record['status']);
+    }
 }
