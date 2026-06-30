@@ -154,4 +154,101 @@ final class AtlasExternalBrainImplementationProofDemandTest extends TestCase
         $r = $this->svc()->derive([]);
         $this->assertSame(AtlasExternalBrainImplementationProofDemand::SCHEMA, $r['schema_version']);
     }
+
+    // ── minimum_required_evidence per task family ────────────────────────────
+
+    public function test_minimum_required_evidence_is_emitted_per_task_family(): void
+    {
+        $r = $this->derive(targetClass: 'command');
+
+        $this->assertArrayHasKey('minimum_required_evidence', $r);
+        $this->assertSame('command', $r['minimum_required_evidence']['task_family']);
+        $this->assertArrayHasKey('command_smoke', $r['minimum_required_evidence']['evidence_by_proof_type']);
+        $this->assertNotEmpty($r['minimum_required_evidence']['evidence_by_proof_type']['command_smoke']);
+    }
+
+    public function test_minimum_required_evidence_covers_every_required_proof(): void
+    {
+        $r = $this->derive(risk: 'high', targetClass: 'queue');
+
+        $evidenceKeys = array_keys($r['minimum_required_evidence']['evidence_by_proof_type']);
+        sort($evidenceKeys);
+        $requiredProofs = $r['required_proofs'];
+        sort($requiredProofs);
+
+        $this->assertSame($requiredProofs, $evidenceKeys);
+    }
+
+    // ── proxy proof rejection ─────────────────────────────────────────────────
+
+    public function test_rejects_class_exists_as_proxy_proof(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_CLASS_EXISTS);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertTrue($r['is_proxy']);
+    }
+
+    public function test_rejects_schema_only_as_proxy_proof(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_SCHEMA_ONLY);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertTrue($r['is_proxy']);
+    }
+
+    public function test_rejects_wrapper_exit_zero_as_proxy_proof(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_WRAPPER_EXIT_ZERO);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertTrue($r['is_proxy']);
+    }
+
+    public function test_rejects_test_presence_as_proxy_proof(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_TEST_PRESENCE);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertTrue($r['is_proxy']);
+    }
+
+    // ── real proof acceptance ─────────────────────────────────────────────────
+
+    public function test_accepts_behavior_proof(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_BEHAVIOR_PROOF);
+
+        $this->assertTrue($r['accepted']);
+        $this->assertFalse($r['is_proxy']);
+    }
+
+    public function test_accepts_regression_proof(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_REGRESSION_PROOF);
+
+        $this->assertTrue($r['accepted']);
+    }
+
+    public function test_accepts_runtime_decision_change(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_RUNTIME_DECISION_CHANGE);
+
+        $this->assertTrue($r['accepted']);
+    }
+
+    public function test_accepts_measurable_queue_quality_improvement(): void
+    {
+        $r = $this->svc()->verifySubmittedProof(AtlasExternalBrainImplementationProofDemand::PROOF_MEASURABLE_QUEUE_QUALITY_IMPROVEMENT);
+
+        $this->assertTrue($r['accepted']);
+    }
+
+    public function test_unrecognized_proof_type_is_not_accepted(): void
+    {
+        $r = $this->svc()->verifySubmittedProof('some_unknown_proof_type');
+
+        $this->assertFalse($r['accepted']);
+        $this->assertFalse($r['is_proxy']);
+    }
 }
