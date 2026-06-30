@@ -115,7 +115,9 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
                 continue;
             }
 
-            $missingClasses = $this->missingEvidenceClasses($selfSufficient);
+            // only live (non-legacy) records prove coverage; legacy must not donate evidence_classes
+            $liveRecords = array_values(array_diff_key($selfSufficient, $legacyOnly));
+            $missingClasses = $this->missingEvidenceClasses($liveRecords);
             if ($missingClasses !== []) {
                 $coverage[$organId] = self::COVERAGE_THIN;
                 $thin[] = ['organ_id' => $organId, 'missing_evidence_classes' => $missingClasses];

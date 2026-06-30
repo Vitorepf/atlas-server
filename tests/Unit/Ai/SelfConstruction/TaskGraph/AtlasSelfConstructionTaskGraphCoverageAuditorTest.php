@@ -116,6 +116,22 @@ class AtlasSelfConstructionTaskGraphCoverageAuditorTest extends TestCase
         self::assertSame('covered', $verdict['organ_coverage']['verification_court']);
     }
 
+    public function test_legacy_full_plus_live_empty_yields_thin_not_covered(): void
+    {
+        // legacy record has full evidence_classes; live record has none
+        $legacy = $this->fullRecord('verification_court', 'completed_dry_run');
+        $live = $this->fullRecord('verification_court'); // status=claimable (live)
+        $live['task_packet']['evidence_classes'] = [];
+
+        $records = [$this->fullRecord('cortex'), $legacy, $live];
+
+        $verdict = $this->auditor()->audit($records);
+
+        self::assertSame('thin', $verdict['organ_coverage']['verification_court'],
+            'legacy evidence_classes must not mask a live record with no classes');
+        self::assertContains('thin_organ:verification_court', $verdict['blockers']);
+    }
+
     public function test_inspected_count_matches_record_count_and_proof_summary_is_present(): void
     {
         $records = [
