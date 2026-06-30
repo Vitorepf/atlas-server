@@ -139,6 +139,7 @@ final class AtlasExternalBrainBreakthroughPlanner
             'expected_leverage'   => $this->expectedLeverage($nextMode),
             'stop_conditions'     => $this->stopConditions($nextMode, $gap),
             'comparison_questions' => $research['comparison_questions'],
+            'anti_padding_rule'   => 'queue_task_count_and_test_count_and_template_volume_do_not_count_as_verified_candidates',
         ]];
 
         return [

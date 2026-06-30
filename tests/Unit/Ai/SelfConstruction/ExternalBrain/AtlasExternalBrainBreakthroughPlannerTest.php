@@ -58,6 +58,11 @@ final class AtlasExternalBrainBreakthroughPlannerTest extends TestCase
         $this->assertNotEmpty($inv['investigation_id']);
         $this->assertNotEmpty($inv['mode']);
 
+        // anti_padding_rule — must be a non-empty string naming the rejected proxy signals
+        $this->assertArrayHasKey('anti_padding_rule', $inv);
+        $this->assertIsString($inv['anti_padding_rule']);
+        $this->assertNotEmpty($inv['anti_padding_rule']);
+
         // next_mode must be a known escalation ladder mode
         $validModes = [
             AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
