@@ -156,4 +156,58 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertSame([], $out['applied_actions']);
         $this->assertContains('unattended_supervisor_critical_blocker', $out['cycle_blocked_reasons']);
     }
+
+    public function test_brain_recovery_verdict_injects_atlas_native_action_and_fires_with_callback(): void
+    {
+        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+        $out = $cycle->tick($this->readyFacts([
+            'planned_actions' => [],
+            'unattended_verdict' => [
+                'recovery_needed'  => true,
+                'critical_blocker' => false,
+                'classification'   => 'stale_brain_heartbeat',
+                'severity'         => 'medium',
+                'reasons'          => ['brain_quota_stall_reason_stale_brain_heartbeat'],
+            ],
+        ]), [
+            'apply' => true,
+            'action_callbacks' => [
+                'atlas_native_brain_recovery' => static fn (array $a): array => [
+                    'recovered' => true,
+                    'class'     => $a['verdict_classification'],
+                ],
+            ],
+        ]);
+
+        $this->assertCount(1, $out['applied_actions']);
+        $this->assertSame('atlas_native_brain_recovery', $out['applied_actions'][0]['kind']);
+        $this->assertSame('stale_brain_heartbeat', $out['applied_actions'][0]['result']['class']);
+        $this->assertSame([], $out['withheld_actions']);
+    }
+
+    public function test_brain_recovery_verdict_does_not_unblock_refused_action_kinds(): void
+    {
+        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+        $out = $cycle->tick($this->readyFacts([
+            'planned_actions'    => [['kind' => 'git']],
+            'unattended_verdict' => [
+                'recovery_needed'  => true,
+                'critical_blocker' => false,
+                'classification'   => 'stale_brain_heartbeat',
+            ],
+        ]), [
+            'apply' => true,
+            'action_callbacks' => [
+                'git'                         => static fn () => ['ok' => true],
+                'atlas_native_brain_recovery'  => static fn () => ['ok' => true],
+            ],
+        ]);
+
+        $appliedKinds  = array_column($out['applied_actions'], 'kind');
+        $withheldKinds = array_column($out['withheld_actions'], 'kind');
+
+        $this->assertNotContains('git', $appliedKinds);
+        $this->assertContains('git', $withheldKinds);
+        $this->assertContains('atlas_native_brain_recovery', $appliedKinds);
+    }
 }

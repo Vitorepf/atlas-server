@@ -61,6 +61,18 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         $nextState = $reducer->reduce($state, $heartbeatEvent);
 
         $unattendedCriticalBlocker = (bool) ($unattended['critical_blocker'] ?? false);
+        $unattendedRecoveryNeeded  = (bool) ($unattended['recovery_needed'] ?? false);
+
+        // Recoverable brain stall → inject as atlas-native planned action (not critical; allowed kinds only)
+        if ($unattendedRecoveryNeeded && ! $unattendedCriticalBlocker) {
+            $plannedActions[] = [
+                'kind'                    => 'atlas_native_brain_recovery',
+                'verdict_classification'  => (string) ($unattended['classification'] ?? ''),
+                'verdict_severity'        => (string) ($unattended['severity'] ?? ''),
+                'verdict_reasons'         => (array) ($unattended['reasons'] ?? []),
+                'source'                  => 'unattended_verdict',
+            ];
+        }
         $nextTickAllowed = (bool) ($nextState['next_tick_allowed'] ?? false);
         $cycleBlockedReasons = [];
         if (! $nextTickAllowed) {
