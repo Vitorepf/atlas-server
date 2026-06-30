@@ -148,6 +148,57 @@ final class AtlasExternalBrainOutcomeBackpressurePolicy
         ];
     }
 
+    public const PRESSURE_INCREASE_GENERATION = 'increase_generation';
+    public const PRESSURE_DECREASE_GENERATION = 'decrease_generation';
+    public const PRESSURE_NEUTRAL = 'neutral';
+
+    private const STARVATION_OUTCOMES = ['no_claimable_task', 'no_self_sufficient_task'];
+
+    /**
+     * Repeated no_claimable_task / no_self_sufficient_task outcomes are queue-starvation feedback,
+     * NOT a neutral "nothing to do" signal — they mean the originator must generate MORE work, so
+     * pressure increases. Real verification failures stay on the existing failure-pressure path
+     * (the worker found something to do and it broke), never conflated with starvation.
+     *
+     * DECISION PRIORITY (first match wins):
+     *   1. increase_generation — any recent starvation outcome (no_claimable_task / no_self_sufficient_task)
+     *   2. decrease_generation — any recent verification_failed outcome
+     *   3. neutral             — default
+     *
+     * @param  array<string,mixed>  $input
+     *         recent_outcomes : list<array{outcome:string}>
+     * @return array<string,mixed>
+     */
+    public function evaluateOutcomePressure(array $input): array
+    {
+        $recentOutcomes = is_array($input['recent_outcomes'] ?? null) ? $input['recent_outcomes'] : [];
+
+        $starvationCount = 0;
+        $verificationFailedCount = 0;
+        foreach ($recentOutcomes as $entry) {
+            $outcome = is_array($entry) ? (string) ($entry['outcome'] ?? '') : (string) $entry;
+            if (in_array($outcome, self::STARVATION_OUTCOMES, true)) {
+                $starvationCount++;
+            } elseif ($outcome === 'verification_failed') {
+                $verificationFailedCount++;
+            }
+        }
+
+        [$pressure, $reason] = match (true) {
+            $starvationCount > 0 => [self::PRESSURE_INCREASE_GENERATION, 'worker_starvation_feedback'],
+            $verificationFailedCount > 0 => [self::PRESSURE_DECREASE_GENERATION, 'verification_failure_pressure'],
+            default => [self::PRESSURE_NEUTRAL, 'no_pressure_signal'],
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'pressure' => $pressure,
+            'reason' => $reason,
+            'starvation_count' => $starvationCount,
+            'verification_failed_count' => $verificationFailedCount,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
