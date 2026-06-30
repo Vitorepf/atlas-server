@@ -380,6 +380,7 @@ class AtlasDecideCostOutcomeRouter
                 'evidence_sources' => array_values((array) $group['evidence_sources']),
                 'provider_resolvable' => (bool) $group['provider_resolvable'],
                 'blockers' => array_values(array_unique($blockers)),
+                'evidence_deficit' => max(0, (int) $cfg['min_evidence'] - $certifiedCount),
             ];
         }
 
