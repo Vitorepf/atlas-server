@@ -221,4 +221,105 @@ final class AtlasExternalBrainOriginatorStopConditionGateTest extends TestCase
         $input = ['quality_target_reached' => true, 'quality_target_evidence' => ['ev1']];
         $this->assertSame($this->gate->evaluate($input), $this->gate->evaluate($input));
     }
+
+    // ── honest_stop via high saturation + low value yield ────────────────────
+
+    public function test_high_saturation_low_yield_yields_honest_stop(): void
+    {
+        $result = $this->eval(['saturation_level' => 0.90, 'value_yield_score' => 0.20]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+        $this->assertSame(
+            AtlasExternalBrainOriginatorStopConditionGate::REASON_HIGH_SATURATION_LOW_YIELD,
+            $result['stop_reason'],
+        );
+        $blocking = implode(' ', $result['blocking_reasons']);
+        $this->assertStringContainsString('saturation_level', $blocking);
+        $this->assertStringContainsString('value_yield_score', $blocking);
+    }
+
+    public function test_saturation_stop_evidence_includes_give_back_rate(): void
+    {
+        $result = $this->eval([
+            'saturation_level'  => 0.85,
+            'value_yield_score' => 0.25,
+            'give_back_rate'    => 0.40,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+        $this->assertStringContainsString('give_back_rate', implode(' ', $result['evidence_cited']));
+    }
+
+    public function test_high_saturation_but_high_yield_does_not_trigger_saturation_stop(): void
+    {
+        $result = $this->eval(['saturation_level' => 0.90, 'value_yield_score' => 0.80]);
+
+        $this->assertNotSame(
+            AtlasExternalBrainOriginatorStopConditionGate::REASON_HIGH_SATURATION_LOW_YIELD,
+            $result['stop_reason'],
+        );
+    }
+
+    // ── low saturation + high verified opportunity → continue ─────────────────
+
+    public function test_low_saturation_high_yield_with_open_surfaces_yields_continue_search(): void
+    {
+        $result = $this->eval([
+            'saturation_level'        => 0.20,
+            'value_yield_score'       => 0.85,
+            'open_surfaces_remaining' => 3,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_CONTINUE_SEARCH, $result['verdict']);
+        $this->assertStringContainsString('open_surfaces_remaining:3', implode(' ', $result['blocking_reasons']));
+    }
+
+    // ── reduce_scope — duplicate pressure + low value yield ──────────────────
+
+    public function test_duplicate_pressure_low_yield_yields_reduce_scope(): void
+    {
+        $result = $this->eval(['duplicate_pressure_high' => true, 'value_yield_score' => 0.20]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REDUCE_SCOPE, $result['verdict']);
+        $this->assertNull($result['stop_reason']);
+        $blocking = implode(' ', $result['blocking_reasons']);
+        $this->assertStringContainsString('duplicate_pressure_high:true', $blocking);
+        $this->assertStringContainsString('value_yield_score', $blocking);
+    }
+
+    public function test_reduce_scope_evidence_includes_give_back_rate(): void
+    {
+        $result = $this->eval([
+            'duplicate_pressure_high' => true,
+            'value_yield_score'       => 0.25,
+            'give_back_rate'          => 0.45,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REDUCE_SCOPE, $result['verdict']);
+        $this->assertStringContainsString('give_back_rate', implode(' ', $result['evidence_cited']));
+    }
+
+    public function test_duplicate_pressure_but_high_yield_does_not_reduce_scope(): void
+    {
+        $result = $this->eval(['duplicate_pressure_high' => true, 'value_yield_score' => 0.80]);
+
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_REDUCE_SCOPE, $result['verdict']);
+    }
+
+    // ── five distinct verdicts each reachable (AC2 coverage) ─────────────────
+
+    public function test_all_five_ac_verdicts_are_each_reachable(): void
+    {
+        $cases = [
+            'continue_search'   => ['open_surfaces_remaining' => 1],
+            'consolidate_first' => ['consolidation_pressure_high' => true],
+            'honest_stop'       => ['saturation_level' => 0.9, 'value_yield_score' => 0.1],
+            'reduce_scope'      => ['duplicate_pressure_high' => true, 'value_yield_score' => 0.1],
+            'escalate_ambition' => ['quality_target_evidence' => ['partial_score:7.0']],
+        ];
+
+        foreach ($cases as $expected => $input) {
+            $this->assertSame($expected, $this->eval($input)['verdict'], "Expected verdict {$expected}");
+        }
+    }
 }

@@ -31,11 +31,18 @@ final class AtlasExternalBrainOriginatorStopConditionGate
     public const VERDICT_REPAIR_FIRST      = 'repair_first';
     public const VERDICT_ESCALATE_AMBITION = 'escalate_ambition';
     public const VERDICT_PREMATURE_STOP    = 'premature_stop';
+    public const VERDICT_REDUCE_SCOPE      = 'reduce_scope';
 
-    public const REASON_QUALITY_TARGET    = 'quality_target_reached';
-    public const REASON_EXHAUSTED         = 'exhausted_with_evidence';
-    public const REASON_QUEUE_PRESSURE    = 'queue_pressure_deferral';
-    public const REASON_SURFACE_SATURATED = 'surface_saturated';
+    public const REASON_QUALITY_TARGET          = 'quality_target_reached';
+    public const REASON_EXHAUSTED               = 'exhausted_with_evidence';
+    public const REASON_QUEUE_PRESSURE          = 'queue_pressure_deferral';
+    public const REASON_SURFACE_SATURATED       = 'surface_saturated';
+    public const REASON_HIGH_SATURATION_LOW_YIELD = 'high_saturation_low_value_yield';
+
+    /** Thresholds for yield-aware and saturation-aware decisions. */
+    private const DEFAULT_MIN_VALUE_YIELD           = 0.40; // below → yield problem
+    private const DEFAULT_SATURATION_STOP_THRESHOLD = 0.80; // at/above → stop new seeds
+    private const DEFAULT_MAX_GIVE_BACK_RATE        = 0.30; // above → scope concern
 
     public function evaluate(array $input): array
     {
@@ -52,6 +59,14 @@ final class AtlasExternalBrainOriginatorStopConditionGate
         $remainingModes        = max(0,  (int)($input['remaining_escalation_modes']     ?? 0));
         $gateRegression        = (bool)  ($input['gate_regression_detected']            ?? false);
         $consolidationPressure = (bool)  ($input['consolidation_pressure_high']         ?? false);
+
+        // Yield-aware / saturation-aware inputs.
+        $valueYield        = max(0.0, min(1.0, (float) ($input['value_yield_score']       ?? 1.0)));
+        $saturationLevel   = max(0.0, min(1.0, (float) ($input['saturation_level']        ?? 0.0)));
+        $dupPressureHigh   = (bool)  ($input['duplicate_pressure_high'] ?? false);
+        $giveBackRate      = max(0.0, min(1.0, (float) ($input['give_back_rate']          ?? 0.0)));
+        $minYield          = (float) ($input['min_value_yield']              ?? self::DEFAULT_MIN_VALUE_YIELD);
+        $satStopThresh     = (float) ($input['saturation_stop_threshold']    ?? self::DEFAULT_SATURATION_STOP_THRESHOLD);
 
         // 1. repair_first — most urgent
         if ($gateRegression) {
@@ -90,11 +105,32 @@ final class AtlasExternalBrainOriginatorStopConditionGate
             );
         }
 
+        // 5a. stop new seeds — high saturation + low value yield
+        if ($saturationLevel >= $satStopThresh && $valueYield < $minYield) {
+            $sat = round($saturationLevel, 4);
+            $val = round($valueYield,      4);
+            $gbr = round($giveBackRate,    4);
+            return $this->result(self::VERDICT_HONEST_STOP, self::REASON_HIGH_SATURATION_LOW_YIELD,
+                ["saturation_level:{$sat}:>=:threshold:{$satStopThresh}", "value_yield_score:{$val}:<:min:{$minYield}"],
+                ["saturation_level:{$sat}", "value_yield_score:{$val}", "give_back_rate:{$gbr}"],
+            );
+        }
+
         // 6. consolidate_first — trim before adding more
         if ($consolidationPressure) {
             return $this->result(self::VERDICT_CONSOLIDATE_FIRST, null,
                 ['consolidation_pressure_high:merge_before_origination'],
                 ['consolidation_pressure_high:true'],
+            );
+        }
+
+        // 6a. reduce_scope — duplicate pressure + low value yield
+        if ($dupPressureHigh && $valueYield < $minYield) {
+            $val = round($valueYield,   4);
+            $gbr = round($giveBackRate, 4);
+            return $this->result(self::VERDICT_REDUCE_SCOPE, null,
+                ["duplicate_pressure_high:true", "value_yield_score:{$val}:<:min:{$minYield}"],
+                ["duplicate_pressure_high:true", "value_yield_score:{$val}", "give_back_rate:{$gbr}"],
             );
         }
 
