@@ -223,4 +223,99 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreakerTest extends TestC
 
         $this->assertSame(json_encode($this->eval($m)), json_encode($this->eval($m)));
     }
+
+    // ── evaluateEnqueueGate ──────────────────────────────────────────────────────
+
+    public function test_healthy_state_permits_enqueue_with_no_recommendation(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate([
+            'queue_saturation' => 0.1,
+            'organ_sprawl_score' => 0.1,
+            'redundant_scaffold_count' => 0,
+            'marginal_new_task_value' => 0.8,
+        ]);
+
+        $this->assertSame('none', $r['recommendation']);
+        $this->assertFalse($r['circuit_open']);
+        $this->assertTrue($r['enqueue_permitted']);
+    }
+
+    public function test_queue_saturation_recommends_learn_from_outcomes_and_blocks_enqueue(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate(['queue_saturation' => 0.9]);
+
+        $this->assertSame('learn_from_outcomes', $r['recommendation']);
+        $this->assertTrue($r['circuit_open']);
+        $this->assertFalse($r['enqueue_permitted']);
+    }
+
+    public function test_organ_sprawl_recommends_consolidate(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate(['organ_sprawl_score' => 0.7]);
+
+        $this->assertSame('consolidate', $r['recommendation']);
+        $this->assertFalse($r['enqueue_permitted']);
+    }
+
+    public function test_redundant_scaffolds_recommends_retire(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate(['redundant_scaffold_count' => 4]);
+
+        $this->assertSame('retire', $r['recommendation']);
+        $this->assertFalse($r['enqueue_permitted']);
+    }
+
+    public function test_low_marginal_value_recommends_simplify(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate(['marginal_new_task_value' => 0.1]);
+
+        $this->assertSame('simplify', $r['recommendation']);
+        $this->assertFalse($r['enqueue_permitted']);
+    }
+
+    public function test_task_that_unlocks_consolidation_is_permitted_despite_open_circuit(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate([
+            'queue_saturation' => 0.9,
+            'proposed_task' => ['unlocks_consolidation' => true],
+        ]);
+
+        $this->assertTrue($r['circuit_open']);
+        $this->assertTrue($r['enqueue_permitted']);
+        $this->assertTrue($r['permitted_via_exception']);
+    }
+
+    public function test_task_that_removes_blocker_is_permitted_despite_open_circuit(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate([
+            'organ_sprawl_score' => 0.7,
+            'proposed_task' => ['removes_blocker' => true],
+        ]);
+
+        $this->assertTrue($r['enqueue_permitted']);
+        $this->assertTrue($r['permitted_via_exception']);
+    }
+
+    public function test_ordinary_task_during_open_circuit_is_not_permitted(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate([
+            'organ_sprawl_score' => 0.7,
+            'proposed_task' => ['unlocks_consolidation' => false, 'removes_blocker' => false],
+        ]);
+
+        $this->assertFalse($r['enqueue_permitted']);
+        $this->assertFalse($r['permitted_via_exception']);
+    }
+
+    public function test_queue_saturation_outranks_other_triggers(): void
+    {
+        $r = $this->cb->evaluateEnqueueGate([
+            'queue_saturation' => 0.9,
+            'organ_sprawl_score' => 0.9,
+            'redundant_scaffold_count' => 10,
+            'marginal_new_task_value' => 0.0,
+        ]);
+
+        $this->assertSame('learn_from_outcomes', $r['recommendation']);
+    }
 }
