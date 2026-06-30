@@ -30,7 +30,101 @@ final class AtlasKnowledgeSyncPostMergePlan
 
     public const ACTION_RECORD_LEARNING_CANDIDATE = 'record_learning_candidate';
 
+    public const ACTION_REFRESH_MEMORY_PROJECTION = 'refresh_memory_projection';
+
+    public const ACTION_RECORD_EVIDENCE_LEDGER = 'record_evidence_ledger';
+
     public const ACTION_NO_OP = 'no_action';
+
+    public const FILE_CLASS_APP = 'app';
+
+    public const FILE_CLASS_TEST = 'test';
+
+    public const FILE_CLASS_DOCS = 'docs';
+
+    public const FILE_CLASS_CONFIG = 'config';
+
+    public const FILE_CLASS_MIGRATION = 'migration';
+
+    /**
+     * Classify changed file paths and produce an ordered sync plan distinguishing mandatory from optional steps.
+     *
+     * Mandatory: index_code + record_evidence_ledger when implementation (app/migration) files changed.
+     * Optional:  sync_docs when only documentation files changed.
+     * Always:    refresh_memory_projection + refresh_context_pack when any file changed.
+     *
+     * @param  list<string>  $changedFiles
+     * @param  list<string>  $projectIds
+     * @return array{schema_version:string, actions:list<string>, required_actions:list<string>, optional_actions:list<string>, file_classes:list<string>, has_impl_changes:bool}
+     */
+    public function planFromChangedFiles(array $changedFiles, array $projectIds = []): array
+    {
+        $classes = array_values(array_unique($this->classifyFiles($changedFiles)));
+        $hasImpl = in_array(self::FILE_CLASS_APP, $classes, true) || in_array(self::FILE_CLASS_MIGRATION, $classes, true);
+        $hasDocs = in_array(self::FILE_CLASS_DOCS, $classes, true);
+        $any = $changedFiles !== [];
+
+        $required = [];
+        $optional = [];
+        $actions = [];
+
+        if ($hasImpl) {
+            $actions[] = self::ACTION_INDEX_CODE;
+            $required[] = self::ACTION_INDEX_CODE;
+        }
+        if ($hasDocs) {
+            $actions[] = self::ACTION_SYNC_DOCS;
+            $optional[] = self::ACTION_SYNC_DOCS;
+        }
+        if ($any) {
+            $actions[] = self::ACTION_REFRESH_MEMORY_PROJECTION;
+            $required[] = self::ACTION_REFRESH_MEMORY_PROJECTION;
+            $actions[] = self::ACTION_REFRESH_CONTEXT_PACK;
+            $required[] = self::ACTION_REFRESH_CONTEXT_PACK;
+        }
+        if ($hasImpl) {
+            $actions[] = self::ACTION_RECORD_EVIDENCE_LEDGER;
+            $required[] = self::ACTION_RECORD_EVIDENCE_LEDGER;
+        }
+
+        if ($actions === []) {
+            $actions = [self::ACTION_NO_OP];
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'actions' => $actions,
+            'required_actions' => $required,
+            'optional_actions' => $optional,
+            'file_classes' => $classes,
+            'has_impl_changes' => $hasImpl,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $changedFiles
+     * @return list<string>
+     */
+    private function classifyFiles(array $changedFiles): array
+    {
+        $classes = [];
+        foreach ($changedFiles as $path) {
+            $path = (string) $path;
+            if (str_starts_with($path, 'database/migrations/')) {
+                $classes[] = self::FILE_CLASS_MIGRATION;
+            } elseif (str_starts_with($path, 'tests/')) {
+                $classes[] = self::FILE_CLASS_TEST;
+            } elseif (str_starts_with($path, 'docs/') || str_ends_with($path, '.md')) {
+                $classes[] = self::FILE_CLASS_DOCS;
+            } elseif (str_starts_with($path, 'config/')) {
+                $classes[] = self::FILE_CLASS_CONFIG;
+            } else {
+                $classes[] = self::FILE_CLASS_APP;
+            }
+        }
+
+        return $classes;
+    }
 
     /**
      * @param  array<string,mixed>  $artifactMap          {project_ids:list<string>, docs_dirs:list<string>, code_index_targets:list<string>}

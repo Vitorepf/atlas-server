@@ -118,6 +118,51 @@ final class AtlasKnowledgeSyncPostMergePlanTest extends TestCase
         $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $actions);
     }
 
+    public function test_impl_file_change_yields_mandatory_index_code_and_evidence_ledger_in_stable_order(): void
+    {
+        $plan = (new AtlasKnowledgeSyncPostMergePlan)->planFromChangedFiles([
+            'app/Services/Ai/SelfConstruction/Foo.php',
+            'tests/Unit/FooTest.php',
+        ]);
+
+        $this->assertTrue($plan['has_impl_changes']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $plan['required_actions']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $plan['required_actions']);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $plan['optional_actions']);
+        // stable ordering: index_code before record_evidence_ledger
+        $actions = $plan['actions'];
+        $idxIndex = array_search(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $actions, true);
+        $idxEvidence = array_search(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $actions, true);
+        $this->assertLessThan($idxEvidence, $idxIndex, 'index_code must precede record_evidence_ledger');
+    }
+
+    public function test_docs_only_change_has_sync_docs_as_optional_not_in_required(): void
+    {
+        $plan = (new AtlasKnowledgeSyncPostMergePlan)->planFromChangedFiles([
+            'docs/engineering-knowledge-base/some-doc.md',
+        ]);
+
+        $this->assertFalse($plan['has_impl_changes']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_SYNC_DOCS, $plan['optional_actions']);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_SYNC_DOCS, $plan['required_actions']);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $plan['actions']);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $plan['actions']);
+    }
+
+    public function test_migration_path_treated_as_impl_change_and_no_action_when_empty(): void
+    {
+        $migPlan = (new AtlasKnowledgeSyncPostMergePlan)->planFromChangedFiles([
+            'database/migrations/2026_06_30_create_foo_table.php',
+        ]);
+        $this->assertTrue($migPlan['has_impl_changes']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::FILE_CLASS_MIGRATION, $migPlan['file_classes']);
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $migPlan['required_actions']);
+
+        $emptyPlan = (new AtlasKnowledgeSyncPostMergePlan)->planFromChangedFiles([]);
+        $this->assertSame([AtlasKnowledgeSyncPostMergePlan::ACTION_NO_OP], $emptyPlan['actions']);
+        $this->assertFalse($emptyPlan['has_impl_changes']);
+    }
+
     public function test_planner_emits_command_hints_but_never_executes(): void
     {
         $plan = (new AtlasKnowledgeSyncPostMergePlan)->plan(
