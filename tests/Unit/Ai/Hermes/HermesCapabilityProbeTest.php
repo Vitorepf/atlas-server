@@ -225,6 +225,97 @@ YAML);
         $this->assertStringNotContainsString('github-mcp', $encoded);
     }
 
+    public function test_entries_default_to_not_dangerous(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        // The 'pdf' skill is benign: no dangerous class, no dangerous term in its key.
+        $pdfSkill = $this->entryById($manifest, 'skill:pdf');
+        $this->assertNotNull($pdfSkill);
+        $this->assertFalse($pdfSkill['dangerous_capability']);
+        $this->assertSame('standard', $pdfSkill['risk_level']);
+    }
+
+    public function test_hook_entries_are_flagged_dangerous(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        $hooks = $this->entriesForClass($manifest, 'hook');
+        $this->assertNotEmpty($hooks);
+        foreach ($hooks as $hook) {
+            $this->assertTrue($hook['dangerous_capability'], "hook '{$hook['capability_key']}' must be dangerous");
+            $this->assertSame('high', $hook['risk_level']);
+        }
+    }
+
+    public function test_delegation_entry_is_flagged_dangerous(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        $delegation = $this->entryById($manifest, 'delegation:supported');
+        $this->assertNotNull($delegation);
+        $this->assertTrue($delegation['dangerous_capability']);
+        $this->assertSame('high', $delegation['risk_level']);
+    }
+
+    public function test_mcp_server_entries_are_flagged_dangerous(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        $mcpServers = $this->entriesForClass($manifest, 'mcp_server');
+        $this->assertNotEmpty($mcpServers);
+        foreach ($mcpServers as $server) {
+            $this->assertTrue($server['dangerous_capability'], "mcp_server '{$server['capability_key']}' must be dangerous");
+            $this->assertSame('high', $server['risk_level']);
+        }
+    }
+
+    public function test_shell_toolset_token_is_flagged_dangerous_by_term_match(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        $shellToolset = $this->entryById($manifest, 'toolset:shell');
+        $this->assertNotNull($shellToolset);
+        $this->assertTrue($shellToolset['dangerous_capability'], 'a toolset key containing "shell" must be dangerous even though toolset class is not inherently dangerous');
+        $this->assertSame('high', $shellToolset['risk_level']);
+
+        // A non-shell toolset (e.g. 'files') stays standard.
+        $filesToolset = $this->entryById($manifest, 'toolset:files');
+        $this->assertNotNull($filesToolset);
+        $this->assertFalse($filesToolset['dangerous_capability']);
+        $this->assertSame('standard', $filesToolset['risk_level']);
+    }
+
+    public function test_dangerous_capability_detection_does_not_invoke_provider(): void
+    {
+        // Probing must remain a pure local classification, never a chat/send call.
+        (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        $log = (string) file_get_contents($this->argsLog);
+        $this->assertStringNotContainsString('MODEL CALL', $log);
+    }
+
+    public function test_offline_manifest_has_no_entries_to_classify(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->workDir.'/does-not-exist-hermes']);
+
+        $this->assertSame([], $manifest['entries']);
+    }
+
+    public function test_every_entry_has_dangerous_capability_and_risk_level_keys(): void
+    {
+        $manifest = (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);
+
+        $this->assertNotEmpty($manifest['entries']);
+        foreach ($manifest['entries'] as $entry) {
+            $this->assertArrayHasKey('dangerous_capability', $entry);
+            $this->assertIsBool($entry['dangerous_capability']);
+            $this->assertArrayHasKey('risk_level', $entry);
+            $this->assertContains($entry['risk_level'], ['high', 'standard']);
+            $this->assertSame($entry['dangerous_capability'], $entry['risk_level'] === 'high');
+        }
+    }
+
     public function test_probe_never_invokes_a_model_call(): void
     {
         (new HermesCapabilityProbe)->probe(['binary' => $this->binary]);

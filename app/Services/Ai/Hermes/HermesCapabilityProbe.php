@@ -28,6 +28,22 @@ class HermesCapabilityProbe
     public const SCHEMA_VERSION = 'atlas.hermes.capability_manifest.v1';
 
     /**
+     * Capability classes that imply mutation, execution, delegation, or gateway
+     * behavior by their very nature — dangerous regardless of key/token text.
+     *
+     * @var list<string>
+     */
+    private const DANGEROUS_CAPABILITY_CLASSES = ['hook', 'delegation', 'mcp_server', 'gateway', 'code_exec'];
+
+    /**
+     * Substrings in a capability key/token that imply mutation or execution even
+     * when the capability class itself is benign (e.g. a `toolset` named `shell`).
+     *
+     * @var list<string>
+     */
+    private const DANGEROUS_CAPABILITY_TERMS = ['code_exec', 'shell', 'write', 'apply', 'edit', 'mutate', 'exec', 'gateway'];
+
+    /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
@@ -770,6 +786,7 @@ class HermesCapabilityProbe
         string $source,
     ): array {
         $idPrefix = $this->idPrefix($capabilityClass);
+        $dangerous = $this->isDangerousCapability($capabilityClass, $capabilityKey, $hermesToken);
 
         return [
             'id' => $idPrefix.':'.$capabilityKey,
@@ -781,7 +798,30 @@ class HermesCapabilityProbe
             'detail' => $detail,
             'source' => $source,
             'first_seen' => null,
+            'dangerous_capability' => $dangerous,
+            'risk_level' => $dangerous ? 'high' : 'standard',
         ];
+    }
+
+    /**
+     * Deterministic, offline classification: a capability is dangerous when its CLASS implies
+     * mutation/execution/delegation/gateway behavior, or when its key/token TEXT carries one of
+     * those terms — never by trusting provider wording or invoking the provider itself.
+     */
+    private function isDangerousCapability(string $capabilityClass, string $capabilityKey, ?string $hermesToken): bool
+    {
+        if (in_array($capabilityClass, self::DANGEROUS_CAPABILITY_CLASSES, true)) {
+            return true;
+        }
+
+        $haystack = strtolower($capabilityKey.' '.($hermesToken ?? ''));
+        foreach (self::DANGEROUS_CAPABILITY_TERMS as $term) {
+            if (str_contains($haystack, $term)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function idPrefix(string $capabilityClass): string
