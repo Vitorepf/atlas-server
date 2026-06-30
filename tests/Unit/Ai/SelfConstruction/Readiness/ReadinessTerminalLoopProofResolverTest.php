@@ -114,6 +114,64 @@ class ReadinessTerminalLoopProofResolverTest extends TestCase
         }
     }
 
+    public function test_resolve_audit_explicit_array_present(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof' => ['key' => 'value']];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertSame('explicit_array', $audit['source']);
+        self::assertTrue($audit['payload_present']);
+        self::assertSame([], $audit['blockers']);
+    }
+
+    public function test_resolve_audit_explicit_empty_array_has_blocker(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof' => []];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertSame('explicit_array', $audit['source']);
+        self::assertFalse($audit['payload_present']);
+        self::assertContains('explicit_array_proof_is_empty', $audit['blockers']);
+    }
+
+    public function test_resolve_audit_json_option(): void
+    {
+        $options = ['agent_control_plane_terminal_loop_operational_proof_json' => '{"proof_payload":{"from":"json"}}'];
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit($options, 'nonexistent.json');
+
+        self::assertSame('json_option', $audit['source']);
+        self::assertTrue($audit['payload_present']);
+        self::assertSame([], $audit['blockers']);
+    }
+
+    public function test_resolve_audit_missing_returns_blocker(): void
+    {
+        $audit = ReadinessTerminalLoopProofResolver::resolveAudit([], 'nonexistent-path-that-does-not-exist.json');
+
+        self::assertSame('missing', $audit['source']);
+        self::assertFalse($audit['payload_present']);
+        self::assertContains('no_proof_source_available', $audit['blockers']);
+    }
+
+    public function test_resolve_audit_canonical_file(): void
+    {
+        $canonicalPath = 'atlas/self-construction/operator-submissions/test-audit-resolve.json';
+        $absolutePath = storage_path('app/private/'.$canonicalPath);
+        @mkdir(dirname($absolutePath), 0777, true);
+        file_put_contents($absolutePath, json_encode(['proof_payload' => ['canonical' => true]]));
+
+        try {
+            $audit = ReadinessTerminalLoopProofResolver::resolveAudit([], $canonicalPath);
+
+            self::assertSame('canonical_file', $audit['source']);
+            self::assertTrue($audit['payload_present']);
+            self::assertSame([], $audit['blockers']);
+            self::assertStringContainsString($canonicalPath, $audit['canonical_path']);
+        } finally {
+            @unlink($absolutePath);
+        }
+    }
+
     public function test_with_payload_does_not_overwrite_when_canonical_payload_empty(): void
     {
         $canonicalPath = 'atlas/self-construction/operator-submissions/test-empty-proof.json';

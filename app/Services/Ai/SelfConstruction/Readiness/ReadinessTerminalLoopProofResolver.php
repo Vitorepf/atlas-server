@@ -44,6 +44,58 @@ final class ReadinessTerminalLoopProofResolver
     }
 
     /**
+     * Return a deterministic resolution audit without mutating options.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array{source: string, canonical_path: string, payload_present: bool, blockers: list<string>}
+     */
+    public static function resolveAudit(array $options, string $canonicalPath): array
+    {
+        if (array_key_exists('agent_control_plane_terminal_loop_operational_proof', $options)) {
+            $payload = (array) $options['agent_control_plane_terminal_loop_operational_proof'];
+
+            return [
+                'source' => 'explicit_array',
+                'canonical_path' => '',
+                'payload_present' => $payload !== [],
+                'blockers' => $payload !== [] ? [] : ['explicit_array_proof_is_empty'],
+            ];
+        }
+
+        if (isset($options['agent_control_plane_terminal_loop_operational_proof_json'])) {
+            $proof = ReadinessJsonInput::decodeOption($options['agent_control_plane_terminal_loop_operational_proof_json']);
+            $payload = self::payloadFromJson($proof);
+
+            return [
+                'source' => 'json_option',
+                'canonical_path' => '',
+                'payload_present' => $payload !== [],
+                'blockers' => $payload !== [] ? [] : ['json_option_payload_empty_or_invalid'],
+            ];
+        }
+
+        if (Storage::disk('local')->exists($canonicalPath)) {
+            $proof = ReadinessJsonInput::decodeOption('@storage/app/private/'.$canonicalPath);
+            $payload = self::payloadFromJson($proof);
+            $absPath = 'storage/app/private/'.$canonicalPath;
+
+            return [
+                'source' => 'canonical_file',
+                'canonical_path' => $absPath,
+                'payload_present' => $payload !== [],
+                'blockers' => $payload !== [] ? [] : ['canonical_file_payload_empty'],
+            ];
+        }
+
+        return [
+            'source' => 'missing',
+            'canonical_path' => '',
+            'payload_present' => false,
+            'blockers' => ['no_proof_source_available'],
+        ];
+    }
+
+    /**
      * Enrich the options array with the terminal-loop operational proof
      * payload, trying explicit array → JSON string → canonical file.
      *
