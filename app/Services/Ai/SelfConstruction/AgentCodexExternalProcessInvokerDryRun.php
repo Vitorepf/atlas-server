@@ -135,6 +135,92 @@ class AgentCodexExternalProcessInvokerDryRun
     }
 
     /**
+     * Read-only preview of exactly what a real invocation WOULD do: the literal
+     * command, the context scope, the environment contract, and any reasons it
+     * would currently be blocked — without ever launching a process, writing to
+     * the ledger, or mutating run state. Distinct from prepareDryRun(), which
+     * mutates the run row and ledger; this is purely informational.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function preview(array $input): array
+    {
+        try {
+            $normalized = $this->normalize($input);
+        } catch (InvalidArgumentException $e) {
+            return $this->blockedPreview([$e->getMessage()]);
+        }
+
+        $run = AtlasSelfConstructionAgentRun::query()
+            ->where('run_key', $normalized['run_key'])
+            ->first();
+
+        if (! $run instanceof AtlasSelfConstructionAgentRun) {
+            return $this->blockedPreview(['agent_run_not_found']);
+        }
+
+        $metadata = (array) $run->metadata;
+        $blockedReasons = [];
+
+        try {
+            $this->assertInvocationAuthorized($run, $metadata, $normalized);
+        } catch (InvalidArgumentException $e) {
+            $blockedReasons[] = $e->getMessage();
+        }
+
+        $commandPreview = sprintf(
+            'codex --execution-id=%s --runtime-driver=%s --process-command-hash=%s --env-contract-hash=%s',
+            $normalized['codex_execution_id'],
+            $normalized['runtime_driver_id'],
+            substr($normalized['process_command_hash'], 0, 12),
+            substr($normalized['environment_contract_hash'], 0, 12),
+        );
+
+        $contextScope = [
+            'run_key' => $normalized['run_key'],
+            'agent_run_id' => (string) $run->id,
+            'packet_id' => $run->packet_id,
+        ];
+
+        $environmentContract = [
+            'environment_contract_hash' => $normalized['environment_contract_hash'],
+            'termination_policy_hash' => $normalized['termination_policy_hash'],
+            'stdout_stderr_sink_hash' => $normalized['stdout_stderr_sink_hash'],
+            'liveness_probe_hash' => $normalized['liveness_probe_hash'],
+        ];
+
+        return [
+            'status' => $blockedReasons === [] ? 'codex_external_process_invoker_dry_run_preview_ok' : 'blocked',
+            'blocked_reasons' => $blockedReasons,
+            'command_preview' => $commandPreview,
+            'context_scope' => $contextScope,
+            'environment_contract' => $environmentContract,
+            'process_started' => false,
+            'dispatch_allowed' => false,
+            'token_spend_allowed' => false,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $reasons
+     * @return array<string,mixed>
+     */
+    private function blockedPreview(array $reasons): array
+    {
+        return [
+            'status' => 'blocked',
+            'blocked_reasons' => $reasons,
+            'command_preview' => null,
+            'context_scope' => null,
+            'environment_contract' => null,
+            'process_started' => false,
+            'dispatch_allowed' => false,
+            'token_spend_allowed' => false,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

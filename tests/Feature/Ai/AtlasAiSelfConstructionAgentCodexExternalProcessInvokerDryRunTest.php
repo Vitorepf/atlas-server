@@ -238,4 +238,64 @@ class AtlasAiSelfConstructionAgentCodexExternalProcessInvokerDryRunTest extends 
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── preview() ────────────────────────────────────────────────────────────
+
+    public function test_preview_returns_command_context_and_environment_without_side_effects(): void
+    {
+        $this->createInvocationAuthorizedRun();
+
+        $result = app(AgentCodexExternalProcessInvokerDryRun::class)->preview($this->validInput());
+
+        $this->assertSame('codex_external_process_invoker_dry_run_preview_ok', $result['status']);
+        $this->assertSame([], $result['blocked_reasons']);
+        $this->assertNotEmpty($result['command_preview']);
+        $this->assertStringContainsString('codex-execution-001', $result['command_preview']);
+        $this->assertSame('provider-start:attempt-001', $result['context_scope']['run_key']);
+        $this->assertSame(str_repeat('7', 64), $result['environment_contract']['environment_contract_hash']);
+        $this->assertFalse($result['process_started']);
+        $this->assertFalse($result['dispatch_allowed']);
+        $this->assertFalse($result['token_spend_allowed']);
+        $this->assertDatabaseCount('atlas_ledger_events', 0);
+    }
+
+    public function test_preview_flags_missing_authorization_without_throwing(): void
+    {
+        $this->createInvocationAuthorizedRun(['metadata' => []]);
+
+        $result = app(AgentCodexExternalProcessInvokerDryRun::class)->preview($this->validInput());
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains('codex_external_process_invocation_authorization_missing_or_mismatch', $result['blocked_reasons']);
+        $this->assertFalse($result['process_started']);
+        $this->assertDatabaseCount('atlas_ledger_events', 0);
+    }
+
+    public function test_preview_flags_missing_run_without_throwing(): void
+    {
+        $result = app(AgentCodexExternalProcessInvokerDryRun::class)->preview($this->validInput());
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertContains('agent_run_not_found', $result['blocked_reasons']);
+    }
+
+    public function test_preview_flags_malformed_input_without_throwing(): void
+    {
+        $result = app(AgentCodexExternalProcessInvokerDryRun::class)->preview([]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertNotEmpty($result['blocked_reasons']);
+        $this->assertNull($result['command_preview']);
+    }
+
+    public function test_preview_never_mutates_run_status(): void
+    {
+        $this->createInvocationAuthorizedRun();
+
+        app(AgentCodexExternalProcessInvokerDryRun::class)->preview($this->validInput());
+
+        $run = AtlasSelfConstructionAgentRun::query()->where('run_key', 'provider-start:attempt-001')->first();
+        $this->assertSame('adapter_invocation_prepared', $run->status);
+        $this->assertArrayNotHasKey('codex_external_process_invoker_dry_run', (array) $run->metadata);
+    }
 }
