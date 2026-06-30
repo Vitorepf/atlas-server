@@ -127,6 +127,72 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
         $this->assertCount(2, $impls, 'different allowed_files targets must produce separate drafts');
     }
 
+    // ── AC1: newly actionable families merge by family, not explode into singletons ──
+
+    public function test_multiple_records_in_same_actionable_family_merge_into_one_draft(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'sm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
+                'recommended_action' => 'respec'],
+            ['task_packet_id' => 'sm2', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
+                'recommended_action' => 'respec'],
+            ['task_packet_id' => 'sm3', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
+                'recommended_action' => 'respec'],
+        ]);
+
+        $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
+        $this->assertCount(1, $impls, 'three records sharing a family must merge into one draft, not three singletons');
+        $this->assertSame(['sm1', 'sm2', 'sm3'], $impls[0]['source_packet_ids']);
+    }
+
+    public function test_different_actionable_families_produce_separate_drafts(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'sm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION,
+                'recommended_action' => 'respec'],
+            ['task_packet_id' => 'rv1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_RECEIPT_VERIFIER,
+                'recommended_action' => 'respec'],
+        ]);
+
+        $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
+        $this->assertCount(2, $impls, 'different families must not be merged together');
+    }
+
+    public function test_manual_review_family_goes_to_review_recommended_not_implementation(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'ac1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION,
+                'recommended_action' => 'manual_review'],
+        ]);
+
+        $kinds = array_column($result['drafts'], 'kind');
+        $this->assertNotContains('implementation_or_contract_task', $kinds);
+        $this->assertContains('review_recommended', $kinds);
+    }
+
+    public function test_truly_unknown_family_remains_review_recommended(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'u1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_UNKNOWN,
+                'recommended_action' => 'manual_review'],
+        ]);
+
+        $this->assertCount(1, $result['drafts']);
+        $this->assertSame('review_recommended', $result['drafts'][0]['kind']);
+        $this->assertContains('u1', $result['drafts'][0]['source_packet_ids']);
+    }
+
+    public function test_actionable_family_drafts_land_in_wave_two(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'sf1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_MISSING_SCOPE_FIELDS,
+                'recommended_action' => 'respec'],
+        ]);
+
+        $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
+        $this->assertSame(2, $impls[0]['wave']);
+    }
+
     public function test_draft_is_deterministic_for_identical_input(): void
     {
         $records = [

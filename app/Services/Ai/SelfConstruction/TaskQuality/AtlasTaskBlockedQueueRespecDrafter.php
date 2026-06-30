@@ -102,6 +102,45 @@ final class AtlasTaskBlockedQueueRespecDrafter
             }
         }
 
+        // Wave 2c: every OTHER family the classifier recognizes (e.g. missing_scope_fields,
+        // forbidden_target_suspect, duplicate_or_stale_brain_packet, codex_meta_* slugs) is
+        // grouped by FAMILY, not exploded into one review_recommended singleton per packet.
+        // recommended_action='respec' families merge into one implementation_or_contract_task
+        // draft per family; everything else (retire/manual_review/unrecognized) falls back to
+        // review_recommended so no record is ever silently dropped.
+        $explicitlyHandledFamilies = [
+            AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DUPLICATE_ALREADY_DONE,
+            AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+            AtlasTaskBlockedPacketFamilyClassifier::FAMILY_TEST_ONLY_MICROTASK,
+            AtlasTaskBlockedPacketFamilyClassifier::FAMILY_RESPEC_CANDIDATE,
+            AtlasTaskBlockedPacketFamilyClassifier::FAMILY_REPEATED_GIVE_BACK,
+            AtlasTaskBlockedPacketFamilyClassifier::FAMILY_UNKNOWN,
+        ];
+        $remainingFamilies = array_diff(array_keys($byFamily), $explicitlyHandledFamilies);
+        sort($remainingFamilies, SORT_STRING);
+        foreach ($remainingFamilies as $family) {
+            $records = $byFamily[$family];
+            $recommendedAction = (string) ($records[0]['recommended_action'] ?? '');
+            $ids = array_map(static fn (array $r): string => (string) ($r['task_packet_id'] ?? ''), $records);
+
+            if ($recommendedAction === 'respec') {
+                $count = count($ids);
+                $summary['implementation_or_contract_task'] = ($summary['implementation_or_contract_task'] ?? 0) + $count;
+                $noun = $count > 1 ? "{$count} packets merged" : '1 packet';
+                $drafts[] = $this->makeDraft(
+                    'implementation_or_contract_task', 2, $ids,
+                    "family={$family}: actionable family respec ({$noun})"
+                );
+
+                continue;
+            }
+
+            foreach ($ids as $id) {
+                $summary['review_recommended'] = ($summary['review_recommended'] ?? 0) + 1;
+                $drafts[] = $this->makeDraft('review_recommended', 3, [$id], "family={$family}: manual respec or operator review required");
+            }
+        }
+
         // Sort: wave ASC, then draft_id ASC for determinism.
         usort($drafts, static fn (array $a, array $b): int => [$a['wave'], $a['draft_id']] <=> [$b['wave'], $b['draft_id']]);
 
