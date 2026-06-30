@@ -102,4 +102,31 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilderTest extends TestCase
         $p2['objective'] = 'something else';
         $this->assertNotSame($b->build($p1)['envelope_hash'], $b->build($p2)['envelope_hash']);
     }
+
+    public function test_scope_in_falls_back_to_allowed_files_when_absent(): void
+    {
+        $p = $this->validPacket();
+        unset($p['scope_in']);
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+
+        $this->assertSame($e['allowed_files'], $e['scope_in']);
+    }
+
+    public function test_rollback_plan_defaults_to_revert_commit_when_absent(): void
+    {
+        $p = $this->validPacket();
+        unset($p['rollback_plan']);
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+
+        $this->assertSame(['mode' => 'revert_commit'], $e['rollback_plan']);
+    }
+
+    public function test_evidence_template_defaults_to_null_map_over_required_evidence(): void
+    {
+        $p = $this->validPacket();
+        unset($p['evidence_template']);
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+
+        $this->assertSame(['test_run_id' => null, 'commit_sha' => null], $e['evidence_template']);
+    }
 }
