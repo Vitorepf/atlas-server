@@ -130,6 +130,68 @@ class AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate
         private readonly AgentCodexRealInvokerGuardedProcessStartExecutor $guardedStart,
     ) {}
 
+    private const REPAIR_HINTS = [
+        'task_scope' => 'attach a verified task_scope (signed allowed_files + task id) before guarded start',
+        'lease' => 'attach an active, unexpired, matching lease before guarded start',
+        'provider_safety' => 'attach provider_safety evidence confirming non-execution guarantees before guarded start',
+        'liveness_plan' => 'attach a liveness_plan describing how the process will be observed once started',
+        'proof_receipt_path' => 'attach a proof_receipt_path describing where post-start evidence will land',
+    ];
+
+    /**
+     * Pure, provider-free enforcement of the FULL safe-start contract for a
+     * guarded process start — not merely "is spawning permitted" but every
+     * component required to trust the start once it happens: a verified
+     * task scope, an active lease, provider safety evidence, a liveness
+     * plan, and a proof receipt path. Missing ANY component blocks the
+     * start as unobservable or evidence-free. Never starts a process.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function evaluateGuardedStartContract(array $facts): array
+    {
+        foreach (['task_scope', 'lease', 'provider_safety', 'liveness_plan', 'proof_receipt_path'] as $component) {
+            if (! $this->componentPresent($facts[$component] ?? null)) {
+                return [
+                    'guarded_start_allowed' => false,
+                    'violated_contract' => $component,
+                    'repair_hint' => self::REPAIR_HINTS[$component],
+                    'external_process_started' => false,
+                    'token_spend_allowed' => false,
+                    'provider_started' => false,
+                    'dispatch_allowed' => false,
+                ];
+            }
+        }
+
+        return [
+            'guarded_start_allowed' => true,
+            'violated_contract' => null,
+            'repair_hint' => null,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
+     * @param  mixed  $component
+     */
+    private function componentPresent($component): bool
+    {
+        if (is_string($component)) {
+            return $component !== '';
+        }
+
+        if (is_array($component)) {
+            return $component !== [] && ($component['present'] ?? true) !== false;
+        }
+
+        return false;
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

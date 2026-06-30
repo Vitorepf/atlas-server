@@ -401,4 +401,74 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartGuardedProcessStartEx
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── evaluateGuardedStartContract() ───────────────────────────────────────
+
+    private function contractFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'task_scope' => 'scope-hash-1',
+            'lease' => ['present' => true],
+            'provider_safety' => ['present' => true],
+            'liveness_plan' => ['present' => true],
+            'proof_receipt_path' => 'evidence/path/1',
+        ], $overrides);
+    }
+
+    public function test_guarded_start_allowed_when_full_contract_satisfied(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class);
+        $result = $gate->evaluateGuardedStartContract($this->contractFacts());
+
+        $this->assertTrue($result['guarded_start_allowed']);
+        $this->assertNull($result['violated_contract']);
+        $this->assertNull($result['repair_hint']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_blocks_when_task_scope_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class);
+        $result = $gate->evaluateGuardedStartContract($this->contractFacts(['task_scope' => '']));
+
+        $this->assertFalse($result['guarded_start_allowed']);
+        $this->assertSame('task_scope', $result['violated_contract']);
+        $this->assertNotNull($result['repair_hint']);
+    }
+
+    public function test_blocks_when_lease_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class);
+        $result = $gate->evaluateGuardedStartContract($this->contractFacts(['lease' => null]));
+
+        $this->assertFalse($result['guarded_start_allowed']);
+        $this->assertSame('lease', $result['violated_contract']);
+    }
+
+    public function test_blocks_when_provider_safety_marked_absent(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class);
+        $result = $gate->evaluateGuardedStartContract($this->contractFacts(['provider_safety' => ['present' => false]]));
+
+        $this->assertFalse($result['guarded_start_allowed']);
+        $this->assertSame('provider_safety', $result['violated_contract']);
+    }
+
+    public function test_blocks_when_liveness_plan_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class);
+        $result = $gate->evaluateGuardedStartContract($this->contractFacts(['liveness_plan' => []]));
+
+        $this->assertFalse($result['guarded_start_allowed']);
+        $this->assertSame('liveness_plan', $result['violated_contract']);
+    }
+
+    public function test_blocks_when_proof_receipt_path_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartGuardedProcessStartExecutorGate::class);
+        $result = $gate->evaluateGuardedStartContract($this->contractFacts(['proof_receipt_path' => '']));
+
+        $this->assertFalse($result['guarded_start_allowed']);
+        $this->assertSame('proof_receipt_path', $result['violated_contract']);
+    }
 }
