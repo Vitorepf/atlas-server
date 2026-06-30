@@ -25,6 +25,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   fact_too_long                — fact exceeds MAX_FACT_LENGTH
  *   raw_prompt_detected          — fact contains prompt-like markers
  *   provider_details_detected    — fact mentions model/API identifiers
+ *   noninstructional_content_detected — fact carries operator frustration, emotional venting,
+ *                                  or a raw chat fragment instead of a cleaned operational rule
  *   speculative_claim            — evidence_strength = 'speculative' (not an allowed tier)
  *   duplicate_low_value          — same (type, normalized_fact) already accepted at ≥ evidence
  *   vague_unactionable           — fact names no capability, pattern family, failure mode, or next action
@@ -64,6 +66,17 @@ final class AtlasExternalBrainMemoryWritebackContract
     /** Markers that indicate raw prompt content or provider identifiers. */
     private const PROMPT_MARKERS = ['<system>', '</system>', '<user>', '</user>', '<assistant>', '</assistant>', 'system_prompt', 'anthropic_api_key', 'openai_api_key'];
     private const PROVIDER_MARKERS = ['claude-opus', 'claude-sonnet', 'claude-haiku', 'gpt-4', 'gpt-3.5', 'text-davinci', 'gemini-pro', 'sk-ant-', 'sk-proj-'];
+
+    /**
+     * Markers that indicate operator frustration, emotional venting, or a raw chat fragment
+     * rather than a cleaned operational rule — these are never canonical memory even when
+     * provider_safe=true and otherwise well-formed.
+     */
+    private const NONINSTRUCTIONAL_MARKERS = [
+        'que merda', 'porra', 'caralho', 'merda', 'wtf', 'damn it', 'this is so frustrating',
+        'i am so frustrated', 'você não tá entendendo', 'voce nao ta entendendo',
+        'você não entendeu', 'voce nao entendeu', "i can't believe", 'ugh', 'argh',
+    ];
 
     /**
      * Validate, normalise, redact, deduplicate and tag a list of memory proposals.
@@ -158,6 +171,14 @@ final class AtlasExternalBrainMemoryWritebackContract
         foreach (self::PROVIDER_MARKERS as $marker) {
             if (str_contains($factLower, $marker)) {
                 return $this->reject($source, 'provider_details_detected', "marker: {$marker}");
+            }
+        }
+
+        // Non-instructional content: operator frustration, emotional venting, raw chat
+        // fragments — never canonical memory, even when provider_safe=true.
+        foreach (self::NONINSTRUCTIONAL_MARKERS as $marker) {
+            if (str_contains($factLower, $marker)) {
+                return $this->reject($source, 'noninstructional_content_detected', "marker: {$marker}");
             }
         }
 

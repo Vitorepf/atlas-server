@@ -21,6 +21,11 @@ final class AtlasExternalBrainMemoryWritebackContractTest extends TestCase
             'fact'             => $fact,
             'evidence_strength' => $strength,
             'source'           => $source,
+            'evidence_ref'     => 'evidence:'.$source,
+            'scope'            => 'global',
+            'lesson'           => 'apply this fact to future cycles',
+            'decision_effect'  => 'changes_next_originator_priority',
+            'provider_safe'    => true,
         ];
     }
 
@@ -186,9 +191,14 @@ final class AtlasExternalBrainMemoryWritebackContractTest extends TestCase
     public function test_missing_evidence_strength_defaults_to_inferred(): void
     {
         $result = $this->contract()->validate([[
-            'type'   => 'forbidden_proxy_smell',
-            'fact'   => 'test-count padding detected in last wave',
-            'source' => 'cycle-3',
+            'type'             => 'forbidden_proxy_smell',
+            'fact'             => 'test-count padding detected in last wave',
+            'source'           => 'cycle-3',
+            'evidence_ref'     => 'evidence:cycle-3',
+            'scope'            => 'global',
+            'lesson'           => 'apply this fact to future cycles',
+            'decision_effect'  => 'changes_next_originator_priority',
+            'provider_safe'    => true,
         ]]);
 
         $this->assertCount(1, $result['accepted']);
@@ -275,6 +285,38 @@ final class AtlasExternalBrainMemoryWritebackContractTest extends TestCase
 
         $this->assertCount(1, $result['accepted']);
         $this->assertSame('duplicate_low_value', $result['rejected'][0]['reason']);
+    }
+
+    // ── noninstructional_content_detected ─────────────────────────────────────
+
+    public function test_emotional_frustration_fact_is_rejected_even_when_provider_safe(): void
+    {
+        $result = $this->contract()->validate([
+            $this->proposal('next_cycle_hint', 'que merda é que você tá fazendo, refaça a tarefa architecture_unlock', 'proven'),
+        ]);
+
+        $this->assertCount(0, $result['accepted']);
+        $this->assertSame('noninstructional_content_detected', $result['rejected'][0]['reason']);
+    }
+
+    public function test_raw_chat_fragment_with_frustration_marker_is_rejected(): void
+    {
+        $result = $this->contract()->validate([
+            $this->proposal('failed_pattern', 'ugh this is so frustrating, docs_sync keeps failing again', 'observed'),
+        ]);
+
+        $this->assertCount(0, $result['accepted']);
+        $this->assertSame('noninstructional_content_detected', $result['rejected'][0]['reason']);
+    }
+
+    public function test_clean_operational_rule_with_no_emotional_language_is_accepted(): void
+    {
+        $result = $this->contract()->validate([
+            $this->proposal('failed_pattern', 'docs_sync category has repeated give_back outcomes', 'observed'),
+        ]);
+
+        $this->assertCount(1, $result['accepted']);
+        $this->assertCount(0, $result['rejected']);
     }
 
     public function test_empty_proposals_returns_empty_accepted(): void
