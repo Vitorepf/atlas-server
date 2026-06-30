@@ -72,6 +72,7 @@ final class AtlasExternalBrainSelfImprovementCycle
         $learner = $this->learnFromOutcomes($previousOutcomes);
 
         $nextWaveDecisions = $this->buildNextWaveDecisions($composeResult['emitted'], $auditResult, $learner);
+        $nextDecision      = $this->deriveNextDecision($learner, $nextWaveDecisions);
 
         return [
             'schema'              => self::SCHEMA,
@@ -80,6 +81,7 @@ final class AtlasExternalBrainSelfImprovementCycle
             'audit'               => $auditResult,
             'learner_feedback'    => $learner,
             'next_wave_decisions' => $nextWaveDecisions,
+            'next_decision'       => $nextDecision,
             'portfolio_balance'   => [
                 'status'   => $balanceResult['status'],
                 'deficits' => $balanceResult['deficits'],
@@ -96,7 +98,31 @@ final class AtlasExternalBrainSelfImprovementCycle
     }
 
     /**
+     * Pure public entry point for testing the decision+learning circuit without sub-services.
+     * Takes pre-scored proposals and previous outcomes; returns a closed circuit output.
+     *
+     * @param  list<array<string,mixed>>  $proposals       Pre-scored proposals [{task_packet_id, category, final_score, ...}]
+     * @param  list<array<string,mixed>>  $previousOutcomes
+     * @return array{schema:string, learner_feedback:array<string,mixed>, next_wave_decisions:array<string,mixed>, next_decision:string}
+     */
+    public function processCycleOutcomes(array $proposals, array $previousOutcomes): array
+    {
+        $learner     = $this->learnFromOutcomes($previousOutcomes);
+        $auditResult = ['verdict' => AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS, 'findings' => []];
+        $decisions   = $this->buildNextWaveDecisions($proposals, $auditResult, $learner);
+        $nextDecision = $this->deriveNextDecision($learner, $decisions);
+
+        return [
+            'schema'              => self::SCHEMA,
+            'learner_feedback'    => $learner,
+            'next_wave_decisions' => $decisions,
+            'next_decision'       => $nextDecision,
+        ];
+    }
+
+    /**
      * Combine scoring, audit, and learner feedback into concrete per-candidate decisions.
+     * Each decision entry includes risk_level derived from the candidate's final_score and evidence.
      *
      * @return array{accept:list<array<string,string>>,repair_required:list<array<string,string>>,held:list<array<string,string>>}
      */
@@ -111,26 +137,31 @@ final class AtlasExternalBrainSelfImprovementCycle
         $held           = [];
 
         foreach ($accepted as $candidate) {
-            $id       = (string) ($candidate['task_packet_id'] ?? $candidate['label'] ?? '');
-            $category = (string) ($candidate['category'] ?? 'unknown');
+            $id         = (string) ($candidate['task_packet_id'] ?? $candidate['label'] ?? '');
+            $category   = (string) ($candidate['category'] ?? 'unknown');
+            $finalScore = (float) ($candidate['final_score'] ?? 0.0);
+            $riskLevel  = $finalScore >= 0.70 ? 'low' : ($finalScore >= 0.40 ? 'medium' : 'high');
 
             if (in_array($category, $avoidCategories, true)) {
                 $held[] = [
                     'task_packet_id' => $id,
                     'decision'       => 'hold',
                     'reason'         => 'learner_feedback_avoid_category:'.$category,
+                    'risk_level'     => $riskLevel,
                 ];
             } elseif ($auditVerdict !== AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS) {
                 $repairRequired[] = [
                     'task_packet_id' => $id,
                     'decision'       => 'repair_required',
                     'reason'         => $auditReason !== '' ? $auditReason : $auditVerdict,
+                    'risk_level'     => $riskLevel,
                 ];
             } else {
                 $accept[] = [
                     'task_packet_id' => $id,
                     'decision'       => 'accept',
                     'reason'         => 'passed_all_gates',
+                    'risk_level'     => $riskLevel,
                 ];
             }
         }
@@ -140,6 +171,23 @@ final class AtlasExternalBrainSelfImprovementCycle
             'repair_required' => $repairRequired,
             'held'            => $held,
         ];
+    }
+
+    /**
+     * Derive a single next_decision string from learner signal and decision buckets (AC3).
+     */
+    private function deriveNextDecision(array $learner, array $decisions): string
+    {
+        if (($learner['signal'] ?? '') === 'degraded') {
+            return 'pause_and_repair';
+        }
+        if ($decisions['repair_required'] !== []) {
+            return 'repair_before_advancing';
+        }
+        if ($decisions['held'] !== []) {
+            return 'resolve_held_before_wave';
+        }
+        return 'advance_wave';
     }
 
     /**
@@ -204,15 +252,28 @@ final class AtlasExternalBrainSelfImprovementCycle
             array_keys(array_filter($categoryGiveBack, static fn (int $c): bool => $c >= 2)),
         );
 
+        $signal = $total > 0
+            ? ($success / $total >= 0.6 ? 'healthy' : 'degraded')
+            : 'no_data';
+
+        // AC2: next_action derived from outcome ratios.
+        $giveBackRatio = $total > 0 ? $giveBack / $total : 0.0;
+        $failureRatio  = $total > 0 ? $failure  / $total : 0.0;
+        $nextAction = match(true) {
+            $giveBackRatio > 0.4  => 'reduce_give_back_rate',
+            $failureRatio  > 0.3  => 'investigate_failure_pattern',
+            $signal === 'healthy' => 'continue_or_escalate_ambition',
+            default               => 'rebalance_portfolio',
+        };
+
         return [
             'total_outcomes'   => $total,
             'success_count'    => $success,
             'give_back_count'  => $giveBack,
             'failure_count'    => $failure,
             'avoid_categories' => $avoidCategories,
-            'signal'           => $total > 0
-                ? ($success / $total >= 0.6 ? 'healthy' : 'degraded')
-                : 'no_data',
+            'signal'           => $signal,
+            'next_action'      => $nextAction,
         ];
     }
 }
