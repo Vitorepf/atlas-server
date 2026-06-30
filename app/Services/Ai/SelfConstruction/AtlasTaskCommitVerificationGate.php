@@ -92,7 +92,7 @@ final class AtlasTaskCommitVerificationGate
             // Tree is already broken, but NOT by this task — do not punish this worker.
             $checks['boot'] = 'fail_unattributed_open';
 
-            return $this->passed('boot_broken_elsewhere_fail_open', $checks);
+            return $this->passed('boot_broken_elsewhere_fail_open', $checks, 'fail_open_unattributed', 'boot_broken_elsewhere');
         }
         $checks['boot'] = $boot['ran'] ? 'pass' : 'skip_infra';
 
@@ -104,14 +104,29 @@ final class AtlasTaskCommitVerificationGate
         if ($testFiles !== [] && $checks['boot'] === 'pass') {
             $t = ($this->runner)(array_merge([PHP_BINARY, 'artisan', 'test'], $testFiles), $repo, 600.0);
             if ($t['ran'] && ! $t['ok'] && $this->outputShowsRealTestFailure($t['out'])) {
-                return $this->blocked('task_tests_failed', 'artisan test', $this->tail($t['out']), $checks + ['task_tests' => 'fail']);
+                return $this->blocked('task_tests_failed', 'artisan test', $this->tail($t['out']), $checks + ['task_tests' => 'fail'], 'boot_proven');
             }
             $checks['task_tests'] = ($t['ran'] && ! $t['ok']) ? 'fail_open_runner_error' : 'pass';
         } else {
             $checks['task_tests'] = 'skip';
         }
 
-        return $this->passed('verified', $checks);
+        // Derive proof_strength from what was actually proven at each stage.
+        if (($checks['boot'] ?? '') === 'skip_infra') {
+            $proofStrength = 'syntax_only';
+            $failOpenReason = '';
+        } elseif (($checks['task_tests'] ?? '') === 'pass') {
+            $proofStrength = 'task_tests_proven';
+            $failOpenReason = '';
+        } elseif (($checks['task_tests'] ?? '') === 'fail_open_runner_error') {
+            $proofStrength = 'fail_open_runner_error';
+            $failOpenReason = 'runner_error';
+        } else {
+            $proofStrength = 'boot_proven';
+            $failOpenReason = '';
+        }
+
+        return $this->passed('verified', $checks, $proofStrength, $failOpenReason);
     }
 
     private function isTestPath(string $path): bool
@@ -167,15 +182,15 @@ final class AtlasTaskCommitVerificationGate
     }
 
     /** @param array<string,string> $checks */
-    private function blocked(string $reason, string $failedCheck, string $detail, array $checks): array
+    private function blocked(string $reason, string $failedCheck, string $detail, array $checks, string $proofStrength = 'syntax_only'): array
     {
-        return ['passed' => false, 'blocked' => true, 'reason' => $reason, 'failed_check' => $failedCheck, 'detail' => $detail, 'checks' => $checks];
+        return ['passed' => false, 'blocked' => true, 'reason' => $reason, 'failed_check' => $failedCheck, 'detail' => $detail, 'checks' => $checks, 'proof_strength' => $proofStrength, 'fail_open_reason' => ''];
     }
 
     /** @param array<string,string> $checks */
-    private function passed(string $reason, array $checks): array
+    private function passed(string $reason, array $checks, string $proofStrength = 'boot_proven', string $failOpenReason = ''): array
     {
-        return ['passed' => true, 'blocked' => false, 'reason' => $reason, 'failed_check' => '', 'detail' => '', 'checks' => $checks];
+        return ['passed' => true, 'blocked' => false, 'reason' => $reason, 'failed_check' => '', 'detail' => '', 'checks' => $checks, 'proof_strength' => $proofStrength, 'fail_open_reason' => $failOpenReason];
     }
 
     private function tail(string $out, int $max = 1200): string

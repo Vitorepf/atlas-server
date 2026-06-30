@@ -215,6 +215,70 @@ final class AtlasTaskCommitVerificationGateTest extends TestCase
         $this->assertSame('present', $out['checks']['required_test']);
     }
 
+    public function test_verify_result_always_includes_proof_strength_and_fail_open_reason(): void
+    {
+        $gate = new AtlasTaskCommitVerificationGate('/repo', $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => 'env ok'],
+        ]));
+        $out = $gate->verify(['app/Services/Ai/SelfConstruction/Foo.php'], 'ps-basic');
+        $this->assertArrayHasKey('proof_strength', $out);
+        $this->assertArrayHasKey('fail_open_reason', $out);
+
+        $repo2 = $this->repoWith(['app/Services/Ai/SelfConstruction/Bad.php']);
+        $blocked = (new AtlasTaskCommitVerificationGate($repo2, $this->runner([
+            'lint' => ['ran' => true, 'ok' => false, 'out' => 'PHP Parse error'],
+        ])))->verify(['app/Services/Ai/SelfConstruction/Bad.php'], 'ps-blocked');
+        $this->assertSame('syntax_only', $blocked['proof_strength']);
+        $this->assertSame('', $blocked['fail_open_reason']);
+    }
+
+    public function test_task_tests_proven_when_tests_pass(): void
+    {
+        $files = ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'];
+        $out = (new AtlasTaskCommitVerificationGate($this->repoWith($files), $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'test' => ['ran' => true, 'ok' => true, 'out' => 'OK (3 tests)'],
+        ])))->verify($files, 'ps-proven');
+        $this->assertSame('task_tests_proven', $out['proof_strength']);
+        $this->assertSame('', $out['fail_open_reason']);
+    }
+
+    public function test_clean_change_without_tests_has_lower_proof_than_task_tests_proven(): void
+    {
+        $out = (new AtlasTaskCommitVerificationGate('/repo', $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => 'env ok'],
+        ])))->verify(['app/Services/Ai/SelfConstruction/Foo.php'], 'ps-no-tests');
+        $this->assertSame('boot_proven', $out['proof_strength']);
+        $this->assertNotSame('task_tests_proven', $out['proof_strength']);
+    }
+
+    public function test_runner_error_carries_explicit_fail_open_reason(): void
+    {
+        $files = ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'];
+        $out = (new AtlasTaskCommitVerificationGate($this->repoWith($files), $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'test' => ['ran' => true, 'ok' => false, 'out' => 'Unknown option "--without-tty"'],
+        ])))->verify($files, 'ps-runner-err');
+        $this->assertTrue($out['passed']);
+        $this->assertSame('fail_open_runner_error', $out['proof_strength']);
+        $this->assertSame('runner_error', $out['fail_open_reason']);
+    }
+
+    public function test_unattributed_boot_failure_carries_explicit_fail_open_reason(): void
+    {
+        $out = (new AtlasTaskCommitVerificationGate('/repo', $this->runner([
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => false, 'out' => 'Class "App\\Other\\SiblingWip" not found at app/Other/Unrelated.php'],
+        ])))->verify(['app/Services/Ai/SelfConstruction/Foo.php'], 'ps-unattr');
+        $this->assertTrue($out['passed']);
+        $this->assertSame('fail_open_unattributed', $out['proof_strength']);
+        $this->assertSame('boot_broken_elsewhere', $out['fail_open_reason']);
+    }
+
     /**
      * END-TO-END with the REAL runner (php -l + artisan about + artisan test) against a real, fast, stable
      * passing test — the coverage that was MISSING and let the `--without-tty` regression ship. It asserts the
