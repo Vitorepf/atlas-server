@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution\Discovery\Cortex\Memory;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryConvergenceObserver;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodeRecord;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodicLedger;
@@ -18,6 +19,8 @@ final class AtlasCortexMemoryConvergenceObserverTest extends TestCase
 {
     private string $ledgerPath;
 
+    private string $masterEnvPath = '';
+
     private AtlasCortexMemoryEpisodicLedger $ledger;
 
     protected function setUp(): void
@@ -25,10 +28,15 @@ final class AtlasCortexMemoryConvergenceObserverTest extends TestCase
         parent::setUp();
         $this->ledgerPath = sys_get_temp_dir().'/atlas_cortex_conv_'.bin2hex(random_bytes(6)).'.ndjson';
         $this->ledger = new AtlasCortexMemoryEpisodicLedger($this->ledgerPath);
+        $this->masterEnvPath = (string) tempnam(sys_get_temp_dir(), 'atlas-master-on-');
+        file_put_contents($this->masterEnvPath, "ATLAS_LOOP_MASTER_ENABLED=1\n");
+        AtlasLoopMasterSwitch::$envPathOverride = $this->masterEnvPath;
     }
 
     protected function tearDown(): void
     {
+        AtlasLoopMasterSwitch::$envPathOverride = null;
+        @unlink($this->masterEnvPath);
         @unlink($this->ledgerPath);
         parent::tearDown();
     }
@@ -85,6 +93,23 @@ final class AtlasCortexMemoryConvergenceObserverTest extends TestCase
 
         $observer = new AtlasCortexMemoryConvergenceObserver($this->ledger);
         $this->assertSame([], $observer->stabilizedIntents(minStableRuns: 4), 'recent-flipped intent excluded');
+    }
+
+    public function test_absence_in_one_cycle_resets_streak_so_gapped_intent_does_not_falsely_stabilize(): void
+    {
+        // c1+c2: I1='A' streak=2; c3: I1 ABSENT → streak reset; c4+c5: I1='A' fresh streak=2
+        $this->ledger->append($this->episode('c1', 1, [['intent_id' => 'I1', 'canonical_form' => 'A']]));
+        $this->ledger->append($this->episode('c2', 2, [['intent_id' => 'I1', 'canonical_form' => 'A']]));
+        $this->ledger->append($this->episode('c3', 3, [])); // I1 absent → breaks streak
+        $this->ledger->append($this->episode('c4', 4, [['intent_id' => 'I1', 'canonical_form' => 'A']]));
+        $this->ledger->append($this->episode('c5', 5, [['intent_id' => 'I1', 'canonical_form' => 'A']]));
+
+        $observer = new AtlasCortexMemoryConvergenceObserver($this->ledger);
+        $this->assertSame(
+            [],
+            $observer->stabilizedIntents(minStableRuns: 3),
+            'a gap (absent cycle) must reset the streak so non-consecutive appearances never reach minStableRuns',
+        );
     }
 
     public function test_two_calls_same_ledger_byte_identical_json_and_appended_flip_resets_run(): void

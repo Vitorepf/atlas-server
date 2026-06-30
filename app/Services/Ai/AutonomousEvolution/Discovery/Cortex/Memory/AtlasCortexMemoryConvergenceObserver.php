@@ -30,6 +30,8 @@ final class AtlasCortexMemoryConvergenceObserver
 
         foreach ($episodes as $episode) {
             $cycleId = (string) ($episode['cycle_id'] ?? '');
+            $seenThisCycle = [];
+
             foreach ((array) ($episode['intent_interpretations'] ?? []) as $intent) {
                 if (! is_array($intent)) {
                     continue;
@@ -39,6 +41,8 @@ final class AtlasCortexMemoryConvergenceObserver
                 if ($intentId === '') {
                     continue;
                 }
+
+                $seenThisCycle[$intentId] = true;
 
                 if (isset($current[$intentId]) && $current[$intentId]['canonical_form'] === $canonical) {
                     $current[$intentId]['stable_runs']++;
@@ -51,6 +55,13 @@ final class AtlasCortexMemoryConvergenceObserver
                         'first_stable_cycle_id' => $cycleId,
                         'last_seen_cycle_id' => $cycleId,
                     ];
+                }
+            }
+
+            // K-consecutive invariant: absence in a cycle breaks the streak.
+            foreach (array_keys($current) as $intentId) {
+                if (! isset($seenThisCycle[$intentId])) {
+                    unset($current[$intentId]);
                 }
             }
         }
