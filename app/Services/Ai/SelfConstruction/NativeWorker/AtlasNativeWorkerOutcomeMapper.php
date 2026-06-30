@@ -48,7 +48,14 @@ final class AtlasNativeWorkerOutcomeMapper
     {
         $giveBackReasons = $this->collectGiveBackReasons($envelope, $execution);
         if ($giveBackReasons !== []) {
-            return $this->emit(self::OUTCOME_GIVE_BACK, $giveBackReasons[0], $giveBackReasons, $envelope, $execution, $verification);
+            $result = $this->emit(self::OUTCOME_GIVE_BACK, $giveBackReasons[0], $giveBackReasons, $envelope, $execution, $verification);
+
+            if (in_array('queue_starvation:no_claimable_task', $giveBackReasons, true)) {
+                $result['worker_feed_feedback'] = $this->workerFeedFeedback($execution);
+                $result['outcome_hash'] = $this->outcomeHash($result);
+            }
+
+            return $result;
         }
 
         $verificationPassed = (bool) ($verification['passed'] ?? false);
@@ -73,6 +80,25 @@ final class AtlasNativeWorkerOutcomeMapper
         }
 
         return $this->emit(self::OUTCOME_SUCCESS, 'all_green', [], $envelope, $execution, $verification);
+    }
+
+    /**
+     * Structured worker-feed feedback for a genuine queue-starvation give_back
+     * (no_claimable_task) — distinct from the generic give_back reasons list so
+     * Learning/Task Fabric consumers can convert real starvation into better
+     * future packets instead of treating it like a packet-quality failure.
+     *
+     * @param  array<string,mixed>  $execution
+     * @return array<string,mixed>
+     */
+    private function workerFeedFeedback(array $execution): array
+    {
+        return [
+            'no_claimable_task_incident' => 1,
+            'suggested_replenish_reason' => 'queue_starvation_observed_by_native_worker',
+            'claimable_depth_at_incident' => isset($execution['claimable_depth']) ? (int) $execution['claimable_depth'] : null,
+            'active_worker_count_at_incident' => isset($execution['active_worker_count']) ? (int) $execution['active_worker_count'] : null,
+        ];
     }
 
     /**

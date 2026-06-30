@@ -88,4 +88,35 @@ class AtlasNativeWorkerOutcomeMapperNoClaimableTest extends TestCase
 
         $this->assertSame('give_back', $result['report_outcome']);
     }
+
+    public function test_no_claimable_task_emits_worker_feed_feedback_facts(): void
+    {
+        $result = $this->mapper()->map(
+            $this->envelope(),
+            $this->execution([
+                'command_status' => 'no_claimable_task',
+                'claimable_depth' => 0,
+                'active_worker_count' => 4,
+            ]),
+            $this->verification(),
+        );
+
+        $this->assertSame('give_back', $result['report_outcome']);
+        $this->assertArrayHasKey('worker_feed_feedback', $result);
+        $this->assertSame(1, $result['worker_feed_feedback']['no_claimable_task_incident']);
+        $this->assertSame('queue_starvation_observed_by_native_worker', $result['worker_feed_feedback']['suggested_replenish_reason']);
+        $this->assertSame(0, $result['worker_feed_feedback']['claimable_depth_at_incident']);
+        $this->assertSame(4, $result['worker_feed_feedback']['active_worker_count_at_incident']);
+    }
+
+    public function test_impossible_scope_give_back_does_not_emit_worker_feed_feedback(): void
+    {
+        $result = $this->mapper()->map(
+            $this->envelope(['impossible_scope' => true]),
+            $this->execution(),
+            $this->verification(),
+        );
+
+        $this->assertArrayNotHasKey('worker_feed_feedback', $result);
+    }
 }
