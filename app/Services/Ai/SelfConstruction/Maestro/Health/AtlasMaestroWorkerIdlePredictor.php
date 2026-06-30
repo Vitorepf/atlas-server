@@ -70,6 +70,11 @@ final class AtlasMaestroWorkerIdlePredictor
             'schema' => self::SCHEMA,
             'claimable_depth' => $claimableDepth,
             'active_workers' => $activeWorkers,
+            // Backwards-compatible alias: AtlasMaestroReplenishUrgencyClassifier (and other callers)
+            // read 'active_claimed_workers' — without this alias they silently see zero active
+            // workers even when health reports active leases, the exact contract mismatch this
+            // organ exists to close.
+            'active_claimed_workers' => $activeWorkers,
             'serve_total' => $serveTotal,
             'window_elapsed_seconds' => $elapsedSeconds,
             'window_estimated' => $windowEstimated,
@@ -80,7 +85,12 @@ final class AtlasMaestroWorkerIdlePredictor
         ];
 
         if ($serveRatePerMinute <= 0.0) {
-            $projection['reason'] = 'no_consumption_observed';
+            // Zero observed serves while a claimable backlog exists AND workers are actively
+            // claimed is NOT "nothing happening" — it is a telemetry gap (serve events aren't
+            // being recorded), and must never be reported as plain no-consumption.
+            $projection['reason'] = ($claimableDepth > 0 && $activeWorkers > 0)
+                ? 'telemetry_blind_spot:zero_serve_with_active_workers_and_claimable_backlog'
+                : 'no_consumption_observed';
 
             return $projection;
         }

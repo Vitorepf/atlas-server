@@ -214,6 +214,118 @@ final class AtlasMaestroWorkerIdlePredictorTest extends TestCase
         $this->assertSame('window_stale', $projection['reason']);
     }
 
+    // ── AC1: active_claimed_workers backwards-compatible alias of active_workers ──
+
+    public function test_active_claimed_workers_is_a_positive_alias_of_active_workers(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 8, 'active_leases' => 4];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 10, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame(4, $projection['active_workers']);
+        $this->assertSame(4, $projection['active_claimed_workers']);
+        $this->assertSame($projection['active_workers'], $projection['active_claimed_workers']);
+    }
+
+    // ── AC2: serve_total=0, claimable_depth>0, active_workers>0 → telemetry_blind_spot ──
+
+    public function test_zero_serve_with_active_workers_and_claimable_backlog_is_telemetry_blind_spot(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 12, 'active_leases' => 3];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 0, 'window_elapsed_seconds' => 300];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('low', $projection['confidence']);
+        $this->assertNull($projection['seconds_until_dry']);
+        $this->assertNull($projection['projected_idle_at_iso8601']);
+        $this->assertStringContainsString('telemetry_blind_spot', $projection['reason']);
+    }
+
+    // ── AC3: true zero-consumption with no active workers stays no_consumption_observed ──
+
+    public function test_true_zero_consumption_with_no_active_workers_stays_no_consumption_observed(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 5];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 0, 'window_elapsed_seconds' => 300];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame(0, $projection['active_workers']);
+        $this->assertSame('no_consumption_observed', $projection['reason']);
+        $this->assertStringNotContainsString('telemetry_blind_spot', $projection['reason']);
+        $this->assertNull($projection['seconds_until_dry']);
+        $this->assertNull($projection['projected_idle_at_iso8601']);
+    }
+
+    public function test_zero_serve_with_active_workers_but_empty_backlog_stays_no_consumption_observed(): void
+    {
+        // active_workers>0 but claimable_depth=0 — no backlog to be blind about.
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 0, 'active_leases' => 2];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 0, 'window_elapsed_seconds' => 300];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('no_consumption_observed', $projection['reason']);
+    }
+
     /** @return array<string,mixed> */
     private function project(int $depth, int $serveTotal, int $elapsedSeconds, DateTimeImmutable $now): array
     {
