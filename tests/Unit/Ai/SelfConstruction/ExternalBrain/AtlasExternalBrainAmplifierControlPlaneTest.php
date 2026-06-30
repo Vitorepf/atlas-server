@@ -125,6 +125,48 @@ final class AtlasExternalBrainAmplifierControlPlaneTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_CANARY, $result['mode']);
     }
 
+    public function test_bad_held_out_pass_rate_blocks_canary_promotion(): void
+    {
+        $input = $this->allGreen();
+        $input['held_out_pass_rate'] = 0.10;
+
+        $result = $this->plane->decide($input);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_CANARY, $result['mode']);
+    }
+
+    public function test_excessive_proxy_leakage_blocks_canary_promotion(): void
+    {
+        $input = $this->allGreen();
+        $input['proxy_leakage_rate'] = 0.50;
+
+        $result = $this->plane->decide($input);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_CANARY, $result['mode']);
+    }
+
+    public function test_bad_held_out_pass_rate_blocks_scaffolded_live_promotion(): void
+    {
+        $result = $this->plane->decide([
+            'telemetry_status'      => 'healthy',
+            'scaffolded_available'  => true,
+            'slo_met'               => true,
+            'held_out_pass_rate'    => 0.10,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierControlPlane::MODE_SCAFFOLDED_LIVE, $result['mode']);
+    }
+
+    public function test_passing_quality_signal_does_not_block_canary(): void
+    {
+        $input = $this->allGreen();
+        $input['held_out_pass_rate'] = 0.95;
+
+        $result = $this->plane->decide($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierControlPlane::MODE_CANARY, $result['mode']);
+    }
+
     public function test_slo_not_met_prevents_canary(): void
     {
         $input            = $this->allGreen();

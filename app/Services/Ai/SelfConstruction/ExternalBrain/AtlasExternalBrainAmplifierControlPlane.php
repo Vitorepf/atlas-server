@@ -106,8 +106,20 @@ final class AtlasExternalBrainAmplifierControlPlane
             );
         }
 
+        // Quality evidence (held_out_pass_rate / proxy_leakage_rate) gates EVERY promotion mode
+        // below it, not just frontier escalation — a closed-loop decision must never promote to
+        // canary or scaffolded_live on stale/false promotion_candidate/slo_met flags when the
+        // actual replay/leakage evidence disqualifies it.
+        $heldOutPassRate    = isset($input['held_out_pass_rate'])       ? (float) $input['held_out_pass_rate']       : null;
+        $proxyLeakageRate   = isset($input['proxy_leakage_rate'])       ? (float) $input['proxy_leakage_rate']       : null;
+        $structuralLeverage = isset($input['structural_leverage_score']) ? (float) $input['structural_leverage_score'] : null;
+
+        $qualityFails = ($heldOutPassRate !== null && $heldOutPassRate < self::HELD_OUT_PASS_THRESHOLD)
+                     || ($proxyLeakageRate !== null && $proxyLeakageRate > self::PROXY_LEAKAGE_THRESHOLD);
+        $highLeverage = $structuralLeverage !== null && $structuralLeverage >= self::HIGH_LEVERAGE_THRESHOLD;
+
         // CANARY
-        if ($canaryEnabled && $telemetry === self::TELEMETRY_HEALTHY && $promotionReady && $sloMet) {
+        if ($canaryEnabled && $telemetry === self::TELEMETRY_HEALTHY && $promotionReady && $sloMet && ! $qualityFails) {
             return $this->result(
                 self::MODE_CANARY,
                 ['canary_enabled', 'telemetry_healthy', 'promotion_candidate', 'slo_met'],
@@ -127,7 +139,7 @@ final class AtlasExternalBrainAmplifierControlPlane
         }
 
         // SCAFFOLDED_LIVE
-        if ($scaffoldAvail && $sloMet) {
+        if ($scaffoldAvail && $sloMet && ! $qualityFails) {
             return $this->result(
                 self::MODE_SCAFFOLDED_LIVE,
                 ['scaffolded_available', 'slo_met'],
@@ -137,13 +149,6 @@ final class AtlasExternalBrainAmplifierControlPlane
         }
 
         // FRONTIER_ESCALATION — only when quality signals are explicitly supplied
-        $heldOutPassRate    = isset($input['held_out_pass_rate'])       ? (float) $input['held_out_pass_rate']       : null;
-        $proxyLeakageRate   = isset($input['proxy_leakage_rate'])       ? (float) $input['proxy_leakage_rate']       : null;
-        $structuralLeverage = isset($input['structural_leverage_score']) ? (float) $input['structural_leverage_score'] : null;
-
-        $qualityFails = ($heldOutPassRate !== null && $heldOutPassRate < self::HELD_OUT_PASS_THRESHOLD)
-                     || ($proxyLeakageRate !== null && $proxyLeakageRate > self::PROXY_LEAKAGE_THRESHOLD);
-        $highLeverage = $structuralLeverage !== null && $structuralLeverage >= self::HIGH_LEVERAGE_THRESHOLD;
 
         if ($qualityFails && $highLeverage) {
             $reasons = [];
