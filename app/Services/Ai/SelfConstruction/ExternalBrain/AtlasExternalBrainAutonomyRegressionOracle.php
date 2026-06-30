@@ -58,10 +58,11 @@ final class AtlasExternalBrainAutonomyRegressionOracle
 
         $provenBootstrapProviderCount = $this->countProvenBootstrapProviderSeams($seams);
 
-        $flags    = [];
-        $severity = self::SEVERITY_NONE;
-        $negativeScore = 0;
-        $positiveScore = 0;
+        $flags            = [];
+        $improvementFlags = [];
+        $severity         = self::SEVERITY_NONE;
+        $negativeScore    = 0;
+        $positiveScore    = 0;
 
         // Human steady-state: critical
         $humanDelta = $this->delta($after, $before, 'human_in_steady_state');
@@ -104,20 +105,22 @@ final class AtlasExternalBrainAutonomyRegressionOracle
             $negativeScore += $assumptionDelta;
         }
 
-        // Atlas native paths proven: positive signal
+        // Atlas native paths proven: positive signal (improvement_flags, not regression).
         $nativeDelta = $this->delta($after, $before, 'atlas_native_paths_proven');
         if ($nativeDelta > 0) {
+            $improvementFlags[] = "atlas_native_paths_proven_increased_by_{$nativeDelta}";
             $positiveScore += $nativeDelta;
         }
 
         $autonomyDelta = $this->computeAutonomyDelta($positiveScore, $negativeScore);
 
         return [
-            'schema'                       => self::SCHEMA,
-            'autonomy_delta'               => $autonomyDelta,
-            'regression_flags'             => $flags,
-            'severity'                     => $severity,
-            'required_repair_task_family'  => self::REPAIR_FAMILY[$severity] ?? null,
+            'schema'                      => self::SCHEMA,
+            'autonomy_delta'              => $autonomyDelta,
+            'regression_flags'            => $flags,
+            'improvement_flags'           => $improvementFlags,
+            'severity'                    => $severity,
+            'required_repair_task_family' => self::REPAIR_FAMILY[$severity] ?? null,
         ];
     }
 

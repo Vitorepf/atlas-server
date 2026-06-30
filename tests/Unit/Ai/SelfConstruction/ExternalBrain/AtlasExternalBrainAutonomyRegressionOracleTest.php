@@ -191,4 +191,80 @@ final class AtlasExternalBrainAutonomyRegressionOracleTest extends TestCase
         $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_NONE, $result['severity']);
         $this->assertSame([], $result['regression_flags']);
     }
+
+    // ── AC2: improvement_flags present in output ──────────────────────────────
+
+    public function test_improvement_flags_key_always_present(): void
+    {
+        $result = $this->oracle->assess($this->base());
+
+        $this->assertArrayHasKey('improvement_flags', $result);
+        $this->assertIsArray($result['improvement_flags']);
+    }
+
+    public function test_improvement_flags_empty_when_no_positive_change(): void
+    {
+        $result = $this->oracle->assess($this->base());
+
+        $this->assertSame([], $result['improvement_flags']);
+    }
+
+    public function test_improvement_flags_populated_when_native_paths_increase(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['atlas_native_paths_proven' => 5]));
+
+        $this->assertNotEmpty($result['improvement_flags']);
+        $this->assertStringContainsString('atlas_native_paths_proven', $result['improvement_flags'][0]);
+        $this->assertStringContainsString('3', $result['improvement_flags'][0]); // delta = 5-2=3
+    }
+
+    public function test_improvement_flags_empty_when_native_paths_decrease(): void
+    {
+        $result = $this->oracle->assess($this->base(
+            ['atlas_native_paths_proven' => 5],
+            ['atlas_native_paths_proven' => 2], // decreased → not an improvement
+        ));
+
+        $this->assertSame([], $result['improvement_flags']);
+    }
+
+    // ── AC4: improvement alongside regression ────────────────────────────────
+
+    public function test_improvement_flag_and_regression_flag_can_coexist(): void
+    {
+        $result = $this->oracle->assess($this->base([], [
+            'human_in_steady_state'  => 1,        // critical regression
+            'atlas_native_paths_proven' => 5,     // improvement (delta=3)
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_CRITICAL, $result['severity']);
+        $this->assertNotEmpty($result['regression_flags']);
+        $this->assertNotEmpty($result['improvement_flags']);
+    }
+
+    // ── AC4: full severity matrix ─────────────────────────────────────────────
+
+    public function test_critical_requires_human_in_steady_state_flag(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['human_in_steady_state' => 2]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_CRITICAL, $result['severity']);
+        $this->assertStringContainsString('human_in_steady_state_increased_by_2', $result['regression_flags'][0]);
+    }
+
+    public function test_high_via_manual_only_decisions(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['manual_only_decisions' => 3]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_HIGH, $result['severity']);
+        $this->assertStringContainsString('manual_only_decisions_increased_by_3', $result['regression_flags'][0]);
+    }
+
+    public function test_medium_via_unverified_runtime_assumptions(): void
+    {
+        $result = $this->oracle->assess($this->base([], ['unverified_runtime_assumptions' => 1]));
+
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionOracle::SEVERITY_MEDIUM, $result['severity']);
+        $this->assertStringContainsString('unverified_runtime_assumptions_increased_by_1', $result['regression_flags'][0]);
+    }
 }
