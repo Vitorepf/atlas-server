@@ -32,6 +32,8 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
      *     decision:string,
      *     evidence:list<string>,
      *     risks:list<string>,
+     *     opportunity_cost:float,
+     *     recommended_batch_delta:list<string>,
      * }
      */
     public function review(array $proposedBatch, array $counterfactualBatch = []): array
@@ -46,7 +48,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
         // - REPLACE: counterfactual scores higher than proposed
         // - SHRINK: proposed has high duplicate/give_back risk but still has value
         // - SPLIT: proposed is large with mixed leverage (some high, some low)
-        // - KEEP: proposed is strong and beats counterfactual
+        // - KEEP: proposed is strong and beats counterfactual (chain-value-adjusted)
         if ($counterEval['score'] > $proposedEval['score']) {
             $decision = self::DECISION_REPLACE;
             $evidence[] = "counterfactual score {$counterEval['score']} > proposed {$proposedEval['score']}";
@@ -65,27 +67,48 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             if ($proposedEval['diversity'] > 0.6) {
                 $evidence[] = "diversity={$proposedEval['diversity']} is healthy";
             }
+            if ($proposedEval['chain_value'] > 0.0) {
+                $evidence[] = "dependency_chain_value={$proposedEval['chain_value']} unlocks downstream work despite smaller batch size";
+            }
         }
 
+        $opportunityCost = round(max(0.0, $counterEval['score'] - $proposedEval['score']), 2);
+
         return [
-            'schema'               => self::SCHEMA,
-            'proposed_score'       => $proposedEval['score'],
-            'counterfactual_score' => $counterEval['score'],
-            'decision'             => $decision,
-            'evidence'             => $evidence,
-            'risks'                => $risks,
+            'schema'                   => self::SCHEMA,
+            'proposed_score'           => $proposedEval['score'],
+            'counterfactual_score'     => $counterEval['score'],
+            'decision'                 => $decision,
+            'evidence'                 => $evidence,
+            'risks'                    => $risks,
+            'opportunity_cost'         => $opportunityCost,
+            'recommended_batch_delta'  => $this->recommendedBatchDelta($decision, $proposedEval),
         ];
+    }
+
+    /** @return list<string> */
+    private function recommendedBatchDelta(string $decision, array $proposedEval): array
+    {
+        return match ($decision) {
+            self::DECISION_REPLACE => ['adopt_counterfactual_batch_instead'],
+            self::DECISION_SHRINK  => array_filter([
+                $proposedEval['duplicate_risk'] > 0.5 ? 'remove_duplicate_allowed_file_tasks' : null,
+                $proposedEval['give_back_risk'] > 0.4 ? 'remove_high_give_back_risk_tasks' : null,
+            ]),
+            self::DECISION_SPLIT   => ['split_low_leverage_tasks_into_separate_batch'],
+            default                => [],
+        };
     }
 
     /**
      * @param  list<array<string,mixed>>  $batch
-     * @return array{score:float, high_leverage:int, low_leverage:int, diversity:float, duplicate_risk:float, give_back_risk:float, risks:list<string>}
+     * @return array{score:float, high_leverage:int, low_leverage:int, diversity:float, duplicate_risk:float, give_back_risk:float, chain_value:float, risks:list<string>}
      */
     private function evaluateBatch(array $batch): array
     {
         $count = count($batch);
         if ($count === 0) {
-            return ['score' => 0.0, 'high_leverage' => 0, 'low_leverage' => 0, 'diversity' => 0.0, 'duplicate_risk' => 0.0, 'give_back_risk' => 0.0, 'risks' => []];
+            return ['score' => 0.0, 'high_leverage' => 0, 'low_leverage' => 0, 'diversity' => 0.0, 'duplicate_risk' => 0.0, 'give_back_risk' => 0.0, 'chain_value' => 0.0, 'risks' => []];
         }
 
         $highLeverage = 0;
@@ -94,6 +117,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
         $allowedFiles = [];
         $objectives = [];
         $giveBackRiskSum = 0.0;
+        $chainValueSum = 0.0;
 
         foreach ($batch as $task) {
             $leverage = strtolower(trim((string) ($task['leverage'] ?? 'low')));
@@ -109,13 +133,17 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             }
             $objectives[] = strtolower(trim((string) ($task['objective'] ?? '')));
             $giveBackRiskSum += (float) ($task['give_back_risk'] ?? 0.0);
+            $chainValueSum += max(0.0, (float) ($task['dependency_chain_unlock_value'] ?? 0.0));
         }
 
-        // Score: leverage weighted, diversity bonus, opportunity cost penalty for filler
+        // Score: leverage weighted, diversity bonus, opportunity cost penalty for filler,
+        // dependency-chain unlock bonus (a small batch that unlocks a lot of downstream
+        // work must be able to outscore a larger but shallow counterfactual).
         $leverageScore = ($highLeverage * 2.0 + ($count - $highLeverage - $lowLeverage) * 1.0) / max(1, $count);
         $diversity = count($types) / max(1, $count);
         $fillerPenalty = $lowLeverage * 0.3;
-        $score = max(0.0, min(10.0, round($leverageScore + ($diversity * 2.0) - $fillerPenalty, 2)));
+        $chainBonus = min(4.0, $chainValueSum);
+        $score = max(0.0, min(10.0, round($leverageScore + ($diversity * 2.0) - $fillerPenalty + $chainBonus, 2)));
 
         // Duplicate risk: ratio of duplicate allowed_files
         $uniqueFiles = count(array_unique($allowedFiles));
@@ -148,6 +176,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             'diversity'      => round($diversity, 2),
             'duplicate_risk' => $duplicateRisk,
             'give_back_risk' => $giveBackRisk,
+            'chain_value'    => round($chainValueSum, 2),
             'risks'          => $risks,
         ];
     }
