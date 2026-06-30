@@ -16,20 +16,40 @@ final class TerminalLoopProofDigestInterpreter
     /** @param array<string, mixed> $digest */
     public static function digestSummary(array $digest): array
     {
+        $claimable   = (int) data_get($digest, 'queue_health.claimable_task_count', 0);
+        $recoverable = (int) data_get($digest, 'lease_health.recoverable_lease_count', 0);
+        $validEvidence = (int) data_get($digest, 'terminal_loop_fleet_evidence_rollup.valid_completion_evidence_count', 0);
+
+        // Collect safety blockers: missing or true flags are both unsafe.
+        $safetyBlockers = [];
+        foreach (['runtime_execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'self_programming_allowed'] as $flag) {
+            $val = data_get($digest, 'runtime_safety.'.$flag, null);
+            if ($val === null) {
+                $safetyBlockers[] = 'missing:'.$flag;
+            } elseif ((bool) $val) {
+                $safetyBlockers[] = 'unsafe:'.$flag;
+            }
+        }
+
         return [
-            'status' => (string) ($digest['status'] ?? ''),
-            'claimable_task_count' => (int) data_get($digest, 'queue_health.claimable_task_count', 0),
-            'claimed_task_count' => (int) data_get($digest, 'queue_health.claimed_task_count', 0),
-            'active_lease_count' => (int) data_get($digest, 'lease_health.active_lease_count', 0),
-            'recoverable_lease_count' => (int) data_get($digest, 'lease_health.recoverable_lease_count', 0),
-            'evidence_rollup_status' => (string) data_get($digest, 'terminal_loop_fleet_evidence_rollup.status', ''),
-            'completed_dry_run_task_count' => (int) data_get($digest, 'terminal_loop_fleet_evidence_rollup.completed_dry_run_task_count', 0),
-            'valid_completion_evidence_count' => (int) data_get($digest, 'terminal_loop_fleet_evidence_rollup.valid_completion_evidence_count', 0),
-            'cycle_supervisor_status' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status', ''),
-            'cycle_supervisor_cycle_state' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state', ''),
+            'status'                               => (string) ($digest['status'] ?? ''),
+            'supply_status'                        => $claimable > 0 ? 'ready' : 'depleted',
+            'claimable_task_count'                 => $claimable,
+            'claimed_task_count'                   => (int) data_get($digest, 'queue_health.claimed_task_count', 0),
+            'active_lease_count'                   => (int) data_get($digest, 'lease_health.active_lease_count', 0),
+            'recoverable_lease_count'              => $recoverable,
+            'recoverable_backlog_present'           => $recoverable > 0,
+            'evidence_rollup_status'               => (string) data_get($digest, 'terminal_loop_fleet_evidence_rollup.status', ''),
+            'completed_dry_run_task_count'         => (int) data_get($digest, 'terminal_loop_fleet_evidence_rollup.completed_dry_run_task_count', 0),
+            'valid_completion_evidence_count'      => $validEvidence,
+            'evidence_ready_for_review'            => $validEvidence > 0,
+            'cycle_supervisor_status'              => (string) data_get($digest, 'terminal_loop_cycle_supervisor.status', ''),
+            'cycle_supervisor_cycle_state'         => (string) data_get($digest, 'terminal_loop_cycle_supervisor.cycle_state', ''),
+            'next_command_purpose'                 => (string) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose', ''),
             'cycle_supervisor_next_command_purpose' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.next_command_purpose', ''),
-            'cycle_supervisor_hash' => (string) data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
-            'digest_hash' => (string) data_get($digest, 'terminal_loop_health_digest_hash', ''),
+            'cycle_supervisor_hash'                => (string) data_get($digest, 'terminal_loop_cycle_supervisor.terminal_loop_cycle_supervisor_hash', ''),
+            'digest_hash'                          => (string) data_get($digest, 'terminal_loop_health_digest_hash', ''),
+            'safety_blockers'                      => $safetyBlockers,
         ];
     }
 

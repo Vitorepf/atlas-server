@@ -134,4 +134,108 @@ class TerminalLoopProofDigestInterpreterTest extends TestCase
     {
         self::assertFalse(TerminalLoopProofDigestInterpreter::runtimeSafetyAllFalse([], []));
     }
+
+    public function test_digest_summary_supply_status_is_ready_when_claimable_above_zero(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'queue_health' => ['claimable_task_count' => 3],
+        ]);
+        self::assertSame('ready', $summary['supply_status']);
+    }
+
+    public function test_digest_summary_supply_status_is_depleted_when_claimable_is_zero(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'queue_health' => ['claimable_task_count' => 0],
+        ]);
+        self::assertSame('depleted', $summary['supply_status']);
+    }
+
+    public function test_digest_summary_recoverable_backlog_present_is_true_when_recoverable_above_zero(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'lease_health' => ['recoverable_lease_count' => 2],
+        ]);
+        self::assertTrue($summary['recoverable_backlog_present']);
+    }
+
+    public function test_digest_summary_recoverable_backlog_present_is_false_when_zero(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([]);
+        self::assertFalse($summary['recoverable_backlog_present']);
+    }
+
+    public function test_digest_summary_evidence_ready_for_review_is_true_when_valid_count_above_zero(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'terminal_loop_fleet_evidence_rollup' => ['valid_completion_evidence_count' => 5],
+        ]);
+        self::assertTrue($summary['evidence_ready_for_review']);
+    }
+
+    public function test_digest_summary_evidence_ready_for_review_is_false_when_zero(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([]);
+        self::assertFalse($summary['evidence_ready_for_review']);
+    }
+
+    public function test_digest_summary_next_command_purpose_mirrors_cycle_supervisor(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'terminal_loop_cycle_supervisor' => ['next_command_purpose' => 'replenish_and_launch'],
+        ]);
+        self::assertSame('replenish_and_launch', $summary['next_command_purpose']);
+        self::assertSame($summary['next_command_purpose'], $summary['cycle_supervisor_next_command_purpose']);
+    }
+
+    public function test_digest_summary_safety_blockers_lists_missing_flags_when_runtime_safety_absent(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([]);
+        self::assertNotEmpty($summary['safety_blockers']);
+        $str = implode('|', $summary['safety_blockers']);
+        self::assertStringContainsString('missing:', $str);
+    }
+
+    public function test_digest_summary_safety_blockers_lists_unsafe_flag_when_true(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'runtime_safety' => [
+                'runtime_execution_allowed' => true,
+                'dispatch_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'self_programming_allowed' => false,
+            ],
+        ]);
+        self::assertContains('unsafe:runtime_execution_allowed', $summary['safety_blockers']);
+    }
+
+    public function test_digest_summary_safety_blockers_is_empty_when_all_flags_are_false(): void
+    {
+        $summary = TerminalLoopProofDigestInterpreter::digestSummary([
+            'runtime_safety' => [
+                'runtime_execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'self_programming_allowed' => false,
+            ],
+        ]);
+        self::assertSame([], $summary['safety_blockers']);
+    }
+
+    public function test_runtime_safety_all_false_fail_closed_when_completion_flag_missing(): void
+    {
+        // missing completion flags default to true (unsafe) so result must be false
+        $allSafeDigest = [
+            'runtime_safety' => [
+                'runtime_execution_allowed' => false,
+                'dispatch_allowed' => false,
+                'provider_call_allowed' => false,
+                'token_spend_allowed' => false,
+                'self_programming_allowed' => false,
+            ],
+        ];
+        self::assertFalse(TerminalLoopProofDigestInterpreter::runtimeSafetyAllFalse([], $allSafeDigest));
+    }
 }
