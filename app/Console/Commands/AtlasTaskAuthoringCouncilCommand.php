@@ -36,20 +36,27 @@ final class AtlasTaskAuthoringCouncilCommand extends Command
     {
         return [
             [
-                'candidate_id' => 'authoring:snapshot:default',
-                'title' => 'authoring_governance_observer_pass',
-                'owner_scope' => 'atlas-self-construction',
-                'leverage_rank' => 'high',
-                'capability_gap' => [
-                    'organ' => 'governance',
-                    'capability' => 'authoring_pass',
-                    'target_files' => [
+                'candidate_id'    => 'authoring:snapshot:default',
+                'title'           => 'authoring_governance_observer_pass',
+                'owner_scope'     => 'atlas-self-construction',
+                'leverage_rank'   => 'high',
+                // Required by AtlasStrategyCouncilRoadmapCandidateFilter so the candidate survives.
+                'evidence_path'   => 'app/Services/Ai/SelfConstruction/Governance/AtlasTaskAuthoringGovernanceChain.php',
+                // Required by AtlasStrategyCouncilLeverageRanker so the candidate is accepted, not rejected.
+                'evidence_refs'   => ['observer:authoring_governance_chain', 'cli_run:atlas_task_authoring_council'],
+                // Required by AtlasArchitectureCouncilContractCritic for a clean critique.
+                'non_authority'   => ['does_not_enqueue_tasks', 'does_not_call_providers', 'does_not_git'],
+                'invariants'      => ['fail_open', 'observe_only', 'no_side_effects'],
+                'capability_gap'  => [
+                    'organ'           => 'governance',
+                    'capability'      => 'authoring_pass',
+                    'target_files'    => [
                         ['kind' => 'service', 'path' => 'AtlasTaskAuthoringGovernanceChain.php'],
+                        ['kind' => 'cli',     'path' => 'AtlasTaskAuthoringCouncilCommand.php'],
                     ],
-                    'acceptance_seed' => ['observe_only'],
-                    'evidence_seed' => ['cli_run'],
+                    'acceptance_seed' => ['observe_only', 'exit_0_with_non_empty_top'],
+                    'evidence_seed'   => ['cli_run', 'tests_or_gates_result'],
                 ],
-                'invariants' => ['fail_open', 'observe_only'],
             ],
         ];
     }

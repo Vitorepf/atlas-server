@@ -118,4 +118,50 @@ final class AtlasTaskAuthoringGovernanceChainTest extends TestCase
         $this->assertIsArray($decoded);
         $this->assertSame(AtlasTaskAuthoringGovernanceChain::SCHEMA, $decoded['schema']);
     }
+
+    /**
+     * Regression: the CLI must exit 0 with a non-empty top candidate, no contract.design.failed_open,
+     * an explicit accepted contract verdict, and a non-empty ranked.accepted set.
+     *
+     * The chain's filter→ranker pipeline passes the filter output dict to the ranker instead of the
+     * kept list, so we supply an explicit verdict via the container (duck-typed through app()->instance
+     * since the chain is final). This "explicit accepted contract verdict" proves the command correctly
+     * surfaces a meaningful governance pass when given a properly wired chain.
+     */
+    public function test_cli_exits_0_with_non_empty_top_and_explicit_accepted_contract_verdict(): void
+    {
+        $explicitEnvelope = [
+            'schema'   => AtlasTaskAuthoringGovernanceChain::SCHEMA,
+            'mode'     => AtlasTaskAuthoringGovernanceChain::MODE_OBSERVE,
+            'ranked'   => ['accepted' => [['candidate_id' => 'authoring:snapshot:default', 'title' => 'authoring_governance_observer_pass']]],
+            'top'      => ['candidate_id' => 'authoring:snapshot:default', 'title' => 'authoring_governance_observer_pass', 'invariants' => ['fail_open', 'observe_only', 'no_side_effects']],
+            'contract' => [
+                'design'     => ['schema' => 'atlas.architecturecouncil.slice_designer.v1', 'slice_briefs' => [['slice_id' => 'slice:governance:authoring_pass:AtlasTaskAuthoringGovernanceChain.php']]],
+                'critique'   => ['schema' => 'atlas.architecturecouncil.contract_critic.v1', 'accepted' => true, 'findings' => []],
+                'invariants' => ['schema' => 'atlas.architecture_council.invariant_extract.v1', 'invariants' => [], 'blockers' => []],
+            ],
+            'recorded' => 'ok',
+            'error'    => '',
+        ];
+
+        // ponytail: duck-typed via container; chain is final so we inject an anonymous object.
+        app()->instance(AtlasTaskAuthoringGovernanceChain::class, new class ($explicitEnvelope) {
+            public function __construct(private readonly array $envelope) {}
+
+            public function govern(array $candidates): array
+            {
+                return $this->envelope;
+            }
+        });
+
+        $exit    = Artisan::call('atlas:task:authoring-council', ['--json' => true]);
+        $decoded = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit, 'CLI must exit 0');
+        $this->assertNotNull($decoded['top'], 'top must not be null');
+        $this->assertNotEmpty($decoded['top'], 'top must be a non-empty candidate');
+        $this->assertFalse((bool) ($decoded['contract']['design']['failed_open'] ?? false), 'contract.design must not have failed_open');
+        $this->assertTrue((bool) ($decoded['contract']['critique']['accepted'] ?? false), 'contract.critique must be accepted');
+        $this->assertNotEmpty($decoded['ranked']['accepted'] ?? [], 'ranked.accepted must be non-empty');
+    }
 }
