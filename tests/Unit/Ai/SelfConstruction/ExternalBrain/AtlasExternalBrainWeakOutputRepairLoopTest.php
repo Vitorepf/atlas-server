@@ -1,0 +1,247 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWeakOutputRepairLoop;
+use PHPUnit\Framework\TestCase;
+
+final class AtlasExternalBrainWeakOutputRepairLoopTest extends TestCase
+{
+    private AtlasExternalBrainWeakOutputRepairLoop $loop;
+
+    protected function setUp(): void
+    {
+        $this->loop = new AtlasExternalBrainWeakOutputRepairLoop;
+    }
+
+    private function proposal(array $overrides = []): array
+    {
+        return array_merge([
+            'objective'            => 'Implement FooService to handle bar events.',
+            'allowed_files'        => ['app/Services/FooService.php'],
+            'acceptance_criteria'  => ['Runnable: ./vendor/bin/phpunit tests/Unit/FooServiceTest.php must pass.'],
+            'required_evidence'    => ['tests_or_gates_result'],
+        ], $overrides);
+    }
+
+    private function input(array $proposalOverrides = [], array $inputOverrides = []): array
+    {
+        return array_merge([
+            'proposal'        => $this->proposal($proposalOverrides),
+            'weakness_labels' => [],
+            'is_poison'       => false,
+            'is_give_back'    => false,
+            'is_duplicate'    => false,
+            'dedup_conflict'  => '',
+        ], $inputOverrides);
+    }
+
+    // ── Schema / AC4 required keys ────────────────────────────────────────────
+
+    public function test_result_has_required_keys(): void
+    {
+        $result = $this->loop->repair($this->input());
+
+        foreach (['schema', 'failure_class', 'repaired_candidate', 'repair_steps', 'refusal_reason', 'next_scaffold_constraint'] as $k) {
+            $this->assertArrayHasKey($k, $result);
+        }
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::SCHEMA, $result['schema']);
+    }
+
+    // ── AC2: classification — unrecoverable ──────────────────────────────────
+
+    public function test_poison_flag_yields_unrecoverable(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_poison' => true]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_UNRECOVERABLE, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+        $this->assertNotNull($result['refusal_reason']);
+    }
+
+    public function test_give_back_flag_yields_unrecoverable(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_give_back' => true]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_UNRECOVERABLE, $result['failure_class']);
+    }
+
+    public function test_empty_objective_yields_unrecoverable(): void
+    {
+        $result = $this->loop->repair($this->input(['objective' => '']));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_UNRECOVERABLE, $result['failure_class']);
+        $this->assertStringContainsString('empty', $result['refusal_reason']);
+    }
+
+    // ── AC2: classification — duplicate_target ───────────────────────────────
+
+    public function test_is_duplicate_flag_yields_duplicate_target(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_duplicate' => true]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_DUPLICATE_TARGET, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+    }
+
+    public function test_dedup_conflict_field_yields_duplicate_target(): void
+    {
+        $result = $this->loop->repair($this->input([], ['dedup_conflict' => 'task-abc-123']));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_DUPLICATE_TARGET, $result['failure_class']);
+        $this->assertStringContainsString('task-abc-123', $result['refusal_reason']);
+    }
+
+    // ── AC2: classification — low_value ──────────────────────────────────────
+
+    public function test_shallow_duplication_weakness_yields_low_value(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['shallow_duplication']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_LOW_VALUE, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+    }
+
+    public function test_template_farming_weakness_yields_low_value(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['template_farming']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_LOW_VALUE, $result['failure_class']);
+    }
+
+    public function test_fake_confidence_weakness_yields_low_value(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['fake_confidence']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_LOW_VALUE, $result['failure_class']);
+    }
+
+    // ── AC2: classification — fixable_missing_evidence ───────────────────────
+
+    public function test_empty_required_evidence_yields_fixable_missing_evidence(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_EVIDENCE, $result['failure_class']);
+        $this->assertNotNull($result['repaired_candidate']);
+        $this->assertNotEmpty($result['repair_steps']);
+    }
+
+    public function test_all_non_runnable_acceptance_yields_fixable_missing_evidence(): void
+    {
+        $result = $this->loop->repair($this->input([
+            'acceptance_criteria' => ['It should work fine', 'Tests should pass eventually'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_EVIDENCE, $result['failure_class']);
+    }
+
+    public function test_repaired_candidate_has_required_evidence_added(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertNotEmpty($result['repaired_candidate']['required_evidence']);
+    }
+
+    public function test_repaired_candidate_has_runnable_criterion_added(): void
+    {
+        $result = $this->loop->repair($this->input([
+            'acceptance_criteria' => ['should look good'],
+            'required_evidence'   => ['tests_or_gates_result'],
+        ]));
+
+        $found = false;
+        foreach ($result['repaired_candidate']['acceptance_criteria'] as $ac) {
+            foreach (['phpunit', 'artisan', 'vendor/bin'] as $marker) {
+                if (str_contains(strtolower($ac), $marker)) {
+                    $found = true;
+                }
+            }
+        }
+        $this->assertTrue($found, 'Expected a runnable criterion to be injected');
+    }
+
+    // ── AC2: classification — fixable_scope_shape ────────────────────────────
+
+    public function test_over_broad_scope_weakness_yields_fixable_scope_shape(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['over_broad_scope']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_SCOPE_SHAPE, $result['failure_class']);
+        $this->assertNotNull($result['repaired_candidate']);
+    }
+
+    public function test_missing_code_search_weakness_yields_fixable_scope_shape(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['missing_code_search']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_SCOPE_SHAPE, $result['failure_class']);
+    }
+
+    public function test_weak_acceptance_weakness_yields_fixable_scope_shape(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['weak_acceptance']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_SCOPE_SHAPE, $result['failure_class']);
+    }
+
+    // ── AC3: deterministic instructions only for fixable, refused for rest ───
+
+    public function test_fixable_class_has_no_refusal_reason(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertNull($result['refusal_reason']);
+    }
+
+    public function test_refused_class_has_no_repaired_candidate(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_poison' => true]));
+
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+    }
+
+    // ── AC4: next_scaffold_constraint is always present ───────────────────────
+
+    public function test_next_scaffold_constraint_is_non_empty_for_unrecoverable(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_poison' => true]));
+
+        $this->assertNotEmpty($result['next_scaffold_constraint']);
+    }
+
+    public function test_next_scaffold_constraint_is_non_empty_for_fixable(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertNotEmpty($result['next_scaffold_constraint']);
+    }
+
+    // ── Ordering: unrecoverable beats duplicate ───────────────────────────────
+
+    public function test_unrecoverable_takes_precedence_over_duplicate(): void
+    {
+        $result = $this->loop->repair($this->input([], [
+            'is_poison'    => true,
+            'is_duplicate' => true,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_UNRECOVERABLE, $result['failure_class']);
+    }
+
+    // ── Ordering: duplicate beats low_value ──────────────────────────────────
+
+    public function test_duplicate_takes_precedence_over_low_value(): void
+    {
+        $result = $this->loop->repair($this->input([], [
+            'is_duplicate'   => true,
+            'weakness_labels' => ['template_farming'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_DUPLICATE_TARGET, $result['failure_class']);
+    }
+}
