@@ -113,6 +113,11 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
                 $terminalLoopOperationalProofGreen ? [] : ['terminal_loop_operational_proof_binding_missing_or_invalid'],
             )));
         $selfProgrammingTransitionReadiness = $this->selfProgrammingTransitionReadiness($nextStageAllowed, $nextStageBlockers);
+        $blockerActionMap = $this->blockerActionMap(
+            array_values(array_unique(array_merge($blockers, $nextStageBlockers))),
+            $materialEvidence,
+            $terminalLoopProofJsonReference,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -132,6 +137,7 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
             'self_programming_safety_contract_hash' => (string) $selfProgrammingTransitionReadiness['safety_contract_hash'],
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
+            'blocker_action_map' => $blockerActionMap,
             'audit_complete' => $auditComplete,
             'human_receipt_green' => $humanReceiptGreen,
             'runtime_green' => $runtimeGreen,
@@ -195,6 +201,55 @@ final class AtlasSelfConstructionFinalCompletionReadinessGateService
         $payload['gate_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * Maps every active blocker id to the exact command or evidence family that closes it —
+     * so the gate never just says "incomplete" without an actionable next step.
+     *
+     * @param  list<string>  $activeBlockers
+     * @param  array<string, mixed>  $materialEvidence
+     * @return array<string, array{command_or_evidence_hint:string, evidence_family:string}>
+     */
+    private function blockerActionMap(array $activeBlockers, array $materialEvidence, string $terminalLoopProofJsonReference): array
+    {
+        $map = [];
+        $invalidHashFields = (array) ($materialEvidence['invalid_or_missing_hash_fields'] ?? []);
+
+        foreach ($activeBlockers as $blocker) {
+            $map[$blocker] = match ($blocker) {
+                'completion_audit_not_status_complete' => [
+                    'command_or_evidence_hint' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                    'evidence_family' => 'completion_audit',
+                ],
+                'material_completion_evidence_hashes_missing_or_invalid' => [
+                    'command_or_evidence_hint' => 'supply valid sha256 hashes for: '.implode(', ', $invalidHashFields === [] ? ['unknown_hash_field'] : $invalidHashFields),
+                    'evidence_family' => 'material_completion_evidence',
+                ],
+                'terminal_loop_operational_proof_binding_missing_or_invalid' => [
+                    'command_or_evidence_hint' => $this->completionAuditWithTerminalLoopOperationalProofCommand($terminalLoopProofJsonReference),
+                    'evidence_family' => 'agent_control_plane_terminal_loop_operational_proof',
+                ],
+                'human_signed_os_complete_receipt_present' => [
+                    'command_or_evidence_hint' => 'obtain a human-signed OS completion receipt (out-of-band; no CLI command substitutes for operator sign-off)',
+                    'evidence_family' => 'human_signed_completion_receipt',
+                ],
+                'runtime_gap_matrix_all_runtime_y' => [
+                    'command_or_evidence_hint' => 'close every row of the runtime gap matrix to Y via a current runtime promotion receipt',
+                    'evidence_family' => 'runtime_promotion_receipt',
+                ],
+                'end_to_end_real_provider_smoke_green' => [
+                    'command_or_evidence_hint' => 'supply a green end-to-end real_provider_smoke run',
+                    'evidence_family' => 'real_provider_smoke',
+                ],
+                default => [
+                    'command_or_evidence_hint' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status --json',
+                    'evidence_family' => $blocker,
+                ],
+            };
+        }
+
+        return $map;
     }
 
     private function terminalLoopOperationalProofCommand(): string
