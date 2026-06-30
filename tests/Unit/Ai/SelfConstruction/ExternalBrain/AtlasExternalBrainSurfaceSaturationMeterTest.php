@@ -354,4 +354,68 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
     {
         $this->assertSame('under_evidenced', AtlasExternalBrainSurfaceSaturationMeter::VERDICT_UNDER_EVIDENCED);
     }
+
+    // ── value-proof evidence gate ───────────────────────────────────────────────
+
+    public function test_exhausted_blocked_when_value_proof_required_and_thin(): void
+    {
+        $candidates = array_merge(
+            array_fill(0, 8, $this->duplicate()),
+            [$this->candidate(['yield' => 0.9]), $this->candidate(['yield' => 0.9])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'require_value_proof_evidence' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_UNDER_EVIDENCED, $r['verdict']);
+        $this->assertSame([], $r['missing_modes']);
+    }
+
+    public function test_exhausted_allowed_when_value_proof_count_meets_minimum(): void
+    {
+        $candidates = array_merge(
+            array_fill(0, 7, $this->duplicate()),
+            [$this->candidate(['yield' => 0.9, 'value_proof' => true]), $this->candidate(['yield' => 0.9])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'require_value_proof_evidence' => true,
+            'min_value_proof_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
+    }
+
+    public function test_exhausted_allowed_when_value_proof_rate_meets_minimum(): void
+    {
+        $candidates = array_merge(
+            array_fill(0, 8, $this->duplicate(['value_proof' => true])),
+            [$this->candidate(['yield' => 0.9]), $this->candidate(['yield' => 0.9])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'require_value_proof_evidence' => true,
+            'min_value_proof_count' => 999,
+            'min_value_proof_rate' => 0.5,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
+    }
+
+    public function test_value_proof_gate_not_triggered_without_flag(): void
+    {
+        $candidates = array_merge(
+            array_fill(0, 8, $this->duplicate()),
+            [$this->candidate(['yield' => 0.9]), $this->candidate(['yield' => 0.9])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, ['mode_passes' => $this->allModePasses()]);
+
+        // Backward compat: no value-proof flag → exhausted still reachable.
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
+    }
 }
