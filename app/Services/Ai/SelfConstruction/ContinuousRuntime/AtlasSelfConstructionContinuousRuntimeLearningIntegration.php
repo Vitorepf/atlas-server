@@ -31,6 +31,8 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
 
     public const OUTCOME_QUEUE_REPAIR = 'queue_repair';
 
+    public const OUTCOME_QUARANTINE = 'quarantine';
+
     /**
      * @param  list<array<string,mixed>>  $outcomes  list of {kind, task_packet_id, lease_id, evidence_hash,
      *                                                          organ, task_class, cycle_id, class?, occurrence_count?,
@@ -46,6 +48,9 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
 
         foreach ($outcomes as $o) {
             if (! is_array($o)) {
+                continue;
+            }
+            if ((bool) ($o['stale'] ?? false)) {
                 continue;
             }
             $kind = (string) ($o['kind'] ?? '');

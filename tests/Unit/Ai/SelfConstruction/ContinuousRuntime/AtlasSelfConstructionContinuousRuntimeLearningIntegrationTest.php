@@ -82,6 +82,42 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegrationTest extend
         $this->assertNotContains('h-verify', $verdict['required_promotion_evidence_hashes']);
     }
 
+    public function test_quarantine_outcome_is_kept_in_receipt_and_compounding_but_not_reusable_without_evidence(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => AtlasSelfConstructionContinuousRuntimeLearningIntegration::OUTCOME_QUARANTINE,
+                'task_packet_id' => 'pkt-q', 'lease_id' => 'l-q', 'evidence_hash' => 'hq',
+                'class' => 'quarantine_blast_radius', 'occurrence_count' => 1, 'outcome' => 'quarantine',
+            ],
+        ]);
+
+        $this->assertCount(1, $verdict['receipt_inputs']);
+        $this->assertCount(1, $verdict['compounding_inputs']);
+        $this->assertCount(1, $verdict['learning_inputs']);
+        $this->assertFalse($verdict['learning_inputs'][0]['reusable'], 'one-off quarantine must not be promotable');
+    }
+
+    public function test_stale_outcomes_are_excluded_from_all_output_sections(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => 'verification', 'task_packet_id' => 'stale-1', 'lease_id' => 'ls-1',
+                'evidence_hash' => 'hs1', 'class' => 'stale_pattern', 'occurrence_count' => 5,
+                'outcome' => 'passed', 'stale' => true,
+            ],
+            [
+                'kind' => 'verification', 'task_packet_id' => 'fresh-1', 'lease_id' => 'lf-1',
+                'evidence_hash' => 'hf1', 'class' => 'fresh_pattern', 'occurrence_count' => 3,
+                'outcome' => 'passed',
+            ],
+        ]);
+
+        $this->assertCount(1, $verdict['learning_inputs'], 'stale outcome must not appear in learning');
+        $this->assertCount(1, $verdict['receipt_inputs'], 'stale outcome must not appear in receipt');
+        $this->assertSame('fresh_pattern', $verdict['learning_inputs'][0]['class']);
+    }
+
     public function test_empty_input_yields_empty_output_sections(): void
     {
         $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([]);
