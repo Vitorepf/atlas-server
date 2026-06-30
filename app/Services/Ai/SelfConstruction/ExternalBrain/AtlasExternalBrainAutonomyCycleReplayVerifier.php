@@ -15,6 +15,12 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * `lever` string — the cycle only counts the decision as having genuinely changed when those two levers
  * differ, regardless of which lever it changed TO (a give_back routing to repair/respec still counts).
  *
+ * CAUSALITY proof (beyond mere stage presence): packet_emitted, muscle_outcome, gates_judged, and
+ * outcome_learning must all share the same identity — a `task_packet_id` or `correlation_id` field — so
+ * the cycle is provably about ONE task, not four unrelated events that happen to share stage names.
+ * gates_judged must also carry a non-empty `gate_verdict`, and outcome_learning a non-empty
+ * `outcome_learning_ref`, so a stage cannot count as "judged" or "learned from" with no actual evidence.
+ *
  * Never executes, dispatches, or mutates anything — it only replays the fact stream it is handed.
  */
 final class AtlasExternalBrainAutonomyCycleReplayVerifier
@@ -29,6 +35,9 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
         'outcome_learning',
         'next_decision',
     ];
+
+    /** Stages whose identity (task_packet_id / correlation_id) must all agree. */
+    private const CORRELATED_STAGES = ['packet_emitted', 'muscle_outcome', 'gates_judged', 'outcome_learning'];
 
     /**
      * @param  list<array<string, mixed>>  $facts
@@ -67,15 +76,60 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
         }
 
         $orderingViolations = $this->orderingViolations($byStage);
+        $causalityViolations = $this->causalityViolations($byStage);
 
         return [
             'schema' => self::SCHEMA,
-            'cycle_complete' => $missingStage === null && $orderingViolations === [],
+            'cycle_complete' => $missingStage === null && $orderingViolations === [] && $causalityViolations === [],
             'stages_observed' => $stagesObserved,
             'missing_stage' => $missingStage,
             'decision_changed' => $decisionChanged,
             'ordering_violations' => $orderingViolations,
+            'causality_violations' => $causalityViolations,
         ];
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $byStage
+     * @return list<array<string, mixed>>
+     */
+    private function causalityViolations(array $byStage): array
+    {
+        $violations = [];
+
+        $identityByStage = [];
+        foreach (self::CORRELATED_STAGES as $stage) {
+            if (! isset($byStage[$stage])) {
+                continue;
+            }
+            $identity = (string) ($byStage[$stage]['task_packet_id'] ?? $byStage[$stage]['correlation_id'] ?? '');
+            if ($identity === '') {
+                $violations[] = ['code' => 'missing_correlation_id', 'stage' => $stage];
+
+                continue;
+            }
+            $identityByStage[$stage] = $identity;
+        }
+
+        if ($identityByStage !== []) {
+            $distinctIdentities = array_unique($identityByStage);
+            if (count($distinctIdentities) > 1) {
+                $violations[] = [
+                    'code' => 'correlation_mismatch',
+                    'identities_by_stage' => $identityByStage,
+                ];
+            }
+        }
+
+        if (isset($byStage['gates_judged']) && (string) ($byStage['gates_judged']['gate_verdict'] ?? '') === '') {
+            $violations[] = ['code' => 'missing_gate_verdict', 'stage' => 'gates_judged'];
+        }
+
+        if (isset($byStage['outcome_learning']) && (string) ($byStage['outcome_learning']['outcome_learning_ref'] ?? '') === '') {
+            $violations[] = ['code' => 'missing_outcome_learning_ref', 'stage' => 'outcome_learning'];
+        }
+
+        return $violations;
     }
 
     /**
