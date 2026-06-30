@@ -116,4 +116,71 @@ final class AtlasSelfConstructionScopeExpansionCandidateRankerTest extends TestC
         ]);
         $this->assertSame($a['ranker_hash'], $b['ranker_hash']);
     }
+
+    public function test_high_leverage_ready_low_proof_cost_ranks_above_broad_unready_scope_and_emits_score_components(): void
+    {
+        $ranker = new AtlasSelfConstructionScopeExpansionCandidateRanker;
+        $out = $ranker->rank([
+            'candidates' => [
+                $this->goodCandidate([
+                    'scope_id'               => 'broad-unready',
+                    'proven_leverage_tier'   => 2,
+                    'autonomy_readiness_tier'=> 1,
+                    'proof_cost'             => 8,
+                    'isolation'              => 2,
+                    'risk'                   => 5,
+                ]),
+                $this->goodCandidate([
+                    'scope_id'               => 'focused-ready',
+                    'proven_leverage_tier'   => 3,
+                    'autonomy_readiness_tier'=> 3,
+                    'proof_cost'             => 2,
+                    'isolation'              => 8,
+                    'risk'                   => 2,
+                ]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $order = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['focused-ready', 'broad-unready'], $order);
+
+        $top = $out['accepted_candidates'][0];
+        $this->assertArrayHasKey('score_components', $top);
+        $this->assertSame(3, $top['score_components']['leverage']);
+        $this->assertSame(3, $top['score_components']['readiness']);
+        $this->assertSame(2, $top['score_components']['proof_cost']);
+        $this->assertSame(8, $top['score_components']['isolation']);
+        $this->assertSame(2, $top['score_components']['risk']);
+    }
+
+    public function test_proof_cost_breaks_tie_when_leverage_and_readiness_equal(): void
+    {
+        $ranker = new AtlasSelfConstructionScopeExpansionCandidateRanker;
+        $out = $ranker->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'expensive', 'proven_leverage_tier' => 3, 'autonomy_readiness_tier' => 3, 'proof_cost' => 7, 'risk' => 3]),
+                $this->goodCandidate(['scope_id' => 'cheap',    'proven_leverage_tier' => 3, 'autonomy_readiness_tier' => 3, 'proof_cost' => 2, 'risk' => 3]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $order = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['cheap', 'expensive'], $order);
+    }
+
+    public function test_isolation_breaks_tie_when_leverage_readiness_and_proof_cost_equal(): void
+    {
+        $ranker = new AtlasSelfConstructionScopeExpansionCandidateRanker;
+        $out = $ranker->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'low-iso',  'proven_leverage_tier' => 3, 'autonomy_readiness_tier' => 3, 'proof_cost' => 4, 'isolation' => 2, 'risk' => 3]),
+                $this->goodCandidate(['scope_id' => 'high-iso', 'proven_leverage_tier' => 3, 'autonomy_readiness_tier' => 3, 'proof_cost' => 4, 'isolation' => 9, 'risk' => 3]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $order = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['high-iso', 'low-iso'], $order);
+    }
 }

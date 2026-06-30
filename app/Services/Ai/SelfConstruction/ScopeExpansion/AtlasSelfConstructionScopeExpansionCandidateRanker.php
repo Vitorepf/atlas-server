@@ -83,15 +83,30 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
             return [
                 -1 * (int) $a['proven_leverage_tier'],
                 -1 * (int) $a['autonomy_readiness_tier'],
+                (int) ($a['proof_cost'] ?? 5),
+                -1 * (int) ($a['isolation'] ?? 5),
                 (int) $a['risk'],
                 (string) $a['scope_id'],
             ] <=> [
                 -1 * (int) $b['proven_leverage_tier'],
                 -1 * (int) $b['autonomy_readiness_tier'],
+                (int) ($b['proof_cost'] ?? 5),
+                -1 * (int) ($b['isolation'] ?? 5),
                 (int) $b['risk'],
                 (string) $b['scope_id'],
             ];
         });
+
+        foreach ($accepted as &$candidate) {
+            $candidate['score_components'] = [
+                'leverage'   => (int) ($candidate['proven_leverage_tier'] ?? 0),
+                'readiness'  => (int) ($candidate['autonomy_readiness_tier'] ?? 0),
+                'proof_cost' => (int) ($candidate['proof_cost'] ?? 5),
+                'isolation'  => (int) ($candidate['isolation'] ?? 5),
+                'risk'       => (int) ($candidate['risk'] ?? 0),
+            ];
+        }
+        unset($candidate);
 
         $payload = [
             'schema_version' => self::SCHEMA,
