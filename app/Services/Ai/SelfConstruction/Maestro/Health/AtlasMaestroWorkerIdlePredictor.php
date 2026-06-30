@@ -88,9 +88,23 @@ final class AtlasMaestroWorkerIdlePredictor
             // Zero observed serves while a claimable backlog exists AND workers are actively
             // claimed is NOT "nothing happening" — it is a telemetry gap (serve events aren't
             // being recorded), and must never be reported as plain no-consumption.
-            $projection['reason'] = ($claimableDepth > 0 && $activeWorkers > 0)
+            $blindSpot = $claimableDepth > 0 && $activeWorkers > 0;
+            $projection['reason'] = $blindSpot
                 ? 'telemetry_blind_spot:zero_serve_with_active_workers_and_claimable_backlog'
                 : 'no_consumption_observed';
+
+            if ($blindSpot) {
+                // serve_total is silent, but claimed/completed deltas (a different telemetry path)
+                // may still carry signal — use them so the queue is never fully blind to drain.
+                $claimedCompletedDelta = $this->claimedCompletedDelta($serving);
+                if ($claimedCompletedDelta > 0 && $elapsedSeconds > 0) {
+                    $fallbackRate = round($claimedCompletedDelta / ($elapsedSeconds / 60), 6);
+                    $projection['fallback_drain_rate_per_minute'] = $fallbackRate;
+                    $projection['seconds_until_dry'] = $claimableDepth === 0
+                        ? 0
+                        : (int) ceil(($claimableDepth / $fallbackRate) * 60);
+                }
+            }
 
             return $projection;
         }
@@ -217,6 +231,24 @@ final class AtlasMaestroWorkerIdlePredictor
         }
 
         return null;
+    }
+
+    /**
+     * When serve_total telemetry is silent, claimed/completed deltas (a different
+     * telemetry path) can still estimate drain. Reads whichever of these fields
+     * is present, in order of directness.
+     *
+     * @param  array<string,mixed>  $serving
+     */
+    private function claimedCompletedDelta(array $serving): int
+    {
+        foreach (['completed_dry_run', 'completion_delta', 'completed_delta', 'claim_delta', 'claimed_delta'] as $key) {
+            if (isset($serving[$key]) && is_numeric($serving[$key])) {
+                return max(0, (int) $serving[$key]);
+            }
+        }
+
+        return 0;
     }
 
     private function confidence(int $serveTotal): string
