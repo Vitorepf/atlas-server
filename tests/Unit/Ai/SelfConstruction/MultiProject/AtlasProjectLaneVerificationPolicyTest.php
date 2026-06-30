@@ -22,6 +22,8 @@ final class AtlasProjectLaneVerificationPolicyTest extends TestCase
             'project_id' => 'demo-lane',
             'blocking_reasons' => [],
             'verification_commands' => ['phpunit', 'pint'],
+            'lane_local_test_command' => '/opt/homebrew/bin/php artisan test --filter=demo',
+            'evidence_ledger_isolated' => true,
         ];
     }
 
@@ -33,6 +35,7 @@ final class AtlasProjectLaneVerificationPolicyTest extends TestCase
     private function evidenceAllPassing(): array
     {
         return [
+            'rollback_proof' => true,
             'evidence' => [
                 'phpunit' => ['passed' => true, 'gate' => 'phpunit'],
                 'pint' => ['passed' => true, 'gate' => 'pint'],
@@ -97,6 +100,55 @@ final class AtlasProjectLaneVerificationPolicyTest extends TestCase
 
         $this->assertFalse($v['allowed']);
         $this->assertContains('admission:invalid_project_id', $v['blockers']);
+    }
+
+    public function test_missing_lane_local_test_command_blocks_readiness(): void
+    {
+        $admission = $this->admittedManifest();
+        unset($admission['lane_local_test_command']);
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($admission, $this->conformantFreshness(), $this->evidenceAllPassing());
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('lane_local_test_command_missing', $v['blockers']);
+    }
+
+    public function test_stale_code_index_freshness_blocker_blocks_readiness(): void
+    {
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide(
+            $this->admittedManifest(),
+            ['conformant' => false, 'blockers' => ['code_index_stale']],
+            $this->evidenceAllPassing(),
+        );
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('freshness:code_index_stale', $v['blockers']);
+    }
+
+    public function test_shared_evidence_ledger_blocks_readiness(): void
+    {
+        $admission = $this->admittedManifest();
+        $admission['evidence_ledger_isolated'] = false;
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($admission, $this->conformantFreshness(), $this->evidenceAllPassing());
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('evidence_ledger_not_isolated', $v['blockers']);
+    }
+
+    public function test_missing_rollback_proof_blocks_readiness(): void
+    {
+        $evidence = $this->evidenceAllPassing();
+        unset($evidence['rollback_proof']);
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide($this->admittedManifest(), $this->conformantFreshness(), $evidence);
+        $this->assertFalse($v['allowed']);
+        $this->assertContains('rollback_proof_missing', $v['blockers']);
+    }
+
+    public function test_complete_lane_local_verification_facts_yield_allowed(): void
+    {
+        $v = (new AtlasProjectLaneVerificationPolicy)->decide(
+            $this->admittedManifest(),
+            $this->conformantFreshness(),
+            $this->evidenceAllPassing(),
+        );
+        $this->assertTrue($v['allowed']);
+        $this->assertSame([], $v['blockers']);
     }
 
     public function test_two_decides_with_same_input_byte_identical_json(): void

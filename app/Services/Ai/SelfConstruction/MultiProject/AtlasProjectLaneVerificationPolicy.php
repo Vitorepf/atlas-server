@@ -48,6 +48,22 @@ final class AtlasProjectLaneVerificationPolicy
             }
         }
 
+        // Lane-local test command must be declared.
+        $laneTestCmd = (string) ($admission['lane_local_test_command'] ?? '');
+        if ($laneTestCmd === '') {
+            $blockers[] = 'lane_local_test_command_missing';
+        }
+
+        // Evidence ledger must be isolated to this lane.
+        if (! (bool) ($admission['evidence_ledger_isolated'] ?? false)) {
+            $blockers[] = 'evidence_ledger_not_isolated';
+        }
+
+        // Rollback proof must be present in task evidence.
+        if (! (bool) ($taskEvidence['rollback_proof'] ?? false)) {
+            $blockers[] = 'rollback_proof_missing';
+        }
+
         $verificationCmds = is_array($admission['verification_commands'] ?? null)
             ? array_values(array_map('strval', $admission['verification_commands']))
             : [];
