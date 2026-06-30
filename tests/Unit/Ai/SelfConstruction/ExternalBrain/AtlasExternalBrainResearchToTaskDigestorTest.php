@@ -169,9 +169,44 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
         $result = $this->digestor->digest($this->input($this->goodItem(['anti_goodhart_risks' => []])));
 
         $this->assertSame(
-            AtlasExternalBrainResearchToTaskDigestor::REJECTION_INCOMPLETE_CANDIDATE,
+            AtlasExternalBrainResearchToTaskDigestor::REJECTION_MISSING_ANTI_GOODHART_RISK,
             $result['rejected'][0]['rejection_reason'],
         );
+    }
+
+    public function test_rejects_item_requiring_provider_steady_state(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem(['requires_provider_steady_state' => true])));
+
+        $this->assertSame(
+            AtlasExternalBrainResearchToTaskDigestor::REJECTION_PROVIDER_STEADY_STATE_DEPENDENCY,
+            $result['rejected'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_promoted_candidate_has_task_family_compound_lift_and_dependency_hints(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem([
+            'task_family'             => 'capability_gap',
+            'expected_compound_lift'  => 0.4,
+            'dependency_hints'        => ['queue_stable'],
+        ])));
+
+        $candidate = $result['promoted'][0];
+        $this->assertSame('capability_gap', $candidate['task_family']);
+        $this->assertSame(0.4, $candidate['expected_compound_lift']);
+        $this->assertSame(['queue_stable'], $candidate['dependency_hints']);
+    }
+
+    public function test_promoted_candidate_defaults_task_family_lift_and_dependency_hints(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem()));
+
+        $candidate = $result['promoted'][0];
+        foreach (['task_family', 'expected_compound_lift', 'dependency_hints'] as $k) {
+            $this->assertArrayHasKey($k, $candidate);
+        }
+        $this->assertSame([], $candidate['dependency_hints']);
     }
 
     public function test_rejects_item_missing_source_type(): void

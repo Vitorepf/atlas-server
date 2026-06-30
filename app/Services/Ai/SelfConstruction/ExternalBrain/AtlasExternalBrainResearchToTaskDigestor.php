@@ -28,6 +28,8 @@ final class AtlasExternalBrainResearchToTaskDigestor
     public const REJECTION_NO_TARGET_PATH         = 'no_target_path';
     public const REJECTION_NO_RUNNABLE_ACCEPTANCE = 'no_runnable_acceptance';
     public const REJECTION_INCOMPLETE_CANDIDATE   = 'incomplete_candidate';
+    public const REJECTION_PROVIDER_STEADY_STATE_DEPENDENCY = 'provider_steady_state_dependency';
+    public const REJECTION_MISSING_ANTI_GOODHART_RISK        = 'missing_anti_goodhart_risk';
 
     private const RUNNABLE_MARKERS = ['artisan', 'vendor/bin', 'phpunit'];
 
@@ -106,8 +108,16 @@ final class AtlasExternalBrainResearchToTaskDigestor
             return [false, self::REJECTION_NO_RUNNABLE_ACCEPTANCE];
         }
 
-        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '' || $antiGoodhart === [] || $sourceType === '') {
+        if (($item['requires_provider_steady_state'] ?? false) === true) {
+            return [false, self::REJECTION_PROVIDER_STEADY_STATE_DEPENDENCY];
+        }
+
+        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '' || $sourceType === '') {
             return [false, self::REJECTION_INCOMPLETE_CANDIDATE];
+        }
+
+        if ($antiGoodhart === []) {
+            return [false, self::REJECTION_MISSING_ANTI_GOODHART_RISK];
         }
 
         return [true, null];
@@ -139,6 +149,9 @@ final class AtlasExternalBrainResearchToTaskDigestor
             'risk'                => trim((string) ($item['risk'] ?? ($antiGoodhart[0] ?? ''))),
             'acceptance_summary'  => trim((string) ($item['acceptance_summary'] ?? $runnableAcc)),
             'source_evidence'     => trim((string) ($item['source_evidence']    ?? $source)),
+            'task_family'         => trim((string) ($item['task_family'] ?? '')),
+            'expected_compound_lift' => isset($item['expected_compound_lift']) ? (float) $item['expected_compound_lift'] : 0.0,
+            'dependency_hints'    => array_values(array_filter(array_map('trim', (array) ($item['dependency_hints'] ?? [])))),
             // Advisory benchmark grounding — present if supplied, null otherwise.
             'benchmark_grounding' => [
                 'source_quality'         => isset($item['source_quality'])         ? (float) $item['source_quality']        : null,
