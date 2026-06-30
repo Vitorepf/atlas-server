@@ -139,6 +139,95 @@ class AtlasNativeWorkerOutcomeMapperTest extends TestCase
         self::assertStringStartsWith('outcome_', $a['outcome_hash']);
     }
 
+    public function test_denied_command_status_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['command_status' => 'denied']),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+        self::assertContains('command_execution_denied', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_timeout_command_status_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['command_status' => 'timeout']),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+        self::assertContains('command_execution_timeout', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_empty_results_flag_maps_to_give_back(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['empty_results' => true]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_GIVE_BACK, $verdict['report_outcome']);
+        self::assertContains('empty_results', $verdict['blocking_deficiencies']);
+    }
+
+    public function test_missing_evidence_maps_to_failed(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['required_evidence' => ['tests_or_gates_result', 'coverage_report']]),
+            $this->execution(['evidence_refs' => []]),
+            $this->verification(['evidence_refs' => []]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
+        self::assertSame('evidence_incomplete', $verdict['report_reason']);
+    }
+
+    public function test_failed_gate_in_results_maps_to_failed(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['results' => [['name' => 'phpunit', 'status' => 'red']]]),
+            $this->verification(),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_FAILED, $verdict['report_outcome']);
+    }
+
+    public function test_unknown_command_status_does_not_become_success(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(),
+            $this->execution(['command_status' => '']),
+            $this->verification(),
+        );
+
+        self::assertNotSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_SUCCESS, $verdict['report_outcome']);
+    }
+
+    public function test_complete_green_evidence_maps_to_success(): void
+    {
+        $verdict = (new AtlasNativeWorkerOutcomeMapper)->map(
+            $this->envelope(['required_evidence' => ['tests_or_gates_result', 'implementation_notes']]),
+            $this->execution([
+                'command_status' => 'green',
+                'patch_status' => 'green',
+                'results' => [['name' => 'phpunit', 'status' => 'green']],
+                'evidence_refs' => ['tests_or_gates_result', 'implementation_notes'],
+                'blockers' => [],
+            ]),
+            $this->verification(['passed' => true, 'blockers' => [], 'evidence_refs' => []]),
+        );
+
+        self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_SUCCESS, $verdict['report_outcome']);
+        self::assertSame('all_green', $verdict['report_reason']);
+        self::assertSame([], $verdict['blocking_deficiencies']);
+    }
+
     public function test_mapper_source_does_not_call_providers_or_processes_or_io(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerOutcomeMapper.php'));

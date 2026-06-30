@@ -88,6 +88,20 @@ final class AtlasNativeWorkerOutcomeMapper
                 $reasons[] = $key;
             }
         }
+
+        // Execution-level command outcomes that signal the task cannot be completed here.
+        if (array_key_exists('command_status', $execution)) {
+            $cs = (string) $execution['command_status'];
+            if ($cs === 'denied') {
+                $reasons[] = 'command_execution_denied';
+            } elseif ($cs === 'timeout') {
+                $reasons[] = 'command_execution_timeout';
+            }
+        }
+        if ((bool) ($execution['empty_results'] ?? false)) {
+            $reasons[] = 'empty_results';
+        }
+
         $execReasons = array_values(array_filter(
             array_map('strval', (array) ($execution['give_back_reasons'] ?? [])),
             static fn (string $s): bool => $s !== '',
@@ -106,8 +120,9 @@ final class AtlasNativeWorkerOutcomeMapper
      */
     private function executionIsGreen(array $execution): bool
     {
-        $command = (string) ($execution['command_status'] ?? '');
-        $patch = (string) ($execution['patch_status'] ?? '');
+        // Use null to distinguish "key absent" (no command ran — OK) from "" (set but unknown — not green).
+        $command = array_key_exists('command_status', $execution) ? (string) $execution['command_status'] : null;
+        $patch = array_key_exists('patch_status', $execution) ? (string) $execution['patch_status'] : null;
         $results = array_values((array) ($execution['results'] ?? []));
         foreach ($results as $row) {
             if (is_array($row) && (string) ($row['status'] ?? '') !== 'green') {
@@ -115,7 +130,7 @@ final class AtlasNativeWorkerOutcomeMapper
             }
         }
 
-        return ($command === '' || $command === 'green') && ($patch === '' || $patch === 'green');
+        return ($command === null || $command === 'green') && ($patch === null || $patch === 'green');
     }
 
     /**
