@@ -16,7 +16,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   purgeExpired($now)           — remove entries whose freshness has expired
  *
  * REJECTION (vague entries):
- *   Entry is rejected if any of surface, method, or evidence is absent or empty.
+ *   Entry is rejected if any of surface, method, evidence, inspected_count (<1), or
+ *   search_depth (<1) is absent or invalid.
  *
  * DEDUPLICATION KEY: (surface, method) pair. Recording the same pair replaces the old entry.
  *
@@ -34,6 +35,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     surface:           string  (what was searched — e.g. "github_issues", "arxiv")
  *     method:            string  (how it was searched — e.g. "keyword_scan", "semantic_search")
  *     evidence:          string  (what was actually inspected — non-empty required)
+ *     inspected_count:   int     (number of artifacts inspected — must be >= 1)
+ *     search_depth:      int     (levels / iterations of search — must be >= 1)
  *     reason?:           string  (why no value was found)
  *     recorded_at?:      int     (unix timestamp; default 0)
  *     ttl_seconds?:      int     (freshness window; default 86400)
@@ -85,19 +88,31 @@ final class AtlasExternalBrainNegativeResultLedger
             return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'evidence_missing'];
         }
 
+        $inspectedCount = isset($entry['inspected_count']) ? (int) $entry['inspected_count'] : 0;
+        $searchDepth    = isset($entry['search_depth'])    ? (int) $entry['search_depth']    : 0;
+
+        if ($inspectedCount < 1) {
+            return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'inspected_count_missing'];
+        }
+        if ($searchDepth < 1) {
+            return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'search_depth_missing'];
+        }
+
         $recordedAt      = (int) ($entry['recorded_at'] ?? 0);
         $ttl             = max(1, (int) ($entry['ttl_seconds'] ?? self::DEFAULT_TTL_SECONDS));
         $retryConditions = is_array($entry['retry_conditions'] ?? null) ? array_values($entry['retry_conditions']) : [];
 
         $stored = [
-            'surface'           => $surface,
-            'method'            => $method,
-            'evidence'          => $evidence,
-            'reason'            => (string) ($entry['reason'] ?? ''),
-            'recorded_at'       => $recordedAt,
-            'ttl_seconds'       => $ttl,
-            'expires_at'        => $recordedAt + $ttl,
-            'retry_conditions'  => $retryConditions,
+            'surface'          => $surface,
+            'method'           => $method,
+            'evidence'         => $evidence,
+            'inspected_count'  => $inspectedCount,
+            'search_depth'     => $searchDepth,
+            'reason'           => (string) ($entry['reason'] ?? ''),
+            'recorded_at'      => $recordedAt,
+            'ttl_seconds'      => $ttl,
+            'expires_at'       => $recordedAt + $ttl,
+            'retry_conditions' => $retryConditions,
         ];
 
         $key = $this->dedupKey($surface, $method);

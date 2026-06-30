@@ -17,12 +17,14 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
     private function validEntry(array $overrides = []): array
     {
         return array_merge([
-            'surface'     => 'github_issues',
-            'method'      => 'keyword_scan',
-            'evidence'    => 'Scanned 120 issues; 0 matched schema keywords.',
-            'reason'      => 'No seedable content found.',
-            'recorded_at' => 1000,
-            'ttl_seconds' => 3600,
+            'surface'         => 'github_issues',
+            'method'          => 'keyword_scan',
+            'evidence'        => 'Scanned 120 issues; 0 matched schema keywords.',
+            'inspected_count' => 120,
+            'search_depth'    => 2,
+            'reason'          => 'No seedable content found.',
+            'recorded_at'     => 1000,
+            'ttl_seconds'     => 3600,
         ], $overrides);
     }
 
@@ -65,6 +67,8 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
         $this->assertSame('github_issues', $entry['surface']);
         $this->assertSame('keyword_scan', $entry['method']);
         $this->assertSame('Scanned 120 issues; 0 matched schema keywords.', $entry['evidence']);
+        $this->assertSame(120, $entry['inspected_count']);
+        $this->assertSame(2, $entry['search_depth']);
         $this->assertSame(['new_issue_published'], $entry['retry_conditions']);
         $this->assertSame(1000 + 3600, $entry['expires_at']);
     }
@@ -90,6 +94,27 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
         $result = $this->ledger()->record($this->validEntry(['evidence' => '']));
         $this->assertFalse($result['accepted']);
         $this->assertSame('evidence_missing', $result['rejection_reason']);
+    }
+
+    public function test_rejects_missing_inspected_count(): void
+    {
+        $result = $this->ledger()->record($this->validEntry(['inspected_count' => 0]));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('inspected_count_missing', $result['rejection_reason']);
+    }
+
+    public function test_rejects_missing_search_depth(): void
+    {
+        $result = $this->ledger()->record($this->validEntry(['search_depth' => 0]));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('search_depth_missing', $result['rejection_reason']);
+    }
+
+    public function test_rejects_negative_inspected_count(): void
+    {
+        $result = $this->ledger()->record($this->validEntry(['inspected_count' => -5]));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('inspected_count_missing', $result['rejection_reason']);
     }
 
     public function test_rejected_entry_is_not_stored(): void
