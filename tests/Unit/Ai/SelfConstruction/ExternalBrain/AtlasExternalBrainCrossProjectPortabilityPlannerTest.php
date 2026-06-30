@@ -170,4 +170,92 @@ final class AtlasExternalBrainCrossProjectPortabilityPlannerTest extends TestCas
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    // ── AC: portable project emits a lane_contract ────────────────────────────
+
+    public function test_portable_project_emits_lane_contract_with_required_fields(): void
+    {
+        $r = $this->svc()->plan($this->readyProject([
+            'queue_namespace' => 'atlas.cross_project.sibling',
+            'workspace_root' => '/Users/vitorepf/develop/Sibling',
+            'allowed_scope_roots' => ['app/Services', 'tests'],
+        ]));
+
+        $this->assertTrue($r['portable']);
+        $this->assertArrayHasKey('lane_contract', $r);
+
+        $lane = $r['lane_contract'];
+        foreach (['queue_namespace', 'workspace_root', 'docs_context_sync', 'evidence_gate', 'worker_routing', 'allowed_scope_roots', 'first_safe_scope'] as $key) {
+            $this->assertArrayHasKey($key, $lane, "lane_contract missing key: {$key}");
+        }
+        $this->assertSame('atlas.cross_project.sibling', $lane['queue_namespace']);
+        $this->assertSame('/Users/vitorepf/develop/Sibling', $lane['workspace_root']);
+        $this->assertSame(['app/Services', 'tests'], $lane['allowed_scope_roots']);
+        $this->assertSame('full_self_construction_scope', $lane['first_safe_scope']);
+    }
+
+    public function test_lane_contract_queue_namespace_derived_when_not_supplied(): void
+    {
+        $r = $this->svc()->plan($this->readyProject(['project_name' => 'my-project']));
+
+        $this->assertStringContainsString('my-project', $r['lane_contract']['queue_namespace']);
+    }
+
+    public function test_not_portable_project_does_not_emit_lane_contract(): void
+    {
+        $r = $this->svc()->plan($this->readyProject(['has_evidence_gates' => false]));
+
+        $this->assertFalse($r['portable']);
+        $this->assertArrayNotHasKey('lane_contract', $r);
+    }
+
+    // ── AC: non-portable project emits blocked_reasons ────────────────────────
+
+    public function test_missing_prerequisite_emits_blocked_reasons(): void
+    {
+        $r = $this->svc()->plan($this->readyProject(['has_task_namespace' => false]));
+
+        $this->assertFalse($r['portable']);
+        $this->assertArrayHasKey('blocked_reasons', $r);
+        $this->assertContains('missing_prerequisite:task_namespace', $r['blocked_reasons']);
+    }
+
+    public function test_atlas_specific_assumption_emits_blocked_reasons(): void
+    {
+        $r = $this->svc()->plan($this->readyProject(['atlas_specific_assumptions' => ['hardcoded_atlas_storage_path']]));
+
+        $this->assertFalse($r['portable']);
+        $this->assertContains('atlas_specific_assumption:hardcoded_atlas_storage_path', $r['blocked_reasons']);
+    }
+
+    public function test_blocked_reasons_combines_missing_prerequisites_and_assumptions(): void
+    {
+        $r = $this->svc()->plan($this->readyProject([
+            'has_task_namespace' => false,
+            'atlas_specific_assumptions' => ['hardcoded_path'],
+        ]));
+
+        $this->assertContains('missing_prerequisite:task_namespace', $r['blocked_reasons']);
+        $this->assertContains('atlas_specific_assumption:hardcoded_path', $r['blocked_reasons']);
+        $this->assertCount(2, $r['blocked_reasons']);
+    }
+
+    public function test_blocked_reasons_is_deterministically_sorted(): void
+    {
+        $r = $this->svc()->plan($this->readyProject([
+            'has_task_namespace' => false,
+            'has_evidence_gates' => false,
+        ]));
+
+        $sorted = $r['blocked_reasons'];
+        $copy = $sorted;
+        sort($copy, SORT_STRING);
+        $this->assertSame($copy, $sorted);
+    }
+
+    public function test_portable_project_does_not_emit_blocked_reasons(): void
+    {
+        $r = $this->svc()->plan($this->readyProject());
+        $this->assertArrayNotHasKey('blocked_reasons', $r);
+    }
 }

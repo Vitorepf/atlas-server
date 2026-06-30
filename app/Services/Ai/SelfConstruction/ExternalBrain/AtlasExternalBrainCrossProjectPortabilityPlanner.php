@@ -15,7 +15,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Input shape: {project_name?:string, has_docs_context_sync?:bool, has_task_namespace?:bool,
  *               has_worker_routing?:bool, has_evidence_gates?:bool, has_workspace_isolation?:bool,
- *               atlas_specific_assumptions?:list<string>}
+ *               atlas_specific_assumptions?:list<string>, workspace_root?:string,
+ *               queue_namespace?:string, allowed_scope_roots?:list<string>}
+ *
+ * When portable=true, emits a `lane_contract` the Self-Construction OS can run against immediately:
+ * queue_namespace, workspace_root, docs_context_sync, evidence_gate, worker_routing,
+ * allowed_scope_roots, first_safe_scope. When portable=false, emits `blocked_reasons` —
+ * missing_prerequisite:<name> and atlas_specific_assumption:<name> entries, deterministic order.
  *
  * Pure — no I/O, no provider calls, no enqueue.
  */
@@ -75,7 +81,7 @@ final class AtlasExternalBrainCrossProjectPortabilityPlanner
             default => 'read_only_discovery_scope_until_atlas_assumptions_resolved',
         };
 
-        return [
+        $result = [
             'schema' => self::SCHEMA,
             'portable' => $portable,
             'readiness_score' => $readinessScore,
@@ -84,5 +90,30 @@ final class AtlasExternalBrainCrossProjectPortabilityPlanner
             'portability_risks' => $portabilityRisks,
             'first_safe_scope' => $firstSafeScope,
         ];
+
+        if ($portable) {
+            $projectName = (string) ($project['project_name'] ?? '');
+            $queueNamespace = (string) ($project['queue_namespace'] ?? ('atlas.cross_project.'.($projectName !== '' ? $projectName : 'unnamed')));
+            $allowedScopeRoots = array_values(array_map('strval', (array) ($project['allowed_scope_roots'] ?? [])));
+
+            $result['lane_contract'] = [
+                'queue_namespace' => $queueNamespace,
+                'workspace_root' => (string) ($project['workspace_root'] ?? ''),
+                'docs_context_sync' => $checks['docs_context_sync'],
+                'evidence_gate' => $checks['evidence_gates'],
+                'worker_routing' => $checks['worker_routing'],
+                'allowed_scope_roots' => $allowedScopeRoots,
+                'first_safe_scope' => $firstSafeScope,
+            ];
+        } else {
+            $blockedReasons = array_merge(
+                array_map(static fn (string $m): string => 'missing_prerequisite:'.$m, $missing),
+                $portabilityRisks,
+            );
+            sort($blockedReasons, SORT_STRING);
+            $result['blocked_reasons'] = $blockedReasons;
+        }
+
+        return $result;
     }
 }
