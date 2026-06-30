@@ -38,7 +38,7 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
         [
             'dimension_id' => 'evidence_depth',
             'description'  => 'Did the model load and cite real evidence before generating candidates?',
-            'weight'       => 0.25,
+            'weight'       => 0.20,
         ],
         [
             'dimension_id' => 'dedup_honesty',
@@ -48,7 +48,7 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
         [
             'dimension_id' => 'critique_quality',
             'description'  => 'Did the anti-Goodhart critique eliminate proxy, cleanup, or fake-value candidates?',
-            'weight'       => 0.25,
+            'weight'       => 0.20,
         ],
         [
             'dimension_id' => 'runnable_proof',
@@ -58,6 +58,11 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
         [
             'dimension_id' => 'origination_leverage',
             'description'  => 'Does the produced task exponentially evolve the scope rather than optimise a proxy metric?',
+            'weight'       => 0.10,
+        ],
+        [
+            'dimension_id' => 'muscle_outcome_predictiveness',
+            'description'  => 'Does the candidate\'s risk/impact profile predict actual muscle outcome (commit_success vs give_back)?',
             'weight'       => 0.10,
         ],
     ];
@@ -136,6 +141,107 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
             ],
             'expected_behavior'   => 'compliant=false; missing_steps includes critique_pass',
             'evidence_requirements' => ['All mandatory scaffold artifacts must be verified before crediting tasks'],
+            'provider_safe'       => true,
+        ],
+        [
+            'case_id'             => 'cc-6-small-model-failure',
+            'description'         => 'Small model receives a high-ambiguity task (ambiguity=0.85, risk=0.75) — system must escalate to frontier instead of proceeding.',
+            'input'               => [
+                'task'         => ['ambiguity_score' => 0.85, 'give_back_risk_score' => 0.75],
+                'available_tier' => 'small_model',
+                'scaffold_available' => false,
+            ],
+            'expected_behavior'   => 'decision=frontier_model; degradation_risk flagged; small_model must not attempt the task',
+            'evidence_requirements' => [
+                'ambiguity_score and give_back_risk_score must be read before tier selection',
+                'small_model tier must not be selected when ambiguity>=0.70 and risk>=0.70',
+            ],
+            'provider_safe'       => true,
+        ],
+        [
+            'case_id'             => 'cc-7-frontier-accelerator',
+            'description'         => 'Task has high leverage (0.85) but scaffold_confidence is only 0.50 — frontier model must be selected as accelerator over scaffolded_small_model.',
+            'input'               => [
+                'task' => [
+                    'leverage_score'       => 0.85,
+                    'scaffold_confidence'  => 0.50,
+                    'ambiguity_score'      => 0.45,
+                    'give_back_risk_score' => 0.30,
+                ],
+                'frontier_available' => true,
+            ],
+            'expected_behavior'   => 'decision=frontier_model; R3 leverage rule fires (leverage>=0.80 AND scaffold_conf<0.65)',
+            'evidence_requirements' => [
+                'leverage_score and scaffold_confidence must both be evaluated',
+                'frontier must be selected when leverage>=0.80 and scaffold_conf<0.65',
+            ],
+            'provider_safe'       => true,
+        ],
+        [
+            'case_id'             => 'cc-8-task-fabric-value-filter',
+            'description'         => 'Candidate task has compound_impact_score=0.15 (below floor=0.30) — brutal value gate must reject with compound_impact_low.',
+            'input'               => [
+                'candidate' => [
+                    'target'                => 'AtlasLowValueService',
+                    'objective'             => 'Implement AtlasLowValueService to do a minor cosmetic adjustment to log output format.',
+                    'allowed_files'         => ['app/Services/Foo/AtlasLowValueService.php', 'tests/Unit/Foo/AtlasLowValueServiceTest.php'],
+                    'compound_impact_score' => 0.15,
+                    'give_back_risk_score'  => 0.20,
+                ],
+                'known_targets' => [],
+            ],
+            'expected_behavior'   => 'admitted=false; rejection_reasons contains compound_impact_low',
+            'evidence_requirements' => [
+                'compound_impact_score must be compared against the floor threshold before admission',
+                'admitted=false must be returned when score falls below floor',
+            ],
+            'provider_safe'       => true,
+        ],
+        [
+            'case_id'             => 'cc-9-queue-self-healing',
+            'description'         => 'Packet allowed_files contains only a test file with no implementation file — respec planner must detect test_only_packet and emit add_implementation_file action.',
+            'input'               => [
+                'packet' => [
+                    'target'              => 'AtlasOrphanOrgan',
+                    'allowed_files'       => ['tests/Unit/Ai/SelfConstruction/AtlasOrphanOrganTest.php'],
+                    'acceptance_criteria' => ['./vendor/bin/phpunit exits 0'],
+                    'forbidden_targets'   => [],
+                ],
+            ],
+            'expected_behavior'   => 'respec_required=true; issues contains test_only_packet; respec_actions contains add_implementation_file',
+            'evidence_requirements' => [
+                'allowed_files must be scanned for implementation vs test files before admission',
+                'test_only_packet must be flagged when no implementation file is present',
+            ],
+            'provider_safe'       => true,
+        ],
+        [
+            'case_id'             => 'cc-10-task-graph-ordering',
+            'description'         => 'Sprawl-reduction plan with merge+retire actions on the same organ — translator must order merge before retire and add depends_on link.',
+            'input'               => [
+                'plan' => [
+                    'actions' => [
+                        [
+                            'type'                        => 'retire',
+                            'organ'                       => 'AtlasLegacyOrgan',
+                            'behavior_preservation_tests' => ['legacy_behavior_preserved'],
+                            'allowed_files'               => ['app/Services/Ai/Legacy/AtlasLegacyOrgan.php', 'tests/Unit/Ai/Legacy/AtlasLegacyOrganTest.php'],
+                        ],
+                        [
+                            'type'                        => 'merge',
+                            'organ'                       => 'AtlasLegacyOrgan',
+                            'replacement_owner'           => 'AtlasNewOrgan',
+                            'behavior_preservation_tests' => ['merged_behavior_covered'],
+                            'allowed_files'               => ['app/Services/Ai/New/AtlasNewOrgan.php', 'tests/Unit/Ai/New/AtlasNewOrganTest.php'],
+                        ],
+                    ],
+                ],
+            ],
+            'expected_behavior'   => 'task_specs ordered merge first; retire spec has depends_on containing merge:AtlasLegacyOrgan',
+            'evidence_requirements' => [
+                'merge actions must precede retire actions in task_specs output',
+                'retire that targets a merged organ must declare depends_on the merge',
+            ],
             'provider_safe'       => true,
         ],
     ];

@@ -34,11 +34,11 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
 
     // ── challenge_cases ───────────────────────────────────────────────────────
 
-    public function test_at_least_five_challenge_cases(): void
+    public function test_at_least_ten_challenge_cases(): void
     {
         $result = $this->benchmarkSet()->load();
 
-        $this->assertGreaterThanOrEqual(5, count($result['challenge_cases']));
+        $this->assertGreaterThanOrEqual(10, count($result['challenge_cases']));
     }
 
     public function test_each_case_has_required_fields(): void
@@ -60,10 +60,32 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
         $result  = $this->benchmarkSet()->load();
         $caseIds = array_column($result['challenge_cases'], 'case_id');
 
-        foreach (['cc-1-no-evidence', 'cc-2-duplicate-target', 'cc-3-template-farming',
-                  'cc-4-drain-first', 'cc-5-scaffold-gap'] as $id) {
+        foreach ([
+            'cc-1-no-evidence', 'cc-2-duplicate-target', 'cc-3-template-farming',
+            'cc-4-drain-first', 'cc-5-scaffold-gap',
+            'cc-6-small-model-failure', 'cc-7-frontier-accelerator',
+            'cc-8-task-fabric-value-filter', 'cc-9-queue-self-healing',
+            'cc-10-task-graph-ordering',
+        ] as $id) {
             $this->assertContains($id, $caseIds);
         }
+    }
+
+    public function test_new_cases_cover_required_dimensions(): void
+    {
+        $result  = $this->benchmarkSet()->load();
+        $caseIds = array_column($result['challenge_cases'], 'case_id');
+
+        // non-frontier/small-model failure
+        $this->assertContains('cc-6-small-model-failure', $caseIds);
+        // frontier-as-accelerator
+        $this->assertContains('cc-7-frontier-accelerator', $caseIds);
+        // task-fabric value filtering
+        $this->assertContains('cc-8-task-fabric-value-filter', $caseIds);
+        // queue self-healing
+        $this->assertContains('cc-9-queue-self-healing', $caseIds);
+        // strategic task-graph ordering
+        $this->assertContains('cc-10-task-graph-ordering', $caseIds);
     }
 
     // ── case_ids filter ───────────────────────────────────────────────────────
@@ -120,7 +142,10 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
         $result = $this->benchmarkSet()->load();
         $ids    = array_column($result['scoring_dimensions'], 'dimension_id');
 
-        foreach (['evidence_depth', 'dedup_honesty', 'critique_quality', 'runnable_proof', 'origination_leverage'] as $id) {
+        foreach ([
+            'evidence_depth', 'dedup_honesty', 'critique_quality',
+            'runnable_proof', 'origination_leverage', 'muscle_outcome_predictiveness',
+        ] as $id) {
             $this->assertContains($id, $ids);
         }
     }
