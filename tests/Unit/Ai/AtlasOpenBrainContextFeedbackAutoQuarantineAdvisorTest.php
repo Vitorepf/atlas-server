@@ -108,6 +108,70 @@ final class AtlasOpenBrainContextFeedbackAutoQuarantineAdvisorTest extends TestC
         $this->assertCount(2, $result['proposals']);
     }
 
+    public function test_instruction_like_memory_high_severity_recommends_sanitization_or_quarantine(): void
+    {
+        $result = $this->advisor()->advise([
+            $this->record(['source_ref' => 'memory/injected.md', 'issue_code' => 'instruction_like', 'severity' => 'high']),
+        ]);
+
+        $action = $result['proposals'][0]['action'];
+        $this->assertContains($action, [
+            AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_REQUIRE_SANITIZATION,
+            AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_QUARANTINE,
+        ]);
+    }
+
+    public function test_repeated_instruction_like_flags_escalate_to_quarantine(): void
+    {
+        $records = array_fill(0, 2, $this->record(['source_ref' => 'memory/injected2.md', 'issue_code' => 'instruction_like', 'severity' => 'high']));
+
+        $result = $this->advisor()->advise($records);
+
+        $this->assertSame(AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_QUARANTINE, $result['proposals'][0]['action']);
+    }
+
+    public function test_emotional_manipulation_high_severity_recommends_sanitization_or_quarantine(): void
+    {
+        $result = $this->advisor()->advise([
+            $this->record(['source_ref' => 'memory/guilt-trip.md', 'issue_code' => 'emotional_manipulation', 'severity' => 'high']),
+        ]);
+
+        $action = $result['proposals'][0]['action'];
+        $this->assertContains($action, [
+            AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_REQUIRE_SANITIZATION,
+            AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_QUARANTINE,
+        ]);
+    }
+
+    public function test_repeated_emotional_manipulation_flags_escalate_to_quarantine(): void
+    {
+        $records = array_fill(0, 2, $this->record(['source_ref' => 'memory/guilt-trip2.md', 'issue_code' => 'emotional_manipulation', 'severity' => 'high']));
+
+        $result = $this->advisor()->advise($records);
+
+        $this->assertSame(AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_QUARANTINE, $result['proposals'][0]['action']);
+    }
+
+    public function test_low_severity_emotional_or_instruction_flags_do_not_force_quarantine(): void
+    {
+        $result = $this->advisor()->advise([
+            $this->record(['source_ref' => 'memory/mild.md', 'issue_code' => 'instruction_like', 'severity' => 'low']),
+        ]);
+
+        $this->assertSame(AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_NO_ACTION, $result['proposals'][0]['action']);
+    }
+
+    public function test_mixed_high_risk_codes_aggregate_toward_quarantine(): void
+    {
+        // One hostile + one instruction-like, both high severity, same source_ref — must escalate.
+        $result = $this->advisor()->advise([
+            $this->record(['source_ref' => 'memory/mixed.md', 'issue_code' => 'hostile_memory', 'severity' => 'high']),
+            $this->record(['source_ref' => 'memory/mixed.md', 'issue_code' => 'instruction_like', 'severity' => 'high']),
+        ]);
+
+        $this->assertSame(AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor::ACTION_QUARANTINE, $result['proposals'][0]['action']);
+    }
+
     public function test_result_is_deterministic_for_identical_input(): void
     {
         $advisor = $this->advisor();

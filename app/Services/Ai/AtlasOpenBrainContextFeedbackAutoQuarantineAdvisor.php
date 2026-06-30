@@ -32,6 +32,15 @@ final class AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor
     private const HOSTILE_QUARANTINE_THRESHOLD = 2;
 
     /**
+     * Issue codes that represent an adversarial or unsafe memory ref (not just low-quality):
+     * hostile language, emotionally-manipulative wording designed to bias a worker, or
+     * instruction-like text smuggled into a memory ref to redirect a worker's behavior
+     * (prompt injection). Any of these at high severity is treated identically — a single
+     * flag requires sanitization, repeated flags escalate straight to quarantine.
+     */
+    private const HIGH_RISK_ISSUE_CODES = ['hostile_memory', 'emotional_manipulation', 'instruction_like'];
+
+    /**
      * @param  list<array<string, mixed>>  $feedbackRecords
      * @return array<string, mixed>
      */
@@ -68,23 +77,22 @@ final class AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor
     private function proposalFor(string $sourceRef, array $records): array
     {
         $issueCounts = [];
-        $hostileHighSeverity = false;
+        $highRiskHighSeverityCount = 0;
         foreach ($records as $record) {
             $issue = (string) ($record['issue_code'] ?? 'unknown');
             $issueCounts[$issue] = ($issueCounts[$issue] ?? 0) + 1;
-            if ($issue === 'hostile_memory' && (string) ($record['severity'] ?? '') === 'high') {
-                $hostileHighSeverity = true;
+            if (in_array($issue, self::HIGH_RISK_ISSUE_CODES, true) && (string) ($record['severity'] ?? '') === 'high') {
+                $highRiskHighSeverityCount++;
             }
         }
         ksort($issueCounts);
 
-        $hostileCount = $issueCounts['hostile_memory'] ?? 0;
         $staleCount = $issueCounts['stale'] ?? 0;
         $noisyCount = $issueCounts['noisy'] ?? 0;
 
         [$action, $reason] = match (true) {
-            $hostileHighSeverity && $hostileCount >= self::HOSTILE_QUARANTINE_THRESHOLD => [self::ACTION_QUARANTINE, 'repeated_high_severity_hostile_memory_flags'],
-            $hostileHighSeverity => [self::ACTION_REQUIRE_SANITIZATION, 'high_severity_hostile_memory_flag'],
+            $highRiskHighSeverityCount >= self::HOSTILE_QUARANTINE_THRESHOLD => [self::ACTION_QUARANTINE, 'repeated_high_severity_unsafe_memory_flags'],
+            $highRiskHighSeverityCount >= 1 => [self::ACTION_REQUIRE_SANITIZATION, 'high_severity_unsafe_memory_flag'],
             $staleCount >= self::STALE_DEMOTE_THRESHOLD => [self::ACTION_DEMOTE, 'repeated_stale_flags'],
             $noisyCount >= self::NOISY_DEMOTE_THRESHOLD => [self::ACTION_DEMOTE, 'repeated_noisy_flags'],
             default => [self::ACTION_NO_ACTION, 'insufficient_evidence'],
