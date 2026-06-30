@@ -8,11 +8,12 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Throwable;
 
 /**
- * Operator front-door for the Maestro tiering surface (4 verbs):
+ * Operator front-door for the Maestro tiering surface (5 verbs):
  *   classify        — emit {@see AtlasMaestroTaskTierClassifier} output for a given packet
  *   register-worker — persist a worker's declaredMaxTier in {@see AtlasMaestroWorkerTierRegistry}
  *   policy          — emit advisory {@see AtlasMaestroTieredRoutingPolicy} verdict for (client, packet)
  *   history         — dump {@see AtlasMaestroTierMismatchLedger} tail (optionally per-client)
+ *   scoreboard      — read-only performance digest grouped by client_id (mismatch_count, hardest_refused_tier, recommended_max_tier)
  *
  * INVARIANTS:
  *   - Gated by ATLAS_LOOP_MASTER_ENABLED: every verb prints {status:'disabled'} and is byte-identical
@@ -46,6 +47,7 @@ final class AtlasMaestroTieringCli
             'register-worker' => $this->registerWorkerVerb($options),
             'policy' => $this->policyVerb($options),
             'history' => $this->historyVerb($options),
+            'scoreboard' => $this->scoreboardVerb($options),
             default => ['schema' => 'atlas.maestro.tiering.v1', 'status' => 'unknown_verb', 'verb' => $verb],
         };
     }
@@ -124,6 +126,52 @@ final class AtlasMaestroTieringCli
         $rows = $this->ledger->history($limit, $client === '' ? null : $client);
 
         return ['schema' => 'atlas.maestro.tiering.v1', 'status' => 'ok', 'verb' => 'history', 'rows' => $rows];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     */
+    private function scoreboardVerb(array $options): array
+    {
+        $client = trim((string) ($options['client_id'] ?? ''));
+        $limit = max(1, (int) ($options['limit'] ?? 50));
+        $rows = $this->ledger->history($limit, $client === '' ? null : $client);
+
+        // Ascending tier order: index = rank.
+        $tierRank = ['easy' => 0, 'medium' => 1, 'hard' => 2, 'hardest' => 3];
+        $tierByRank = array_flip($tierRank);
+
+        // All ledger rows are already refusals (the ledger filters non-refuses at record time).
+        $byClient = [];
+        foreach ($rows as $row) {
+            $cid = (string) ($row['client_id'] ?? '');
+            if ($cid === '') {
+                continue;
+            }
+            if (! isset($byClient[$cid])) {
+                $byClient[$cid] = ['mismatch_count' => 0, 'hardest_rank' => -1];
+            }
+            $byClient[$cid]['mismatch_count']++;
+            $rank = $tierRank[$row['inferred_tier'] ?? ''] ?? -1;
+            if ($rank > $byClient[$cid]['hardest_rank']) {
+                $byClient[$cid]['hardest_rank'] = $rank;
+            }
+        }
+
+        $scoreboard = [];
+        foreach ($byClient as $cid => $data) {
+            $hRank = $data['hardest_rank'];
+            $scoreboard[] = [
+                'client_id'             => $cid,
+                'mismatch_count'        => $data['mismatch_count'],
+                'hardest_refused_tier'  => $hRank >= 0 ? ($tierByRank[$hRank] ?? null) : null,
+                'recommended_max_tier'  => $hRank > 0 ? ($tierByRank[$hRank - 1] ?? null) : ($hRank === 0 ? ($tierByRank[0] ?? null) : null),
+            ];
+        }
+
+        usort($scoreboard, static fn (array $a, array $b): int => $b['mismatch_count'] <=> $a['mismatch_count']);
+
+        return ['schema' => 'atlas.maestro.tiering.v1', 'status' => 'ok', 'verb' => 'scoreboard', 'scoreboard' => $scoreboard];
     }
 
     /**

@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger;
+use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTieredRoutingPolicy;
 use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
@@ -159,6 +160,70 @@ final class AtlasMaestroTieringCliTest extends TestCase
         $afterLedger = is_file($this->ledgerPath) ? filesize($this->ledgerPath) : -1;
         $this->assertSame($beforeReg, $afterReg, 'master-off must not touch the registry');
         $this->assertSame($beforeLedger, $afterLedger, 'master-off must not touch the ledger');
+    }
+
+    private function refusal(string $clientId, string $packetTier, string $packetId): void
+    {
+        $this->app->make(AtlasMaestroTierMismatchLedger::class)->record([
+            'verdict'                => AtlasMaestroTieredRoutingPolicy::VERDICT_REFUSE,
+            'packet_tier'            => $packetTier,
+            'packet_fact_basis'      => [],
+            'worker_declared_max_tier' => 'easy',
+            'client_id'              => $clientId,
+            'reason'                 => 'r',
+        ], ['packet_id' => $packetId]);
+    }
+
+    public function test_scoreboard_groups_by_client_with_mismatch_stats_and_recommendation(): void
+    {
+        // sonnet: 2 refusals (hardest + hard) → hardest_refused=hardest, recommend=hard
+        $this->refusal('sonnet-cli-1', 'hardest', 'p1');
+        $this->refusal('sonnet-cli-1', 'hard', 'p2');
+        // codex: 1 refusal (hard) → recommend=medium
+        $this->refusal('codex-1', 'hard', 'p3');
+
+        $exit = Artisan::call('atlas:task', ['action' => 'maestro:tiering', 'verb' => 'scoreboard', '--json' => true]);
+        $output = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('ok', $output['status']);
+        $this->assertSame('scoreboard', $output['verb']);
+        $this->assertArrayHasKey('scoreboard', $output);
+
+        $byClient = array_column($output['scoreboard'], null, 'client_id');
+        $this->assertArrayHasKey('sonnet-cli-1', $byClient);
+        $this->assertSame(2, $byClient['sonnet-cli-1']['mismatch_count']);
+        $this->assertSame('hardest', $byClient['sonnet-cli-1']['hardest_refused_tier']);
+        $this->assertSame('hard', $byClient['sonnet-cli-1']['recommended_max_tier']);
+        $this->assertArrayHasKey('codex-1', $byClient);
+        $this->assertSame(1, $byClient['codex-1']['mismatch_count']);
+        $this->assertSame('hard', $byClient['codex-1']['hardest_refused_tier']);
+        $this->assertSame('medium', $byClient['codex-1']['recommended_max_tier']);
+    }
+
+    public function test_scoreboard_client_filter_is_read_only_and_scopes_output(): void
+    {
+        $this->refusal('sonnet-cli-1', 'hard', 'px');
+        $this->refusal('other-client', 'easy', 'py');
+
+        $beforeReg = is_file($this->registryPath) ? filesize($this->registryPath) : -1;
+
+        $exit = Artisan::call('atlas:task', [
+            'action' => 'maestro:tiering',
+            'verb' => 'scoreboard',
+            '--client' => 'sonnet-cli-1',
+            '--limit' => 5,
+            '--json' => true,
+        ]);
+        $output = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit);
+        $clients = array_column($output['scoreboard'], 'client_id');
+        $this->assertContains('sonnet-cli-1', $clients);
+        $this->assertNotContains('other-client', $clients, 'client filter must scope scoreboard');
+        // Read-only: registry must not change.
+        $afterReg = is_file($this->registryPath) ? filesize($this->registryPath) : -1;
+        $this->assertSame($beforeReg, $afterReg, 'scoreboard must not write registry');
     }
 
     public function test_classify_emits_classifier_result(): void
