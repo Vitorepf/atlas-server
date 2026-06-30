@@ -65,7 +65,8 @@ final class AtlasStrategyCouncilLeverageRanker
             $proxyOnly = $proxySignals !== [] && array_values(array_diff($proxySignals, self::PROXY_ONLY_KINDS)) === [];
             $hasRealLever = (int) ($c['capability_gap'] ?? 0) > 0
                 || (int) ($c['user_impact'] ?? 0) > 0
-                || (int) ($c['autonomy_unlock'] ?? 0) > 0;
+                || (int) ($c['autonomy_unlock'] ?? 0) > 0
+                || (int) ($c['worker_continuity_delta'] ?? 0) > 0;
             if ($proxyOnly && ! $hasRealLever) {
                 $reasons[] = 'rejected:proxy_signals_only:'.implode(',', $proxySignals);
                 $zeroLevers = array_keys(array_filter([
@@ -97,6 +98,7 @@ final class AtlasStrategyCouncilLeverageRanker
                 'factors' => [
                     'organ' => (string) ($c['organ'] ?? ''),
                     'cross_campaign_compounding' => $crossCampaignCompounding,
+                    'worker_continuity_delta' => (int) ($c['worker_continuity_delta'] ?? 0),
                     'campaign_count' => $campaignCount,
                     'unlock_family_count' => $unlockFamilyCount,
                     'capability_gap' => (int) ($c['capability_gap'] ?? 0),
@@ -115,6 +117,7 @@ final class AtlasStrategyCouncilLeverageRanker
 
         usort($accepted, function (array $a, array $b): int {
             return $b['factors']['cross_campaign_compounding'] <=> $a['factors']['cross_campaign_compounding']
+                ?: $b['factors']['worker_continuity_delta'] <=> $a['factors']['worker_continuity_delta']
                 ?: $b['factors']['autonomy_unlock'] <=> $a['factors']['autonomy_unlock']
                 ?: $b['factors']['unblocks_count'] <=> $a['factors']['unblocks_count']
                 ?: $b['factors']['capability_gap'] <=> $a['factors']['capability_gap']
@@ -130,6 +133,7 @@ final class AtlasStrategyCouncilLeverageRanker
         foreach ($accepted as $i => $row) {
             $accepted[$i]['reasons'] = [
                 'cross_campaign_compounding='.$row['factors']['cross_campaign_compounding'],
+                'worker_continuity_delta='.$row['factors']['worker_continuity_delta'],
                 'campaign_count='.$row['factors']['campaign_count'],
                 'unlock_family_count='.$row['factors']['unlock_family_count'],
                 'autonomy_unlock='.$row['factors']['autonomy_unlock'],
@@ -165,7 +169,7 @@ final class AtlasStrategyCouncilLeverageRanker
     private function dominanceTrace(array $w, array $n): string
     {
         // DESC comparisons (higher is better)
-        $descFactors = ['cross_campaign_compounding', 'autonomy_unlock', 'unblocks_count', 'capability_gap',
+        $descFactors = ['cross_campaign_compounding', 'worker_continuity_delta', 'autonomy_unlock', 'unblocks_count', 'capability_gap',
                         'user_impact', 'waste_reduction', 'risk_reduction', 'evidence_refs_count'];
         foreach ($descFactors as $f) {
             $wv = (int) ($w[$f] ?? 0);
