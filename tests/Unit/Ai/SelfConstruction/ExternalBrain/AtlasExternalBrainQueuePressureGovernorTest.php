@@ -263,6 +263,68 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
         $this->assertSame(1.0, $budget['evidence_floor']);
     }
 
+    // ── live servable-per-worker ratio ─────────────────────────────────────────
+
+    public function test_deep_servable_ratio_far_above_worker_capacity_defers_low_leverage_candidate(): void
+    {
+        // claimable_depth(20) is BELOW the old static HIGH_CLAIMABLE_DEPTH(30) threshold, but
+        // servable_depth(100) / active_leases(10) = 10.0 is far above HIGH_SERVABLE_PER_WORKER_RATIO(5.0).
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 100],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_DEFER, $result['decision']);
+        $this->assertStringContainsString('servable_per_worker_ratio', $result['reason']);
+    }
+
+    public function test_shallow_servable_depth_does_not_trigger_live_ratio_defer(): void
+    {
+        // servable_depth(5) / active_leases(10) = 0.5, far below the ratio threshold; claimable_depth
+        // and active_leases are also both below their static thresholds — healthy queue.
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 5],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+    }
+
+    public function test_dependency_unlock_score_bypasses_live_ratio_pressure_to_enqueue_now(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 100],
+            candidate:  ['leverage_score' => 0.10, 'dependency_unlock_score' => 0.90, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertFalse($result['urgent_override']);
+    }
+
+    public function test_urgent_repair_class_still_enqueues_now_under_high_live_ratio_depth(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 200],
+            candidate:  ['leverage_score' => 0.0, 'task_class' => 'malformed'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertTrue($result['urgent_override']);
+    }
+
+    public function test_batch_budget_shrinks_under_live_ratio_pressure_and_names_the_ratio(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 100],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_DEFER, $result['decision']);
+        $budget = $result['batch_budget'];
+        $this->assertSame(1, $budget['max_tasks'], 'batch budget must shrink to 1 under elevated live-ratio pressure');
+        $this->assertStringContainsString('servable_per_worker_ratio', $budget['reason']);
+    }
+
     public function test_urgent_repair_budget_has_no_floors(): void
     {
         $result = $this->governor()->decide($this->input(

@@ -45,6 +45,11 @@ final class AtlasExternalBrainQueuePressureGovernor
     private const HIGH_CLAIMABLE_DEPTH = 30;
     private const HIGH_ACTIVE_LEASES   = 15;
 
+    /** Live ratio: servable work queued per active worker. Catches a deep EFFECTIVE queue (e.g.
+     *  100+ servable tasks across a handful of workers) even when raw claimable_depth alone is
+     *  below HIGH_CLAIMABLE_DEPTH. */
+    private const HIGH_SERVABLE_PER_WORKER_RATIO = 5.0;
+
     private const HIGH_LEVERAGE    = 0.75;
     private const MEDIUM_LEVERAGE  = 0.50;
 
@@ -67,10 +72,18 @@ final class AtlasExternalBrainQueuePressureGovernor
 
         $claimableDepth = (int) ($queueState['claimable_depth'] ?? 0);
         $activeLeases   = (int) ($queueState['active_leases']   ?? 0);
+        $servableDepth  = (int) ($queueState['servable_depth']  ?? 0);
 
-        $leverageScore  = (float) ($candidate['leverage_score'] ?? 0.0);
+        $leverageScore        = (float) ($candidate['leverage_score'] ?? 0.0);
+        $dependencyUnlockScore = (float) ($candidate['dependency_unlock_score'] ?? 0.0);
+        $effectiveLeverage     = max($leverageScore, $dependencyUnlockScore);
         $category       = trim((string) ($candidate['category']   ?? ''));
         $taskClass      = strtolower(trim((string) ($candidate['task_class'] ?? 'normal')));
+
+        // Live ratio: how much servable work is queued PER active worker — a deep effective
+        // queue can exist even when raw claimable_depth alone looks moderate.
+        $servablePerWorker = $activeLeases > 0 ? $servableDepth / $activeLeases : (float) $servableDepth;
+        $highServableRatio = $servablePerWorker >= self::HIGH_SERVABLE_PER_WORKER_RATIO;
 
         $blockedFamilies = array_map('strtolower', (array) ($context['blocked_families'] ?? []));
         $workerPressure  = strtolower(trim((string) ($context['worker_pressure'] ?? 'normal')));
@@ -82,19 +95,28 @@ final class AtlasExternalBrainQueuePressureGovernor
 
         $highClaimable = $claimableDepth >= self::HIGH_CLAIMABLE_DEPTH;
         $highLeases    = $activeLeases   >= self::HIGH_ACTIVE_LEASES;
+        $queueDeep     = $highClaimable || $highServableRatio;
 
         // --- Critical pressure: both dimensions saturated → stop ---
-        if ($highClaimable && $highLeases) {
-            return $this->result(self::DECISION_STOP, "critical pressure: claimable_depth={$claimableDepth} and active_leases={$activeLeases} both at ceiling");
+        if ($queueDeep && $highLeases) {
+            $ratioNote = $highServableRatio ? " live servable_per_worker_ratio={$servablePerWorker}" : '';
+
+            return $this->result(self::DECISION_STOP, "critical pressure: claimable_depth={$claimableDepth} and active_leases={$activeLeases} both at ceiling{$ratioNote}", liveRatioReason: $highServableRatio ? (string) $servablePerWorker : null);
         }
 
-        // --- High pressure on either dimension ---
-        if ($highClaimable || $highLeases) {
-            if ($leverageScore >= self::HIGH_LEVERAGE) {
-                return $this->result(self::DECISION_ENQUEUE_NOW, "high-leverage prerequisite (score={$leverageScore}) admitted despite elevated pressure", underPressure: true);
+        // --- High pressure on either dimension (including the live servable-per-worker ratio) ---
+        if ($queueDeep || $highLeases) {
+            if ($effectiveLeverage >= self::HIGH_LEVERAGE) {
+                $bypassReason = $dependencyUnlockScore > $leverageScore
+                    ? "high dependency_unlock_score={$dependencyUnlockScore} admitted despite elevated pressure (live servable_per_worker_ratio={$servablePerWorker})"
+                    : "high-leverage prerequisite (score={$leverageScore}) admitted despite elevated pressure";
+
+                return $this->result(self::DECISION_ENQUEUE_NOW, $bypassReason, underPressure: true);
             }
 
-            return $this->result(self::DECISION_DEFER, "queue pressure elevated (claimable={$claimableDepth}, leases={$activeLeases}); low-leverage batch deferred", underPressure: true);
+            $ratioNote = $highServableRatio ? " live servable_per_worker_ratio={$servablePerWorker}" : '';
+
+            return $this->result(self::DECISION_DEFER, "queue pressure elevated (claimable={$claimableDepth}, leases={$activeLeases}){$ratioNote}; low-leverage batch deferred", underPressure: true, liveRatioReason: $highServableRatio ? (string) $servablePerWorker : null);
         }
 
         // --- Blocked family check ---
@@ -116,19 +138,19 @@ final class AtlasExternalBrainQueuePressureGovernor
     }
 
     /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,batch_budget:array<string,mixed>} */
-    private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false): array
+    private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false, ?string $liveRatioReason = null): array
     {
         return [
             'schema'          => self::SCHEMA,
             'decision'        => $decision,
             'reason'          => $reason,
             'urgent_override' => $urgentOverride,
-            'batch_budget'    => $this->buildBatchBudget($decision, $urgentOverride, $underPressure),
+            'batch_budget'    => $this->buildBatchBudget($decision, $urgentOverride, $underPressure, $liveRatioReason),
         ];
     }
 
     /** @return array{max_tasks:int, minimum_leverage_score:float, evidence_floor:float, reason:string} */
-    private function buildBatchBudget(string $decision, bool $urgentOverride, bool $underPressure): array
+    private function buildBatchBudget(string $decision, bool $urgentOverride, bool $underPressure, ?string $liveRatioReason = null): array
     {
         if ($urgentOverride) {
             return [
@@ -138,6 +160,8 @@ final class AtlasExternalBrainQueuePressureGovernor
                 'reason'                 => 'urgent repair bypass: no leverage or evidence floor applies',
             ];
         }
+
+        $ratioSuffix = $liveRatioReason !== null ? " (live servable_per_worker_ratio={$liveRatioReason})" : '';
 
         return match ($decision) {
             self::DECISION_ENQUEUE_NOW => $underPressure
@@ -153,13 +177,13 @@ final class AtlasExternalBrainQueuePressureGovernor
                 'max_tasks'              => 1,
                 'minimum_leverage_score' => 0.75,
                 'evidence_floor'         => 0.60,
-                'reason'                 => 'elevated pressure: at most 1 high-leverage task per digest cycle',
+                'reason'                 => 'elevated pressure: at most 1 high-leverage task per digest cycle'.$ratioSuffix,
             ],
             self::DECISION_STOP => [
                 'max_tasks'              => 0,
                 'minimum_leverage_score' => 1.0,
                 'evidence_floor'         => 1.0,
-                'reason'                 => 'critical pressure: no new tasks may be enqueued',
+                'reason'                 => 'critical pressure: no new tasks may be enqueued'.$ratioSuffix,
             ],
             default => [
                 'max_tasks'              => 1,
