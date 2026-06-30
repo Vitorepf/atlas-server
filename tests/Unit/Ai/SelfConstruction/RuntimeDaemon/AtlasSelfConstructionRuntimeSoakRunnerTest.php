@@ -118,4 +118,42 @@ class AtlasSelfConstructionRuntimeSoakRunnerTest extends TestCase
         self::assertSame($a['soak_run_hash'], $b['soak_run_hash']);
         self::assertStringStartsWith('soak_run_', $a['soak_run_hash']);
     }
+
+    public function test_safety_stop_tick_does_not_fail_soak_and_counts_as_held(): void
+    {
+        $scenario = [
+            'virtual_ticks' => [
+                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+                ['index' => 1, 'kind' => 'safety_stop', 'expected_outcome' => 'safety_stop_observed'],
+                ['index' => 2, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+            ],
+        ];
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
+
+        self::assertTrue($verdict['passed'], 'safety_stop alone must not fail the soak');
+        self::assertSame(2, $verdict['green_count']);
+        self::assertSame(1, $verdict['held_count'], 'safety_stop tick must count toward held');
+        self::assertSame(3, $verdict['tick_count']);
+    }
+
+    public function test_dry_queue_stop_empty_scenario_passes_cleanly(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run(['virtual_ticks' => []]);
+
+        self::assertTrue($verdict['passed']);
+        self::assertSame(0, $verdict['tick_count']);
+        self::assertSame(0, $verdict['failed_count']);
+        self::assertSame([], $verdict['dependency_violations']);
+        self::assertStringStartsWith('soak_run_', $verdict['soak_run_hash']);
+    }
+
+    public function test_max_cycle_stop_limits_ticks_to_scenario_max(): void
+    {
+        $maxTicks = 5;
+        $scenario = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build(['max_ticks' => $maxTicks]);
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
+
+        self::assertSame($maxTicks, $verdict['tick_count'], 'runner must stop at max_ticks boundary');
+        self::assertTrue($verdict['passed']);
+    }
 }
