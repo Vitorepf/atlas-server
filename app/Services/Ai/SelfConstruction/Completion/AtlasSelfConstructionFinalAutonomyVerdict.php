@@ -31,13 +31,24 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
 
     public const VERDICT_UNSAFE = 'unsafe';
 
+    /** @var list<string> */
+    public const REQUIRED_CAPABILITY_LANES = [
+        'self_recovery',
+        'balanced_lane_generation',
+        'task_repair',
+        'muscle_feedback_learning',
+        'frontier_import',
+        'compounding',
+    ];
+
     /**
      * @param  array<string,mixed>  $auditVerdict
      * @param  array<string,mixed>  $transitionMap
      * @param  array<string,mixed>  $readinessPolicy
+     * @param  array<string,bool>  $capabilityFacts  Keyed by REQUIRED_CAPABILITY_LANES names; omit to skip check.
      * @return array<string,mixed>
      */
-    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy): array
+    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = []): array
     {
         $atlasNative = (bool) ($auditVerdict['atlas_native'] ?? false);
         $auditBlockers = array_values((array) ($auditVerdict['blockers'] ?? []));
@@ -45,6 +56,18 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
         $replacements = array_values((array) ($transitionMap['replacements'] ?? []));
         $readinessState = (string) ($readinessPolicy['state'] ?? 'unknown');
         $readinessBlockers = array_values((array) ($readinessPolicy['blockers'] ?? []));
+
+        $missingLanes = [];
+        $score = 0;
+        if ($capabilityFacts !== []) {
+            foreach (self::REQUIRED_CAPABILITY_LANES as $lane) {
+                if (! (bool) ($capabilityFacts[$lane] ?? false)) {
+                    $missingLanes[] = $lane;
+                }
+            }
+            $metCount = count(self::REQUIRED_CAPABILITY_LANES) - count($missingLanes);
+            $score = (int) floor($metCount / count(self::REQUIRED_CAPABILITY_LANES) * 100);
+        }
 
         $blockers = [];
         $nextActions = [];
@@ -64,7 +87,20 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $nextActions[] = 'route_atlas_native_replacement_capabilities';
 
-            return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions);
+            return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions, $score);
+        }
+
+        // INCOMPLETE — missing capability lanes block final readiness.
+        if ($missingLanes !== []) {
+            foreach ($missingLanes as $lane) {
+                $blockers[] = 'missing_capability_lane:'.$lane;
+            }
+            foreach ($replacements as $r) {
+                $nextActions[] = (string) ($r['task_fabric_action'] ?? '');
+            }
+            $nextActions[] = 'provision_missing_capability_lanes';
+
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score);
         }
 
         // INCOMPLETE — atlas_native AND not blocked, but untransitioned deps OR readiness not explicitly ready.
@@ -86,10 +122,10 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $nextActions[] = 'extend_transition_map_for_unknown_steps';
 
-            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions);
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score);
         }
 
-        return $this->envelope(self::VERDICT_COMPLETE, [], []);
+        return $this->envelope(self::VERDICT_COMPLETE, [], [], $score);
     }
 
     /**
@@ -97,7 +133,7 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
      * @param  list<string>  $nextActions
      * @return array<string,mixed>
      */
-    private function envelope(string $verdict, array $blockers, array $nextActions): array
+    private function envelope(string $verdict, array $blockers, array $nextActions, int $score = 0): array
     {
         return [
             'schema_version' => self::SCHEMA,
@@ -105,6 +141,7 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             'blockers' => array_values(array_unique($blockers)),
             'next_atlas_actions' => array_values(array_unique(array_filter($nextActions, static fn (string $s): bool => $s !== ''))),
             'asks_for_human' => false,
+            'score' => $score,
         ];
     }
 }

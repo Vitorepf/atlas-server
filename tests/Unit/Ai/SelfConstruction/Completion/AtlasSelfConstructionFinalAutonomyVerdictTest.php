@@ -94,6 +94,58 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
         $this->assertContains('readiness:unknown', $verdict['blockers'], 'absent readiness state must produce a blocker');
     }
 
+    public function test_incomplete_when_any_required_capability_lane_is_missing(): void
+    {
+        $allLanes = array_fill_keys(AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, true);
+        $allLanes['task_repair'] = false;
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $allLanes,
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('missing_capability_lane:task_repair', $verdict['blockers']);
+        $this->assertContains('provision_missing_capability_lanes', $verdict['next_atlas_actions']);
+        $this->assertLessThan(90, $verdict['score']);
+        $this->assertFalse($verdict['asks_for_human']);
+    }
+
+    public function test_complete_with_score_at_least_90_when_all_capability_lanes_met(): void
+    {
+        $allLanes = array_fill_keys(AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, true);
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $allLanes,
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+        $this->assertGreaterThanOrEqual(90, $verdict['score']);
+    }
+
+    public function test_score_below_90_when_partial_capability_lanes_met(): void
+    {
+        $lanes = array_fill_keys(AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, true);
+        $lastLane = array_key_last($lanes);
+        $lanes[$lastLane] = false; // 5/6 → floor(5/6*100) = 83
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $lanes,
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertSame(83, $verdict['score']);
+    }
+
     public function test_asks_for_human_is_always_false(): void
     {
         $svc = new AtlasSelfConstructionFinalAutonomyVerdict;
