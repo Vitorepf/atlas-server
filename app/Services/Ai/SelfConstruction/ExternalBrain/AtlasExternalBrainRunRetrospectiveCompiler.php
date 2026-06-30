@@ -85,36 +85,44 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         $rootCauseMap = $this->buildRootCauseMap($outcomes);
         $policies     = $this->buildPolicyAdjustments($outcomes, $byCategory, $integrity, $rootCauseMap);
         $hints        = $this->buildNextCycleHints($summary, $byCategory, $integrity, $policies);
+        $adjustments  = $this->buildNextCycleAdjustments($summary, $byCategory, $integrity, $rootCauseMap);
 
         return [
-            'schema'              => self::SCHEMA,
-            'run_id'              => $runId,
-            'integrity_signal'    => $integrity,
-            'summary'             => $summary,
-            'high_leverage_specs' => $highLeverage,
-            'wasted_specs'        => $wasted,
-            'lessons'             => $lessons,
-            'root_cause_map'      => $rootCauseMap,
-            'policy_adjustments'  => $policies,
-            'next_cycle_hints'    => $hints,
+            'schema'                 => self::SCHEMA,
+            'run_id'                 => $runId,
+            'integrity_signal'       => $integrity,
+            'summary'                => $summary,
+            'high_leverage_specs'    => $highLeverage,
+            'wasted_specs'           => $wasted,
+            'lessons'                => $lessons,
+            'root_cause_map'         => $rootCauseMap,
+            'policy_adjustments'     => $policies,
+            'next_cycle_hints'       => $hints,
+            'next_cycle_adjustments' => $adjustments,
         ];
     }
 
     /** @param list<array<string,mixed>> $outcomes */
     private function buildSummary(array $outcomes): array
     {
-        $total        = count($outcomes);
-        $successCount = 0;
-        $giveBackCount = 0;
-        $rejectedCount = 0;
-        $proxyCount   = 0;
-        $totalTokens  = 0;
-        $wastedTokens = 0;
+        $total          = count($outcomes);
+        $successCount   = 0;
+        $giveBackCount  = 0;
+        $rejectedCount  = 0;
+        $proxyCount     = 0;
+        $duplicateCount = 0;
+        $totalTokens    = 0;
+        $wastedTokens   = 0;
 
         foreach ($outcomes as $o) {
             $outcome = (string) ($o['outcome'] ?? '');
             $tokens  = (int) ($o['tokens_spent'] ?? 0);
+            $reason  = (string) ($o['reason'] ?? '');
             $totalTokens += $tokens;
+
+            if (str_contains($reason, 'duplicate')) {
+                $duplicateCount++;
+            }
 
             match ($outcome) {
                 self::OUTCOME_SUCCESS     => $successCount++,
@@ -125,14 +133,15 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
             };
         }
 
-        $yieldRate         = $total > 0 ? round($successCount / $total, 4) : 0.0;
-        $wastedTokenRatio  = $totalTokens > 0 ? round($wastedTokens / $totalTokens, 4) : 0.0;
+        $yieldRate        = $total > 0 ? round($successCount / $total, 4) : 0.0;
+        $wastedTokenRatio = $totalTokens > 0 ? round($wastedTokens / $totalTokens, 4) : 0.0;
 
         return [
             'total_outcomes'     => $total,
             'success_count'      => $successCount,
             'give_back_count'    => $giveBackCount,
             'rejected_count'     => $rejectedCount,
+            'duplicate_count'    => $duplicateCount,
             'proxy_smell_count'  => $proxyCount,
             'yield_rate'         => $yieldRate,
             'total_tokens_spent' => $totalTokens,
@@ -456,6 +465,73 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         }
 
         return $policies;
+    }
+
+    /**
+     * AC2: Build next_cycle_adjustments with promote_patterns, avoid_patterns,
+     * consolidate_targets and research_gaps derived from evidence (no self-declarations).
+     *
+     * @param  array<string,mixed>              $summary
+     * @param  array<string,array<string,mixed>> $byCategory
+     * @param  array<string,list<array<string,mixed>>> $rootCauseMap
+     * @return array{promote_patterns:list<string>,avoid_patterns:list<string>,consolidate_targets:list<string>,research_gaps:list<string>}
+     */
+    private function buildNextCycleAdjustments(array $summary, array $byCategory, string $integrity, array $rootCauseMap): array
+    {
+        $promotePatterns    = [];
+        $avoidPatterns      = [];
+        $consolidateTargets = [];
+        $researchGaps       = [];
+
+        // promote: high-yield categories (≥70% success, ≥2 outcomes)
+        foreach ($byCategory as $cat => $stats) {
+            if ($stats['total'] >= 2 && ($stats['success'] / $stats['total']) >= 0.70) {
+                $promotePatterns[] = "category:{$cat}";
+            }
+        }
+
+        // avoid: low-yield categories + padding + high token waste (AC3)
+        foreach ($byCategory as $cat => $stats) {
+            if ($stats['total'] >= 2 && ($stats['success'] / $stats['total']) < 0.35) {
+                $avoidPatterns[] = "category:{$cat}";
+            }
+        }
+        if ($integrity === self::SIGNAL_PADDING_DETECTED) {
+            $avoidPatterns[] = 'quota_padding_patterns';
+        }
+        if ($summary['wasted_token_ratio'] > 0.50) {
+            $avoidPatterns[] = 'high_token_waste:reduce_expensive_patterns';
+        }
+
+        // consolidate: repeated rejection of same target (AC3)
+        $duplicateEntries = $rootCauseMap['duplicate_target'] ?? [];
+        if (count($duplicateEntries) >= 2) {
+            foreach ($duplicateEntries as $entry) {
+                if ($entry['spec_id'] !== '') {
+                    $consolidateTargets[] = $entry['spec_id'];
+                }
+            }
+        }
+        // Also flag repeated rejection (rejected_count from summary)
+        if (($summary['rejected_count'] ?? 0) >= 3) {
+            $consolidateTargets[] = 'repeated_rejection:review_spec_templates';
+        }
+
+        // research_gaps: weak evidence patterns
+        if (count($rootCauseMap['weak_evidence'] ?? []) >= 1) {
+            $researchGaps[] = 'weak_evidence:gather_evidence_before_next_cycle';
+        }
+        // Low overall yield with insufficient diversity signals a discovery gap
+        if (($summary['yield_rate'] ?? 1.0) < 0.40 && ($summary['total_outcomes'] ?? 0) >= 3) {
+            $researchGaps[] = 'low_yield:investigate_category_selection';
+        }
+
+        return [
+            'promote_patterns'    => array_values(array_unique($promotePatterns)),
+            'avoid_patterns'      => array_values(array_unique($avoidPatterns)),
+            'consolidate_targets' => array_values(array_unique($consolidateTargets)),
+            'research_gaps'       => array_values(array_unique($researchGaps)),
+        ];
     }
 
     /**
