@@ -1,0 +1,196 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\SelfConstruction\ExternalBrain;
+
+/**
+ * Converts opportunity clusters into explicit Atlas evolution theses.
+ *
+ * A thesis must declare:
+ *   1. capability_delta   — the concrete Atlas capability that will exist after the work, stated
+ *                           as a measurable before→after claim.
+ *   2. acceptance_path    — a falsifiable statement: what evidence, observable in code or runtime,
+ *                           proves the thesis succeeded. A vague "will be better" is NOT accepted.
+ *
+ * The forge REJECTS a thesis (and records it in `rejected`) when either field is absent or empty,
+ * because an un-falsifiable or capability-free thesis is indistinguishable from speculation.
+ *
+ * INPUT clusters:
+ *   list<{
+ *     cluster_id:string, theme:string, capability_delta:string, acceptance_path:string,
+ *     opportunities?:list<array>, urgency?:string, risk?:string
+ *   }>
+ *
+ * OUTPUT:
+ *   { schema, theses:list<Thesis>, rejected:list<{cluster_id,reason}> }
+ *
+ * Thesis:
+ *   { thesis_id, cluster_id, title, why_it_matters, structural_leverage, capability_delta,
+ *     acceptance_path, evidence_demand:list<string>, risk:string, task_shapes:list<array> }
+ *
+ * PURE / DETERMINISTIC. No I/O.
+ */
+final class AtlasExternalBrainStrategicThesisForge
+{
+    public const SCHEMA = 'atlas.external_brain.strategic_thesis_forge.v1';
+
+    public const RISK_LOW    = 'low';
+
+    public const RISK_MEDIUM = 'medium';
+
+    public const RISK_HIGH   = 'high';
+
+    /**
+     * @param  list<array{
+     *   cluster_id:string, theme:string, capability_delta:string, acceptance_path:string,
+     *   opportunities?:list<array<string,mixed>>, urgency?:string, risk?:string
+     * }>  $clusters
+     * @return array{schema:string, theses:list<array<string,mixed>>, rejected:list<array<string,string>>}
+     */
+    public function forge(array $clusters): array
+    {
+        $theses = [];
+        $rejected = [];
+
+        foreach ($clusters as $cluster) {
+            $clusterId = (string) ($cluster['cluster_id'] ?? '');
+            $theme = trim((string) ($cluster['theme'] ?? ''));
+            $capabilityDelta = trim((string) ($cluster['capability_delta'] ?? ''));
+            $acceptancePath = trim((string) ($cluster['acceptance_path'] ?? ''));
+
+            // REJECTION: missing capability_delta.
+            if ($capabilityDelta === '') {
+                $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'capability_delta_missing_or_empty'];
+                continue;
+            }
+
+            // REJECTION: missing or non-falsifiable acceptance_path.
+            if ($acceptancePath === '') {
+                $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'acceptance_path_missing_or_empty'];
+                continue;
+            }
+
+            // Weak vague phrases that make an acceptance_path non-falsifiable.
+            if ($this->isVagueAcceptancePath($acceptancePath)) {
+                $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'acceptance_path_not_falsifiable:vague_claim'];
+                continue;
+            }
+
+            $opportunities = is_array($cluster['opportunities'] ?? null) ? $cluster['opportunities'] : [];
+            $urgency = strtolower(trim((string) ($cluster['urgency'] ?? 'medium')));
+            $risk = $this->normaliseRisk((string) ($cluster['risk'] ?? ''), $urgency);
+
+            $theses[] = [
+                'thesis_id' => 'thesis:'.$clusterId,
+                'cluster_id' => $clusterId,
+                'title' => $this->title($theme),
+                'why_it_matters' => $this->whyItMatters($theme, $opportunities),
+                'structural_leverage' => $this->structuralLeverage($theme, $capabilityDelta),
+                'capability_delta' => $capabilityDelta,
+                'acceptance_path' => $acceptancePath,
+                'evidence_demand' => $this->evidenceDemand($acceptancePath, $opportunities),
+                'risk' => $risk,
+                'task_shapes' => $this->taskShapes($theme, $capabilityDelta),
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'theses' => $theses,
+            'rejected' => $rejected,
+        ];
+    }
+
+    private function isVagueAcceptancePath(string $path): bool
+    {
+        $vague = ['will be better', 'improve things', 'should help', 'might work', 'could work'];
+        $lower = strtolower($path);
+        foreach ($vague as $phrase) {
+            if (str_contains($lower, $phrase)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normaliseRisk(string $risk, string $urgency): string
+    {
+        $r = strtolower($risk);
+        if (in_array($r, [self::RISK_LOW, self::RISK_MEDIUM, self::RISK_HIGH], true)) {
+            return $r;
+        }
+
+        return match ($urgency) {
+            'high' => self::RISK_HIGH,
+            'low' => self::RISK_LOW,
+            default => self::RISK_MEDIUM,
+        };
+    }
+
+    private function title(string $theme): string
+    {
+        return ucfirst(str_replace('_', ' ', $theme)).' evolution thesis';
+    }
+
+    /** @param list<array<string,mixed>> $opportunities */
+    private function whyItMatters(string $theme, array $opportunities): string
+    {
+        $count = count($opportunities);
+        $countStr = $count > 0 ? " ({$count} opportunities identified)" : '';
+
+        return "The {$theme} direction{$countStr} compounds Atlas capability "
+            .'by closing a structural gap that current primitives cannot close incrementally.';
+    }
+
+    private function structuralLeverage(string $theme, string $capabilityDelta): string
+    {
+        return "Advancing {$theme} unlocks: {$capabilityDelta}. "
+            .'This is a structural unlock — it compounds future delivery velocity rather than '
+            .'producing a one-off artefact.';
+    }
+
+    /** @param list<array<string,mixed>> $opportunities @return list<string> */
+    private function evidenceDemand(string $acceptancePath, array $opportunities): array
+    {
+        $demand = [
+            'acceptance_path_must_be_verified_by_automated_test_or_runtime_gate',
+            'evidence_must_be_grounded_in_observable_code_or_runtime_state',
+            'evidence_must_cite_specific_file_or_metric_not_a_description',
+        ];
+
+        if ($opportunities !== []) {
+            $demand[] = 'all_'.count($opportunities).'_opportunities_addressed_or_explicitly_deferred';
+        }
+
+        // Surface any per-opportunity evidence fields.
+        foreach ($opportunities as $opp) {
+            $ev = (string) ($opp['evidence'] ?? '');
+            if ($ev !== '') {
+                $demand[] = 'opportunity_evidence:'.$ev;
+            }
+        }
+
+        return $demand;
+    }
+
+    /** @return list<array{shape:string, description:string}> */
+    private function taskShapes(string $theme, string $capabilityDelta): array
+    {
+        return [
+            [
+                'shape' => 'implement_capability',
+                'description' => "Implement the {$theme} primitive that delivers: {$capabilityDelta}",
+            ],
+            [
+                'shape' => 'verify_acceptance',
+                'description' => 'Add automated proof that the acceptance path is satisfied in a running system',
+            ],
+            [
+                'shape' => 'wire_to_consumers',
+                'description' => "Wire the new {$theme} capability to at least one live consumer so it compounds",
+            ],
+        ];
+    }
+}
