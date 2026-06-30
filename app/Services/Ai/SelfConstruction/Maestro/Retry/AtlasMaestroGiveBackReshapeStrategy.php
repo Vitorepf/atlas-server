@@ -20,6 +20,7 @@ final class AtlasMaestroGiveBackReshapeStrategy
     {
         $allowedFiles = $this->normalizePaths($giveBackEvidence['allowed_files'] ?? []);
         $forbiddenHits = $this->normalizePaths($giveBackEvidence['forbidden_hits'] ?? []);
+        $petreoFiles = $this->normalizePaths($giveBackEvidence['petreo_files'] ?? []);
         $scopeIn = $this->normalizePaths($giveBackEvidence['scope_in'] ?? []);
         $scopeMismatches = $this->normalizePaths($giveBackEvidence['scope_in_mismatches'] ?? []);
         $missingSymbolTraces = is_array($giveBackEvidence['missing_symbol_traces'] ?? null)
@@ -33,7 +34,15 @@ final class AtlasMaestroGiveBackReshapeStrategy
             return ReshapeProposal::empty();
         }
 
-        $reshape = array_values(array_diff($allowedFiles, $forbiddenHits, $scopeMismatches));
+        if (str_contains($anchor, '..')) {
+            return new ReshapeProposal([], ['parent_traversal_rejected'], 'none', true);
+        }
+
+        if (in_array($anchor, $forbiddenHits, true) || in_array($anchor, $petreoFiles, true)) {
+            return new ReshapeProposal([], ['forbidden_or_petreo_anchor_rejected'], 'none', true);
+        }
+
+        $reshape = array_values(array_diff($allowedFiles, $forbiddenHits, $petreoFiles, $scopeMismatches));
         $reshape = $this->keepDomainEnvelope($reshape, $domainEnvelope);
 
         if (! in_array($anchor, $reshape, true)) {
@@ -42,6 +51,20 @@ final class AtlasMaestroGiveBackReshapeStrategy
 
         $reshape = $this->keepDomainEnvelope($reshape, $domainEnvelope !== [] ? $domainEnvelope : [$anchor]);
         sort($reshape, SORT_STRING);
+
+        // Require at least one impl and one test file in the result.
+        $hasImpl = false;
+        $hasTest = false;
+        foreach ($reshape as $f) {
+            if (str_contains($f, '/tests/') || str_contains($f, '/Tests/') || str_ends_with($f, 'Test.php')) {
+                $hasTest = true;
+            } else {
+                $hasImpl = true;
+            }
+        }
+        if (! $hasImpl || ! $hasTest) {
+            return new ReshapeProposal([], ['impl_test_pair_incomplete'], 'none', true);
+        }
 
         return new ReshapeProposal(
             $reshape,
