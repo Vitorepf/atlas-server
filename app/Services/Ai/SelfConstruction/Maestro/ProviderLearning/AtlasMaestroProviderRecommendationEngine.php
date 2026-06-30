@@ -21,10 +21,20 @@ final class AtlasMaestroProviderRecommendationEngine
 {
     public const DEFAULT_MIN_SAMPLE_SIZE = 5;
 
+    /** 0 = staleness check disabled (safe default for historical data with old timestamps). */
+    public const DEFAULT_FRESHNESS_WINDOW_SECONDS = 0;
+
+    /** @var callable():int|null */
+    private $clock;
+
     public function __construct(
         private readonly AtlasMaestroProviderPerformanceLedger $ledger,
         private readonly int $minSampleSize = self::DEFAULT_MIN_SAMPLE_SIZE,
-    ) {}
+        private readonly int $freshnessWindowSeconds = self::DEFAULT_FRESHNESS_WINDOW_SECONDS,
+        ?callable $clock = null,
+    ) {
+        $this->clock = $clock;
+    }
 
     /**
      * @return array<string,mixed>
@@ -32,15 +42,25 @@ final class AtlasMaestroProviderRecommendationEngine
     public function bestProviderFor(string $taskClass): array
     {
         $facts = $this->ledger->factsForClass($taskClass);
+        $now = $this->clock !== null ? (int) ($this->clock)() : time();
 
         $rows = [];
         $insufficient = [];
+        $staleProviders = [];
         foreach ($facts as $provider => $row) {
             $total = (int) ($row['success_count'] ?? 0) + (int) ($row['give_back_count'] ?? 0);
             if ($total < $this->minSampleSize) {
                 $insufficient[(string) $provider] = $total;
 
                 continue;
+            }
+            if ($this->freshnessWindowSeconds > 0) {
+                $lastAt = (int) ($row['last_outcome_at'] ?? 0);
+                if ($lastAt > 0 && ($now - $lastAt) > $this->freshnessWindowSeconds) {
+                    $staleProviders[] = (string) $provider;
+
+                    continue;
+                }
             }
             $rows[] = [
                 'provider' => (string) $provider,
@@ -52,11 +72,22 @@ final class AtlasMaestroProviderRecommendationEngine
         }
 
         if ($rows === []) {
+            if ($staleProviders !== [] && $insufficient === []) {
+                return [
+                    'status' => 'stale_data',
+                    'task_class' => $taskClass,
+                    'stale_providers' => $staleProviders,
+                    'freshness_window_seconds' => $this->freshnessWindowSeconds,
+                ];
+            }
+
             return [
                 'status' => 'insufficient_data',
                 'task_class' => $taskClass,
                 'samples_seen' => $insufficient,
                 'min_required' => $this->minSampleSize,
+                'providers_needing_samples' => array_keys($insufficient),
+                'stale_providers' => $staleProviders,
             ];
         }
 
@@ -72,6 +103,12 @@ final class AtlasMaestroProviderRecommendationEngine
             $c = $a['avg_duration_ms'] <=> $b['avg_duration_ms'];
             if ($c !== 0) {
                 return $c;
+            }
+            // atlas_native wins before alphabetical on a full tie
+            $aNative = $a['provider'] === 'atlas_native' ? 0 : 1;
+            $bNative = $b['provider'] === 'atlas_native' ? 0 : 1;
+            if ($aNative !== $bNative) {
+                return $aNative <=> $bNative;
             }
 
             return strcmp($a['provider'], $b['provider']);
