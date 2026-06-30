@@ -27,10 +27,118 @@ final class AtlasExternalBrainOriginatorStopConditionGateTest extends TestCase
     {
         $result = $this->eval([]);
 
-        foreach (['schema', 'verdict', 'stop_reason', 'blocking_reasons', 'evidence_cited'] as $k) {
+        foreach (['schema', 'verdict', 'stop_reason', 'blocking_reasons', 'evidence_cited',
+                  'can_stop', 'continuation_required', 'missing_evidence', 'next_required_action'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::SCHEMA, $result['schema']);
+    }
+
+    // ── quota_count alone is insufficient to stop ─────────────────────────────
+
+    public function test_quota_met_alone_without_value_score_anti_goodhart_or_outcome_evidence_does_not_stop(): void
+    {
+        $result = $this->eval(['quota_count' => 10, 'quota_target' => 10]);
+
+        $this->assertFalse($result['can_stop']);
+        $this->assertTrue($result['continuation_required']);
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+        $this->assertContains('value_score', $result['missing_evidence']);
+        $this->assertContains('anti_goodhart_pass', $result['missing_evidence']);
+        $this->assertContains('outcome_learning_evidence', $result['missing_evidence']);
+    }
+
+    public function test_quota_met_with_value_score_anti_goodhart_and_outcome_evidence_honest_stops(): void
+    {
+        $result = $this->eval([
+            'quota_count'               => 10,
+            'quota_target'              => 10,
+            'value_score'               => 0.85,
+            'anti_goodhart_pass'        => true,
+            'outcome_learning_evidence' => ['delivered_real_capability_gain'],
+        ]);
+
+        $this->assertTrue($result['can_stop']);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::REASON_QUOTA_MET_WITH_VALUE, $result['stop_reason']);
+        $this->assertSame([], $result['missing_evidence']);
+    }
+
+    public function test_quota_met_missing_only_anti_goodhart_pass_does_not_stop(): void
+    {
+        $result = $this->eval([
+            'quota_count'               => 5,
+            'quota_target'              => 5,
+            'value_score'               => 0.9,
+            'outcome_learning_evidence' => ['some_evidence'],
+        ]);
+
+        $this->assertFalse($result['can_stop']);
+        $this->assertContains('anti_goodhart_pass', $result['missing_evidence']);
+        $this->assertNotContains('value_score', $result['missing_evidence']);
+    }
+
+    // ── honest_exhausted requires the full evidence triad ─────────────────────
+
+    public function test_honest_exhausted_requires_searched_surfaces_breakthrough_attempts_and_no_candidates(): void
+    {
+        $result = $this->eval([
+            'searched_surfaces_evidence'                => ['surface_a_searched', 'surface_b_searched'],
+            'attempted_breakthrough_patterns_evidence'   => ['tried_pattern_x'],
+            'no_enqueueable_high_value_candidates'       => true,
+        ]);
+
+        $this->assertTrue($result['can_stop']);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::VERDICT_HONEST_STOP, $result['verdict']);
+        $this->assertSame(AtlasExternalBrainOriginatorStopConditionGate::REASON_HONEST_EXHAUSTED, $result['stop_reason']);
+    }
+
+    public function test_honest_exhausted_missing_no_candidates_flag_does_not_stop(): void
+    {
+        $result = $this->eval([
+            'all_escalation_modes_tried'                => true,
+            'searched_surfaces_evidence'                => ['surface_a_searched'],
+            'attempted_breakthrough_patterns_evidence'   => ['tried_pattern_x'],
+            'no_enqueueable_high_value_candidates'       => false,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::REASON_HONEST_EXHAUSTED, $result['stop_reason']);
+        $this->assertContains('no_enqueueable_high_value_candidates', $result['missing_evidence']);
+    }
+
+    public function test_honest_exhausted_missing_breakthrough_evidence_does_not_stop(): void
+    {
+        $result = $this->eval([
+            'all_escalation_modes_tried'           => true,
+            'searched_surfaces_evidence'           => ['surface_a_searched'],
+            'no_enqueueable_high_value_candidates' => true,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainOriginatorStopConditionGate::REASON_HONEST_EXHAUSTED, $result['stop_reason']);
+        $this->assertContains('attempted_breakthrough_patterns_evidence', $result['missing_evidence']);
+    }
+
+    // ── can_stop / continuation_required / next_required_action consistency ───
+
+    public function test_honest_stop_sets_can_stop_true_and_no_continuation_required(): void
+    {
+        $result = $this->eval([
+            'quality_target_reached'  => true,
+            'quality_target_evidence' => ['cert_passed'],
+        ]);
+
+        $this->assertTrue($result['can_stop']);
+        $this->assertFalse($result['continuation_required']);
+        $this->assertSame('none_required', $result['next_required_action']);
+    }
+
+    public function test_non_stop_verdict_sets_can_stop_false_and_continuation_required_true(): void
+    {
+        $result = $this->eval(['remaining_escalation_modes' => 2]);
+
+        $this->assertFalse($result['can_stop']);
+        $this->assertTrue($result['continuation_required']);
+        $this->assertNotSame('none_required', $result['next_required_action']);
     }
 
     // ── honest_stop — quality target reached with evidence (AC2) ─────────────

@@ -48,6 +48,8 @@ final class AtlasExternalBrainOriginatorStopConditionGate
     public const REASON_QUEUE_PRESSURE          = 'queue_pressure_deferral';
     public const REASON_SURFACE_SATURATED       = 'surface_saturated';
     public const REASON_HIGH_SATURATION_LOW_YIELD = 'high_saturation_low_value_yield';
+    public const REASON_QUOTA_MET_WITH_VALUE    = 'quota_met_with_value';
+    public const REASON_HONEST_EXHAUSTED        = 'honest_exhausted';
 
     /** Thresholds for yield-aware and saturation-aware decisions. */
     private const DEFAULT_MIN_VALUE_YIELD           = 0.40; // below → yield problem
@@ -80,6 +82,51 @@ final class AtlasExternalBrainOriginatorStopConditionGate
         $minYield          = (float) ($input['min_value_yield']              ?? self::DEFAULT_MIN_VALUE_YIELD);
         $satStopThresh     = (float) ($input['saturation_stop_threshold']    ?? self::DEFAULT_SATURATION_STOP_THRESHOLD);
 
+        // Quota-met-alone gate: quota count is never sufficient on its own.
+        $quotaCount              = (int) ($input['quota_count']  ?? 0);
+        $quotaTarget             = (int) ($input['quota_target'] ?? 0);
+        $quotaMet                = $quotaTarget > 0 && $quotaCount >= $quotaTarget;
+        $valueScore              = $input['value_score'] ?? null;
+        $antiGoodhartPass        = $input['anti_goodhart_pass'] ?? null;
+        $outcomeLearningEvidence = (array) ($input['outcome_learning_evidence'] ?? []);
+        $quotaValueComplete      = $valueScore !== null && $antiGoodhartPass === true && $outcomeLearningEvidence !== [];
+
+        $quotaMissingEvidence = [];
+        if ($quotaMet) {
+            if ($valueScore === null) {
+                $quotaMissingEvidence[] = 'value_score';
+            }
+            if ($antiGoodhartPass !== true) {
+                $quotaMissingEvidence[] = 'anti_goodhart_pass';
+            }
+            if ($outcomeLearningEvidence === []) {
+                $quotaMissingEvidence[] = 'outcome_learning_evidence';
+            }
+        }
+
+        // honest_exhausted: requires evidence of searched surfaces, attempted breakthrough
+        // patterns, AND confirmation no enqueueable high-value candidate remains.
+        $searchedSurfacesEvidence      = (array) ($input['searched_surfaces_evidence'] ?? []);
+        $breakthroughPatternsEvidence  = (array) ($input['attempted_breakthrough_patterns_evidence'] ?? []);
+        $noEnqueueableHighValue        = (bool)  ($input['no_enqueueable_high_value_candidates'] ?? false);
+        $honestExhaustedComplete       = $searchedSurfacesEvidence !== [] && $breakthroughPatternsEvidence !== [] && $noEnqueueableHighValue;
+
+        $honestExhaustedMissingEvidence = [];
+        if ($searchedSurfacesEvidence === []) {
+            $honestExhaustedMissingEvidence[] = 'searched_surfaces_evidence';
+        }
+        if ($breakthroughPatternsEvidence === []) {
+            $honestExhaustedMissingEvidence[] = 'attempted_breakthrough_patterns_evidence';
+        }
+        if (! $noEnqueueableHighValue) {
+            $honestExhaustedMissingEvidence[] = 'no_enqueueable_high_value_candidates';
+        }
+
+        $missingEvidence = array_values(array_unique(array_merge(
+            $quotaMet ? $quotaMissingEvidence : [],
+            $allEscalationTried ? $honestExhaustedMissingEvidence : [],
+        )));
+
         // 1. repair_first — most urgent
         if ($gateRegression) {
             return $this->result(self::VERDICT_REPAIR_FIRST, null,
@@ -88,10 +135,25 @@ final class AtlasExternalBrainOriginatorStopConditionGate
             );
         }
 
+        // 1.5. honest_stop — quota met AND backed by value_score + anti-Goodhart pass +
+        // outcome learning evidence. Quota count alone never stops the originator.
+        if ($quotaMet && $quotaValueComplete) {
+            return $this->result(self::VERDICT_HONEST_STOP, self::REASON_QUOTA_MET_WITH_VALUE,
+                [], array_merge(["quota_count:{$quotaCount}:>=:target:{$quotaTarget}"], $outcomeLearningEvidence),
+            );
+        }
+
         // 2. honest_stop — quality target reached with evidence
         if ($qualityReached && $qualityEvidence !== []) {
             return $this->result(self::VERDICT_HONEST_STOP, self::REASON_QUALITY_TARGET,
                 [], $qualityEvidence,
+            );
+        }
+
+        // 2.5. honest_stop — exhausted with full honest_exhausted evidence triad.
+        if ($honestExhaustedComplete) {
+            return $this->result(self::VERDICT_HONEST_STOP, self::REASON_HONEST_EXHAUSTED,
+                [], array_merge($searchedSurfacesEvidence, $breakthroughPatternsEvidence, ['no_enqueueable_high_value_candidates:true']),
             );
         }
 
@@ -158,7 +220,7 @@ final class AtlasExternalBrainOriginatorStopConditionGate
             if ($firstPassOnly) {
                 $blocking[] = 'first_pass_only:insufficient_exploration';
             }
-            return $this->result(self::VERDICT_CONTINUE_SEARCH, null, $blocking, []);
+            return $this->result(self::VERDICT_CONTINUE_SEARCH, null, $blocking, [], $missingEvidence);
         }
 
         // 8. escalate_ambition — evidence exists but quality not met, nothing left to try
@@ -166,14 +228,14 @@ final class AtlasExternalBrainOriginatorStopConditionGate
         if ($allEvidence !== []) {
             return $this->result(self::VERDICT_ESCALATE_AMBITION, null,
                 ['quality_target_not_met', 'no_remaining_modes_or_surfaces'],
-                $allEvidence,
+                $allEvidence, $missingEvidence,
             );
         }
 
         // 9. premature_stop — no evidence at all
         return $this->result(self::VERDICT_PREMATURE_STOP, null,
             ['no_honest_stop_condition_met', 'no_evidence_cited'],
-            [],
+            [], $missingEvidence,
         );
     }
 
@@ -202,14 +264,32 @@ final class AtlasExternalBrainOriginatorStopConditionGate
         return $input;
     }
 
-    private function result(string $verdict, ?string $stopReason, array $blocking, array $evidence): array
+    private function result(string $verdict, ?string $stopReason, array $blocking, array $evidence, array $missingEvidence = []): array
     {
+        $canStop = $verdict === self::VERDICT_HONEST_STOP;
+
+        $nextRequiredAction = match ($verdict) {
+            self::VERDICT_HONEST_STOP       => 'none_required',
+            self::VERDICT_REPAIR_FIRST      => 'fix_gate_regression_before_anything_else',
+            self::VERDICT_DRAIN_FIRST       => 'drain_existing_queue_before_new_origination',
+            self::VERDICT_CONSOLIDATE_FIRST => 'consolidate_existing_tasks_before_new_origination',
+            self::VERDICT_REDUCE_SCOPE      => 'reduce_scope_before_continuing',
+            self::VERDICT_CONTINUE_SEARCH   => 'continue_searching_remaining_modes_or_surfaces',
+            self::VERDICT_ESCALATE_AMBITION => 'originate_a_new_breakthrough_capability_or_cite_missing_evidence',
+            self::VERDICT_PREMATURE_STOP    => 'cite_evidence_before_stopping',
+            default                         => 'continue_normal_operation',
+        };
+
         return [
-            'schema'           => self::SCHEMA,
-            'verdict'          => $verdict,
-            'stop_reason'      => $stopReason,
-            'blocking_reasons' => $blocking,
-            'evidence_cited'   => $evidence,
+            'schema'                 => self::SCHEMA,
+            'verdict'                => $verdict,
+            'stop_reason'            => $stopReason,
+            'blocking_reasons'       => $blocking,
+            'evidence_cited'         => $evidence,
+            'can_stop'               => $canStop,
+            'continuation_required'  => ! $canStop,
+            'missing_evidence'       => $missingEvidence,
+            'next_required_action'   => $nextRequiredAction,
         ];
     }
 }
