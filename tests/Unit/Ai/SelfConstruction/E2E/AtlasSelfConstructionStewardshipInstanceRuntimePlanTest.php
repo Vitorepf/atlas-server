@@ -35,6 +35,7 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlanTest extends Test
             'forbidden_paths' => [],
             'verification_commands' => ['npm test'],
             'merge_policy' => ['mode' => 'merge_via_pull_request'],
+            'knowledge_sync_policy' => ['targets' => ['docs', 'code_index']],
         ];
     }
 
@@ -111,5 +112,43 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlanTest extends Test
         $this->assertTrue($verdict['refused']);
         $this->assertContains('project_id_missing', $verdict['blockers']);
         $this->assertContains('repo_root_missing', $verdict['blockers']);
+    }
+
+    public function test_empty_verification_commands_is_refused(): void
+    {
+        $lane = $this->atlasLane();
+        $lane['verification_commands'] = [];
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($lane, $this->coverFull());
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('verification_commands_empty', $verdict['blockers']);
+    }
+
+    public function test_missing_docs_in_knowledge_sync_targets_is_refused(): void
+    {
+        $lane = $this->atlasLane();
+        $lane['knowledge_sync_policy'] = ['targets' => ['code_index']];
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($lane, $this->coverFull());
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('knowledge_sync_target_missing:docs', $verdict['blockers']);
+    }
+
+    public function test_missing_code_index_in_knowledge_sync_targets_is_refused(): void
+    {
+        $lane = $this->atlasLane();
+        $lane['knowledge_sync_policy'] = ['targets' => ['docs']];
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($lane, $this->coverFull());
+        $this->assertTrue($verdict['refused']);
+        $this->assertContains('knowledge_sync_target_missing:code_index', $verdict['blockers']);
+    }
+
+    public function test_runtime_plan_includes_deterministic_queue_namespace_receipts_and_sync_targets(): void
+    {
+        $verdict = (new AtlasSelfConstructionStewardshipInstanceRuntimePlan)->compose($this->atlasLane(), $this->coverFull());
+        $this->assertFalse($verdict['refused']);
+        $plan = $verdict['runtime_plan'];
+        $this->assertSame('atlas:queue:atlas-server', $plan['task_queue_namespace']);
+        $this->assertSame('storage/atlas/stewardship/atlas-server/receipts.jsonl', $plan['receipts_path']);
+        $this->assertContains('docs', $plan['knowledge_sync_targets']);
+        $this->assertContains('code_index', $plan['knowledge_sync_targets']);
     }
 }

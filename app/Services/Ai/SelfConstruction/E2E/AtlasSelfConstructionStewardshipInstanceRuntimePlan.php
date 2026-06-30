@@ -57,6 +57,16 @@ final class AtlasSelfConstructionStewardshipInstanceRuntimePlan
         if ($repoRoot === '') {
             $blockers[] = 'repo_root_missing';
         }
+        if ($verificationCmds === []) {
+            $blockers[] = 'verification_commands_empty';
+        }
+        $syncTargets = array_values((array) ($knowledgeSync['targets'] ?? []));
+        if (! in_array('docs', $syncTargets, true)) {
+            $blockers[] = 'knowledge_sync_target_missing:docs';
+        }
+        if (! in_array('code_index', $syncTargets, true)) {
+            $blockers[] = 'knowledge_sync_target_missing:code_index';
+        }
         if (! (bool) ($coverage['fully_covered'] ?? false)) {
             $blockers[] = 'organ_coverage_incomplete';
             foreach ((array) ($coverage['missing_organ'] ?? []) as $m) {
