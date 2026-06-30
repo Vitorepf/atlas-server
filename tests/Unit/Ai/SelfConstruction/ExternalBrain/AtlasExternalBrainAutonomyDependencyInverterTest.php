@@ -325,4 +325,66 @@ final class AtlasExternalBrainAutonomyDependencyInverterTest extends TestCase
         $this->assertSame(0, $result['inversion_count']);
         $this->assertSame(0, $result['skipped_bootstrap_only']);
     }
+
+    // ── removability_classification ─────────────────────────────────────────────
+
+    public function test_removable_now_yields_removable_classification(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [
+            $this->dep(['dependency_type' => AtlasExternalBrainAutonomyDependencyInverter::DEP_HUMAN, 'removable_now' => true]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyDependencyInverter::REMOVABILITY_REMOVABLE, $result['inversions'][0]['removability_classification']);
+    }
+
+    public function test_fallback_available_yields_fallback_required_classification(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [
+            $this->dep(['dependency_type' => AtlasExternalBrainAutonomyDependencyInverter::DEP_HUMAN, 'fallback_available' => true]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyDependencyInverter::REMOVABILITY_FALLBACK_REQUIRED, $result['inversions'][0]['removability_classification']);
+    }
+
+    public function test_certification_path_available_yields_certification_required_classification(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [
+            $this->dep(['dependency_type' => AtlasExternalBrainAutonomyDependencyInverter::DEP_HUMAN, 'certification_path_available' => true]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyDependencyInverter::REMOVABILITY_CERTIFICATION_REQUIRED, $result['inversions'][0]['removability_classification']);
+    }
+
+    public function test_no_fallback_or_certification_yields_unavoidable_exception_not_autonomous(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [
+            $this->dep(['dependency_type' => AtlasExternalBrainAutonomyDependencyInverter::DEP_HUMAN]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyDependencyInverter::REMOVABILITY_UNAVOIDABLE_EXCEPTION, $result['inversions'][0]['removability_classification']);
+    }
+
+    public function test_removable_now_takes_precedence_over_fallback_and_certification(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [
+            $this->dep([
+                'dependency_type' => AtlasExternalBrainAutonomyDependencyInverter::DEP_HUMAN,
+                'removable_now' => true,
+                'fallback_available' => true,
+                'certification_path_available' => true,
+            ]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainAutonomyDependencyInverter::REMOVABILITY_REMOVABLE, $result['inversions'][0]['removability_classification']);
+    }
+
+    public function test_task_hint_is_emitted_and_concrete(): void
+    {
+        $result = $this->inverter->invert(['dependencies' => [
+            $this->dep(['stage' => 'origination', 'dependency_type' => AtlasExternalBrainAutonomyDependencyInverter::DEP_HUMAN]),
+        ]]);
+
+        $this->assertNotEmpty($result['inversions'][0]['task_hint']);
+        $this->assertStringContainsString('origination', $result['inversions'][0]['task_hint']);
+    }
 }

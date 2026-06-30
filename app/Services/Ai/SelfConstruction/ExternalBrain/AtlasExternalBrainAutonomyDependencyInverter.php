@@ -46,6 +46,11 @@ final class AtlasExternalBrainAutonomyDependencyInverter
     public const SEV_MEDIUM   = 'medium';
     public const SEV_LOW      = 'low';
 
+    public const REMOVABILITY_REMOVABLE              = 'removable';
+    public const REMOVABILITY_FALLBACK_REQUIRED       = 'fallback_required';
+    public const REMOVABILITY_CERTIFICATION_REQUIRED  = 'certification_required';
+    public const REMOVABILITY_UNAVOIDABLE_EXCEPTION   = 'unavoidable_exception';
+
     private const KNOWN_EXTERNAL_DEP_TYPES = [
         self::DEP_HUMAN,
         self::DEP_OPERATOR,
@@ -115,6 +120,9 @@ final class AtlasExternalBrainAutonomyDependencyInverter
             $description  = (string) ($dep['description']              ?? '');
             $isBootstrap  = (bool)   ($dep['is_bootstrap_only']        ?? false);
             $nativeProven = (bool)   ($dep['atlas_native_path_proven'] ?? false);
+            $removableNow = (bool)   ($dep['removable_now']            ?? false);
+            $fallbackAvailable      = (bool) ($dep['fallback_available']            ?? false);
+            $certificationAvailable = (bool) ($dep['certification_path_available']  ?? false);
 
             // atlas_native: already native, nothing to invert.
             if ($depType === self::DEP_ATLAS_NATIVE) {
@@ -141,19 +149,32 @@ final class AtlasExternalBrainAutonomyDependencyInverter
                 ? 'optional_accelerator'
                 : 'steady_state_blocker';
 
+            // AC2/AC3: removability is never asserted blind — a dependency is only "removable"
+            // when the caller explicitly proved it (removable_now). Absent fallback AND
+            // certification evidence, it is refused as unavoidable_exception rather than
+            // silently labeled autonomous.
+            $removabilityClassification = match (true) {
+                $removableNow            => self::REMOVABILITY_REMOVABLE,
+                $fallbackAvailable       => self::REMOVABILITY_FALLBACK_REQUIRED,
+                $certificationAvailable  => self::REMOVABILITY_CERTIFICATION_REQUIRED,
+                default                  => self::REMOVABILITY_UNAVOIDABLE_EXCEPTION,
+            };
+
             $inversions[] = [
-                'stage'                    => $stage,
-                'dependency_type'          => $depType,
-                'owner'                    => $owner,
-                'severity'                 => $severity,
-                'atlas_native_replacement' => $replacement,
-                'proposed_task_family'     => $taskFamily,
-                'evidence_floor'           => $this->evidenceFloor($depType, $stage),
-                'description'              => $description,
-                'is_bootstrap_only'        => $isBootstrap,
-                'classification'           => $classification,
-                'removal_order'            => $removalOrder,
-                'autonomy_gain_score'      => $gainScore,
+                'stage'                        => $stage,
+                'dependency_type'              => $depType,
+                'owner'                        => $owner,
+                'severity'                     => $severity,
+                'atlas_native_replacement'     => $replacement,
+                'proposed_task_family'         => $taskFamily,
+                'task_hint'                    => $taskFamily,
+                'evidence_floor'               => $this->evidenceFloor($depType, $stage),
+                'description'                  => $description,
+                'is_bootstrap_only'            => $isBootstrap,
+                'classification'               => $classification,
+                'removability_classification'  => $removabilityClassification,
+                'removal_order'                => $removalOrder,
+                'autonomy_gain_score'          => $gainScore,
             ];
         }
 
