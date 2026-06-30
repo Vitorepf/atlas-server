@@ -103,6 +103,73 @@ final class AtlasMaestroProviderBidReceiptLedger
     }
 
     /**
+     * Records the eventual outcome (e.g. 'success', 'give_back') for a previously-appended task.
+     */
+    public function attachOutcome(string $taskId, string $outcome, string $recordedAtIso): void
+    {
+        $path = $this->root().'/outcomes.jsonl';
+        $dir = \dirname($path);
+        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
+            throw new \RuntimeException('bid_receipt_ledger_mkdir_failed:'.$dir);
+        }
+        @file_put_contents(
+            $path,
+            json_encode(['task_id' => $taskId, 'outcome' => $outcome, 'recorded_at_iso' => $recordedAtIso], JSON_UNESCAPED_SLASHES)."\n",
+            FILE_APPEND | LOCK_EX,
+        );
+    }
+
+    public function recallOutcome(string $taskId): ?string
+    {
+        $path = $this->root().'/outcomes.jsonl';
+        if (! is_file($path)) {
+            return null;
+        }
+        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $row = json_decode($line, true);
+            if (is_array($row) && ($row['task_id'] ?? '') === $taskId) {
+                return (string) $row['outcome'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{win_count:int, loss_count:int, total_decisions:int}
+     */
+    public function aggregateForWorker(string $providerId): array
+    {
+        $wins = 0;
+        $losses = 0;
+        foreach ($this->allEntries() as $entry) {
+            if ($entry->winnerProviderId === $providerId) {
+                $wins++;
+            }
+            foreach ($entry->criteriaTrace as $step) {
+                if (($step['provider_id'] ?? '') === $providerId) {
+                    $losses++;
+                }
+            }
+        }
+
+        return ['win_count' => $wins, 'loss_count' => $losses, 'total_decisions' => $wins + $losses];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function export(int $limit = 20): array
+    {
+        $all = $this->allEntries();
+
+        return array_map(
+            fn (BidReceiptEntry $e): array => $e->toArray(),
+            array_values(array_slice($all, max(0, count($all) - $limit))),
+        );
+    }
+
+    /**
      * @return list<BidReceiptEntry>
      */
     public function allEntries(): array

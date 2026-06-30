@@ -83,4 +83,64 @@ final class AtlasMaestroProviderBidReceiptLedgerTest extends TestCase
 
         $this->assertSame($first->entrySha256, $second->prevEntrySha256);
     }
+
+    public function test_selected_and_rejected_bids_are_visible_in_entry(): void
+    {
+        $ledger = new AtlasMaestroProviderBidReceiptLedger();
+        $trace = [
+            ['provider_id' => 'worker-b', 'eliminated_by' => 'tier_mismatch', 'cmp' => -1],
+            ['provider_id' => 'worker-c', 'eliminated_by' => 'load_saturated', 'cmp' => -1],
+        ];
+        $entry = $ledger->append('t-sel', str_repeat('a', 64), [str_repeat('b', 64), str_repeat('c', 64)], 'worker-a', 'capability', $trace, '2026-06-30T10:00:00Z');
+
+        $this->assertSame('worker-a', $entry->winnerProviderId);
+        $this->assertCount(2, $entry->criteriaTrace);
+        $this->assertSame('worker-b', $entry->criteriaTrace[0]['provider_id']);
+        $this->assertSame('tier_mismatch', $entry->criteriaTrace[0]['eliminated_by']);
+    }
+
+    public function test_outcome_attachment_and_recall(): void
+    {
+        $ledger = new AtlasMaestroProviderBidReceiptLedger();
+        $ledger->append('t-out', str_repeat('a', 64), [], 'codex', 'eligibility', [], '2026-06-30T10:00:00Z');
+
+        $this->assertNull($ledger->recallOutcome('t-out'), 'no outcome before attach');
+
+        $ledger->attachOutcome('t-out', 'success', '2026-06-30T10:05:00Z');
+        $this->assertSame('success', $ledger->recallOutcome('t-out'));
+
+        $ledger->attachOutcome('t-other', 'give_back', '2026-06-30T10:06:00Z');
+        $this->assertSame('give_back', $ledger->recallOutcome('t-other'));
+        $this->assertSame('success', $ledger->recallOutcome('t-out'), 'first outcome unchanged');
+    }
+
+    public function test_aggregate_for_worker_counts_wins_and_losses(): void
+    {
+        $ledger = new AtlasMaestroProviderBidReceiptLedger();
+        $rejected = [['provider_id' => 'codex', 'eliminated_by' => 'cost', 'cmp' => -1]];
+        $ledger->append('w1', str_repeat('a', 64), [], 'codex', 'capability', [], '2026-06-30T10:00:00Z');
+        $ledger->append('w2', str_repeat('a', 64), [], 'codex', 'capability', [], '2026-06-30T10:01:00Z');
+        $ledger->append('w3', str_repeat('a', 64), [], 'gpt', 'cost', $rejected, '2026-06-30T10:02:00Z');
+
+        $agg = $ledger->aggregateForWorker('codex');
+        $this->assertSame(2, $agg['win_count']);
+        $this->assertSame(1, $agg['loss_count']);
+        $this->assertSame(3, $agg['total_decisions']);
+    }
+
+    public function test_bounded_export_returns_at_most_limit_entries_newest_last(): void
+    {
+        $ledger = new AtlasMaestroProviderBidReceiptLedger();
+        foreach (range(1, 5) as $i) {
+            $ledger->append("task-$i", str_repeat('a', 64), [], 'p', 'eligibility', [], "2026-06-30T10:0{$i}:00Z");
+        }
+
+        $all = $ledger->export(10);
+        $this->assertCount(5, $all);
+
+        $bounded = $ledger->export(3);
+        $this->assertCount(3, $bounded);
+        $this->assertSame('task-3', $bounded[0]['task_id']);
+        $this->assertSame('task-5', $bounded[2]['task_id']);
+    }
 }
