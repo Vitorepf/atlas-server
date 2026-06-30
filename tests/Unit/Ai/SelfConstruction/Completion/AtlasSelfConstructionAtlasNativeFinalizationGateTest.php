@@ -71,7 +71,7 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
         // Evidence failure surfaces under 'evidence:' prefix; without dependency/ledger contract issues,
         // the gate treats it as HOLD (refresh evidence facts).
         $facts = $this->readyFacts();
-        unset($facts['evidence_facts']['docs_health']); // refreshable
+        unset($facts['evidence_facts']['sources']['docs_health']); // refreshable
 
         $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
 
@@ -94,7 +94,7 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
     public function test_hold_when_refreshable_source_is_missing_via_coverage(): void
     {
         $facts = $this->readyFacts();
-        unset($facts['evidence_facts']['docs_health']); // refreshable source
+        unset($facts['evidence_facts']['sources']['docs_health']); // refreshable source
 
         $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
 
@@ -145,7 +145,7 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
     {
         $facts = $this->readyFacts();
         $facts['ledger']['unsafe_release'] = true;
-        unset($facts['evidence_facts']['docs_health']);
+        unset($facts['evidence_facts']['sources']['docs_health']);
 
         $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
 
@@ -169,16 +169,27 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
                     'depends_on_codex' => false,
                     'depends_on_external_provider_network' => false,
                 ],
-                'serving_queue_health' => true,
-                'native_worker_readiness' => true,
-                'verification_court_readiness' => true,
-                'merge_governor_readiness' => true,
-                'rollback_readiness' => true,
-                'learning_transfer_readiness' => true,
-                'docs_health' => true,
-                'kb_sync' => true,
-                'code_index_readiness' => true,
-                'multi_project_lane_readiness' => true,
+                'sources' => [
+                    'task_serving_contract_sentinel' => ['status' => 'pass'],
+                    'code_index_readiness_bridge' => ['status' => 'pass'],
+                    'multi_project_governance_dossier' => ['status' => 'pass'],
+                    'native_worker_readiness' => ['status' => 'pass'],
+                    'verification_court' => ['status' => 'pass'],
+                    'merge_governor' => ['status' => 'pass'],
+                    'rollback' => ['status' => 'pass'],
+                    'receipts' => ['status' => 'pass'],
+                    'learning_transfer' => ['status' => 'pass'],
+                    'docs_health' => ['status' => 'pass'],
+                    'knowledge_sync' => ['status' => 'pass'],
+                    'task_graph_coverage_dossier' => ['status' => 'pass'],
+                    'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+                    'scope_expansion_governor' => ['status' => 'pass'],
+                    'native_worker_runtime' => ['status' => 'pass'],
+                    'runtime_daemon' => ['status' => 'pass'],
+                    'unattended_runtime_supervisor' => ['status' => 'pass'],
+                    'runtime_soak' => ['status' => 'pass'],
+                    'multi_project_runtime_instances' => ['status' => 'pass'],
+                ],
             ],
             'dependency_facts' => [
                 'final_runtime_owner' => 'atlas_native',
