@@ -7,6 +7,7 @@ namespace Tests\Feature\Loop;
 use App\Models\AtlasLoopCampaign;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionToolGapBridgeService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -225,6 +226,27 @@ final class AtlasSelfConstructionToolGapBridgeTest extends TestCase
         $this->assertFalse($result['proposals'][0]['persisted']);
         // Genuine dry-run: zero disk writes.
         $this->assertFileDoesNotExist($this->proposalsLog);
+    }
+
+    public function test_json_strict_emits_runtime_refused_when_loop_db_unavailable(): void
+    {
+        // Regression: missing loop DB tables must yield a compact JSON envelope, not a stack trace.
+        // Drop all loop tables to simulate an uninitialized database (migrations not run).
+        foreach (['atlas_loop_explorations', 'atlas_loop_tasks', 'atlas_loop_proposals', 'atlas_loop_campaigns'] as $t) {
+            Schema::dropIfExists($t);
+        }
+        // Subsequent tests' setUp() checks for atlas_loop_campaigns absence and recreates all tables.
+
+        $exit = Artisan::call('atlas:self-construction:tool-gap-bridge', ['--json' => true, '--strict' => true]);
+        $out = Artisan::output();
+
+        $this->assertNotSame(0, $exit, 'must exit non-zero when loop DB tables are missing');
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'output must be valid JSON — no raw exception trace');
+        $this->assertSame('runtime_refused', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+        $this->assertStringNotContainsString('QueryException', $out, 'no exception class name may leak into the JSON output');
+        $this->assertStringNotContainsString('Stack trace', $out, 'no PHP stack trace may appear in the JSON output');
     }
 
     public function test_proposal_id_is_deterministic_over_the_same_gap(): void

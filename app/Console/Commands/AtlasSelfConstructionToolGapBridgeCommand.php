@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionToolGapBridgeService;
 use Illuminate\Console\Command;
+use Illuminate\Database\QueryException;
 
 /**
  * L5-4 · Bridge recurrent capability gaps from the Loop loss-observer into the
@@ -29,13 +30,24 @@ final class AtlasSelfConstructionToolGapBridgeCommand extends Command
 
     public function handle(AtlasSelfConstructionToolGapBridgeService $bridge): int
     {
-        $result = $bridge->detectAndRoute(array_filter([
-            'campaign_id' => $this->stringOption('campaign'),
-            'window_hours' => $this->intOption('window-hours'),
-            'min_occurrences' => $this->intOption('min-occurrences'),
-            'max_proposals' => $this->intOption('max-proposals'),
-            'write' => (bool) $this->option('write') ?: null,
-        ], static fn (mixed $v): bool => $v !== null));
+        try {
+            $result = $bridge->detectAndRoute(array_filter([
+                'campaign_id' => $this->stringOption('campaign'),
+                'window_hours' => $this->intOption('window-hours'),
+                'min_occurrences' => $this->intOption('min-occurrences'),
+                'max_proposals' => $this->intOption('max-proposals'),
+                'write' => (bool) $this->option('write') ?: null,
+            ], static fn (mixed $v): bool => $v !== null));
+        } catch (QueryException) {
+            $payload = ['status' => 'runtime_refused', 'reason' => 'loop_db_unavailable'];
+            if ($this->option('json')) {
+                $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            } else {
+                $this->error('tool-gap-bridge: loop-funnel DB unavailable ('.$e->getMessage().')');
+            }
+
+            return self::FAILURE;
+        }
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
