@@ -30,7 +30,48 @@ final class AtlasExternalBrainPoisonRepairConversionTrackerTest extends TestCase
         $this->assertArrayHasKey('top_repair_candidate', $r);
         $this->assertArrayHasKey('dead_end_families', $r);
         $this->assertArrayHasKey('learning_notes', $r);
+        $this->assertArrayHasKey('retry_stop_signals', $r);
+        $this->assertArrayHasKey('recovery_leverage_rank', $r);
         $this->assertSame(AtlasExternalBrainPoisonRepairConversionTracker::SCHEMA, $r['schema']);
+    }
+
+    public function test_retry_stop_signals_lists_families_stuck_unchanged(): void
+    {
+        $r = $this->svc()->track([
+            ['root_cause' => 'stuck_family', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_UNCHANGED],
+            ['root_cause' => 'stuck_family', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_UNCHANGED],
+            ['root_cause' => 'healthy_family', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS],
+        ]);
+
+        $this->assertContains('stuck_family', $r['retry_stop_signals']);
+        $this->assertNotContains('healthy_family', $r['retry_stop_signals']);
+    }
+
+    public function test_recovery_leverage_rank_orders_by_count_desc_excluding_dead_ends_and_converted(): void
+    {
+        $r = $this->svc()->track([
+            ['root_cause' => 'big_partial', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS],
+            ['root_cause' => 'big_partial', 'status' => 'pending'],
+            ['root_cause' => 'big_partial', 'status' => 'pending'],
+            ['root_cause' => 'small_partial', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS],
+            ['root_cause' => 'small_partial', 'status' => 'pending'],
+            ['root_cause' => 'dead_family', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_RETIRED],
+            ['root_cause' => 'fully_done', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS],
+        ]);
+
+        $this->assertSame(['big_partial', 'small_partial'], $r['recovery_leverage_rank']);
+    }
+
+    public function test_recovery_leverage_rank_ties_broken_alphabetically(): void
+    {
+        $r = $this->svc()->track([
+            ['root_cause' => 'zebra', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS],
+            ['root_cause' => 'zebra', 'status' => 'pending'],
+            ['root_cause' => 'alpha', 'status' => AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS],
+            ['root_cause' => 'alpha', 'status' => 'pending'],
+        ]);
+
+        $this->assertSame(['alpha', 'zebra'], $r['recovery_leverage_rank']);
     }
 
     public function test_empty_input_produces_empty_metrics(): void

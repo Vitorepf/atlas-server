@@ -106,13 +106,48 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
         $topCandidate = $this->topRepairCandidate($familyMetrics, $deadEndFamilies);
         $learningNotes = $this->learningNotes($familyMetrics, $deadEndFamilies);
 
+        $retryStopSignals = [];
+        foreach ($familyMetrics as $family => $metrics) {
+            if (in_array('stop_retrying_unchanged', $metrics['signals'], true)) {
+                $retryStopSignals[] = $family;
+            }
+        }
+
+        $recoveryLeverageRank = $this->recoveryLeverageRank($familyMetrics, $deadEndFamilies);
+
         return [
             'schema' => self::SCHEMA,
             'family_metrics' => $familyMetrics,
             'top_repair_candidate' => $topCandidate,
             'dead_end_families' => $deadEndFamilies,
             'learning_notes' => $learningNotes,
+            'retry_stop_signals' => $retryStopSignals,
+            'recovery_leverage_rank' => $recoveryLeverageRank,
         ];
+    }
+
+    /**
+     * Ranks non-dead-end, non-fully-converted families by recoverable leverage (packet count
+     * descending, family name ascending as deterministic tiebreak) — the same ordering
+     * top_repair_candidate uses, but the full ranked list instead of just the winner.
+     *
+     * @param  array<string,array<string,mixed>>  $familyMetrics
+     * @param  list<string>  $deadEndFamilies
+     * @return list<string>
+     */
+    private function recoveryLeverageRank(array $familyMetrics, array $deadEndFamilies): array
+    {
+        $candidates = [];
+        foreach ($familyMetrics as $family => $metrics) {
+            if (in_array($family, $deadEndFamilies, true) || $metrics['repair_status'] === 'fully_converted') {
+                continue;
+            }
+            $candidates[] = ['family' => $family, 'count' => (int) $metrics['count']];
+        }
+
+        usort($candidates, static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: strcmp($a['family'], $b['family']));
+
+        return array_column($candidates, 'family');
     }
 
     /**
