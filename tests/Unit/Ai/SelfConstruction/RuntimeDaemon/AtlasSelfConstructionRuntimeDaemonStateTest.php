@@ -140,4 +140,33 @@ final class AtlasSelfConstructionRuntimeDaemonStateTest extends TestCase
         // No operator/human input has been recorded — next_tick still allowed.
         $this->assertTrue($a['next_tick_allowed']);
     }
+
+    public function test_idempotent_tick_completed_with_same_receipt_produces_stable_state(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $running = $reducer->reduce($this->initial(), ['type' => 'plan']);
+        $running = $reducer->reduce($running, ['type' => 'tick_started', 'now_at' => '2026-06-30T10:00:00+00:00']);
+
+        $first  = $reducer->reduce($running, ['type' => 'tick_completed', 'now_at' => '2026-06-30T10:01:00+00:00', 'receipt_hash' => 'rcpt-xyz']);
+        $second = $reducer->reduce($first,   ['type' => 'tick_completed', 'now_at' => '2026-06-30T10:01:00+00:00', 'receipt_hash' => 'rcpt-xyz']);
+
+        $this->assertSame('rcpt-xyz', $second['last_cycle_receipt_hash']);
+        $this->assertSame($first['state_hash'], $second['state_hash'], 'same event+now_at must produce identical state_hash');
+    }
+
+    public function test_bounded_json_shape_output_has_exactly_known_keys(): void
+    {
+        $reducer = new AtlasSelfConstructionRuntimeDaemonState;
+        $state = $reducer->reduce($this->initial(), ['type' => 'plan']);
+
+        $expected = [
+            'schema_version', 'status', 'status_reason', 'safety_stop', 'pause_requested',
+            'stop_requested', 'last_heartbeat_at', 'last_cycle_receipt_hash', 'heartbeat_status',
+            'heartbeat_max_age_s', 'next_tick_allowed', 'now_at', 'state_hash',
+        ];
+        $actual = array_keys($state);
+        sort($expected);
+        sort($actual);
+        $this->assertSame($expected, $actual, 'state shape must be bounded to the 13 canonical keys');
+    }
 }
