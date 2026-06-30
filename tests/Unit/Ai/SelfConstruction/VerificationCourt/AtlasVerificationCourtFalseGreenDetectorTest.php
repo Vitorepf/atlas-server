@@ -205,4 +205,138 @@ final class AtlasVerificationCourtFalseGreenDetectorTest extends TestCase
         sort($sorted, SORT_STRING);
         $this->assertSame($sorted, $r['reasons'], 'reasons must be sorted deterministically');
     }
+
+    // ── repair_feedback ───────────────────────────────────────────────────────
+
+    public function test_passed_verdict_has_null_repair_feedback(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
+                ['command_id' => 'cmd-xyz', 'passed' => true, 'output_present' => true],
+            ],
+            'changed_files' => ['app/Demo/Foo.php'],
+            'allowed_files' => ['app/Demo/Foo.php'],
+        ]);
+
+        $this->assertArrayHasKey('repair_feedback', $r);
+        $this->assertNull($r['repair_feedback'], 'passed verdict must emit null repair_feedback');
+    }
+
+    public function test_repair_feedback_has_required_keys_on_failure(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => false],
+                ['command_id' => 'cmd-xyz', 'passed' => true],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertNotNull($r['repair_feedback']);
+        foreach (['false_green_family', 'repair_hint', 'evidence_to_replay',
+                  'scope_violation_files', 'task_fabric_blocker_reason'] as $key) {
+            $this->assertArrayHasKey($key, $r['repair_feedback'], "repair_feedback must contain {$key}");
+        }
+    }
+
+    public function test_replay_red_produces_replay_family_with_command_in_evidence_to_replay(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => false],
+                ['command_id' => 'cmd-xyz', 'passed' => true],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $fb = $r['repair_feedback'];
+        $this->assertSame('replay', $fb['false_green_family']);
+        $this->assertContains('cmd-abc', $fb['evidence_to_replay']);
+        $this->assertNotEmpty($fb['repair_hint']);
+        $this->assertStringContainsString('cmd-abc', $fb['repair_hint']);
+    }
+
+    public function test_scope_violation_populates_scope_violation_files_and_scope_family(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true],
+                ['command_id' => 'cmd-xyz', 'passed' => true],
+            ],
+            'changed_files' => ['app/Allowed.php', 'app/SECRET.php'],
+            'allowed_files' => ['app/Allowed.php'],
+        ]);
+
+        $fb = $r['repair_feedback'];
+        $this->assertSame('scope', $fb['false_green_family']);
+        $this->assertContains('app/SECRET.php', $fb['scope_violation_files']);
+        $this->assertStringContainsString('app/SECRET.php', $fb['repair_hint']);
+    }
+
+    public function test_proxy_only_evidence_produces_proxy_family(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true],
+                ['command_id' => 'cmd-xyz', 'passed' => true],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+            'proxy_only_evidence' => true,
+        ]);
+
+        $fb = $r['repair_feedback'];
+        $this->assertSame('proxy', $fb['false_green_family']);
+        $this->assertStringContainsStringIgnoringCase('proxy', $fb['repair_hint']);
+    }
+
+    public function test_evidence_contract_not_accepted_produces_evidence_contract_family(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => false],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [],
+            'changed_files' => [],
+            'allowed_files' => [],
+        ]);
+
+        $fb = $r['repair_feedback'];
+        $this->assertSame('evidence_contract', $fb['false_green_family']);
+        $this->assertStringContainsStringIgnoringCase('contract', $fb['repair_hint']);
+        $this->assertNull($fb['task_fabric_blocker_reason']);
+    }
+
+    public function test_task_fabric_blocked_plan_produces_task_fabric_family_with_blocker_reason(): void
+    {
+        $plan = [
+            'plan_status' => 'blocked',
+            'blockers'    => ['missing_test_gate'],
+            'commands'    => [],
+        ];
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $plan,
+            'replay_outcomes' => [],
+            'changed_files' => [],
+            'allowed_files' => [],
+        ]);
+
+        $fb = $r['repair_feedback'];
+        $this->assertSame('task_fabric', $fb['false_green_family']);
+        $this->assertSame('missing_test_gate', $fb['task_fabric_blocker_reason']);
+        $this->assertStringContainsString('missing_test_gate', $fb['repair_hint']);
+    }
 }

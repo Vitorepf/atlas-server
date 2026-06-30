@@ -16,7 +16,18 @@ namespace App\Services\Ai\SelfConstruction\VerificationCourt;
  *     proxy_only_evidence?:bool }
  *
  * OUTPUT:
- *   { schema, verdict ∈ {passed,failed,blocked}, reasons:list<string>, summary:array }
+ *   { schema, verdict ∈ {passed,failed,blocked}, reasons:list<string>, summary:array,
+ *     repair_feedback:null|{ false_green_family:string|null, repair_hint:string,
+ *       evidence_to_replay:list<string>, scope_violation_files:list<string>,
+ *       task_fabric_blocker_reason:string|null } }
+ *
+ * REPAIR_FEEDBACK FAMILIES (emitted only when verdict ≠ passed):
+ *   task_fabric        — plan not ready / blocker present
+ *   evidence_contract  — evidence contract rejected
+ *   conflict           — conflicting duplicate replay outcomes
+ *   replay             — red / output-missing / missing replay outcomes
+ *   scope              — files changed outside allowed scope
+ *   proxy              — proxy-only evidence
  *
  * REASON FAMILIES:
  *   - evidence_contract_not_accepted        → blocked
@@ -162,6 +173,89 @@ final class AtlasVerificationCourtFalseGreenDetector
                 'outcome_count' => count($outcomes),
                 'changed_file_count' => count($changed),
             ],
+            'repair_feedback' => $this->buildRepairFeedback($allReasons, $verdict),
         ];
+    }
+
+    /** @param list<string> $reasons */
+    private function buildRepairFeedback(array $reasons, string $verdict): ?array
+    {
+        if ($verdict === self::VERDICT_PASSED) {
+            return null;
+        }
+
+        $evidenceToReplay = [];
+        $scopeViolationFiles = [];
+        $taskFabricBlockerReason = null;
+        $families = [];
+
+        foreach ($reasons as $r) {
+            if (str_starts_with($r, 'replay_plan_blocker:')) {
+                $taskFabricBlockerReason = substr($r, strlen('replay_plan_blocker:'));
+                $families[] = 'task_fabric';
+            } elseif ($r === 'replay_plan_blocked') {
+                $families[] = 'task_fabric';
+                if ($taskFabricBlockerReason === null) {
+                    $taskFabricBlockerReason = 'plan_not_ready';
+                }
+            } elseif ($r === 'evidence_contract_not_accepted') {
+                $families[] = 'evidence_contract';
+            } elseif (str_starts_with($r, 'replay_conflict:')) {
+                $evidenceToReplay[] = substr($r, strlen('replay_conflict:'));
+                $families[] = 'conflict';
+            } elseif (str_starts_with($r, 'replay_red:')) {
+                $evidenceToReplay[] = substr($r, strlen('replay_red:'));
+                $families[] = 'replay';
+            } elseif (str_starts_with($r, 'replay_output_missing:')) {
+                $evidenceToReplay[] = substr($r, strlen('replay_output_missing:'));
+                $families[] = 'replay';
+            } elseif (str_starts_with($r, 'replay_missing_for:')) {
+                $evidenceToReplay[] = substr($r, strlen('replay_missing_for:'));
+                $families[] = 'replay';
+            } elseif (str_starts_with($r, 'changed_file_outside_allowed:')) {
+                $scopeViolationFiles[] = substr($r, strlen('changed_file_outside_allowed:'));
+                $families[] = 'scope';
+            } elseif ($r === 'proxy_only_evidence') {
+                $families[] = 'proxy';
+            }
+        }
+
+        $dominant = $this->dominantFamily($families);
+
+        return [
+            'false_green_family'       => $dominant,
+            'repair_hint'              => $this->repairHintFor($dominant, $evidenceToReplay, $scopeViolationFiles, $taskFabricBlockerReason),
+            'evidence_to_replay'       => array_values(array_unique($evidenceToReplay)),
+            'scope_violation_files'    => array_values(array_unique($scopeViolationFiles)),
+            'task_fabric_blocker_reason' => $taskFabricBlockerReason,
+        ];
+    }
+
+    /** @param list<string> $families */
+    private function dominantFamily(array $families): ?string
+    {
+        foreach (['task_fabric', 'evidence_contract', 'conflict', 'replay', 'scope', 'proxy'] as $fam) {
+            if (in_array($fam, $families, true)) {
+                return $fam;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<string> $evidenceToReplay @param list<string> $scopeViolationFiles */
+    private function repairHintFor(?string $family, array $evidenceToReplay, array $scopeViolationFiles, ?string $blockerReason): string
+    {
+        $ids = implode(', ', $evidenceToReplay);
+
+        return match ($family) {
+            'task_fabric'       => 'Task fabric blocked replay plan' . ($blockerReason ? ": {$blockerReason}" : '') . '. Fix the blocker before re-queuing.',
+            'evidence_contract' => 'Evidence contract rejected. Re-run evidence collection with a valid contract before claiming completion.',
+            'conflict'          => "Conflicting replay outcomes for: {$ids}. Re-run those commands and submit a single canonical outcome.",
+            'replay'            => "Replay commands failed or missing output: {$ids}. Re-run and confirm they pass before claiming completion.",
+            'scope'             => 'Scope violation: changed files outside allowed scope: ' . implode(', ', $scopeViolationFiles) . '. Revert or add to allowed_files.',
+            'proxy'             => 'Proxy-only evidence rejected. Replace with runnable gate evidence (PHPUnit, artisan, direct assertion).',
+            default             => 'Unknown false-green family; check reasons for details.',
+        };
     }
 }
