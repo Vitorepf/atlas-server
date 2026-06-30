@@ -146,6 +146,61 @@ final class AtlasExternalBrainQueuePressureGovernor
         return $this->result(self::DECISION_ENQUEUE_NOW, "queue pressure nominal; leverage={$leverageScore}");
     }
 
+    public const ACTION_REQUEST_BOUNDED_BATCH = 'request_bounded_batch';
+
+    public const ACTION_HOLD = 'hold';
+
+    private const WORKER_FLOOR_RATIO = 2.0;
+
+    private const BOUNDED_BATCH_MAX_TASKS = 3;
+
+    /**
+     * Thin worker buffer overrides passive wait guidance: when claimable depth
+     * per active worker is at or below the floor, AND the queue isn't already
+     * choked with malformed packets needing a sweep first, request a small
+     * bounded batch instead of waiting — a flood-sized batch would just
+     * compound a low-quality backlog, so the request stays capped.
+     *
+     * @param  array<string,mixed>  $health  { malformed_count?: int,
+     *   claimable_per_active_worker?: float }
+     * @return array{schema:string, action:string, reason:string, max_tasks:int}
+     */
+    public function evaluateWorkerFloor(array $health): array
+    {
+        $malformedCount = max(0, (int) ($health['malformed_count'] ?? 0));
+        $claimablePerActiveWorker = $health['claimable_per_active_worker'] ?? null;
+
+        if ($malformedCount > 0) {
+            return [
+                'schema' => self::SCHEMA,
+                'action' => self::ACTION_HOLD,
+                'reason' => "malformed_count={$malformedCount}; sweep malformed packets before requesting more generation",
+                'max_tasks' => 0,
+            ];
+        }
+
+        if ($claimablePerActiveWorker !== null && (float) $claimablePerActiveWorker <= self::WORKER_FLOOR_RATIO) {
+            return [
+                'schema' => self::SCHEMA,
+                'action' => self::ACTION_REQUEST_BOUNDED_BATCH,
+                'reason' => "claimable_per_active_worker={$claimablePerActiveWorker} at or below worker floor={$this->floorAsString()}; request bounded batch to avoid starvation",
+                'max_tasks' => self::BOUNDED_BATCH_MAX_TASKS,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'action' => self::ACTION_HOLD,
+            'reason' => 'worker buffer comfortable; no extra generation requested',
+            'max_tasks' => 0,
+        ];
+    }
+
+    private function floorAsString(): string
+    {
+        return (string) self::WORKER_FLOOR_RATIO;
+    }
+
     /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,under_pressure:bool,live_ratio_reason:?string,batch_budget:array<string,mixed>} */
     private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false, ?string $liveRatioReason = null): array
     {
