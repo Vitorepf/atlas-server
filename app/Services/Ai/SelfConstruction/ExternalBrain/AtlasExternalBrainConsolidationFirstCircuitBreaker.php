@@ -45,6 +45,12 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
     private const SPRAWL_THRESHOLD = 0.60;
     private const REDUNDANT_SCAFFOLD_THRESHOLD = 3;
     private const LOW_MARGINAL_VALUE_THRESHOLD = 0.20;
+    private const DUPLICATE_RESPONSIBILITY_THRESHOLD = 0.50;
+
+    public const BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL = 'consolidation_first_sprawl';
+
+    /** Proposal kinds exempt from the consolidation-first block — they ARE the fix. */
+    private const EXEMPT_PROPOSAL_KINDS = ['consolidation', 'deletion', 'integration'];
 
     /**
      * @param  array<string,mixed>  $metrics
@@ -199,5 +205,43 @@ final class AtlasExternalBrainConsolidationFirstCircuitBreaker
             'enqueue_permitted' => $enqueuePermitted,
             'permitted_via_exception' => $circuitOpen && $enqueuePermitted,
         ];
+    }
+
+    /**
+     * Blocks new organ/task proposals when sprawl or duplicate-responsibility signals
+     * are present — UNLESS the proposal is explicitly consolidation, deletion or
+     * integration (those proposals ARE the remedy, never the problem). Keeps the same
+     * safety-metadata contract as evaluateEnqueueGate() so callers never lose fields.
+     *
+     * @param  array<string,mixed>  $input  { queue_saturation?, organ_sprawl_score?,
+     *   redundant_scaffold_count?, marginal_new_task_value?, duplicate_responsibility_score?,
+     *   proposed_task?: {kind?: string, unlocks_consolidation?, removes_blocker?} }
+     * @return array<string,mixed>
+     */
+    public function evaluateOrganProposal(array $input): array
+    {
+        $gate = $this->evaluateEnqueueGate($input);
+
+        $duplicateResponsibilityScore = max(0.0, min(1.0, (float) ($input['duplicate_responsibility_score'] ?? 0.0)));
+        $duplicateResponsibilityHigh = $duplicateResponsibilityScore >= self::DUPLICATE_RESPONSIBILITY_THRESHOLD;
+
+        $proposedTask = is_array($input['proposed_task'] ?? null) ? $input['proposed_task'] : [];
+        $proposalKind = strtolower(trim((string) ($proposedTask['kind'] ?? '')));
+        $isExemptKind = in_array($proposalKind, self::EXEMPT_PROPOSAL_KINDS, true);
+        $unlocksConsolidation = (bool) ($proposedTask['unlocks_consolidation'] ?? false);
+        $removesBlocker = (bool) ($proposedTask['removes_blocker'] ?? false);
+        $isExempt = $isExemptKind || $unlocksConsolidation || $removesBlocker;
+
+        $sprawlSignalPresent = $gate['circuit_open'] || $duplicateResponsibilityHigh;
+        $blocked = $sprawlSignalPresent && ! $isExempt;
+
+        return array_merge($gate, [
+            'duplicate_responsibility_score' => $duplicateResponsibilityScore,
+            'duplicate_responsibility_high' => $duplicateResponsibilityHigh,
+            'proposal_kind' => $proposalKind !== '' ? $proposalKind : null,
+            'proposal_kind_exempt' => $isExemptKind,
+            'blocked' => $blocked,
+            'reason' => $blocked ? self::BLOCKED_REASON_CONSOLIDATION_FIRST_SPRAWL : null,
+        ]);
     }
 }
