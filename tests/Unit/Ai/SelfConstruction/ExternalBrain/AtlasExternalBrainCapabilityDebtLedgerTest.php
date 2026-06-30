@@ -257,4 +257,93 @@ final class AtlasExternalBrainCapabilityDebtLedgerTest extends TestCase
             $this->assertArrayHasKey($dim, $r['dimension_summary']);
         }
     }
+
+    // ── rankByUnblockValue ──────────────────────────────────────────────────────
+
+    private function debtRecord(array $overrides = []): array
+    {
+        return array_merge([
+            'debt_id' => 'debt-1',
+            'blocked_capability' => 'task_origination',
+            'severity' => 'high',
+            'blocked_downstream_circuits' => ['queue_replenishment'],
+            'evidence_age_days' => 1,
+            'implementation_effort' => 1,
+        ], $overrides);
+    }
+
+    public function test_ranked_debts_have_required_fields(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [$this->debtRecord()]]);
+
+        $entry = $r['ranked_debts'][0];
+        foreach (['debt_id', 'blocked_capability', 'unblock_score', 'first_safe_task_hint'] as $k) {
+            $this->assertArrayHasKey($k, $entry);
+        }
+        $this->assertNotEmpty($entry['first_safe_task_hint']);
+    }
+
+    public function test_higher_severity_ranks_above_lower_severity(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'low-sev', 'severity' => 'low', 'blocked_downstream_circuits' => []]),
+            $this->debtRecord(['debt_id' => 'critical-sev', 'severity' => 'critical', 'blocked_downstream_circuits' => []]),
+        ]]);
+
+        $this->assertSame('critical-sev', $r['ranked_debts'][0]['debt_id']);
+        $this->assertSame('critical-sev', $r['top_priority_debt_id']);
+    }
+
+    public function test_more_blocked_downstream_circuits_ranks_higher_at_same_severity(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'few-circuits', 'severity' => 'medium', 'blocked_downstream_circuits' => ['a']]),
+            $this->debtRecord(['debt_id' => 'many-circuits', 'severity' => 'medium', 'blocked_downstream_circuits' => ['a', 'b', 'c']]),
+        ]]);
+
+        $this->assertSame('many-circuits', $r['ranked_debts'][0]['debt_id']);
+    }
+
+    public function test_implementation_effort_does_not_affect_ranking(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'hard-but-critical', 'severity' => 'critical', 'implementation_effort' => 100]),
+            $this->debtRecord(['debt_id' => 'easy-but-low', 'severity' => 'low', 'implementation_effort' => 1, 'blocked_downstream_circuits' => []]),
+        ]]);
+
+        $this->assertSame('hard-but-critical', $r['ranked_debts'][0]['debt_id']);
+    }
+
+    public function test_stale_evidence_discounts_unblock_score(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'fresh', 'evidence_age_days' => 1]),
+            $this->debtRecord(['debt_id' => 'stale', 'evidence_age_days' => 30]),
+        ]]);
+
+        $byId = collect($r['ranked_debts'])->keyBy('debt_id');
+        $this->assertSame('fresh', $byId['fresh']['evidence_freshness']);
+        $this->assertSame('stale', $byId['stale']['evidence_freshness']);
+        $this->assertGreaterThan($byId['stale']['unblock_score'], $byId['fresh']['unblock_score']);
+    }
+
+    public function test_debt_grouped_by_capability_area(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => [
+            $this->debtRecord(['debt_id' => 'd1', 'blocked_capability' => 'task_origination']),
+            $this->debtRecord(['debt_id' => 'd2', 'blocked_capability' => 'task_origination']),
+            $this->debtRecord(['debt_id' => 'd3', 'blocked_capability' => 'evidence_capture']),
+        ]]);
+
+        $this->assertCount(2, $r['debt_by_capability_area']['task_origination']);
+        $this->assertCount(1, $r['debt_by_capability_area']['evidence_capture']);
+    }
+
+    public function test_empty_debt_records_returns_empty_ranking(): void
+    {
+        $r = $this->svc()->rankByUnblockValue(['debt_records' => []]);
+
+        $this->assertSame([], $r['ranked_debts']);
+        $this->assertNull($r['top_priority_debt_id']);
+    }
 }

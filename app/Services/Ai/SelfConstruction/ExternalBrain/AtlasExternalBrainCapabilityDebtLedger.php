@@ -108,4 +108,76 @@ final class AtlasExternalBrainCapabilityDebtLedger
             'dimension_summary'  => $dimensionSummary,
         ];
     }
+
+    private const SEVERITY_WEIGHTS = ['critical' => 4, 'high' => 3, 'medium' => 2, 'low' => 1];
+
+    private const STALE_EVIDENCE_AGE_DAYS = 14;
+
+    private const STALE_EVIDENCE_PENALTY = 0.5;
+
+    /**
+     * Ranks autonomy debt by how much fixing it unblocks 24/7 self-construction
+     * — NOT by how easy the fix is. implementation_effort, if supplied, is
+     * accepted but never used to compute unblock_score.
+     *
+     * unblock_score = severity_weight(severity) * (1 + count(blocked_downstream_circuits))
+     *   discounted by STALE_EVIDENCE_PENALTY (0.5) when evidence_age_days
+     *   exceeds STALE_EVIDENCE_AGE_DAYS (14) — stale evidence cannot justify
+     *   full ranking confidence even for a severe-sounding debt.
+     *
+     * Groups debt by capability area, severity, blocked downstream circuits
+     * and evidence freshness in debt_by_capability_area.
+     *
+     * @param  array<string,mixed>  $input  { debt_records: list<{
+     *   debt_id, blocked_capability, severity?, blocked_downstream_circuits?,
+     *   evidence_age_days?, implementation_effort?}> }
+     * @return array<string,mixed>
+     */
+    public function rankByUnblockValue(array $input): array
+    {
+        $records = is_array($input['debt_records'] ?? null) ? $input['debt_records'] : [];
+
+        $rankedDebts = [];
+        $byCapabilityArea = [];
+
+        foreach ($records as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+
+            $debtId = (string) ($r['debt_id'] ?? 'unknown');
+            $blockedCapability = (string) ($r['blocked_capability'] ?? 'unknown');
+            $severity = strtolower(trim((string) ($r['severity'] ?? 'low')));
+            $severityWeight = self::SEVERITY_WEIGHTS[$severity] ?? self::SEVERITY_WEIGHTS['low'];
+            $blockedCircuits = is_array($r['blocked_downstream_circuits'] ?? null) ? array_values($r['blocked_downstream_circuits']) : [];
+            $evidenceAgeDays = max(0, (int) ($r['evidence_age_days'] ?? 0));
+            $evidenceFresh = $evidenceAgeDays <= self::STALE_EVIDENCE_AGE_DAYS;
+
+            $rawScore = $severityWeight * (1 + count($blockedCircuits));
+            $unblockScore = $evidenceFresh ? $rawScore : round($rawScore * self::STALE_EVIDENCE_PENALTY, 4);
+
+            $entry = [
+                'debt_id' => $debtId,
+                'blocked_capability' => $blockedCapability,
+                'severity' => $severity,
+                'blocked_downstream_circuits' => $blockedCircuits,
+                'evidence_age_days' => $evidenceAgeDays,
+                'evidence_freshness' => $evidenceFresh ? 'fresh' : 'stale',
+                'unblock_score' => $unblockScore,
+                'first_safe_task_hint' => "author_minimal_probe_for_{$blockedCapability}_with_runnable_evidence",
+            ];
+
+            $rankedDebts[] = $entry;
+            $byCapabilityArea[$blockedCapability][] = $debtId;
+        }
+
+        usort($rankedDebts, static fn (array $a, array $b): int => $b['unblock_score'] <=> $a['unblock_score']);
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'ranked_debts' => $rankedDebts,
+            'top_priority_debt_id' => $rankedDebts[0]['debt_id'] ?? null,
+            'debt_by_capability_area' => $byCapabilityArea,
+        ];
+    }
 }
