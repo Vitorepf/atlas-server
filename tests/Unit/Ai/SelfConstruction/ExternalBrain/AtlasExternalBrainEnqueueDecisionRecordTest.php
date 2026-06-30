@@ -28,6 +28,12 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
             'expected_downstream_value' => 'Wires AtlasOriginator to real task pipeline.',
             'risk_level'               => 'low',
             'decision_reason'          => 'target unique, evidence clean, acceptance tests present',
+            'admission_reason'         => 'target unique, evidence clean, acceptance tests present, admitted into queue',
+            'target_digest'            => 'sha256:deadbeef',
+            'value_reason'             => 'Closes a known capability gap.',
+            'dedup_result'             => ['is_duplicate' => false],
+            'risk_result'              => ['level' => 'low'],
+            'expected_impact'          => 'Unblocks downstream wiring task.',
             'validation_evidence'      => [
                 'target_uniqueness',
                 'collision_check',
@@ -249,9 +255,9 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
         $this->assertStringContainsString('no_runnable_acceptance', $result['rejection_reason']);
     }
 
-    // ── AC1: defer, consolidate, reject always accepted ───────────────────────
+    // ── AC1/AC3: defer, consolidate, reject accepted with a decline_reason ────
 
-    public function test_defer_decision_is_always_accepted(): void
+    public function test_defer_decision_is_accepted_with_decline_reason(): void
     {
         $result = $this->recorder->record([
             'decision'           => 'defer',
@@ -259,14 +265,16 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
             'queue_pressure'     => 'high',
             'leverage_rationale' => 'Queue too deep.',
             'risk_level'         => 'low',
+            'decline_reason'     => 'Queue is too deep right now; defer until pressure drops.',
             'validation_evidence' => [],
         ]);
 
         $this->assertTrue($result['accepted']);
         $this->assertNotNull($result['record']);
+        $this->assertSame('Queue is too deep right now; defer until pressure drops.', $result['record']['decline_reason']);
     }
 
-    public function test_consolidate_decision_is_always_accepted(): void
+    public function test_consolidate_decision_is_accepted_with_decline_reason(): void
     {
         $result = $this->recorder->record([
             'decision'           => 'consolidate',
@@ -274,22 +282,99 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
             'queue_pressure'     => 'medium',
             'leverage_rationale' => 'Merged with sibling task.',
             'risk_level'         => 'low',
+            'decline_reason'     => 'This candidate overlaps an existing queued task; consolidate instead of duplicating.',
             'validation_evidence' => [],
         ]);
 
         $this->assertTrue($result['accepted']);
     }
 
-    public function test_reject_decision_is_always_accepted(): void
+    public function test_reject_decision_is_accepted_with_decline_reason(): void
     {
         $result = $this->recorder->record([
             'decision'           => 'reject',
             'leverage_rationale' => 'Proxy task detected.',
             'risk_level'         => 'low',
+            'decline_reason'     => 'Acceptance criteria are proxy metrics, not real behavior assertions.',
             'validation_evidence' => [],
         ]);
 
         $this->assertTrue($result['accepted']);
+    }
+
+    // ── AC3: declined decisions require a decline_reason ───────────────────────
+
+    public function test_defer_without_decline_reason_is_rejected(): void
+    {
+        $result = $this->recorder->record([
+            'decision'            => 'defer',
+            'validation_evidence' => [],
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('missing_decline_reason', $result['rejection_reason']);
+    }
+
+    public function test_consolidate_without_decline_reason_is_rejected(): void
+    {
+        $result = $this->recorder->record([
+            'decision'            => 'consolidate',
+            'validation_evidence' => [],
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('missing_decline_reason', $result['rejection_reason']);
+    }
+
+    public function test_reject_without_decline_reason_is_rejected(): void
+    {
+        $result = $this->recorder->record([
+            'decision'            => 'reject',
+            'validation_evidence' => [],
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('missing_decline_reason', $result['rejection_reason']);
+    }
+
+    // ── AC3: enqueue requires an admission_reason ──────────────────────────────
+
+    public function test_enqueue_without_admission_reason_is_rejected(): void
+    {
+        $input = $this->validEnqueue(['admission_reason' => '']);
+
+        $result = $this->recorder->record($input);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('missing_admission_reason', $result['rejection_reason']);
+    }
+
+    public function test_accepted_enqueue_record_carries_admission_reason(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue(['admission_reason' => 'unique target, clean evidence']));
+
+        $this->assertSame('unique target, clean evidence', $result['record']['admission_reason']);
+        $this->assertNull($result['record']['decline_reason']);
+    }
+
+    // ── AC2: new audit-trail fields ────────────────────────────────────────────
+
+    public function test_accepted_record_has_target_digest_value_reason_dedup_risk_and_expected_impact(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'target_digest' => 'sha256:abc123',
+            'value_reason' => 'Unlocks the originator pipeline.',
+            'dedup_result' => ['is_duplicate' => false, 'matched_against' => null],
+            'risk_result' => ['level' => 'medium', 'reason' => 'touches shared file'],
+            'expected_impact' => 'Two downstream tasks unblocked.',
+        ]));
+
+        $record = $result['record'];
+        $this->assertSame('sha256:abc123', $record['target_digest']);
+        $this->assertSame('Unlocks the originator pipeline.', $record['value_reason']);
+        $this->assertSame(['is_duplicate' => false, 'matched_against' => null], $record['dedup_result']);
+        $this->assertSame(['level' => 'medium', 'reason' => 'touches shared file'], $record['risk_result']);
+        $this->assertSame('Two downstream tasks unblocked.', $record['expected_impact']);
     }
 
     // ── decision echoed in result ─────────────────────────────────────────────

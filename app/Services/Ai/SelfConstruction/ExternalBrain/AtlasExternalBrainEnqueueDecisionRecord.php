@@ -57,6 +57,8 @@ final class AtlasExternalBrainEnqueueDecisionRecord
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+    private const DECLINED_DECISIONS = [self::DECISION_DEFER, self::DECISION_CONSOLIDATE, self::DECISION_REJECT];
+
     public function record(array $input): array
     {
         $decision               = (string) ($input['decision']                ?? '');
@@ -69,8 +71,15 @@ final class AtlasExternalBrainEnqueueDecisionRecord
         $riskLevel              = (string) ($input['risk_level']              ?? 'low');
         $decisionReason         = (string) ($input['decision_reason']         ?? '');
         $evidence               = (array)  ($input['validation_evidence']     ?? []);
+        $targetDigest           = (string) ($input['target_digest']           ?? '');
+        $valueReason            = (string) ($input['value_reason']            ?? '');
+        $dedupResult            = (array)  ($input['dedup_result']            ?? []);
+        $riskResult             = (array)  ($input['risk_result']             ?? []);
+        $expectedImpact         = (string) ($input['expected_impact']         ?? '');
+        $admissionReason        = trim((string) ($input['admission_reason']   ?? ''));
+        $declineReason          = trim((string) ($input['decline_reason']     ?? ''));
 
-        $rejectionReason = $this->validateDecision($decision, $evidence);
+        $rejectionReason = $this->validateDecision($decision, $evidence, $admissionReason, $declineReason);
 
         if ($rejectionReason !== null) {
             return [
@@ -85,16 +94,23 @@ final class AtlasExternalBrainEnqueueDecisionRecord
         $record = [
             'batch_id'                 => $batchId,
             'decision'                 => $decision,
+            'target_digest'            => $targetDigest,
             'candidate_count'          => $candidateCount,
             'queue_snapshot'           => [
                 'queue_depth'    => $queueDepth,
                 'queue_pressure' => $queuePressure,
             ],
+            'value_reason'             => $valueReason,
             'leverage_rationale'       => $leverageRationale,
+            'dedup_result'             => $dedupResult,
+            'risk_result'              => $riskResult,
+            'expected_impact'          => $expectedImpact,
             'expected_downstream_value' => $expectedDownstreamValue,
             'risk'                     => $riskLevel,
             'validation_evidence'      => $evidence,
             'decision_reason'          => $decisionReason,
+            'admission_reason'         => $decision === self::DECISION_ENQUEUE ? $admissionReason : null,
+            'decline_reason'           => in_array($decision, self::DECLINED_DECISIONS, true) ? $declineReason : null,
         ];
 
         return [
@@ -106,22 +122,30 @@ final class AtlasExternalBrainEnqueueDecisionRecord
         ];
     }
 
-    private function validateDecision(string $decision, array $evidence): ?string
+    private function validateDecision(string $decision, array $evidence, string $admissionReason, string $declineReason): ?string
     {
-        if ($decision !== self::DECISION_ENQUEUE) {
+        if ($decision === self::DECISION_ENQUEUE) {
+            foreach (self::FORBIDDEN_ENQUEUE_EVIDENCE as $forbidden) {
+                if (in_array($forbidden, $evidence, true)) {
+                    return "enqueue_refused:forbidden_evidence_present:{$forbidden}";
+                }
+            }
+
+            foreach (self::REQUIRED_ENQUEUE_EVIDENCE as $required) {
+                if (! in_array($required, $evidence, true)) {
+                    return "enqueue_refused:missing_required_evidence:{$required}";
+                }
+            }
+
+            if ($admissionReason === '') {
+                return 'enqueue_refused:missing_admission_reason';
+            }
+
             return null;
         }
 
-        foreach (self::FORBIDDEN_ENQUEUE_EVIDENCE as $forbidden) {
-            if (in_array($forbidden, $evidence, true)) {
-                return "enqueue_refused:forbidden_evidence_present:{$forbidden}";
-            }
-        }
-
-        foreach (self::REQUIRED_ENQUEUE_EVIDENCE as $required) {
-            if (! in_array($required, $evidence, true)) {
-                return "enqueue_refused:missing_required_evidence:{$required}";
-            }
+        if (in_array($decision, self::DECLINED_DECISIONS, true) && $declineReason === '') {
+            return "{$decision}_refused:missing_decline_reason";
         }
 
         return null;
