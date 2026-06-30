@@ -168,6 +168,37 @@ final class AtlasTaskFabricMuscleReadyPacketCompilerTest extends TestCase
         $this->assertContains('scope_collision_test_target', $r['blockers']);
     }
 
+    public function test_family_collision_with_implementation_target_is_refused(): void
+    {
+        $r = $this->svc()->compile($this->validIntent(), [
+            'app/Services/Ai/OtherDir/AtlasFooService.php',
+        ]);
+
+        $this->assertFalse($r['admitted']);
+        $this->assertContains('family_collision_implementation_target', $r['blockers']);
+    }
+
+    public function test_family_collision_with_test_target_is_refused(): void
+    {
+        $r = $this->svc()->compile($this->validIntent(), [
+            'tests/Unit/Ai/OtherDir/AtlasFooServiceTest.php',
+        ]);
+
+        $this->assertFalse($r['admitted']);
+        $this->assertContains('family_collision_test_target', $r['blockers']);
+    }
+
+    public function test_distinct_implementation_and_test_targets_still_compile(): void
+    {
+        $r = $this->svc()->compile($this->validIntent(), [
+            'app/Services/Ai/Bar/AtlasBarService.php',
+            'tests/Unit/Ai/Bar/AtlasBarServiceTest.php',
+        ]);
+
+        $this->assertTrue($r['admitted']);
+        $this->assertSame([], $r['blockers']);
+    }
+
     public function test_clean_live_targets_do_not_block_admission(): void
     {
         $r = $this->svc()->compile($this->validIntent(), [

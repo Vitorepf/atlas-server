@@ -79,11 +79,20 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
             $blockers[] = 'requires_external_provider';
         }
 
+        $liveFamilies = [];
+        foreach ($liveTargets as $liveTarget) {
+            $liveFamilies[$this->family((string) $liveTarget)] = true;
+        }
+
         if ($impl !== '' && in_array($impl, $liveTargets, true)) {
             $blockers[] = 'scope_collision_implementation_target';
+        } elseif ($impl !== '' && isset($liveFamilies[$this->family($impl)])) {
+            $blockers[] = 'family_collision_implementation_target';
         }
         if ($test !== '' && $test !== $impl && in_array($test, $liveTargets, true)) {
             $blockers[] = 'scope_collision_test_target';
+        } elseif ($test !== '' && $test !== $impl && isset($liveFamilies[$this->family($test)])) {
+            $blockers[] = 'family_collision_test_target';
         }
 
         $blockers = array_values(array_unique($blockers));
@@ -108,6 +117,15 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
                 'required_evidence' => $evidence,
             ],
         ];
+    }
+
+    /** Derives the implementation/test family for a path: basename without extension or Test suffix. */
+    private function family(string $path): string
+    {
+        $base = basename($path);
+        $base = preg_replace('/\.php$/', '', $base) ?? $base;
+
+        return preg_replace('/Test$/', '', $base) ?? $base;
     }
 
     /** @param  list<string>  $acceptance */
