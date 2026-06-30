@@ -43,6 +43,16 @@ final class AtlasSelfConstructionAutonomyRuntimeLedger
     public function append(array $event): array
     {
         $row = $this->normalize($event);
+        $this->writeRow($row);
+
+        return $row;
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     */
+    private function writeRow(array $row): void
+    {
         $dir = \dirname($this->ledgerPath);
         if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
             throw new \RuntimeException('autonomy_ledger_mkdir_failed:'.$dir);
@@ -61,8 +71,38 @@ final class AtlasSelfConstructionAutonomyRuntimeLedger
         } finally {
             fclose($fh);
         }
+    }
 
-        return $row;
+    /**
+     * Append only if no row with the same evidence_hash exists. Returns the row on first write,
+     * or the existing matching row on duplicate (no-write).
+     *
+     * @param  array<string,mixed>  $event
+     * @return array{row:array<string,mixed>, appended:bool}
+     */
+    public function appendIfNew(array $event): array
+    {
+        $row = $this->normalize($event);
+        foreach ($this->all() as $existing) {
+            if (($existing['evidence_hash'] ?? '') === $row['evidence_hash']) {
+                return ['row' => $existing, 'appended' => false];
+            }
+        }
+        $this->writeRow($row);
+
+        return ['row' => $row, 'appended' => true];
+    }
+
+    /**
+     * Return the most recent $n events, oldest-first. Never mutates the file.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function tail(int $n): array
+    {
+        $all = $this->all();
+
+        return array_values(array_slice($all, max(0, count($all) - $n)));
     }
 
     /**

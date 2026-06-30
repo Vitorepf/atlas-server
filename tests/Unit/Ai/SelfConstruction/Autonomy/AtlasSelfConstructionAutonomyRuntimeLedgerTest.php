@@ -127,6 +127,72 @@ final class AtlasSelfConstructionAutonomyRuntimeLedgerTest extends TestCase
         $this->assertCount(3, $ledger->all(), 'history query must not mutate the ledger');
     }
 
+    private function eventFor(string $kind, string $level, int $ts = 1700000000): array
+    {
+        return ['kind' => $kind, 'level' => $level, 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => $ts];
+    }
+
+    public function test_duplicate_suppression_append_if_new_skips_identical_event(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $event = $this->eventFor(AtlasSelfConstructionAutonomyRuntimeLedger::KIND_PROMOTED, 'L1', 1700000001);
+
+        $r1 = $ledger->appendIfNew($event);
+        $r2 = $ledger->appendIfNew($event);
+
+        $this->assertTrue($r1['appended']);
+        $this->assertFalse($r2['appended'], 'second call must not write a duplicate');
+        $this->assertSame($r1['row']['evidence_hash'], $r2['row']['evidence_hash']);
+        $this->assertCount(1, $ledger->all(), 'only one row must be on disk');
+    }
+
+    public function test_bounded_history_tail_returns_last_n_events(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        foreach (['L0', 'L1', 'L2', 'L3', 'L4'] as $i => $lvl) {
+            $ledger->append($this->eventFor(AtlasSelfConstructionAutonomyRuntimeLedger::KIND_PROMOTED, $lvl, 1700000000 + $i));
+        }
+
+        $tail = $ledger->tail(2);
+        $this->assertCount(2, $tail);
+        $this->assertSame('L3', $tail[0]['level']);
+        $this->assertSame('L4', $tail[1]['level']);
+        $this->assertCount(5, $ledger->all(), 'tail must not mutate the ledger');
+    }
+
+    public function test_level_regression_records_degraded_kind(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $ledger->append($this->eventFor(AtlasSelfConstructionAutonomyRuntimeLedger::KIND_PROMOTED, 'L2', 1700000001));
+        $row = $ledger->append([
+            'kind' => AtlasSelfConstructionAutonomyRuntimeLedger::KIND_DEGRADED,
+            'level' => 'L1', 'decision' => 'demote',
+            'reasons' => ['watchdog_alarm'], 'lane' => 'lane-A', 'created_at_unix' => 1700000002,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyRuntimeLedger::KIND_DEGRADED, $row['kind']);
+        $this->assertSame('L1', $row['level']);
+        $this->assertSame('demote', $row['decision']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $row['evidence_hash']);
+    }
+
+    public function test_level_promotion_records_promoted_kind_with_higher_level(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $ledger->append($this->eventFor(AtlasSelfConstructionAutonomyRuntimeLedger::KIND_REQUESTED, 'L1', 1700000001));
+        $row = $ledger->append([
+            'kind' => AtlasSelfConstructionAutonomyRuntimeLedger::KIND_PROMOTED,
+            'level' => 'L2', 'decision' => 'allow',
+            'reasons' => ['evidence_ok', 'audit_fresh'], 'lane' => 'lane-A', 'created_at_unix' => 1700000002,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyRuntimeLedger::KIND_PROMOTED, $row['kind']);
+        $this->assertSame('L2', $row['level']);
+        $this->assertSame('allow', $row['decision']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $row['evidence_hash']);
+        $this->assertCount(2, $ledger->all());
+    }
+
     public function test_records_required_fields(): void
     {
         $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
