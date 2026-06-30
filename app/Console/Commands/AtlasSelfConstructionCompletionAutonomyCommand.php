@@ -37,7 +37,7 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
 
     public const STEADY_STATE_RUNTIME_OWNER = 'atlas_server';
 
-    protected $signature = 'atlas:self-construction:completion-autonomy {action : audit|transition-map|policy|verdict|code-index-readiness} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:completion-autonomy {action : audit|transition-map|policy|verdict|code-index-readiness|final-brain-score} {--facts=} {--json}';
 
     protected $description = 'Read-only final-autonomy completion CLI: audit | transition-map | policy | verdict | code-index-readiness.';
 
@@ -63,6 +63,7 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
                 (array) ($facts['readiness'] ?? []),
             ),
             'code-index-readiness' => $codeIndexBridge->verify((array) ($facts['code_index'] ?? $facts)),
+            'final-brain-score' => $this->finalBrainScore($facts, $auditSvc, $transitionSvc, $verdictSvc),
             default => null,
         };
         if ($payload === null) {
@@ -77,6 +78,48 @@ final class AtlasSelfConstructionCompletionAutonomyCommand extends Command
         $this->emit($payload);
 
         return self::EXIT_OK;
+    }
+
+    /**
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    private function finalBrainScore(
+        array $facts,
+        AtlasSelfConstructionAutonomyDependencyAudit $auditSvc,
+        AtlasSelfConstructionAutonomyTransitionMap $transitionSvc,
+        AtlasSelfConstructionFinalAutonomyVerdict $verdictSvc,
+    ): array {
+        $auditResult = $auditSvc->audit((array) ($facts['evidence'] ?? []));
+        $transitionResult = $transitionSvc->transition($auditResult);
+        $capabilityFacts = (array) ($facts['capability_facts'] ?? []);
+
+        $verdict = $verdictSvc->compose(
+            $auditResult,
+            $transitionResult,
+            (array) ($facts['readiness'] ?? []),
+            $capabilityFacts,
+        );
+
+        $missingTasks = array_values(array_map(
+            static fn (string $b): string => substr($b, strlen('missing_capability_lane:')),
+            array_filter($verdict['blockers'], static fn (string $b): bool => str_starts_with($b, 'missing_capability_lane:')),
+        ));
+
+        $score = (int) ($verdict['score'] ?? 0);
+
+        return [
+            'final_brain_score' => $score,
+            'verdict' => $verdict['verdict'],
+            'ready' => $score >= 90 && $verdict['verdict'] === AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE,
+            'criteria' => AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES,
+            'missing_tasks' => $missingTasks,
+            'proof_commands' => [
+                'php artisan atlas:self-construction:completion-autonomy final-brain-score --facts=<path> --json',
+                'php artisan atlas:self-construction:completion-autonomy verdict --facts=<path> --json',
+            ],
+            'blockers' => $verdict['blockers'],
+        ];
     }
 
     /**

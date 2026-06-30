@@ -142,6 +142,49 @@ final class AtlasSelfConstructionCompletionAutonomyCommandTest extends TestCase
         $this->assertTrue($decoded['passed']);
     }
 
+    public function test_final_brain_score_action_returns_non_ready_below_90_threshold(): void
+    {
+        $allLanes = array_fill_keys(\App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, true);
+        $allLanes['task_repair'] = false; // 5/6 → score=83
+
+        $path = $this->fixture([
+            'evidence' => [['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native']],
+            'readiness' => ['state' => 'ready'],
+            'capability_facts' => $allLanes,
+        ]);
+
+        [$exit, $out] = $this->runCmd(['action' => 'final-brain-score', '--facts' => $path, '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionCompletionAutonomyCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertFalse($decoded['ready']);
+        $this->assertLessThan(90, $decoded['final_brain_score']);
+        $this->assertContains('task_repair', $decoded['missing_tasks']);
+    }
+
+    public function test_final_brain_score_action_includes_all_required_fields_and_ready_when_complete(): void
+    {
+        $allLanes = array_fill_keys(\App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, true);
+
+        $path = $this->fixture([
+            'evidence' => [['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native']],
+            'readiness' => ['state' => 'ready'],
+            'capability_facts' => $allLanes,
+        ]);
+
+        [$exit, $out] = $this->runCmd(['action' => 'final-brain-score', '--facts' => $path, '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionCompletionAutonomyCommand::EXIT_OK, $exit);
+        $decoded = json_decode(trim($out), true);
+        foreach (['final_brain_score', 'verdict', 'criteria', 'missing_tasks', 'proof_commands'] as $key) {
+            $this->assertArrayHasKey($key, $decoded, "missing key: {$key}");
+        }
+        $this->assertTrue($decoded['ready']);
+        $this->assertGreaterThanOrEqual(90, $decoded['final_brain_score']);
+        $this->assertSame([], $decoded['missing_tasks']);
+        $this->assertNotEmpty($decoded['proof_commands']);
+    }
+
     public function test_missing_facts_with_json_flag_emits_usage_error_envelope(): void
     {
         [$exit, $out] = $this->runCmd(['action' => 'verdict', '--json' => true]);
