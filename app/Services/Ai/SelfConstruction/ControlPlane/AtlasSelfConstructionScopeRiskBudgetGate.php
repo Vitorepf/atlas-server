@@ -60,6 +60,15 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
         $costBudget = (int) ($facts['cost_budget_units'] ?? 0);
         $lane = is_array($facts['project_lane'] ?? null) ? $facts['project_lane'] : [];
         $laneRoots = is_array($lane['allowed_scope_roots'] ?? null) ? array_map('strval', $lane['allowed_scope_roots']) : [];
+
+        if ($requested === []) {
+            $blockers[] = 'empty_requested_scope';
+        }
+
+        $projectId = trim((string) ($lane['project_id'] ?? ''));
+        if ($projectId === '') {
+            $blockers[] = 'project_lane_id_missing';
+        }
         $forbidden = is_array($facts['forbidden_organs'] ?? null) ? array_values(array_map('strval', $facts['forbidden_organs'])) : [];
         $touched = is_array($facts['touched_organs'] ?? null) ? array_values(array_map('strval', $facts['touched_organs'])) : [];
         $rollbackReady = (bool) ($facts['rollback_ready'] ?? false);
@@ -103,6 +112,7 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
         }
 
         sort($blockers, SORT_STRING);
+        $normalizedScope = array_values(array_unique($normalizedScope));
         sort($normalizedScope, SORT_STRING);
 
         return [

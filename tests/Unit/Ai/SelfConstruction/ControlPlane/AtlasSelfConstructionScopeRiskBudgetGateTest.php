@@ -91,4 +91,41 @@ final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
         $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
         $this->assertContains('missing_project_lane_scope_roots', $r['blockers']);
     }
+
+    public function test_empty_requested_scope_yields_empty_requested_scope_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = [];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('empty_requested_scope', $r['blockers']);
+    }
+
+    public function test_missing_project_lane_project_id_yields_project_lane_id_missing_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['project_lane'] = ['allowed_scope_roots' => ['app/']]; // no project_id
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('project_lane_id_missing', $r['blockers']);
+    }
+
+    public function test_blank_project_lane_project_id_yields_project_lane_id_missing_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['project_lane'] = ['project_id' => '   ', 'allowed_scope_roots' => ['app/']];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('project_lane_id_missing', $r['blockers']);
+    }
+
+    public function test_duplicate_scope_paths_normalize_without_duplicates(): void
+    {
+        $f = $this->safeFacts();
+        $f['requested_scope'] = ['app/Demo/Foo.php', 'app/Demo/Foo.php', 'app/Demo/Bar.php'];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertTrue($r['allowed']);
+        $this->assertSame(array_unique($r['normalized_scope']), $r['normalized_scope'], 'normalized_scope must not contain duplicates');
+        $this->assertCount(2, $r['normalized_scope']);
+    }
 }
