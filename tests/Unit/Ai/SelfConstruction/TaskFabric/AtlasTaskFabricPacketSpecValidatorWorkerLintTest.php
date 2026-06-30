@@ -19,7 +19,7 @@ final class AtlasTaskFabricPacketSpecValidatorWorkerLintTest extends TestCase
     {
         return [
             'objective' => $objective,
-            'allowed_files' => ['app/Services/FooService.php'],
+            'allowed_files' => ['app/Services/FooService.php', 'tests/Unit/Services/FooServiceTest.php'],
             'scope_in' => ['app/Services/FooService.php'],
             'acceptance_criteria' => ['php artisan test --filter=FooServiceTest passes'],
             'required_evidence' => ['tests_or_gates_result'],
