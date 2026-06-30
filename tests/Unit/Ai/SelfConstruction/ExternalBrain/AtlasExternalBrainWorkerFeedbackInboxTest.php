@@ -368,4 +368,56 @@ final class AtlasExternalBrainWorkerFeedbackInboxTest extends TestCase
             $this->inbox()->normalize($note),
         );
     }
+
+    // ── poison outcome ───────────────────────────────────────────────────────
+
+    public function test_poison_requires_action(): void
+    {
+        $fact = $this->inbox()->normalize($this->note('poison', ['note' => 'Acceptance criteria are contradictory.']));
+
+        $this->assertTrue($fact['requires_action']);
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_POISON_QUARANTINE, $fact['routing_signal']);
+        $this->assertSame('contradictory_acceptance', $fact['root_cause_hint']);
+    }
+
+    public function test_poison_terse_note_needs_review(): void
+    {
+        $fact = $this->inbox()->normalize($this->note('poison', ['note' => 'bad']));
+
+        $this->assertTrue($fact['needs_review']);
+        $this->assertTrue($fact['requires_action']);
+    }
+
+    // ── weak_green outcome ───────────────────────────────────────────────────
+
+    public function test_weak_green_requires_action_and_needs_review(): void
+    {
+        $fact = $this->inbox()->normalize($this->note('weak_green', ['note' => 'Tests pass but coverage is flaky.']));
+
+        $this->assertTrue($fact['requires_action']);
+        $this->assertTrue($fact['needs_review']);
+        $this->assertSame(AtlasExternalBrainWorkerFeedbackInbox::ROUTING_WEAK_GREEN_REVIEW, $fact['routing_signal']);
+        $this->assertSame('flaky_or_partial_coverage', $fact['root_cause_hint']);
+    }
+
+    // ── ingest: counts by outcome_type and routing_signal ────────────────────
+
+    public function test_ingest_includes_counts_by_outcome_type_and_routing_signal(): void
+    {
+        $result = $this->inbox()->ingest([
+            $this->note('success'),
+            $this->note('give_back', ['note' => 'Scope too wide for this worker.']),
+            $this->note('poison', ['note' => 'Acceptance criteria are contradictory.']),
+            $this->note('weak_green', ['note' => 'Tests pass but coverage is flaky.']),
+        ]);
+
+        $this->assertArrayHasKey('by_outcome_type', $result);
+        $this->assertArrayHasKey('by_routing_signal', $result);
+        $this->assertSame(1, $result['by_outcome_type']['success']);
+        $this->assertSame(1, $result['by_outcome_type']['give_back']);
+        $this->assertSame(1, $result['by_outcome_type']['poison']);
+        $this->assertSame(1, $result['by_outcome_type']['weak_green']);
+        $this->assertSame(1, $result['by_routing_signal'][AtlasExternalBrainWorkerFeedbackInbox::ROUTING_POISON_QUARANTINE]);
+        $this->assertSame(1, $result['by_routing_signal'][AtlasExternalBrainWorkerFeedbackInbox::ROUTING_WEAK_GREEN_REVIEW]);
+    }
 }

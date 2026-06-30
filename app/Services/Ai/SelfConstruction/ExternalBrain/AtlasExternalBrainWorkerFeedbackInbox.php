@@ -39,6 +39,8 @@ final class AtlasExternalBrainWorkerFeedbackInbox
     public const OUTCOME_GIVE_BACK = 'give_back';
     public const OUTCOME_BLOCKED   = 'blocked';
     public const OUTCOME_AMBIGUOUS = 'ambiguous';
+    public const OUTCOME_POISON     = 'poison';
+    public const OUTCOME_WEAK_GREEN = 'weak_green';
 
     public const EVIDENCE_VERIFIED     = 'verified';
     public const EVIDENCE_UNVERIFIED   = 'unverified';
@@ -58,6 +60,8 @@ final class AtlasExternalBrainWorkerFeedbackInbox
     public const ROUTING_GIVE_BACK_REPAIR    = 'route_to_give_back_repair';
     public const ROUTING_BLOCKER_RESOLUTION  = 'route_to_blocker_resolution';
     public const ROUTING_TRIAGE              = 'route_to_triage';
+    public const ROUTING_POISON_QUARANTINE   = 'route_to_poison_quarantine';
+    public const ROUTING_WEAK_GREEN_REVIEW   = 'route_to_weak_green_review';
 
     private const MIN_NOTE_LENGTH = 10;
 
@@ -111,9 +115,11 @@ final class AtlasExternalBrainWorkerFeedbackInbox
      */
     public function ingest(array $notes): array
     {
-        $facts          = [];
-        $needsReview    = 0;
-        $requiresAction = 0;
+        $facts             = [];
+        $needsReview       = 0;
+        $requiresAction    = 0;
+        $byOutcomeType     = [];
+        $byRoutingSignal   = [];
 
         foreach ($notes as $note) {
             $fact = $this->normalize($note);
@@ -123,15 +129,19 @@ final class AtlasExternalBrainWorkerFeedbackInbox
             if ($fact['requires_action']) {
                 $requiresAction++;
             }
+            $byOutcomeType[$fact['outcome_type']] = ($byOutcomeType[$fact['outcome_type']] ?? 0) + 1;
+            $byRoutingSignal[$fact['routing_signal']] = ($byRoutingSignal[$fact['routing_signal']] ?? 0) + 1;
             $facts[] = $fact;
         }
 
         return [
-            'schema'          => self::SCHEMA,
-            'facts'           => $facts,
-            'count'           => count($facts),
-            'needs_review'    => $needsReview,
-            'requires_action' => $requiresAction,
+            'schema'             => self::SCHEMA,
+            'facts'              => $facts,
+            'count'              => count($facts),
+            'needs_review'       => $needsReview,
+            'requires_action'    => $requiresAction,
+            'by_outcome_type'    => $byOutcomeType,
+            'by_routing_signal'  => $byRoutingSignal,
         ];
     }
 
@@ -192,6 +202,28 @@ final class AtlasExternalBrainWorkerFeedbackInbox
                     'Task blocked: '.$reason,
                 ];
 
+            case self::OUTCOME_POISON:
+                $reason = $noteText !== '' ? $noteText : 'No poison detail provided.';
+
+                return [
+                    self::EVIDENCE_VERIFIED,
+                    $tooTerse ? self::CONFIDENCE_MEDIUM : self::CONFIDENCE_HIGH,
+                    $tooTerse,
+                    true,
+                    'Worker reported poison: '.$reason,
+                ];
+
+            case self::OUTCOME_WEAK_GREEN:
+                $reason = $noteText !== '' ? $noteText : 'No weak-green detail provided.';
+
+                return [
+                    self::EVIDENCE_UNVERIFIED,
+                    self::CONFIDENCE_MEDIUM,
+                    true,
+                    true,
+                    'Weak green reported: '.$reason,
+                ];
+
             case self::OUTCOME_AMBIGUOUS:
                 return [
                     self::EVIDENCE_NEEDS_REVIEW,
@@ -239,9 +271,26 @@ final class AtlasExternalBrainWorkerFeedbackInbox
             self::OUTCOME_SUCCESS    => $verifiedSuccess ? null : 'shallow_success_no_runnable_evidence',
             self::OUTCOME_GIVE_BACK  => $this->giveBackHint($noteText),
             self::OUTCOME_BLOCKED    => $this->blockerHint($noteText),
+            self::OUTCOME_POISON     => $this->poisonHint($noteText),
+            self::OUTCOME_WEAK_GREEN => 'flaky_or_partial_coverage',
             self::OUTCOME_AMBIGUOUS  => 'unclear_outcome',
             default                  => 'unknown_outcome_type',
         };
+    }
+
+    private function poisonHint(string $note): string
+    {
+        $lc = strtolower($note);
+        if (str_contains($lc, 'contradictory')) {
+            return 'contradictory_acceptance';
+        }
+        if (str_contains($lc, 'impossible')) {
+            return 'impossible_acceptance';
+        }
+        if (str_contains($lc, 'forbidden')) {
+            return 'forbidden_target';
+        }
+        return 'unspecified_poison';
     }
 
     private function giveBackHint(string $note): string
@@ -284,6 +333,8 @@ final class AtlasExternalBrainWorkerFeedbackInbox
             $outcomeType === self::OUTCOME_SUCCESS && $needsReview   => self::ROUTING_REVIEW_QUEUE,
             $outcomeType === self::OUTCOME_GIVE_BACK                 => self::ROUTING_GIVE_BACK_REPAIR,
             $outcomeType === self::OUTCOME_BLOCKED                   => self::ROUTING_BLOCKER_RESOLUTION,
+            $outcomeType === self::OUTCOME_POISON                    => self::ROUTING_POISON_QUARANTINE,
+            $outcomeType === self::OUTCOME_WEAK_GREEN                => self::ROUTING_WEAK_GREEN_REVIEW,
             default                                                   => self::ROUTING_TRIAGE,
         };
     }
