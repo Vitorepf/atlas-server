@@ -182,4 +182,115 @@ final class AtlasExternalBrainWasteReductionSimulatorTest extends TestCase
 
         $this->assertEqualsWithDelta($result['estimated_tokens_saved'], $result['net_value_score'], 0.001);
     }
+
+    // ── New output fields present ─────────────────────────────────────────────
+
+    public function test_new_output_fields_present(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        foreach (['avoided_poison_count', 'avoided_give_back_count', 'lost_high_value_count', 'false_negative_penalty', 'net_policy_value'] as $k) {
+            $this->assertArrayHasKey($k, $result, "Missing key: {$k}");
+        }
+    }
+
+    // ── avoided_poison_count ──────────────────────────────────────────────────
+
+    public function test_avoided_poison_count_is_delta(): void
+    {
+        $result = $this->simulator->simulate($this->input([
+            'baseline' => array_merge($this->input()['baseline'], ['poison' => 8]),
+            'proposed' => array_merge($this->input()['proposed'], ['poison' => 3]),
+        ]));
+
+        $this->assertSame(5, $result['avoided_poison_count']);
+    }
+
+    public function test_avoided_poison_count_defaults_to_zero(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        $this->assertSame(0, $result['avoided_poison_count']);
+    }
+
+    // ── avoided_give_back_count ───────────────────────────────────────────────
+
+    public function test_avoided_give_back_count_mirrors_avoided_give_backs(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        $this->assertSame($result['avoided_give_backs'], $result['avoided_give_back_count']);
+    }
+
+    // ── lost_high_value_count ─────────────────────────────────────────────────
+
+    public function test_lost_high_value_count_reflects_impact_loss(): void
+    {
+        $result = $this->simulator->simulate($this->input([
+            'proposed' => array_merge($this->input()['proposed'], ['successful_high_impact' => 20]),
+        ]));
+
+        $this->assertSame(10, $result['lost_high_value_count']); // 30 - 20
+    }
+
+    public function test_lost_high_value_count_zero_when_no_loss(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        $this->assertSame(0, $result['lost_high_value_count']);
+    }
+
+    // ── false_negative_penalty ────────────────────────────────────────────────
+
+    public function test_false_negative_penalty_is_loss_times_multiplier(): void
+    {
+        // lost 10, tokens=100, multiplier=3 → penalty=3000
+        $result = $this->simulator->simulate($this->input([
+            'proposed' => array_merge($this->input()['proposed'], ['successful_high_impact' => 20]),
+        ]));
+
+        $this->assertEqualsWithDelta(3000.0, $result['false_negative_penalty'], 0.001);
+    }
+
+    public function test_false_negative_penalty_zero_when_no_loss(): void
+    {
+        $result = $this->simulator->simulate($this->input());
+
+        $this->assertEqualsWithDelta(0.0, $result['false_negative_penalty'], 0.001);
+    }
+
+    // ── net_policy_value (AC2) ────────────────────────────────────────────────
+
+    public function test_high_savings_with_false_negatives_scores_below_low_savings_clean(): void
+    {
+        // Policy A: saves many tokens but rejects 10 high-value tasks
+        $policyA = $this->simulator->simulate([
+            'baseline'       => ['served' => 100, 'give_back' => 30, 'quarantine' => 0, 'malformed' => 0, 'successful_high_impact' => 10, 'poison' => 0],
+            'proposed'       => ['served' => 100, 'give_back' => 0,  'quarantine' => 0, 'malformed' => 0, 'successful_high_impact' => 0,  'poison' => 0],
+            'tokens_per_task' => 100.0,
+        ]);
+
+        // Policy B: saves fewer tokens, but preserves all high-value tasks
+        $policyB = $this->simulator->simulate([
+            'baseline'       => ['served' => 100, 'give_back' => 10, 'quarantine' => 0, 'malformed' => 0, 'successful_high_impact' => 10, 'poison' => 0],
+            'proposed'       => ['served' => 100, 'give_back' => 5,  'quarantine' => 0, 'malformed' => 0, 'successful_high_impact' => 10, 'poison' => 0],
+            'tokens_per_task' => 100.0,
+        ]);
+
+        // A saves 3000 but penalty=3000 → net_policy_value=0
+        // B saves 500 and penalty=0 → net_policy_value=500
+        $this->assertLessThan($policyB['net_policy_value'], $policyA['net_policy_value']);
+    }
+
+    public function test_net_policy_value_includes_poison_savings(): void
+    {
+        $result = $this->simulator->simulate([
+            'baseline'       => ['served' => 100, 'give_back' => 5, 'quarantine' => 0, 'malformed' => 0, 'successful_high_impact' => 10, 'poison' => 4],
+            'proposed'       => ['served' => 100, 'give_back' => 5, 'quarantine' => 0, 'malformed' => 0, 'successful_high_impact' => 10, 'poison' => 0],
+            'tokens_per_task' => 100.0,
+        ]);
+
+        // tokens_saved=0, poison_savings=4*100=400, false_neg_penalty=0
+        $this->assertEqualsWithDelta(400.0, $result['net_policy_value'], 0.001);
+    }
 }

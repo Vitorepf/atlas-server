@@ -9,10 +9,12 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * self-healing policy versus the historical baseline.
  *
  * AC2: Returns avoided_give_backs, avoided_quarantines, avoided_malformed_serves,
- *      estimated_tokens_saved and confidence_band.
+ *      avoided_poison_count, avoided_give_back_count, lost_high_value_count,
+ *      false_negative_penalty, net_policy_value, estimated_tokens_saved and confidence_band.
  *
  * AC3: Penalizes policies that trim waste by also rejecting successful
  *      high-impact tasks. Penalty multiplier = 3× per lost high-impact task.
+ *      net_policy_value = tokens_saved + poison_savings - false_negative_penalty.
  *
  * AC4: Pure PHP, no I/O, no providers, no queue mutation.
  */
@@ -45,39 +47,48 @@ final class AtlasExternalBrainWasteReductionSimulator
         $baseMalformed   = max(0, (int) ($baseline['malformed']             ?? 0));
         $baseServed      = max(0, (int) ($baseline['served']                ?? 0));
         $baseHighImpact  = max(0, (int) ($baseline['successful_high_impact'] ?? 0));
+        $basePoison      = max(0, (int) ($baseline['poison']                ?? 0));
 
         $propGiveBacks   = max(0, (int) ($proposed['give_back']             ?? 0));
         $propQuarantine  = max(0, (int) ($proposed['quarantine']            ?? 0));
         $propMalformed   = max(0, (int) ($proposed['malformed']             ?? 0));
         $propHighImpact  = max(0, (int) ($proposed['successful_high_impact'] ?? 0));
+        $propPoison      = max(0, (int) ($proposed['poison']                ?? 0));
 
         $avoidedGiveBacks  = max(0, $baseGiveBacks  - $propGiveBacks);
         $avoidedQuarantine = max(0, $baseQuarantine - $propQuarantine);
         $avoidedMalformed  = max(0, $baseMalformed  - $propMalformed);
+        $avoidedPoison     = max(0, $basePoison     - $propPoison);
         $totalAvoided      = $avoidedGiveBacks + $avoidedQuarantine + $avoidedMalformed;
 
         $tokensSaved = $totalAvoided * $tokensPerTask;
 
         // AC3: penalty when high-impact tasks are lost
-        $impactLoss      = max(0, $baseHighImpact - $propHighImpact);
-        $penaltyApplied  = $impactLoss > 0;
-        $penaltyAmount   = $penaltyApplied ? $impactLoss * $tokensPerTask * self::PENALTY_MULTIPLIER : 0.0;
-        $penaltyReason   = $penaltyApplied
+        $impactLoss           = max(0, $baseHighImpact - $propHighImpact);
+        $penaltyApplied       = $impactLoss > 0;
+        $falseNegativePenalty = $penaltyApplied ? $impactLoss * $tokensPerTask * self::PENALTY_MULTIPLIER : 0.0;
+        $penaltyReason        = $penaltyApplied
             ? sprintf('policy_rejected_%d_successful_high_impact_tasks', $impactLoss)
             : null;
 
-        $netValueScore = $tokensSaved - $penaltyAmount;
+        $netValueScore  = $tokensSaved - $falseNegativePenalty;
+        $netPolicyValue = $tokensSaved + ($avoidedPoison * $tokensPerTask) - $falseNegativePenalty;
 
         return [
-            'schema'                  => self::SCHEMA,
-            'avoided_give_backs'      => $avoidedGiveBacks,
-            'avoided_quarantines'     => $avoidedQuarantine,
+            'schema'                   => self::SCHEMA,
+            'avoided_give_backs'       => $avoidedGiveBacks,
+            'avoided_give_back_count'  => $avoidedGiveBacks,
+            'avoided_quarantines'      => $avoidedQuarantine,
             'avoided_malformed_serves' => $avoidedMalformed,
-            'estimated_tokens_saved'  => $tokensSaved,
-            'confidence_band'         => $this->confidenceBand($baseServed, $totalAvoided),
-            'penalty_applied'         => $penaltyApplied,
-            'penalty_reason'          => $penaltyReason,
-            'net_value_score'         => $netValueScore,
+            'avoided_poison_count'     => $avoidedPoison,
+            'lost_high_value_count'    => $impactLoss,
+            'false_negative_penalty'   => $falseNegativePenalty,
+            'estimated_tokens_saved'   => $tokensSaved,
+            'confidence_band'          => $this->confidenceBand($baseServed, $totalAvoided),
+            'penalty_applied'          => $penaltyApplied,
+            'penalty_reason'           => $penaltyReason,
+            'net_value_score'          => $netValueScore,
+            'net_policy_value'         => $netPolicyValue,
         ];
     }
 
