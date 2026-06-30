@@ -12,12 +12,21 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
 
     public const MODE = 'read_only_completion_audit_blocker_explainer';
 
+    public const RESOLUTION_CLASS_WORKER_RESOLVABLE = 'worker_resolvable';
+
+    public const RESOLUTION_CLASS_OPERATOR_REQUIRED = 'operator_required';
+
+    public const RESOLUTION_CLASS_REAL_PROVIDER_REQUIRED = 'real_provider_required';
+
+    public const RESOLUTION_CLASS_EVIDENCE_ONLY = 'evidence_only';
+
     /** @param array<string, mixed> $completionAudit */
     public function build(array $completionAudit): array
     {
         $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
         $blockers = array_map(fn (string $blocker): array => $this->blocker($blocker, $completionAudit), $failedCriteria);
         $knownIds = array_column($blockers, 'blocker_id');
+        $blockerResolutionClasses = array_combine($knownIds, array_column($blockers, 'resolution_class'));
         $closureArtifactSequence = $this->closureArtifactSequence($completionAudit);
         $promptToArtifactChecklist = $this->promptToArtifactChecklist($closureArtifactSequence);
 
@@ -30,6 +39,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
             'completion_claim_allowed' => false,
             'blockers' => $blockers,
             'known_blocker_ids' => $knownIds,
+            'blocker_resolution_classes' => $blockerResolutionClasses,
             'remaining_blocker_count' => count($blockers),
             'closure_artifact_sequence' => $closureArtifactSequence,
             'closure_artifact_sequence_count' => count($closureArtifactSequence),
@@ -179,6 +189,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'evidence_source' => 'runtime_gap_matrix',
                 'requires_operator_signature' => true,
                 'requires_provider_call' => false,
+                'resolution_class' => $this->resolutionClass(true, false),
             ],
             [
                 'order' => 2,
@@ -194,6 +205,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'evidence_source' => 'real_provider_smoke',
                 'requires_operator_signature' => false,
                 'requires_provider_call' => true,
+                'resolution_class' => $this->resolutionClass(false, true),
             ],
             [
                 'order' => 3,
@@ -209,6 +221,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'evidence_source' => 'human_completion_receipt',
                 'requires_operator_signature' => true,
                 'requires_provider_call' => false,
+                'resolution_class' => $this->resolutionClass(true, false),
             ],
             [
                 'order' => 4,
@@ -224,8 +237,23 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'evidence_source' => 'completion_audit',
                 'requires_operator_signature' => false,
                 'requires_provider_call' => false,
+                'resolution_class' => self::RESOLUTION_CLASS_EVIDENCE_ONLY,
             ],
         ];
+    }
+
+    /**
+     * Classifies a closure step or blocker so the task fabric never creates
+     * a worker packet for something only an operator signature or a real
+     * provider observation can satisfy.
+     */
+    private function resolutionClass(bool $requiresOperatorSignature, bool $requiresProviderCall): string
+    {
+        return match (true) {
+            $requiresOperatorSignature => self::RESOLUTION_CLASS_OPERATOR_REQUIRED,
+            $requiresProviderCall => self::RESOLUTION_CLASS_REAL_PROVIDER_REQUIRED,
+            default => self::RESOLUTION_CLASS_WORKER_RESOLVABLE,
+        };
     }
 
     /** @param array<int, array<string, mixed>> $closureArtifactSequence */
@@ -284,6 +312,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'exact_command_family_to_rerun' => 'atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status',
                 'safety_constraints' => ['no_runtime_autopromotion', 'runtime_enabled_flags_stay_false_until_verified_receipt'],
                 'why_it_cannot_be_auto_closed' => 'Runtime promotion changes completion eligibility and must be explicitly operator-approved.',
+                'resolution_class' => self::RESOLUTION_CLASS_OPERATOR_REQUIRED,
             ],
             'human_signed_os_complete_receipt_present' => [
                 'blocker_id' => $blockerId,
@@ -298,6 +327,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'exact_command_family_to_rerun' => 'atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status',
                 'safety_constraints' => ['no_silent_completion_claim', 'receipt_hash_must_match_payload', 'placeholders_forbidden'],
                 'why_it_cannot_be_auto_closed' => 'The OS-complete claim requires an explicit human signature over current evidence.',
+                'resolution_class' => self::RESOLUTION_CLASS_OPERATOR_REQUIRED,
             ],
             'end_to_end_real_provider_smoke_green' => [
                 'blocker_id' => $blockerId,
@@ -312,6 +342,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'exact_command_family_to_rerun' => 'atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status',
                 'safety_constraints' => ['fake_smoke_forbidden', 'provider_call_must_be_observed', 'token_spend_must_be_observed'],
                 'why_it_cannot_be_auto_closed' => 'The required proof is a real provider observation, not a local simulation or proxy.',
+                'resolution_class' => self::RESOLUTION_CLASS_REAL_PROVIDER_REQUIRED,
             ],
             'release_dossier_green' => [
                 'blocker_id' => $blockerId,
@@ -326,6 +357,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'exact_command_family_to_rerun' => 'atlas:ai:self-construction --agent-control-plane-replay-snapshot-store-capture',
                 'safety_constraints' => ['snapshot_capture_must_not_execute_runtime', 'release_dossier_must_not_hide_stale_baseline'],
                 'why_it_cannot_be_auto_closed' => 'A stale baseline needs an explicit snapshot refresh so replay evidence stays auditable.',
+                'resolution_class' => self::RESOLUTION_CLASS_WORKER_RESOLVABLE,
             ],
             default => [
                 'blocker_id' => $blockerId,
@@ -340,6 +372,7 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerService
                 'exact_command_family_to_rerun' => 'atlas:ai:self-construction --atlas-self-construction-os-completion-audit-status',
                 'safety_constraints' => ['unknown_blocker_cannot_be_auto_closed'],
                 'why_it_cannot_be_auto_closed' => 'Unknown completion blockers cannot be treated as green by proxy.',
+                'resolution_class' => self::RESOLUTION_CLASS_EVIDENCE_ONLY,
             ],
         };
     }
