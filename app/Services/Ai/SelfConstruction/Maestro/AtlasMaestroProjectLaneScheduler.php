@@ -29,6 +29,8 @@ final class AtlasMaestroProjectLaneScheduler
 
     public const REASON_BUDGET_REDUCED = 'reduced_for_budget_fairness';
 
+    public const REASON_BUDGET_STARVED = 'budget_starved';
+
     /**
      * @param  array<string,int>  $demandByLane     lane_id => requested workers (>=0)
      * @param  array<string,array{cap?:int, critical?:bool}>  $laneCaps  lane_id => caps
@@ -63,16 +65,16 @@ final class AtlasMaestroProjectLaneScheduler
             $allocations[$laneId] = ['lane_id' => $laneId, 'workers' => $request, 'critical' => $critical];
         }
 
+        $originalCapAppliedDemand = array_map(static fn (array $row): int => $row['workers'], $allocations);
+
         $totalRequested = array_sum(array_column($allocations, 'workers'));
-        $remainingBudget = $globalWorkerBudget;
 
         if ($totalRequested > $globalWorkerBudget) {
-            // Fair reduction: drop one worker at a time off the largest-allocation lane, tie-broken by
-            // sorted lane id ASC (deterministic — the same input always produces the same trim sequence).
+            // Fair reduction: drop one worker at a time from the largest lane, stop at the starvation floor (1).
             while ($totalRequested > $globalWorkerBudget) {
                 $candidate = null;
                 foreach ($allocations as $laneId => $row) {
-                    if ($row['workers'] <= 0) {
+                    if ($row['workers'] <= 1) {
                         continue;
                     }
                     if ($candidate === null
@@ -82,16 +84,32 @@ final class AtlasMaestroProjectLaneScheduler
                     }
                 }
                 if ($candidate === null) {
-                    break;
+                    break; // All at floor; starvation phase below.
                 }
                 $allocations[$candidate]['workers']--;
                 $reasons[$candidate][] = ['reason' => self::REASON_BUDGET_REDUCED, 'budget' => $globalWorkerBudget];
                 $totalRequested--;
             }
-            $remainingBudget = 0;
-        } else {
-            $remainingBudget = $globalWorkerBudget - $totalRequested;
+
+            // Starvation: lanes floored at 1 but total still exceeds budget — deny by smallest original demand first, tie-broken ASC.
+            if ($totalRequested > $globalWorkerBudget) {
+                $floorLanes = array_keys($allocations);
+                usort($floorLanes, static function (string $a, string $b) use ($originalCapAppliedDemand): int {
+                    $diff = ($originalCapAppliedDemand[$a] ?? 0) - ($originalCapAppliedDemand[$b] ?? 0);
+                    return $diff !== 0 ? $diff : strcmp($a, $b);
+                });
+                foreach ($floorLanes as $starveId) {
+                    if ($totalRequested <= $globalWorkerBudget) {
+                        break;
+                    }
+                    $deniedLanes[] = ['lane_id' => $starveId, 'reason' => self::REASON_BUDGET_STARVED];
+                    $totalRequested -= $allocations[$starveId]['workers'];
+                    unset($allocations[$starveId]);
+                }
+            }
         }
+
+        $remainingBudget = max(0, $globalWorkerBudget - $totalRequested);
 
         $allocations = array_values(array_map(static fn (array $row): array => [
             'lane_id' => $row['lane_id'],

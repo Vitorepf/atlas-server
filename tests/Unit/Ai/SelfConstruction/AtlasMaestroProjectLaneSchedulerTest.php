@@ -69,6 +69,39 @@ final class AtlasMaestroProjectLaneSchedulerTest extends TestCase
         $this->assertSame(json_encode($a), json_encode($b));
     }
 
+    public function test_starvation_floor_keeps_one_worker_per_lane_when_budget_equals_lane_count(): void
+    {
+        // budget=3 = 3 positive-demand lanes; every lane must get exactly 1 after reduction.
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(3, ['a' => 5, 'b' => 4, 'c' => 3], ['a' => [], 'b' => [], 'c' => []]);
+
+        $this->assertCount(3, $plan['allocations'], 'all three lanes must be allocated');
+        $this->assertSame(0, $plan['unallocated_budget']);
+        $this->assertSame([], $plan['denied_lanes']);
+        foreach ($plan['allocations'] as $alloc) {
+            $this->assertSame(1, $alloc['workers'], "lane {$alloc['lane_id']} must get at least 1 worker");
+        }
+    }
+
+    public function test_budget_starvation_denies_excess_lanes_deterministically(): void
+    {
+        // budget=1, 3 positive-demand lanes → 2 must be denied with budget_starved; smallest demand denied first.
+        $plan = (new AtlasMaestroProjectLaneScheduler)->plan(1, ['a' => 3, 'b' => 2, 'c' => 1], ['a' => [], 'b' => [], 'c' => []]);
+
+        $this->assertCount(1, $plan['allocations'], 'only one lane survives the budget');
+        $this->assertSame('a', $plan['allocations'][0]['lane_id'], 'largest-demand lane keeps the budget');
+        $this->assertSame(1, $plan['allocations'][0]['workers']);
+        $this->assertSame(0, $plan['unallocated_budget']);
+
+        $deniedIds = array_column($plan['denied_lanes'], 'lane_id');
+        $this->assertContains('b', $deniedIds, 'b must be denied as budget_starved');
+        $this->assertContains('c', $deniedIds, 'c must be denied as budget_starved');
+        $starvedReasons = array_column(
+            array_filter($plan['denied_lanes'], static fn (array $d): bool => $d['reason'] === AtlasMaestroProjectLaneScheduler::REASON_BUDGET_STARVED),
+            'reason',
+        );
+        $this->assertNotEmpty($starvedReasons, 'budget_starved reason must appear in denied_lanes');
+    }
+
     public function test_unallocated_budget_when_demand_below_budget(): void
     {
         $plan = (new AtlasMaestroProjectLaneScheduler)->plan(10, ['a' => 2, 'b' => 1], ['a' => [], 'b' => []]);
