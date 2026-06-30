@@ -94,7 +94,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
     public function test_duplicated_target_penalty(): void
     {
         $scorer = $this->scorer();
-        $result = $scorer->score(['duplicated_target' => true, 'capability_unlock' => 1.0]);
+        $result = $scorer->score(['duplicated_target' => true, 'capability_unlock' => 1.0, 'implementation_evidence' => 0.8]);
 
         $this->assertContains('duplicated_target', $result['triggered_penalties']);
         $this->assertSame(0.30, $result['penalty']);
@@ -103,7 +103,7 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
     public function test_already_satisfied_penalty(): void
     {
         $scorer = $this->scorer();
-        $result = $scorer->score(['already_satisfied' => true, 'capability_unlock' => 1.0]);
+        $result = $scorer->score(['already_satisfied' => true, 'capability_unlock' => 1.0, 'implementation_evidence' => 0.8]);
 
         $this->assertContains('already_satisfied', $result['triggered_penalties']);
         $this->assertSame(0.35, $result['penalty']);
@@ -113,10 +113,11 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
     {
         $scorer = $this->scorer();
         $result = $scorer->score([
-            'capability_unlock' => 1.0,
-            'cosmetic_cli'      => true,   // 0.25
-            'duplicated_target' => true,   // 0.30
-            'already_satisfied' => true,   // 0.35 → total 0.90
+            'capability_unlock'       => 1.0,
+            'implementation_evidence' => 0.8,   // proof_weight=0.8 → no unproven_high_claim
+            'cosmetic_cli'            => true,   // 0.25
+            'duplicated_target'       => true,   // 0.30
+            'already_satisfied'       => true,   // 0.35 → total 0.90
         ]);
 
         $this->assertSame(0.90, $result['penalty']);
@@ -331,5 +332,92 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
             '/(more_downstream_unblocks|more_unlocked_capabilities|more_risk_reduction_signals|more_autonomy_gain_signals)/',
             $why,
         );
+    }
+
+    // ---------- proof_weight and unproven high claim ----------
+
+    public function test_proof_weight_present_in_score_output(): void
+    {
+        $result = $this->scorer()->score(['capability_unlock' => 0.5, 'implementation_evidence' => 0.6]);
+
+        $this->assertArrayHasKey('proof_weight', $result);
+        $this->assertIsFloat($result['proof_weight']);
+    }
+
+    public function test_proof_weight_reflects_implementation_evidence(): void
+    {
+        $result = $this->scorer()->score(['implementation_evidence' => 0.7]);
+
+        $this->assertEqualsWithDelta(0.7, $result['proof_weight'], 0.001);
+    }
+
+    public function test_evidence_refs_boost_proof_weight(): void
+    {
+        $withoutRefs = $this->scorer()->score(['implementation_evidence' => 0.4]);
+        $withRefs    = $this->scorer()->score(['implementation_evidence' => 0.4, 'evidence_refs' => ['ref-1', 'ref-2']]);
+
+        $this->assertGreaterThan($withoutRefs['proof_weight'], $withRefs['proof_weight']);
+    }
+
+    public function test_high_capability_unlock_without_evidence_triggers_unproven_claim_penalty(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock'       => 0.9,
+            'implementation_evidence' => 0.0,  // no evidence, no evidence_refs
+        ]);
+
+        $this->assertContains('unproven_high_claim', $result['triggered_penalties']);
+        $this->assertGreaterThan(0.0, $result['penalty']);
+    }
+
+    public function test_high_capability_unlock_with_strong_evidence_no_unproven_penalty(): void
+    {
+        $result = $this->scorer()->score([
+            'capability_unlock'       => 0.9,
+            'implementation_evidence' => 0.8,
+        ]);
+
+        $this->assertNotContains('unproven_high_claim', $result['triggered_penalties']);
+    }
+
+    public function test_unproven_high_claim_lowers_final_score_versus_evidenced_claim(): void
+    {
+        $unproven  = $this->scorer()->score(['capability_unlock' => 0.9, 'implementation_evidence' => 0.0]);
+        $evidenced = $this->scorer()->score(['capability_unlock' => 0.9, 'implementation_evidence' => 0.8]);
+
+        $this->assertLessThan($evidenced['final_score'], $unproven['final_score'],
+            'Unproven high claim must score lower than evidenced claim');
+    }
+
+    public function test_low_capability_unlock_never_triggers_unproven_penalty(): void
+    {
+        // capability_unlock <= 0.70 must never trigger unproven_high_claim regardless of evidence.
+        $result = $this->scorer()->score([
+            'capability_unlock'       => 0.5,
+            'implementation_evidence' => 0.0,
+        ]);
+
+        $this->assertNotContains('unproven_high_claim', $result['triggered_penalties']);
+    }
+
+    public function test_rank_why_mentions_proof_weight_when_winner_has_higher_proof(): void
+    {
+        $ranked = $this->scorer()->rank([
+            [
+                'label'                   => 'well_evidenced',
+                'capability_unlock'       => 0.6,
+                'implementation_evidence' => 0.9,
+                'evidence_refs'           => ['ref-1', 'ref-2', 'ref-3'],
+            ],
+            [
+                'label'                   => 'no_evidence',
+                'capability_unlock'       => 0.6,
+                'implementation_evidence' => 0.1,
+            ],
+        ]);
+
+        $this->assertSame('well_evidenced', $ranked[0]['label']);
+        $why = $ranked[0]['why_this_beats_next'];
+        $this->assertStringContainsString('proof_weight', $why);
     }
 }

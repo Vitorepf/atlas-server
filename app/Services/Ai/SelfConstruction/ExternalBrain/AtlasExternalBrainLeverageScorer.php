@@ -41,6 +41,11 @@ final class AtlasExternalBrainLeverageScorer
         'already_satisfied'  => 0.35,
     ];
 
+    // Unproven-high-claim: capability_unlock above this with weak proof_weight incurs a penalty.
+    private const PROOF_REQUIRED_THRESHOLD    = 0.70;
+    private const WEAK_PROOF_THRESHOLD        = 0.30;
+    private const UNPROVEN_CLAIM_PENALTY      = 0.20;
+
     /**
      * Score a single opportunity, including a compound-impact receipt.
      *
@@ -67,6 +72,10 @@ final class AtlasExternalBrainLeverageScorer
             $weightedSum += $clamped * $weight;
         }
 
+        // proof_weight = implementation_evidence boosted by each evidence_ref (capped at 1.0).
+        $evidenceRefs = is_array($opportunity['evidence_refs'] ?? null) ? $opportunity['evidence_refs'] : [];
+        $proofWeight  = min(1.0, $dimensionScores['implementation_evidence'] + 0.1 * count($evidenceRefs));
+
         $penalty = 0.0;
         $triggeredPenalties = [];
         foreach (self::PENALTY_FACTORS as $flag => $factor) {
@@ -75,6 +84,13 @@ final class AtlasExternalBrainLeverageScorer
                 $triggeredPenalties[] = $flag;
             }
         }
+
+        // Penalise high capability_unlock claims that lack implementation evidence or evidence_refs.
+        if ($dimensionScores['capability_unlock'] > self::PROOF_REQUIRED_THRESHOLD && $proofWeight < self::WEAK_PROOF_THRESHOLD) {
+            $penalty            += self::UNPROVEN_CLAIM_PENALTY;
+            $triggeredPenalties[] = 'unproven_high_claim';
+        }
+
         $penalty = min(1.0, $penalty);
 
         $compoundImpact = [
@@ -96,6 +112,7 @@ final class AtlasExternalBrainLeverageScorer
             'weighted_sum'        => round($weightedSum, 4),
             'penalty'             => round($penalty, 4),
             'final_score'         => round($weightedSum * (1.0 - $penalty), 4),
+            'proof_weight'        => round($proofWeight, 4),
             'dimension_scores'    => $dimensionScores,
             'triggered_penalties' => $triggeredPenalties,
             'compound_impact'     => $compoundImpact,
@@ -168,6 +185,12 @@ final class AtlasExternalBrainLeverageScorer
         $nAuto = count((array) ($nImpact['autonomy_gain_signals'] ?? []));
         if ($wAuto > $nAuto) {
             $parts[] = 'more_autonomy_gain_signals:'.$wAuto.'_vs_'.$nAuto;
+        }
+
+        $wProof = (float) ($winner['proof_weight'] ?? 0.0);
+        $nProof = (float) ($next['proof_weight']   ?? 0.0);
+        if ($wProof > $nProof + 0.05) {
+            $parts[] = 'proof_weight:'.round($wProof, 2).'_vs_'.round($nProof, 2);
         }
 
         return implode('|', $parts);
