@@ -603,6 +603,89 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
         $this->assertGreaterThanOrEqual(1, $totals[AgentControlPlaneTaskLeaseRecoveryService::RECOVERABILITY_RECOVERABLE_EXPIRED]);
     }
 
+    public function test_inspect_recoverable_orphan_classify_and_recover_are_consistent(): void
+    {
+        $svc = $this->recoveryService();
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('consistency-orphan-1')]);
+        $claim = $orchestrator->claimNext('agent-orphan-consistency', ['ttl_seconds' => 600]);
+        $leaseId = (string) $claim['lease_id'];
+
+        // Remove the lease file so the packet becomes an orphaned claim.
+        $disk = Storage::disk('local');
+        $leasePath = AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$this->safeId($leaseId).'.json';
+        $disk->delete($leasePath);
+
+        // inspectRecoverability must classify this as recoverable_orphaned_claim.
+        $inspect = $svc->inspectRecoverability(['packet' => 'consistency-orphan-1']);
+        $this->assertSame(
+            AgentControlPlaneTaskLeaseRecoveryService::RECOVERABILITY_RECOVERABLE_ORPHAN,
+            data_get($inspect, 'classifications.0.classification'),
+        );
+        $this->assertSame(
+            1,
+            $inspect['totals_by_classification'][AgentControlPlaneTaskLeaseRecoveryService::RECOVERABILITY_RECOVERABLE_ORPHAN],
+        );
+
+        // recoverOrphanedClaims must recover it — consistent with the inspect classification.
+        $recover = $svc->recoverOrphanedClaims(['actor' => 'consistency-operator']);
+        $this->assertSame(1, $recover['recovered_count']);
+        $this->assertSame(0, $recover['skipped_count']);
+        $this->assertSame('consistency-orphan-1', data_get($recover, 'recovered.0.task_packet_id'));
+
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->assertSame('claimable', $queue->get('consistency-orphan-1')['status']);
+    }
+
+    public function test_active_lease_inspect_and_recover_skip_are_consistent(): void
+    {
+        $svc = $this->recoveryService();
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('consistency-active-1')]);
+        $orchestrator->claimNext('agent-active-consistency', ['ttl_seconds' => 600]);
+
+        // inspectRecoverability must classify as active_lease_skip (not recoverable).
+        $inspect = $svc->inspectRecoverability(['packet' => 'consistency-active-1']);
+        $this->assertSame(
+            AgentControlPlaneTaskLeaseRecoveryService::RECOVERABILITY_ACTIVE_LEASE,
+            data_get($inspect, 'classifications.0.classification'),
+        );
+        $this->assertFalse(data_get($inspect, 'classifications.0.recoverable'));
+
+        // recoverOrphanedClaims must NOT recover it — consistent with inspect.
+        $recover = $svc->recoverOrphanedClaims(['actor' => 'consistency-operator']);
+        $this->assertSame(0, $recover['recovered_count']);
+        $this->assertSame(1, $recover['skipped_count']);
+        $this->assertSame('lease_still_active', data_get($recover, 'skipped.0.skip_reason'));
+
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->assertSame('claimed', $queue->get('consistency-active-1')['status']);
+    }
+
+    public function test_recover_orphan_active_lease_skip_entry_has_diagnostic_fields(): void
+    {
+        $svc = $this->recoveryService();
+        $orchestrator = $this->orchestrator();
+        $orchestrator->prepareAndEnqueue(['task_packet' => $this->input('consistency-skip-diag-1')]);
+        $orchestrator->claimNext('agent-skip-diag', ['ttl_seconds' => 600]);
+
+        $recover = $svc->recoverOrphanedClaims(['actor' => 'diag-operator']);
+        $this->assertSame(1, $recover['skipped_count']);
+
+        $skip = $recover['skipped'][0];
+        $this->assertArrayHasKey('task_packet_id', $skip);
+        $this->assertArrayHasKey('lease_id', $skip);
+        $this->assertArrayHasKey('skip_reason', $skip);
+        $this->assertArrayHasKey('lease_status', $skip);
+        $this->assertSame('consistency-skip-diag-1', $skip['task_packet_id']);
+        $this->assertNotEmpty($skip['lease_id']);
+        $this->assertSame('lease_still_active', $skip['skip_reason']);
+        $this->assertSame(
+            AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE,
+            $skip['lease_status'],
+        );
+    }
+
     private function recoveryService(): AgentControlPlaneTaskLeaseRecoveryService
     {
         return new AgentControlPlaneTaskLeaseRecoveryService;
