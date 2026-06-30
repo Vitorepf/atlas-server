@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkerTaskEligibilityCertificationService;
+use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneWorkerEligibilityGuard;
-use PHPUnit\Framework\TestCase;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
 
 /**
  * ITEM8 — proves the cohesive worker-eligibility validation concern extracted from
@@ -22,6 +26,12 @@ use PHPUnit\Framework\TestCase;
  */
 final class AgentControlPlaneWorkerEligibilityGuardTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+    }
+
     /**
      * Build a queue repo stub whose list() returns the supplied records for ANY filter.
      */
@@ -301,5 +311,90 @@ final class AgentControlPlaneWorkerEligibilityGuardTest extends TestCase
         $guard = $this->guardWith($records)->workerEligibilityGuard([]);
 
         $this->assertSame(['TP-AAA', 'TP-ZZZ'], $guard['ineligible_task_ids']);
+    }
+
+    // ── AgentControlPlaneWorkerTaskEligibilityCertificationService: violation_summary_by_code +
+    //    worker_candidate_summary, so Maestro/the external brain can spot poison patterns without
+    //    reading every raw violation row.
+
+    private function certification(): AgentControlPlaneWorkerTaskEligibilityCertificationService
+    {
+        return new AgentControlPlaneWorkerTaskEligibilityCertificationService(
+            app(AtlasSelfConstructionReadinessService::class),
+            new AgentControlPlaneTaskPacketQueueRepository,
+        );
+    }
+
+    private function enqueuePacket(string $taskPacketId, array $continuationContext, string $tag): void
+    {
+        $packet = [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_packet.v1',
+            'task_packet_id' => $taskPacketId,
+            'status' => 'planned',
+            'objective' => 'Eligibility violation-summary probe.',
+            'normalized_scope' => [
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/EligibilitySummaryProbe.php'],
+                'scope_in' => ['app/Services/Ai/SelfConstruction/'],
+                'scope_out' => [],
+            ],
+            'continuation_context' => $continuationContext,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'completion_real_allowed' => false,
+        ];
+        $packet['task_packet_hash'] = hash('sha256', json_encode($packet, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        (new AgentControlPlaneTaskPacketQueueRepository)->enqueue($packet, ['tags' => [$tag]]);
+    }
+
+    public function test_certification_violation_summary_by_code_counts_and_lists_task_packet_ids(): void
+    {
+        $this->enqueuePacket('TP-NOT-EXECUTABLE', ['worker_executable' => false], 'violation_summary_lane_a');
+
+        $payload = $this->certification()->certify(['queue_tags' => ['violation_summary_lane_a']]);
+
+        $this->assertArrayHasKey('violation_summary_by_code', $payload);
+        $this->assertArrayHasKey('claimable_or_claimed_task_not_worker_executable', $payload['violation_summary_by_code']);
+        $entry = $payload['violation_summary_by_code']['claimable_or_claimed_task_not_worker_executable'];
+        $this->assertSame(1, $entry['count']);
+        $this->assertSame(['TP-NOT-EXECUTABLE'], $entry['task_packet_ids']);
+    }
+
+    public function test_certification_violation_summary_by_code_is_empty_for_clean_queue(): void
+    {
+        $this->enqueuePacket('TP-CLEAN', [], 'violation_summary_lane_b');
+
+        $payload = $this->certification()->certify(['queue_tags' => ['violation_summary_lane_b']]);
+
+        $this->assertSame([], $payload['violation_summary_by_code']);
+    }
+
+    public function test_certification_worker_candidate_summary_carries_the_three_required_fields(): void
+    {
+        $this->enqueuePacket('TP-CANDIDATE', [], 'worker_candidate_summary_lane');
+
+        $payload = $this->certification()->certify(['queue_tags' => ['worker_candidate_summary_lane']]);
+
+        $this->assertArrayHasKey('worker_candidate_summary', $payload);
+        $this->assertArrayHasKey('active_worker_task_count', $payload['worker_candidate_summary']);
+        $this->assertArrayHasKey('claimable_task_count', $payload['worker_candidate_summary']);
+        $this->assertArrayHasKey('operator_handoff_seed_count', $payload['worker_candidate_summary']);
+        $this->assertSame($payload['active_worker_task_count'], $payload['worker_candidate_summary']['active_worker_task_count']);
+        $this->assertSame($payload['claimable_task_count'], $payload['worker_candidate_summary']['claimable_task_count']);
+        $this->assertSame($payload['operator_handoff_seed_count'], $payload['worker_candidate_summary']['operator_handoff_seed_count']);
+    }
+
+    public function test_certification_remains_read_only(): void
+    {
+        $payload = $this->certification()->certify(['queue_tags' => ['read_only_probe_lane']]);
+
+        $this->assertFalse($payload['execution_allowed']);
+        $this->assertFalse($payload['dispatch_allowed']);
+        $this->assertFalse($payload['provider_call_allowed']);
+        $this->assertFalse($payload['token_spend_allowed']);
+        $this->assertFalse($payload['self_programming_allowed']);
+        $this->assertFalse($payload['ledger_write_allowed']);
     }
 }

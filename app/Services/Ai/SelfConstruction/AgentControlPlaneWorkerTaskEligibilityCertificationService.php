@@ -98,6 +98,9 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
         ];
         $failedCheckIds = array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed));
 
+        $violationSummaryByCode = $this->violationSummaryByCode($violations);
+        $operatorHandoffSeedCount = (int) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.operator_handoff_seed_count', 0);
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -109,7 +112,13 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'claimable_task_count' => count($claimableRecords),
             'active_worker_task_count' => count($activeWorkerRecords),
             'active_worker_tasks' => $activeWorkerRows,
-            'operator_handoff_seed_count' => (int) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.operator_handoff_seed_count', 0),
+            'violation_summary_by_code' => $violationSummaryByCode,
+            'worker_candidate_summary' => [
+                'active_worker_task_count' => count($activeWorkerRecords),
+                'claimable_task_count' => count($claimableRecords),
+                'operator_handoff_seed_count' => $operatorHandoffSeedCount,
+            ],
+            'operator_handoff_seed_count' => $operatorHandoffSeedCount,
             'operator_handoff_references' => $operatorHandoffReferences,
             'operator_handoff_tasks' => $operatorHandoffRows,
             'completion_audit_context_status' => (string) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.completion_audit_context_status', ''),
@@ -229,6 +238,35 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'worker_executable' => (bool) data_get($record, 'task_packet.continuation_context.worker_executable', true),
             'operator_handoff_required' => (bool) data_get($record, 'task_packet.continuation_context.operator_handoff_required', false),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $violations
+     * @return array<string, array{count: int, task_packet_ids: list<string>}>
+     */
+    private function violationSummaryByCode(array $violations): array
+    {
+        $summary = [];
+        foreach ($violations as $violation) {
+            $code = (string) ($violation['code'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $taskPacketId = (string) ($violation['task_packet_id'] ?? '');
+            if (! isset($summary[$code])) {
+                $summary[$code] = ['count' => 0, 'task_packet_ids' => []];
+            }
+            $summary[$code]['count']++;
+            if ($taskPacketId !== '' && ! in_array($taskPacketId, $summary[$code]['task_packet_ids'], true)) {
+                $summary[$code]['task_packet_ids'][] = $taskPacketId;
+            }
+        }
+        foreach ($summary as $code => $entry) {
+            sort($summary[$code]['task_packet_ids']);
+        }
+        ksort($summary);
+
+        return $summary;
     }
 
     /** @param list<array<string, mixed>> $violations */
