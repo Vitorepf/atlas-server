@@ -186,4 +186,107 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
 
         $this->assertLessThan($highQueue, $highRisk, 'anti_goodhart_risk must penalize more than queue_pressure');
     }
+
+    // ── AC1: template_farm disqualification ───────────────────────────────────
+
+    public function test_template_farm_proposal_is_rejected_despite_high_leverage(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('farm', [
+                'leverage'               => 1.0,
+                'template_similarity'    => 0.9,
+                'repeated_pattern_count' => 5,
+            ]),
+            $this->proposal('real'),
+        ]]);
+
+        $this->assertSame('real', $result['winner']['proposal_id']);
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM, $reasons['farm']);
+    }
+
+    public function test_high_similarity_alone_does_not_trigger_template_farm(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('p', ['template_similarity' => 0.9, 'repeated_pattern_count' => 1]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_WINNER_SELECTED, $result['verdict']);
+    }
+
+    public function test_high_repeat_count_alone_does_not_trigger_template_farm(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('p', ['template_similarity' => 0.2, 'repeated_pattern_count' => 10]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_WINNER_SELECTED, $result['verdict']);
+    }
+
+    public function test_all_template_farm_returns_all_rejected(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('f1', ['template_similarity' => 0.8, 'repeated_pattern_count' => 4]),
+            $this->proposal('f2', ['template_similarity' => 0.9, 'repeated_pattern_count' => 3]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $this->assertNull($result['winner']);
+    }
+
+    // ── AC2: operator_rank_priority + give_back / quarantine rates ────────────
+
+    public function test_operator_rank_priority_breaks_close_call(): void
+    {
+        $base = [
+            'leverage' => 0.5, 'evidence_strength' => 0.5, 'implementability' => 0.5,
+            'compression_opportunity' => 0.0, 'anti_goodhart_risk' => 0.0, 'queue_pressure' => 0.0,
+        ];
+
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('plain',   array_merge($base, ['operator_rank_priority' => 0.0, 'historical_give_back_rate' => 0.5, 'quarantine_rate' => 0.5])),
+            $this->proposal('favored', array_merge($base, ['operator_rank_priority' => 1.0, 'historical_give_back_rate' => 0.0, 'quarantine_rate' => 0.0])),
+        ]]);
+
+        $this->assertSame('favored', $result['winner']['proposal_id']);
+    }
+
+    public function test_high_give_back_rate_penalizes_score(): void
+    {
+        $clean = $this->arena->compete(['proposals' => [
+            $this->proposal('c', ['historical_give_back_rate' => 0.0]),
+        ]])['winner']['arena_score'];
+
+        $risky = $this->arena->compete(['proposals' => [
+            $this->proposal('r', ['historical_give_back_rate' => 1.0]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($risky, $clean);
+    }
+
+    public function test_high_quarantine_rate_penalizes_score(): void
+    {
+        $clean = $this->arena->compete(['proposals' => [
+            $this->proposal('c', ['quarantine_rate' => 0.0]),
+        ]])['winner']['arena_score'];
+
+        $risky = $this->arena->compete(['proposals' => [
+            $this->proposal('r', ['quarantine_rate' => 1.0]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($risky, $clean);
+    }
+
+    public function test_operator_rank_priority_does_not_rescue_template_farm(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('farm', [
+                'operator_rank_priority' => 1.0,
+                'template_similarity'    => 0.8,
+                'repeated_pattern_count' => 5,
+            ]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+    }
 }
