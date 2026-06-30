@@ -31,7 +31,7 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         return ['id' => $id, 'action' => 'merge', 'target' => "app/{$id}.php", 'roi_estimate' => $roi];
     }
 
-    // ── AC1: output shape ─────────────────────────────────────────────────────
+    // ── AC1: output shape (existing + new fields) ─────────────────────────────
 
     public function test_output_has_required_keys(): void
     {
@@ -43,6 +43,15 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertArrayHasKey('refused_roi', $r);
     }
 
+    public function test_output_has_new_required_keys(): void
+    {
+        $r = $this->ledger()->record([]);
+
+        foreach (['approved_roi', 'opportunity_cost', 'behavior_preservation_status', 'next_simplification_action'] as $k) {
+            $this->assertArrayHasKey($k, $r, "Missing key: {$k}");
+        }
+    }
+
     public function test_empty_candidates_gives_zero_roi(): void
     {
         $r = $this->ledger()->record([]);
@@ -50,6 +59,126 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertEmpty($r['refused']);
         $this->assertSame(0.0, $r['total_roi']);
     }
+
+    // ── AC1: approved_roi mirrors total_roi ───────────────────────────────────
+
+    public function test_approved_roi_equals_total_roi(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1'), $this->merge('M1')]]);
+
+        $this->assertSame($r['total_roi'], $r['approved_roi']);
+    }
+
+    // ── AC1: opportunity_cost equals refused_roi ──────────────────────────────
+
+    public function test_opportunity_cost_equals_refused_roi(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [
+            $this->deletion('c1', ''),   // refused
+            $this->merge('c2', 0.4),     // approved
+        ]]);
+
+        $this->assertSame($r['refused_roi'], $r['opportunity_cost']);
+        $this->assertSame(0.7, $r['opportunity_cost']);
+    }
+
+    public function test_opportunity_cost_zero_when_all_approved(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1'), $this->merge('M1')]]);
+
+        $this->assertSame(0.0, $r['opportunity_cost']);
+    }
+
+    // ── AC1: behavior_preservation_status per candidate ───────────────────────
+
+    public function test_approved_delete_has_proof_verified_bp_status(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1')]]);
+
+        $this->assertSame('proof_verified', $r['approved'][0]['behavior_preservation_status']);
+    }
+
+    public function test_approved_merge_has_roi_positive_no_proof_bp_status(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->merge('M1')]]);
+
+        $this->assertSame('roi_positive_no_proof', $r['approved'][0]['behavior_preservation_status']);
+    }
+
+    public function test_refused_candidate_has_refused_bp_status(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1', '')]]);
+
+        $this->assertSame('refused', $r['refused'][0]['behavior_preservation_status']);
+    }
+
+    // ── AC1: global behavior_preservation_status ──────────────────────────────
+
+    public function test_global_bp_status_no_approved_candidates(): void
+    {
+        $r = $this->ledger()->record([]);
+
+        $this->assertSame('no_approved_candidates', $r['behavior_preservation_status']);
+    }
+
+    public function test_global_bp_status_all_proofs_verified_when_only_deletes_approved(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1'), $this->deletion('D2')]]);
+
+        $this->assertSame('all_proofs_verified', $r['behavior_preservation_status']);
+    }
+
+    public function test_global_bp_status_no_proofs_submitted_when_only_merges_approved(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->merge('M1'), $this->merge('M2')]]);
+
+        $this->assertSame('no_proofs_submitted', $r['behavior_preservation_status']);
+    }
+
+    public function test_global_bp_status_partial_when_mix_of_delete_and_merge_approved(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1'), $this->merge('M1')]]);
+
+        $this->assertSame('partial_verification', $r['behavior_preservation_status']);
+    }
+
+    // ── AC1: next_simplification_action ──────────────────────────────────────
+
+    public function test_next_action_no_candidates(): void
+    {
+        $r = $this->ledger()->record([]);
+
+        $this->assertSame('originate_new_simplification_candidates', $r['next_simplification_action']);
+    }
+
+    public function test_next_action_all_approved(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1'), $this->merge('M1')]]);
+
+        $this->assertSame('proceed_with_approved_simplifications', $r['next_simplification_action']);
+    }
+
+    public function test_next_action_add_proof_when_only_missing_proof_refusals(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [
+            $this->deletion('D1', ''),
+            $this->deletion('D2', ''),
+        ]]);
+
+        $this->assertSame('add_replacement_proof_for_refused_deletions', $r['next_simplification_action']);
+    }
+
+    public function test_next_action_improve_roi_when_only_negative_roi_refusals(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [
+            $this->merge('M1', -0.1),
+            $this->merge('M2', 0.0),
+        ]]);
+
+        $this->assertSame('improve_roi_estimates_for_refused_candidates', $r['next_simplification_action']);
+    }
+
+    // ── AC2: deletion refusal guards ──────────────────────────────────────────
 
     public function test_valid_deletion_is_approved_and_adds_roi(): void
     {
@@ -69,12 +198,9 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertSame('merge', $r['approved'][0]['action']);
     }
 
-    // ── AC2: deletion refusal guards ──────────────────────────────────────────
-
     public function test_deletion_without_replacement_proof_key_is_refused(): void
     {
         $candidate = ['id' => 'c1', 'action' => 'delete', 'target' => 'app/Old.php', 'roi_estimate' => 0.6];
-        // No replacement_proof key at all.
         $r = $this->ledger()->record(['candidates' => [$candidate]]);
 
         $this->assertEmpty($r['approved']);
@@ -100,7 +226,6 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
 
     public function test_proof_check_takes_precedence_over_coverage_check(): void
     {
-        // Both missing proof and false coverage → proof refusal fires first.
         $candidate = [
             'id'                  => 'c1',
             'action'              => 'delete',
@@ -116,7 +241,6 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
 
     public function test_deletion_with_true_coverage_and_proof_is_approved(): void
     {
-        // coverage_maintained=true should not trigger refusal.
         $r = $this->ledger()->record(['candidates' => [$this->deletion('c1', 'receipt:ok', true)]]);
         $this->assertCount(1, $r['approved']);
     }
@@ -126,8 +250,8 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
     public function test_refused_roi_accumulates_opportunity_cost(): void
     {
         $r = $this->ledger()->record(['candidates' => [
-            $this->deletion('c1', ''),  // refused → 0.7 opportunity cost
-            $this->merge('c2', 0.4),    // approved
+            $this->deletion('c1', ''),
+            $this->merge('c2', 0.4),
         ]]);
 
         $this->assertSame(0.4, $r['total_roi']);
@@ -141,6 +265,8 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertEmpty($r['approved']);
         $this->assertSame('negative_roi_estimate', $r['refused'][0]['refusal_reason']);
     }
+
+    // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void
     {
