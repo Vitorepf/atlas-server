@@ -87,6 +87,58 @@ final class AtlasProjectLaneContextFreshnessGateTest extends TestCase
         $this->assertSame(['context_pack_stale'], $verdict['blockers']);
     }
 
+    public function test_project_id_missing_blocks_conformant(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            ['freshness_window_seconds' => ['docs_sync' => 3600, 'code_index' => 3600, 'context_pack' => 600]],
+            ['now_unix' => self::NOW, 'docs_sync_last_unix' => self::NOW - 100,
+             'code_index_last_unix' => self::NOW - 100, 'context_pack_hash' => 'h',
+             'context_pack_last_unix' => self::NOW - 100]
+        );
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('project_id_missing', $verdict['blockers']);
+    }
+
+    public function test_invalid_freshness_window_blocks_conformant(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            ['project_id' => 'lane-x', 'freshness_window_seconds' => ['docs_sync' => -1, 'code_index' => 3600, 'context_pack' => 600]],
+            ['now_unix' => self::NOW, 'docs_sync_last_unix' => self::NOW - 100,
+             'code_index_last_unix' => self::NOW - 100, 'context_pack_hash' => 'h',
+             'context_pack_last_unix' => self::NOW - 100]
+        );
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('invalid_freshness_window:docs_sync', $verdict['blockers']);
+    }
+
+    public function test_context_pack_project_mismatch_blocks_conformant(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            $this->manifest(),
+            ['now_unix' => self::NOW, 'docs_sync_last_unix' => self::NOW - 100,
+             'code_index_last_unix' => self::NOW - 100, 'context_pack_hash' => 'h',
+             'context_pack_last_unix' => self::NOW - 100, 'context_pack_project_id' => 'other-lane']
+        );
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('context_pack_project_mismatch', $verdict['blockers']);
+    }
+
+    public function test_fresh_all_evidence_same_project_lane_passes(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            $this->manifest(),
+            ['now_unix' => self::NOW, 'docs_sync_last_unix' => self::NOW - 100,
+             'code_index_last_unix' => self::NOW - 100, 'context_pack_hash' => 'h',
+             'context_pack_last_unix' => self::NOW - 100, 'context_pack_project_id' => 'lane-x']
+        );
+
+        $this->assertTrue($verdict['conformant']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
     public function test_verdict_carries_no_numeric_score_field(): void
     {
         $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate($this->manifest(), ['now_unix' => self::NOW]);

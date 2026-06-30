@@ -41,6 +41,31 @@ final class AtlasProjectLaneContextFreshnessGate
         $windows = $this->normalizeWindows($manifest['freshness_window_seconds'] ?? null);
         $blockers = [];
 
+        // project_id must be present and non-empty.
+        $projectId = (string) ($manifest['project_id'] ?? '');
+        if ($projectId === '') {
+            $blockers[] = 'project_id_missing';
+        }
+
+        // Explicit invalid freshness window values (provided but ≤0).
+        $rawWindows = $manifest['freshness_window_seconds'] ?? null;
+        if (is_array($rawWindows)) {
+            foreach (['docs_sync', 'code_index', 'context_pack'] as $key) {
+                $val = $rawWindows[$key] ?? null;
+                if ($val !== null && (! is_int($val) || $val <= 0)) {
+                    $blockers[] = 'invalid_freshness_window:'.$key;
+                }
+            }
+        } elseif (is_int($rawWindows) && $rawWindows <= 0) {
+            $blockers[] = 'invalid_freshness_window:all';
+        }
+
+        // context_pack_project_id in observations must match the manifest project_id.
+        $packProjectId = (string) ($observations['context_pack_project_id'] ?? '');
+        if ($packProjectId !== '' && $projectId !== '' && $packProjectId !== $projectId) {
+            $blockers[] = 'context_pack_project_mismatch';
+        }
+
         // docs_sync
         $docsLast = $observations['docs_sync_last_unix'] ?? null;
         if (! is_int($docsLast)) {
