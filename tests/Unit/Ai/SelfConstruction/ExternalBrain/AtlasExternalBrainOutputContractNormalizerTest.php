@@ -172,4 +172,113 @@ final class AtlasExternalBrainOutputContractNormalizerTest extends TestCase
         $b = $this->normalizer()->normalize($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC1: canonical fields present on accepted contract ────────────────────
+
+    public function test_canonical_fields_present_on_normalized_contract(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid()]]);
+        $c = $r['normalized_contracts'][0];
+
+        foreach (['task_family', 'leverage_reason', 'expected_capability_delta', 'implementation_file_count', 'test_file_count', 'repair_hints'] as $field) {
+            $this->assertArrayHasKey($field, $c, "Missing canonical field: {$field}");
+        }
+        $this->assertTrue($r['task_fabric_ready']);
+    }
+
+    public function test_implementation_and_test_file_counts_are_correct(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+        ])]]);
+        $c = $r['normalized_contracts'][0];
+
+        $this->assertSame(1, $c['implementation_file_count']);
+        $this->assertSame(1, $c['test_file_count']);
+        $this->assertSame('mixed', $c['task_family']);
+    }
+
+    public function test_leverage_reason_and_capability_delta_forwarded(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'leverage_reason'           => 'unlocks self-improvement loop',
+            'expected_capability_delta' => 0.4,
+        ])]]);
+        $c = $r['normalized_contracts'][0];
+
+        $this->assertSame('unlocks self-improvement loop', $c['leverage_reason']);
+        $this->assertEqualsWithDelta(0.4, $c['expected_capability_delta'], 0.001);
+    }
+
+    // ── AC2: test-only scope rejection ────────────────────────────────────────
+
+    public function test_test_only_scope_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+        ])]]);
+
+        $this->assertEmpty($r['normalized_contracts']);
+        $this->assertCount(1, $r['rejected_inputs']);
+        $this->assertContains('test_only_scope', $r['rejected_inputs'][0]['violation_reasons']);
+        $this->assertFalse($r['task_fabric_ready']);
+    }
+
+    public function test_test_only_scope_rejection_includes_repair_hint(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+        ])]]);
+
+        $hints = $r['rejected_inputs'][0]['repair_hints'];
+        $found = false;
+        foreach ($hints as $h) {
+            if (str_contains($h, 'implementation file')) { $found = true; break; }
+        }
+        $this->assertTrue($found, 'Expected repair hint mentioning implementation file');
+    }
+
+    // ── AC2: missing runnable proof rejection ─────────────────────────────────
+
+    public function test_missing_runnable_proof_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'evidence' => ['code review passed', 'manual check'],
+        ])]]);
+
+        $this->assertEmpty($r['normalized_contracts']);
+        $this->assertContains('missing_runnable_proof', $r['rejected_inputs'][0]['violation_reasons']);
+    }
+
+    public function test_phpunit_evidence_passes_runnable_proof_check(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'evidence' => ['phpunit:FooTest'],
+        ])]]);
+
+        $this->assertCount(1, $r['normalized_contracts']);
+    }
+
+    // ── AC2: provider dependency rejection ───────────────────────────────────
+
+    public function test_provider_dependency_in_objective_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'objective' => 'Use claude to generate the service implementation',
+        ])]]);
+
+        $this->assertEmpty($r['normalized_contracts']);
+        $this->assertContains('provider_dependency', $r['rejected_inputs'][0]['violation_reasons']);
+    }
+
+    // ── AC2: generic objective rejection ─────────────────────────────────────
+
+    public function test_generic_phrase_objective_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'objective' => 'make it work by fixing the integration layer',
+        ])]]);
+
+        $this->assertContains('generic_objective', $r['rejected_inputs'][0]['violation_reasons']);
+    }
 }

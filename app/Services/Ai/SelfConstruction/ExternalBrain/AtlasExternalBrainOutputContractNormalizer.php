@@ -33,8 +33,11 @@ final class AtlasExternalBrainOutputContractNormalizer
 {
     public const SCHEMA = 'atlas.external_brain.output_contract_normalizer.v1';
 
-    private const REQUIRED_FIELDS = ['objective', 'allowed_files', 'acceptance', 'evidence'];
-    private const OPTIONAL_FIELDS = ['scope_in', 'risks', 'dependencies'];
+    private const REQUIRED_FIELDS  = ['objective', 'allowed_files', 'acceptance', 'evidence'];
+    private const OPTIONAL_FIELDS  = ['scope_in', 'risks', 'dependencies'];
+    private const PROVIDER_NAMES   = ['claude', 'codex', 'openai', 'anthropic', 'gpt', 'gemini', 'fable', 'opus'];
+    private const GENERIC_PHRASES  = ['make it work', 'do the thing', 'fix it', 'improve this', 'update the'];
+    private const RUNNABLE_MARKERS = ['phpunit', 'artisan', 'bin/php', 'pytest', 'jest', 'rspec'];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -51,13 +54,21 @@ final class AtlasExternalBrainOutputContractNormalizer
         foreach ($proposals as $proposal) {
             $id = (string) ($proposal['id'] ?? '');
 
-            [$contract, $missing] = $this->tryNormalize($proposal);
+            [$contract, $missing, $violations] = $this->tryNormalize($proposal);
 
-            if (! empty($missing)) {
-                $rejectedInputs[]    = [
-                    'id'              => $id,
-                    'rejection_reason' => 'missing_required_fields',
-                    'missing_fields'  => $missing,
+            $hasProblems = ! empty($missing) || ! empty($violations);
+
+            if ($hasProblems) {
+                $repairHints = array_merge(
+                    array_map(static fn (string $f): string => "add required field: {$f}", $missing),
+                    array_column($violations, 'repair_hint'),
+                );
+                $rejectedInputs[] = [
+                    'id'               => $id,
+                    'rejection_reason' => ! empty($missing) ? 'missing_required_fields' : 'semantic_violation',
+                    'missing_fields'   => $missing,
+                    'violation_reasons' => array_column($violations, 'code'),
+                    'repair_hints'     => $repairHints,
                 ];
                 foreach ($missing as $field) {
                     $missingFieldsUnion[$field] = true;
@@ -79,14 +90,14 @@ final class AtlasExternalBrainOutputContractNormalizer
     }
 
     /**
-     * @return array{array<string,mixed>, list<string>}  [contract, missing]
+     * @return array{array<string,mixed>, list<string>, list<array{code:string,repair_hint:string}>}
      */
     private function tryNormalize(array $proposal): array
     {
-        $missing  = [];
-        $contract = [];
+        $missing    = [];
+        $violations = [];
+        $contract   = [];
 
-        // Required string: objective.
         $objective = trim((string) ($proposal['objective'] ?? ''));
         if ($objective === '') {
             $missing[] = 'objective';
@@ -94,7 +105,6 @@ final class AtlasExternalBrainOutputContractNormalizer
             $contract['objective'] = $objective;
         }
 
-        // Required non-empty list: allowed_files.
         $allowedFiles = $this->toStringList($proposal['allowed_files'] ?? null);
         if (empty($allowedFiles)) {
             $missing[] = 'allowed_files';
@@ -102,7 +112,6 @@ final class AtlasExternalBrainOutputContractNormalizer
             $contract['allowed_files'] = $allowedFiles;
         }
 
-        // Required non-empty list: acceptance.
         $acceptance = $this->toStringList($proposal['acceptance'] ?? null);
         if (empty($acceptance)) {
             $missing[] = 'acceptance';
@@ -110,7 +119,6 @@ final class AtlasExternalBrainOutputContractNormalizer
             $contract['acceptance'] = $acceptance;
         }
 
-        // Required non-empty list: evidence.
         $evidence = $this->toStringList($proposal['evidence'] ?? null);
         if (empty($evidence)) {
             $missing[] = 'evidence';
@@ -118,12 +126,73 @@ final class AtlasExternalBrainOutputContractNormalizer
             $contract['evidence'] = $evidence;
         }
 
-        // Optional fields.
         foreach (self::OPTIONAL_FIELDS as $field) {
             $contract[$field] = $this->toStringList($proposal[$field] ?? null);
         }
 
-        return [$contract, $missing];
+        // ── New canonical fields ──────────────────────────────────────────────
+
+        $isTestPath = static fn (string $f): bool =>
+            str_contains($f, 'Test.php') || str_contains($f, '/tests/') || str_contains($f, '/Tests/');
+
+        $implCount = empty($allowedFiles) ? 0 : count(array_filter($allowedFiles, static function (string $f) use ($isTestPath): bool { return ! $isTestPath($f); }));
+        $testCount = empty($allowedFiles) ? 0 : count(array_filter($allowedFiles, $isTestPath));
+
+        $taskFamily = match(true) {
+            empty($allowedFiles) => 'unknown',
+            $implCount === 0     => 'test_suite',
+            $testCount === 0     => 'service_layer',
+            default              => 'mixed',
+        };
+
+        $contract['task_family']               = $taskFamily;
+        $contract['leverage_reason']           = trim((string) ($proposal['leverage_reason'] ?? ''));
+        $contract['expected_capability_delta'] = (float) ($proposal['expected_capability_delta'] ?? 0.0);
+        $contract['implementation_file_count'] = $implCount;
+        $contract['test_file_count']           = $testCount;
+        $contract['repair_hints']              = [];
+
+        // ── Semantic violations ───────────────────────────────────────────────
+
+        if (! empty($allowedFiles) && $implCount === 0) {
+            $violations[] = ['code' => 'test_only_scope', 'repair_hint' => 'include at least one implementation file in allowed_files'];
+        }
+
+        if (! empty($evidence)) {
+            $hasRunnable = false;
+            foreach ($evidence as $e) {
+                foreach (self::RUNNABLE_MARKERS as $marker) {
+                    if (str_contains(strtolower($e), $marker)) { $hasRunnable = true; break 2; }
+                }
+            }
+            if (! $hasRunnable) {
+                $violations[] = ['code' => 'missing_runnable_proof', 'repair_hint' => 'add a runnable proof (e.g. phpunit command) to evidence'];
+            }
+        }
+
+        if ($objective !== '') {
+            $low = strtolower($objective);
+            foreach (self::PROVIDER_NAMES as $p) {
+                if (str_contains($low, $p)) {
+                    $violations[] = ['code' => 'provider_dependency', 'repair_hint' => 'remove provider-specific references from objective; make the contract provider-agnostic'];
+                    break;
+                }
+            }
+        }
+
+        if ($objective !== '' && strlen($objective) < 20) {
+            $violations[] = ['code' => 'generic_objective', 'repair_hint' => 'expand objective to specify the class and behavior to build (min 20 chars)'];
+        } elseif ($objective !== '') {
+            $low = strtolower($objective);
+            foreach (self::GENERIC_PHRASES as $phrase) {
+                if (str_contains($low, $phrase)) {
+                    $violations[] = ['code' => 'generic_objective', 'repair_hint' => 'expand objective to specify the class and behavior to build (min 20 chars)'];
+                    break;
+                }
+            }
+        }
+
+        return [$contract, $missing, $violations];
     }
 
     private function toStringList(mixed $value): array
