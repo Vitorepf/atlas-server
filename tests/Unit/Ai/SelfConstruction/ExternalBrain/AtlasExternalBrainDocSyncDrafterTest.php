@@ -343,4 +343,136 @@ final class AtlasExternalBrainDocSyncDrafterTest extends TestCase
         $sections = array_column($result['doc_deltas'], 'section');
         $this->assertContains('queue-quality-risks', $sections);
     }
+
+    // ── post_task_knowledge_sync ─────────────────────────────────────────────────
+
+    public function test_output_has_post_task_knowledge_sync_with_required_keys(): void
+    {
+        $result = $this->drafter()->draft($this->cleanSnapshot());
+
+        $this->assertArrayHasKey('post_task_knowledge_sync', $result);
+        $sync = $result['post_task_knowledge_sync'];
+        foreach (['docs_to_update', 'code_index_refresh_required', 'evidence_refs', 'queue_quality_risks', 'next_leverage_deltas', 'refused_claims'] as $key) {
+            $this->assertArrayHasKey($key, $sync, "post_task_knowledge_sync missing key: {$key}");
+        }
+    }
+
+    public function test_docs_to_update_includes_maturity_status_doc_for_clean_snapshot(): void
+    {
+        $result = $this->drafter()->draft($this->cleanSnapshot());
+
+        $this->assertContains('droid-wiki/systems/open-brain/index.md', $result['post_task_knowledge_sync']['docs_to_update']);
+    }
+
+    public function test_code_index_refresh_required_reflects_stale_code_index_flag(): void
+    {
+        $clean = $this->drafter()->draft($this->cleanSnapshot());
+        $this->assertFalse($clean['post_task_knowledge_sync']['code_index_refresh_required']);
+
+        $stale = $this->drafter()->draft(array_merge($this->cleanSnapshot(), ['stale_code_index' => true]));
+        $this->assertTrue($stale['post_task_knowledge_sync']['code_index_refresh_required']);
+    }
+
+    public function test_evidence_refs_includes_evidence_gap_refs(): void
+    {
+        $result = $this->drafter()->draft($this->blockedSnapshot());
+
+        $found = false;
+        foreach ($result['post_task_knowledge_sync']['evidence_refs'] as $ref) {
+            if (str_contains($ref, 'learning_ledger')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'evidence_refs must surface evidence gaps');
+    }
+
+    public function test_queue_quality_risks_passed_through_to_post_task_sync(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['queue_quality_risks' => ['drain_overdue', 'malformed_spike']]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $this->assertSame(['drain_overdue', 'malformed_spike'], $result['post_task_knowledge_sync']['queue_quality_risks']);
+    }
+
+    public function test_next_leverage_deltas_derived_from_blockers_capabilities_and_actions(): void
+    {
+        $result = $this->drafter()->draft($this->blockedSnapshot());
+
+        $deltas = $result['post_task_knowledge_sync']['next_leverage_deltas'];
+        $hasUnblock = false;
+        $hasOperatorAction = false;
+        foreach ($deltas as $d) {
+            if (str_starts_with($d, 'unblock:')) {
+                $hasUnblock = true;
+            }
+            if (str_starts_with($d, 'operator_action:')) {
+                $hasOperatorAction = true;
+            }
+        }
+        $this->assertTrue($hasUnblock, 'next_leverage_deltas must surface blockers to unblock');
+        $this->assertTrue($hasOperatorAction, 'next_leverage_deltas must surface pending operator actions');
+    }
+
+    public function test_refused_claims_matches_top_level_refused_claims(): void
+    {
+        $result = $this->drafter()->draft($this->blockedSnapshot());
+
+        $this->assertSame($result['refused_claims'], $result['post_task_knowledge_sync']['refused_claims']);
+        $this->assertNotEmpty($result['post_task_knowledge_sync']['refused_claims']);
+    }
+
+    // ── readiness_claim stays capped below 95% whenever any blocker is present ──
+
+    public function test_readiness_claim_below_95_when_docs_stale(): void
+    {
+        $result = $this->drafter()->draft(array_merge($this->cleanSnapshot(), ['stale_docs' => true]));
+
+        $readiness = (int) rtrim($result['readiness_claim'], '% final');
+        $this->assertLessThan(95, $readiness);
+    }
+
+    public function test_readiness_claim_below_95_when_code_index_stale(): void
+    {
+        $result = $this->drafter()->draft(array_merge($this->cleanSnapshot(), ['stale_code_index' => true]));
+
+        $readiness = (int) rtrim($result['readiness_claim'], '% final');
+        $this->assertLessThan(95, $readiness);
+    }
+
+    public function test_readiness_claim_below_95_when_evidence_gaps_present(): void
+    {
+        $result = $this->drafter()->draft(array_merge($this->cleanSnapshot(), ['evidence_gaps' => ['some_gap']]));
+
+        $readiness = (int) rtrim($result['readiness_claim'], '% final');
+        $this->assertLessThan(95, $readiness);
+    }
+
+    public function test_readiness_claim_below_95_when_queue_quality_risks_present(): void
+    {
+        $result = $this->drafter()->draft(array_merge($this->cleanSnapshot(), ['queue_quality_risks' => ['x']]));
+
+        $readiness = (int) rtrim($result['readiness_claim'], '% final');
+        $this->assertLessThan(95, $readiness);
+    }
+
+    public function test_readiness_claim_below_95_when_certification_blocked(): void
+    {
+        $result = $this->drafter()->draft($this->blockedSnapshot());
+
+        $readiness = (int) rtrim($result['readiness_claim'], '% final');
+        $this->assertLessThan(95, $readiness);
+    }
+
+    public function test_post_task_knowledge_sync_is_deterministic(): void
+    {
+        $snapshot = $this->blockedSnapshot();
+        $a = $this->drafter()->draft($snapshot);
+        $b = $this->drafter()->draft($snapshot);
+
+        $this->assertSame(
+            json_encode($a['post_task_knowledge_sync'], JSON_UNESCAPED_SLASHES),
+            json_encode($b['post_task_knowledge_sync'], JSON_UNESCAPED_SLASHES),
+        );
+    }
 }

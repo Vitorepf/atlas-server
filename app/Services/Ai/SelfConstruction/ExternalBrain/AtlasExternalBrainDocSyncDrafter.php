@@ -94,12 +94,17 @@ final class AtlasExternalBrainDocSyncDrafter
             $refusedClaims[] = '95_percent_final_refused:queue_quality_risks_unresolved';
         }
 
+        $docDeltas = $this->buildDocDeltas(
+            $band, $blockers, $evidenceGaps, $nextActions,
+            $certBlocked, $staleDocs, $staleCodeIndex, $queueQualityRisks,
+        );
+
         return [
-            'schema'                => self::SCHEMA,
-            'readiness_claim'       => "{$readiness}% final",
-            'certification_blocked' => $certBlocked,
-            'refused_claims'        => $refusedClaims,
-            'sections'              => [
+            'schema'                  => self::SCHEMA,
+            'readiness_claim'         => "{$readiness}% final",
+            'certification_blocked'   => $certBlocked,
+            'refused_claims'          => $refusedClaims,
+            'sections'                => [
                 'architecture'       => $this->architectureSection($band, $maturityScore, $dimensions, $nextMissing),
                 'operation'          => $this->operationSection($band, $dimensions, $nextActions),
                 'limitations'        => $this->limitationsSection($blockers, $evidenceGaps, $certBlocked),
@@ -108,10 +113,69 @@ final class AtlasExternalBrainDocSyncDrafter
                 'knowledge_freshness'=> $this->knowledgeFreshnessSection($staleDocs, $staleCodeIndex),
                 'next_leverage'      => $this->nextLeverageSection($nextMissing, $nextActions, $blockers),
             ],
-            'doc_deltas' => $this->buildDocDeltas(
-                $band, $blockers, $evidenceGaps, $nextActions,
-                $certBlocked, $staleDocs, $staleCodeIndex, $queueQualityRisks,
+            'doc_deltas'              => $docDeltas,
+            'post_task_knowledge_sync' => $this->buildPostTaskKnowledgeSync(
+                $docDeltas, $staleCodeIndex, $evidenceGaps, $queueQualityRisks, $nextMissing, $nextActions, $blockers, $refusedClaims,
             ),
+        ];
+    }
+
+    /**
+     * Minimal post-task knowledge sync proposal: the smallest deterministic checklist needed to
+     * keep docs/code-index/evidence/queue-quality/certification claims honest after this batch.
+     * NEVER claims finality from prose alone — every field here is derived from the same structured
+     * facts that capped readiness_claim, never from free text.
+     *
+     * @param  list<array{doc_key:string,section:string,proposed_delta:string,rationale:string,evidence_refs:list<string>,update_priority:string}>  $docDeltas
+     * @param  list<string>  $evidenceGaps
+     * @param  list<string>  $queueQualityRisks
+     * @param  list<array<string,mixed>>  $nextMissing
+     * @param  list<string>  $nextActions
+     * @param  list<array<string,string>>  $blockers
+     * @param  list<string>  $refusedClaims
+     * @return array{docs_to_update:list<string>, code_index_refresh_required:bool, evidence_refs:list<string>, queue_quality_risks:list<string>, next_leverage_deltas:list<string>, refused_claims:list<string>}
+     */
+    private function buildPostTaskKnowledgeSync(
+        array $docDeltas,
+        bool $staleCodeIndex,
+        array $evidenceGaps,
+        array $queueQualityRisks,
+        array $nextMissing,
+        array $nextActions,
+        array $blockers,
+        array $refusedClaims,
+    ): array {
+        $docsToUpdate = array_values(array_unique(array_column($docDeltas, 'doc_key')));
+        sort($docsToUpdate, SORT_STRING);
+
+        $evidenceRefs = [];
+        foreach ($docDeltas as $delta) {
+            $evidenceRefs = array_merge($evidenceRefs, (array) ($delta['evidence_refs'] ?? []));
+        }
+        foreach ($evidenceGaps as $gap) {
+            $evidenceRefs[] = "evidence_gap:{$gap}";
+        }
+        $evidenceRefs = array_values(array_unique($evidenceRefs));
+        sort($evidenceRefs, SORT_STRING);
+
+        $nextLeverageDeltas = [];
+        foreach ($blockers as $b) {
+            $nextLeverageDeltas[] = 'unblock:'.(string) ($b['dimension'] ?? 'unknown');
+        }
+        foreach ($nextMissing as $cap) {
+            $nextLeverageDeltas[] = 'raise:'.(string) ($cap['capability'] ?? 'unknown');
+        }
+        foreach ($nextActions as $action) {
+            $nextLeverageDeltas[] = 'operator_action:'.$action;
+        }
+
+        return [
+            'docs_to_update'               => $docsToUpdate,
+            'code_index_refresh_required'  => $staleCodeIndex,
+            'evidence_refs'                => $evidenceRefs,
+            'queue_quality_risks'          => array_values($queueQualityRisks),
+            'next_leverage_deltas'         => $nextLeverageDeltas,
+            'refused_claims'               => $refusedClaims,
         ];
     }
 
