@@ -169,6 +169,99 @@ final class AgentRuntimeRegistryCapabilityCatalog
         ];
     }
 
+    public const CAPABILITY_STATUS_VERIFIED = 'verified';
+
+    public const CAPABILITY_STATUS_UNVERIFIED = 'unverified';
+
+    public const CAPABILITY_STATUS_FAILURE_PRONE = 'failure_prone';
+
+    private const HIGH_GIVE_BACK_RATE_CEILING = 0.50;
+
+    private const VERIFIED_SUCCESS_RATE_FLOOR = 0.70;
+
+    private const MIN_OUTCOME_SAMPLE_FOR_VERDICT = 3;
+
+    /**
+     * Derives a capability's real, observed status for a (capability,
+     * task_family) pair — never trusts a self-declared label alone.
+     *
+     * capability_status (first match wins):
+     *   failure_prone — sample >= MIN_OUTCOME_SAMPLE_FOR_VERDICT AND
+     *                    give_back_rate > HIGH_GIVE_BACK_RATE_CEILING, OR the
+     *                    capability is listed in known_failure_modes.
+     *   verified      — sample >= MIN_OUTCOME_SAMPLE_FOR_VERDICT AND
+     *                    success_rate >= VERIFIED_SUCCESS_RATE_FLOOR.
+     *   unverified    — everything else, INCLUDING a self_declared=true claim
+     *                    with no outcome evidence at all — a label is not proof.
+     *
+     * routing_hint: verified → route_freely; unverified → route_with_caution_collect_evidence;
+     *               failure_prone → avoid_routing.
+     *
+     * @param  array<string, mixed>  $facts
+     * @return array<string, mixed>
+     */
+    public function evaluateObservedCapability(array $facts): array
+    {
+        $capability = (string) ($facts['capability'] ?? '');
+        $taskFamily = (string) ($facts['task_family'] ?? '');
+        $supportedTools = array_map('strval', (array) ($facts['supported_tools'] ?? []));
+        $selfDeclared = (bool) ($facts['self_declared'] ?? false);
+        $recentOutcomes = (array) ($facts['recent_outcomes'] ?? []);
+        $knownFailureModes = array_map('strval', (array) ($facts['known_failure_modes'] ?? []));
+
+        $sampleSize = count($recentOutcomes);
+        $successCount = count(array_filter(
+            $recentOutcomes,
+            static fn ($o): bool => is_array($o) && (string) ($o['outcome'] ?? '') === 'success',
+        ));
+        $giveBackCount = count(array_filter(
+            $recentOutcomes,
+            static fn ($o): bool => is_array($o) && (string) ($o['outcome'] ?? '') === 'give_back',
+        ));
+        $successRate = $sampleSize > 0 ? round($successCount / $sampleSize, 4) : 0.0;
+        $giveBackRate = $sampleSize > 0 ? round($giveBackCount / $sampleSize, 4) : 0.0;
+
+        $hasEnoughSample = $sampleSize >= self::MIN_OUTCOME_SAMPLE_FOR_VERDICT;
+        $isFailureProne = $knownFailureModes !== []
+            || ($hasEnoughSample && $giveBackRate > self::HIGH_GIVE_BACK_RATE_CEILING);
+        $isVerified = ! $isFailureProne && $hasEnoughSample && $successRate >= self::VERIFIED_SUCCESS_RATE_FLOOR;
+
+        $capabilityStatus = match (true) {
+            $isFailureProne => self::CAPABILITY_STATUS_FAILURE_PRONE,
+            $isVerified => self::CAPABILITY_STATUS_VERIFIED,
+            default => self::CAPABILITY_STATUS_UNVERIFIED,
+        };
+
+        $routingHint = match ($capabilityStatus) {
+            self::CAPABILITY_STATUS_VERIFIED => 'route_freely',
+            self::CAPABILITY_STATUS_FAILURE_PRONE => 'avoid_routing',
+            default => 'route_with_caution_collect_evidence',
+        };
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'capability' => $capability,
+            'task_family' => $taskFamily,
+            'supported_tools' => $supportedTools,
+            'self_declared' => $selfDeclared,
+            'evidence_summary' => [
+                'sample_size' => $sampleSize,
+                'success_rate' => $successRate,
+                'give_back_rate' => $giveBackRate,
+                'known_failure_modes' => $knownFailureModes,
+            ],
+            'capability_status' => $capabilityStatus,
+            'routing_hint' => $routingHint,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
+    }
+
     /**
      * @return array<string, bool>
      */

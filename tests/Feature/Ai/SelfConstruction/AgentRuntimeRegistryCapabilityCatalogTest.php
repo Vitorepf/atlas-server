@@ -166,4 +166,93 @@ final class AgentRuntimeRegistryCapabilityCatalogTest extends TestCase
             $this->assertTrue($entry['canonical']);
         }
     }
+
+    // ── evaluateObservedCapability ───────────────────────────────────────────
+
+    private function capabilityFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'capability' => 'code_edit',
+            'task_family' => 'service_layer',
+            'supported_tools' => ['php', 'phpunit'],
+            'self_declared' => false,
+            'recent_outcomes' => [],
+            'known_failure_modes' => [],
+        ], $overrides);
+    }
+
+    public function test_self_declared_only_with_no_outcomes_is_unverified(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability(
+            $this->capabilityFacts(['self_declared' => true, 'recent_outcomes' => []]),
+        );
+
+        $this->assertSame(AgentRuntimeRegistryCapabilityCatalog::CAPABILITY_STATUS_UNVERIFIED, $result['capability_status']);
+        $this->assertSame('route_with_caution_collect_evidence', $result['routing_hint']);
+    }
+
+    public function test_enough_successful_outcomes_marks_capability_verified(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability($this->capabilityFacts([
+            'recent_outcomes' => [
+                ['outcome' => 'success'], ['outcome' => 'success'], ['outcome' => 'success'],
+            ],
+        ]));
+
+        $this->assertSame(AgentRuntimeRegistryCapabilityCatalog::CAPABILITY_STATUS_VERIFIED, $result['capability_status']);
+        $this->assertSame('route_freely', $result['routing_hint']);
+        $this->assertSame(1.0, $result['evidence_summary']['success_rate']);
+    }
+
+    public function test_high_give_back_rate_marks_capability_failure_prone(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability($this->capabilityFacts([
+            'recent_outcomes' => [
+                ['outcome' => 'give_back'], ['outcome' => 'give_back'], ['outcome' => 'success'],
+            ],
+        ]));
+
+        $this->assertSame(AgentRuntimeRegistryCapabilityCatalog::CAPABILITY_STATUS_FAILURE_PRONE, $result['capability_status']);
+        $this->assertSame('avoid_routing', $result['routing_hint']);
+    }
+
+    public function test_known_failure_mode_marks_capability_failure_prone_even_with_good_outcomes(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability($this->capabilityFacts([
+            'recent_outcomes' => [
+                ['outcome' => 'success'], ['outcome' => 'success'], ['outcome' => 'success'],
+            ],
+            'known_failure_modes' => ['cyclomatic_blowup'],
+        ]));
+
+        $this->assertSame(AgentRuntimeRegistryCapabilityCatalog::CAPABILITY_STATUS_FAILURE_PRONE, $result['capability_status']);
+    }
+
+    public function test_insufficient_sample_size_stays_unverified_even_with_success(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability($this->capabilityFacts([
+            'recent_outcomes' => [['outcome' => 'success'], ['outcome' => 'success']],
+        ]));
+
+        $this->assertSame(AgentRuntimeRegistryCapabilityCatalog::CAPABILITY_STATUS_UNVERIFIED, $result['capability_status']);
+    }
+
+    public function test_evidence_summary_includes_task_family_and_supported_tools(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability($this->capabilityFacts());
+
+        $this->assertSame('service_layer', $result['task_family']);
+        $this->assertSame(['php', 'phpunit'], $result['supported_tools']);
+        $this->assertArrayHasKey('evidence_summary', $result);
+        $this->assertArrayHasKey('give_back_rate', $result['evidence_summary']);
+    }
+
+    public function test_observed_capability_runtime_flags_all_false(): void
+    {
+        $result = (new AgentRuntimeRegistryCapabilityCatalog)->evaluateObservedCapability($this->capabilityFacts());
+
+        foreach (['runtime_execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'self_programming_allowed', 'ledger_write_allowed'] as $flag) {
+            $this->assertFalse($result[$flag]);
+        }
+    }
 }
