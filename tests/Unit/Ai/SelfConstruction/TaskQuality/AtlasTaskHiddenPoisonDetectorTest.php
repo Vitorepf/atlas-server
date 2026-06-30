@@ -131,6 +131,55 @@ final class AtlasTaskHiddenPoisonDetectorTest extends TestCase
         $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_PERMANENT_AUTONOMY_DEP, $found);
     }
 
+    public function test_allowed_files_test_only_trap_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Harden the thing.',
+            'allowed_files' => ['tests/FooTest.php', 'tests/BarTest.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_TEST_ONLY_ALLOWED_FILES, $found);
+        $this->assertFalse($verdict['clean']);
+    }
+
+    public function test_mixed_allowed_files_with_impl_target_not_flagged_as_test_only_trap(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Harden the thing.',
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(AtlasTaskHiddenPoisonDetector::PATTERN_TEST_ONLY_ALLOWED_FILES, $found);
+    }
+
+    public function test_schema_only_acceptance_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Harden the thing.',
+            'acceptance_criteria' => ['Running php artisan test --filter=Foo exits 0.'],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_SCHEMA_ONLY_ACCEPTANCE, $found);
+        $this->assertFalse($verdict['clean']);
+    }
+
+    public function test_acceptance_with_behavior_assertion_not_flagged_as_schema_only(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Harden the thing.',
+            'acceptance_criteria' => [
+                'Running php artisan test --filter=Foo exits 0.',
+                'The computed total matches the expected business value for each input.',
+            ],
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertNotContains(AtlasTaskHiddenPoisonDetector::PATTERN_SCHEMA_ONLY_ACCEPTANCE, $found);
+    }
+
     public function test_detection_does_not_mutate_input_packet(): void
     {
         $packet = [

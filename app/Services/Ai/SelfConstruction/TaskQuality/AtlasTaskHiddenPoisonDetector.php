@@ -40,6 +40,12 @@ final class AtlasTaskHiddenPoisonDetector
 
     public const PATTERN_PERMANENT_AUTONOMY_DEP = 'permanent_autonomy_dependency_wording';
 
+    public const PATTERN_TEST_ONLY_ALLOWED_FILES = 'allowed_files_test_only_trap';
+
+    public const PATTERN_SCHEMA_ONLY_ACCEPTANCE = 'acceptance_schema_only_no_behavior';
+
+    private const SCHEMA_ONLY_NEEDLES = ['exits 0', 'exit 0', 'exit code 0', 'schema_version', 'json schema', 'valid schema'];
+
     private const AUTONOMY_DEP_NEEDLES = [
         'operator approval',
         'operator must',
@@ -203,6 +209,20 @@ final class AtlasTaskHiddenPoisonDetector
             }
         }
 
+        if ($allowed !== [] && $this->allTestOnly($allowed)) {
+            $found[] = [
+                'pattern_id' => self::PATTERN_TEST_ONLY_ALLOWED_FILES,
+                'evidence' => ['allowed_files' => $allowed],
+            ];
+        }
+
+        if ($acceptance !== [] && $this->allSchemaOnly($acceptance)) {
+            $found[] = [
+                'pattern_id' => self::PATTERN_SCHEMA_ONLY_ACCEPTANCE,
+                'evidence' => ['acceptance_criteria' => $acceptance],
+            ];
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'found_patterns' => $found,
@@ -227,5 +247,53 @@ final class AtlasTaskHiddenPoisonDetector
         preg_match_all('/[a-z]{4,}/', $text, $m);
 
         return array_values(array_diff($m[0], self::TEXT_STOP_WORDS));
+    }
+
+    /**
+     * True when EVERY allowed_files entry is a test path — a worker handed only test files has
+     * no implementation target to write the behavior the test checks (classic scope-repair trap).
+     *
+     * @param  list<mixed>  $files
+     */
+    private function allTestOnly(array $files): bool
+    {
+        foreach ($files as $file) {
+            if (! $this->isTestPath((string) $file)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isTestPath(string $path): bool
+    {
+        return str_starts_with($path, 'tests/') || str_contains($path, '/tests/') || str_ends_with($path, 'Test.php');
+    }
+
+    /**
+     * True when EVERY acceptance criterion only checks a runnable-gate exit code or schema
+     * presence, never asserting actual computed behavior — the packet can pass while doing
+     * nothing real.
+     *
+     * @param  list<mixed>  $criteria
+     */
+    private function allSchemaOnly(array $criteria): bool
+    {
+        foreach ($criteria as $criterion) {
+            $low = strtolower((string) $criterion);
+            $matches = false;
+            foreach (self::SCHEMA_ONLY_NEEDLES as $needle) {
+                if (str_contains($low, $needle)) {
+                    $matches = true;
+                    break;
+                }
+            }
+            if (! $matches) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
