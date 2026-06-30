@@ -250,4 +250,60 @@ class AtlasAiSelfConstructionAgentDispatchExecutorAdapterInvocationBoundaryTest 
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── buildProviderSafeInvocationContext() ────────────────────────────────
+
+    public function test_safe_context_includes_only_canonical_fields(): void
+    {
+        $result = app(AgentDispatchExecutorAdapterInvocationBoundary::class)->buildProviderSafeInvocationContext([
+            'task_packet_id' => 'task-1',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'required_evidence' => ['test_output'],
+        ]);
+
+        $this->assertSame('safe', $result['boundary_status']);
+        $this->assertSame([
+            'task_packet_id' => 'task-1',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'required_evidence' => ['test_output'],
+        ], $result['invocation_context']);
+        $this->assertSame(0, $result['redaction_summary']['stripped_field_count']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_safe_context_strips_queue_state_internal_prompt_and_workspace_context(): void
+    {
+        $result = app(AgentDispatchExecutorAdapterInvocationBoundary::class)->buildProviderSafeInvocationContext([
+            'task_packet_id' => 'task-1',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'required_evidence' => ['test_output'],
+            'queue_lease_id' => 'lease_abc',
+            'system_prompt' => 'you are an autonomous agent...',
+            'workspace_cwd' => '/secret/path',
+            'unrelated_field' => 'noise',
+        ]);
+
+        $this->assertSame('safe', $result['boundary_status']);
+        $this->assertSame([
+            'task_packet_id', 'allowed_files', 'acceptance_criteria', 'required_evidence',
+        ], array_keys($result['invocation_context']));
+        $this->assertSame(4, $result['redaction_summary']['stripped_field_count']);
+        $this->assertContains('queue_lease_id', $result['redaction_summary']['stripped_fields_by_category']['queue_state']);
+        $this->assertContains('system_prompt', $result['redaction_summary']['stripped_fields_by_category']['internal_prompt']);
+        $this->assertContains('workspace_cwd', $result['redaction_summary']['stripped_fields_by_category']['workspace_context']);
+        $this->assertContains('unrelated_field', $result['redaction_summary']['stripped_fields_by_category']['other']);
+    }
+
+    public function test_safe_context_flags_incomplete_when_required_field_missing(): void
+    {
+        $result = app(AgentDispatchExecutorAdapterInvocationBoundary::class)->buildProviderSafeInvocationContext([
+            'task_packet_id' => 'task-1',
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertSame('incomplete_context', $result['boundary_status']);
+    }
 }

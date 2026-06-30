@@ -28,6 +28,80 @@ class AgentDispatchExecutorAdapterInvocationBoundary
         private readonly AgentProviderAdapterRegistry $adapterRegistry,
     ) {}
 
+    /** The ONLY fields a provider invocation may ever receive. */
+    private const ALLOWED_CONTEXT_FIELDS = ['task_packet_id', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
+
+    private const REDACTION_CATEGORY_KEYWORDS = [
+        'queue_state' => ['queue', 'lease', 'claim', 'worker', 'backlog'],
+        'internal_prompt' => ['prompt', 'system_prompt', 'instruction', 'persona'],
+        'workspace_context' => ['workspace', 'cwd', 'env', 'secret', 'credential', 'token', 'path'],
+    ];
+
+    /**
+     * Builds the ONLY context a provider adapter invocation may receive:
+     * task_packet_id, allowed_files, acceptance_criteria, required_evidence.
+     * Any other field in $taskFacts — queue state, internal prompts,
+     * workspace/credential context, or anything else — is stripped and
+     * accounted for in redaction_summary, NEVER passed through.
+     *
+     * boundary_status:
+     *   safe                — all four allowed fields present and non-empty.
+     *   incomplete_context   — at least one required allowed field is missing
+     *                          or empty; the invocation context is still
+     *                          built (with what's present) but flagged.
+     *
+     * @param  array<string, mixed>  $taskFacts
+     * @return array<string, mixed>
+     */
+    public function buildProviderSafeInvocationContext(array $taskFacts): array
+    {
+        $invocationContext = [
+            'task_packet_id' => (string) ($taskFacts['task_packet_id'] ?? ''),
+            'allowed_files' => array_values(array_filter(array_map('strval', (array) ($taskFacts['allowed_files'] ?? [])))),
+            'acceptance_criteria' => array_values(array_filter(array_map('strval', (array) ($taskFacts['acceptance_criteria'] ?? [])))),
+            'required_evidence' => array_values(array_filter(array_map('strval', (array) ($taskFacts['required_evidence'] ?? [])))),
+        ];
+
+        $strippedFields = array_values(array_diff(array_keys($taskFacts), self::ALLOWED_CONTEXT_FIELDS));
+        $strippedByCategory = ['queue_state' => [], 'internal_prompt' => [], 'workspace_context' => [], 'other' => []];
+        foreach ($strippedFields as $field) {
+            $strippedByCategory[$this->categorizeStrippedField($field)][] = $field;
+        }
+
+        $isComplete = $invocationContext['task_packet_id'] !== ''
+            && $invocationContext['allowed_files'] !== []
+            && $invocationContext['acceptance_criteria'] !== []
+            && $invocationContext['required_evidence'] !== [];
+
+        return [
+            'boundary_status' => $isComplete ? 'safe' : 'incomplete_context',
+            'invocation_context' => $invocationContext,
+            'redaction_summary' => [
+                'stripped_field_count' => count($strippedFields),
+                'stripped_fields' => $strippedFields,
+                'stripped_fields_by_category' => $strippedByCategory,
+            ],
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    private function categorizeStrippedField(string $field): string
+    {
+        $lower = strtolower($field);
+        foreach (self::REDACTION_CATEGORY_KEYWORDS as $category => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (str_contains($lower, $keyword)) {
+                    return $category;
+                }
+            }
+        }
+
+        return 'other';
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
