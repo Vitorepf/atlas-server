@@ -81,13 +81,15 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
                 continue;
             }
             $taskMap[$id] = [
-                'task_id' => $id,
-                'depends_on' => is_array($t['depends_on'] ?? null) ? array_values(array_filter(array_map('strval', $t['depends_on']))) : [],
-                'expected_impact' => max(0.0, min(1.0, (float) ($t['expected_impact'] ?? 0.5))),
-                'cost_risk' => max(0.0, min(1.0, (float) ($t['cost_risk'] ?? 0.5))),
-                'unlock_value' => max(0.0, min(1.0, (float) ($t['unlock_value'] ?? 0.0))),
-                'allowed_files' => is_array($t['allowed_files'] ?? null) ? array_values(array_filter(array_map('strval', $t['allowed_files']))) : [],
-                'task_family' => trim((string) ($t['task_family'] ?? '')),
+                'task_id'                   => $id,
+                'depends_on'                => is_array($t['depends_on'] ?? null) ? array_values(array_filter(array_map('strval', $t['depends_on']))) : [],
+                'expected_impact'           => max(0.0, min(1.0, (float) ($t['expected_impact'] ?? 0.5))),
+                'cost_risk'                 => max(0.0, min(1.0, (float) ($t['cost_risk'] ?? 0.5))),
+                'unlock_value'              => max(0.0, min(1.0, (float) ($t['unlock_value'] ?? 0.0))),
+                'allowed_files'             => is_array($t['allowed_files'] ?? null) ? array_values(array_filter(array_map('strval', $t['allowed_files']))) : [],
+                'task_family'               => trim((string) ($t['task_family'] ?? '')),
+                'give_back_risk'            => max(0.0, min(1.0, (float) ($t['give_back_risk'] ?? 0.0))),
+                'blocked_prerequisite_risk' => max(0.0, min(1.0, (float) ($t['blocked_prerequisite_risk'] ?? 0.0))),
             ];
         }
 
@@ -112,12 +114,18 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $waveIndex = 0;
 
         foreach ($layers as $layer) {
-            // Sort: adjusted-ROI DESC (penalised by family risk), task_id ASC for determinism.
+            // Sort: adjusted-ROI DESC (penalised by family risk, give_back_risk, blocked_prerequisite_risk), task_id ASC for determinism.
             usort($layer, static function (string $a, string $b) use ($taskMap, $familyRisk): int {
                 $rawA = $taskMap[$a]['expected_impact'] * $taskMap[$a]['unlock_value'] / ($taskMap[$a]['cost_risk'] + 0.01);
                 $rawB = $taskMap[$b]['expected_impact'] * $taskMap[$b]['unlock_value'] / ($taskMap[$b]['cost_risk'] + 0.01);
-                $ra = $rawA * (1.0 - ($familyRisk[$taskMap[$a]['task_family']] ?? 0.0) * 0.5);
-                $rb = $rawB * (1.0 - ($familyRisk[$taskMap[$b]['task_family']] ?? 0.0) * 0.5);
+                $ra = $rawA
+                    * (1.0 - ($familyRisk[$taskMap[$a]['task_family']] ?? 0.0) * 0.5)
+                    * (1.0 - $taskMap[$a]['give_back_risk'])
+                    * (1.0 - $taskMap[$a]['blocked_prerequisite_risk']);
+                $rb = $rawB
+                    * (1.0 - ($familyRisk[$taskMap[$b]['task_family']] ?? 0.0) * 0.5)
+                    * (1.0 - $taskMap[$b]['give_back_risk'])
+                    * (1.0 - $taskMap[$b]['blocked_prerequisite_risk']);
 
                 return $ra !== $rb ? ($rb <=> $ra) : strcmp($a, $b);
             });
@@ -346,6 +354,13 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             $risk   = $familyRisk[$family] ?? 0.0;
             if ($risk > 0.0 && $family !== '') {
                 $taskReasons[] = sprintf('risk_penalty:family=%s:penalty=%.2f', $family, $risk);
+            }
+
+            if ($task['give_back_risk'] > 0.0) {
+                $taskReasons[] = sprintf('give_back_risk:%.2f', $task['give_back_risk']);
+            }
+            if ($task['blocked_prerequisite_risk'] > 0.0) {
+                $taskReasons[] = sprintf('blocked_prerequisite_risk:%.2f', $task['blocked_prerequisite_risk']);
             }
 
             $reasons[$id] = $taskReasons;
