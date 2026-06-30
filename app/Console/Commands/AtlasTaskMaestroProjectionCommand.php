@@ -31,6 +31,7 @@ final class AtlasTaskMaestroProjectionCommand extends Command
             return $this->emitPayload([
                 'schema' => self::DISABLED_SCHEMA,
                 'status' => 'disabled',
+                'disabled_reason' => 'master_switch_off',
             ], self::SUCCESS);
         }
 
@@ -44,31 +45,51 @@ final class AtlasTaskMaestroProjectionCommand extends Command
             default => $this->emitPayload([
                 'schema' => self::DISABLED_SCHEMA,
                 'status' => 'invalid_verb',
+                'disabled_reason' => 'invalid_verb',
             ], self::FAILURE),
         };
     }
 
     private function handleRate(CarbonImmutable $now): int
     {
-        $payload = $this->consumptionReporter()->report($this->registrySnapshot(), $now, $this->windowSeconds());
-        $this->appendHistory($payload);
-        $this->recordValidationGateResult('rate', $payload);
+        try {
+            $snapshot = $this->registrySnapshot();
+            $payload = $this->consumptionReporter()->report($snapshot, $now, $this->windowSeconds());
+            $this->appendHistory($payload);
+            $this->recordValidationGateResult('rate', $payload);
 
-        return $this->emitPayload($payload, self::SUCCESS);
+            return $this->emitPayload($payload, self::SUCCESS);
+        } catch (\Throwable $e) {
+            return $this->emitPayload([
+                'schema' => self::DISABLED_SCHEMA,
+                'status' => 'disabled',
+                'disabled_reason' => 'dependency_unavailable',
+                'detail' => $e->getMessage(),
+            ], self::SUCCESS);
+        }
     }
 
     private function handleEmpty(CarbonImmutable $now): int
     {
-        $snapshot = $this->registrySnapshot();
-        $payload = $this->projectionEmitter()->emit(
-            $this->consumptionReporter()->report($snapshot, $now, $this->windowSeconds()),
-            $snapshot,
-            $now
-        );
-        $this->appendHistory($payload);
-        $this->recordValidationGateResult('empty', $payload);
+        try {
+            $snapshot = $this->registrySnapshot();
+            $payload = $this->projectionEmitter()->emit(
+                $this->consumptionReporter()->report($snapshot, $now, $this->windowSeconds()),
+                $snapshot,
+                $now
+            );
+            $this->appendHistory($payload);
+            $this->recordValidationGateResult('empty', $payload);
 
-        return $this->emitPayload($payload, self::SUCCESS);
+            return $this->emitPayload($payload, self::SUCCESS);
+        } catch (\Throwable $e) {
+            return $this->emitPayload([
+                'schema' => self::DISABLED_SCHEMA,
+                'status' => 'disabled',
+                'disabled_reason' => 'dependency_unavailable',
+                'detail' => $e->getMessage(),
+            ], self::SUCCESS);
+        }
     }
 
     /**
