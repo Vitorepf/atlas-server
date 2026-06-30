@@ -210,6 +210,56 @@ final class AtlasTaskHealthHistogramCommandTest extends TestCase
         );
     }
 
+    // ── worker_drain_forecast cross-check ────────────────────────────────────
+
+    public function test_urgency_cannot_return_wait_when_live_health_shows_worker_floor_pressure(): void
+    {
+        $this->seedClaimablePacket('floor-1');
+        $this->seedClaimablePacket('floor-2');
+        $this->seedClaimablePacket('floor-3');
+        $this->seedClaimablePacket('floor-4');
+        $this->seedActiveLease('floor-lease');
+
+        [$exit, $payload] = $this->runJson('urgency');
+
+        $this->assertSame(0, $exit);
+        $forecast = $payload['worker_drain_forecast'];
+        $this->assertSame(1, $forecast['active_leases']);
+        $this->assertSame('replenish_soon', $forecast['replenish_recommendation']);
+
+        $this->assertNotSame('wait', $payload['next_action']);
+        $this->assertContains(AtlasMaestroReplenishUrgencyClassifier::REASON_WORKER_FLOOR, $payload['reasons']);
+    }
+
+    public function test_urgency_human_output_exposes_worker_floor_reason(): void
+    {
+        $this->seedClaimablePacket('floor-h-1');
+        $this->seedClaimablePacket('floor-h-2');
+        $this->seedClaimablePacket('floor-h-3');
+        $this->seedClaimablePacket('floor-h-4');
+        $this->seedActiveLease('floor-h-lease');
+
+        [$exit, $output] = $this->runHuman('urgency');
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('worker_floor', $output);
+    }
+
+    public function test_urgency_remains_read_only_under_worker_floor_override(): void
+    {
+        $this->seedClaimablePacket('floor-ro-1');
+        $this->seedClaimablePacket('floor-ro-2');
+        $this->seedClaimablePacket('floor-ro-3');
+        $this->seedClaimablePacket('floor-ro-4');
+        $this->seedActiveLease('floor-ro-lease');
+
+        $before = $this->captureServingState();
+        $this->runJson('urgency');
+        $after = $this->captureServingState();
+
+        $this->assertSame($before, $after);
+    }
+
     /**
      * @return array<string,string>
      */

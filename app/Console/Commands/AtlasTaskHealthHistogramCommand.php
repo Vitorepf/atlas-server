@@ -54,7 +54,7 @@ final class AtlasTaskHealthHistogramCommand extends Command
         $payload = match ($action) {
             'histogram' => $this->histogramPayload(),
             'predict' => $this->predictor()->project(),
-            'urgency' => $this->urgency()->classify(),
+            'urgency' => $this->urgencyWithWorkerFloor(),
         };
 
         if ($this->option('json')) {
@@ -103,6 +103,47 @@ final class AtlasTaskHealthHistogramCommand extends Command
             $this->leaseLifetime(),
             $this->predictor(),
         );
+    }
+
+    /**
+     * Cross-checks the urgency classifier's verdict against the LIVE worker_drain_forecast facts
+     * from atlas:task:health so this command can never report wait/LOW while active workers are
+     * actually at or below the claimable worker floor. Read-only: only reads coordination health,
+     * never claims/releases/enqueues/mutates a lease.
+     *
+     * @return array<string,mixed>
+     */
+    private function urgencyWithWorkerFloor(): array
+    {
+        $classifier = $this->urgency();
+        $payload = $classifier->classify();
+
+        $snapshot = AtlasTaskServingStack::coordinationHealth()->snapshot();
+        $forecast = (array) ($snapshot['worker_drain_forecast'] ?? []);
+
+        $floorVerdict = $classifier->classifyWorkerFloor([
+            'active_leases' => (int) ($forecast['active_leases'] ?? 0),
+            'claimable_per_active_worker' => $forecast['claimable_per_active_worker'] ?? null,
+        ]);
+
+        $replenishRecommendation = (string) ($forecast['replenish_recommendation'] ?? '');
+        $floorTriggeredByRecommendation = $replenishRecommendation === 'replenish_soon' || $replenishRecommendation === 'replenish_urgently';
+
+        if ($payload['next_action'] === 'wait'
+            && ((int) ($forecast['active_leases'] ?? 0) > 0)
+            && ($floorVerdict['replenish_action'] !== 'wait' || $floorTriggeredByRecommendation)
+        ) {
+            $payload['next_action'] = 'originate';
+            $payload['replenish_action'] = $floorVerdict['replenish_action'] !== 'wait' ? $floorVerdict['replenish_action'] : 'replenish_soon';
+            $payload['reasons'] = array_values(array_unique(array_merge(
+                array_filter($payload['reasons'], static fn (string $r): bool => $r !== 'no_replenish_pressure'),
+                [AtlasMaestroReplenishUrgencyClassifier::REASON_WORKER_FLOOR],
+            )));
+        }
+
+        $payload['worker_drain_forecast'] = $forecast;
+
+        return $payload;
     }
 
     /**
@@ -163,7 +204,14 @@ final class AtlasTaskHealthHistogramCommand extends Command
     {
         $reasons = (array) ($payload['reasons'] ?? []);
         $this->line('  urgency=<fg=magenta>'.($payload['urgency'] ?? 'unknown').'</>'
-            .'  next_action=<fg=magenta>'.($payload['next_action'] ?? 'unknown').'</>');
+            .'  next_action=<fg=magenta>'.($payload['next_action'] ?? 'unknown').'</>'
+            .'  replenish_action=<fg=magenta>'.($payload['replenish_action'] ?? 'unknown').'</>');
         $this->line('  reasons: '.($reasons === [] ? 'none' : implode(', ', array_map('strval', $reasons))));
+        if (in_array(AtlasMaestroReplenishUrgencyClassifier::REASON_WORKER_FLOOR, $reasons, true)) {
+            $forecast = (array) ($payload['worker_drain_forecast'] ?? []);
+            $this->line('  <fg=red>worker_floor</> active_leases='.($forecast['active_leases'] ?? 'n/a')
+                .' claimable_per_active_worker='.($forecast['claimable_per_active_worker'] ?? 'n/a')
+                .' replenish_recommendation='.($forecast['replenish_recommendation'] ?? 'n/a'));
+        }
     }
 }
