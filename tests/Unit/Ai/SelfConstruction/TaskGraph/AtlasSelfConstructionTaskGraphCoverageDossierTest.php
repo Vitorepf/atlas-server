@@ -172,6 +172,31 @@ class AtlasSelfConstructionTaskGraphCoverageDossierTest extends TestCase
         self::assertSame(2, $gaps[1]['priority_rank']);
     }
 
+    public function test_draft_recommendation_shape_has_exactly_required_fields(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['missing_organs'] = ['verification_court'];
+        $facts['coverage']['organ_coverage']['verification_court'] = 'missing';
+        $facts['planner']['drafts'] = [[
+            'task_packet_id' => 'coverage-verification_court-v1',
+            'objective'      => 'Implement verification_court organ.',
+            'allowed_files'  => ['app/Services/Ai/SelfConstruction/VerificationCourt.php', 'tests/Unit/Ai/SelfConstruction/VerificationCourtTest.php'],
+            'wave'           => 'wave-3',
+        ]];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+        $draft = $dossier['draft_summary']['drafts'][0];
+
+        // Exactly these 4 keys — no extras, no decision-plane fields.
+        self::assertSame(['task_packet_id', 'objective', 'allowed_files', 'wave'], array_keys($draft));
+        self::assertSame('coverage-verification_court-v1', $draft['task_packet_id']);
+        self::assertNotEmpty($draft['objective']);
+        self::assertIsArray($draft['allowed_files']);
+        self::assertCount(2, $draft['allowed_files']);
+        self::assertSame('wave-3', $draft['wave']);
+    }
+
     public function test_ranked_next_gaps_multiple_missing_organs_ordered_by_insertion(): void
     {
         $facts = $this->readyFacts();
