@@ -37,7 +37,7 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
      */
     public function describe(): array
     {
-        $sources = $this->sources();
+        $sources = $this->enrichedSources();
         // Deterministic stable order by source id.
         usort($sources, static fn (array $a, array $b): int => strcmp((string) $a['id'], (string) $b['id']));
 
@@ -93,9 +93,9 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
      * @param  array<string,array<string,mixed>>  $observed
      * @return array{schema_version:string,passed:bool,blockers:list<string>}
      */
-    public function verifyObservedSources(array $observed): array
+    public function verifyObservedSources(array $observed, int $nowUnix = 0): array
     {
-        $sources = $this->sources();
+        $sources = $this->enrichedSources();
         $sourceMap = [];
         foreach ($sources as $s) {
             $sourceMap[(string) $s['id']] = $s;
@@ -125,11 +125,42 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
             if ((bool) ($obs['stale'] ?? false) && (bool) ($source['refreshable'] ?? false)) {
                 $blockers[] = 'source_stale_refreshable:'.$id;
             }
+            // Freshness-window check: only when caller supplies a reference timestamp.
+            if ($nowUnix > 0 && isset($source['freshness_window_seconds'])) {
+                $generatedAt = (int) ($obs['generated_at_unix'] ?? 0);
+                if ($generatedAt > 0 && ($nowUnix - $generatedAt) > (int) $source['freshness_window_seconds']) {
+                    $blockers[] = 'source_stale_timestamp:'.$id;
+                }
+            }
+            // Required-fields check: only when caller supplies a 'fields' list in observed entry.
+            if (isset($source['required_fields']) && isset($obs['fields']) && is_array($obs['fields'])) {
+                foreach ((array) $source['required_fields'] as $requiredField) {
+                    if (! in_array($requiredField, $obs['fields'], true)) {
+                        $blockers[] = 'source_missing_required_field:'.$id.':'.$requiredField;
+                    }
+                }
+            }
         }
 
         sort($blockers, SORT_STRING);
 
         return ['schema_version' => self::SCHEMA, 'passed' => $blockers === [], 'blockers' => $blockers];
+    }
+
+    /**
+     * Sources enriched with freshness_window_seconds and authority_level defaults.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function enrichedSources(): array
+    {
+        return array_map(static function (array $source): array {
+            // Refreshable sources are expected to be re-derived frequently; use a tight window.
+            $source['freshness_window_seconds'] ??= (bool) ($source['refreshable'] ?? false) ? 3600 : 86400;
+            $source['authority_level'] ??= 'atlas_native';
+
+            return $source;
+        }, $this->sources());
     }
 
     /**

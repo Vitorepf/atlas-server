@@ -721,4 +721,127 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         $this->assertContains('task_graph_autonomous_replenisher', $row['serialized_after']);
         $this->assertContains('scope_expansion_governor', $row['serialized_after']);
     }
+
+    // ── freshness_window_seconds + authority_level ────────────────────────────
+
+    public function test_every_source_has_freshness_window_and_authority_level(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        foreach ($verdict['required_sources'] as $s) {
+            $this->assertArrayHasKey('freshness_window_seconds', $s, "{$s['id']} missing freshness_window_seconds");
+            $this->assertGreaterThan(0, $s['freshness_window_seconds'], "{$s['id']} freshness_window_seconds must be > 0");
+            $this->assertArrayHasKey('authority_level', $s, "{$s['id']} missing authority_level");
+            $this->assertNotEmpty($s['authority_level'], "{$s['id']} authority_level must not be empty");
+        }
+    }
+
+    public function test_refreshable_sources_have_tighter_freshness_window_than_unsafe(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();
+        $refreshableWindows = [];
+        $unsafeWindows = [];
+        foreach ($verdict['required_sources'] as $s) {
+            if ($s['refreshable']) {
+                $refreshableWindows[] = (int) $s['freshness_window_seconds'];
+            } else {
+                $unsafeWindows[] = (int) $s['freshness_window_seconds'];
+            }
+        }
+        $this->assertLessThanOrEqual(min($unsafeWindows), max($refreshableWindows), 'refreshable sources must not exceed the tightest unsafe-blocker freshness window');
+    }
+
+    // ── stale timestamp check ─────────────────────────────────────────────────
+
+    public function test_verify_observed_sources_stale_timestamp_produces_blocker(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $rollback = null;
+        foreach ($description['required_sources'] as $s) {
+            if ($s['id'] === 'rollback') {
+                $rollback = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($rollback);
+
+        $window = (int) $rollback['freshness_window_seconds'];
+        $nowUnix = 1_000_000_000;
+        $tooOld  = $nowUnix - $window - 1;
+
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = [
+                'evidence_kind'   => $source['evidence_kinds'][0],
+                'stale'           => false,
+                'generated_at_unix' => $source['id'] === 'rollback' ? $tooOld : $nowUnix,
+            ];
+        }
+
+        $result = $registry->verifyObservedSources($observed, $nowUnix);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('source_stale_timestamp:rollback', $result['blockers']);
+    }
+
+    public function test_verify_observed_sources_fresh_timestamp_passes(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $nowUnix = 1_000_000_000;
+
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = [
+                'evidence_kind'    => $source['evidence_kinds'][0],
+                'stale'            => false,
+                'generated_at_unix'=> $nowUnix - 60, // 60s old — within any reasonable window
+            ];
+        }
+
+        $result = $registry->verifyObservedSources($observed, $nowUnix);
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    // ── required fields check ─────────────────────────────────────────────────
+
+    public function test_verify_observed_sources_missing_required_field_produces_blocker(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+
+        // Find a source that has required_fields.
+        $targetSource = null;
+        foreach ($description['required_sources'] as $s) {
+            if (! empty($s['required_fields'])) {
+                $targetSource = $s;
+                break;
+            }
+        }
+        $this->assertNotNull($targetSource, 'at least one source must have required_fields');
+
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $entry = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+            if ($source['id'] === $targetSource['id']) {
+                // Supply the fields list but deliberately omit the first required field.
+                $missing = $targetSource['required_fields'][0];
+                $entry['fields'] = array_slice($targetSource['required_fields'], 1);
+            }
+            $observed[$source['id']] = $entry;
+        }
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertFalse($result['passed']);
+        $found = false;
+        foreach ($result['blockers'] as $b) {
+            if (str_starts_with($b, 'source_missing_required_field:'.$targetSource['id'].':')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'expected source_missing_required_field blocker for '.$targetSource['id']);
+    }
 }
