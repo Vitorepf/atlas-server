@@ -125,6 +125,106 @@ final class AgentControlPlaneCertificationScenarioSimulator
         ];
     }
 
+    public const TASK_SERVING_SCENARIO_KINDS = ['stale_lease', 'duplicate_target', 'missing_proof', 'worker_mismatch', 'clean_happy_path'];
+
+    public const REGRESSION_MATCH             = 'match';
+    public const REGRESSION_REGRESSION        = 'regression';
+    public const REGRESSION_INCOMPLETE_EVIDENCE_FAIL_CLOSED = 'incomplete_evidence_fail_closed';
+
+    /**
+     * Simulate task-serving edge cases (stale lease, duplicate target, missing
+     * proof, worker mismatch, clean happy-path) purely from supplied evidence —
+     * no provider calls, no dispatch. Fails closed (treats as a regression)
+     * whenever the scenario evidence needed to compute an expected decision is
+     * incomplete, rather than silently assuming the happy path.
+     *
+     * @param  array{scenarios?: list<array<string,mixed>>}  $input
+     * @return array{schema_version:string, results:list<array<string,mixed>>, match_count:int, regression_count:int, fail_closed_count:int}
+     */
+    public function simulateTaskServingScenarios(array $input): array
+    {
+        $scenarios = is_array($input['scenarios'] ?? null) ? $input['scenarios'] : [];
+
+        $results = [];
+        $matchCount = 0;
+        $regressionCount = 0;
+        $failClosedCount = 0;
+
+        foreach ($scenarios as $scenario) {
+            $scenarioId = (string) ($scenario['scenario_id'] ?? '');
+            $kind = (string) ($scenario['kind'] ?? '');
+            $observedDecision = (string) ($scenario['observed_decision'] ?? '');
+
+            [$expectedDecision, $evidenceComplete] = $this->expectedTaskServingDecision($kind, $scenario);
+
+            if (! $evidenceComplete) {
+                $failClosedCount++;
+                $results[] = [
+                    'scenario_id'       => $scenarioId,
+                    'kind'              => $kind,
+                    'expected_decision' => null,
+                    'observed_decision' => $observedDecision,
+                    'regression_status' => self::REGRESSION_INCOMPLETE_EVIDENCE_FAIL_CLOSED,
+                ];
+
+                continue;
+            }
+
+            $regressionStatus = $expectedDecision === $observedDecision ? self::REGRESSION_MATCH : self::REGRESSION_REGRESSION;
+            if ($regressionStatus === self::REGRESSION_MATCH) {
+                $matchCount++;
+            } else {
+                $regressionCount++;
+            }
+
+            $results[] = [
+                'scenario_id'       => $scenarioId,
+                'kind'              => $kind,
+                'expected_decision' => $expectedDecision,
+                'observed_decision' => $observedDecision,
+                'regression_status' => $regressionStatus,
+            ];
+        }
+
+        return [
+            'schema_version'    => self::SCHEMA_VERSION,
+            'results'           => $results,
+            'match_count'       => $matchCount,
+            'regression_count'  => $regressionCount,
+            'fail_closed_count' => $failClosedCount,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $scenario
+     * @return array{0:?string,1:bool} [expected_decision, evidence_complete]
+     */
+    private function expectedTaskServingDecision(string $kind, array $scenario): array
+    {
+        return match ($kind) {
+            'stale_lease' => isset($scenario['lease_expires_at_is_past'])
+                ? [((bool) $scenario['lease_expires_at_is_past']) ? 'give_back' : 'accept', true]
+                : [null, false],
+            'duplicate_target' => isset($scenario['target_in_existing_queue'])
+                ? [((bool) $scenario['target_in_existing_queue']) ? 'give_back' : 'accept', true]
+                : [null, false],
+            'missing_proof' => isset($scenario['required_evidence_present'])
+                ? [((bool) $scenario['required_evidence_present']) ? 'accept' : 'reject', true]
+                : [null, false],
+            'worker_mismatch' => (isset($scenario['required_capabilities']) && isset($scenario['worker_capabilities']))
+                ? [array_diff((array) $scenario['required_capabilities'], (array) $scenario['worker_capabilities']) === [] ? 'accept' : 'reject', true]
+                : [null, false],
+            'clean_happy_path' => [
+                'accept',
+                isset($scenario['lease_expires_at_is_past'], $scenario['target_in_existing_queue'], $scenario['required_evidence_present'])
+                    && $scenario['lease_expires_at_is_past'] === false
+                    && $scenario['target_in_existing_queue'] === false
+                    && $scenario['required_evidence_present'] === true,
+            ],
+            default => [null, false],
+        };
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

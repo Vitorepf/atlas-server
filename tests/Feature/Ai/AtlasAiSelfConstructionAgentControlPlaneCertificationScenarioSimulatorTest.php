@@ -310,4 +310,89 @@ final class AtlasAiSelfConstructionAgentControlPlaneCertificationScenarioSimulat
 
         return (string) data_get($payload, 'control_plane.persistent_runtime.next_required_slice');
     }
+
+    // ── simulateTaskServingScenarios() ──────────────────────────────────────────
+
+    public function test_stale_lease_match(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            ['scenario_id' => 's1', 'kind' => 'stale_lease', 'lease_expires_at_is_past' => true, 'observed_decision' => 'give_back'],
+        ]]);
+
+        $this->assertSame('give_back', $result['results'][0]['expected_decision']);
+        $this->assertSame(AgentControlPlaneCertificationScenarioSimulator::REGRESSION_MATCH, $result['results'][0]['regression_status']);
+        $this->assertSame(1, $result['match_count']);
+    }
+
+    public function test_duplicate_target_regression_when_observed_wrong(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            ['scenario_id' => 's2', 'kind' => 'duplicate_target', 'target_in_existing_queue' => true, 'observed_decision' => 'accept'],
+        ]]);
+
+        $this->assertSame('give_back', $result['results'][0]['expected_decision']);
+        $this->assertSame(AgentControlPlaneCertificationScenarioSimulator::REGRESSION_REGRESSION, $result['results'][0]['regression_status']);
+        $this->assertSame(1, $result['regression_count']);
+    }
+
+    public function test_missing_proof_match(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            ['scenario_id' => 's3', 'kind' => 'missing_proof', 'required_evidence_present' => false, 'observed_decision' => 'reject'],
+        ]]);
+
+        $this->assertSame('reject', $result['results'][0]['expected_decision']);
+        $this->assertSame(AgentControlPlaneCertificationScenarioSimulator::REGRESSION_MATCH, $result['results'][0]['regression_status']);
+    }
+
+    public function test_worker_mismatch_match(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            ['scenario_id' => 's4', 'kind' => 'worker_mismatch', 'required_capabilities' => ['security_audit'], 'worker_capabilities' => ['code_edit'], 'observed_decision' => 'reject'],
+        ]]);
+
+        $this->assertSame('reject', $result['results'][0]['expected_decision']);
+        $this->assertSame(AgentControlPlaneCertificationScenarioSimulator::REGRESSION_MATCH, $result['results'][0]['regression_status']);
+    }
+
+    public function test_clean_happy_path_match(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            [
+                'scenario_id' => 's5', 'kind' => 'clean_happy_path',
+                'lease_expires_at_is_past' => false, 'target_in_existing_queue' => false, 'required_evidence_present' => true,
+                'observed_decision' => 'accept',
+            ],
+        ]]);
+
+        $this->assertSame('accept', $result['results'][0]['expected_decision']);
+        $this->assertSame(AgentControlPlaneCertificationScenarioSimulator::REGRESSION_MATCH, $result['results'][0]['regression_status']);
+    }
+
+    public function test_incomplete_evidence_fails_closed(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            ['scenario_id' => 's6', 'kind' => 'stale_lease', 'observed_decision' => 'accept'],
+        ]]);
+
+        $this->assertNull($result['results'][0]['expected_decision']);
+        $this->assertSame(AgentControlPlaneCertificationScenarioSimulator::REGRESSION_INCOMPLETE_EVIDENCE_FAIL_CLOSED, $result['results'][0]['regression_status']);
+        $this->assertSame(1, $result['fail_closed_count']);
+        $this->assertSame(0, $result['match_count']);
+        $this->assertSame(0, $result['regression_count']);
+    }
+
+    public function test_all_five_scenario_kinds_covered_in_one_run(): void
+    {
+        $result = $this->newService()->simulateTaskServingScenarios(['scenarios' => [
+            ['scenario_id' => 's1', 'kind' => 'stale_lease', 'lease_expires_at_is_past' => false, 'observed_decision' => 'accept'],
+            ['scenario_id' => 's2', 'kind' => 'duplicate_target', 'target_in_existing_queue' => false, 'observed_decision' => 'accept'],
+            ['scenario_id' => 's3', 'kind' => 'missing_proof', 'required_evidence_present' => true, 'observed_decision' => 'accept'],
+            ['scenario_id' => 's4', 'kind' => 'worker_mismatch', 'required_capabilities' => [], 'worker_capabilities' => [], 'observed_decision' => 'accept'],
+            ['scenario_id' => 's5', 'kind' => 'clean_happy_path', 'lease_expires_at_is_past' => false, 'target_in_existing_queue' => false, 'required_evidence_present' => true, 'observed_decision' => 'accept'],
+        ]]);
+
+        $this->assertCount(5, $result['results']);
+        $this->assertSame(5, $result['match_count']);
+    }
 }
