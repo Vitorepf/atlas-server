@@ -178,19 +178,19 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
     {
         $path = (string) $this->option('facts');
         if ($path === '' || ! is_file($path)) {
-            $this->error('--facts=<path> is required and must point to an existing JSON file');
+            $this->refuseUsage('--facts=<path> is required and must point to an existing JSON file');
 
             return null;
         }
         try {
             $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            $this->error('facts payload not valid JSON: '.mb_substr($e->getMessage(), 0, 200));
+            $this->refuseUsage('facts payload not valid JSON: '.mb_substr($e->getMessage(), 0, 200));
 
             return null;
         }
         if (! is_array($decoded)) {
-            $this->error('facts payload root must be a JSON object');
+            $this->refuseUsage('facts payload root must be a JSON object');
 
             return null;
         }
@@ -215,8 +215,18 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
 
     private function usage(string $message): int
     {
-        $this->error($message);
+        $this->refuseUsage($message);
 
         return self::EXIT_USAGE;
+    }
+
+    private function refuseUsage(string $reason): void
+    {
+        if ($this->option('json')) {
+            $this->line((string) json_encode(['status' => 'usage_error', 'reason' => $reason], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return;
+        }
+        $this->error($reason);
     }
 }

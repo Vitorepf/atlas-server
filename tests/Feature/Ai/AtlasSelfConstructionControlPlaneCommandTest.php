@@ -190,6 +190,17 @@ final class AtlasSelfConstructionControlPlaneCommandTest extends TestCase
         $this->assertTrue($hit, 'expected a scope_outside_lane:* blocker; got: '.json_encode($blockers));
     }
 
+    public function test_missing_facts_with_json_flag_emits_usage_error_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'next', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionControlPlaneCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'output must be valid JSON when --json is set');
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
+
     public function test_scope_gate_blocks_when_touched_organ_is_forbidden(): void
     {
         $path = $this->fixture([
