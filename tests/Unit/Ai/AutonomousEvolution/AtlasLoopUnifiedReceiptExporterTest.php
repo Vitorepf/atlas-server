@@ -110,7 +110,7 @@ final class AtlasLoopUnifiedReceiptExporterTest extends TestCase
         $exportedNode5 = (array) json_decode((string) $exportLines[5], true);
         $this->assertSame(5, $exportedNode5['seq']);
         $this->assertSame($originalNodeHash, $exportedNode5['node_hash'], 'node_hash is copied verbatim from chain — exporter must not re-hash');
-        $this->assertStringContainsString('TAMPERED_FACT_5', (string) $exportedNode5['source_facts'], 'tampered source_facts is surfaced, not hidden');
+        $this->assertStringContainsString('TAMPERED_FACT_5', (string) $exportedNode5['source_facts_json'], 'tampered source_facts_json is surfaced, not hidden');
     }
 
     public function test_since_hash_window_emits_only_nodes_after_the_given_head(): void
@@ -167,6 +167,18 @@ final class AtlasLoopUnifiedReceiptExporterTest extends TestCase
         $this->assertDoesNotMatchRegularExpression("/\\bhash\\s*\\(/", $source, 'exporter must not call hash() — it copies stored values verbatim');
     }
 
+    public function test_exported_node_keys_match_chain_shape_for_round_trip(): void
+    {
+        $this->exporter()->full($this->exportPath);
+        $lines = file($this->exportPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $node = (array) json_decode((string) $lines[1], true);
+
+        $this->assertArrayHasKey('source_facts_json', $node, 'must emit source_facts_json, not source_facts');
+        $this->assertArrayHasKey('recorded_at', $node, 'must emit recorded_at, not recorded_at_us');
+        $this->assertArrayNotHasKey('source_facts', $node);
+        $this->assertArrayNotHasKey('recorded_at_us', $node);
+    }
+
     public function test_export_passes_back_through_chain_verifier_when_reconstituted(): void
     {
         // Round-trip: write the exported NODE lines (without the manifest) into a fresh chain file and run the
@@ -177,25 +189,8 @@ final class AtlasLoopUnifiedReceiptExporterTest extends TestCase
         // Drop the manifest line (index 0); the rest are node lines.
         $nodes = array_slice($exportLines, 1);
 
-        // Reconstitute chain-shape lines: the chain's verifier expects keys node_hash, node_id, payload_hash,
-        // prev_hash, recorded_at, seq, source_facts_json, source_ledger, source_receipt_id.
         $reconstitutedPath = $this->exportPath.'_chain';
-        $reconstitutedLines = [];
-        foreach ($nodes as $line) {
-            $row = (array) json_decode((string) $line, true);
-            $reconstitutedLines[] = (string) json_encode([
-                'node_hash' => $row['node_hash'],
-                'node_id' => $row['node_id'],
-                'payload_hash' => $row['payload_hash'],
-                'prev_hash' => $row['prev_hash'],
-                'recorded_at' => $row['recorded_at_us'],
-                'seq' => $row['seq'],
-                'source_facts_json' => $row['source_facts'],
-                'source_ledger' => $row['source_ledger'],
-                'source_receipt_id' => $row['source_receipt_id'],
-            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        }
-        file_put_contents($reconstitutedPath, implode("\n", $reconstitutedLines)."\n");
+        file_put_contents($reconstitutedPath, implode("\n", $nodes)."\n");
 
         try {
             $report = (new AtlasLoopUnifiedReceiptVerifier($reconstitutedPath))->verify();

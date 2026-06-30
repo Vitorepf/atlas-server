@@ -142,9 +142,9 @@ final class AtlasLoopUnifiedReceiptExporter
             'occurred_at_us' => $node->recorded_at,
             'payload_hash' => $node->payload_hash,
             'prev_hash' => $node->prev_hash,
-            'recorded_at_us' => $node->recorded_at,
+            'recorded_at' => $node->recorded_at,
             'seq' => $node->seq,
-            'source_facts' => $node->source_facts_json,
+            'source_facts_json' => $node->source_facts_json,
             'source_ledger' => $node->source_ledger,
             'source_receipt_id' => $node->source_receipt_id,
         ];
