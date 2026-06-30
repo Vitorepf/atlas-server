@@ -220,4 +220,89 @@ final class AtlasExternalBrainMetaCycleCheckpointTest extends TestCase
         $cp->capture(array_merge($this->validCycle(), ['raw_prompt' => 'oops']));
         $this->assertSame(0, $cp->history()['count']);
     }
+
+    // ── nested provider-safe rejection ────────────────────────────────────────
+
+    public function test_rejects_nested_provider_unsafe_key(): void
+    {
+        $result = $this->cp()->capture(array_merge($this->validCycle(), [
+            'metadata' => ['nested_context' => ['raw_prompt' => 'deep leak']],
+        ]));
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('raw_prompt', $result['rejection_reason']);
+    }
+
+    public function test_rejects_nested_log_data_key(): void
+    {
+        $result = $this->cp()->capture(array_merge($this->validCycle(), [
+            'debug' => ['log_data' => 'some log'],
+        ]));
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('log_data', $result['rejection_reason']);
+    }
+
+    // ── carryover_notes ───────────────────────────────────────────────────────
+
+    public function test_carryover_notes_stored_in_checkpoint(): void
+    {
+        $result = $this->cp()->capture($this->validCycle([
+            'carryover_notes' => ['retry surface arxiv next cycle', 'quality gate threshold under review'],
+        ]));
+        $this->assertSame(
+            ['retry surface arxiv next cycle', 'quality gate threshold under review'],
+            $result['checkpoint']['carryover_notes'],
+        );
+    }
+
+    public function test_carryover_notes_defaults_to_empty_list(): void
+    {
+        $result = $this->cp()->capture($this->validCycle());
+        $this->assertSame([], $result['checkpoint']['carryover_notes']);
+    }
+
+    // ── consolidate recommendation ────────────────────────────────────────────
+
+    public function test_recommendation_consolidate_when_enqueued_but_low_validation(): void
+    {
+        $result = $this->cp()->capture($this->validCycle([
+            'queue_pressure'     => 0.40,
+            'tasks_enqueued'     => 3,
+            'validation_results' => ['passed' => 1, 'failed' => 9],  // rate=0.10 < 0.50
+        ]));
+        $this->assertSame(AtlasExternalBrainMetaCycleCheckpoint::REC_CONSOLIDATE, $result['checkpoint']['next_cycle_recommendation']);
+    }
+
+    public function test_recommendation_consolidate_not_fired_when_validation_good(): void
+    {
+        $result = $this->cp()->capture($this->validCycle([
+            'tasks_enqueued'     => 5,
+            'validation_results' => ['passed' => 9, 'failed' => 1],  // rate=0.90 >= 0.50
+        ]));
+        $this->assertSame(AtlasExternalBrainMetaCycleCheckpoint::REC_CONTINUE, $result['checkpoint']['next_cycle_recommendation']);
+    }
+
+    // ── repair recommendation ─────────────────────────────────────────────────
+
+    public function test_recommendation_repair_when_nothing_enqueued_or_skipped_but_validation_failed(): void
+    {
+        $result = $this->cp()->capture($this->validCycle([
+            'queue_pressure'     => 0.20,
+            'tasks_enqueued'     => 0,
+            'tasks_skipped'      => 0,
+            'validation_results' => ['passed' => 2, 'failed' => 5],
+        ]));
+        $this->assertSame(AtlasExternalBrainMetaCycleCheckpoint::REC_REPAIR, $result['checkpoint']['next_cycle_recommendation']);
+    }
+
+    public function test_recommendation_repair_not_fired_when_tasks_were_skipped(): void
+    {
+        // skipped > 0 → repair gate does not fire (pause fires instead if valRate < 0.50)
+        $result = $this->cp()->capture($this->validCycle([
+            'queue_pressure'     => 0.20,
+            'tasks_enqueued'     => 0,
+            'tasks_skipped'      => 3,
+            'validation_results' => ['passed' => 1, 'failed' => 5],
+        ]));
+        $this->assertSame(AtlasExternalBrainMetaCycleCheckpoint::REC_PAUSE, $result['checkpoint']['next_cycle_recommendation']);
+    }
 }
