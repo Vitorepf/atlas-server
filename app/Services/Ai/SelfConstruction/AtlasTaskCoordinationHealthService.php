@@ -78,7 +78,11 @@ final class AtlasTaskCoordinationHealthService
             // next claim serves it). Without this clause a dead worker's released task read as a false DEGRADED.
             'serving_jammed' => $claimable > 0 && $servableNow === 0 && $waitingInflight === 0 && $recoverableTotal === 0,
             'has_quarantined_packets' => $quarantined > 0,
-            'lease_leak_detected' => $leaseLeak,
+            // RECOVERABLE clause: activeLeases() expires past-TTL leases BEFORE counting, so a past-TTL lease
+            // whose queue record is still claimed is exactly the reaper-recoverable strand that claimNext
+            // re-admits on the next call. That mismatch is not a true orphan leak — it self-heals. Mirror the
+            // same recoverable guard that serving_jammed already carries (line 79).
+            'lease_leak_detected' => $leaseLeak && $recoverableTotal === 0,
             'r2_breach' => (bool) ($serving['r2_breach'] ?? false),
             'recoverable_backlog' => $recoverableTotal > 0,
             'queue_disk_mismatch_detected' => $queueDiskMismatch,

@@ -263,6 +263,53 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
         $this->assertSame('blocked_packet_retired_empty_scope_after_forbidden_self_target_repair', (string) data_get($record, 'receipts.0.receipt_kind'));
     }
 
+    public function test_recoverable_expired_lease_strand_is_healthy_not_degraded(): void
+    {
+        $orch = $this->orchestrator();
+        $orch->prepareAndEnqueue(['task_packet' => $this->input('recoverable-lease-test')]);
+        $serving = new AtlasTaskServingService($orch);
+
+        $served = $serving->next('lease-test-client');
+        $this->assertSame('served', $served['status'], 'task must be served to create a lease');
+        $leaseId = (string) ($served['task']['lease_id'] ?? '');
+        $this->assertNotEmpty($leaseId);
+
+        // Backdate the lease to appear expired without sleeping:
+        // overwrite the lease file and registry entry directly on the faked disk.
+        $prefix = AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX;
+        $leasePath = $prefix.'/'.$leaseId.'.json';
+
+        $raw = \Illuminate\Support\Facades\Storage::disk('local')->get($leasePath);
+        $this->assertNotNull($raw);
+        $lease = json_decode((string) $raw, true);
+        $lease['expires_at_unix'] = 1;
+        \Illuminate\Support\Facades\Storage::disk('local')->put($leasePath, (string) json_encode($lease));
+
+        $regRaw = \Illuminate\Support\Facades\Storage::disk('local')->get(AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH);
+        $this->assertNotNull($regRaw);
+        $registry = json_decode((string) $regRaw, true);
+        foreach ($registry['entries'] as &$entry) {
+            if ((string) ($entry['lease_id'] ?? '') === $leaseId) {
+                $entry['expires_at_unix'] = 1;
+            }
+        }
+        unset($entry);
+        \Illuminate\Support\Facades\Storage::disk('local')->put(AgentControlPlaneClaimLeaseRepository::REGISTRY_PATH, (string) json_encode($registry));
+
+        // After expiry: activeLeases() → 0, claimed queue record → 1, leaseLeak = true.
+        // recoverableTotal > 0 (claimed + expired lease = recoverable strand).
+        // Fix: lease_leak_detected = leaseLeak && recoverableTotal === 0 = false → healthy.
+        $health = new AtlasTaskCoordinationHealthService(
+            new AgentControlPlaneTaskPacketQueueRepository,
+            new AgentControlPlaneClaimLeaseRepository,
+        );
+        $snap = $health->snapshot();
+
+        $this->assertTrue($snap['healthy'], 'recoverable expired-lease strand must not degrade coordination health');
+        $this->assertFalse($snap['health_flags']['lease_leak_detected'], 'lease_leak_detected must be false when strand is recoverable');
+        $this->assertTrue($snap['health_flags']['recoverable_backlog'], 'recoverable_backlog flag must be set');
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
