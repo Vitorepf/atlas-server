@@ -4,8 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
 /**
@@ -20,11 +19,6 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
-    use KsortsArraysByReference;
-
-
     /**
      * @param  array<string,mixed>  $value
      * @return array<string,mixed>
@@ -250,7 +244,9 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
                 'pre_submission_verifier_does_not_sign_for_operator',
             ],
         ];
-        $payload['verification_hash'] = $this->stableHash($payload);
+        $hashPayload = $payload;
+        unset($hashPayload['verified_at'], $hashPayload['verification_hash']);
+        $payload['verification_hash'] = ReadinessHash::stable(ReadinessHash::ksortRecursive($hashPayload));
 
         return $payload;
     }
@@ -306,7 +302,9 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
                 'pre_submission_verifier_does_not_sign_for_operator',
             ],
         ];
-        $payload['verification_hash'] = $this->stableHash($payload);
+        $hashPayload = $payload;
+        unset($hashPayload['verified_at'], $hashPayload['verification_hash']);
+        $payload['verification_hash'] = ReadinessHash::stable(ReadinessHash::ksortRecursive($hashPayload));
 
         return $payload;
     }
@@ -338,14 +336,6 @@ final class AtlasSelfConstructionRuntimePromotionReceiptPreSubmissionVerifierSer
         }
 
         return false;
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['verified_at'], $payload['verification_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /** @param array<string, mixed> $value */

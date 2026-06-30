@@ -4,27 +4,11 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_receipt_draft.v1';
 
     public const MODE = 'read_only_runtime_promotion_receipt_draft';
@@ -169,7 +153,9 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
                 ? 'operator_may_persist_receipt_through_existing_verifier'
                 : 'operator_must_supply_real_signed_by_and_reason'),
         ];
-        $payload['draft_hash'] = $this->stableHash($payload);
+        $hashPayload = $payload;
+        unset($hashPayload['generated_at'], $hashPayload['draft_hash'], $hashPayload['verification']['verified_at']);
+        $payload['draft_hash'] = ReadinessHash::stable(ReadinessHash::ksortRecursive($hashPayload));
 
         return $payload;
     }
@@ -216,14 +202,6 @@ final class AtlasSelfConstructionRuntimePromotionReceiptDraftService
         }
 
         return false;
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['draft_hash'], $payload['verification']['verified_at']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /** @param array<string, mixed> $value */

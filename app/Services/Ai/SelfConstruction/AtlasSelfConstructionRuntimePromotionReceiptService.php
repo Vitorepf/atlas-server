@@ -4,22 +4,12 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionRuntimePromotionReceiptService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.runtime_promotion_receipt.v1';
 
     public const MODE = 'read_only_runtime_promotion_receipt_verification';
@@ -175,7 +165,9 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
                 ? 'allow_runtime_gap_matrix_to_count_signed_runtime_promotions'
                 : 'operator_must_sign_runtime_promotion_receipt_for_current_graduation_hashes',
         ];
-        $payload['receipt_verification_hash'] = $this->stableHash($payload);
+        $hashPayload = $payload;
+        unset($hashPayload['verified_at'], $hashPayload['receipt_verification_hash']);
+        $payload['receipt_verification_hash'] = ReadinessHash::stable(ReadinessHash::ksortRecursive($hashPayload));
 
         return $payload;
     }
@@ -261,14 +253,6 @@ final class AtlasSelfConstructionRuntimePromotionReceiptService
         ));
         $registry[] = $entry;
         Storage::disk(self::STORAGE_DISK)->put(self::STORAGE_PREFIX.'/registry.json', json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['verified_at'], $payload['receipt_verification_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function hashes(): AtlasSelfConstructionCompletionEvidenceHashService
