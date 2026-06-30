@@ -80,4 +80,42 @@ final class AtlasMaestroPacketSchemaVersioningTest extends TestCase
         $constant = $reflection->getConstant('SCHEMA_VERSION');
         $this->assertSame(AtlasMaestroPacketSchemaVersioning::CANONICAL_V1, $constant);
     }
+
+    public function test_compatibility_status_returns_all_four_categorical_statuses(): void
+    {
+        $deprecated = ['id' => 'atlas.v0-deprecated', 'version' => 0, 'status' => AtlasMaestroPacketSchemaVersioning::STATUS_DEPRECATED, 'required_fields' => [], 'additive_fields' => [], 'removed_fields' => [], 'introduced_at' => '', 'successor' => null];
+        $retired = ['id' => 'atlas.v0-retired', 'version' => 0, 'status' => AtlasMaestroPacketSchemaVersioning::STATUS_RETIRED, 'required_fields' => [], 'additive_fields' => [], 'removed_fields' => [], 'introduced_at' => '', 'successor' => null];
+        $preview = ['id' => 'atlas.v2-preview', 'version' => 2, 'status' => AtlasMaestroPacketSchemaVersioning::STATUS_PREVIEW, 'required_fields' => [], 'additive_fields' => [], 'removed_fields' => [], 'introduced_at' => '', 'successor' => null];
+
+        $registry = new AtlasMaestroPacketSchemaVersioning(
+            extraVersions: [$deprecated, $retired, $preview],
+            currentResolver: static fn (): ?string => null, // current = CANONICAL_V1 (only active)
+        );
+
+        $this->assertSame('current', $registry->compatibilityStatus(AtlasMaestroPacketSchemaVersioning::CANONICAL_V1));
+        $this->assertSame('supported', $registry->compatibilityStatus('atlas.v2-preview'));
+        $this->assertSame('deprecated', $registry->compatibilityStatus('atlas.v0-deprecated'));
+        $this->assertSame('unsupported', $registry->compatibilityStatus('atlas.v0-retired'));
+        $this->assertSame('unsupported', $registry->compatibilityStatus('not.real.v99'));
+    }
+
+    public function test_draft_next_version_includes_required_fields_and_reasons_without_numeric_score(): void
+    {
+        $registry = new AtlasMaestroPacketSchemaVersioning();
+        $draft = $registry->draftNextVersion();
+
+        $this->assertArrayHasKey('required_fields', $draft);
+        $this->assertArrayHasKey('reasons', $draft);
+        $this->assertArrayNotHasKey('score', $draft);
+        $this->assertNotEmpty($draft['required_fields']);
+        $this->assertNotEmpty($draft['reasons']);
+        foreach ($draft['reasons'] as $reason) {
+            $this->assertIsString($reason);
+        }
+        // Draft version must be strictly higher than the current version.
+        $currentVersion = (int) $registry->current()['version'];
+        $this->assertGreaterThan($currentVersion, $draft['version']);
+        $this->assertSame(AtlasMaestroPacketSchemaVersioning::STATUS_PREVIEW, $draft['status']);
+        $this->assertSame(AtlasMaestroPacketSchemaVersioning::CANONICAL_V1, $draft['predecessor']);
+    }
 }

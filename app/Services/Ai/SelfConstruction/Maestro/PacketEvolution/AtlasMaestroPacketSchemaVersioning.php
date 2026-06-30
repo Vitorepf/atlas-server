@@ -151,4 +151,67 @@ final class AtlasMaestroPacketSchemaVersioning
 
         return $successor === [] ? null : $successor;
     }
+
+    /**
+     * Returns a categorical compatibility label for a given version id:
+     *   current     — the operator-pinned (or defaulted) active current version
+     *   supported   — active or preview, but not the current version
+     *   deprecated  — in the registry with status=deprecated
+     *   unsupported — retired, or not in the registry at all
+     */
+    public function compatibilityStatus(string $versionId): string
+    {
+        if (! $this->supports($versionId)) {
+            return 'unsupported';
+        }
+        $status = (string) ($this->describe($versionId)['status'] ?? '');
+        if ($status === self::STATUS_RETIRED) {
+            return 'unsupported';
+        }
+        if ($status === self::STATUS_DEPRECATED) {
+            return 'deprecated';
+        }
+        // active or preview
+        if ((string) ($this->current()['id'] ?? '') === $versionId) {
+            return 'current';
+        }
+
+        return 'supported';
+    }
+
+    /**
+     * Generates a draft for the next schema version based on the current active version.
+     * Inherits all required_fields for lossless forward compatibility.
+     * Returns human-readable reasons; never emits a numeric score as a proxy for decisions.
+     *
+     * @return array<string,mixed>
+     */
+    public function draftNextVersion(): array
+    {
+        $current = $this->current();
+        $currentId = (string) ($current['id'] ?? '');
+        $currentVersion = (int) ($current['version'] ?? 1);
+        $nextVersion = $currentVersion + 1;
+        $nextId = (string) preg_replace('/\.v\d+$/', '.v'.$nextVersion, $currentId);
+        if ($nextId === $currentId) {
+            $nextId = $currentId.'.v'.$nextVersion;
+        }
+
+        return [
+            'draft_id' => $nextId,
+            'version' => $nextVersion,
+            'status' => self::STATUS_PREVIEW,
+            'predecessor' => $currentId,
+            'required_fields' => (array) ($current['required_fields'] ?? []),
+            'additive_fields' => [],
+            'removed_fields' => [],
+            'reasons' => [
+                'inherits all required_fields from '.$currentId.' for lossless forward compatibility',
+                'status=preview until operator promotes to active via config pin',
+                'set successor on '.$currentId.' before retiring it to preserve upgrade path',
+            ],
+            'introduced_at' => '',
+            'successor' => null,
+        ];
+    }
 }
