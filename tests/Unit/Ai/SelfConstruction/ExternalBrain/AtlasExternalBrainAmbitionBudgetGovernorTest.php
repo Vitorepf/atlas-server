@@ -217,6 +217,53 @@ final class AtlasExternalBrainAmbitionBudgetGovernorTest extends TestCase
         }
     }
 
+    // ---------- marginal_verified_yield ----------
+
+    public function test_mode_stats_computes_marginal_verified_yield(): void
+    {
+        $r = $this->gov->allocate([
+            'mode_stats' => [
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT => [
+                    'attempted' => 10, 'credited' => 8, 'verified' => 3, 'rejected' => 2,
+                ],
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_DEEP_ARCHITECTURE => [
+                    'attempted' => 5, 'credited' => 4, 'verified' => 4, 'rejected' => 0,
+                ],
+            ],
+        ]);
+
+        $mvy = $r['marginal_verified_yield'];
+        $this->assertArrayHasKey(AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT, $mvy);
+        $this->assertEqualsWithDelta(0.3, $mvy[AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT], 0.001);
+        $this->assertEqualsWithDelta(0.8, $mvy[AtlasExternalBrainAmbitionBudgetGovernor::MODE_DEEP_ARCHITECTURE], 0.001);
+    }
+
+    public function test_falling_marginal_yield_triggers_reallocation_to_deeper_mode(): void
+    {
+        // easy_bug_hunt: 10 attempted, 1 verified → yield 0.10 (below LOW_YIELD_THRESHOLD=0.25)
+        // → governor must reallocate to deeper mode
+        $r = $this->gov->allocate([
+            'quota_total'    => 100,
+            'quota_consumed' => 40,
+            'mode_stats'     => [
+                AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT => [
+                    'attempted' => 10, 'credited' => 8, 'verified' => 1, 'rejected' => 3,
+                ],
+            ],
+        ]);
+
+        $this->assertTrue($r['reallocation_triggered']);
+        $this->assertContains(
+            AtlasExternalBrainAmbitionBudgetGovernor::MODE_EASY_BUG_HUNT,
+            $r['reallocated_from'],
+        );
+        $this->assertGreaterThan(
+            0.30,  // base weight for deep_architecture
+            $r['mode_weights'][AtlasExternalBrainAmbitionBudgetGovernor::MODE_DEEP_ARCHITECTURE],
+            'deep_architecture weight must have grown via reallocation',
+        );
+    }
+
     // ---------- schema + determinism ----------
 
     public function test_schema_is_correct(): void

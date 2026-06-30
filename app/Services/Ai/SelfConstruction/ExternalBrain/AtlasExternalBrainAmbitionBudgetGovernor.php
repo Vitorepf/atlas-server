@@ -63,19 +63,21 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
      *   yield_by_mode?:     array<string,float>,
      *   evidence_by_mode?:  array<string,list<string>>,
      *   attempted_modes?:   list<string>,
+     *   mode_stats?:        array<string,array{attempted?:int,credited?:int,verified?:int,rejected?:int}>,
      * } $state
      *
      * @return array{
-     *   schema:                 string,
-     *   next_mode:              string,
-     *   budget_slice:           int,
-     *   quota_remaining:        int,
-     *   reallocation_triggered: bool,
-     *   reallocated_from:       list<string>,
-     *   modes_with_evidence:    list<string>,
-     *   honest_exhausted:       bool,
-     *   rationale:              string,
-     *   mode_weights:           array<string,float>,
+     *   schema:                   string,
+     *   next_mode:                string,
+     *   budget_slice:             int,
+     *   quota_remaining:          int,
+     *   reallocation_triggered:   bool,
+     *   reallocated_from:         list<string>,
+     *   modes_with_evidence:      list<string>,
+     *   honest_exhausted:         bool,
+     *   rationale:                string,
+     *   mode_weights:             array<string,float>,
+     *   marginal_verified_yield:  array<string,float>,
      * }
      */
     public function allocate(array $state): array
@@ -86,6 +88,22 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
 
         $yieldByMode    = is_array($state['yield_by_mode']    ?? null) ? $state['yield_by_mode']    : [];
         $evidenceByMode = is_array($state['evidence_by_mode'] ?? null) ? $state['evidence_by_mode'] : [];
+
+        // Compute marginal_verified_yield from per-mode stats (takes priority over yield_by_mode).
+        $modeStats = is_array($state['mode_stats'] ?? null) ? $state['mode_stats'] : [];
+        $marginalVerifiedYield = [];
+        foreach ($modeStats as $statMode => $stats) {
+            if (! is_array($stats)) {
+                continue;
+            }
+            $attempted = max(0, (int) ($stats['attempted'] ?? 0));
+            $verified  = max(0, (int) ($stats['verified']  ?? 0));
+            $marginalVerifiedYield[(string) $statMode] = $attempted > 0
+                ? round($verified / $attempted, 4)
+                : 0.0;
+        }
+        // Merge: mode_stats computed values override yield_by_mode.
+        $effectiveYield = array_merge($yieldByMode, $marginalVerifiedYield);
         $attempted      = array_values(array_filter(
             array_map('strval', (array) ($state['attempted_modes'] ?? [])),
             static fn (string $m): bool => $m !== '',
@@ -100,7 +118,7 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
         // Identify shallow modes where measured yield has fallen to or below the threshold.
         $lowYieldModes = [];
         foreach (self::LADDER as $mode) {
-            $yield = isset($yieldByMode[$mode]) ? (float) $yieldByMode[$mode] : -1.0;
+            $yield = isset($effectiveYield[$mode]) ? (float) $effectiveYield[$mode] : -1.0;
             if ($yield >= 0.0 && $yield <= self::LOW_YIELD_THRESHOLD) {
                 $lowYieldModes[] = $mode;
             }
@@ -150,7 +168,7 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
             return $this->envelope(
                 self::MODE_HONEST_EXHAUSTED, 0, $quotaRemaining,
                 $reallocationTriggered, $reallocatedFrom, $withEvidence,
-                true, 'all_modes_exhausted_with_genuine_evidence', $weights,
+                true, 'all_modes_exhausted_with_genuine_evidence', $weights, $marginalVerifiedYield,
             );
         }
 
@@ -178,14 +196,15 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
         return $this->envelope(
             $nextMode, $budgetSlice, $quotaRemaining,
             $reallocationTriggered, $reallocatedFrom, $withEvidence,
-            false, $rationale, $weights,
+            false, $rationale, $weights, $marginalVerifiedYield,
         );
     }
 
     /**
-     * @param list<string>       $reallocatedFrom
-     * @param list<string>       $withEvidence
+     * @param list<string>        $reallocatedFrom
+     * @param list<string>        $withEvidence
      * @param array<string,float> $weights
+     * @param array<string,float> $marginalVerifiedYield
      */
     private function envelope(
         string $nextMode,
@@ -197,18 +216,20 @@ final class AtlasExternalBrainAmbitionBudgetGovernor
         bool $honestExhausted,
         string $rationale,
         array $weights,
+        array $marginalVerifiedYield = [],
     ): array {
         return [
-            'schema'                 => self::SCHEMA,
-            'next_mode'              => $nextMode,
-            'budget_slice'           => $budgetSlice,
-            'quota_remaining'        => $quotaRemaining,
-            'reallocation_triggered' => $reallocationTriggered,
-            'reallocated_from'       => $reallocatedFrom,
-            'modes_with_evidence'    => $withEvidence,
-            'honest_exhausted'       => $honestExhausted,
-            'rationale'              => $rationale,
-            'mode_weights'           => $weights,
+            'schema'                  => self::SCHEMA,
+            'next_mode'               => $nextMode,
+            'budget_slice'            => $budgetSlice,
+            'quota_remaining'         => $quotaRemaining,
+            'reallocation_triggered'  => $reallocationTriggered,
+            'reallocated_from'        => $reallocatedFrom,
+            'modes_with_evidence'     => $withEvidence,
+            'honest_exhausted'        => $honestExhausted,
+            'rationale'               => $rationale,
+            'mode_weights'            => $weights,
+            'marginal_verified_yield' => $marginalVerifiedYield,
         ];
     }
 }
