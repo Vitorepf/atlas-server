@@ -161,9 +161,9 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
     }
 
     /**
-     * Evaluate a batch of drafts. Runs per-draft checks and adds a batch-level lane-quota check:
-     * if any single task_shape occupies more than LANE_QUOTA_MAX_FRACTION of the batch,
-     * the batch is rejected with lane_overconcentration:<lane>.
+     * Evaluate a batch of drafts. Runs per-draft checks and adds batch-level checks:
+     *  - lane_overconcentration: any single task_shape > LANE_QUOTA_MAX_FRACTION of batch
+     *  - chain_coherence_missing: no draft carries a graph signal (unlocks, depends_on, organ_id, task_graph_id)
      *
      * @param  list<array<string,mixed>>  $drafts
      * @param  array<string,mixed>        $queueFacts
@@ -173,7 +173,8 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
     {
         $perDraftResults = array_map(fn (array $d): array => $this->evaluate($d, $queueFacts), $drafts);
 
-        $batchBlockers = [];
+        $batchBlockers    = [];
+        $batchRepairHints = [];
         $total = count($drafts);
         if ($total >= self::LANE_QUOTA_MIN_BATCH_SIZE) {
             $laneCounts = [];
@@ -183,8 +184,15 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             }
             foreach ($laneCounts as $lane => $count) {
                 if ($count / $total > self::LANE_QUOTA_MAX_FRACTION) {
-                    $batchBlockers[] = 'lane_overconcentration:'.$lane;
+                    $batchBlockers[]    = 'lane_overconcentration:'.$lane;
+                    $batchRepairHints[] = "Diversify task_shape — '{$lane}' occupies more than 50% of the batch.";
                 }
+            }
+
+            $graphLinked = array_filter($drafts, fn (array $d): bool => $this->hasGraphSignal($d));
+            if ($graphLinked === []) {
+                $batchBlockers[]    = 'chain_coherence_missing';
+                $batchRepairHints[] = 'Add at least one graph relationship signal to the batch: set unlocks, depends_on, organ_id, or task_graph_id on at least one draft so isolated one-off packets cannot masquerade as a coherent task graph.';
             }
         }
 
@@ -194,8 +202,23 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             'schema_version'     => self::SCHEMA,
             'passed'             => $batchBlockers === [] && $allPerDraftPassed,
             'batch_blockers'     => $batchBlockers,
+            'batch_repair_hints' => $batchRepairHints,
             'per_draft_results'  => $perDraftResults,
         ];
+    }
+
+    /**
+     * True if the draft carries at least one explicit graph relationship signal.
+     */
+    private function hasGraphSignal(array $draft): bool
+    {
+        $unlocks   = array_values(array_filter(array_map('strval', (array) ($draft['unlocks'] ?? []))));
+        $dependsOn = array_values(array_filter(array_map('strval', (array) ($draft['depends_on'] ?? []))));
+
+        return $unlocks !== []
+            || $dependsOn !== []
+            || (string) ($draft['organ_id'] ?? '') !== ''
+            || (string) ($draft['task_graph_id'] ?? '') !== '';
     }
 
     private function isBareDirectory(string $path): bool

@@ -21,6 +21,7 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
             'acceptance_criteria' => ['Foo works'],
             'required_evidence' => ['tests_or_gates_result'],
             'depends_on' => [],
+            'task_graph_id' => 'tg-default',  // graph signal so batch tests pass chain_coherence
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
             'requires_operator' => false,
@@ -183,5 +184,91 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
         foreach (['file_put_contents', 'fopen', 'shell_exec', 'proc_open', 'exec(', 'system(', 'DB::', 'Http::', 'Queue::'] as $forbidden) {
             $this->assertStringNotContainsString($forbidden, $src, "gate must NOT contain {$forbidden}");
         }
+    }
+
+    // ── chain_coherence ───────────────────────────────────────────────────────
+
+    public function test_multi_draft_batch_with_no_graph_signal_is_rejected(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_graph_id' => '', 'depends_on' => [], 'objective' => 'Add A']),
+            $this->validDraft(['task_graph_id' => '', 'depends_on' => [], 'objective' => 'Add B']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('chain_coherence_missing', $result['batch_blockers']);
+        $this->assertNotEmpty($result['batch_repair_hints']);
+    }
+
+    public function test_batch_with_task_graph_id_on_one_draft_passes_chain_coherence(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_shape' => 'feature', 'task_graph_id' => 'tg-1', 'objective' => 'Add X']),
+            $this->validDraft(['task_shape' => 'bug-fix', 'task_graph_id' => '',     'objective' => 'Fix Y']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertNotContains('chain_coherence_missing', $result['batch_blockers']);
+        $this->assertTrue($result['passed']);
+    }
+
+    public function test_batch_with_non_empty_depends_on_passes_chain_coherence(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_shape' => 'feature', 'task_graph_id' => '', 'depends_on' => ['pkt-upstream'], 'objective' => 'Add X']),
+            $this->validDraft(['task_shape' => 'bug-fix',  'task_graph_id' => '', 'depends_on' => [],              'objective' => 'Fix Y']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertNotContains('chain_coherence_missing', $result['batch_blockers']);
+    }
+
+    public function test_batch_with_organ_id_passes_chain_coherence(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_graph_id' => '', 'organ_id' => 'cortex', 'objective' => 'Add X']),
+            $this->validDraft(['task_graph_id' => '', 'organ_id' => '',       'objective' => 'Fix Y']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertNotContains('chain_coherence_missing', $result['batch_blockers']);
+    }
+
+    public function test_single_draft_batch_skips_chain_coherence_check(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_graph_id' => '', 'depends_on' => [], 'objective' => 'Solo task']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertSame([], $result['batch_blockers']);
+    }
+
+    public function test_chain_coherence_missing_and_lane_overconcentration_can_both_fire(): void
+    {
+        $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
+        $drafts = [
+            $this->validDraft(['task_shape' => 'bug-fix', 'task_graph_id' => '', 'depends_on' => [], 'objective' => 'Fix A']),
+            $this->validDraft(['task_shape' => 'bug-fix', 'task_graph_id' => '', 'depends_on' => [], 'objective' => 'Fix B']),
+            $this->validDraft(['task_shape' => 'bug-fix', 'task_graph_id' => '', 'depends_on' => [], 'objective' => 'Fix C']),
+        ];
+
+        $result = $gate->evaluateBatch($drafts);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('chain_coherence_missing', $result['batch_blockers']);
+        $batchBlockerStr = implode(',', $result['batch_blockers']);
+        $this->assertStringContainsString('lane_overconcentration:bug-fix', $batchBlockerStr);
     }
 }
