@@ -35,9 +35,11 @@ final class AtlasExternalBrainValueDecayMonitor
 {
     public const SCHEMA = 'atlas.external_brain.value_decay_monitor.v1';
 
-    private const DEFAULT_MAX_AGE          = 30;
-    private const DEFAULT_STALE_AGE        = 14;
-    private const DEFAULT_MIN_BLOCKING_KEEP = 3;
+    private const DEFAULT_MAX_AGE            = 30;
+    private const DEFAULT_STALE_AGE          = 14;
+    private const DEFAULT_MIN_BLOCKING_KEEP  = 3;
+    private const VALUE_WORTHY_THRESHOLD     = 0.6;
+    private const PREREQ_DRIFT_HIGH          = 0.5;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -56,12 +58,17 @@ final class AtlasExternalBrainValueDecayMonitor
         $keepTasks         = [];
 
         foreach ($rawTasks as $raw) {
-            $id                    = (string) ($raw['id']                     ?? '');
-            $ageDays               = max(0, (int) ($raw['queued_at_days_ago']   ?? 0));
-            $prerequisitesChanged  = (bool) ($raw['prerequisites_changed']    ?? false);
-            $landscapeShifted      = (bool) ($raw['landscape_shifted']         ?? false);
-            $hasValueProof         = (bool) ($raw['has_value_proof']           ?? false);
-            $blockingCount         = max(0, (int) ($raw['blocking_count']      ?? 0));
+            $id                   = (string) ($raw['id']                       ?? '');
+            $ageDays              = max(0,   (int)   ($raw['queued_at_days_ago']    ?? 0));
+            $prerequisitesChanged = (bool)   ($raw['prerequisites_changed']         ?? false);
+            $landscapeShifted     = (bool)   ($raw['landscape_shifted']             ?? false);
+            $hasValueProof        = (bool)   ($raw['has_value_proof']               ?? false);
+            $blockingCount        = max(0,   (int)   ($raw['blocking_count']        ?? 0));
+            $staleEvidenceAge     = max(0,   (int)   ($raw['stale_evidence_age']    ?? 0));
+            $changedAllowedFiles  = (bool)   ($raw['changed_allowed_files']         ?? false);
+            $prerequisiteDrift    = max(0.0, min(1.0, (float) ($raw['prerequisite_drift'] ?? 0.0)));
+            $blockedDependency    = (bool)   ($raw['blocked_dependency']            ?? false);
+            $currentValueScore    = max(0.0, min(1.0, (float) ($raw['current_value_score'] ?? 0.0)));
 
             // Collect active decay signals.
             $decaySignals = [];
@@ -77,11 +84,24 @@ final class AtlasExternalBrainValueDecayMonitor
             if (! $hasValueProof) {
                 $decaySignals[] = 'no_value_proof';
             }
+            if ($staleEvidenceAge > $staleAge) {
+                $decaySignals[] = 'stale_evidence';
+            }
+            if ($changedAllowedFiles) {
+                $decaySignals[] = 'changed_scope';
+            }
+            if ($blockedDependency) {
+                $decaySignals[] = 'blocked_dependency';
+            }
+            if ($prerequisiteDrift > self::PREREQ_DRIFT_HIGH) {
+                $decaySignals[] = 'prerequisite_drift_high';
+            }
 
             // AC2: recommendation (never cancel, only recommend).
             [$rec, $reason] = $this->recommend(
                 $ageDays, $maxAge, $prerequisitesChanged, $landscapeShifted,
                 $hasValueProof, $blockingCount, $minBlockingKeep,
+                $currentValueScore, $changedAllowedFiles, $blockedDependency,
             );
 
             $recommendations[] = [
@@ -114,9 +134,12 @@ final class AtlasExternalBrainValueDecayMonitor
     }
 
     private function recommend(
-        int $ageDays, int $maxAge,
-        bool $prereqChanged, bool $landscapeShifted,
-        bool $hasValueProof, int $blockingCount, int $minBlockingKeep,
+        int   $ageDays, int $maxAge,
+        bool  $prereqChanged, bool $landscapeShifted,
+        bool  $hasValueProof, int $blockingCount, int $minBlockingKeep,
+        float $currentValueScore = 0.0,
+        bool  $changedAllowedFiles = false,
+        bool  $blockedDependency = false,
     ): array {
         // Priority 1: load-bearing tasks always kept.
         if ($blockingCount >= $minBlockingKeep) {
@@ -128,9 +151,24 @@ final class AtlasExternalBrainValueDecayMonitor
             return ['retire', 'age_decay_no_value_proof'];
         }
 
-        // Priority 3: fully obsolete (both context signals + no proof).
+        // Priority 3a (AC2): both context signals + no proof BUT still valuable → respec, not retire.
+        if ($prereqChanged && $landscapeShifted && ! $hasValueProof && $currentValueScore >= self::VALUE_WORTHY_THRESHOLD) {
+            return ['respec', 'valuable_capability_scope_drifted_respec_preferred'];
+        }
+
+        // Priority 3b: fully obsolete (both context signals + no proof).
         if ($prereqChanged && $landscapeShifted && ! $hasValueProof) {
             return ['retire', 'prerequisites_and_landscape_both_shifted_no_proof'];
+        }
+
+        // Priority 3.5: changed scope but capability still valuable → respec.
+        if ($changedAllowedFiles && $currentValueScore >= self::VALUE_WORTHY_THRESHOLD) {
+            return ['respec', 'scope_changed_capability_still_valuable'];
+        }
+
+        // Priority 3.6: blocked dependency → respec to unblock.
+        if ($blockedDependency) {
+            return ['respec', 'blocked_dependency_requires_rethink'];
         }
 
         // Priority 4: context shifted — task needs rethinking.

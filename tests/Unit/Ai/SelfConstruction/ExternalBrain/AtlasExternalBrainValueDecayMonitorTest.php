@@ -174,4 +174,97 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
         $b = $this->monitor()->monitor($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC1: new decay signals ────────────────────────────────────────────────
+
+    public function test_stale_evidence_signal_emitted_when_evidence_age_exceeds_stale_threshold(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['stale_evidence_age' => 20]),
+        ]]);
+
+        $this->assertContains('stale_evidence', $r['recommendations'][0]['decay_signals']);
+    }
+
+    public function test_changed_scope_signal_emitted_when_changed_allowed_files(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['changed_allowed_files' => true]),
+        ]]);
+
+        $this->assertContains('changed_scope', $r['recommendations'][0]['decay_signals']);
+    }
+
+    public function test_blocked_dependency_signal_emitted(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['blocked_dependency' => true]),
+        ]]);
+
+        $this->assertContains('blocked_dependency', $r['recommendations'][0]['decay_signals']);
+    }
+
+    public function test_prerequisite_drift_high_signal_when_drift_above_threshold(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['prerequisite_drift' => 0.8]),
+        ]]);
+
+        $this->assertContains('prerequisite_drift_high', $r['recommendations'][0]['decay_signals']);
+    }
+
+    // ── AC2: respec preferred over retire when capability still valuable ──────
+
+    public function test_respec_preferred_when_both_shifted_but_high_current_value(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task([
+                'prerequisites_changed' => true,
+                'landscape_shifted'     => true,
+                'has_value_proof'       => false,
+                'current_value_score'   => 0.8,
+            ]),
+        ]]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame('respec', $rec['recommendation']);
+        $this->assertSame('valuable_capability_scope_drifted_respec_preferred', $rec['reason']);
+    }
+
+    public function test_retire_still_used_when_both_shifted_and_low_value(): void
+    {
+        // current_value_score defaults to 0.0 → existing rule applies
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task([
+                'prerequisites_changed' => true,
+                'landscape_shifted'     => true,
+                'has_value_proof'       => false,
+            ]),
+        ]]);
+
+        $this->assertSame('retire', $r['recommendations'][0]['recommendation']);
+    }
+
+    public function test_respec_when_scope_changed_and_capability_valuable(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task([
+                'changed_allowed_files' => true,
+                'current_value_score'   => 0.9,
+            ]),
+        ]]);
+
+        $this->assertSame('respec', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('scope_changed_capability_still_valuable', $r['recommendations'][0]['reason']);
+    }
+
+    public function test_blocked_dependency_gives_respec(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['blocked_dependency' => true]),
+        ]]);
+
+        $this->assertSame('respec', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('blocked_dependency_requires_rethink', $r['recommendations'][0]['reason']);
+    }
 }
