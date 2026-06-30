@@ -16,7 +16,10 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
  *     project_lane:{project_id:string, allowed_scope_roots:list<string>},
  *     forbidden_organs:list<string>,           // organs that touched_organs must NOT include
  *     touched_organs:list<string>,
- *     rollback_ready?:bool }                   // required when risk_class >= high
+ *     rollback_ready?:bool,                    // required when risk_class >= high
+ *     failure_rate?:float,                     // observed failure fraction; must stay ≤ MAX_FAILURE_RATE
+ *     give_back_rate?:float,                   // observed give_back fraction; must stay ≤ MAX_GIVE_BACK_RATE
+ *     cycle_window?:{remaining_cycles:int} }   // required and must have remaining_cycles > 0 for high/hardest
  *
  * OUTPUT:
  *   { schema, allowed:bool, blockers:list<string>,
@@ -36,6 +39,10 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
     public const RISKS = ['low', 'medium', 'high', 'hardest'];
 
     public const HIGH_RISKS = ['high', 'hardest'];
+
+    public const MAX_FAILURE_RATE = 0.3;
+
+    public const MAX_GIVE_BACK_RATE = 0.5;
 
     /**
      * @param  array{
@@ -72,6 +79,9 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
         $forbidden = is_array($facts['forbidden_organs'] ?? null) ? array_values(array_map('strval', $facts['forbidden_organs'])) : [];
         $touched = is_array($facts['touched_organs'] ?? null) ? array_values(array_map('strval', $facts['touched_organs'])) : [];
         $rollbackReady = (bool) ($facts['rollback_ready'] ?? false);
+        $failureRate = isset($facts['failure_rate']) && is_numeric($facts['failure_rate']) ? (float) $facts['failure_rate'] : null;
+        $giveBackRate = isset($facts['give_back_rate']) && is_numeric($facts['give_back_rate']) ? (float) $facts['give_back_rate'] : null;
+        $cycleWindow = is_array($facts['cycle_window'] ?? null) ? $facts['cycle_window'] : null;
 
         if (! in_array($risk, self::RISKS, true)) {
             $blockers[] = 'invalid_risk_class:'.($risk === '' ? 'missing' : $risk);
@@ -106,9 +116,26 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
             }
         }
 
+        // Burn-rate checks.
+        if ($failureRate !== null && $failureRate > self::MAX_FAILURE_RATE) {
+            $blockers[] = 'burn_rate_failure_rate_exceeded';
+        }
+        if ($giveBackRate !== null && $giveBackRate > self::MAX_GIVE_BACK_RATE) {
+            $blockers[] = 'burn_rate_give_back_rate_exceeded';
+        }
+
         // High-risk requires rollback ready.
         if (in_array($risk, self::HIGH_RISKS, true) && ! $rollbackReady) {
             $blockers[] = 'high_risk_requires_rollback_ready';
+        }
+
+        // High-risk requires a valid cycle window.
+        if (in_array($risk, self::HIGH_RISKS, true)) {
+            if ($cycleWindow === null) {
+                $blockers[] = 'high_risk_requires_cycle_window';
+            } elseif ((int) ($cycleWindow['remaining_cycles'] ?? 0) <= 0) {
+                $blockers[] = 'cycle_window_exhausted';
+            }
         }
 
         sort($blockers, SORT_STRING);

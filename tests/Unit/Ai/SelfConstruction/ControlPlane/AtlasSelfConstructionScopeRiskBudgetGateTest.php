@@ -119,6 +119,92 @@ final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
         $this->assertContains('project_lane_id_missing', $r['blockers']);
     }
 
+    // --- burn-rate checks ---
+
+    public function test_failure_rate_above_policy_yields_burn_rate_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['failure_rate'] = 0.31; // above MAX_FAILURE_RATE (0.30)
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('burn_rate_failure_rate_exceeded', $r['blockers']);
+    }
+
+    public function test_give_back_rate_above_policy_yields_burn_rate_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['give_back_rate'] = 0.51; // above MAX_GIVE_BACK_RATE (0.50)
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('burn_rate_give_back_rate_exceeded', $r['blockers']);
+    }
+
+    public function test_both_rates_at_or_below_policy_do_not_block(): void
+    {
+        $f = $this->safeFacts();
+        $f['failure_rate'] = 0.30;
+        $f['give_back_rate'] = 0.50;
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertNotContains('burn_rate_failure_rate_exceeded', $r['blockers']);
+        $this->assertNotContains('burn_rate_give_back_rate_exceeded', $r['blockers']);
+    }
+
+    public function test_both_burn_rate_blockers_emitted_when_both_exceeded(): void
+    {
+        $f = $this->safeFacts();
+        $f['failure_rate'] = 0.5;
+        $f['give_back_rate'] = 0.9;
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertContains('burn_rate_failure_rate_exceeded', $r['blockers']);
+        $this->assertContains('burn_rate_give_back_rate_exceeded', $r['blockers']);
+    }
+
+    // --- cycle window checks ---
+
+    public function test_high_risk_without_cycle_window_yields_blocker_even_with_rollback_ready(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'high';
+        $f['rollback_ready'] = true;
+        // no cycle_window key
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('high_risk_requires_cycle_window', $r['blockers']);
+    }
+
+    public function test_hardest_risk_exhausted_cycle_window_yields_blocker(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'hardest';
+        $f['rollback_ready'] = true;
+        $f['cycle_window'] = ['remaining_cycles' => 0];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('cycle_window_exhausted', $r['blockers']);
+    }
+
+    public function test_high_risk_with_valid_cycle_window_and_rollback_ready_is_allowed(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'high';
+        $f['rollback_ready'] = true;
+        $f['cycle_window'] = ['remaining_cycles' => 3];
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertTrue($r['allowed']);
+        $this->assertNotContains('high_risk_requires_cycle_window', $r['blockers']);
+        $this->assertNotContains('cycle_window_exhausted', $r['blockers']);
+    }
+
+    public function test_low_risk_does_not_require_cycle_window(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'low';
+        // no cycle_window
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+        $this->assertNotContains('high_risk_requires_cycle_window', $r['blockers']);
+        $this->assertNotContains('cycle_window_exhausted', $r['blockers']);
+    }
+
     public function test_duplicate_scope_paths_normalize_without_duplicates(): void
     {
         $f = $this->safeFacts();
