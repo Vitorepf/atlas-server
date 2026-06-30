@@ -240,6 +240,102 @@ class AtlasAiSelfConstructionAgentDispatchExecutorProviderStartDriverTest extend
         ];
     }
 
+    // ── checkStartPreconditions(): pure preflight before any process launch ──
+
+    private function fullProof(array $overrides = []): array
+    {
+        return array_merge([
+            'adapter_ready' => true,
+            'adapter_ready_checked_at' => CarbonImmutable::now()->toIso8601String(),
+            'task_eligibility_status' => 'eligible',
+            'scope_clean' => true,
+            'launch_contract' => [
+                'executor_contract_hash' => str_repeat('a', 64),
+                'command' => 'php artisan atlas:dispatch',
+                'max_runtime_minutes' => 30,
+                'max_cost_usd' => 1.0,
+            ],
+        ], $overrides);
+    }
+
+    public function test_fully_proven_preflight_allows_start(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof());
+
+        $this->assertTrue($result['start_allowed']);
+        $this->assertSame([], $result['missing_proof']);
+        $this->assertNotNull($result['launch_contract_summary']);
+    }
+
+    public function test_missing_adapter_readiness_refuses_start(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof(['adapter_ready' => false]));
+
+        $this->assertFalse($result['start_allowed']);
+        $this->assertContains('adapter_readiness_missing', $result['missing_proof']);
+        $this->assertNull($result['launch_contract_summary']);
+    }
+
+    public function test_stale_adapter_readiness_proof_refuses_start(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof([
+            'adapter_ready_checked_at' => CarbonImmutable::now()->subMinutes(20)->toIso8601String(),
+        ]));
+
+        $this->assertFalse($result['start_allowed']);
+        $this->assertContains('adapter_readiness_proof_stale', $result['missing_proof']);
+    }
+
+    public function test_ineligible_task_refuses_start(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof([
+            'task_eligibility_status' => 'repair_required',
+        ]));
+
+        $this->assertFalse($result['start_allowed']);
+        $this->assertContains('task_not_eligible:repair_required', $result['missing_proof']);
+    }
+
+    public function test_missing_task_eligibility_proof_refuses_start(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof([
+            'task_eligibility_status' => '',
+        ]));
+
+        $this->assertFalse($result['start_allowed']);
+        $this->assertContains('task_eligibility_proof_missing', $result['missing_proof']);
+    }
+
+    public function test_dirty_scope_refuses_start(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof(['scope_clean' => false]));
+
+        $this->assertFalse($result['start_allowed']);
+        $this->assertContains('scope_not_clean', $result['missing_proof']);
+    }
+
+    public function test_incomplete_launch_contract_refuses_start(): void
+    {
+        $proof = $this->fullProof();
+        unset($proof['launch_contract']['command']);
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($proof);
+
+        $this->assertFalse($result['start_allowed']);
+        $this->assertContains('launch_contract_missing_command', $result['missing_proof']);
+    }
+
+    public function test_launch_contract_summary_only_includes_required_fields_when_allowed(): void
+    {
+        $result = app(AgentDispatchExecutorProviderStartDriver::class)->checkStartPreconditions($this->fullProof());
+
+        $this->assertSame([
+            'executor_contract_hash',
+            'command',
+            'max_runtime_minutes',
+            'max_cost_usd',
+        ], array_keys($result['launch_contract_summary']));
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_sandbox_bindings');

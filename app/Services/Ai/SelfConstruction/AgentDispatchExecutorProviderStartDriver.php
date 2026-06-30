@@ -19,6 +19,11 @@ class AgentDispatchExecutorProviderStartDriver
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
 
+    /** A proof of adapter readiness older than this is treated as stale, not just "old". */
+    private const PROOF_STALENESS_CEILING_SECONDS = 300;
+
+    private const REQUIRED_LAUNCH_CONTRACT_FIELDS = ['executor_contract_hash', 'command', 'max_runtime_minutes', 'max_cost_usd'];
+
     /**
      * @var list<string>
      */
@@ -33,6 +38,70 @@ class AgentDispatchExecutorProviderStartDriver
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
+
+    /**
+     * Pure preflight check: a provider-backed muscle start may NEVER launch
+     * an external process without proof of adapter readiness, task
+     * eligibility, clean scope, and a complete launch contract — all
+     * supplied as facts, never queried from the database or a live
+     * process. Missing or stale proof refuses the start outright.
+     *
+     * @param  array<string,mixed>  $proof
+     * @return array<string,mixed>
+     */
+    public function checkStartPreconditions(array $proof): array
+    {
+        $missingProof = [];
+
+        $adapterReady = (bool) ($proof['adapter_ready'] ?? false);
+        $adapterReadyCheckedAt = $proof['adapter_ready_checked_at'] ?? null;
+        $adapterProofStale = $adapterReadyCheckedAt === null
+            || abs(CarbonImmutable::now()->diffInSeconds(CarbonImmutable::parse((string) $adapterReadyCheckedAt))) > self::PROOF_STALENESS_CEILING_SECONDS;
+
+        if (! $adapterReady) {
+            $missingProof[] = 'adapter_readiness_missing';
+        } elseif ($adapterProofStale) {
+            $missingProof[] = 'adapter_readiness_proof_stale';
+        }
+
+        $taskEligibilityStatus = (string) ($proof['task_eligibility_status'] ?? '');
+        if ($taskEligibilityStatus !== 'eligible') {
+            $missingProof[] = $taskEligibilityStatus === ''
+                ? 'task_eligibility_proof_missing'
+                : 'task_not_eligible:'.$taskEligibilityStatus;
+        }
+
+        $scopeClean = (bool) ($proof['scope_clean'] ?? false);
+        if (! $scopeClean) {
+            $missingProof[] = 'scope_not_clean';
+        }
+
+        $launchContract = (array) ($proof['launch_contract'] ?? []);
+        $missingContractFields = array_values(array_filter(
+            self::REQUIRED_LAUNCH_CONTRACT_FIELDS,
+            static fn (string $field): bool => ! array_key_exists($field, $launchContract) || $launchContract[$field] === null || $launchContract[$field] === '',
+        ));
+        foreach ($missingContractFields as $field) {
+            $missingProof[] = 'launch_contract_missing_'.$field;
+        }
+
+        $startAllowed = $missingProof === [];
+
+        return [
+            'start_allowed' => $startAllowed,
+            'missing_proof' => $missingProof,
+            'launch_contract_summary' => $startAllowed ? [
+                'executor_contract_hash' => (string) ($launchContract['executor_contract_hash'] ?? ''),
+                'command' => (string) ($launchContract['command'] ?? ''),
+                'max_runtime_minutes' => (int) ($launchContract['max_runtime_minutes'] ?? 0),
+                'max_cost_usd' => (float) ($launchContract['max_cost_usd'] ?? 0.0),
+            ] : null,
+            'adapter_ready' => $adapterReady,
+            'adapter_proof_stale' => $adapterProofStale,
+            'task_eligibility_status' => $taskEligibilityStatus,
+            'scope_clean' => $scopeClean,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input
