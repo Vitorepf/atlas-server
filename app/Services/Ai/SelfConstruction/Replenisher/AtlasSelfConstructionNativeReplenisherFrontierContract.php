@@ -74,6 +74,11 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
                 $blockers[] = 'missing_acceptance';
             }
 
+            $evidence = is_array($f['evidence_obligations'] ?? null) ? array_values(array_filter(array_map('strval', $f['evidence_obligations']), static fn (string $s): bool => $s !== '')) : [];
+            if ($evidence === []) {
+                $blockers[] = 'missing_evidence';
+            }
+
             $projectIds = [];
             foreach ($allowed as $p) {
                 $pid = $this->detectProjectId($p);
@@ -93,14 +98,17 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
             }
 
             $accepted[] = [
-                'frontier_id' => $id,
-                'owner_organ' => (string) ($f['owner_organ'] ?? ''),
-                'target_scope' => $targetScope,
-                'capability_gap' => (string) ($f['capability_gap'] ?? ''),
+                'frontier_id'             => $id,
+                'owner_organ'             => (string) ($f['owner_organ'] ?? ''),
+                'target_scope'            => $targetScope,
+                'capability_gap'          => (string) ($f['capability_gap'] ?? ''),
+                'maturity_gap'            => (string) ($f['maturity_gap'] ?? ''),
+                'blockers'                => [],
+                'next_unlock'             => (string) ($f['next_unlock'] ?? ''),
                 'allowed_file_candidates' => $allowed,
-                'acceptance_obligations' => $acceptance,
-                'evidence_obligations' => is_array($f['evidence_obligations'] ?? null) ? array_values(array_map('strval', $f['evidence_obligations'])) : [],
-                'risk_class' => (string) ($f['risk_class'] ?? self::RISK_DEFAULT),
+                'acceptance_obligations'  => $acceptance,
+                'evidence_obligations'    => $evidence,
+                'risk_class'              => (string) ($f['risk_class'] ?? self::RISK_DEFAULT),
             ];
         }
 

@@ -89,6 +89,33 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContractTest extends T
         $this->assertContains('missing_acceptance', $r['rejected'][0]['blockers']);
     }
 
+    public function test_missing_evidence_is_rejected(): void
+    {
+        $f = $this->valid();
+        $f['evidence_obligations'] = [];
+        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
+        $this->assertContains('missing_evidence', $r['rejected'][0]['blockers']);
+    }
+
+    public function test_accepted_frontier_includes_maturity_gap_blockers_and_next_unlock(): void
+    {
+        $f = array_merge($this->valid(), [
+            'maturity_gap' => 'layer 2 not wired',
+            'next_unlock'  => 'wire AtlasFoo to AtlasBar',
+        ]);
+        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
+        $accepted = $r['accepted'][0];
+        $this->assertSame('layer 2 not wired', $accepted['maturity_gap']);
+        $this->assertSame([], $accepted['blockers']);
+        $this->assertSame('wire AtlasFoo to AtlasBar', $accepted['next_unlock']);
+    }
+
+    public function test_accepted_frontier_blockers_is_always_empty_list(): void
+    {
+        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$this->valid()]);
+        $this->assertSame([], $r['accepted'][0]['blockers']);
+    }
+
     public function test_accepted_and_rejected_are_sorted_by_frontier_id(): void
     {
         $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([
