@@ -48,6 +48,15 @@ final class AtlasMaestroWorkerQualityScorecard
     private const MIN_CLASS_EVENTS_FOR_ROUTING  = 2;
 
     /**
+     * Evidence-integrity risk flags — signals that the worker's claimed outcomes cannot be trusted
+     * (fake-green, repeated malformed claims). A subset of risk_flags, distinct from general
+     * behavioral signals like high_giveback_rate, so routing can specifically distrust evidence.
+     *
+     * @var list<string>
+     */
+    private const EVIDENCE_RISK_FLAGS = ['success_without_evidence', 'repeated_malformed'];
+
+    /**
      * @param  array{events?: list<array<string,mixed>>}  $input
      * @return array{schema:string, workers:list<array<string,mixed>>}
      */
@@ -102,11 +111,16 @@ final class AtlasMaestroWorkerQualityScorecard
             }
             $classCounts[$cls] ??= ['success' => 0, 'fail' => 0];
             if ($ev === self::EV_SUCCESS) {
-                $classCounts[$cls]['success']++;
-                if (! (bool) ($row['has_required_evidence'] ?? true)) {
+                $hasEvidence = (bool) ($row['has_required_evidence'] ?? true);
+                if ($hasEvidence) {
+                    $classCounts[$cls]['success']++;
+                } else {
+                    // A "success" without required_evidence is fake productivity, not a real
+                    // success — it must not inflate the class's best-class eligibility.
+                    $classCounts[$cls]['fail']++;
                     $successNoEvid++;
                 }
-            } elseif (in_array($ev, [self::EV_GIVE_BACK, self::EV_FAILED_GATE], true)) {
+            } elseif (in_array($ev, [self::EV_GIVE_BACK, self::EV_FAILED_GATE, self::EV_MALFORMED], true)) {
                 $classCounts[$cls]['fail']++;
             }
             $ct = (int) ($row['cycle_time_seconds'] ?? 0);
@@ -186,10 +200,14 @@ final class AtlasMaestroWorkerQualityScorecard
             default                                       => self::CONFIDENCE_LOW,
         };
 
+        $riskFlags = array_values(array_unique($riskFlags));
+        $evidenceRiskFlags = array_values(array_intersect($riskFlags, self::EVIDENCE_RISK_FLAGS));
+
         return [
             'client_id'          => $clientId,
             'quality_score'      => $score,
-            'risk_flags'         => array_values(array_unique($riskFlags)),
+            'risk_flags'         => $riskFlags,
+            'evidence_risk_flags' => $evidenceRiskFlags,
             'best_task_classes'  => $bestClasses,
             'avoid_task_classes' => $avoidClasses,
             'confidence'         => $confidence,
