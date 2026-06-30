@@ -79,4 +79,32 @@ class AtlasSelfConstructionOsCompletionAuditHashCanonicalizerTest extends TestCa
 
         self::assertNotSame($a, $b);
     }
+
+    public function test_associative_key_order_does_not_change_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['z' => 3, 'a' => 1, 'm' => 2]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['a' => 1, 'm' => 2, 'z' => 3]);
+        self::assertSame($a, $b, 'map key order must not affect the hash');
+    }
+
+    public function test_list_order_changes_hash(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['items' => ['x', 'y', 'z']]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['items' => ['z', 'y', 'x']]);
+        self::assertNotSame($a, $b, 'list order must be preserved and affect the hash');
+    }
+
+    public function test_raw_prompt_is_stripped_before_hashing(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['x' => 1, 'raw_prompt' => 'secret prompt A']);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['x' => 1, 'raw_prompt' => 'secret prompt B']);
+        self::assertSame($a, $b, 'raw_prompt must be stripped before hashing');
+    }
+
+    public function test_provider_trace_is_stripped_before_hashing(): void
+    {
+        $a = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['x' => 1, 'provider_trace' => ['tok' => 500, 'model' => 'opus']]);
+        $b = AtlasSelfConstructionOsCompletionAuditHashCanonicalizer::stableHash(['x' => 1, 'provider_trace' => ['tok' => 999, 'model' => 'sonnet']]);
+        self::assertSame($a, $b, 'provider_trace must be stripped before hashing');
+    }
 }

@@ -18,7 +18,7 @@ final class AtlasSelfConstructionOsCompletionAuditHashCanonicalizer
      */
     public static function stableHash(array $payload): string
     {
-        unset($payload['audited_at'], $payload['completion_audit_hash']);
+        unset($payload['audited_at'], $payload['completion_audit_hash'], $payload['raw_prompt'], $payload['provider_trace']);
 
         return hash('sha256', (string) json_encode(self::ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
