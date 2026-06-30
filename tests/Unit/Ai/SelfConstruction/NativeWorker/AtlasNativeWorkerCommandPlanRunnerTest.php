@@ -103,4 +103,60 @@ final class AtlasNativeWorkerCommandPlanRunnerTest extends TestCase
         $this->assertSame(AtlasNativeWorkerCommandPlanRunner::STATUS_DENIED, $out['results'][0]['status']);
         $this->assertSame('malformed_command', $out['results'][0]['reason']);
     }
+
+    // --- validate() — facts-only plan validator ----------------------
+
+    private function validateEnvelope(): array
+    {
+        return array_merge($this->envelope(), ['acceptance_commands' => ['run_tests']]);
+    }
+
+    public function test_git_commit_command_is_rejected_by_validate(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['git', 'commit', '-m', 'msg'], 'timeout_seconds' => 5]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $this->assertFalse($out['passed']);
+        $this->assertSame('git_mutation_command', $out['rejections'][0]['reason']);
+    }
+
+    public function test_git_push_command_is_rejected_by_validate(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['git', 'push'], 'timeout_seconds' => 5]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $this->assertFalse($out['passed']);
+        $this->assertSame('git_mutation_command', $out['rejections'][0]['reason']);
+    }
+
+    public function test_provider_command_is_rejected_by_validate(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['claude', '--print', 'hello'], 'timeout_seconds' => 5]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $this->assertFalse($out['passed']);
+        $this->assertSame('provider_command_detected', $out['rejections'][0]['reason']);
+    }
+
+    public function test_missing_timeout_is_rejected_by_validate(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test']]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $this->assertFalse($out['passed']);
+        $this->assertSame('missing_timeout', $out['rejections'][0]['reason']);
+    }
+
+    public function test_non_acceptance_command_is_rejected_when_acceptance_list_set(): void
+    {
+        $plan = [['name' => 'extra_script', 'argv' => ['/bin/echo', 'hi'], 'timeout_seconds' => 5]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $this->assertFalse($out['passed']);
+        $this->assertSame('not_acceptance_command', $out['rejections'][0]['reason']);
+    }
+
+    public function test_php_artisan_test_with_timeout_is_accepted_by_validate(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['/opt/homebrew/bin/php', 'artisan', 'test'], 'timeout_seconds' => 60]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $this->assertTrue($out['passed']);
+        $this->assertSame([], $out['rejections']);
+        $this->assertCount(1, $out['accepted']);
+    }
 }

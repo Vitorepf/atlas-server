@@ -112,6 +112,72 @@ final class AtlasNativeWorkerCommandPlanRunner
         }
     }
 
+    public const FORBIDDEN_GIT_SUBCOMMANDS = ['commit', 'push', 'merge', 'reset', 'rebase', 'force-push'];
+
+    public const FORBIDDEN_PROVIDER_BINARIES = ['claude', 'codex', 'openai', 'anthropic-cli', 'gemini', 'cursor'];
+
+    /**
+     * Facts-only plan validator. Does NOT execute. Returns {passed, rejections, accepted}.
+     * Rejects: missing_timeout, git_mutation_command, provider_command_detected, not_acceptance_command.
+     *
+     * @param  list<array<string,mixed>>  $commandPlan
+     * @return array{schema:string, passed:bool, rejections:list<array<string,mixed>>, accepted:list<array<string,mixed>>}
+     */
+    public function validate(array $envelope, array $commandPlan): array
+    {
+        $acceptanceCommands = is_array($envelope['acceptance_commands'] ?? null)
+            ? array_values(array_map('strval', $envelope['acceptance_commands']))
+            : null;
+
+        $rejections = [];
+        $accepted = [];
+
+        foreach ($commandPlan as $cmd) {
+            if (! is_array($cmd)) {
+                continue;
+            }
+            $name = trim((string) ($cmd['name'] ?? ''));
+            $argv = is_array($cmd['argv'] ?? null) ? array_values(array_map('strval', $cmd['argv'])) : [];
+
+            if (! array_key_exists('timeout_seconds', $cmd) || $cmd['timeout_seconds'] === null || (int) $cmd['timeout_seconds'] <= 0) {
+                $rejections[] = ['name' => $name, 'reason' => 'missing_timeout'];
+                continue;
+            }
+            if ($this->isGitMutation($argv)) {
+                $rejections[] = ['name' => $name, 'reason' => 'git_mutation_command'];
+                continue;
+            }
+            if ($this->isProviderBinary($argv)) {
+                $rejections[] = ['name' => $name, 'reason' => 'provider_command_detected'];
+                continue;
+            }
+            if ($acceptanceCommands !== null && ! in_array($name, $acceptanceCommands, true)) {
+                $rejections[] = ['name' => $name, 'reason' => 'not_acceptance_command'];
+                continue;
+            }
+            $accepted[] = ['name' => $name, 'status' => 'accepted'];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'passed' => $rejections === [],
+            'rejections' => $rejections,
+            'accepted' => $accepted,
+        ];
+    }
+
+    private function isGitMutation(array $argv): bool
+    {
+        return isset($argv[0], $argv[1])
+            && basename($argv[0]) === 'git'
+            && in_array(strtolower($argv[1]), self::FORBIDDEN_GIT_SUBCOMMANDS, true);
+    }
+
+    private function isProviderBinary(array $argv): bool
+    {
+        return isset($argv[0]) && in_array(basename($argv[0]), self::FORBIDDEN_PROVIDER_BINARIES, true);
+    }
+
     /**
      * @param  array<string,mixed>  $envelope
      * @return list<string>
