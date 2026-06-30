@@ -236,4 +236,123 @@ final class AtlasExternalBrainGateRegressionResponsePlannerTest extends TestCase
         $this->assertSame(3, $result['regression_count']);
         $this->assertTrue($result['blocked_origination']);
     }
+
+    // ── diagnose(): five poison packet classes ─────────────────────────────────
+
+    private function packet(array $overrides = []): array
+    {
+        return array_merge([
+            'allowed_files'   => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'forbidden_files' => [],
+            'is_duplicate'    => false,
+            'packet_quality'  => ['deficiencies' => []],
+        ], $overrides);
+    }
+
+    public function test_diagnose_contradiction_class(): void
+    {
+        $result = $this->planner->diagnose($this->packet([
+            'packet_quality' => ['deficiencies' => ['hidden_poison:contradictory_acceptance']],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::POISON_CONTRADICTION, $result['poison_class']);
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_REWRITE_CRITERIA, $result['repair_action']);
+        $this->assertTrue($result['fail_closed']);
+    }
+
+    public function test_diagnose_test_only_spec_via_deficiency(): void
+    {
+        $result = $this->planner->diagnose($this->packet([
+            'packet_quality' => ['deficiencies' => ['test_only_has_contract']],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::POISON_TEST_ONLY_SPEC, $result['poison_class']);
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_GIVE_BACK, $result['repair_action']);
+    }
+
+    public function test_diagnose_implementation_file_missing_class(): void
+    {
+        // Only test files, no test_only_has_contract → implementation_file_missing
+        $result = $this->planner->diagnose($this->packet([
+            'allowed_files'  => ['tests/Unit/FooTest.php'],
+            'packet_quality' => ['deficiencies' => []],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::POISON_IMPLEMENTATION_FILE_MISSING, $result['poison_class']);
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_ADD_SCOPE, $result['repair_action']);
+        $this->assertTrue($result['fail_closed']);
+    }
+
+    public function test_diagnose_forbidden_target_class(): void
+    {
+        $result = $this->planner->diagnose($this->packet([
+            'forbidden_files' => ['config/secrets.php'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::POISON_FORBIDDEN_TARGET, $result['poison_class']);
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_QUARANTINE, $result['repair_action']);
+    }
+
+    public function test_diagnose_stale_duplicate_class(): void
+    {
+        $result = $this->planner->diagnose($this->packet(['is_duplicate' => true]));
+
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::POISON_STALE_DUPLICATE, $result['poison_class']);
+        $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_SPLIT_PACKET, $result['repair_action']);
+    }
+
+    public function test_diagnose_healthy_packet_returns_null_poison_class(): void
+    {
+        $result = $this->planner->diagnose($this->packet());
+
+        $this->assertNull($result['poison_class']);
+        $this->assertNull($result['repair_action']);
+        $this->assertFalse($result['fail_closed']);
+    }
+
+    public function test_diagnose_fails_closed_with_no_allowed_files(): void
+    {
+        $result = $this->planner->diagnose(['allowed_files' => [], 'forbidden_files' => []]);
+
+        $this->assertTrue($result['fail_closed']);
+        $this->assertNull($result['poison_class']);
+        $this->assertStringContainsString('insufficient_evidence', (string) $result['repair_reason']);
+    }
+
+    public function test_diagnose_each_poison_class_has_deterministic_repair_action(): void
+    {
+        $cases = [
+            [
+                'packet'          => $this->packet(['forbidden_files' => ['x']]),
+                'expected_class'  => AtlasExternalBrainGateRegressionResponsePlanner::POISON_FORBIDDEN_TARGET,
+                'expected_repair' => AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_QUARANTINE,
+            ],
+            [
+                'packet'          => $this->packet(['is_duplicate' => true]),
+                'expected_class'  => AtlasExternalBrainGateRegressionResponsePlanner::POISON_STALE_DUPLICATE,
+                'expected_repair' => AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_SPLIT_PACKET,
+            ],
+            [
+                'packet'          => $this->packet(['allowed_files' => ['tests/Unit/T.php']]),
+                'expected_class'  => AtlasExternalBrainGateRegressionResponsePlanner::POISON_IMPLEMENTATION_FILE_MISSING,
+                'expected_repair' => AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_ADD_SCOPE,
+            ],
+            [
+                'packet'          => $this->packet(['packet_quality' => ['deficiencies' => ['test_only_has_contract']]]),
+                'expected_class'  => AtlasExternalBrainGateRegressionResponsePlanner::POISON_TEST_ONLY_SPEC,
+                'expected_repair' => AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_GIVE_BACK,
+            ],
+            [
+                'packet'          => $this->packet(['packet_quality' => ['deficiencies' => ['hidden_poison:contradictory_acceptance']]]),
+                'expected_class'  => AtlasExternalBrainGateRegressionResponsePlanner::POISON_CONTRADICTION,
+                'expected_repair' => AtlasExternalBrainGateRegressionResponsePlanner::REPAIR_REWRITE_CRITERIA,
+            ],
+        ];
+
+        foreach ($cases as $case) {
+            $r = $this->planner->diagnose($case['packet']);
+            $this->assertSame($case['expected_class'],  $r['poison_class'],  "Wrong class for {$case['expected_class']}");
+            $this->assertSame($case['expected_repair'], $r['repair_action'], "Wrong repair for {$case['expected_class']}");
+        }
+    }
 }
