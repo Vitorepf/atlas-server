@@ -203,4 +203,89 @@ final class AgentRuntimeRegistryQuarantineRepositoryTest extends TestCase
         $repo = new AgentRuntimeRegistryQuarantineRepository;
         $this->assertSame([], $repo->activeAgentIds());
     }
+
+    // ── evidence / release_condition / retry_after / target_type / dispatch matcher ──
+
+    public function test_quarantine_records_evidence_and_release_condition(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $result = $repo->quarantine('agent-b', [
+            'code' => 'evidence_failure',
+            'declared_by' => 'operator-1',
+            'evidence' => ['give_back_count=3', 'scope_violation_log_ref'],
+            'release_condition' => '3 consecutive successful runs with attached evidence',
+            'retry_after_minutes' => 60,
+        ]);
+
+        $this->assertSame(['give_back_count=3', 'scope_violation_log_ref'], $result['record']['evidence']);
+        $this->assertSame('3 consecutive successful runs with attached evidence', $result['record']['release_condition']);
+        $this->assertSame(60, $result['record']['retry_after_minutes']);
+        $this->assertNotNull($result['record']['retry_after_at']);
+    }
+
+    public function test_default_target_type_is_worker(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $result = $repo->quarantine('agent-c', ['code' => 'stale_heartbeat', 'declared_by' => 'op']);
+
+        $this->assertSame(AgentRuntimeRegistryQuarantineRepository::TARGET_TYPE_WORKER, $result['record']['target_type']);
+    }
+
+    public function test_quarantine_task_family_sets_target_type(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $result = $repo->quarantineTaskFamily('family-origination', [
+            'code' => 'evidence_failure',
+            'declared_by' => 'op',
+        ]);
+
+        $this->assertSame(AgentRuntimeRegistryQuarantineRepository::TARGET_TYPE_TASK_FAMILY, $result['record']['target_type']);
+    }
+
+    public function test_dispatch_block_true_with_release_hint_when_quarantined(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $repo->quarantine('agent-d', [
+            'code' => 'scope_violation',
+            'declared_by' => 'op',
+            'release_condition' => 'manual scope audit passed',
+        ]);
+
+        $result = $repo->dispatchBlock('agent-d');
+
+        $this->assertTrue($result['dispatch_block']);
+        $this->assertSame('manual scope audit passed', $result['release_hint']);
+        $this->assertSame(AgentRuntimeRegistryQuarantineRepository::TARGET_TYPE_WORKER, $result['target_type']);
+    }
+
+    public function test_dispatch_block_false_when_not_quarantined(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $result = $repo->dispatchBlock('agent-never-quarantined');
+
+        $this->assertFalse($result['dispatch_block']);
+        $this->assertNull($result['release_hint']);
+    }
+
+    public function test_dispatch_block_false_after_release(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $repo->quarantine('agent-e', ['code' => 'stale_heartbeat', 'declared_by' => 'op']);
+        $repo->release('agent-e', ['reviewer' => 'op2', 'reason' => 'heartbeat restored']);
+
+        $result = $repo->dispatchBlock('agent-e');
+
+        $this->assertFalse($result['dispatch_block']);
+    }
+
+    public function test_dispatch_block_falls_back_to_retry_after_hint_when_no_condition(): void
+    {
+        $repo = new AgentRuntimeRegistryQuarantineRepository;
+        $repo->quarantine('agent-f', ['code' => 'stale_heartbeat', 'declared_by' => 'op', 'retry_after_minutes' => 30]);
+
+        $result = $repo->dispatchBlock('agent-f');
+
+        $this->assertStringContainsString('retry not before', $result['release_hint']);
+        $this->assertNotNull($result['retry_after_at']);
+    }
 }

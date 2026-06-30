@@ -47,6 +47,11 @@ final class AgentRuntimeRegistryQuarantineRepository
         'runtime_safety_violation',
     ];
 
+    public const TARGET_TYPE_WORKER      = 'worker';
+    public const TARGET_TYPE_TASK_FAMILY = 'task_family';
+
+    public const TARGET_TYPES = [self::TARGET_TYPE_WORKER, self::TARGET_TYPE_TASK_FAMILY];
+
     public function __construct(
         private readonly ?string $disk = null,
     ) {}
@@ -75,19 +80,35 @@ final class AgentRuntimeRegistryQuarantineRepository
                 return $this->envelopeError('declared_by_missing', $agentId);
             }
 
-            $now = CarbonImmutable::now()->toIso8601String();
+            $targetType = (string) ($reason['target_type'] ?? self::TARGET_TYPE_WORKER);
+            if (! in_array($targetType, self::TARGET_TYPES, true)) {
+                $targetType = self::TARGET_TYPE_WORKER;
+            }
+            $evidence = is_array($reason['evidence'] ?? null)
+                ? array_values(array_map('strval', $reason['evidence']))
+                : array_values(array_filter([(string) ($reason['evidence'] ?? '')], static fn (string $e): bool => $e !== ''));
+            $releaseCondition = (string) ($reason['release_condition'] ?? '');
+            $retryAfterMinutes = max(0, (int) ($reason['retry_after_minutes'] ?? 0));
+
+            $now = CarbonImmutable::now();
+            $nowIso = $now->toIso8601String();
             $existing = $this->readQuarantineFile($agentId);
             $entryId = (string) Str::uuid();
 
             $record = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'agent_id' => $agentId,
+                'target_type' => $targetType,
                 'is_quarantined' => true,
                 'quarantine_entry_id' => $entryId,
                 'reason_code' => $code,
                 'reason_detail' => $detail,
+                'evidence' => $evidence,
+                'release_condition' => $releaseCondition,
+                'retry_after_minutes' => $retryAfterMinutes,
+                'retry_after_at' => $retryAfterMinutes > 0 ? $now->addMinutes($retryAfterMinutes)->toIso8601String() : null,
                 'declared_by' => $declaredBy,
-                'declared_at' => $now,
+                'declared_at' => $nowIso,
                 'released' => false,
                 'release_history' => $existing['release_history'] ?? [],
                 'history' => $existing['history'] ?? [],
@@ -99,6 +120,7 @@ final class AgentRuntimeRegistryQuarantineRepository
                 'self_programming_allowed' => false,
                 'ledger_write_allowed' => false,
             ];
+            $now = $nowIso;
             $record['history'][] = [
                 'event' => 'quarantined',
                 'at' => $now,
@@ -187,6 +209,47 @@ final class AgentRuntimeRegistryQuarantineRepository
 
             return $this->envelopeOk('released', $record);
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $reason
+     * @return array<string, mixed>
+     */
+    public function quarantineTaskFamily(string $taskFamilyId, array $reason): array
+    {
+        return $this->quarantine($taskFamilyId, array_merge($reason, ['target_type' => self::TARGET_TYPE_TASK_FAMILY]));
+    }
+
+    /**
+     * Single read-only decision the dispatch matcher can consume directly:
+     * is this target blocked right now, and if so what's the concrete release hint?
+     *
+     * @return array{schema_version:string, target_id:string, dispatch_block:bool, target_type:?string, release_hint:?string, retry_after_at:?string}
+     */
+    public function dispatchBlock(string $targetId): array
+    {
+        $record = $this->readQuarantineFile($targetId);
+        $isQuarantined = $record !== null && (bool) ($record['is_quarantined'] ?? false);
+
+        $releaseHint = null;
+        if ($isQuarantined) {
+            $releaseCondition = (string) ($record['release_condition'] ?? '');
+            $retryAfterAt = $record['retry_after_at'] ?? null;
+            $releaseHint = $releaseCondition !== ''
+                ? $releaseCondition
+                : ($retryAfterAt !== null
+                    ? sprintf('retry not before %s', $retryAfterAt)
+                    : 'requires manual review() and release() by a reviewer with reason');
+        }
+
+        return [
+            'schema_version'  => self::SCHEMA_VERSION,
+            'target_id'       => $targetId,
+            'dispatch_block'  => $isQuarantined,
+            'target_type'     => $record['target_type'] ?? null,
+            'release_hint'    => $releaseHint,
+            'retry_after_at'  => $record['retry_after_at'] ?? null,
+        ];
     }
 
     public function isQuarantined(string $agentId): bool
