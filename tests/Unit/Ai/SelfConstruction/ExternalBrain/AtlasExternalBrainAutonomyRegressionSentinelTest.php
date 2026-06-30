@@ -235,4 +235,44 @@ final class AtlasExternalBrainAutonomyRegressionSentinelTest extends TestCase
         $this->assertContains('external_tool_only', $result['regression_types']);
         $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::SEVERITY_BLOCKING, $result['severity']);
     }
+
+    // ── AC1: remediation_hints + autonomy_owner_contract ──────────────────────
+
+    public function test_output_has_remediation_hints_and_autonomy_owner_contract(): void
+    {
+        $result = $this->sentinel->scan([]);
+
+        $this->assertArrayHasKey('remediation_hints', $result);
+        $this->assertArrayHasKey('autonomy_owner_contract', $result);
+        $this->assertIsArray($result['remediation_hints']);
+        $this->assertSame([], $result['remediation_hints']);
+    }
+
+    public function test_remediation_hint_present_for_each_blocking_regression(): void
+    {
+        $result = $this->sentinel->scan([
+            'requires_human_approval' => true,
+            'prompt_only_memory'      => true,
+        ]);
+
+        $this->assertCount(2, $result['remediation_hints']);
+        $this->assertNotEmpty(array_filter($result['remediation_hints'], fn ($h) => str_contains($h, 'human-approval')));
+        $this->assertNotEmpty(array_filter($result['remediation_hints'], fn ($h) => str_contains($h, 'Atlas-native store')));
+    }
+
+    public function test_autonomy_owner_contract_reflects_inputs(): void
+    {
+        $result = $this->sentinel->scan([
+            'bootstrap_muscle_used' => true,
+            'final_runtime_owner'   => 'atlas_native',
+            'evidence_gated'        => true,
+        ]);
+
+        $this->assertSame([
+            'final_runtime_owner'   => 'atlas_native',
+            'evidence_gated'        => true,
+            'bootstrap_muscle_used' => true,
+            'allowed_bootstrap'     => true,
+        ], $result['autonomy_owner_contract']);
+    }
 }

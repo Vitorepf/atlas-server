@@ -43,6 +43,15 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
     // Soft regressions produce warnings; hard regressions block.
     private const SOFT_REGRESSION_TYPES = ['operator_seeding_required'];
 
+    private const REMEDIATION_HINTS = [
+        'human_dependency'          => 'remove the human-approval gate; final_runtime_owner must become atlas_native for steady state',
+        'operator_seeding_required' => 'replace operator seeding with autonomous origination so the loop no longer waits on the operator',
+        'provider_dependency'       => 'ensure steady-state execution does not always require an external provider call',
+        'ungated_bootstrap_muscle'  => 'set final_runtime_owner=atlas_native and evidence_gated=true before relying on the bootstrap muscle',
+        'prompt_only_memory'        => 'persist memory in an Atlas-native store, not only inside the prompt context',
+        'external_tool_only'        => 'ensure execution can run through Atlas-native muscles, not only external tools',
+    ];
+
     /**
      * @param  array{
      *   requires_human_approval?: bool,
@@ -104,6 +113,13 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
             ? self::VERDICT_FAIL
             : self::VERDICT_PASS;
 
+        $remediationHints = [];
+        foreach ($regressions as $type) {
+            if (isset(self::REMEDIATION_HINTS[$type])) {
+                $remediationHints[] = self::REMEDIATION_HINTS[$type];
+            }
+        }
+
         return [
             'schema'           => self::SCHEMA,
             'is_regression'    => $isRegression,
@@ -111,6 +127,13 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
             'severity'         => $severity,
             'allowed_bootstrap' => $allowedBootstrap,
             'sentinel_verdict' => $verdict,
+            'remediation_hints' => $remediationHints,
+            'autonomy_owner_contract' => [
+                'final_runtime_owner'   => $finalOwner,
+                'evidence_gated'        => $evidenceGated,
+                'bootstrap_muscle_used' => $bootstrapUsed,
+                'allowed_bootstrap'     => $allowedBootstrap,
+            ],
         ];
     }
 
