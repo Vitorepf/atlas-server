@@ -473,4 +473,85 @@ final class AtlasExternalBrainPortfolioBalancerTest extends TestCase
         $this->assertGreaterThan($taskQualityIdx, $docsSyncIdx);
         $this->assertGreaterThan($taskQualityIdx, $runtimeIdx);
     }
+
+    // ── allocateLanes(): exploration/consolidation/.../delivery balance ───────
+
+    private function lane(array $overrides = []): array
+    {
+        return array_merge([
+            'maturity' => 0.5,
+            'queue_pressure' => 0.5,
+            'starvation_days' => 0,
+            'risk' => 0.1,
+            'expected_leverage' => 0.5,
+        ], $overrides);
+    }
+
+    public function test_allocate_lanes_has_required_keys(): void
+    {
+        $result = $this->balancer()->allocateLanes(['lanes' => []]);
+
+        foreach (['allocation', 'suppressed_lanes', 'promoted_lanes', 'rationale'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_allocation_covers_every_lane_and_sums_to_capacity(): void
+    {
+        $result = $this->balancer()->allocateLanes(['capacity' => 10, 'lanes' => []]);
+
+        foreach (AtlasExternalBrainPortfolioBalancer::LANES as $lane) {
+            $this->assertArrayHasKey($lane, $result['allocation']);
+        }
+        $this->assertSame(10, array_sum($result['allocation']));
+    }
+
+    public function test_high_risk_lane_is_suppressed_to_zero(): void
+    {
+        $result = $this->balancer()->allocateLanes(['lanes' => [
+            'exploration' => $this->lane(['risk' => 0.9, 'expected_leverage' => 1.0]),
+        ]]);
+
+        $this->assertSame(0, $result['allocation']['exploration']);
+        $this->assertContains('exploration', array_column($result['suppressed_lanes'], 'lane'));
+    }
+
+    public function test_no_lane_exceeds_max_fraction_of_capacity(): void
+    {
+        $result = $this->balancer()->allocateLanes([
+            'capacity' => 10,
+            'lanes' => ['delivery' => $this->lane(['expected_leverage' => 1.0, 'starvation_days' => 60])],
+        ]);
+
+        $this->assertLessThanOrEqual(4, $result['allocation']['delivery']);
+    }
+
+    public function test_starved_lane_is_promoted_with_more_capacity_than_a_fresh_lane(): void
+    {
+        $result = $this->balancer()->allocateLanes(['lanes' => [
+            'learning' => $this->lane(['starvation_days' => 60]),
+            'delivery' => $this->lane(['starvation_days' => 0]),
+        ]]);
+
+        $this->assertGreaterThan($result['allocation']['delivery'], $result['allocation']['learning']);
+    }
+
+    public function test_repair_evidence_required_reserves_minimum_slot(): void
+    {
+        $result = $this->balancer()->allocateLanes(['lanes' => [
+            'consolidation' => $this->lane(['expected_leverage' => 0.0, 'repair_evidence_required' => true]),
+        ]]);
+
+        $this->assertGreaterThanOrEqual(1, $result['allocation']['consolidation']);
+        $this->assertContains('consolidation', $result['promoted_lanes']);
+    }
+
+    public function test_rationale_is_not_empty_when_lanes_are_suppressed_or_capped(): void
+    {
+        $result = $this->balancer()->allocateLanes(['lanes' => [
+            'exploration' => $this->lane(['risk' => 0.95]),
+        ]]);
+
+        $this->assertNotEmpty($result['rationale']);
+    }
 }

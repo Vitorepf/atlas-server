@@ -74,6 +74,164 @@ final class AtlasExternalBrainPortfolioBalancer
     private const CONSOLIDATION_DEBT_THRESHOLD  = 0.60;
     private const SCAFFOLD_DOMINANCE_THRESHOLD  = 0.50;
 
+    /** Cognitive lanes a portfolio must spread across instead of overfocusing on the easiest one. */
+    public const LANES = ['exploration', 'consolidation', 'simplification', 'learning', 'certification', 'delivery'];
+
+    private const DEFAULT_LANE_CAPACITY = 10;
+
+    /** No single lane may take more than this share of capacity. */
+    private const LANE_MAX_FRACTION = 0.40;
+
+    /** A lane this risky is suppressed entirely regardless of leverage. */
+    private const LANE_SUPPRESSION_RISK_CEILING = 0.80;
+
+    /** Starvation reaching this many days fully maxes out the starvation boost. */
+    private const LANE_STARVATION_FULL_DAYS = 30;
+
+    /**
+     * Allocates wave capacity across cognitive lanes (exploration,
+     * consolidation, simplification, learning, certification, delivery)
+     * from maturity, queue pressure, starvation, risk and expected leverage
+     * — instead of letting the easiest lane absorb every slot.
+     *
+     * A lane explicitly flagged as needing repair/consolidation evidence
+     * gets a reserved minimum allocation regardless of its raw score so
+     * accumulated debt is never starved out by flashier exploration work.
+     * A lane whose risk exceeds the suppression ceiling is suppressed to
+     * zero — leverage alone never buys past that floor.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function allocateLanes(array $input): array
+    {
+        $laneFacts = (array) ($input['lanes'] ?? []);
+        $capacity = max(1, (int) ($input['capacity'] ?? self::DEFAULT_LANE_CAPACITY));
+        $maxPerLane = max(1, (int) floor($capacity * self::LANE_MAX_FRACTION));
+
+        $suppressedLanes = [];
+        $reservedAllocation = [];
+        $scores = [];
+        $rationale = [];
+
+        foreach (self::LANES as $lane) {
+            $facts = (array) ($laneFacts[$lane] ?? []);
+            $maturity = max(0.0, min(1.0, (float) ($facts['maturity'] ?? 0.5)));
+            $queuePressure = max(0.0, min(1.0, (float) ($facts['queue_pressure'] ?? 0.0)));
+            $starvationDays = max(0, (int) ($facts['starvation_days'] ?? 0));
+            $risk = max(0.0, min(1.0, (float) ($facts['risk'] ?? 0.0)));
+            $expectedLeverage = max(0.0, min(1.0, (float) ($facts['expected_leverage'] ?? 0.0)));
+            $repairEvidenceRequired = (bool) ($facts['repair_evidence_required'] ?? false);
+
+            if ($risk >= self::LANE_SUPPRESSION_RISK_CEILING) {
+                $suppressedLanes[] = ['lane' => $lane, 'reason' => 'risk_exceeds_suppression_ceiling'];
+                $rationale[] = "{$lane}: suppressed, risk {$risk} exceeds ceiling ".self::LANE_SUPPRESSION_RISK_CEILING;
+
+                continue;
+            }
+
+            $starvationBoost = min(1.0, $starvationDays / self::LANE_STARVATION_FULL_DAYS);
+            $score = max(0.01, round(
+                $expectedLeverage * 0.40
+                + $starvationBoost * 0.30
+                + (1.0 - $maturity) * 0.20
+                + $queuePressure * 0.10
+                - $risk * 0.30,
+                6,
+            ));
+
+            if ($repairEvidenceRequired) {
+                $reservedAllocation[$lane] = 1;
+                $rationale[] = "{$lane}: reserved minimum slot, repair/consolidation evidence required";
+            }
+
+            $scores[$lane] = $score;
+        }
+
+        $reservedTotal = array_sum($reservedAllocation);
+        $remainingCapacity = max(0, $capacity - $reservedTotal);
+        $scoreSum = array_sum($scores);
+
+        // Largest-remainder method: floor each share, then hand out the
+        // leftover slots to the lanes with the biggest fractional remainder
+        // so the total always equals remainingCapacity exactly.
+        $allocation = $reservedAllocation;
+        $shares = [];
+        foreach ($scores as $lane => $score) {
+            $shares[$lane] = $scoreSum > 0.0 ? ($score / $scoreSum) * $remainingCapacity : 0.0;
+            $allocation[$lane] = ($allocation[$lane] ?? 0) + (int) floor($shares[$lane]);
+        }
+        $distributed = array_sum(array_intersect_key($allocation, $shares));
+        $leftover = $remainingCapacity - $distributed;
+        if ($leftover > 0) {
+            $remainders = [];
+            foreach ($shares as $lane => $share) {
+                $remainders[$lane] = $share - floor($share);
+            }
+            arsort($remainders);
+            foreach (array_keys($remainders) as $lane) {
+                if ($leftover <= 0) {
+                    break;
+                }
+                $allocation[$lane]++;
+                $leftover--;
+            }
+        }
+        foreach (self::LANES as $lane) {
+            $allocation[$lane] = $allocation[$lane] ?? 0;
+        }
+
+        // Cap overfocused lanes and redistribute the overflow to the rest.
+        $promotedLanes = [];
+        $overflow = 0;
+        foreach ($allocation as $lane => $slots) {
+            if (! isset($scores[$lane])) {
+                continue;
+            }
+            if ($slots > $maxPerLane) {
+                $overflow += $slots - $maxPerLane;
+                $allocation[$lane] = $maxPerLane;
+                $rationale[] = "{$lane}: capped at {$maxPerLane} slots to prevent overfocus";
+            }
+        }
+        if ($overflow > 0) {
+            $redistributable = array_values(array_filter(
+                array_keys($scores),
+                static fn (string $lane): bool => $allocation[$lane] < $maxPerLane,
+            ));
+            while ($overflow > 0 && $redistributable !== []) {
+                foreach ($redistributable as $lane) {
+                    if ($overflow <= 0) {
+                        break;
+                    }
+                    if ($allocation[$lane] >= $maxPerLane) {
+                        continue;
+                    }
+                    $allocation[$lane]++;
+                    $overflow--;
+                    $promotedLanes[$lane] = true;
+                }
+                $redistributable = array_values(array_filter(
+                    $redistributable,
+                    static fn (string $lane) => $allocation[$lane] < $maxPerLane,
+                ));
+            }
+        }
+
+        foreach (array_keys($reservedAllocation) as $lane) {
+            $promotedLanes[$lane] = true;
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'capacity' => $capacity,
+            'allocation' => $allocation,
+            'suppressed_lanes' => $suppressedLanes,
+            'promoted_lanes' => array_values(array_keys($promotedLanes)),
+            'rationale' => $rationale,
+        ];
+    }
+
     /**
      * Balance a candidate wave.
      *
