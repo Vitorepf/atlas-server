@@ -33,6 +33,26 @@ final class AtlasGoalValueAntiProxyGate
         'template_farm_batch',
     ];
 
+    /** Maps each proxy category to a concrete anti-proxy reason code for rejected tasks. */
+    private const ANTI_PROXY_REASON_CODES = [
+        'test_count'           => 'test_count:add_capability_lift_or_failure_removal_ref',
+        'task_count'           => 'task_count:add_capability_lift_or_failure_removal_ref',
+        'line_churn'           => 'line_churn:add_capability_lift_or_failure_removal_ref',
+        'rename_only'          => 'rename_only:add_capability_lift_or_failure_removal_ref',
+        'self_reported_success'=> 'self_reported_success:replace_with_falsifiable_test_gate',
+        'wrapper_only'         => 'wrapper_only:add_real_behavior_capability_ref',
+        'scaffold_only_test'   => 'scaffold_only_test:add_real_capability_lift_ref',
+        'command_surface_only' => 'command_surface_only:add_behavior_observable_ref',
+        'doc_only_claim'       => 'doc_only_claim:add_capability_lift_or_failure_removal_ref',
+        'template_farm_batch'  => 'template_farm_batch:add_unique_capability_lift_ref_per_item',
+    ];
+
+    /** Maps each lever family to its falsifiable evidence demand. */
+    private const EVIDENCE_DEMANDS = [
+        'capability_lift' => 'capability_lift:prove_with_green_test_gate_and_behavior_observable',
+        'failure_removal' => 'failure_removal:prove_with_red_to_green_trace_and_receipt',
+    ];
+
     /**
      * @param  array<string,mixed>  $signals     proxy signals present in the work (any of PROXY_CATEGORIES => true)
      * @param  array<string,mixed>  $realLevers  {capability_lift_refs: list<string>, failure_removal_refs: list<string>}
@@ -62,13 +82,32 @@ final class AtlasGoalValueAntiProxyGate
         $blocked = ! $hasRealLever && $present !== [];
         $blockedCategories = $blocked ? $present : [];
 
+        // Concrete anti-proxy reason codes for rejected tasks.
+        $antiProxyReasonCodes = [];
+        if ($blocked) {
+            foreach ($blockedCategories as $cat) {
+                $antiProxyReasonCodes[] = self::ANTI_PROXY_REASON_CODES[$cat] ?? ($cat.':add_capability_lift_or_failure_removal_ref');
+            }
+            sort($antiProxyReasonCodes, SORT_STRING);
+        }
+
+        // Falsifiable evidence demand for accepted tasks (per lever family).
+        $falsifiableEvidenceDemand = [];
+        if ($hasRealLever) {
+            foreach ($families as $family) {
+                $falsifiableEvidenceDemand[] = self::EVIDENCE_DEMANDS[$family] ?? ($family.':prove_with_falsifiable_gate');
+            }
+        }
+
         return [
-            'schema_version' => self::SCHEMA,
-            'blocked' => $blocked,
-            'proxy_categories' => $present,
-            'blocked_proxy_categories' => $blockedCategories,
-            'has_real_lever' => $hasRealLever,
-            'real_lever_families' => $families,
+            'schema_version'             => self::SCHEMA,
+            'blocked'                    => $blocked,
+            'proxy_categories'           => $present,
+            'blocked_proxy_categories'   => $blockedCategories,
+            'has_real_lever'             => $hasRealLever,
+            'real_lever_families'        => $families,
+            'anti_proxy_reason_codes'    => $antiProxyReasonCodes,
+            'falsifiable_evidence_demand'=> $falsifiableEvidenceDemand,
         ];
     }
 

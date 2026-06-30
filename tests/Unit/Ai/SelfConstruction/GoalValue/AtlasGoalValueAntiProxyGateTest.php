@@ -174,4 +174,76 @@ final class AtlasGoalValueAntiProxyGateTest extends TestCase
             $this->assertFalse($verdict['blocked'], "$cat must be allowed when paired with failure_removal_refs");
         }
     }
+
+    // ── anti_proxy_reason_codes (rejected tasks) ──────────────────────────────
+
+    public function test_blocked_verdict_includes_concrete_anti_proxy_reason_codes(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['wrapper_only' => true, 'doc_only_claim' => true], []);
+
+        $this->assertTrue($verdict['blocked']);
+        $this->assertNotEmpty($verdict['anti_proxy_reason_codes']);
+        foreach ($verdict['anti_proxy_reason_codes'] as $code) {
+            $this->assertIsString($code);
+            $this->assertStringContainsString(':', $code, 'reason codes must be namespaced as category:instruction');
+        }
+    }
+
+    public function test_accepted_verdict_has_empty_anti_proxy_reason_codes(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            ['line_churn' => true],
+            ['capability_lift_refs' => ['cap:real']],
+        );
+
+        $this->assertFalse($verdict['blocked']);
+        $this->assertSame([], $verdict['anti_proxy_reason_codes']);
+    }
+
+    public function test_anti_proxy_reason_codes_sorted_deterministically(): void
+    {
+        $svc = new AtlasGoalValueAntiProxyGate;
+        $a = $svc->evaluate(['task_count' => true, 'test_count' => true], []);
+        $b = $svc->evaluate(['test_count' => true, 'task_count' => true], []);
+
+        $this->assertSame($a['anti_proxy_reason_codes'], $b['anti_proxy_reason_codes']);
+    }
+
+    // ── falsifiable_evidence_demand (accepted tasks) ──────────────────────────
+
+    public function test_accepted_verdict_includes_falsifiable_evidence_demand(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            [],
+            ['capability_lift_refs' => ['cap:feature-wired']],
+        );
+
+        $this->assertFalse($verdict['blocked']);
+        $this->assertNotEmpty($verdict['falsifiable_evidence_demand']);
+        $this->assertContains(
+            'capability_lift:prove_with_green_test_gate_and_behavior_observable',
+            $verdict['falsifiable_evidence_demand'],
+        );
+    }
+
+    public function test_failure_removal_lever_adds_its_own_evidence_demand(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            [],
+            ['failure_removal_refs' => ['fix:red-test-42']],
+        );
+
+        $this->assertContains(
+            'failure_removal:prove_with_red_to_green_trace_and_receipt',
+            $verdict['falsifiable_evidence_demand'],
+        );
+    }
+
+    public function test_blocked_verdict_has_empty_falsifiable_evidence_demand(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['test_count' => true], []);
+
+        $this->assertTrue($verdict['blocked']);
+        $this->assertSame([], $verdict['falsifiable_evidence_demand']);
+    }
 }
