@@ -54,7 +54,7 @@ final class AtlasSelfConstructionNextFrontierSelector
             $organ = (string) ($b['organ'] ?? 'unknown_organ');
             $blockerId = (string) ($b['blocker_id'] ?? 'unknown_blocker');
             $highLeverage = $capabilityDelta >= 1;
-            $frontier[] = [
+            $row = [
                 'kind' => self::KIND_BLOCKER_REMOVAL,
                 'rationale' => $highLeverage
                     ? 'unresolved blocker '.$blockerId.' couples with positive capability delta — high-leverage removal'
@@ -65,10 +65,12 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'next_packet_lane' => 'self_construction_blocker_removal',
                 'priority_class' => 1,
             ];
+            $row['chain_frontier_proof'] = $this->chainFrontierProof($row, ['blocker_id' => $blockerId]);
+            $frontier[] = $row;
         }
         foreach ($missingOrganCoverage as $organ) {
             $organ = (string) $organ;
-            $frontier[] = [
+            $row = [
                 'kind' => self::KIND_COVERAGE_COMPLETION,
                 'rationale' => 'canonical organ '.$organ.' has no coverage row',
                 'owner_organ' => $organ,
@@ -77,6 +79,8 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'next_packet_lane' => 'self_construction_coverage',
                 'priority_class' => 2,
             ];
+            $row['chain_frontier_proof'] = $this->chainFrontierProof($row);
+            $frontier[] = $row;
         }
         foreach ($giveBackLessons as $g) {
             if (! is_array($g) || (int) ($g['repeat_count'] ?? 0) < 2) {
@@ -86,7 +90,7 @@ final class AtlasSelfConstructionNextFrontierSelector
             if ($class === '') {
                 continue;
             }
-            $frontier[] = [
+            $row = [
                 'kind' => self::KIND_LESSON_CONSOLIDATION,
                 'rationale' => 'lesson class '.$class.' repeated '.((int) $g['repeat_count']).' times — consolidate into packet template',
                 'owner_organ' => 'learning_transfer',
@@ -95,6 +99,8 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'next_packet_lane' => 'self_construction_lesson_consolidation',
                 'priority_class' => 3,
             ];
+            $row['chain_frontier_proof'] = $this->chainFrontierProof($row, ['lesson_class' => $class, 'repeat_count' => (int) $g['repeat_count']]);
+            $frontier[] = $row;
         }
 
         if ($frontier === []) {
@@ -118,5 +124,51 @@ final class AtlasSelfConstructionNextFrontierSelector
             'schema_version' => self::SCHEMA,
             'frontier' => $frontier,
         ];
+    }
+
+    /**
+     * Build a deterministic chain_frontier_proof for a frontier row.
+     * Pure — reads $row fields and $ctx hints, no I/O.
+     *
+     * @param  array<string,mixed>  $row
+     * @param  array<string,mixed>  $ctx  extra context (blocker_id, lesson_class, repeat_count)
+     * @return array{upstream_signal:string, downstream_unlock:string, why_not_cosmetic:string, expected_compounding_effect:string, next_task_family:string}
+     */
+    private function chainFrontierProof(array $row, array $ctx = []): array
+    {
+        $kind  = (string) ($row['kind'] ?? '');
+        $organ = (string) ($row['owner_organ'] ?? 'unknown_organ');
+        $lane  = (string) ($row['next_packet_lane'] ?? '');
+
+        return match ($kind) {
+            self::KIND_BLOCKER_REMOVAL => [
+                'upstream_signal'           => 'unresolved_blocker:'.(string) ($ctx['blocker_id'] ?? 'unknown').' in organ:'.$organ,
+                'downstream_unlock'         => 'removes constraint on '.$organ.' enabling downstream capability delivery',
+                'why_not_cosmetic'          => 'blocker halts real capability progress; removal is structural, not surface-level polish',
+                'expected_compounding_effect' => 'each removed blocker compounds: organ unblocked → more tasks claimable → more capability delivered per cycle',
+                'next_task_family'          => $lane !== '' ? $lane : 'self_construction_blocker_removal',
+            ],
+            self::KIND_COVERAGE_COMPLETION => [
+                'upstream_signal'           => 'missing_coverage_row:organ:'.$organ,
+                'downstream_unlock'         => 'organ '.$organ.' becomes visible to task fabric and can receive targeted packets',
+                'why_not_cosmetic'          => 'without a coverage row the organ is invisible to the loop; adding it enables measurable, testable delivery',
+                'expected_compounding_effect' => 'coverage → verifiable contract → loop can originate, certify, and merge improvements to '.$organ.' autonomously',
+                'next_task_family'          => $lane !== '' ? $lane : 'self_construction_coverage',
+            ],
+            self::KIND_LESSON_CONSOLIDATION => [
+                'upstream_signal'           => 'repeated_give_back:class:'.(string) ($ctx['lesson_class'] ?? 'unknown').':count:'.(string) ($ctx['repeat_count'] ?? '?'),
+                'downstream_unlock'         => 'future packets of this class succeed on first attempt, eliminating give_back overhead',
+                'why_not_cosmetic'          => 'repeated give_backs indicate a structural gap in packet authoring; consolidating the lesson closes the root cause',
+                'expected_compounding_effect' => 'each consolidated lesson multiplies across all future packets in its class, reducing wasted loop cycles',
+                'next_task_family'          => $lane !== '' ? $lane : 'self_construction_lesson_consolidation',
+            ],
+            default => [
+                'upstream_signal'           => 'kind:'.$kind,
+                'downstream_unlock'         => 'unknown',
+                'why_not_cosmetic'          => 'unknown',
+                'expected_compounding_effect' => 'unknown',
+                'next_task_family'          => $lane !== '' ? $lane : 'self_construction_unknown',
+            ],
+        };
     }
 }

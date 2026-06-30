@@ -118,4 +118,83 @@ final class AtlasSelfConstructionNextFrontierSelectorTest extends TestCase
             $this->assertArrayNotHasKey('execute', $row);
         }
     }
+
+    // --- chain_frontier_proof tests ---
+
+    public function test_blocker_removal_row_has_chain_frontier_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 2]],
+            [['organ' => 'Task Fabric', 'blocker_id' => 'BLK-001']],
+            [], [],
+        );
+
+        $row   = $verdict['frontier'][0];
+        $proof = $row['chain_frontier_proof'];
+
+        $this->assertArrayHasKey('upstream_signal',           $proof);
+        $this->assertArrayHasKey('downstream_unlock',         $proof);
+        $this->assertArrayHasKey('why_not_cosmetic',          $proof);
+        $this->assertArrayHasKey('expected_compounding_effect', $proof);
+        $this->assertArrayHasKey('next_task_family',          $proof);
+
+        $this->assertStringContainsString('BLK-001', $proof['upstream_signal']);
+        $this->assertStringContainsString('Task Fabric', $proof['upstream_signal']);
+        $this->assertNotEmpty($proof['why_not_cosmetic']);
+        $this->assertSame('self_construction_blocker_removal', $proof['next_task_family']);
+    }
+
+    public function test_coverage_completion_row_has_chain_frontier_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            [], [], ['Maestro'], [],
+        );
+
+        $row   = $verdict['frontier'][0];
+        $proof = $row['chain_frontier_proof'];
+
+        $this->assertStringContainsString('Maestro', $proof['upstream_signal']);
+        $this->assertStringContainsString('Maestro', $proof['downstream_unlock']);
+        $this->assertNotEmpty($proof['why_not_cosmetic']);
+        $this->assertSame('self_construction_coverage', $proof['next_task_family']);
+    }
+
+    public function test_lesson_consolidation_row_has_chain_frontier_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            [], [], [],
+            [['class' => 'missing_impl_file', 'repeat_count' => 3]],
+        );
+
+        $row   = $verdict['frontier'][0];
+        $proof = $row['chain_frontier_proof'];
+
+        $this->assertStringContainsString('missing_impl_file', $proof['upstream_signal']);
+        $this->assertStringContainsString('3', $proof['upstream_signal']);
+        $this->assertNotEmpty($proof['why_not_cosmetic']);
+        $this->assertSame('self_construction_lesson_consolidation', $proof['next_task_family']);
+    }
+
+    public function test_no_signals_returns_empty_frontier_no_fabricated_cosmetic(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select([], [], [], []);
+
+        $this->assertSame([], $verdict['frontier']);
+    }
+
+    public function test_chain_proof_next_task_family_never_empty(): void
+    {
+        $selector = new AtlasSelfConstructionNextFrontierSelector;
+
+        $verdictB = $selector->select([], [['organ' => 'Forge', 'blocker_id' => 'x']], [], []);
+        $verdictC = $selector->select([], [], ['SomeOrgan'], []);
+        $verdictL = $selector->select([], [], [], [['class' => 'foo', 'repeat_count' => 5]]);
+
+        foreach ([$verdictB, $verdictC, $verdictL] as $v) {
+            foreach ($v['frontier'] as $row) {
+                $this->assertNotEmpty($row['chain_frontier_proof']['next_task_family']);
+                $this->assertNotEmpty($row['chain_frontier_proof']['why_not_cosmetic']);
+            }
+        }
+    }
 }
