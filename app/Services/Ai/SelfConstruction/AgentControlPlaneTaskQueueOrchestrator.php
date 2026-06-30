@@ -1041,6 +1041,23 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return $this->envelope('resolve_blocked', ['reason' => 'lease_not_found_or_mismatch', 'task_packet_id' => $taskPacketId]);
         }
 
+        $queueRecord = $this->queue->get($taskPacketId);
+        if ($queueRecord === null) {
+            return $this->envelope('resolve_blocked', ['reason' => 'task_packet_not_found', 'task_packet_id' => $taskPacketId]);
+        }
+        $queueStatus = (string) ($queueRecord['status'] ?? '');
+        $queueLeaseId = (string) data_get($queueRecord, 'metadata.lease_id', '');
+        $queueAgentId = (string) data_get($queueRecord, 'metadata.agent_id', '');
+        if ($queueStatus !== 'claimed') {
+            return $this->envelope('resolve_blocked', ['reason' => 'task_packet_not_claimed', 'task_packet_id' => $taskPacketId, 'queue_status' => $queueStatus]);
+        }
+        if ($queueLeaseId === '' || $queueLeaseId !== $leaseId) {
+            return $this->envelope('resolve_blocked', ['reason' => 'queue_lease_id_mismatch', 'task_packet_id' => $taskPacketId, 'queue_lease_id' => $queueLeaseId]);
+        }
+        if ($queueAgentId === '' || $queueAgentId !== $agentId) {
+            return $this->envelope('resolve_blocked', ['reason' => 'queue_agent_id_mismatch', 'task_packet_id' => $taskPacketId, 'queue_agent_id' => $queueAgentId]);
+        }
+
         $this->leases->release($leaseId, $agentId, ['reason' => 'resolved_committed']);
         $transition = $this->queue->updateStatus($taskPacketId, 'completed_dry_run', [
             'lease_id' => $leaseId,

@@ -645,6 +645,20 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         }
     }
 
+    public function test_mark_resolved_duplicate_is_blocked_after_first_resolve(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-dup')]);
+        $claim = $svc->claimNext('agent-dup');
+        $leaseId = (string) $claim['lease_id'];
+
+        $first = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
+        $this->assertSame('task_resolved', $first['event']);
+
+        $second = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
+        $this->assertSame('resolve_blocked', $second['event']);
+    }
+
     public function test_orchestrator_idempotent_enqueue(): void
     {
         $svc = $this->orchestrator();
