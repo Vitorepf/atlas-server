@@ -172,6 +172,103 @@ final class AtlasExternalBrainTieredCognitionRouterTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
     }
 
+    // ── risk_class ────────────────────────────────────────────────────────────
+
+    public function test_critical_risk_class_escalates_to_frontier(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.9,
+            'ambiguity_score'         => 0.0,
+            'is_conflicting_evidence' => false,
+            'risk_class'              => 'critical',
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertStringContainsString('risk_class_critical', $r['escalation_reason']);
+    }
+
+    public function test_low_risk_class_does_not_escalate(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.9,
+            'risk_class'              => 'low',
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_SMALL, $r['assigned_tier']);
+    }
+
+    // ── leverage_score ────────────────────────────────────────────────────────
+
+    public function test_high_leverage_with_low_scaffold_escalates_to_frontier(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.30,
+            'ambiguity_score'         => 0.10,
+            'is_conflicting_evidence' => false,
+            'leverage_score'          => 0.90,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertStringContainsString('high_leverage', $r['escalation_reason']);
+    }
+
+    public function test_high_leverage_with_strong_scaffold_does_not_escalate(): void
+    {
+        // Strong scaffold means we already know what to do — frontier unnecessary.
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.85,
+            'ambiguity_score'         => 0.0,
+            'is_conflicting_evidence' => false,
+            'leverage_score'          => 0.95,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_SMALL, $r['assigned_tier']);
+    }
+
+    public function test_low_leverage_does_not_escalate(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.30,
+            'leverage_score'          => 0.50,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_SCAFFOLDED, $r['assigned_tier']);
+    }
+
+    // ── expected_quality_delta ────────────────────────────────────────────────
+
+    public function test_high_expected_quality_delta_escalates_to_frontier(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.6,
+            'ambiguity_score'         => 0.2,
+            'expected_quality_delta'  => 0.50,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertStringContainsString('quality_delta', $r['escalation_reason']);
+    }
+
+    public function test_low_expected_quality_delta_does_not_escalate(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.6,
+            'expected_quality_delta'  => 0.20,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_SCAFFOLDED, $r['assigned_tier']);
+    }
+
+    public function test_quality_delta_at_threshold_escalates(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.5,
+            'expected_quality_delta'  => 0.40,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void
