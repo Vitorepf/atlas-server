@@ -75,11 +75,35 @@ final class AtlasNativeWorkerEvidenceWriter
         if ($filesChanged === null) {
             throw new RuntimeException('evidence writer: missing files_changed');
         }
+        if ($filesChanged === []) {
+            throw new RuntimeException('evidence writer: files_changed must not be empty');
+        }
         if ($commandsRun === null) {
             throw new RuntimeException('evidence writer: missing commands_run');
         }
+        if ($commandsRun === []) {
+            throw new RuntimeException('evidence writer: commands_run must not be empty');
+        }
+        $hasArtisan = false;
+        foreach ($commandsRun as $cmd) {
+            if (! is_array($cmd) || (string) ($cmd['command'] ?? '') === '') {
+                throw new RuntimeException('evidence writer: command row missing required command string');
+            }
+            if (! array_key_exists('exit_code', $cmd) || ! is_int($cmd['exit_code'])) {
+                throw new RuntimeException('evidence writer: command row missing required exit_code integer');
+            }
+            if (str_contains((string) $cmd['command'], 'php artisan')) {
+                $hasArtisan = true;
+            }
+        }
+        if (! $hasArtisan) {
+            throw new RuntimeException('evidence writer: no runnable php artisan proof command in commands_run');
+        }
         if ($gateResult === null || ! array_key_exists('passed', $gateResult)) {
             throw new RuntimeException('evidence writer: missing tests_or_gates_result.passed');
+        }
+        if (! ($gateResult['passed'] ?? false)) {
+            throw new RuntimeException('evidence writer: tests_or_gates_result.passed must be true');
         }
         foreach ($scopeDevs as $dev) {
             if (! is_array($dev) || empty($dev['acknowledged'])) {

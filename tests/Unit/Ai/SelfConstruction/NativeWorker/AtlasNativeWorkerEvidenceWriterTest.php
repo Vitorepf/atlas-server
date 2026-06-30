@@ -41,7 +41,7 @@ final class AtlasNativeWorkerEvidenceWriterTest extends TestCase
             'envelope_hash' => $envelopeHash,
             'runtime_owner' => AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER,
             'files_changed' => ['app/Foo.php'],
-            'commands_run' => [['name' => 'phpunit', 'exit_code' => 0]],
+            'commands_run' => [['command' => '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php', 'exit_code' => 0]],
             'tests_or_gates_result' => ['passed' => true, 'gate' => 'phpunit', 'count' => 1],
             'scope_deviations' => [],
             'residual_risks' => ['none'],
@@ -89,6 +89,60 @@ final class AtlasNativeWorkerEvidenceWriterTest extends TestCase
         $a['runtime_owner'] = 'external_provider';
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/non Atlas-native runtime_owner/');
+        $this->writer->append($a);
+    }
+
+    public function test_empty_files_changed_throws(): void
+    {
+        $a = $this->validAttempt();
+        $a['files_changed'] = [];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/files_changed must not be empty/');
+        $this->writer->append($a);
+    }
+
+    public function test_empty_commands_run_throws(): void
+    {
+        $a = $this->validAttempt();
+        $a['commands_run'] = [];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/commands_run must not be empty/');
+        $this->writer->append($a);
+    }
+
+    public function test_command_row_without_command_string_throws(): void
+    {
+        $a = $this->validAttempt();
+        $a['commands_run'] = [['exit_code' => 0]];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/command row missing required command string/');
+        $this->writer->append($a);
+    }
+
+    public function test_command_row_without_exit_code_integer_throws(): void
+    {
+        $a = $this->validAttempt();
+        $a['commands_run'] = [['command' => '/opt/homebrew/bin/php artisan test', 'exit_code' => '0']];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/command row missing required exit_code integer/');
+        $this->writer->append($a);
+    }
+
+    public function test_no_artisan_proof_command_throws(): void
+    {
+        $a = $this->validAttempt();
+        $a['commands_run'] = [['command' => 'composer install', 'exit_code' => 0]];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/no runnable php artisan proof command/');
+        $this->writer->append($a);
+    }
+
+    public function test_passed_false_throws(): void
+    {
+        $a = $this->validAttempt();
+        $a['tests_or_gates_result'] = ['passed' => false, 'gate' => 'phpunit'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/passed must be true/');
         $this->writer->append($a);
     }
 
