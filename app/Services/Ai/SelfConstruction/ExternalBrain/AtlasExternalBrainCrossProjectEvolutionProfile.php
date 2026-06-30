@@ -30,19 +30,27 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
 
     public const AUTONOMY_FULL_AUTONOMOUS = 'full_autonomous';
 
+    /** Lanes considered low-risk enough to lead a safe first task chain, in priority order. */
+    private const SAFE_LANE_PRIORITY = ['test', 'doc', 'bug-fix', 'refactor', 'feature'];
+
     private function __construct(private readonly array $profile) {}
 
     public static function forAtlas(): self
     {
+        $testReadiness = ['has_test_suite' => true, 'test_command' => './vendor/bin/phpunit', 'status' => 'ready'];
+        $taskLanes = ['feature', 'bug-fix', 'refactor', 'test', 'doc'];
+        $sourceOfTruthDocs = ['docs/engineering-knowledge-base/'];
+        $allowedTargets = ['app/', 'tests/'];
+
         return new self([
             'project_id' => 'atlas-server',
             'project_name' => 'Atlas Server',
             'is_canonical_atlas' => true,
             'autonomy_level' => self::AUTONOMY_FULL_AUTONOMOUS,
             'required_evidence_fields' => ['tests_or_gates_result', 'implementation_notes'],
-            'task_lanes' => ['feature', 'bug-fix', 'refactor', 'test', 'doc'],
-            'source_of_truth_docs' => ['docs/engineering-knowledge-base/'],
-            'allowed_targets' => ['app/', 'tests/'],
+            'task_lanes' => $taskLanes,
+            'source_of_truth_docs' => $sourceOfTruthDocs,
+            'allowed_targets' => $allowedTargets,
             'forbidden_targets' => ['.env', '.env.bak', 'storage/'],
             'property_gated_targets' => ['config/app.php', 'config/database.php'],
             'ledger_policy' => [
@@ -58,6 +66,11 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
                 'test'     => ['allowed_scope_prefixes' => ['tests/'], 'proof_gate' => 'phpunit_green'],
                 'doc'      => ['allowed_scope_prefixes' => ['docs/'], 'proof_gate' => 'doc_review_pass'],
             ],
+            'test_readiness' => $testReadiness,
+            'candidate_evolution_lanes' => self::rankLanesBySafety($taskLanes),
+            'safe_first_task_chain' => self::buildSafeFirstTaskChain($taskLanes, self::AUTONOMY_FULL_AUTONOMOUS, $testReadiness),
+            'transfer_blocked' => false,
+            'transfer_blocked_reasons' => [],
         ]);
     }
 
@@ -102,6 +115,26 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
             }
         }
 
+        $hasTestSuite = (bool) ($config['has_test_suite'] ?? false);
+        $testCommand = trim((string) ($config['test_command'] ?? ''));
+        $testReadiness = [
+            'has_test_suite' => $hasTestSuite,
+            'test_command' => $testCommand,
+            'status' => ($hasTestSuite && $testCommand !== '') ? 'ready' : 'not_ready',
+        ];
+
+        $transferBlockedReasons = [];
+        if ($sourceOfTruthDocs === []) {
+            $transferBlockedReasons[] = 'no_source_of_truth_docs_provided';
+        }
+        if ($allowedTargets === []) {
+            $transferBlockedReasons[] = 'no_allowed_targets_provided';
+        }
+        if ($testReadiness['status'] !== 'ready') {
+            $transferBlockedReasons[] = 'no_runnable_test_command_provided';
+        }
+        $transferBlocked = $transferBlockedReasons !== [];
+
         return new self([
             'project_id' => $projectId,
             'project_name' => (string) ($config['project_name'] ?? $projectId),
@@ -120,7 +153,45 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
             'proof_gates' => $proofGates,
             'maturity_risk' => $maturityRisk,
             'lane_boundaries' => $laneBoundaries,
+            'test_readiness' => $testReadiness,
+            'candidate_evolution_lanes' => self::rankLanesBySafety($taskLanes),
+            'safe_first_task_chain' => $transferBlocked ? [] : self::buildSafeFirstTaskChain($taskLanes, $resolvedLevel, $testReadiness),
+            'transfer_blocked' => $transferBlocked,
+            'transfer_blocked_reasons' => $transferBlockedReasons,
         ]);
+    }
+
+    /**
+     * Orders task_lanes from lowest to highest blast radius so a fresh
+     * project always evolves test/doc coverage before touching feature code.
+     *
+     * @param  list<string>  $taskLanes
+     * @return list<string>
+     */
+    private static function rankLanesBySafety(array $taskLanes): array
+    {
+        $ranked = array_values(array_intersect(self::SAFE_LANE_PRIORITY, $taskLanes));
+        $unranked = array_values(array_diff($taskLanes, self::SAFE_LANE_PRIORITY));
+
+        return array_merge($ranked, $unranked);
+    }
+
+    /**
+     * The safe first chain a brand-new project should run: never recommended
+     * when the project is too thin for autonomous task creation (no test
+     * readiness, or autonomy capped to readonly_planning).
+     *
+     * @param  list<string>  $taskLanes
+     * @param  array{has_test_suite:bool, test_command:string, status:string}  $testReadiness
+     * @return list<string>
+     */
+    private static function buildSafeFirstTaskChain(array $taskLanes, string $autonomyLevel, array $testReadiness): array
+    {
+        if ($autonomyLevel === self::AUTONOMY_READONLY_PLANNING || $testReadiness['status'] !== 'ready') {
+            return [];
+        }
+
+        return self::rankLanesBySafety($taskLanes);
     }
 
     /** @return array<string,mixed> */
@@ -207,6 +278,35 @@ final class AtlasExternalBrainCrossProjectEvolutionProfile
     public function laneBoundaries(): array
     {
         return $this->profile['lane_boundaries'];
+    }
+
+    /** @return array{has_test_suite:bool, test_command:string, status:string} */
+    public function testReadiness(): array
+    {
+        return $this->profile['test_readiness'];
+    }
+
+    /** @return list<string> */
+    public function candidateEvolutionLanes(): array
+    {
+        return $this->profile['candidate_evolution_lanes'];
+    }
+
+    /** @return list<string> */
+    public function safeFirstTaskChain(): array
+    {
+        return $this->profile['safe_first_task_chain'];
+    }
+
+    public function isTransferBlocked(): bool
+    {
+        return (bool) $this->profile['transfer_blocked'];
+    }
+
+    /** @return list<string> */
+    public function transferBlockedReasons(): array
+    {
+        return $this->profile['transfer_blocked_reasons'];
     }
 
     /**

@@ -253,4 +253,99 @@ final class AtlasExternalBrainCrossProjectEvolutionProfileTest extends TestCase
 
         $this->assertTrue($a->isDistinctProjectFrom($b));
     }
+
+    // ── test readiness, candidate lanes, safe first chain, transfer block ────
+
+    private function fullProjectConfig(array $overrides = []): array
+    {
+        return array_merge([
+            'source_of_truth_docs' => ['docs/README.md'],
+            'allowed_targets' => ['src/'],
+            'task_lanes' => ['feature', 'bug-fix', 'test', 'doc'],
+            'has_test_suite' => true,
+            'test_command' => 'npm test',
+            'autonomy_level' => AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_SUPERVISED,
+        ], $overrides);
+    }
+
+    public function test_atlas_profile_has_test_readiness_lanes_and_safe_first_chain(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+
+        $this->assertSame('ready', $profile->testReadiness()['status']);
+        $this->assertNotEmpty($profile->candidateEvolutionLanes());
+        $this->assertNotEmpty($profile->safeFirstTaskChain());
+        $this->assertFalse($profile->isTransferBlocked());
+    }
+
+    public function test_full_context_project_is_not_transfer_blocked_and_gets_safe_chain(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('widget-app', $this->fullProjectConfig());
+
+        $this->assertFalse($profile->isTransferBlocked());
+        $this->assertSame([], $profile->transferBlockedReasons());
+        $this->assertNotEmpty($profile->safeFirstTaskChain());
+        $this->assertSame('ready', $profile->testReadiness()['status']);
+    }
+
+    public function test_safe_first_task_chain_prioritizes_test_and_doc_lanes_first(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('widget-app', $this->fullProjectConfig());
+        $chain = $profile->safeFirstTaskChain();
+
+        $this->assertSame('test', $chain[0]);
+        $this->assertSame('doc', $chain[1]);
+    }
+
+    public function test_thin_context_project_is_transfer_blocked(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('mystery-project', []);
+
+        $this->assertTrue($profile->isTransferBlocked());
+        $this->assertContains('no_source_of_truth_docs_provided', $profile->transferBlockedReasons());
+        $this->assertContains('no_allowed_targets_provided', $profile->transferBlockedReasons());
+        $this->assertContains('no_runnable_test_command_provided', $profile->transferBlockedReasons());
+        $this->assertSame([], $profile->safeFirstTaskChain());
+    }
+
+    public function test_project_missing_only_test_readiness_is_still_blocked(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('widget-app', $this->fullProjectConfig([
+            'has_test_suite' => false,
+            'test_command' => '',
+        ]));
+
+        $this->assertTrue($profile->isTransferBlocked());
+        $this->assertContains('no_runnable_test_command_provided', $profile->transferBlockedReasons());
+        $this->assertSame('not_ready', $profile->testReadiness()['status']);
+        $this->assertSame([], $profile->safeFirstTaskChain());
+    }
+
+    public function test_blocked_transfer_does_not_assume_atlas_internals(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('totally-foreign-project', []);
+
+        $this->assertFalse($profile->isCanonicalAtlas());
+        $this->assertSame(AtlasExternalBrainCrossProjectEvolutionProfile::AUTONOMY_READONLY_PLANNING, $profile->autonomyLevel());
+    }
+
+    public function test_candidate_evolution_lanes_orders_by_safety_and_includes_every_lane(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('widget-app', $this->fullProjectConfig([
+            'task_lanes' => ['feature', 'test', 'custom-lane'],
+        ]));
+
+        $lanes = $profile->candidateEvolutionLanes();
+        $this->assertSame(['test', 'feature', 'custom-lane'], $lanes);
+    }
+
+    public function test_to_array_exposes_new_fields(): void
+    {
+        $profile = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('widget-app', $this->fullProjectConfig());
+        $array = $profile->toArray();
+
+        foreach (['test_readiness', 'candidate_evolution_lanes', 'safe_first_task_chain', 'transfer_blocked', 'transfer_blocked_reasons'] as $field) {
+            $this->assertArrayHasKey($field, $array);
+        }
+    }
 }
