@@ -171,9 +171,19 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
             }
         }
 
+        $expansionDecision = $accepted === [] ? 'no_op' : ($admittedCount > 0 ? 'selected' : 'blocked');
+
+        $candidateEvidenceRefs = [];
+        foreach ($accepted as $c) {
+            foreach ((array) ($c['evidence_refs'] ?? []) as $ref) {
+                $candidateEvidenceRefs[] = (string) $ref;
+            }
+        }
+
         $payload = [
             'schema_version' => self::SCHEMA,
             'status' => 'ok',
+            'expansion_decision' => $expansionDecision,
             'dry_run' => ! $apply,
             'ranked_candidates' => $ranked,
             'readiness' => $readinessByCandidate,
@@ -185,6 +195,11 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycle
             'withheld_actions' => $withheldActions,
             'receipts' => [
                 'ranker_hash' => (string) ($ranked['ranker_hash'] ?? ''),
+                'readiness_hashes' => array_map(
+                    static fn (array $r): string => (string) ($r['readiness_hash'] ?? ''),
+                    $readinessByCandidate,
+                ),
+                'candidate_evidence_refs' => array_values(array_unique($candidateEvidenceRefs)),
             ],
         ];
         $payload['governor_cycle_hash'] = $this->hash($payload);

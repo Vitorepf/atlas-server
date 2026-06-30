@@ -39,6 +39,9 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycleTest extends TestCas
                 'final_runtime_owner' => 'atlas_native',
                 'docs_health' => true,
                 'code_intelligence_ready' => true,
+                'knowledge_sync_current' => true,
+                'test_suite_green' => true,
+                'worker_capacity_available' => true,
             ],
         ];
     }
@@ -169,6 +172,77 @@ final class AtlasSelfConstructionScopeExpansionGovernorCycleTest extends TestCas
         foreach ($out['withheld_actions'] as $w) {
             $this->assertStringContainsString('forbidden_action_kind:', $w['reason']);
         }
+    }
+
+    public function test_expansion_decision_is_no_op_when_all_candidates_rejected(): void
+    {
+        $bad = $this->readyCandidate('bad');
+        $bad['requires_human'] = true;
+
+        $out = (new AtlasSelfConstructionScopeExpansionGovernorCycle)->run([
+            'candidates' => [$bad],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertSame('no_op', $out['expansion_decision']);
+    }
+
+    public function test_expansion_decision_is_blocked_when_accepted_but_readiness_not_ready(): void
+    {
+        // No readiness_facts supplied → gate returns hold → not admitted → blocked decision
+        $out = (new AtlasSelfConstructionScopeExpansionGovernorCycle)->run([
+            'candidates' => [$this->readyCandidate('scope-x')],
+            'risk_budget' => ['max_risk' => 10],
+            // readiness_facts intentionally omitted → all mandatory facts missing → BLOCKED
+        ]);
+
+        $this->assertSame('blocked', $out['expansion_decision']);
+        $this->assertSame(0, $out['admitted_count']);
+    }
+
+    public function test_expansion_decision_is_selected_when_admitted(): void
+    {
+        $admissionPlan = [
+            'status' => 'ready',
+            'candidate_id' => 'scope-a',
+            'actions' => [],
+        ];
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle(
+            null, null, null,
+            static fn (array $c, array $r, array $l): array => $admissionPlan,
+        );
+
+        $out = $cycle->run([
+            'candidates' => [$this->readyCandidate()],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $this->readyFactsFor('scope-a'),
+            'lane_facts' => $this->laneFactsFor('scope-a'),
+        ]);
+
+        $this->assertSame('selected', $out['expansion_decision']);
+        $this->assertSame(1, $out['admitted_count']);
+    }
+
+    public function test_receipts_record_ranker_hash_readiness_hashes_and_evidence_refs(): void
+    {
+        $admissionPlan = ['status' => 'ready', 'candidate_id' => 'scope-a', 'actions' => []];
+        $cycle = new AtlasSelfConstructionScopeExpansionGovernorCycle(
+            null, null, null,
+            static fn (array $c, array $r, array $l): array => $admissionPlan,
+        );
+
+        $out = $cycle->run([
+            'candidates' => [$this->readyCandidate()],
+            'risk_budget' => ['max_risk' => 10],
+            'readiness_facts' => $this->readyFactsFor('scope-a'),
+            'lane_facts' => $this->laneFactsFor('scope-a'),
+        ]);
+
+        $receipts = $out['receipts'];
+        $this->assertNotEmpty($receipts['ranker_hash']);
+        $this->assertIsArray($receipts['readiness_hashes']);
+        $this->assertNotEmpty($receipts['readiness_hashes']);
+        $this->assertContains('doc:source.md', $receipts['candidate_evidence_refs']);
     }
 
     public function test_rejected_candidate_does_not_become_admission_plan_action(): void
