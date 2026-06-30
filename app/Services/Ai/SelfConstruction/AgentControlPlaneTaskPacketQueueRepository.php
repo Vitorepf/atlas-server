@@ -616,6 +616,85 @@ final class AgentControlPlaneTaskPacketQueueRepository
     }
 
     /**
+     * Read-only registry-vs-task-file drift report. Detects registry entries
+     * without a task file, task file hash mismatches, registry status
+     * mismatches against the task file, and missing updated_at. Never
+     * mutates the registry, a task record, receipts, or history.
+     *
+     * @return array<string, mixed>
+     */
+    public function integrityReport(): array
+    {
+        $registry = $this->loadRegistry();
+        $entries = (array) ($registry['entries'] ?? []);
+
+        $issues = [];
+        foreach ($entries as $entry) {
+            $taskPacketId = (string) ($entry['task_packet_id'] ?? '');
+            $record = $this->readTaskFile($taskPacketId);
+
+            if ($record === null) {
+                $issues[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'issue' => 'registry_entry_without_task_file',
+                ];
+
+                continue;
+            }
+
+            if ((bool) ($record['corrupt'] ?? false)) {
+                $issues[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'issue' => 'task_file_corrupt',
+                ];
+
+                continue;
+            }
+
+            $registryHash = (string) ($entry['task_packet_hash'] ?? '');
+            $fileHash = (string) ($record['task_packet_hash'] ?? '');
+            if ($registryHash !== $fileHash) {
+                $issues[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'issue' => 'task_file_hash_mismatch',
+                    'registry_hash' => $registryHash,
+                    'file_hash' => $fileHash,
+                ];
+            }
+
+            $registryStatus = (string) ($entry['status'] ?? '');
+            $fileStatus = (string) ($record['status'] ?? '');
+            if ($registryStatus !== $fileStatus) {
+                $issues[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'issue' => 'registry_status_mismatch',
+                    'registry_status' => $registryStatus,
+                    'file_status' => $fileStatus,
+                ];
+            }
+
+            if (trim((string) ($record['updated_at'] ?? '')) === '') {
+                $issues[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'issue' => 'missing_updated_at',
+                ];
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'status' => $issues === [] ? 'ok' : 'drift_detected',
+            'checked_count' => count($entries),
+            'issue_count' => count($issues),
+            'issues' => $issues,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
+    }
+
+    /**
      * Prune queue records that match explicit tags or id prefixes.
      *
      * This is intentionally narrow and defaults to preserving claimed packets
