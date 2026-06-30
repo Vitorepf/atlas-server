@@ -256,6 +256,75 @@ final class AtlasExternalBrainMuscleReadinessContractTest extends TestCase
         $this->assertSame(AtlasExternalBrainMuscleReadinessContract::CATEGORY_REPAIRABLE, $r['failure_category']);
     }
 
+    // ── worker_readiness ──────────────────────────────────────────────────────
+
+    private function workerReadyFacts(): array
+    {
+        return [
+            'scope_discipline_facts'    => ['out_of_scope_incidents' => 0, 'total_tasks' => 10],
+            'runnable_proof_facts'      => ['can_run_phpunit' => true, 'can_run_artisan' => true],
+            'give_back_hygiene_facts'   => ['give_back_rate' => 0.1],
+            'current_load_facts'        => ['active_tasks' => 1, 'capacity' => 5],
+        ];
+    }
+
+    public function test_worker_readiness_key_exists_in_output(): void
+    {
+        $r = $this->contract->check($this->readySpec());
+        $this->assertArrayHasKey('worker_readiness', $r);
+        $this->assertArrayHasKey('verdict', $r['worker_readiness']);
+    }
+
+    public function test_worker_readiness_verdict_ready_when_all_facts_good(): void
+    {
+        $r = $this->contract->check($this->readySpec($this->workerReadyFacts()));
+        $this->assertSame('ready', $r['worker_readiness']['verdict']);
+        $this->assertTrue($r['worker_readiness']['scope_discipline']['ready']);
+        $this->assertTrue($r['worker_readiness']['runnable_proof_support']['ready']);
+        $this->assertTrue($r['worker_readiness']['give_back_hygiene']['ready']);
+        $this->assertTrue($r['worker_readiness']['current_load']['ready']);
+    }
+
+    public function test_missing_scope_discipline_facts_yields_deficiency(): void
+    {
+        $r = $this->contract->check($this->readySpec());
+        $wr = $r['worker_readiness'];
+        $this->assertFalse($wr['scope_discipline']['ready']);
+        $this->assertContains('scope_discipline_evidence_missing', $wr['scope_discipline']['deficiency_codes']);
+        $this->assertSame('not_ready', $wr['verdict']);
+    }
+
+    public function test_high_give_back_rate_yields_hygiene_deficiency(): void
+    {
+        $facts = $this->workerReadyFacts();
+        $facts['give_back_hygiene_facts']['give_back_rate'] = 0.6;
+        $r = $this->contract->check($this->readySpec($facts));
+        $wr = $r['worker_readiness'];
+        $this->assertFalse($wr['give_back_hygiene']['ready']);
+        $this->assertContains('give_back_hygiene_rate_too_high', $wr['give_back_hygiene']['deficiency_codes']);
+        $this->assertSame('not_ready', $wr['verdict']);
+    }
+
+    public function test_worker_at_capacity_yields_load_deficiency(): void
+    {
+        $facts = $this->workerReadyFacts();
+        $facts['current_load_facts'] = ['active_tasks' => 5, 'capacity' => 5];
+        $r = $this->contract->check($this->readySpec($facts));
+        $wr = $r['worker_readiness'];
+        $this->assertFalse($wr['current_load']['ready']);
+        $this->assertContains('current_load_worker_at_or_over_capacity', $wr['current_load']['deficiency_codes']);
+    }
+
+    public function test_no_test_runner_available_yields_runnable_proof_deficiency(): void
+    {
+        $facts = $this->workerReadyFacts();
+        $facts['runnable_proof_facts'] = ['can_run_phpunit' => false, 'can_run_artisan' => false];
+        $r = $this->contract->check($this->readySpec($facts));
+        $wr = $r['worker_readiness'];
+        $this->assertFalse($wr['runnable_proof_support']['ready']);
+        $this->assertContains('runnable_proof_support_no_test_runner_available', $wr['runnable_proof_support']['deficiency_codes']);
+    }
+
     public function test_repair_hints_aggregate_from_all_failed_checks(): void
     {
         $r = $this->contract->check($this->readySpec([

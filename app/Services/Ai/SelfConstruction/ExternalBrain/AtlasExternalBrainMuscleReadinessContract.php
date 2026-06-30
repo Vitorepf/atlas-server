@@ -99,6 +99,7 @@ final class AtlasExternalBrainMuscleReadinessContract
             'failure_category' => $failureCategory,
             'checks' => $checkOutput,
             'repair_hints' => $hints,
+            'worker_readiness' => $this->assessWorkerReadiness($spec),
         ];
     }
 
@@ -270,6 +271,70 @@ final class AtlasExternalBrainMuscleReadinessContract
         }
 
         return self::CATEGORY_REPAIRABLE;
+    }
+
+    /**
+     * Assess worker-level readiness dimensions from optional worker facts.
+     * Missing facts → deficiency, not ready (no optimistic declarations allowed).
+     *
+     * @param  array<string,mixed>  $spec
+     * @return array{scope_discipline:array<string,mixed>, runnable_proof_support:array<string,mixed>, give_back_hygiene:array<string,mixed>, current_load:array<string,mixed>, verdict:string}
+     */
+    private function assessWorkerReadiness(array $spec): array
+    {
+        // scope_discipline
+        $sd = is_array($spec['scope_discipline_facts'] ?? null) ? $spec['scope_discipline_facts'] : null;
+        $sdDef = [];
+        if ($sd === null) {
+            $sdDef[] = 'scope_discipline_evidence_missing';
+        } else {
+            $totalTasks = max(1, (int) ($sd['total_tasks'] ?? 0));
+            $incidents = (int) ($sd['out_of_scope_incidents'] ?? 0);
+            if (($incidents / $totalTasks) > 0.2) {
+                $sdDef[] = 'scope_discipline_out_of_scope_rate_too_high';
+            }
+        }
+        $scopeDiscipline = ['ready' => $sdDef === [], 'deficiency_codes' => $sdDef];
+
+        // runnable_proof_support
+        $rp = is_array($spec['runnable_proof_facts'] ?? null) ? $spec['runnable_proof_facts'] : null;
+        $rpDef = [];
+        if ($rp === null) {
+            $rpDef[] = 'runnable_proof_support_evidence_missing';
+        } elseif (! (bool) ($rp['can_run_phpunit'] ?? false) && ! (bool) ($rp['can_run_artisan'] ?? false)) {
+            $rpDef[] = 'runnable_proof_support_no_test_runner_available';
+        }
+        $runnableProof = ['ready' => $rpDef === [], 'deficiency_codes' => $rpDef];
+
+        // give_back_hygiene
+        $gb = is_array($spec['give_back_hygiene_facts'] ?? null) ? $spec['give_back_hygiene_facts'] : null;
+        $gbDef = [];
+        if ($gb === null) {
+            $gbDef[] = 'give_back_hygiene_evidence_missing';
+        } elseif (isset($gb['give_back_rate']) && (float) $gb['give_back_rate'] > 0.5) {
+            $gbDef[] = 'give_back_hygiene_rate_too_high';
+        }
+        $giveBack = ['ready' => $gbDef === [], 'deficiency_codes' => $gbDef];
+
+        // current_load
+        $cl = is_array($spec['current_load_facts'] ?? null) ? $spec['current_load_facts'] : null;
+        $clDef = [];
+        if ($cl === null) {
+            $clDef[] = 'current_load_evidence_missing';
+        } elseif ((int) ($cl['active_tasks'] ?? 0) >= max(1, (int) ($cl['capacity'] ?? 1))) {
+            $clDef[] = 'current_load_worker_at_or_over_capacity';
+        }
+        $currentLoad = ['ready' => $clDef === [], 'deficiency_codes' => $clDef];
+
+        $allReady = $scopeDiscipline['ready'] && $runnableProof['ready'] && $giveBack['ready'] && $currentLoad['ready'];
+
+        return [
+            'scope_discipline'       => $scopeDiscipline,
+            'runnable_proof_support' => $runnableProof,
+            'give_back_hygiene'      => $giveBack,
+            'current_load'           => $currentLoad,
+            'verdict'                => $allReady ? 'ready' : 'not_ready',
+        ];
     }
 
     /** @param list<string> $reasons @param list<string> $hints @return array<string, mixed> */
