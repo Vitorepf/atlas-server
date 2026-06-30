@@ -36,9 +36,60 @@ final class AtlasExternalBrainFinalityEvidenceBundleTest extends TestCase
     {
         $r = $this->bundle()->assemble([]);
         $this->assertSame(AtlasExternalBrainFinalityEvidenceBundle::SCHEMA, $r['schema_version']);
-        foreach (['is_final', 'blockers', 'satisfied_dimensions', 'bundle_evidence', 'finality_score', 'readiness_band', 'finality_summary'] as $k) {
+        foreach (['is_final', 'blockers', 'satisfied_dimensions', 'bundle_evidence', 'finality_score', 'readiness_band',
+                  'readiness_percent', 'missing_categories', 'next_highest_leverage_gap', 'finality_summary'] as $k) {
             $this->assertArrayHasKey($k, $r);
         }
+    }
+
+    public function test_readiness_percent_is_finality_score_times_100(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['name' => 'autonomy']), $this->dim(['name' => 'queue_health', 'is_proven' => false])],
+        ]);
+
+        $this->assertSame(50.0, $r['readiness_percent']);
+    }
+
+    public function test_missing_categories_lists_blocked_dimension_names(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['name' => 'autonomy']), $this->dim(['name' => 'provider_independence', 'is_stale' => true])],
+        ]);
+
+        $this->assertSame(['provider_independence'], $r['missing_categories']);
+    }
+
+    public function test_missing_categories_empty_when_final(): void
+    {
+        $r = $this->bundle()->assemble(['dimensions' => [$this->dim()]]);
+
+        $this->assertSame([], $r['missing_categories']);
+        $this->assertNull($r['next_highest_leverage_gap']);
+    }
+
+    public function test_next_highest_leverage_gap_is_first_blocked_dimension(): void
+    {
+        $r = $this->bundle()->assemble([
+            'dimensions' => [
+                $this->dim(['name' => 'task_quality', 'is_unwired' => true]),
+                $this->dim(['name' => 'certification', 'is_undocumented' => true]),
+            ],
+        ]);
+
+        $this->assertSame('task_quality', $r['next_highest_leverage_gap']);
+    }
+
+    public function test_self_declared_proven_without_evidence_blocks_95_readiness(): void
+    {
+        // is_proven=true but no evidence_refs — a self-declared claim with no proof.
+        $r = $this->bundle()->assemble([
+            'dimensions' => [$this->dim(['name' => 'simplification', 'is_proven' => true, 'evidence_refs' => []])],
+        ]);
+
+        $this->assertFalse($r['is_final']);
+        $this->assertLessThan(95.0, $r['readiness_percent']);
+        $this->assertContains('simplification', $r['missing_categories']);
     }
 
     // ── is_final=true path ────────────────────────────────────────────────────

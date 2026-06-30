@@ -115,15 +115,20 @@ final class AtlasExternalBrainFinalityEvidenceBundle
         $finalityScore = $totalRequired > 0 ? round($satisfied / $totalRequired, 4) : 1.0;
         $readinessBand = $this->readinessBand($finalityScore, $isFinal);
 
+        $missingCategories = array_values(array_unique(array_column($blockers, 'dimension')));
+
         return [
-            'schema_version'       => self::SCHEMA,
-            'is_final'             => $isFinal,
-            'blockers'             => $blockers,
-            'satisfied_dimensions' => $satisfiedDimensions,
-            'bundle_evidence'      => array_values(array_keys($bundleEvidence)),
-            'finality_score'       => $finalityScore,
-            'readiness_band'       => $readinessBand,
-            'finality_summary'     => $this->summary($isFinal, $totalRequired, $satisfied, $blockers),
+            'schema_version'             => self::SCHEMA,
+            'is_final'                   => $isFinal,
+            'blockers'                   => $blockers,
+            'satisfied_dimensions'       => $satisfiedDimensions,
+            'bundle_evidence'            => array_values(array_keys($bundleEvidence)),
+            'finality_score'             => $finalityScore,
+            'readiness_percent'          => round($finalityScore * 100, 2),
+            'readiness_band'             => $readinessBand,
+            'missing_categories'         => $missingCategories,
+            'next_highest_leverage_gap'  => $blockers[0]['dimension'] ?? null,
+            'finality_summary'           => $this->summary($isFinal, $totalRequired, $satisfied, $blockers),
         ];
     }
 
