@@ -147,4 +147,144 @@ final class AtlasTaskFabricLowValueRetirementQueueTest extends TestCase
         $y = $this->queue()->evaluate($facts);
         $this->assertSame(json_encode($x), json_encode($y));
     }
+
+    // ── AC2: inflation signals retire high-declared-value specs ───────────────
+
+    public function test_high_proxy_risk_retires_inflated_high_value_spec(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'             => 't1',
+            'value_estimate' => 0.95,   // optimistically high
+            'proxy_risk'     => 0.80,   // above 0.70 threshold
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame('high_proxy_risk', $r['retired'][0]['retirement_reason']);
+    }
+
+    public function test_high_template_similarity_retires_inflated_spec(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'                  => 't1',
+            'value_estimate'      => 0.90,
+            'template_similarity' => 0.75,
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame('high_template_similarity', $r['retired'][0]['retirement_reason']);
+    }
+
+    public function test_repeated_give_back_count_retires_spec(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'                        => 't1',
+            'value_estimate'            => 0.85,
+            'repeated_give_back_count'  => 3,
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame('repeated_give_back', $r['retired'][0]['retirement_reason']);
+    }
+
+    public function test_give_back_count_below_threshold_does_not_retire(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'                       => 't1',
+            'value_estimate'           => 0.85,
+            'repeated_give_back_count' => 2,  // threshold is 3
+        ]]]);
+
+        $this->assertEmpty($r['retired']);
+        $this->assertCount(1, $r['ineligible']);
+    }
+
+    public function test_quarantine_count_retires_spec(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'              => 't1',
+            'value_estimate'  => 0.88,
+            'quarantine_count' => 2,
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame('over_quarantined', $r['retired'][0]['retirement_reason']);
+    }
+
+    public function test_stale_without_commit_retires_spec(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'                  => 't1',
+            'value_estimate'      => 0.90,
+            'stale_without_commit' => true,
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame('stale_without_commit', $r['retired'][0]['retirement_reason']);
+    }
+
+    public function test_inflation_signals_overrule_high_value_estimate(): void
+    {
+        // High declared value (0.95) but all inflation signals present
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'                       => 't1',
+            'value_estimate'           => 0.95,
+            'proxy_risk'               => 0.80,
+            'template_similarity'      => 0.75,
+            'repeated_give_back_count' => 4,
+            'quarantine_count'         => 3,
+        ]]]);
+
+        $this->assertCount(1, $r['retired'], 'Inflated high-value spec must be retired');
+        $this->assertEmpty($r['ineligible']);
+    }
+
+    // ── AC3: replacement_or_respec contract ──────────────────────────────────
+
+    public function test_retired_item_has_replacement_or_respec(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('t1', 0.1)]]);
+
+        $this->assertArrayHasKey('replacement_or_respec', $r['retired'][0]);
+        $this->assertArrayHasKey('action',                $r['retired'][0]['replacement_or_respec']);
+    }
+
+    public function test_retired_with_replacement_candidate_action_is_replace(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id'                   => 't1',
+            'value_estimate'       => 0.05,
+            'replacement_candidate' => 'task-better-v2',
+        ]]]);
+
+        $this->assertSame('replace', $r['retired'][0]['replacement_or_respec']['action']);
+        $this->assertSame('task-better-v2', $r['retired'][0]['replacement_or_respec']['replacement_candidate_id']);
+    }
+
+    public function test_retired_without_replacement_candidate_action_is_respec_required(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('t1', 0.05)]]);
+
+        $this->assertSame('respec_required', $r['retired'][0]['replacement_or_respec']['action']);
+        $this->assertNull($r['retired'][0]['replacement_or_respec']['replacement_candidate_id']);
+    }
+
+    public function test_critical_chain_protected_even_with_all_inflation_signals(): void
+    {
+        $r = $this->queue()->evaluate([
+            'candidates' => [[
+                'id'                       => 't1',
+                'value_estimate'           => 0.0,
+                'proxy_risk'               => 0.99,
+                'template_similarity'      => 0.99,
+                'repeated_give_back_count' => 10,
+                'quarantine_count'         => 10,
+                'stale_without_commit'     => true,
+            ]],
+            'critical_dependency_chains' => ['t1'],
+        ]);
+
+        $this->assertEmpty($r['retired']);
+        $this->assertCount(1, $r['protected']);
+        $this->assertSame('on_critical_dependency_chain', $r['protected'][0]['protection_reason']);
+    }
 }
