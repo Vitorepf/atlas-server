@@ -33,6 +33,7 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
     public const DRIFT_STALE_OWNER_EVIDENCE        = 'stale_owner_evidence';
     public const DRIFT_MATURITY_REGRESSION         = 'maturity_regression';
     public const DRIFT_RETIRED_BLOCKED_QUEUE       = 'retired_blocked_queue_conflict';
+    public const DRIFT_MISSING_NEXT_LEVERAGE       = 'missing_next_leverage';
 
     public const STALE_AGE_THRESHOLD_DAYS = 30;
 
@@ -48,14 +49,15 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
 
     /** @var array<string,list<string>> */
     private const EVIDENCE_BY_DRIFT = [
-        self::DRIFT_CONTRADICTORY         => ['completion_proof', 'integration_test_result'],
-        self::DRIFT_MISSING               => ['area_discovery_scan', 'capability_mapping'],
-        self::DRIFT_STALE                 => ['area_revalidation', 'fresh_evidence_scan'],
-        self::DRIFT_MISSING_OWNER         => ['owner_assignment', 'domain_mapping'],
-        self::DRIFT_MISSING_MATURITY_BAND => ['maturity_assessment', 'capability_evaluation'],
-        self::DRIFT_STALE_OWNER_EVIDENCE  => ['owner_revalidation', 'fresh_ownership_proof'],
-        self::DRIFT_MATURITY_REGRESSION   => ['regression_root_cause', 'follow_up_task_ref'],
-        self::DRIFT_RETIRED_BLOCKED_QUEUE => ['queue_redirect', 'area_reactivation_gate'],
+        self::DRIFT_CONTRADICTORY          => ['completion_proof', 'integration_test_result'],
+        self::DRIFT_MISSING                => ['area_discovery_scan', 'capability_mapping'],
+        self::DRIFT_STALE                  => ['area_revalidation', 'fresh_evidence_scan'],
+        self::DRIFT_MISSING_OWNER          => ['owner_assignment', 'domain_mapping'],
+        self::DRIFT_MISSING_MATURITY_BAND  => ['maturity_assessment', 'capability_evaluation'],
+        self::DRIFT_STALE_OWNER_EVIDENCE   => ['owner_revalidation', 'fresh_ownership_proof'],
+        self::DRIFT_MATURITY_REGRESSION    => ['regression_root_cause', 'follow_up_task_ref'],
+        self::DRIFT_RETIRED_BLOCKED_QUEUE  => ['queue_redirect', 'area_reactivation_gate'],
+        self::DRIFT_MISSING_NEXT_LEVERAGE  => ['leverage_assessment', 'next_opportunity_scan'],
     ];
 
     /**
@@ -84,42 +86,55 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
             $ownerEvidenceAge    = max(0, (int) ($entry['owner_evidence_age_days'] ?? 0));
             $prevBand            = (string) ($entry['previous_maturity_band'] ?? '');
             $hasFollowUp         = (bool) ($entry['has_follow_up_task']       ?? true);
+            $nextLeverage        = (string) ($entry['next_leverage']          ?? '');
 
-            $mappedIds[]             = $areaId;
-            $areaStateMap[$areaId]   = $state;
+            $mappedIds[]           = $areaId;
+            $areaStateMap[$areaId] = $state;
+
+            // Confidence reduced by evidence staleness (AC3).
+            $confidence = match (true) {
+                $ageDays >= 2 * self::STALE_AGE_THRESHOLD_DAYS => 'low',
+                $ageDays >= self::STALE_AGE_THRESHOLD_DAYS     => 'medium',
+                default                                        => 'high',
+            };
 
             if ($state === 'integrated' && ! $hasEvidence) {
-                $findings[] = $this->finding($areaId, self::DRIFT_CONTRADICTORY, 'high');
+                $findings[] = $this->finding($areaId, self::DRIFT_CONTRADICTORY, 'high', $confidence);
             } elseif ($ageDays > self::STALE_AGE_THRESHOLD_DAYS) {
-                $findings[] = $this->finding($areaId, self::DRIFT_STALE, 'medium');
+                $findings[] = $this->finding($areaId, self::DRIFT_STALE, 'medium', $confidence);
             }
 
             if ($owner === '') {
-                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_OWNER, 'medium');
+                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_OWNER, 'medium', $confidence);
             }
 
             if ($maturityBand === '') {
-                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_MATURITY_BAND, 'medium');
+                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_MATURITY_BAND, 'medium', $confidence);
             }
 
             if ($ownerEvidenceAge > self::STALE_AGE_THRESHOLD_DAYS) {
-                $findings[] = $this->finding($areaId, self::DRIFT_STALE_OWNER_EVIDENCE, 'medium');
+                $findings[] = $this->finding($areaId, self::DRIFT_STALE_OWNER_EVIDENCE, 'medium', $confidence);
             }
 
             if ($prevBand !== '' && $maturityBand !== '' && ! $hasFollowUp) {
                 $prevOrder = self::MATURITY_BAND_ORDER[$prevBand] ?? -1;
                 $currOrder = self::MATURITY_BAND_ORDER[$maturityBand] ?? -1;
                 if ($prevOrder > $currOrder) {
-                    $findings[] = $this->finding($areaId, self::DRIFT_MATURITY_REGRESSION, 'medium');
+                    $findings[] = $this->finding($areaId, self::DRIFT_MATURITY_REGRESSION, 'medium', $confidence);
                 }
+            }
+
+            // AC2: missing next_leverage for a known domain (AC2).
+            if ($nextLeverage === '') {
+                $findings[] = $this->finding($areaId, self::DRIFT_MISSING_NEXT_LEVERAGE, 'medium', $confidence);
             }
         }
 
         foreach ($queuedAreas as $area) {
             if (! in_array($area, $mappedIds, true)) {
-                $findings[] = $this->finding($area, self::DRIFT_MISSING, 'high');
+                $findings[] = $this->finding($area, self::DRIFT_MISSING, 'high', 'high');
             } elseif (in_array($areaStateMap[$area] ?? '', ['retired', 'blocked'], true)) {
-                $findings[] = $this->finding($area, self::DRIFT_RETIRED_BLOCKED_QUEUE, 'high');
+                $findings[] = $this->finding($area, self::DRIFT_RETIRED_BLOCKED_QUEUE, 'high', 'high');
             }
         }
 
@@ -139,12 +154,13 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
     }
 
     /** @return array<string,mixed> */
-    private function finding(string $areaId, string $driftType, string $impactLevel): array
+    private function finding(string $areaId, string $driftType, string $impactLevel, string $confidence): array
     {
         return [
-            'area_id' => $areaId,
-            'drift_type' => $driftType,
-            'impact_level' => $impactLevel,
+            'area_id'         => $areaId,
+            'drift_type'      => $driftType,
+            'impact_level'    => $impactLevel,
+            'confidence'      => $confidence,
             'evidence_needed' => self::EVIDENCE_BY_DRIFT[$driftType],
         ];
     }
