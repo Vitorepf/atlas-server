@@ -134,4 +134,128 @@ final class AtlasSelfConstructionAutonomyDependencyAuditTest extends TestCase
         $this->assertSame([], $verdict['blockers']);
         $this->assertCount(2, $verdict['allowed_visibility']);
     }
+
+    // ── projection_status checks ──────────────────────────────────────────────
+
+    public function test_stale_projection_blocks_steady_state_phase(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native', 'projection_status' => 'stale'],
+        ]);
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('stale_projection:observe', $verdict['blockers']);
+    }
+
+    public function test_unavailable_projection_blocks_steady_state_phase(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'atlas_native', 'projection_status' => 'unavailable'],
+        ]);
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('unavailable_projection:verify', $verdict['blockers']);
+    }
+
+    public function test_fresh_projection_does_not_block(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native', 'projection_status' => 'fresh'],
+        ]);
+
+        $this->assertTrue($verdict['atlas_native']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    // ── queue_evidence / runtime_evidence checks ──────────────────────────────
+
+    public function test_unavailable_queue_evidence_blocks_steady_state_phase(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'replenish', 'kind' => 'steady_state', 'role' => 'atlas_native', 'queue_evidence' => 'unavailable'],
+        ]);
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('unavailable_queue_evidence:replenish', $verdict['blockers']);
+    }
+
+    public function test_unavailable_runtime_evidence_blocks_steady_state_phase(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'execute', 'kind' => 'steady_state', 'role' => 'atlas_native', 'runtime_evidence' => 'unavailable'],
+        ]);
+
+        $this->assertFalse($verdict['atlas_native']);
+        $this->assertContains('unavailable_runtime_evidence:execute', $verdict['blockers']);
+    }
+
+    public function test_bootstrap_stale_projection_does_not_block(): void
+    {
+        // Only steady_state phases trigger projection/queue/runtime checks.
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'boot', 'kind' => 'bootstrap', 'role' => 'operator', 'projection_status' => 'stale'],
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertTrue($verdict['atlas_native']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    // ── remediation_hints ─────────────────────────────────────────────────────
+
+    public function test_remediation_hints_present_in_output(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native'],
+        ]);
+
+        $this->assertArrayHasKey('remediation_hints', $verdict);
+        $this->assertIsArray($verdict['remediation_hints']);
+    }
+
+    public function test_remediation_hints_contains_phase_specific_hint_for_non_native_role(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'verify', 'kind' => 'steady_state', 'role' => 'operator'],
+        ]);
+
+        $hints = $verdict['remediation_hints'];
+        $this->assertArrayHasKey('steady_state_non_atlas_dependency:verify:operator', $hints);
+        $this->assertStringContainsString('verify', $hints['steady_state_non_atlas_dependency:verify:operator']);
+    }
+
+    public function test_remediation_hints_contains_stale_projection_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            ['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native', 'projection_status' => 'stale'],
+        ]);
+
+        $this->assertArrayHasKey('stale_projection:observe', $verdict['remediation_hints']);
+        $this->assertStringContainsString('observe', $verdict['remediation_hints']['stale_projection:observe']);
+    }
+
+    public function test_remediation_hints_contains_missing_phase_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit(
+            [['step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native']],
+            ['observe', 'verify'],
+        );
+
+        $this->assertArrayHasKey('missing_steady_state_phase:verify', $verdict['remediation_hints']);
+        $this->assertStringContainsString('verify', $verdict['remediation_hints']['missing_steady_state_phase:verify']);
+    }
+
+    public function test_all_evidence_checks_pass_when_fresh_and_available(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDependencyAudit)->audit([
+            [
+                'step_id' => 'observe', 'kind' => 'steady_state', 'role' => 'atlas_native',
+                'projection_status' => 'fresh', 'queue_evidence' => 'available', 'runtime_evidence' => 'available',
+            ],
+        ]);
+
+        $this->assertTrue($verdict['atlas_native']);
+        $this->assertSame([], $verdict['blockers']);
+        $this->assertSame([], $verdict['remediation_hints']);
+    }
 }

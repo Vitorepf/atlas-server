@@ -67,6 +67,7 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
         $steadyStateDependencies = [];
         $seenStepIds = [];
         $seenSteadyStatePhases = [];
+        $remediationHints = [];
 
         foreach ($evidence as $row) {
             if (! is_array($row)) {
@@ -101,8 +102,38 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
                     $seenSteadyStatePhases[$stepId] = true;
                 }
                 if ($role !== self::ROLE_ATLAS) {
-                    $blockers[] = 'steady_state_non_atlas_dependency:'.$stepId.':'.$role;
+                    $b = 'steady_state_non_atlas_dependency:'.$stepId.':'.$role;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'replace_non_atlas_role_with_atlas_native_capability_for_phase:'.$stepId;
                     $steadyStateDependencies[] = ['step_id' => $stepId, 'role' => $role];
+                }
+
+                // Projection staleness check.
+                $projStatus = (string) ($row['projection_status'] ?? '');
+                if ($projStatus === 'stale') {
+                    $b = 'stale_projection:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'run_projection_refresh_for_phase:'.$stepId;
+                } elseif ($projStatus === 'unavailable') {
+                    $b = 'unavailable_projection:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'provision_projection_source_for_phase:'.$stepId;
+                }
+
+                // Queue evidence check.
+                $queueEv = (string) ($row['queue_evidence'] ?? '');
+                if ($queueEv === 'unavailable') {
+                    $b = 'unavailable_queue_evidence:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'restore_queue_evidence_for_phase:'.$stepId;
+                }
+
+                // Runtime evidence check.
+                $runtimeEv = (string) ($row['runtime_evidence'] ?? '');
+                if ($runtimeEv === 'unavailable') {
+                    $b = 'unavailable_runtime_evidence:'.$stepId;
+                    $blockers[] = $b;
+                    $remediationHints[$b] = 'collect_runtime_evidence_for_phase:'.$stepId;
                 }
             } else {
                 // bootstrap + emergency — allowed even with non-atlas roles.
@@ -112,18 +143,21 @@ final class AtlasSelfConstructionAutonomyDependencyAudit
 
         foreach ($requiredSteadyStatePhases as $required) {
             if (! isset($seenSteadyStatePhases[$required])) {
-                $blockers[] = 'missing_steady_state_phase:'.$required;
+                $b = 'missing_steady_state_phase:'.$required;
+                $blockers[] = $b;
+                $remediationHints[$b] = 'add_steady_state_evidence_entry_for_phase:'.$required;
             }
         }
 
         $atlasNative = $blockers === [];
 
         return [
-            'schema_version' => self::SCHEMA,
-            'atlas_native' => $atlasNative,
-            'blockers' => array_values($blockers),
-            'allowed_visibility' => $allowedVisibility,
+            'schema_version'           => self::SCHEMA,
+            'atlas_native'             => $atlasNative,
+            'blockers'                 => array_values($blockers),
+            'allowed_visibility'       => $allowedVisibility,
             'steady_state_dependencies' => $steadyStateDependencies,
+            'remediation_hints'        => $remediationHints,
         ];
     }
 }
