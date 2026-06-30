@@ -188,9 +188,9 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
         $this->assertFalse($result['coverage_flags']['is_brittle_proxy']);
     }
 
-    // ── AC2: claimed leverage coverage — flagged, not rejected ───────────────
+    // ── AC2: claimed leverage coverage — blocking, a spec cannot claim leverage it does not prove ──
 
-    public function test_multi_component_claim_with_narrow_filter_is_accepted_but_flagged(): void
+    public function test_multi_component_claim_with_narrow_filter_is_rejected_and_flagged(): void
     {
         // Objective claims multi-component leverage; only a narrow --filter= command as evidence
         $result = $this->matrix->audit($this->goodSpec([
@@ -201,21 +201,33 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
             'evidence_refs' => ['tests_or_gates_result'],
         ]));
 
-        // Still accepted — claimed_leverage_coverage is non-blocking
-        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        // Claimed leverage without matching evidence is a blocking gap.
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
         $this->assertContains('multi_component', $result['claimed_leverage_gaps']);
         $this->assertFalse($result['coverage_flags']['claimed_leverage_coverage_met']);
     }
 
-    public function test_learning_loop_claim_with_narrow_evidence_is_flagged(): void
+    public function test_learning_loop_claim_with_narrow_evidence_is_rejected(): void
     {
         $result = $this->matrix->audit($this->goodSpec([
             'objective'   => 'close the learning loop for outcome learning after each batch',
             'evidence_refs' => ['tests_or_gates_result'],
         ]));
 
-        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
         $this->assertContains('learning_loop', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_claimed_leverage_with_matching_evidence_ref_is_accepted(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'close the learning loop for outcome learning after each batch',
+            'evidence_refs' => ['tests_or_gates_result', 'learning_outcome_proof'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        $this->assertSame([], $result['claimed_leverage_gaps']);
+        $this->assertTrue($result['coverage_flags']['claimed_leverage_coverage_met']);
     }
 
     public function test_no_impact_claims_gives_empty_leverage_gaps(): void
