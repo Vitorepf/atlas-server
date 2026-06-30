@@ -289,4 +289,98 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
     }
+
+    // ── named scoring dimensions (AC2) ──────────────────────────────────────────
+
+    public function test_structural_leverage_alias_feeds_the_leverage_dimension(): void
+    {
+        $highStructuralLeverage = $this->arena->compete(['proposals' => [
+            $this->proposal('h', ['leverage' => null, 'structural_leverage' => 0.9]),
+        ]])['winner']['arena_score'];
+
+        $lowStructuralLeverage = $this->arena->compete(['proposals' => [
+            $this->proposal('l', ['leverage' => null, 'structural_leverage' => 0.1]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($lowStructuralLeverage, $highStructuralLeverage);
+    }
+
+    public function test_novelty_increases_arena_score(): void
+    {
+        $novel = $this->arena->compete(['proposals' => [
+            $this->proposal('n', ['novelty' => 1.0]),
+        ]])['winner']['arena_score'];
+
+        $stale = $this->arena->compete(['proposals' => [
+            $this->proposal('s', ['novelty' => 0.0]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($stale, $novel);
+    }
+
+    public function test_anti_proxy_quality_increases_arena_score(): void
+    {
+        $highQuality = $this->arena->compete(['proposals' => [
+            $this->proposal('q', ['anti_proxy_quality' => 1.0]),
+        ]])['winner']['arena_score'];
+
+        $lowQuality = $this->arena->compete(['proposals' => [
+            $this->proposal('p', ['anti_proxy_quality' => 0.0]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($lowQuality, $highQuality);
+    }
+
+    public function test_evidence_strength_increases_arena_score(): void
+    {
+        $strong = $this->arena->compete(['proposals' => [
+            $this->proposal('e1', ['evidence_strength' => 1.0]),
+        ]])['winner']['arena_score'];
+
+        $weak = $this->arena->compete(['proposals' => [
+            $this->proposal('e2', ['evidence_strength' => 0.0]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($weak, $strong);
+    }
+
+    public function test_implementability_increases_arena_score(): void
+    {
+        $easy = $this->arena->compete(['proposals' => [
+            $this->proposal('i1', ['implementability' => 1.0]),
+        ]])['winner']['arena_score'];
+
+        $hard = $this->arena->compete(['proposals' => [
+            $this->proposal('i2', ['implementability' => 0.4]),
+        ]])['winner']['arena_score'];
+
+        $this->assertGreaterThan($hard, $easy);
+    }
+
+    // ── all-weak / all-template-variant batches refuse a winner (AC4) ─────────
+
+    public function test_all_weak_implementability_batch_has_no_winner(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('w1', ['implementability' => 0.1]),
+            $this->proposal('w2', ['implementability' => 0.05]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $this->assertNull($result['winner']);
+        $this->assertCount(2, $result['rejected']);
+    }
+
+    public function test_all_template_variant_batch_has_no_winner(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('t1', ['template_similarity' => 0.9, 'repeated_pattern_count' => 4]),
+            $this->proposal('t2', ['template_similarity' => 0.85, 'repeated_pattern_count' => 6]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        foreach ($result['rejected'] as $rejection) {
+            $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM, $rejection['reason']);
+        }
+    }
 }

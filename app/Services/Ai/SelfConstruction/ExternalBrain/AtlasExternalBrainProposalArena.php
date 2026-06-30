@@ -55,12 +55,19 @@ final class AtlasExternalBrainProposalArena
         'leverage'                  =>  0.30,
         'evidence_strength'         =>  0.25,
         'implementability'          =>  0.20,
+        'novelty'                   =>  0.15,
+        'anti_proxy_quality'        =>  0.15,
         'compression_opportunity'   =>  0.15,
         'operator_rank_priority'    =>  0.10,
         'anti_goodhart_risk'        => -0.20,
         'historical_give_back_rate' => -0.15,
         'quarantine_rate'           => -0.10,
         'queue_pressure'            => -0.05,
+    ];
+
+    /** Alias map: an input key that feeds the named WEIGHTS dimension when the canonical key is absent. */
+    private const DIMENSION_ALIASES = [
+        'leverage' => 'structural_leverage',
     ];
 
     /**
@@ -151,7 +158,8 @@ final class AtlasExternalBrainProposalArena
     {
         $score = 0.0;
         foreach (self::WEIGHTS as $dim => $weight) {
-            $value = max(0.0, min(1.0, (float) ($proposal[$dim] ?? 0.0)));
+            $raw = $proposal[$dim] ?? ($proposal[self::DIMENSION_ALIASES[$dim] ?? ''] ?? 0.0);
+            $value = max(0.0, min(1.0, (float) $raw));
             $score += $weight * $value;
         }
 
