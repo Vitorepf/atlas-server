@@ -55,6 +55,10 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGateTest extends TestCase
             'reversible' => true,
             'rollback_plan' => ['mode' => 'revert_commit'],
             'evidence_refs' => ['receipt:r1'],
+            'canary_plan' => ['target' => 'canary-instance'],
+            'blast_radius_limit' => 5,
+            'rollback_verification_command' => 'atlas:self:verify-rollback',
+            'post_apply_evidence_plan' => ['run_tests'],
         ]);
         $this->assertTrue($verdict['accepted']);
         $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_REVERSIBLE, $verdict['allowed_class']);
@@ -117,9 +121,79 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGateTest extends TestCase
             'reversible' => true,
             'rollback_plan' => ['mode' => 'revert_commit'],
             'evidence_refs' => ['receipt:r1', 'receipt:r1', '  receipt:r2  '],
+            'canary_plan' => ['target' => 'canary-instance'],
+            'blast_radius_limit' => 5,
+            'rollback_verification_command' => 'atlas:self:verify-rollback',
+            'post_apply_evidence_plan' => ['run_tests'],
         ]);
         $this->assertTrue($verdict['accepted']);
         $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_REVERSIBLE, $verdict['allowed_class']);
+    }
+
+    // ── canary / blast-radius / rollback-cmd / post-apply ────────────────────
+
+    public function test_reversible_without_canary_plan_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1'],
+            'blast_radius_limit' => 5,
+            'rollback_verification_command' => 'atlas:self:verify-rollback',
+            'post_apply_evidence_plan' => ['run_tests'],
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_missing_canary_plan', $verdict['blockers']);
+    }
+
+    public function test_reversible_without_blast_radius_limit_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1'],
+            'canary_plan' => ['target' => 'canary-instance'],
+            'rollback_verification_command' => 'atlas:self:verify-rollback',
+            'post_apply_evidence_plan' => ['run_tests'],
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_missing_blast_radius_limit', $verdict['blockers']);
+    }
+
+    public function test_reversible_without_rollback_verification_command_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1'],
+            'canary_plan' => ['target' => 'canary-instance'],
+            'blast_radius_limit' => 5,
+            'post_apply_evidence_plan' => ['run_tests'],
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_missing_rollback_verification_command', $verdict['blockers']);
+    }
+
+    public function test_reversible_without_post_apply_evidence_plan_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1'],
+            'canary_plan' => ['target' => 'canary-instance'],
+            'blast_radius_limit' => 5,
+            'rollback_verification_command' => 'atlas:self:verify-rollback',
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_missing_post_apply_evidence_plan', $verdict['blockers']);
+    }
+
+    public function test_read_only_experiment_does_not_require_reversible_safety_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(['read_only' => true]);
+        $this->assertTrue($verdict['accepted']);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_READ_ONLY, $verdict['allowed_class']);
+        $this->assertSame([], $verdict['blockers']);
     }
 
     public function test_multiple_bypass_flags_all_accumulate_as_blockers(): void

@@ -80,6 +80,21 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGate
             if ($evidenceRefs === []) {
                 $blockers[] = 'reversible_experiment_missing_evidence_refs';
             }
+            $canaryPlan = is_array($experiment['canary_plan'] ?? null) ? $experiment['canary_plan'] : [];
+            if ($canaryPlan === []) {
+                $blockers[] = 'reversible_experiment_missing_canary_plan';
+            }
+            if (($experiment['blast_radius_limit'] ?? null) === null) {
+                $blockers[] = 'reversible_experiment_missing_blast_radius_limit';
+            }
+            $rollbackVerifyCmd = trim((string) ($experiment['rollback_verification_command'] ?? ''));
+            if ($rollbackVerifyCmd === '') {
+                $blockers[] = 'reversible_experiment_missing_rollback_verification_command';
+            }
+            $postApplyPlan = is_array($experiment['post_apply_evidence_plan'] ?? null) ? $experiment['post_apply_evidence_plan'] : [];
+            if ($postApplyPlan === []) {
+                $blockers[] = 'reversible_experiment_missing_post_apply_evidence_plan';
+            }
             if ($blockers !== []) {
                 return $this->envelope(self::ACTION_BLOCK, $blockers, self::CLASS_REJECTED);
             }
