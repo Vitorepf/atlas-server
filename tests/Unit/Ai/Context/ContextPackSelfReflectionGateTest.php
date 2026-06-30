@@ -190,6 +190,64 @@ class ContextPackSelfReflectionGateTest extends TestCase
         $this->assertContains('confidence_without_evidence', $scored['penalties']);
     }
 
+    public function test_missing_required_source_types_is_flagged_insufficient(): void
+    {
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $pack = new AiContextPack([
+            'task' => ['type' => 'dev', 'risk_level' => 'low'],
+            'memory' => ['semantic' => [['title' => 'Atlas Kernel']]],
+            'context_delivery_policy' => [
+                'status' => 'active',
+                'guarded_required_source_types' => ['code', 'tests', 'runtime_command'],
+            ],
+        ], []);
+
+        $result = $gate->assess($pack);
+
+        $this->assertSame(ContextPackSelfReflectionGate::STATUS_INSUFFICIENT, $result['status']);
+        $this->assertContains('context_missing_required_source_types', $result['reasons']);
+        $this->assertSame(['code', 'tests', 'runtime_command'], $result['missing_required_source_types']);
+        $this->assertSame('refresh_or_request_context', $result['recommended_action']);
+    }
+
+    public function test_missing_required_source_types_is_ignored_when_policy_not_active(): void
+    {
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $pack = new AiContextPack([
+            'task' => ['type' => 'dev', 'risk_level' => 'low'],
+            'memory' => ['semantic' => [['title' => 'Atlas Kernel']]],
+            'context_delivery_policy' => [
+                'status' => 'inactive',
+                'guarded_required_source_types' => ['code', 'tests'],
+            ],
+        ], []);
+
+        $result = $gate->assess($pack);
+
+        $this->assertSame(ContextPackSelfReflectionGate::STATUS_SUFFICIENT, $result['status']);
+        $this->assertSame([], $result['missing_required_source_types']);
+    }
+
+    public function test_empty_guarded_required_source_types_does_not_flag(): void
+    {
+        $gate = app(ContextPackSelfReflectionGate::class);
+
+        $pack = new AiContextPack([
+            'task' => ['type' => 'dev', 'risk_level' => 'low'],
+            'memory' => ['semantic' => [['title' => 'Atlas Kernel']]],
+            'context_delivery_policy' => [
+                'status' => 'active',
+                'guarded_required_source_types' => [],
+            ],
+        ], []);
+
+        $result = $gate->assess($pack);
+
+        $this->assertSame(ContextPackSelfReflectionGate::STATUS_SUFFICIENT, $result['status']);
+    }
+
     public function test_qualifier_strength_helper_is_off_by_default_and_returns_kernel_output_when_enabled(): void
     {
         $gate = app(ContextPackSelfReflectionGate::class);

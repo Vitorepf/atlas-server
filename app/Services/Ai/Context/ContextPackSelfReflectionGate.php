@@ -55,6 +55,7 @@ class ContextPackSelfReflectionGate
         $data = $contextPack instanceof AiContextPack ? $contextPack->toArray() : $contextPack;
         $contextRefs = $contextPack instanceof AiContextPack ? $contextPack->contextRefs() : (array) data_get($data, 'context_refs', []);
         $counts = $this->counts($data, $contextRefs);
+        $missingRequiredSourceTypes = $this->missingRequiredSourceTypes($data);
         $reasons = [];
         $status = self::STATUS_SUFFICIENT;
 
@@ -64,6 +65,9 @@ class ContextPackSelfReflectionGate
         } elseif ($this->isRisky($data) || $this->hasLowClaimCoherence($data, $contextRefs, $counts)) {
             $status = self::STATUS_RISKY;
             $reasons[] = 'context_requires_careful_review_before_execution';
+        } elseif ($missingRequiredSourceTypes !== []) {
+            $status = self::STATUS_INSUFFICIENT;
+            $reasons[] = 'context_missing_required_source_types';
         } elseif ($this->isInsufficient($counts)) {
             $status = self::STATUS_INSUFFICIENT;
             $reasons[] = 'context_has_no_reusable_sources';
@@ -78,6 +82,7 @@ class ContextPackSelfReflectionGate
             'status' => $status,
             'reasons' => $reasons,
             'counts' => $counts,
+            'missing_required_source_types' => $missingRequiredSourceTypes,
             'recommended_action' => $this->recommendedAction($status),
             'assessed_at' => now()->toJSON(),
         ];
@@ -113,6 +118,28 @@ class ContextPackSelfReflectionGate
             + $counts['memory_registry']
             + $counts['memory_verbatim']
             + $counts['memory_semantic']) === 0;
+    }
+
+    /**
+     * The Open Brain pack's own admission, via `context_delivery_policy.guarded_required_source_types`,
+     * that source types it judged REQUIRED for this task (code, tests, runtime commands, evidence,
+     * etc.) were not delivered and still need an explicit recheck. Only consulted while the policy
+     * is `active` — the same gate the delivery-policy renderer already honors.
+     *
+     * @param  array<string,mixed>  $data
+     * @return list<string>
+     */
+    private function missingRequiredSourceTypes(array $data): array
+    {
+        $policy = data_get($data, 'context_delivery_policy', []);
+        if (! is_array($policy) || ($policy['status'] ?? null) !== 'active') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('strval', (array) ($policy['guarded_required_source_types'] ?? [])),
+            static fn (string $source): bool => trim($source) !== '',
+        ));
     }
 
     /**
