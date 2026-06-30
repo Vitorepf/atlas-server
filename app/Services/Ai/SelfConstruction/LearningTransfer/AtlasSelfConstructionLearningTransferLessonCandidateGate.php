@@ -58,23 +58,35 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
             return $this->envelope(self::DECISION_REJECT, $reasons, $next);
         }
 
-        // Tally proven vs unverified + outcome distribution.
+        // Tally proven vs unverified + outcome distribution + source diversity.
         $proven = 0;
-        $unverified = 0;
         $outcomeCounts = [];
-        foreach ($observations as $obs) {
+        $uniqueSources = [];
+        $allEvidenceRefs = [];
+        $hasNegativeResult = false;
+
+        foreach ($observations as $idx => $obs) {
             if (! is_array($obs)) {
                 continue;
             }
             $outcome = (string) ($obs['outcome'] ?? 'unknown');
+            $source = (string) ($obs['source'] ?? 'anon:'.$idx);
             $outcomeCounts[$outcome] = ($outcomeCounts[$outcome] ?? 0) + 1;
+            $uniqueSources[$source] = true;
+
+            if ($outcome === 'negative_result') {
+                $hasNegativeResult = true;
+            }
+
             if (! empty($obs['evidence_refs']) && is_array($obs['evidence_refs'])) {
                 $proven++;
-            } else {
-                $unverified++;
+                foreach ($obs['evidence_refs'] as $ref) {
+                    $allEvidenceRefs[] = (string) $ref;
+                }
             }
         }
-        $total = $proven + $unverified;
+
+        $sourceCount = count($uniqueSources);
 
         // CONFLICT — if two outcomes both exceed tolerance, the candidate is contradicted.
         if (count($outcomeCounts) >= 2) {
@@ -89,9 +101,9 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
             }
         }
 
-        // ONE-OFF — below repetition threshold ⇒ hold (might mature with time).
-        if ($total < $minRepetitions) {
-            $reasons[] = 'below_repetition_threshold:'.$total.'<'.$minRepetitions;
+        // SOURCE DIVERSITY — insufficient independent sources ⇒ hold.
+        if ($sourceCount < $minRepetitions) {
+            $reasons[] = 'below_repetition_threshold:'.$sourceCount.'<'.$minRepetitions;
             $next[] = 'accumulate_more_independent_observations';
 
             return $this->envelope(self::DECISION_HOLD, $reasons, $next);
@@ -105,21 +117,36 @@ final class AtlasSelfConstructionLearningTransferLessonCandidateGate
             return $this->envelope(self::DECISION_REJECT, $reasons, $next);
         }
 
-        return $this->envelope(self::DECISION_ADMIT, ['repetition_and_proof_thresholds_met'], []);
+        // NEGATIVE RESULT — force hold until a disambiguator is provided.
+        if ($hasNegativeResult && empty($candidate['disambiguator'])) {
+            $reasons[] = 'negative_result_requires_disambiguator';
+            $next[] = 'attach_disambiguator_field_to_resolve_negative_result';
+
+            return $this->envelope(self::DECISION_HOLD, $reasons, $next);
+        }
+
+        return $this->envelope(
+            self::DECISION_ADMIT,
+            ['repetition_and_proof_thresholds_met'],
+            [],
+            array_values(array_unique($allEvidenceRefs)),
+        );
     }
 
     /**
      * @param  list<string>  $reasons
      * @param  list<string>  $next
+     * @param  list<string>  $evidenceRefs
      * @return array<string,mixed>
      */
-    private function envelope(string $decision, array $reasons, array $next): array
+    private function envelope(string $decision, array $reasons, array $next, array $evidenceRefs = []): array
     {
         return [
             'schema_version' => self::SCHEMA,
             'decision' => $decision,
             'reasons' => array_values($reasons),
             'required_next_evidence' => array_values(array_unique($next)),
+            'evidence_refs' => $evidenceRefs,
         ];
     }
 }
