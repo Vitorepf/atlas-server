@@ -94,6 +94,22 @@ final class AtlasLoopOperatorIntentStreamReaderTest extends TestCase
         $this->assertSame($full['next_offset'], $empty['next_offset']);
     }
 
+    public function test_incremental_tail_reports_file_absolute_line_number_not_chunk_relative(): void
+    {
+        $line1 = '{"ts":1,"raw_text":"first","source":"chat"}';
+        $line2 = '{"ts":2,"raw_text":"second","source":"chat"}';
+        $line3 = '{ not valid json';
+        $this->writeLines([$line1, $line2, $line3]);
+
+        $reader = new AtlasLoopOperatorIntentStreamReader($this->file);
+        $offsetAfterLine2 = strlen($line1) + 1 + strlen($line2) + 1;
+        $tail = $reader->tailSince($offsetAfterLine2);
+
+        $this->assertCount(0, $tail['messages']);
+        $this->assertCount(1, $tail['errors']);
+        $this->assertSame(3, $tail['errors'][0]->lineNumber, 'must be file line 3, not chunk-relative line 1');
+    }
+
     /**
      * @param  list<string>  $lines
      */

@@ -83,7 +83,7 @@ final class AtlasLoopOperatorIntentStreamReader
         $result['next_offset'] = $offset + $completeLength;
         $complete = substr($chunk, 0, $completeLength);
 
-        $lineNumber = 0;
+        $lineNumber = $offset > 0 ? substr_count($content, "\n", 0, $offset) : 0;
         foreach (explode("\n", rtrim($complete, "\n")) as $line) {
             $lineNumber++;
             if (trim($line) === '') {
