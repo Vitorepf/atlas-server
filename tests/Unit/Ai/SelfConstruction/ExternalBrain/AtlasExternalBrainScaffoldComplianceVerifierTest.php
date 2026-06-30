@@ -33,10 +33,12 @@ final class AtlasExternalBrainScaffoldComplianceVerifierTest extends TestCase
         return [
             'run' => [
                 'artifacts' => [
-                    'evidence_list'  => ['evidence-a', 'evidence-b'],
-                    'dedup_proof'    => ['proof-entry-1'],
-                    'critique_report' => ['critique-entry-1'],
-                    'final_batch'    => $batchItems,
+                    'evidence_list'              => ['evidence-a', 'evidence-b'],
+                    'dedup_proof'                => ['proof-entry-1'],
+                    'semantic_dedup_proof'       => ['similarity:0.12:task-1-vs-task-2'],
+                    'critique_report'            => ['critique-entry-1'],
+                    'implementability_simulation' => ['sim-result:feasible'],
+                    'final_batch'                => $batchItems,
                 ],
                 'produced_tasks' => $tasks,
             ],
@@ -270,5 +272,80 @@ final class AtlasExternalBrainScaffoldComplianceVerifierTest extends TestCase
         $this->assertContains('duplicate_search', $result['missing_steps']);
         $this->assertContains('critique_pass', $result['missing_steps']);
         $this->assertContains('final_queue_validation', $result['missing_steps']);
+    }
+
+    // ── AC2: semantic_dedup_proof ─────────────────────────────────────────────
+
+    public function test_fails_when_semantic_dedup_proof_missing(): void
+    {
+        $input = $this->compliantRun();
+        unset($input['run']['artifacts']['semantic_dedup_proof']);
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertFalse($result['compliant']);
+        $this->assertContains('semantic_dedup_proof', $result['missing_steps']);
+    }
+
+    public function test_weak_artifact_when_semantic_dedup_proof_empty(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['artifacts']['semantic_dedup_proof'] = [];
+
+        $result = $this->verifier()->verify($input);
+
+        $names = array_column($result['weak_artifacts'], 'artifact_name');
+        $this->assertContains('semantic_dedup_proof', $names);
+        $this->assertFalse($result['compliant']);
+    }
+
+    // ── AC2: implementability_simulation ──────────────────────────────────────
+
+    public function test_fails_when_implementability_simulation_missing(): void
+    {
+        $input = $this->compliantRun();
+        unset($input['run']['artifacts']['implementability_simulation']);
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertFalse($result['compliant']);
+        $this->assertContains('implementability_simulation', $result['missing_steps']);
+    }
+
+    public function test_weak_artifact_when_implementability_simulation_empty(): void
+    {
+        $input = $this->compliantRun();
+        $input['run']['artifacts']['implementability_simulation'] = [];
+
+        $result = $this->verifier()->verify($input);
+
+        $names = array_column($result['weak_artifacts'], 'artifact_name');
+        $this->assertContains('implementability_simulation', $names);
+        $this->assertFalse($result['compliant']);
+    }
+
+    // ── AC4: high-quality run credits; multiple weak runs fail ────────────────
+
+    public function test_high_quality_run_credits_all_tasks(): void
+    {
+        $result = $this->verifier()->verify($this->compliantRun(['t1', 't2']));
+
+        $this->assertTrue($result['compliant']);
+        $this->assertContains('t1', $result['credited_tasks']);
+        $this->assertContains('t2', $result['credited_tasks']);
+        $this->assertEmpty($result['refused_tasks']);
+    }
+
+    public function test_missing_both_new_artifacts_reported_together(): void
+    {
+        $input = $this->compliantRun();
+        unset($input['run']['artifacts']['semantic_dedup_proof']);
+        unset($input['run']['artifacts']['implementability_simulation']);
+
+        $result = $this->verifier()->verify($input);
+
+        $this->assertFalse($result['compliant']);
+        $this->assertContains('semantic_dedup_proof',        $result['missing_steps']);
+        $this->assertContains('implementability_simulation', $result['missing_steps']);
     }
 }

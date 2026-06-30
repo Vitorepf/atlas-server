@@ -9,11 +9,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * crediting its produced tasks as high-quality.
  *
  * MANDATORY SCAFFOLD STEPS (all must pass for compliant=true):
- *   evidence_intake          — artifact "evidence_list" must be non-empty
- *   duplicate_search         — artifact "dedup_proof" must be present
- *   critique_pass            — artifact "critique_report" must be present
- *   runnable_acceptance_proof — every credited task must have ≥1 runnable criterion
- *   final_queue_validation   — artifact "final_batch" must be present and non-empty
+ *   evidence_intake              — artifact "evidence_list" must be non-empty
+ *   duplicate_search             — artifact "dedup_proof" must be present
+ *   semantic_dedup_proof         — artifact "semantic_dedup_proof" must be non-empty
+ *   critique_pass                — artifact "critique_report" must be present
+ *   implementability_simulation  — artifact "implementability_simulation" must be non-empty
+ *   runnable_acceptance_proof    — every credited task must have ≥1 runnable criterion
+ *   final_queue_validation       — artifact "final_batch" must be present and non-empty
  *
  * RUNNABLE CRITERION: acceptance criterion string must contain at least one of:
  *   phpunit, artisan, vendor/bin, ./vendor
@@ -33,11 +35,13 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
 {
     public const SCHEMA = 'atlas.external_brain.scaffold_compliance_verifier.v1';
 
-    private const STEP_EVIDENCE_INTAKE          = 'evidence_intake';
-    private const STEP_DUPLICATE_SEARCH         = 'duplicate_search';
-    private const STEP_CRITIQUE_PASS            = 'critique_pass';
-    private const STEP_RUNNABLE_ACCEPTANCE_PROOF = 'runnable_acceptance_proof';
-    private const STEP_FINAL_QUEUE_VALIDATION   = 'final_queue_validation';
+    private const STEP_EVIDENCE_INTAKE             = 'evidence_intake';
+    private const STEP_DUPLICATE_SEARCH            = 'duplicate_search';
+    private const STEP_SEMANTIC_DEDUP_PROOF        = 'semantic_dedup_proof';
+    private const STEP_CRITIQUE_PASS               = 'critique_pass';
+    private const STEP_IMPLEMENTABILITY_SIMULATION = 'implementability_simulation';
+    private const STEP_RUNNABLE_ACCEPTANCE_PROOF   = 'runnable_acceptance_proof';
+    private const STEP_FINAL_QUEUE_VALIDATION      = 'final_queue_validation';
 
     private const RUNNABLE_INDICATORS = ['phpunit', 'artisan', 'vendor/bin', './vendor'];
 
@@ -70,12 +74,28 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
             $weakArtifacts[] = ['artifact_name' => 'dedup_proof', 'reason' => 'dedup_proof is present but empty'];
         }
 
+        // semantic_dedup_proof: semantic_dedup_proof must exist and be non-empty.
+        $semanticDedupProof = $artifacts['semantic_dedup_proof'] ?? null;
+        if ($semanticDedupProof === null) {
+            $missingSteps[] = self::STEP_SEMANTIC_DEDUP_PROOF;
+        } elseif ($this->isEmpty($semanticDedupProof)) {
+            $weakArtifacts[] = ['artifact_name' => 'semantic_dedup_proof', 'reason' => 'semantic_dedup_proof is present but empty'];
+        }
+
         // critique_pass: critique_report must exist.
         $critiqueReport = $artifacts['critique_report'] ?? null;
         if ($critiqueReport === null) {
             $missingSteps[] = self::STEP_CRITIQUE_PASS;
         } elseif ($this->isEmpty($critiqueReport)) {
             $weakArtifacts[] = ['artifact_name' => 'critique_report', 'reason' => 'critique_report is present but empty'];
+        }
+
+        // implementability_simulation: must exist and be non-empty.
+        $implSimulation = $artifacts['implementability_simulation'] ?? null;
+        if ($implSimulation === null) {
+            $missingSteps[] = self::STEP_IMPLEMENTABILITY_SIMULATION;
+        } elseif ($this->isEmpty($implSimulation)) {
+            $weakArtifacts[] = ['artifact_name' => 'implementability_simulation', 'reason' => 'implementability_simulation is present but empty'];
         }
 
         // final_queue_validation: final_batch must exist and be non-empty.
