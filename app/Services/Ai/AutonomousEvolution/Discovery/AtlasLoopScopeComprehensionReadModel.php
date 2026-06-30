@@ -92,6 +92,35 @@ final class AtlasLoopScopeComprehensionReadModel
         return $best;
     }
 
+    /** The second-most-recently built persisted model for a scope root, or null if fewer than two exist. */
+    public function previousLatestFor(string $scopeRoot): ?AtlasLoopScopeComprehensionModel
+    {
+        $scope = trim(str_replace('\\', '/', $scopeRoot), '/');
+        $bestAt = -1;
+        $prevAt = -1;
+        $bestModel = null;
+        $prevModel = null;
+        foreach (glob($this->root().'/*.json') ?: [] as $file) {
+            $record = $this->readRecord($file);
+            if ($record === null || (string) ($record['scope_root'] ?? '') !== $scope) {
+                continue;
+            }
+            $at = (int) ($record['built_at_unix'] ?? 0);
+            $model = AtlasLoopScopeComprehensionModel::fromArray((array) ($record['model_json'] ?? []));
+            if ($at >= $bestAt) {
+                $prevAt = $bestAt;
+                $prevModel = $bestModel;
+                $bestAt = $at;
+                $bestModel = $model;
+            } elseif ($at > $prevAt) {
+                $prevAt = $at;
+                $prevModel = $model;
+            }
+        }
+
+        return $prevModel;
+    }
+
     private function pathFor(string $snapshotId): string
     {
         $safe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $snapshotId) ?? $snapshotId;

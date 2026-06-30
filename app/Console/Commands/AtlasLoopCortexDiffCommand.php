@@ -50,7 +50,7 @@ final class AtlasLoopCortexDiffCommand extends Command
         $left = (string) $this->option('left');
         $right = (string) $this->option('right');
 
-        $leftModel = $left !== '' ? $readModel->get($left) : $readModel->latestFor($scope);
+        $leftModel = $left !== '' ? $readModel->get($left) : $readModel->previousLatestFor($scope);
         if ($leftModel === null) {
             return $this->emit(['error' => 'left_snapshot_missing', 'left' => $left, 'scope' => $scope], self::FAILURE);
         }

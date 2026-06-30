@@ -177,6 +177,23 @@ final class AtlasLoopCortexDiffCommandTest extends TestCase
         }
     }
 
+    public function test_default_invocation_diffs_previous_vs_latest_not_self(): void
+    {
+        // Omit --left: must resolve to previousLatestFor (snap-left, builtAtUnix=1000)
+        // Omit --right: resolves to latestFor (snap-right, builtAtUnix=2000)
+        // The diff must be non-empty (B added), not an empty self-diff.
+        $exit = Artisan::call('atlas:loop:cortex:diff', [
+            'action' => 'inspect',
+            '--scope' => $this->scope,
+            '--json' => true,
+        ]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame(0, $exit, 'default invocation must succeed: '.json_encode($p));
+        $this->assertNotEmpty($p['inventory']['added'] ?? [], 'default diff must be non-empty — previous vs latest, not self-diff');
+        $this->assertContains('App\\Demo\\B', $p['inventory']['added']);
+    }
+
     public function test_signature_is_registered(): void
     {
         $code = Artisan::call('list', []);
