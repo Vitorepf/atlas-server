@@ -262,6 +262,18 @@ DIFF;
             'allowed_files' => ['tests/Unit/Services/Foo/FooServiceTest.php'],
             'validation_commands' => ['php artisan test tests/Unit/Services/Foo/FooServiceTest.php'],
             'max_files_changed' => 1,
+            // M1: repair is now provider-agnostic (claude_cli repairs by
+            // default). This test asserts the failed-verification TEST LOG is
+            // persisted as repair evidence, not the repair loop itself — so
+            // disable repair (max_attempts=0) to keep it single-pass. The
+            // provider-agnostic repair loop is covered by
+            // RepairProviderAgnosticTest (VAL-M1-006/007/008/009/017).
+            'repair_policy' => [
+                'max_attempts' => 0,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
         ]);
 
         $result = $executor->execute(

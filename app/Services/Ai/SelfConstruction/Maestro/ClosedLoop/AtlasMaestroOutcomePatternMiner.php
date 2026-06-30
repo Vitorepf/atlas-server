@@ -24,6 +24,10 @@ final class AtlasMaestroOutcomePatternMiner
             'allowed_files_count_bucket' => [],
             'acceptance_criteria_count_bucket' => [],
             'has_tests_path' => [],
+            'file_family' => [],
+            'task_shape' => [],
+            'worker_id' => [],
+            'proof_command_class' => [],
         ];
 
         foreach ($this->ledger->stream() as $row) {
@@ -37,6 +41,10 @@ final class AtlasMaestroOutcomePatternMiner
                 'allowed_files_count_bucket' => $this->countBucket((int) ($row['allowed_files_count'] ?? 0)),
                 'acceptance_criteria_count_bucket' => $this->countBucket((int) ($row['acceptance_criteria_count'] ?? 0)),
                 'has_tests_path' => (bool) ($row['has_tests_path'] ?? false) ? 'true' : 'false',
+                'file_family' => (string) ($row['file_family'] ?? 'unknown'),
+                'task_shape' => (string) ($row['task_shape'] ?? 'unknown'),
+                'worker_id' => (string) ($row['worker_id'] ?? 'unknown'),
+                'proof_command_class' => (string) ($row['proof_command_class'] ?? 'unknown'),
             ];
 
             foreach ($buckets as $dimension => $bucket) {
@@ -52,7 +60,7 @@ final class AtlasMaestroOutcomePatternMiner
                 $total = (int) $entry['total'];
                 $entry['insufficient_support'] = $total < self::MIN_SUPPORT;
                 $entry['delivery_rate'] = $total >= self::MIN_SUPPORT
-                    ? ((int) $entry['delivered']) / $total
+                    ? (float) (((int) $entry['delivered']) / $total)
                     : null;
                 $buckets[$bucket] = $entry;
             }
@@ -60,6 +68,39 @@ final class AtlasMaestroOutcomePatternMiner
         }
 
         return $facts;
+    }
+
+    /**
+     * Return strategy signals — dimension/bucket pairs with proven delivery_rate >= 0.5 —
+     * for final-brain lane selection. Sorted by delivery_rate DESC, then support DESC.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function strategySignals(): array
+    {
+        $signals = [];
+
+        foreach ($this->mine() as $dimension => $buckets) {
+            foreach ($buckets as $bucket => $entry) {
+                if ($entry['delivery_rate'] === null || $entry['delivery_rate'] < 0.5) {
+                    continue;
+                }
+                $signals[] = [
+                    'dimension' => $dimension,
+                    'bucket' => $bucket,
+                    'delivery_rate' => $entry['delivery_rate'],
+                    'support' => $entry['total'],
+                ];
+            }
+        }
+
+        usort($signals, static function (array $a, array $b): int {
+            $r = $b['delivery_rate'] <=> $a['delivery_rate'];
+
+            return $r !== 0 ? $r : $b['support'] <=> $a['support'];
+        });
+
+        return $signals;
     }
 
     /**

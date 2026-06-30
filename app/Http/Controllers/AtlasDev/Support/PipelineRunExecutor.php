@@ -129,23 +129,33 @@ final class PipelineRunExecutor implements RunExecutor
             return $this->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
         }
 
-        // M2: Repair-to-green loop. On hermes_cli path, when the verification
-        // gate fails, re-invoke the provider with failure context up to the cap.
+        // M2: Repair-to-green loop. When the verification gate fails,
+        // re-invoke the SAME locked provider with failure context up to the cap.
         // Mirrors AtlasMinimaxFirstWorkerService loop semantics. Reuses
         // FailureSignatureHasher for same-signature-twice abort detection.
+        //
+        // M1 (provider-agnostic): the repair cap now derives from the repair
+        // policy for ANY locked provider (claude/codex/cursor/gemini/hermes),
+        // not a hardcoded 0 for non-hermes. The cap formula min(3, maxAttempts)
+        // is reused unchanged from the former hermes-only branch; max(0, ...)
+        // keeps a zero-policy honest (no repair). The same-signature-twice and
+        // cap-exhaustion anti-spin guards below apply to every provider.
         $isHermesCli = $taskContract->providerLock->provider === 'hermes_cli';
-        $repairCap = $isHermesCli
-            ? max(0, min(3, $taskContract->repairPolicy->maxAttempts))
-            : 0;
+        $repairCap = max(0, min(3, $taskContract->repairPolicy->maxAttempts));
         $repairAttempt = 0;
         $lastFailureSignature = null;
         $consecutiveSameSignature = 0;
         $abortReason = null;
         $hasher = new FailureSignatureHasher;
 
-        // The current prompt text for this iteration (starts as the original,
-        // becomes the repair prompt on subsequent iterations).
-        $currentPromptText = $promptProjection->renderedPromptText;
+        // The current prompt projection for this iteration (starts as the
+        // original, becomes the composed repair projection on subsequent
+        // iterations). Every locked provider consumes $promptProjection directly
+        // (Claude via SonnetClaudeCliAdapter, Codex/Cursor/Hermes via their
+        // invocation drivers), so passing the repair projection here routes the
+        // repair prompt to ANY provider through the same executeLockedProvider
+        // dispatch — no hermes-only transport assumption.
+        $currentPromptProjection = $promptProjection;
 
         $callResult = $deterministicCallResult;
         $providerCalls = 0;
@@ -262,14 +272,41 @@ final class PipelineRunExecutor implements RunExecutor
         if (! $bestOfNran) {
             do {
                 if ($callResult === null) {
-                    [$callResult, $iterCalls] = $this->executeLockedProvider(
-                        envelope: $envelope,
-                        taskContract: $taskContract,
-                        promptProjection: $promptProjection,
-                        hermesPromptOverride: $currentPromptText !== $promptProjection->renderedPromptText
-                            ? $currentPromptText
-                            : null,
-                    );
+                    try {
+                        [$callResult, $iterCalls] = $this->executeLockedProvider(
+                            envelope: $envelope,
+                            taskContract: $taskContract,
+                            promptProjection: $currentPromptProjection,
+                            // Hermes honors an explicit prompt-text override on
+                            // top of the projection; for non-hermes the
+                            // projection's rendered text IS the repair prompt.
+                            // On a repair iteration the projection already
+                            // carries the composed repair text, so the override
+                            // is the same string (kept for hermes byte-identity).
+                            hermesPromptOverride: $currentPromptProjection->renderedPromptText !== $promptProjection->renderedPromptText
+                                ? $currentPromptProjection->renderedPromptText
+                                : null,
+                        );
+                    } catch (\Throwable $e) {
+                        // VAL-M1-017: a provider re-invocation (repair
+                        // iteration) whose runtime driver throws — e.g. an
+                        // unbound gateway, a CLI crash, or a transport error —
+                        // degrades honestly to a blocked call result instead of
+                        // crashing the run. The loop stays bounded by the repair
+                        // cap; the verification gate + CompletionStateGate
+                        // resolve the final state to failed/blocked (never a
+                        // false passed). Hermes already catches internally
+                        // (executeHermesProvider); this net covers the
+                        // non-hermes drivers that propagate throws.
+                        $callResult = $this->blockedProviderCallResult(
+                            runId: $promptProjection->runId,
+                            provider: $taskContract->providerLock->provider,
+                            modelFamily: $taskContract->providerLock->modelFamily,
+                            error: 'provider_invocation_threw',
+                            stderr: Str::limit($e->getMessage(), 500, '...'),
+                        );
+                        $iterCalls = 0;
+                    }
                     $providerCalls += $iterCalls;
                 }
 
@@ -303,10 +340,11 @@ final class PipelineRunExecutor implements RunExecutor
 
                 // Check if repair loop should continue
                 if ($verificationResult->aggregateStatus !== VerificationGateResult::STATUS_FAILED
-                    || ! $isHermesCli
                     || $repairCap <= 0
                 ) {
-                    // Either green, not hermes, or repair disabled — exit loop.
+                    // Either green or repair disabled — exit loop.
+                    // (M1: the former `! $isHermesCli` clause is gone — repair
+                    // fires for any locked provider whose policy allows it.)
                     break;
                 }
 
@@ -359,7 +397,7 @@ final class PipelineRunExecutor implements RunExecutor
                     $taskContract,
                     $diffResult,
                 );
-                $currentPromptText = $this->buildComposedHermesRepairPrompt(
+                $currentPromptProjection = $this->buildComposedRepairProjection(
                     promptProjection: $promptProjection,
                     taskContract: $taskContract,
                     verificationResult: $verificationResult,
@@ -2139,9 +2177,17 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      *      the custom buildHermesRepairPrompt() used to bypass (LIGAR
      *      violation flagged by M2 scrutiny).
      *   3. Wrap the composed rendered text with the REPAIR REQUIRED marker +
-     *      "Previous attempt failed" header so the hermes path preserves the
-     *      failure-excerpt structure VAL-M2-008 locks, while the composed
-     *      body underneath carries strictly richer guard-rail content.
+     *      "Previous attempt failed" header so the failure-excerpt structure
+     *      VAL-M2-008 locks is preserved, while the composed body underneath
+     *      carries strictly richer guard-rail content.
+     *
+     * M1 (provider-agnostic): this returns a full {@see ProviderPromptProjection}
+     * (not a hermes-only prompt string) so the repair loop can re-invoke ANY
+     * locked provider through the same executeLockedProvider dispatch. The
+     * composed projection carries the Repair Capsule / Primary Error / Stop
+     * Conditions sections and does NOT assume hermes transport; Claude consumes
+     * it via SonnetClaudeCliAdapter, Codex/Cursor/Hermes via their invocation
+     * drivers — all read rendered_prompt_text from the projection.
      *
      * The loop's same-signature-twice detection in execute() continues to
      * compare the FailureSignatureHasher signature of the raw failure
@@ -2161,7 +2207,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * addressed), the dedicated section is omitted entirely (conditional-empty
      * pattern: byte-identical to the pre-feedback baseline).
      */
-    private function buildComposedHermesRepairPrompt(
+    private function buildComposedRepairProjection(
         ProviderPromptProjection $promptProjection,
         LightTaskContract $taskContract,
         VerificationGateResult $verificationResult,
@@ -2171,7 +2217,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         int $repairAttempt,
         int $repairCap,
         string $intentProbeReason = '',
-    ): string {
+    ): ProviderPromptProjection {
         $firstFailing = null;
         foreach ($verificationResult->tests as $test) {
             if (! $test->ok) {
@@ -2226,9 +2272,9 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // [# Repair Capsule] + [# Primary Error] + [# Stop Conditions]
         // (strictly richer than the former custom version). Inject the
         // REPAIR REQUIRED marker + "Previous attempt failed" header right
-        // before the Repair Capsule section so the hermes path preserves
-        // the failure-excerpt structure VAL-M2-008 locks, without
-        // duplicating the original prompt body.
+        // before the Repair Capsule section so the failure-excerpt structure
+        // VAL-M2-008 locks is preserved, without duplicating the original
+        // prompt body.
         //
         // E1 repair-loop feedback (VAL-E1-006, VAL-E1-007, VAL-E1-013,
         // VAL-CROSS-006): the probe reason ($intentProbeReason) is rendered
@@ -2264,18 +2310,53 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             $capsuleCharPos = mb_strpos($composed, $capsuleHeader);
             $cappedPreCapsule = mb_substr($composed, 0, min($capsuleCharPos, 20_000));
 
-            return $cappedPreCapsule
+            $finalText = $cappedPreCapsule
                 .$marker
                 .$intentSection
                 .substr($composed, $capsulePos);
+        } else {
+            // Fallback (defensive): append the marker + composed body tail if
+            // the capsule header was not found (composition contract changed).
+            $finalText = mb_substr($promptProjection->renderedPromptText, 0, 20_000)
+                ."\n\n".$marker
+                .$intentSection
+                .$composed;
         }
 
-        // Fallback (defensive): append the marker + composed body tail if the
-        // capsule header was not found (composition contract changed).
-        return mb_substr($promptProjection->renderedPromptText, 0, 20_000)
-            ."\n\n".$marker
-            .$intentSection
-            .$composed;
+        // Rebuild the composed projection with the marker-injected rendered
+        // text and recomputed hashes, so every provider receives a valid,
+        // sendable ProviderPromptProjection (isSendable() requires a non-empty
+        // rendered_prompt_hash). The sections / quality checks / provider-safe
+        // flag are inherited verbatim from the composed projection; only the
+        // rendered text (and its two hashes) change. The marker injection is
+        // purely additive text — it never weakens the composer's guard rails.
+        return $this->rebuildProjectionWithRenderedText($repairProjection, $finalText);
+    }
+
+    /**
+     * Rebuild a {@see ProviderPromptProjection} with a new rendered_prompt_text
+     * and recomputed rendered_prompt_hash + prompt_projection_hash.
+     *
+     * Used by the repair loop to inject the REPAIR REQUIRED marker into the
+     * composed projection's rendered text without touching the sections,
+     * quality checks, or provider-safe flag the composer already established.
+     * The resulting projection is sendable (QualityChecks::allPassing() is
+     * inherited) so any locked provider's runtime driver accepts it.
+     */
+    private function rebuildProjectionWithRenderedText(
+        ProviderPromptProjection $projection,
+        string $renderedText,
+    ): ProviderPromptProjection {
+        $payload = $projection->toCanonicalArray();
+        $payload['rendered_prompt_text'] = $renderedText;
+        $payload['rendered_prompt_hash'] = hash('sha256', $renderedText);
+        // hash() excludes prompt_projection_hash from its own digest, so build
+        // a skeleton with a placeholder then recompute the canonical hash.
+        $payload['prompt_projection_hash'] = 'pending';
+        $skeleton = ProviderPromptProjection::fromArray($payload);
+        $payload['prompt_projection_hash'] = $skeleton->hash();
+
+        return ProviderPromptProjection::fromArray($payload);
     }
 
     /**

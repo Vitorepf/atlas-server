@@ -55,6 +55,88 @@ final class AtlasMaestroOutcomePatternMinerTest extends TestCase
         $this->assertNoCompositeScore($facts);
     }
 
+    public function test_new_dimensions_are_mined_from_raw_ledger_rows(): void
+    {
+        $schema = AtlasMaestroOutcomeShapeLedger::SCHEMA;
+        for ($i = 0; $i < 8; $i++) {
+            file_put_contents($this->path, json_encode([
+                'schema' => $schema, 'task_packet_id' => 'strat-'.$i,
+                'origin_kind' => 'orphan', 'allowed_files_count' => 2,
+                'scope_in_size' => 2, 'acceptance_criteria_count' => 3,
+                'required_evidence_count' => 1, 'has_tests_path' => true,
+                'wave_bucket' => 'w0', 'file_family' => 'SelfConstruction',
+                'task_shape' => 'bug-fix', 'worker_id' => 'claude-muscle-2',
+                'proof_command_class' => 'artisan-test', 'outcome' => 'delivered',
+            ])."\n", FILE_APPEND);
+        }
+
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $facts = (new AtlasMaestroOutcomePatternMiner($ledger))->mine();
+
+        foreach (['file_family', 'task_shape', 'worker_id', 'proof_command_class'] as $dim) {
+            $this->assertArrayHasKey($dim, $facts, "mine() must include dimension {$dim}");
+        }
+        $this->assertSame(1.0, $facts['file_family']['SelfConstruction']['delivery_rate']);
+        $this->assertSame(1.0, $facts['task_shape']['bug-fix']['delivery_rate']);
+        $this->assertSame(1.0, $facts['worker_id']['claude-muscle-2']['delivery_rate']);
+        $this->assertSame(1.0, $facts['proof_command_class']['artisan-test']['delivery_rate']);
+        $this->assertNoCompositeScore($facts);
+    }
+
+    public function test_strategy_signals_returns_high_delivery_rate_buckets_sorted(): void
+    {
+        $schema = AtlasMaestroOutcomeShapeLedger::SCHEMA;
+        for ($i = 0; $i < 8; $i++) {
+            file_put_contents($this->path, json_encode([
+                'schema' => $schema, 'task_packet_id' => 'hi-'.$i,
+                'origin_kind' => 'orphan', 'allowed_files_count' => 2,
+                'scope_in_size' => 2, 'acceptance_criteria_count' => 3,
+                'required_evidence_count' => 1, 'has_tests_path' => true,
+                'wave_bucket' => 'w0', 'file_family' => 'SelfConstruction',
+                'task_shape' => 'bug-fix', 'worker_id' => 'claude-muscle-2',
+                'proof_command_class' => 'artisan-test', 'outcome' => 'delivered',
+            ])."\n", FILE_APPEND);
+        }
+        for ($i = 0; $i < 8; $i++) {
+            file_put_contents($this->path, json_encode([
+                'schema' => $schema, 'task_packet_id' => 'lo-'.$i,
+                'origin_kind' => 'orphan', 'allowed_files_count' => 2,
+                'scope_in_size' => 2, 'acceptance_criteria_count' => 3,
+                'required_evidence_count' => 1, 'has_tests_path' => true,
+                'wave_bucket' => 'w0', 'file_family' => 'Maestro',
+                'task_shape' => 'refactor', 'worker_id' => 'codex-1',
+                'proof_command_class' => 'artisan-test',
+                'outcome' => $i < 4 ? 'delivered' : 'give_back',
+            ])."\n", FILE_APPEND);
+        }
+
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $signals = (new AtlasMaestroOutcomePatternMiner($ledger))->strategySignals();
+
+        $this->assertNotEmpty($signals);
+        foreach ($signals as $signal) {
+            $this->assertArrayHasKey('dimension', $signal);
+            $this->assertArrayHasKey('bucket', $signal);
+            $this->assertArrayHasKey('delivery_rate', $signal);
+            $this->assertArrayHasKey('support', $signal);
+            $this->assertGreaterThanOrEqual(0.5, $signal['delivery_rate']);
+        }
+
+        $rates = array_column($signals, 'delivery_rate');
+        $sorted = $rates;
+        rsort($sorted);
+        $this->assertSame($sorted, $rates, 'strategySignals must be sorted by delivery_rate DESC');
+    }
+
+    public function test_strategy_signals_empty_when_no_sufficient_support(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $ledger->record('t1', $this->shapeFacts(), 'delivered');
+        $ledger->record('t2', $this->shapeFacts(), 'delivered');
+
+        $this->assertSame([], (new AtlasMaestroOutcomePatternMiner($ledger))->strategySignals());
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
