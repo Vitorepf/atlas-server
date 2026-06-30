@@ -70,6 +70,23 @@ final class AtlasSelfConstructionOrganReadinessComposer
             $status = (string) $row['status'];
             switch ($status) {
                 case self::STATUS_READY:
+                    $evidenceBlockers = $this->evidenceFloorBlockers($row);
+                    if ($evidenceBlockers !== []) {
+                        $blocked[] = [
+                            'organ' => $organ,
+                            'reason' => 'evidence_floor_not_met',
+                            'blockers' => $evidenceBlockers,
+                        ];
+                        if (in_array($organ, self::CRITICAL_ORGANS, true)) {
+                            $nextRequired[] = $organ;
+                        }
+                        break;
+                    }
+                    if ((string) ($row['freshness_status'] ?? '') === 'stale') {
+                        $degraded[] = ['organ' => $organ, 'reason' => 'evidence_stale'];
+                        $nextRequired[] = $organ;
+                        break;
+                    }
                     $ready[] = $organ;
                     break;
                 case self::STATUS_BLOCKED:
@@ -96,6 +113,7 @@ final class AtlasSelfConstructionOrganReadinessComposer
         }
 
         $total = count(self::CANONICAL_ORGANS);
+
         $readinessRatio = $total > 0 ? round(count($ready) / $total, 4) : 0.0;
 
         $topBlockers = [];
@@ -118,5 +136,23 @@ final class AtlasSelfConstructionOrganReadinessComposer
             'readiness_ratio' => $readinessRatio,
             'top_blockers' => $topBlockers,
         ];
+    }
+
+    /** @return list<string> */
+    private function evidenceFloorBlockers(array $row): array
+    {
+        $blockers = [];
+        $refs = array_values(array_filter(array_map('strval', (array) ($row['evidence_refs'] ?? []))));
+        if ($refs === []) {
+            $blockers[] = 'evidence_floor_missing:evidence_refs';
+        }
+        if (trim((string) ($row['last_verified_at'] ?? '')) === '') {
+            $blockers[] = 'evidence_floor_missing:last_verified_at';
+        }
+        if (! array_key_exists('freshness_status', $row)) {
+            $blockers[] = 'evidence_floor_missing:freshness_status';
+        }
+
+        return $blockers;
     }
 }

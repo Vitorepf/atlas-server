@@ -13,7 +13,12 @@ final class AtlasSelfConstructionOrganReadinessComposerTest extends TestCase
     {
         $out = [];
         foreach (AtlasSelfConstructionOrganReadinessComposer::CANONICAL_ORGANS as $organ) {
-            $out[$organ] = ['status' => AtlasSelfConstructionOrganReadinessComposer::STATUS_READY];
+            $out[$organ] = [
+                'status' => AtlasSelfConstructionOrganReadinessComposer::STATUS_READY,
+                'evidence_refs' => [$organ.':verified'],
+                'last_verified_at' => '2026-06-30T00:00:00Z',
+                'freshness_status' => 'fresh',
+            ];
         }
 
         return $out;
@@ -132,5 +137,54 @@ final class AtlasSelfConstructionOrganReadinessComposerTest extends TestCase
     {
         $svc = new AtlasSelfConstructionOrganReadinessComposer;
         $this->assertSame(json_encode($svc->compose($this->allReady())), json_encode($svc->compose($this->allReady())));
+    }
+
+    // ── evidence freshness floor ──────────────────────────────────────────────
+
+    public function test_ready_without_evidence_refs_is_not_counted_ready_and_emits_blocker(): void
+    {
+        $organs = $this->allReady();
+        $organs['cortex']['evidence_refs'] = [];
+
+        $verdict = (new AtlasSelfConstructionOrganReadinessComposer)->compose($organs);
+        $this->assertNotContains('cortex', $verdict['ready_organs']);
+        $blockedById = array_column($verdict['blocked_organs'], null, 'organ');
+        $this->assertArrayHasKey('cortex', $blockedById);
+        $this->assertContains('evidence_floor_missing:evidence_refs', $blockedById['cortex']['blockers']);
+        $this->assertContains('cortex', $verdict['next_required_organs']);
+    }
+
+    public function test_ready_without_last_verified_at_is_not_counted_ready_and_emits_blocker(): void
+    {
+        $organs = $this->allReady();
+        unset($organs['strategy']['last_verified_at']);
+
+        $verdict = (new AtlasSelfConstructionOrganReadinessComposer)->compose($organs);
+        $this->assertNotContains('strategy', $verdict['ready_organs']);
+        $blockedById = array_column($verdict['blocked_organs'], null, 'organ');
+        $this->assertArrayHasKey('strategy', $blockedById);
+        $this->assertContains('evidence_floor_missing:last_verified_at', $blockedById['strategy']['blockers']);
+    }
+
+    public function test_ready_with_stale_freshness_status_moves_to_degraded_and_next_required(): void
+    {
+        $organs = $this->allReady();
+        $organs['maestro']['freshness_status'] = 'stale';
+
+        $verdict = (new AtlasSelfConstructionOrganReadinessComposer)->compose($organs);
+        $this->assertNotContains('maestro', $verdict['ready_organs']);
+        $degradedById = array_column($verdict['degraded_organs'], null, 'organ');
+        $this->assertArrayHasKey('maestro', $degradedById);
+        $this->assertContains('maestro', $verdict['next_required_organs']);
+    }
+
+    public function test_all_ready_with_fresh_evidence_passes(): void
+    {
+        $verdict = (new AtlasSelfConstructionOrganReadinessComposer)->compose($this->allReady());
+        $this->assertTrue($verdict['all_ready']);
+        $this->assertSame(AtlasSelfConstructionOrganReadinessComposer::CANONICAL_ORGANS, $verdict['ready_organs']);
+        $this->assertSame([], $verdict['blocked_organs']);
+        $this->assertSame([], $verdict['degraded_organs']);
+        $this->assertSame([], $verdict['next_required_organs']);
     }
 }
