@@ -11,7 +11,7 @@ final class AtlasGoalValueDecisionPolicyTest extends TestCase
 {
     private function leverageGood(): array
     {
-        return ['real_leverage' => true, 'proxy_only' => false, 'blockers' => []];
+        return ['real_leverage' => true, 'proxy_only' => false, 'blockers' => [], 'implementation_evidence_refs' => ['phpunit:exit_0']];
     }
 
     private function leverageBad(): array
@@ -139,5 +139,45 @@ final class AtlasGoalValueDecisionPolicyTest extends TestCase
 
         $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_REVISE, $verdict['decision']);
         $this->assertContains('verification_status_unknown', $verdict['reasons']);
+    }
+
+    public function test_promote_impossible_when_implementation_evidence_refs_empty(): void
+    {
+        $leverage = array_replace($this->leverageGood(), ['implementation_evidence_refs' => []]);
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($leverage, $this->gateOk(), $this->verificationGreen());
+
+        $this->assertNotSame(AtlasGoalValueDecisionPolicy::DECISION_PROMOTE, $verdict['decision']);
+        $this->assertContains('implementation_evidence_refs_empty', $verdict['reasons']);
+        $this->assertContains('attach_implementation_evidence_refs', $verdict['next_required_evidence']);
+    }
+
+    public function test_promote_impossible_when_operator_human_provider_approved(): void
+    {
+        $forbidden = ['operator_approved', 'human_approved', 'provider_approved', 'claude_code_approved', 'codex_approved', 'cursor_approved'];
+        foreach ($forbidden as $key) {
+            $verdict = (new AtlasGoalValueDecisionPolicy)->decide(
+                $this->leverageGood(),
+                $this->gateOk(),
+                $this->verificationGreen(),
+                [$key => true],
+            );
+            $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_REJECT, $verdict['decision'], "$key must cause reject");
+            $this->assertContains('finality_forbidden:'.$key, $verdict['reasons']);
+        }
+    }
+
+    public function test_decisions_are_deterministic(): void
+    {
+        $svc = new AtlasGoalValueDecisionPolicy;
+        $a = $svc->decide($this->leverageGood(), $this->gateOk(), $this->verificationGreen());
+        $b = $svc->decide($this->leverageGood(), $this->gateOk(), $this->verificationGreen());
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
+
+    public function test_no_scalar_value_score_in_output(): void
+    {
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($this->leverageGood(), $this->gateOk(), $this->verificationGreen());
+        $json = (string) json_encode($verdict);
+        $this->assertDoesNotMatchRegularExpression('/"(score|grade|percent|magnitude|value_score)"/i', $json);
     }
 }

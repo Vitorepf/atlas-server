@@ -37,9 +37,10 @@ final class AtlasGoalValueDecisionPolicy
      * @param  array<string,mixed>  $leverageVerdict
      * @param  array<string,mixed>  $antiProxyVerdict
      * @param  array<string,mixed>  $verification
+     * @param  array<string,mixed>  $finality  optional; operator/human/provider approval keys are FORBIDDEN
      * @return array<string,mixed>
      */
-    public function decide(array $leverageVerdict, array $antiProxyVerdict, array $verification): array
+    public function decide(array $leverageVerdict, array $antiProxyVerdict, array $verification, array $finality = []): array
     {
         $reasons = [];
         $nextEvidence = [];
@@ -65,6 +66,18 @@ final class AtlasGoalValueDecisionPolicy
         if ($proxyOnly) {
             $reasons[] = 'leverage_contract_proxy_only';
             $nextEvidence[] = 'replace_proxy_evidence_with_real_levers';
+
+            return $this->envelope(self::DECISION_REJECT, $reasons, $nextEvidence);
+        }
+
+        // REJECT — forbidden finality: operator/human/provider approval never substitutes for evidence.
+        foreach (['operator_approved', 'human_approved', 'provider_approved', 'claude_code_approved', 'codex_approved', 'cursor_approved'] as $forbidden) {
+            if (! empty($finality[$forbidden])) {
+                $reasons[] = 'finality_forbidden:'.$forbidden;
+            }
+        }
+        if ($reasons !== []) {
+            $nextEvidence[] = 'replace_with_server_side_verification_evidence';
 
             return $this->envelope(self::DECISION_REJECT, $reasons, $nextEvidence);
         }
@@ -101,6 +114,12 @@ final class AtlasGoalValueDecisionPolicy
 
         // PROMOTE — real_leverage true + gate clean + verification green/passed.
         if ($verificationPassed && $color === 'green') {
+            // Require explicit implementation evidence refs — empty refs cannot substitute for real proof.
+            $implRefs = array_values(array_filter(array_map('strval', (array) ($leverageVerdict['implementation_evidence_refs'] ?? []))));
+            if ($implRefs === []) {
+                return $this->envelope(self::DECISION_REVISE, ['implementation_evidence_refs_empty'], ['attach_implementation_evidence_refs']);
+            }
+
             return $this->envelope(self::DECISION_PROMOTE, ['promotion_criteria_met'], []);
         }
 
