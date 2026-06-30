@@ -101,17 +101,49 @@ final class AtlasTaskServingSentinel
         $served = count(array_filter($serves, static fn (array $r): bool => ($r['serve_status'] ?? '') === 'served'));
         $breaches = count(array_filter($serves, static fn (array $r): bool => ($r['breach'] ?? false) === true));
 
+        // Trend fields — iterate from tail backwards.
+        $consecutiveBelowFloor = 0;
+        foreach (array_reverse($fills) as $f) {
+            if ((bool) ($f['below_floor'] ?? false)) {
+                $consecutiveBelowFloor++;
+            } else {
+                break;
+            }
+        }
+
+        $consecutiveNonHonest = 0;
+        foreach (array_reverse($serves) as $s) {
+            if ((bool) ($s['breach'] ?? false)) {
+                $consecutiveNonHonest++;
+            } else {
+                break;
+            }
+        }
+
+        $depths = array_map(static fn (array $f): int => (int) ($f['claimable_depth'] ?? 0), $fills);
+        $recentMinClaimable = $depths === [] ? null : min($depths);
+
+        $lastDepth = $lastFill === null ? null : (int) ($lastFill['claimable_depth'] ?? 0);
+        $continuityState = 'healthy';
+        if ($consecutiveBelowFloor > 0 || $consecutiveNonHonest > 0) {
+            $continuityState = $lastDepth === 0 ? 'dry' : 'degrading';
+        }
+
         return [
             'schema' => self::SCHEMA,
             'r1_invariant' => self::INVARIANT_R1,
             'r2_invariant' => self::INVARIANT_R2,
-            'last_claimable_depth' => $lastFill === null ? null : (int) ($lastFill['claimable_depth'] ?? 0),
+            'last_claimable_depth' => $lastDepth,
             'r1_silent_alarm' => $lastFill !== null && (bool) ($lastFill['below_floor'] ?? false),
             'serve_total' => $serveTotal,
             'serve_success' => $served,
             'serve_success_rate' => $serveTotal > 0 ? round($served / $serveTotal, 4) : 1.0,
             'r2_breach' => $breaches > 0,
             'r2_breach_count' => $breaches,
+            'recent_min_claimable_depth' => $recentMinClaimable,
+            'consecutive_below_floor' => $consecutiveBelowFloor,
+            'consecutive_non_honest_serves' => $consecutiveNonHonest,
+            'continuity_state' => $continuityState,
         ];
     }
 

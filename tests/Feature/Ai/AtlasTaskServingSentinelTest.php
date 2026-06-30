@@ -71,6 +71,60 @@ final class AtlasTaskServingSentinelTest extends TestCase
         $this->assertSame(1, $st['r2_breach_count']);
     }
 
+    public function test_status_trend_fields_present_and_healthy_when_no_records(): void
+    {
+        $st = $this->sentinel()->status();
+
+        $this->assertArrayHasKey('recent_min_claimable_depth', $st);
+        $this->assertArrayHasKey('consecutive_below_floor', $st);
+        $this->assertArrayHasKey('consecutive_non_honest_serves', $st);
+        $this->assertArrayHasKey('continuity_state', $st);
+        $this->assertNull($st['recent_min_claimable_depth']);
+        $this->assertSame(0, $st['consecutive_below_floor']);
+        $this->assertSame(0, $st['consecutive_non_honest_serves']);
+        $this->assertSame('healthy', $st['continuity_state']);
+    }
+
+    public function test_status_is_healthy_when_depth_stable_above_floor_and_no_breach(): void
+    {
+        $s = $this->sentinel();
+        $s->recordQueueFill(5, 1);
+        $s->recordQueueFill(4, 1);
+        $s->recordServe('c', 'served');
+
+        $st = $s->status();
+        $this->assertSame('healthy', $st['continuity_state']);
+        $this->assertSame(0, $st['consecutive_below_floor']);
+        $this->assertSame(0, $st['consecutive_non_honest_serves']);
+        $this->assertSame(4, $st['recent_min_claimable_depth']);
+    }
+
+    public function test_status_becomes_degrading_before_full_dry_when_depth_trends_toward_floor(): void
+    {
+        $s = $this->sentinel();
+        $s->recordQueueFill(5, 3); // above floor
+        $s->recordQueueFill(2, 3); // below floor (2 < 3), but depth != 0
+
+        $st = $s->status();
+        $this->assertSame('degrading', $st['continuity_state'], 'below floor but not zero = degrading, not dry');
+        $this->assertSame(1, $st['consecutive_below_floor']);
+        $this->assertSame(2, $st['recent_min_claimable_depth']);
+    }
+
+    public function test_status_degrading_on_consecutive_non_honest_serves(): void
+    {
+        $s = $this->sentinel();
+        $s->recordQueueFill(5, 1);
+        $s->recordServe('c', 'served');
+        $s->recordServe('c', 'error');
+        $s->recordServe('c', 'error');
+
+        $st = $s->status();
+        $this->assertSame('degrading', $st['continuity_state']);
+        $this->assertSame(2, $st['consecutive_non_honest_serves']);
+        $this->assertSame(0, $st['consecutive_below_floor']);
+    }
+
     public function test_serving_invariants_i17_i18_are_declared_separately_from_the_16(): void
     {
         $svc = new AtlasAgentControlPlaneSafetyInvariantsService;
