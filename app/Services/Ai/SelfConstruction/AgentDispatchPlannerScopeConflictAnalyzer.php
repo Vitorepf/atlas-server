@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+
 /**
  * Detect scope conflicts between planned dispatches and active leases
  * recorded in the Claim/Lease ledger.
@@ -56,6 +58,9 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
                 $liveStatus = $conflicts === [] ? 'clear' : 'conflict';
             }
 
+            $hotScopeDirs = $this->hotScopeDirectories($writeSet, $leaseWriteSets);
+            [$recommendation, $recommendationReasons] = $this->recommend($conflicts, $hotScopeDirs);
+
             $analyses[] = [
                 'task_packet_id' => $taskId,
                 'write_set' => $writeSet,
@@ -64,6 +69,9 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
                 'conflict_count' => count($conflicts),
                 'conflicts' => $conflicts,
                 'has_scope_lock' => $writeSet !== [] || $readSet !== [],
+                'hot_scope_directories' => $hotScopeDirs,
+                'recommendation' => $recommendation,
+                'recommendation_reasons' => $recommendationReasons,
             ];
 
             if ($conflicts === []) {
@@ -157,6 +165,56 @@ final class AgentDispatchPlannerScopeConflictAnalyzer
         }
 
         return $conflicts;
+    }
+
+    public const RECOMMENDATION_PARALLEL_SAFE   = 'parallel_safe';
+    public const RECOMMENDATION_SERIALIZE       = 'serialize';
+    public const RECOMMENDATION_REJECT_CONFLICT = 'reject_conflict';
+
+    /**
+     * Same-directory hot-scope risk: a task touches the same directory as an
+     * active lease's write set without an exact file overlap — safe to serialize,
+     * not safe to run blindly in parallel. Read-only comparison, no worktree/sandbox.
+     *
+     * @param  list<string>  $writeSet
+     * @param  array<string, list<string>>  $leaseWriteSets
+     * @return list<string>
+     */
+    private function hotScopeDirectories(array $writeSet, array $leaseWriteSets): array
+    {
+        $taskDirs = array_unique(array_map(static fn (string $f): string => dirname($f), $writeSet));
+        $hot = [];
+
+        foreach ($leaseWriteSets as $leaseWriteSet) {
+            foreach ($leaseWriteSet as $leaseFile) {
+                $leaseDir = dirname($leaseFile);
+                if (in_array($leaseDir, $taskDirs, true) && ! in_array($leaseFile, $writeSet, true)) {
+                    $hot[$leaseDir] = true;
+                }
+            }
+        }
+
+        $dirs = array_keys($hot);
+        sort($dirs);
+
+        return $dirs;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $conflicts
+     * @param  list<string>  $hotScopeDirs
+     * @return array{0:string,1:list<string>}
+     */
+    private function recommend(array $conflicts, array $hotScopeDirs): array
+    {
+        if ($conflicts !== []) {
+            return [self::RECOMMENDATION_REJECT_CONFLICT, ['exact_allowed_files_overlap_or_active_lease_conflict']];
+        }
+        if ($hotScopeDirs !== []) {
+            return [self::RECOMMENDATION_SERIALIZE, ['same_directory_hot_scope']];
+        }
+
+        return [self::RECOMMENDATION_PARALLEL_SAFE, []];
     }
 
     /**

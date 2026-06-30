@@ -194,6 +194,76 @@ final class AgentDispatchPlannerScopeConflictAnalyzerTest extends TestCase
         $this->assertSame(0, $result['active_lease_count']);
     }
 
+    // ── recommendation / hot-scope (AC2-AC4) ────────────────────────────────────
+
+    public function test_no_conflict_no_hot_scope_recommends_parallel_safe(): void
+    {
+        $svc = new AgentDispatchPlannerScopeConflictAnalyzer;
+        $result = $svc->analyze([$this->task('tp', ['app/Other/FileA.php'])], [
+            'use_live_ledger' => false,
+            'active_leases' => [[
+                'lease_id' => 'lease-1',
+                'scope_lock' => ['write_set' => ['app/Different/FileB.php']],
+            ]],
+        ]);
+
+        $this->assertSame(AgentDispatchPlannerScopeConflictAnalyzer::RECOMMENDATION_PARALLEL_SAFE, $result['analyses'][0]['recommendation']);
+    }
+
+    public function test_exact_overlap_recommends_reject_conflict(): void
+    {
+        $svc = new AgentDispatchPlannerScopeConflictAnalyzer;
+        $result = $svc->analyze([$this->task('tp', ['app/Services/FileA.php'])], [
+            'use_live_ledger' => false,
+            'active_leases' => [[
+                'lease_id' => 'lease-1',
+                'scope_lock' => ['write_set' => ['app/Services/FileA.php']],
+            ]],
+        ]);
+
+        $this->assertSame(AgentDispatchPlannerScopeConflictAnalyzer::RECOMMENDATION_REJECT_CONFLICT, $result['analyses'][0]['recommendation']);
+        $this->assertNotEmpty($result['analyses'][0]['recommendation_reasons']);
+    }
+
+    public function test_same_directory_no_exact_overlap_recommends_serialize(): void
+    {
+        $svc = new AgentDispatchPlannerScopeConflictAnalyzer;
+        $result = $svc->analyze([$this->task('tp', ['app/Services/FileA.php'])], [
+            'use_live_ledger' => false,
+            'active_leases' => [[
+                'lease_id' => 'lease-1',
+                'scope_lock' => ['write_set' => ['app/Services/FileB.php']],
+            ]],
+        ]);
+
+        $this->assertSame(AgentDispatchPlannerScopeConflictAnalyzer::RECOMMENDATION_SERIALIZE, $result['analyses'][0]['recommendation']);
+        $this->assertContains('app/Services', $result['analyses'][0]['hot_scope_directories']);
+    }
+
+    public function test_conflict_takes_precedence_over_hot_scope(): void
+    {
+        $svc = new AgentDispatchPlannerScopeConflictAnalyzer;
+        $result = $svc->analyze([$this->task('tp', ['app/Services/FileA.php'])], [
+            'use_live_ledger' => false,
+            'active_leases' => [[
+                'lease_id' => 'lease-1',
+                'scope_lock' => ['write_set' => ['app/Services/FileA.php', 'app/Services/FileC.php']],
+            ]],
+        ]);
+
+        $this->assertSame(AgentDispatchPlannerScopeConflictAnalyzer::RECOMMENDATION_REJECT_CONFLICT, $result['analyses'][0]['recommendation']);
+    }
+
+    public function test_no_worktree_or_sandbox_keys_introduced(): void
+    {
+        $svc = new AgentDispatchPlannerScopeConflictAnalyzer;
+        $result = $svc->analyze([$this->task('tp', ['app/Services/FileA.php'])]);
+
+        $this->assertArrayNotHasKey('worktree', $result);
+        $this->assertArrayNotHasKey('sandbox', $result);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
     /**
      * @param  array<int, string>  $writeSet
      * @return array<string, mixed>
