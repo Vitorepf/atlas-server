@@ -104,7 +104,9 @@ final class AtlasExternalBrainControlPlaneSnapshot
             $nextActions[]  = 'Diagnose stalled yield: verify task completion and worker health';
         }
 
-        $band = $this->computeBand($rubricScore, $blockers);
+        $band        = $this->computeBand($rubricScore, $blockers);
+        $domainFacts = (array) ($inputs['domain_facts'] ?? []);
+        $hasMissingLedger = ! array_key_exists('ledger_summary', $inputs) || $inputs['ledger_summary'] === null;
 
         return [
             'schema'                    => self::SCHEMA,
@@ -121,10 +123,17 @@ final class AtlasExternalBrainControlPlaneSnapshot
                 'rubric_score'   => round($rubricScore, 3),
                 'queue_status'   => $queueStatus,
                 'audit_verdict'  => $auditVerdict,
-                'ledger_present' => array_key_exists('ledger_summary', $inputs) && $inputs['ledger_summary'] !== null,
+                'ledger_present' => ! $hasMissingLedger,
                 'stalled_yield'  => ! empty($inputs['stalled_yield']),
             ],
-            'domain_map'                => $this->buildDomainMap((array) ($inputs['domain_facts'] ?? [])),
+            'domain_map'                => $this->buildDomainMap($domainFacts),
+            'prioritized_next_actions'  => $this->buildPrioritizedActions(
+                $queueStatus,
+                $auditVerdict,
+                $hasMissingLedger,
+                ! empty($inputs['stalled_yield']),
+                $domainFacts,
+            ),
         ];
     }
 
@@ -176,6 +185,95 @@ final class AtlasExternalBrainControlPlaneSnapshot
         $order   = self::BAND_ORDER[$band] ?? 0;
 
         return $byOrder[max(0, $order - 1)];
+    }
+
+    /**
+     * AC1: Produces prioritized_next_actions ordered by impact severity.
+     * AC2: Stalled-queue (P1) and anti-Goodhart (P2) always precede cosmetic domain-map gaps (P10+).
+     *
+     * @return list<array{priority:int,blocker_dimension:string,evidence_source:string,expected_autonomy_gain:string}>
+     */
+    private function buildPrioritizedActions(
+        string $queueStatus,
+        string $auditVerdict,
+        bool $hasMissingLedger,
+        bool $stalledYield,
+        array $domainFacts,
+    ): array {
+        $actions = [];
+
+        if ($queueStatus === 'stalled') {
+            $actions[] = [
+                'priority'               => 1,
+                'blocker_dimension'      => 'queue_health.stalled',
+                'evidence_source'        => 'give_back_rate;poison_packet_scanner',
+                'expected_autonomy_gain' => 'restores_task_throughput',
+            ];
+        }
+
+        if ($auditVerdict === 'reject') {
+            $actions[] = [
+                'priority'               => 2,
+                'blocker_dimension'      => 'batch_quality_audit.reject',
+                'evidence_source'        => 'anti_goodhart_audit_findings',
+                'expected_autonomy_gain' => 'enables_quality_gated_merges',
+            ];
+        }
+
+        if ($hasMissingLedger) {
+            $actions[] = [
+                'priority'               => 3,
+                'blocker_dimension'      => 'ledger.missing',
+                'evidence_source'        => 'outcome_cycle_log',
+                'expected_autonomy_gain' => 'enables_compounding_learning',
+            ];
+        }
+
+        if ($stalledYield) {
+            $actions[] = [
+                'priority'               => 4,
+                'blocker_dimension'      => 'yield.stalled',
+                'evidence_source'        => 'task_completion_rate;worker_health',
+                'expected_autonomy_gain' => 'recovers_batch_delivery',
+            ];
+        }
+
+        if ($queueStatus === 'degraded') {
+            $actions[] = [
+                'priority'               => 5,
+                'blocker_dimension'      => 'queue_health.degraded',
+                'evidence_source'        => 'give_back_patterns;packet_reshaper',
+                'expected_autonomy_gain' => 'reduces_manual_intervention',
+            ];
+        }
+
+        if ($auditVerdict === 'repair_required') {
+            $actions[] = [
+                'priority'               => 6,
+                'blocker_dimension'      => 'batch_quality_audit.repair_required',
+                'evidence_source'        => 'anti_goodhart_suggestions',
+                'expected_autonomy_gain' => 'improves_batch_quality',
+            ];
+        }
+
+        // Cosmetic domain-map gaps — always lower priority than structural blockers (AC2).
+        $domainGapPriority = 10;
+        foreach ($domainFacts as $fact) {
+            $area     = trim((string) ($fact['area'] ?? ''));
+            $maturity = trim((string) ($fact['maturity'] ?? ''));
+            if ($area !== '' && ($maturity === '' || $maturity === 'unknown')) {
+                $actions[] = [
+                    'priority'               => $domainGapPriority++,
+                    'blocker_dimension'      => "domain_map.{$area}.maturity_unknown",
+                    'evidence_source'        => 'domain_scan;code_intelligence',
+                    'expected_autonomy_gain' => 'improves_domain_coverage_tracking',
+                ];
+            }
+        }
+
+        usort($actions, static fn (array $a, array $b): int => $a['priority'] <=> $b['priority']);
+
+        return $actions;
     }
 
     /**

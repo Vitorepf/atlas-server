@@ -304,6 +304,96 @@ final class AtlasExternalBrainControlPlaneSnapshotTest extends TestCase
         $this->assertSame('Forge', $result['domain_map'][0]['area']);
     }
 
+    // ── AC1: prioritized_next_actions output shape ────────────────────────────
+
+    public function test_prioritized_next_actions_key_present(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertArrayHasKey('prioritized_next_actions', $result);
+        $this->assertIsArray($result['prioritized_next_actions']);
+    }
+
+    public function test_prioritized_next_actions_entry_has_required_fields(): void
+    {
+        $result = $this->snap()->snapshot(
+            array_merge($this->healthyInputs(), ['queue_health' => ['status' => 'stalled']])
+        );
+        $entry = $result['prioritized_next_actions'][0];
+        foreach (['priority', 'blocker_dimension', 'evidence_source', 'expected_autonomy_gain'] as $field) {
+            $this->assertArrayHasKey($field, $entry, "Missing field: {$field}");
+        }
+        $this->assertIsInt($entry['priority']);
+    }
+
+    public function test_healthy_inputs_yield_no_prioritized_actions(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+        $this->assertSame([], $result['prioritized_next_actions']);
+    }
+
+    // ── AC2: stalled queue and anti-Goodhart ordered before domain-map gaps ───
+
+    public function test_stalled_queue_produces_priority_one_action(): void
+    {
+        $result = $this->snap()->snapshot(
+            array_merge($this->healthyInputs(), ['queue_health' => ['status' => 'stalled']])
+        );
+        $action = $result['prioritized_next_actions'][0];
+        $this->assertSame(1, $action['priority']);
+        $this->assertStringContainsString('queue_health', $action['blocker_dimension']);
+    }
+
+    public function test_anti_goodhart_reject_produces_priority_two_action(): void
+    {
+        $result = $this->snap()->snapshot(
+            array_merge($this->healthyInputs(), ['audit_result' => ['verdict' => 'reject', 'findings' => []]])
+        );
+        $actions = $result['prioritized_next_actions'];
+        $dims    = array_column($actions, 'blocker_dimension');
+        $found   = array_filter($actions, static fn (array $a): bool => str_contains($a['blocker_dimension'], 'batch_quality_audit'));
+        $this->assertNotEmpty($found, 'anti-Goodhart reject must produce a prioritized action');
+        $this->assertSame(2, array_values($found)[0]['priority']);
+    }
+
+    public function test_stalled_queue_ordered_before_domain_map_gap(): void
+    {
+        $result = $this->snap()->snapshot(array_merge($this->healthyInputs(), [
+            'queue_health' => ['status' => 'stalled'],
+            'domain_facts' => [['area' => 'ACOS']], // maturity absent → 'unknown' → cosmetic gap
+        ]));
+
+        $actions  = $result['prioritized_next_actions'];
+        $queueP   = array_values(array_filter($actions, fn (array $a): bool => str_contains($a['blocker_dimension'], 'queue_health')))[0]['priority'];
+        $domainP  = array_values(array_filter($actions, fn (array $a): bool => str_contains($a['blocker_dimension'], 'domain_map')))[0]['priority'];
+        $this->assertLessThan($domainP, $queueP, 'stalled queue must have lower priority number than domain-map gap');
+    }
+
+    public function test_anti_goodhart_ordered_before_domain_map_gap(): void
+    {
+        $result = $this->snap()->snapshot(array_merge($this->healthyInputs(), [
+            'audit_result' => ['verdict' => 'reject', 'findings' => []],
+            'domain_facts' => [['area' => 'EvolutionLoop']], // cosmetic gap
+        ]));
+
+        $actions  = $result['prioritized_next_actions'];
+        $auditP   = array_values(array_filter($actions, fn (array $a): bool => str_contains($a['blocker_dimension'], 'batch_quality')))[0]['priority'];
+        $domainP  = array_values(array_filter($actions, fn (array $a): bool => str_contains($a['blocker_dimension'], 'domain_map')))[0]['priority'];
+        $this->assertLessThan($domainP, $auditP, 'anti-Goodhart reject must appear before domain-map gap');
+    }
+
+    public function test_missing_ledger_produces_priority_three_action(): void
+    {
+        $result = $this->snap()->snapshot(
+            array_merge($this->healthyInputs(), ['ledger_summary' => null])
+        );
+        $found = array_values(array_filter(
+            $result['prioritized_next_actions'],
+            static fn (array $a): bool => str_contains($a['blocker_dimension'], 'ledger'),
+        ));
+        $this->assertNotEmpty($found);
+        $this->assertSame(3, $found[0]['priority']);
+    }
+
     public function test_multiple_domain_areas_all_present(): void
     {
         $inputs = array_merge($this->healthyInputs(), [
