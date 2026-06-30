@@ -20,10 +20,18 @@ use RuntimeException;
  *
  * Each hop appends a row to the packet's `migration_trail`:
  *   { from, to, transform_id, applied_at }.
+ *
+ * Lossless contract: fields listed in LOSSLESS_FIELDS are restored after each transform if
+ * a buggy transform silently drops them. Prevents silent evidence loss.
+ *
+ * After all hops, a sha256 `migration_hash` receipt is computed over the canonical payload.
  */
 final class AtlasMaestroPacketSchemaMigrator
 {
     public const SCHEMA = 'atlas.maestro.packet_schema_migrator.v1';
+
+    /** Fields that must survive every transform hop regardless of what the transform returns. */
+    public const LOSSLESS_FIELDS = ['required_evidence', 'acceptance_criteria', 'allowed_files', 'scope_in', 'depends_on', 'wave'];
 
     /** @var array<string, array{transform_id:string, transform: callable}> keyed by "<from>->>><to>" */
     private array $transforms = [];
@@ -93,6 +101,7 @@ final class AtlasMaestroPacketSchemaMigrator
                 throw new RuntimeException('no_transform_registered:'.$cursor.'->'.$nextId);
             }
             $row = $this->transforms[$key];
+            $before = $current;
             $transformed = ($row['transform'])($current);
             $appliedAt = ($this->clock)();
             $trail[] = [
@@ -103,10 +112,21 @@ final class AtlasMaestroPacketSchemaMigrator
             ];
             $current = is_array($transformed) ? $transformed : [];
             $current['schema_version'] = $nextId;
+            // Lossless contract: restore evidence fields a buggy transform may have dropped.
+            foreach (self::LOSSLESS_FIELDS as $field) {
+                if (array_key_exists($field, $before) && ! array_key_exists($field, $current)) {
+                    $current[$field] = $before[$field];
+                }
+            }
             $cursor = $nextId;
         }
 
         $current['migration_trail'] = $trail;
+
+        // Deterministic receipt hash over the canonical migrated payload.
+        $hashable = $current;
+        ksort($hashable);
+        $current['migration_hash'] = hash('sha256', (string) json_encode($hashable, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
         return $current;
     }

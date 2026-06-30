@@ -137,4 +137,44 @@ class AtlasMaestroPacketSchemaMigratorTest extends TestCase
 
         self::assertSame($packet, $out);
     }
+
+    public function test_lossless_fields_survive_a_lossy_transform(): void
+    {
+        $clock = static fn (): string => '2026-06-25T00:00:00Z';
+        $migrator = new AtlasMaestroPacketSchemaMigrator($this->versioningWithSyntheticV2(), $clock);
+        // Deliberately returns only task_packet_id + objective + evolution_hints — drops everything else.
+        $migrator->registerTransform(
+            AtlasMaestroPacketSchemaVersioning::CANONICAL_V1,
+            'atlas.self_construction.agent_control_plane_task_packet.v2',
+            'lossy_transform',
+            static fn (array $p): array => ['task_packet_id' => $p['task_packet_id'], 'objective' => $p['objective'], 'evolution_hints' => ['strategy' => 'test']],
+        );
+
+        $packet = array_merge($this->v1Packet(), [
+            'scope_in' => ['app/Foo.php'],
+            'depends_on' => ['other-task'],
+            'wave' => 3,
+        ]);
+
+        $out = $migrator->migrateTo($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        self::assertSame(['tests_or_gates_result'], $out['required_evidence'], 'required_evidence must survive lossy transform');
+        self::assertSame(['noop'], $out['acceptance_criteria'], 'acceptance_criteria must survive lossy transform');
+        self::assertSame(['app/Foo.php'], $out['allowed_files'], 'allowed_files must survive lossy transform');
+        self::assertSame(['app/Foo.php'], $out['scope_in'], 'scope_in must survive lossy transform');
+        self::assertSame(['other-task'], $out['depends_on'], 'depends_on must survive lossy transform');
+        self::assertSame(3, $out['wave'], 'wave must survive lossy transform');
+    }
+
+    public function test_migration_hash_is_deterministic_for_same_input(): void
+    {
+        $migrator = $this->buildMigrator();
+        $packet = $this->v1Packet();
+        $a = $migrator->migrateTo($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+        $b = $migrator->migrateTo($packet, 'atlas.self_construction.agent_control_plane_task_packet.v2');
+
+        self::assertArrayHasKey('migration_hash', $a);
+        self::assertNotEmpty($a['migration_hash']);
+        self::assertSame($a['migration_hash'], $b['migration_hash'], 'same input must produce identical migration_hash');
+    }
 }
