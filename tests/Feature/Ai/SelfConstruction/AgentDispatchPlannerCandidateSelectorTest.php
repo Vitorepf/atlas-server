@@ -233,4 +233,101 @@ final class AgentDispatchPlannerCandidateSelectorTest extends TestCase
             'evidence_required' => true,
         ]);
     }
+
+    // ── rankByValue() ────────────────────────────────────────────────────────
+
+    private function task(array $overrides = []): array
+    {
+        return array_merge([
+            'task_packet_id'   => 'p-default',
+            'value_density'    => 0.5,
+            'implementability' => 0.5,
+            'freshness'        => 0.5,
+            'risk_level'       => 'low',
+            'required_capabilities' => [],
+        ], $overrides);
+    }
+
+    public function test_rank_by_value_emits_selected_deferred_rationale(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([$this->task()]);
+
+        foreach (['selected', 'deferred', 'rationale'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_high_value_density_ranks_above_low_value_density(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([
+            $this->task(['task_packet_id' => 'low', 'value_density' => 0.1]),
+            $this->task(['task_packet_id' => 'high', 'value_density' => 0.9]),
+        ]);
+
+        $this->assertSame('high', $result['selected'][0]['task_packet_id']);
+    }
+
+    public function test_saturation_defers_low_value_tasks_without_deleting(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([
+            $this->task(['task_packet_id' => 'high', 'value_density' => 0.9]),
+            $this->task(['task_packet_id' => 'low', 'value_density' => 0.1]),
+        ], ['capacity' => 1]);
+
+        $this->assertCount(1, $result['selected']);
+        $this->assertSame('high', $result['selected'][0]['task_packet_id']);
+        $this->assertCount(1, $result['deferred']);
+        $this->assertSame('low', $result['deferred'][0]['task_packet_id']);
+        // deferred, not deleted: still present somewhere in the output.
+        $this->assertSame(2, count($result['selected']) + count($result['deferred']));
+    }
+
+    public function test_no_capacity_means_no_saturation_all_selected(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([
+            $this->task(['task_packet_id' => 'a']),
+            $this->task(['task_packet_id' => 'b']),
+        ]);
+
+        $this->assertCount(2, $result['selected']);
+        $this->assertSame([], $result['deferred']);
+    }
+
+    public function test_worker_fit_factors_into_score(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([
+            $this->task(['task_packet_id' => 'fits', 'required_capabilities' => ['code_edit']]),
+            $this->task(['task_packet_id' => 'mismatch', 'required_capabilities' => ['security_audit']]),
+        ], ['worker_capabilities' => ['code_edit']]);
+
+        $this->assertSame('fits', $result['selected'][0]['task_packet_id']);
+    }
+
+    public function test_high_risk_lowers_rank_versus_low_risk(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([
+            $this->task(['task_packet_id' => 'risky', 'risk_level' => 'high']),
+            $this->task(['task_packet_id' => 'safe', 'risk_level' => 'low']),
+        ]);
+
+        $this->assertSame('safe', $result['selected'][0]['task_packet_id']);
+    }
+
+    public function test_rationale_explains_selection_and_deferral(): void
+    {
+        $selector = new AgentDispatchPlannerCandidateSelector;
+        $result = $selector->rankByValue([
+            $this->task(['task_packet_id' => 'a', 'value_density' => 0.9]),
+            $this->task(['task_packet_id' => 'b', 'value_density' => 0.1]),
+        ], ['capacity' => 1]);
+
+        $this->assertStringContainsString('selected', $result['rationale']['a']);
+        $this->assertStringContainsString('deferred', $result['rationale']['b']);
+    }
 }

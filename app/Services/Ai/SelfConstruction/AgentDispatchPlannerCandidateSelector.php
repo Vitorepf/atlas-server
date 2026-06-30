@@ -100,6 +100,88 @@ final class AgentDispatchPlannerCandidateSelector
         ];
     }
 
+    private const VALUE_WEIGHT_DENSITY        = 0.35;
+    private const VALUE_WEIGHT_IMPLEMENTABILITY = 0.25;
+    private const VALUE_WEIGHT_FRESHNESS      = 0.20;
+    private const VALUE_WEIGHT_WORKER_FIT     = 0.10;
+    private const VALUE_WEIGHT_RISK           = 0.10;
+
+    private const RISK_SCORE = ['low' => 0.1, 'medium' => 0.5, 'high' => 0.9];
+
+    /**
+     * Rank candidate tasks by value density, implementability, freshness, worker fit
+     * and risk instead of simple FIFO/priority ordering, and — when the queue is
+     * saturated relative to capacity — defer (never delete) the lowest-value valid
+     * tasks so they remain claimable later.
+     *
+     * @param  list<array<string,mixed>>  $candidateTasks  output of selectCandidateTasks()/select()
+     * @param  array{capacity?: int, worker_capabilities?: list<string>}  $context
+     * @return array{schema_version:string, selected:list<array<string,mixed>>, deferred:list<array<string,mixed>>, rationale:array<string,string>}
+     */
+    public function rankByValue(array $candidateTasks, array $context = []): array
+    {
+        $capacity = isset($context['capacity']) ? max(0, (int) $context['capacity']) : null;
+        $workerCapabilities = is_array($context['worker_capabilities'] ?? null) ? $context['worker_capabilities'] : [];
+
+        $scored = [];
+        foreach ($candidateTasks as $task) {
+            $id              = $this->scalarString($task['task_packet_id'] ?? '');
+            $valueDensity    = $this->clamp01((float) ($task['value_density']    ?? 0.5));
+            $implementability = $this->clamp01((float) ($task['implementability'] ?? 0.5));
+            $freshness       = $this->clamp01((float) ($task['freshness']        ?? 0.5));
+            $requiredCaps    = (array) ($task['required_capabilities'] ?? []);
+            $workerFit       = $workerCapabilities === [] || $requiredCaps === []
+                ? 0.5
+                : (count(array_intersect($requiredCaps, $workerCapabilities)) / max(1, count($requiredCaps)));
+            $riskLevel       = $this->scalarString($task['risk_level'] ?? 'low');
+            $riskScore       = self::RISK_SCORE[$riskLevel] ?? 0.5;
+
+            $score = $valueDensity * self::VALUE_WEIGHT_DENSITY
+                + $implementability * self::VALUE_WEIGHT_IMPLEMENTABILITY
+                + $freshness * self::VALUE_WEIGHT_FRESHNESS
+                + $workerFit * self::VALUE_WEIGHT_WORKER_FIT
+                + (1.0 - $riskScore) * self::VALUE_WEIGHT_RISK;
+
+            $scored[] = ['task' => $task, 'id' => $id, 'value_score' => round($score, 4)];
+        }
+
+        usort($scored, static function (array $a, array $b): int {
+            return $a['value_score'] !== $b['value_score']
+                ? $b['value_score'] <=> $a['value_score']
+                : strcmp($a['id'], $b['id']);
+        });
+
+        $isSaturated = $capacity !== null && count($scored) > $capacity;
+
+        $selected  = [];
+        $deferred  = [];
+        $rationale = [];
+
+        foreach ($scored as $i => $entry) {
+            $withinCapacity = ! $isSaturated || $i < $capacity;
+            if ($withinCapacity) {
+                $selected[] = $entry['task'];
+                $rationale[$entry['id']] = sprintf('selected: value_score=%.4f (rank %d)', $entry['value_score'], $i + 1);
+            } else {
+                // Deferred, never deleted — remains claimable in a future, less saturated cycle.
+                $deferred[] = $entry['task'];
+                $rationale[$entry['id']] = sprintf('deferred (queue saturated): value_score=%.4f (rank %d, capacity=%d)', $entry['value_score'], $i + 1, $capacity);
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'selected'       => $selected,
+            'deferred'       => $deferred,
+            'rationale'      => $rationale,
+        ];
+    }
+
+    private function clamp01(float $v): float
+    {
+        return max(0.0, min(1.0, $v));
+    }
+
     /**
      * @return array<string, bool>
      */
