@@ -279,4 +279,136 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
 
         $this->assertSame($this->planner()->plan($input), $this->planner()->plan($input));
     }
+
+    // ── AC4: new output keys always present ───────────────────────────────────
+
+    public function test_new_output_keys_present_on_empty_input(): void
+    {
+        $r = $this->planner()->plan([]);
+
+        $this->assertArrayHasKey('total_expected_line_delta', $r);
+        $this->assertArrayHasKey('blocked_deletions', $r);
+        $this->assertArrayHasKey('proof_required', $r);
+        $this->assertSame(0, $r['total_expected_line_delta']);
+        $this->assertSame([], $r['blocked_deletions']);
+        $this->assertSame([], $r['proof_required']);
+    }
+
+    // ── AC4: total_expected_line_delta ────────────────────────────────────────
+
+    public function test_total_line_delta_sums_non_blocked_candidates(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            array_merge($this->keepCandidate('A'), ['estimated_line_delta' => 100]),
+            array_merge($this->keepCandidate('B'), ['estimated_line_delta' => 50]),
+        ]]);
+
+        $this->assertSame(150, $r['total_expected_line_delta']);
+    }
+
+    public function test_blocked_candidate_excluded_from_line_delta(): void
+    {
+        $blocked = [
+            'organ_id'            => 'B',
+            'similar_organs'      => ['X'],
+            'has_active_consumers' => true,
+            'estimated_line_delta' => 200,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$blocked]]);
+
+        // blocked → excluded from total
+        $this->assertSame(0, $r['total_expected_line_delta']);
+    }
+
+    // ── AC3: blocked_deletions ────────────────────────────────────────────────
+
+    public function test_active_consumers_block_delete_action(): void
+    {
+        $candidate = [
+            'organ_id'             => 'D1',
+            'similar_organs'       => ['S1'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'has_active_consumers' => true,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+
+        $this->assertContains('D1', $r['blocked_deletions']);
+    }
+
+    public function test_active_consumers_block_consolidate_action(): void
+    {
+        $candidate = [
+            'organ_id'             => 'C1',
+            'similar_organs'       => ['S1'],
+            'usage_evidence_count' => 5,   // not zero → consolidate (not delete)
+            'compounding_value'    => 0.9,
+            'has_active_consumers' => true,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+
+        $this->assertContains('C1', $r['blocked_deletions']);
+    }
+
+    public function test_no_active_consumers_not_blocked(): void
+    {
+        $candidate = [
+            'organ_id'             => 'D2',
+            'similar_organs'       => ['S2'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'has_active_consumers' => false,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+
+        $this->assertNotContains('D2', $r['blocked_deletions']);
+    }
+
+    public function test_keep_action_not_blocked_even_with_active_consumers(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            array_merge($this->keepCandidate('K3'), ['has_active_consumers' => true]),
+        ]]);
+
+        $this->assertSame([], $r['blocked_deletions']);
+    }
+
+    // ── AC4: proof_required ───────────────────────────────────────────────────
+
+    public function test_proof_required_populated_for_delete_candidate(): void
+    {
+        $candidate = [
+            'organ_id'             => 'DEL',
+            'similar_organs'       => ['X'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+
+        $this->assertCount(1, $r['proof_required']);
+        $this->assertStringContainsString('DEL', $r['proof_required'][0]);
+    }
+
+    public function test_proof_required_empty_for_keep_only(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [$this->keepCandidate('K4')]]);
+
+        $this->assertSame([], $r['proof_required']);
+    }
+
+    public function test_blocked_candidate_still_appears_in_proof_required(): void
+    {
+        $candidate = [
+            'organ_id'             => 'BL',
+            'similar_organs'       => ['Y'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'has_active_consumers' => true,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+
+        // Blocked but proof is still required before it can be actioned.
+        $this->assertNotEmpty($r['proof_required']);
+        $this->assertStringContainsString('BL', $r['proof_required'][0]);
+    }
 }

@@ -35,6 +35,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     compounding_value?:             float   (default 0.0)
  *     maintenance_cost?:              float   (default 0.0)
  *     covers_same_decision_surface_as?: list<string>
+ *     has_active_consumers?:          bool    (default false) — blocks delete/consolidate
+ *     estimated_line_delta?:          int     (default 0) — lines removed if action taken
  *   }>
  *   usage_evidence_floor?:        int   (default 1)
  *   compounding_floor?:           float (default 0.20)
@@ -76,21 +78,24 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
         $compoundingFloor = (float) ($input['compounding_floor'] ?? self::DEFAULT_COMPOUNDING_FLOOR);
         $maintCeiling     = (float) ($input['maintenance_cost_ceiling'] ?? self::DEFAULT_MAINT_CEILING);
 
-        $scored = [];
-        $hasOverlap = false;
+        $scored          = [];
+        $blockedDeletions = [];
+        $hasOverlap      = false;
 
         foreach ($rawCandidates as $raw) {
             if (! is_array($raw) || ! isset($raw['organ_id'])) {
                 continue;
             }
 
-            $organId       = (string) $raw['organ_id'];
-            $purpose       = (string) ($raw['purpose'] ?? $organId);
-            $similarOrgans = is_array($raw['similar_organs'] ?? null) ? $raw['similar_organs'] : [];
-            $evidenceCount = max(0, (int) ($raw['usage_evidence_count'] ?? 0));
-            $compounding   = (float) ($raw['compounding_value'] ?? 0.0);
-            $maintCost     = (float) ($raw['maintenance_cost'] ?? 0.0);
-            $sameDecision  = is_array($raw['covers_same_decision_surface_as'] ?? null)
+            $organId           = (string) $raw['organ_id'];
+            $purpose           = (string) ($raw['purpose'] ?? $organId);
+            $similarOrgans     = is_array($raw['similar_organs'] ?? null) ? $raw['similar_organs'] : [];
+            $evidenceCount     = max(0, (int) ($raw['usage_evidence_count'] ?? 0));
+            $compounding       = (float) ($raw['compounding_value'] ?? 0.0);
+            $maintCost         = (float) ($raw['maintenance_cost'] ?? 0.0);
+            $hasActiveConsumers = (bool) ($raw['has_active_consumers'] ?? false);
+            $estimatedLineDelta = (int) ($raw['estimated_line_delta'] ?? 0);
+            $sameDecision      = is_array($raw['covers_same_decision_surface_as'] ?? null)
                 ? $raw['covers_same_decision_surface_as']
                 : [];
 
@@ -126,7 +131,16 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 $action = self::ACTION_KEEP;
             }
 
-            $proof = in_array($action, [self::ACTION_DELETE, self::ACTION_CONSOLIDATE], true)
+            $isDeletive = in_array($action, [self::ACTION_DELETE, self::ACTION_CONSOLIDATE], true);
+
+            // AC3: active consumers block deletion/consolidation.
+            $isBlocked = $isDeletive && $hasActiveConsumers;
+            if ($isBlocked) {
+                $blockedDeletions[] = $organId;
+                $riskNotes[]        = 'blocked: active consumers detected — must migrate before delete';
+            }
+
+            $proof = $isDeletive
                 ? 'verify zero active consumers before deleting '.$organId
                 : null;
 
@@ -138,11 +152,13 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             };
 
             $scored[] = [
-                'organ_id'                      => $organId,
-                '_score'                        => $score,
-                'recommended_action'            => $action,
-                'preserved_capability'          => $preserved,
-                'risk_notes'                    => $riskNotes,
+                'organ_id'                       => $organId,
+                '_score'                         => $score,
+                '_line_delta'                    => $estimatedLineDelta,
+                '_blocked'                       => $isBlocked,
+                'recommended_action'             => $action,
+                'preserved_capability'           => $preserved,
+                'risk_notes'                     => $riskNotes,
                 'proof_required_before_deletion' => $proof,
             ];
         }
@@ -154,19 +170,34 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 : ($b['_score'] <=> $a['_score'])
         );
 
-        $ranked = [];
+        $ranked           = [];
+        $totalLineDelta   = 0;
+        $proofRequired    = [];
+
         foreach ($scored as $rank => $entry) {
-            unset($entry['_score']);
+            $lineDelta = $entry['_line_delta'];
+            $isBlocked = $entry['_blocked'];
+            unset($entry['_score'], $entry['_line_delta'], $entry['_blocked']);
             $entry['rank'] = $rank + 1;
             $ranked[]      = $entry;
+
+            if (! $isBlocked) {
+                $totalLineDelta += $lineDelta;
+            }
+            if ($entry['proof_required_before_deletion'] !== null) {
+                $proofRequired[] = $entry['proof_required_before_deletion'];
+            }
         }
 
         return [
-            'schema'            => self::SCHEMA,
-            'ranked_candidates' => $ranked,
-            'preferred_action'  => $hasOverlap
+            'schema'                   => self::SCHEMA,
+            'ranked_candidates'        => $ranked,
+            'preferred_action'         => $hasOverlap
                 ? self::PREFERRED_CONSOLIDATE_OR_DELETE
                 : self::PREFERRED_ADD_NEW_CAPABILITY,
+            'total_expected_line_delta' => $totalLineDelta,
+            'blocked_deletions'        => $blockedDeletions,
+            'proof_required'           => $proofRequired,
         ];
     }
 }
