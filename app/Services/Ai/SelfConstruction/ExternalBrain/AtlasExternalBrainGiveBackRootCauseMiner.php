@@ -40,6 +40,14 @@ final class AtlasExternalBrainGiveBackRootCauseMiner
 
     public const ACTION_RETRY_DIFFERENT_WORKER = 'retry_different_worker';
 
+    public const ACTION_REWRITE_ALLOWED_FILES = 'rewrite_allowed_files';
+
+    public const ACTION_REWRITE_ACCEPTANCE = 'rewrite_acceptance';
+
+    public const ACTION_SPLIT_DEPENDENCIES = 'split_dependencies';
+
+    public const ACTION_REROUTE_WORKER_CLASS = 'reroute_worker_class';
+
     /** Minimum give_back_count before a task is considered a poison packet. */
     public const POISON_THRESHOLD = 2;
 
@@ -62,11 +70,12 @@ final class AtlasExternalBrainGiveBackRootCauseMiner
             $key = $rootCause;
             if (! isset($clusters[$key])) {
                 $clusters[$key] = [
-                    'root_cause' => $rootCause,
-                    'defect_type' => $defectType,
+                    'root_cause'         => $rootCause,
+                    'defect_type'        => $defectType,
                     'recommended_action' => $action,
-                    'task_packet_ids' => [],
-                    'evidence' => [],
+                    'respec_plan'        => $this->buildRespecPlan($rootCause, $defectType),
+                    'task_packet_ids'    => [],
+                    'evidence'           => [],
                 ];
             }
 
@@ -152,5 +161,37 @@ final class AtlasExternalBrainGiveBackRootCauseMiner
 
         // Unclassified repeated failure → escalate to operator.
         return ['unclassified_repeat', self::DEFECT_PACKET, self::ACTION_OPERATOR_ONLY];
+    }
+
+    /** @return array{action:string, target_fields:list<string>, why_not_retry_unchanged:string} */
+    private function buildRespecPlan(string $rootCause, string $defectType): array
+    {
+        // Worker-weakness clusters: reroute, never quarantine the packet.
+        if ($defectType === self::DEFECT_WORKER) {
+            return [
+                'action'                  => self::ACTION_REROUTE_WORKER_CLASS,
+                'target_fields'           => [],
+                'why_not_retry_unchanged' => 'packet spec is correct; this worker class lacks the capability to complete it',
+            ];
+        }
+
+        $plans = [
+            'bad_allowed_files'       => [self::ACTION_REWRITE_ALLOWED_FILES,  ['allowed_files', 'scope_in'],              'scope guard rejects the unchanged spec on every attempt'],
+            'forbidden_target'        => [self::ACTION_REWRITE_ALLOWED_FILES,  ['allowed_files', 'scope_in'],              'forbidden file triggers scope guard every time; only a scope change unblocks it'],
+            'contradictory_acceptance'=> [self::ACTION_REWRITE_ACCEPTANCE,     ['acceptance_criteria'],                    'contradictory criteria make correct completion logically impossible'],
+            'missing_schema'          => [self::ACTION_REWRITE_ACCEPTANCE,     ['acceptance_criteria', 'required_evidence'],'missing schema makes completion unverifiable; a runnable gate is required'],
+            'duplicate_implemented'   => [self::ACTION_CANCEL,                 [],                                         'target already implemented; any retry would duplicate existing work'],
+            'flaky_test'              => [self::ACTION_REWRITE_ACCEPTANCE,     ['acceptance_criteria'],                    'flaky test keeps failing non-deterministically; the gate must be fixed first'],
+            'impossible_dependency'   => [self::ACTION_SPLIT_DEPENDENCIES,     ['allowed_files', 'objective'],             'unresolvable cross-task dependency cannot be fixed by retrying the same muscle'],
+            'unclassified_repeat'     => [self::ACTION_SPLIT_DEPENDENCIES,     ['objective'],                              'repeated failure without clear root cause requires human diagnosis before re-queuing'],
+        ];
+
+        $plan = $plans[$rootCause] ?? [self::ACTION_SPLIT_DEPENDENCIES, ['objective'], 'unknown root cause; operator review required before retry'];
+
+        return [
+            'action'                  => $plan[0],
+            'target_fields'           => $plan[1],
+            'why_not_retry_unchanged' => $plan[2],
+        ];
     }
 }

@@ -208,6 +208,126 @@ final class AtlasExternalBrainGiveBackRootCauseMinerTest extends TestCase
         $this->assertCount(2, $r['root_causes']);
     }
 
+    // ── respec_plan ───────────────────────────────────────────────────────────
+
+    public function test_every_cluster_has_respec_plan_with_required_keys(): void
+    {
+        $r = $this->miner->mine([
+            ['task_packet_id' => 'task-a', 'give_back_class' => 'scope_repair_missing_impl', 'give_back_count' => 3],
+            ['task_packet_id' => 'task-b', 'give_back_class' => 'context_overflow',           'give_back_count' => 2],
+        ]);
+
+        foreach ($r['root_causes'] as $cause) {
+            $this->assertArrayHasKey('respec_plan', $cause, "cluster '{$cause['root_cause']}' missing respec_plan");
+            $plan = $cause['respec_plan'];
+            $this->assertArrayHasKey('action', $plan);
+            $this->assertArrayHasKey('target_fields', $plan);
+            $this->assertArrayHasKey('why_not_retry_unchanged', $plan);
+            $this->assertIsString($plan['action']);
+            $this->assertIsArray($plan['target_fields']);
+            $this->assertNotEmpty($plan['why_not_retry_unchanged']);
+        }
+    }
+
+    public function test_respec_plan_for_bad_allowed_files_is_rewrite_allowed_files(): void
+    {
+        $r    = $this->miner->mine([[
+            'task_packet_id'  => 'task-scope-x',
+            'give_back_class' => 'scope_repair_missing_impl',
+            'give_back_count' => 3,
+        ]]);
+        $plan = $r['root_causes'][0]['respec_plan'];
+
+        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_REWRITE_ALLOWED_FILES, $plan['action']);
+        $this->assertContains('allowed_files', $plan['target_fields']);
+    }
+
+    public function test_respec_plan_for_contradictory_acceptance_is_rewrite_acceptance(): void
+    {
+        $r    = $this->miner->mine([[
+            'task_packet_id'  => 'task-contra-x',
+            'give_back_class' => 'contradictory_acceptance',
+            'give_back_count' => 2,
+        ]]);
+        $plan = $r['root_causes'][0]['respec_plan'];
+
+        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_REWRITE_ACCEPTANCE, $plan['action']);
+        $this->assertContains('acceptance_criteria', $plan['target_fields']);
+    }
+
+    public function test_respec_plan_for_duplicate_is_cancel(): void
+    {
+        $r    = $this->miner->mine([[
+            'task_packet_id'  => 'task-dup-x',
+            'give_back_class' => 'duplicate_capability',
+            'give_back_count' => 2,
+        ]]);
+        $plan = $r['root_causes'][0]['respec_plan'];
+
+        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_CANCEL, $plan['action']);
+        $this->assertSame([], $plan['target_fields']);
+    }
+
+    public function test_respec_plan_for_impossible_dependency_is_split_dependencies(): void
+    {
+        $r    = $this->miner->mine([[
+            'task_packet_id'  => 'task-dep-x',
+            'give_back_class' => 'impossible_dependency',
+            'give_back_count' => 2,
+        ]]);
+        $plan = $r['root_causes'][0]['respec_plan'];
+
+        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_SPLIT_DEPENDENCIES, $plan['action']);
+    }
+
+    public function test_respec_plan_for_worker_weakness_is_reroute_not_packet_quarantine(): void
+    {
+        $r    = $this->miner->mine([[
+            'task_packet_id'  => 'task-ctx-x',
+            'give_back_class' => 'context_overflow',
+            'give_back_count' => 5,
+        ]]);
+        $plan = $r['root_causes'][0]['respec_plan'];
+
+        $this->assertSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_REROUTE_WORKER_CLASS, $plan['action']);
+        // Must NOT cancel or quarantine the packet.
+        $this->assertNotSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_CANCEL,    $plan['action']);
+        $this->assertNotSame(AtlasExternalBrainGiveBackRootCauseMiner::ACTION_OPERATOR_ONLY, $plan['action']);
+        $this->assertSame([], $plan['target_fields'], 'worker reroute must not mutate packet fields');
+    }
+
+    public function test_respec_plan_worker_weakness_why_explains_packet_is_fine(): void
+    {
+        $r    = $this->miner->mine([[
+            'task_packet_id'  => 'task-cap-x',
+            'give_back_class' => 'capability_gap',
+            'give_back_count' => 3,
+        ]]);
+        $why = $r['root_causes'][0]['respec_plan']['why_not_retry_unchanged'];
+
+        $this->assertStringContainsString('worker', $why);
+    }
+
+    public function test_respec_plan_why_not_retry_unchanged_is_non_empty_for_all_packet_defects(): void
+    {
+        $classes = [
+            'scope_repair_missing_impl',
+            'forbidden_file',
+            'contradictory_acceptance',
+            'schema_missing',
+            'duplicate_capability',
+            'flaky_test',
+            'impossible_dependency',
+            'unknown_weird_class',
+        ];
+
+        foreach ($classes as $class) {
+            $r    = $this->miner->mine([['task_packet_id' => 'x', 'give_back_class' => $class, 'give_back_count' => 2]]);
+            $plan = $r['root_causes'][0]['respec_plan'];
+            $this->assertNotEmpty($plan['why_not_retry_unchanged'], "empty why for class: {$class}");
+        }
+    }
+
     // ── never retry unchanged invariant ──────────────────────────────────────
 
     public function test_poison_packets_are_not_recommended_for_unchanged_retry(): void
