@@ -327,4 +327,66 @@ final class AtlasExternalBrainWeakOutputRepairLoopTest extends TestCase
         $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_SCOPE_SHAPE, $result['failure_class']);
         $this->assertLessThanOrEqual(2, count($result['repaired_candidate']['allowed_files']));
     }
+
+    // ── stale evidence / vague objective / low impact / proxy-fake-value ──────
+
+    public function test_stale_evidence_weakness_yields_evidence_refresh(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['stale_evidence']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_STALE_EVIDENCE, $result['failure_class']);
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::REPAIR_ACTION_EVIDENCE_REFRESH, $result['repair_action']);
+        $this->assertNull($result['refusal_reason']);
+        $this->assertNotEmpty($result['repaired_candidate']);
+    }
+
+    public function test_vague_objective_weakness_yields_rewrite_acceptance(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['vague_objective']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_VAGUE_OBJECTIVE, $result['failure_class']);
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::REPAIR_ACTION_REWRITE_ACCEPTANCE, $result['repair_action']);
+        $this->assertNull($result['refusal_reason']);
+    }
+
+    public function test_low_impact_weakness_yields_scope_tighten(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['low_impact']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_LOW_IMPACT, $result['failure_class']);
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::REPAIR_ACTION_SCOPE_TIGHTEN, $result['repair_action']);
+        $this->assertNull($result['refusal_reason']);
+    }
+
+    public function test_proxy_proof_weakness_is_refused_with_durable_negative_result(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['proxy_proof']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_PROXY_OR_FAKE_VALUE, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertNull($result['repair_action']);
+        $this->assertNotEmpty($result['refusal_reason']);
+    }
+
+    public function test_fake_value_weakness_is_refused_with_durable_negative_result(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['fake_value']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_PROXY_OR_FAKE_VALUE, $result['failure_class']);
+        $this->assertNull($result['repaired_candidate']);
+    }
+
+    public function test_proxy_proof_takes_precedence_over_low_value(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['proxy_proof', 'shallow_duplication']]));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_PROXY_OR_FAKE_VALUE, $result['failure_class']);
+    }
+
+    public function test_fixable_classes_always_have_repair_action_key(): void
+    {
+        $result = $this->loop->repair($this->input(['required_evidence' => []]));
+
+        $this->assertArrayHasKey('repair_action', $result);
+    }
 }

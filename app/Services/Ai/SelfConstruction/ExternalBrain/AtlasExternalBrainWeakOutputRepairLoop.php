@@ -34,8 +34,17 @@ final class AtlasExternalBrainWeakOutputRepairLoop
     public const CLASS_DUPLICATE_TARGET          = 'duplicate_target';
     public const CLASS_LOW_VALUE                 = 'low_value';
     public const CLASS_UNRECOVERABLE             = 'unrecoverable';
+    public const CLASS_STALE_EVIDENCE            = 'stale_evidence';
+    public const CLASS_VAGUE_OBJECTIVE           = 'vague_objective';
+    public const CLASS_LOW_IMPACT                = 'low_impact';
+    public const CLASS_PROXY_OR_FAKE_VALUE       = 'proxy_or_fake_value_output';
 
     public const LOW_VALUE_WEAKNESSES = ['shallow_duplication', 'template_farming', 'fake_confidence'];
+    public const PROXY_OR_FAKE_VALUE_WEAKNESSES = ['proxy_proof', 'fake_value'];
+
+    public const REPAIR_ACTION_EVIDENCE_REFRESH  = 'evidence_refresh';
+    public const REPAIR_ACTION_SCOPE_TIGHTEN     = 'scope_tighten';
+    public const REPAIR_ACTION_REWRITE_ACCEPTANCE = 'rewrite_acceptance';
 
     private const RUNNABLE_MARKERS    = ['phpunit', 'artisan', 'vendor/bin', './vendor', 'pest', '--filter'];
     private const MAX_ALLOWED_FILES   = 5;
@@ -76,7 +85,17 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             );
         }
 
-        // 3. Low value — never silently repair
+        // 3. Proxy or fake-value output — never silently repaired, always a durable negative result.
+        $proxyHits = array_intersect($weaknesses, self::PROXY_OR_FAKE_VALUE_WEAKNESSES);
+        if ($proxyHits !== []) {
+            return $this->refused(
+                self::CLASS_PROXY_OR_FAKE_VALUE,
+                'weakness:'.implode('+', array_values($proxyHits)),
+                'reject_proxy_and_fake_value_proof_before_origination_durable_negative_result',
+            );
+        }
+
+        // 4. Low value — never silently repair
         $lowValueHits = array_intersect($weaknesses, self::LOW_VALUE_WEAKNESSES);
         if ($lowValueHits !== []) {
             return $this->refused(
@@ -86,7 +105,52 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             );
         }
 
-        // 4. Fixable: missing evidence
+        // 5. Fixable: stale evidence → evidence_refresh
+        if (in_array('stale_evidence', $weaknesses, true)) {
+            $proposal['evidence_refs'] = [];
+            $proposal['_evidence_refreshed'] = true;
+
+            return $this->fixable(
+                self::CLASS_STALE_EVIDENCE,
+                $proposal,
+                ['refresh evidence_refs against current codebase/state before re-scoring'],
+                'require_fresh_evidence_refs_in_scaffold_prompt',
+                self::REPAIR_ACTION_EVIDENCE_REFRESH,
+            );
+        }
+
+        // 6. Fixable: vague objective → rewrite_acceptance
+        if (in_array('vague_objective', $weaknesses, true)) {
+            $proposal['acceptance_criteria'][] = 'Runnable: ./vendor/bin/phpunit must pass with green output.';
+            $proposal['_objective_sharpened'] = true;
+
+            return $this->fixable(
+                self::CLASS_VAGUE_OBJECTIVE,
+                $proposal,
+                ['rewrite objective and acceptance_criteria with a concrete, falsifiable target'],
+                'require_concrete_falsifiable_objective_in_scaffold_prompt',
+                self::REPAIR_ACTION_REWRITE_ACCEPTANCE,
+            );
+        }
+
+        // 7. Fixable: low impact → scope_tighten
+        if (in_array('low_impact', $weaknesses, true)) {
+            $files = (array) ($proposal['allowed_files'] ?? []);
+            if (count($files) > self::NARROW_TO_FILES) {
+                $proposal['allowed_files'] = array_slice($files, 0, self::NARROW_TO_FILES);
+            }
+            $proposal['_scope_tightened'] = true;
+
+            return $this->fixable(
+                self::CLASS_LOW_IMPACT,
+                $proposal,
+                ['tighten scope to the highest-leverage files to raise impact density'],
+                'require_leverage_justification_and_tightened_scope_in_scaffold_prompt',
+                self::REPAIR_ACTION_SCOPE_TIGHTEN,
+            );
+        }
+
+        // 8. Fixable: missing evidence
         if ($this->isMissingEvidence($proposal)) {
             $steps = $this->missingEvidenceSteps($proposal);
             return $this->fixable(
@@ -263,18 +327,20 @@ final class AtlasExternalBrainWeakOutputRepairLoop
             'failure_class'            => $class,
             'repaired_candidate'       => null,
             'repair_steps'             => [],
+            'repair_action'            => null,
             'refusal_reason'           => $reason,
             'next_scaffold_constraint' => $constraint,
         ];
     }
 
-    private function fixable(string $class, array $candidate, array $steps, string $constraint): array
+    private function fixable(string $class, array $candidate, array $steps, string $constraint, ?string $repairAction = null): array
     {
         return [
             'schema'                   => self::SCHEMA,
             'failure_class'            => $class,
             'repaired_candidate'       => $candidate,
             'repair_steps'             => $steps,
+            'repair_action'            => $repairAction,
             'refusal_reason'           => null,
             'next_scaffold_constraint' => $constraint,
         ];
