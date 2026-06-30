@@ -181,6 +181,87 @@ final class AtlasExternalBrainProposalReplayCourt
         return $hints ? implode('; ', $hints) : null;
     }
 
+    public const DECISION_REPLAY        = 'replay';
+    public const DECISION_KEEP_REJECTED = 'keep_rejected';
+    public const DECISION_REWRITE       = 'rewrite';
+
+    /**
+     * Decide whether previously-rejected proposals may be replayed now that new
+     * evidence, scope changes, or fixed dependencies may have invalidated the
+     * original rejection cause. Never replays a proposal whose original cause is
+     * still present — that would just reproduce the same waste.
+     *
+     * @param  array{
+     *   rejected_proposals?: list<array{
+     *     id?: string, target_file?: string, original_rejection_reasons?: list<string>,
+     *     new_evidence?: list<string>, scope_changed?: bool, dependency_fixed?: bool,
+     *   }>,
+     *   current_queue_targets?: list<string>,
+     * }  $facts
+     * @return array{schema_version:string, decisions:list<array<string,mixed>>}
+     */
+    public function replay(array $facts): array
+    {
+        $proposals    = is_array($facts['rejected_proposals'] ?? null) ? $facts['rejected_proposals'] : [];
+        $queueTargets = array_flip(is_array($facts['current_queue_targets'] ?? null) ? $facts['current_queue_targets'] : []);
+
+        $decisions = [];
+
+        foreach ($proposals as $proposal) {
+            $id              = (string) ($proposal['id'] ?? '');
+            $targetFile      = (string) ($proposal['target_file'] ?? '');
+            $originalReasons = is_array($proposal['original_rejection_reasons'] ?? null) ? $proposal['original_rejection_reasons'] : [];
+            $newEvidence     = is_array($proposal['new_evidence'] ?? null)
+                ? array_filter($proposal['new_evidence'], static fn ($e) => trim((string) $e) !== '')
+                : [];
+            $scopeChanged     = (bool) ($proposal['scope_changed']     ?? false);
+            $dependencyFixed  = (bool) ($proposal['dependency_fixed']  ?? false);
+
+            $stillPresent = [];
+            foreach ($originalReasons as $reason) {
+                $resolved = match ($reason) {
+                    'duplicate_target'    => $targetFile === '' || ! array_key_exists($targetFile, $queueTargets),
+                    'evidence_check'      => $newEvidence !== [],
+                    'scaffold_compliance' => $dependencyFixed || $scopeChanged,
+                    'task_fabric_check'   => $scopeChanged,
+                    default                => false, // unknown reason: assume unresolved (fail-closed)
+                };
+                if (! $resolved) {
+                    $stillPresent[] = $reason;
+                }
+            }
+
+            if ($stillPresent !== []) {
+                $decisions[] = [
+                    'id'       => $id,
+                    'decision' => self::DECISION_KEEP_REJECTED,
+                    'reason'   => 'original_rejection_cause_still_present: '.implode(', ', $stillPresent),
+                ];
+                continue;
+            }
+
+            if ($scopeChanged) {
+                $decisions[] = [
+                    'id'       => $id,
+                    'decision' => self::DECISION_REWRITE,
+                    'reason'   => 'architecture/scope changed since original proposal; must be reformulated against the new scope, not replayed as-is',
+                ];
+                continue;
+            }
+
+            $decisions[] = [
+                'id'       => $id,
+                'decision' => self::DECISION_REPLAY,
+                'reason'   => 'all original rejection causes resolved by new evidence or fixed dependencies',
+            ];
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'decisions'      => $decisions,
+        ];
+    }
+
     private function verdict(int $total, int $accepted): string
     {
         if ($total === 0) {

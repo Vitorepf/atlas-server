@@ -256,4 +256,90 @@ final class AtlasExternalBrainProposalReplayCourtTest extends TestCase
             $r2['arena_ranking'][0]['arena_score'],
         );
     }
+
+    // ── replay() ─────────────────────────────────────────────────────────────
+
+    public function test_evidence_check_resolved_by_new_evidence_replays(): void
+    {
+        $result = $this->court()->replay(['rejected_proposals' => [
+            ['id' => 'p1', 'original_rejection_reasons' => ['evidence_check'], 'new_evidence' => ['fresh evidence']],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_REPLAY, $result['decisions'][0]['decision']);
+    }
+
+    public function test_duplicate_target_still_in_queue_keeps_rejected(): void
+    {
+        $result = $this->court()->replay([
+            'rejected_proposals' => [
+                ['id' => 'p1', 'target_file' => 'app/Foo.php', 'original_rejection_reasons' => ['duplicate_target']],
+            ],
+            'current_queue_targets' => ['app/Foo.php'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_KEEP_REJECTED, $result['decisions'][0]['decision']);
+        $this->assertStringContainsString('duplicate_target', $result['decisions'][0]['reason']);
+    }
+
+    public function test_duplicate_target_no_longer_in_queue_replays(): void
+    {
+        $result = $this->court()->replay([
+            'rejected_proposals' => [
+                ['id' => 'p1', 'target_file' => 'app/Foo.php', 'original_rejection_reasons' => ['duplicate_target']],
+            ],
+            'current_queue_targets' => [],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_REPLAY, $result['decisions'][0]['decision']);
+    }
+
+    public function test_scope_changed_yields_rewrite_not_blind_replay(): void
+    {
+        $result = $this->court()->replay(['rejected_proposals' => [
+            ['id' => 'p1', 'original_rejection_reasons' => ['task_fabric_check'], 'scope_changed' => true],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_REWRITE, $result['decisions'][0]['decision']);
+    }
+
+    public function test_unresolved_scaffold_compliance_keeps_rejected(): void
+    {
+        $result = $this->court()->replay(['rejected_proposals' => [
+            ['id' => 'p1', 'original_rejection_reasons' => ['scaffold_compliance']],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_KEEP_REJECTED, $result['decisions'][0]['decision']);
+    }
+
+    public function test_dependency_fixed_resolves_scaffold_compliance_and_replays(): void
+    {
+        $result = $this->court()->replay(['rejected_proposals' => [
+            ['id' => 'p1', 'original_rejection_reasons' => ['scaffold_compliance'], 'dependency_fixed' => true],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_REPLAY, $result['decisions'][0]['decision']);
+    }
+
+    public function test_unknown_rejection_reason_fails_closed_to_keep_rejected(): void
+    {
+        $result = $this->court()->replay(['rejected_proposals' => [
+            ['id' => 'p1', 'original_rejection_reasons' => ['some_unknown_future_reason']],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_KEEP_REJECTED, $result['decisions'][0]['decision']);
+    }
+
+    public function test_multiple_reasons_all_must_resolve_to_replay(): void
+    {
+        $result = $this->court()->replay(['rejected_proposals' => [
+            [
+                'id' => 'p1',
+                'original_rejection_reasons' => ['evidence_check', 'scaffold_compliance'],
+                'new_evidence' => ['e1'],
+                // dependency_fixed/scope_changed both false: scaffold_compliance still present
+            ],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_KEEP_REJECTED, $result['decisions'][0]['decision']);
+    }
 }
