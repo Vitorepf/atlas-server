@@ -51,6 +51,9 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
 {
     public const SCHEMA = 'atlas.external_brain.giveback_to_queue_repair_planner.v1';
 
+    /** repair_plan values that describe a bad/impossible PACKET SCOPE — distinct from queue starvation. */
+    private const SCOPE_REPAIR_PLANS = ['add_allowed_file', 'rewrite_acceptance', 'split_task', 'quarantine_poison'];
+
     private const SAFETY_SCORES = [
         'add_allowed_file' => 3,
         'rewrite_acceptance' => 3,
@@ -104,20 +107,41 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
         $acceptanceContradiction = (bool) ($event['acceptance_contradiction'] ?? false);
         $tokenSavings = (float) ($event['token_savings'] ?? 0.0);
         $unblockCount = max(0, (int) ($event['unblock_count'] ?? 0));
+        $giveBackReason = strtolower(trim((string) ($event['reason'] ?? '')));
+        $impossibleScope = (bool) ($event['impossible_scope'] ?? false);
+
+        // Starvation give_backs (worker had nothing claimable) need MORE queue supply, not a
+        // packet rewrite — distinguish them from bad-scope give_backs before the scope-repair chain.
+        if ($giveBackReason === 'no_claimable_task' && ! $forbiddenTarget && ! $acceptanceContradiction
+            && ! $duplicateCapability && $missingFiles === [] && ! $impossibleScope) {
+            return [
+                'task_id' => $taskId,
+                'repair_plan' => 'replenish_queue',
+                'repair_type' => 'replenish_queue',
+                'reason' => 'give_back_caused_by_queue_starvation_not_bad_scope',
+                'safety_score' => 2,
+                'token_savings' => $tokenSavings,
+                'unblock_count' => $unblockCount,
+            ];
+        }
 
         [$repairPlan, $reason] = match (true) {
             $forbiddenTarget => ['operator_only_fix', 'forbidden_target_requires_operator_authorisation'],
             $acceptanceContradiction => ['rewrite_acceptance', 'acceptance_criteria_are_contradictory'],
             $duplicateCapability => ['cancel_duplicate', 'capability_already_satisfied_elsewhere'],
             $missingFiles !== [] => ['add_allowed_file', 'allowed_files_missing_a_required_implementation_target'],
+            $impossibleScope => ['split_task', 'task_scope_is_impossible_for_a_single_packet'],
             str_contains($rootCause, 'poison') => ['quarantine_poison', 'root_cause_flags_a_poison_packet'],
             str_contains($rootCause, 'scope') || str_contains($rootCause, 'multi_file') || str_contains($rootCause, 'too_broad') => ['split_task', 'task_scope_is_too_broad_for_a_single_packet'],
             default => ['operator_only_fix', 'root_cause_not_auto_repairable_refusing_fake_green_or_retry'],
         };
 
+        $repairType = in_array($repairPlan, self::SCOPE_REPAIR_PLANS, true) ? 'respec_packet' : $repairPlan;
+
         return [
             'task_id' => $taskId,
             'repair_plan' => $repairPlan,
+            'repair_type' => $repairType,
             'reason' => $reason,
             'safety_score' => self::SAFETY_SCORES[$repairPlan],
             'token_savings' => $tokenSavings,
