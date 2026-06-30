@@ -56,6 +56,7 @@ final class AtlasLoopHardCaseAutoDiscovery
                 'provider_set' => $this->providerSet($row),
                 'frozen_bundle_hash' => (string) ($row['bundle_sha256'] ?? ($row['frozen_bundle_hash'] ?? '')),
                 'disagreement_category' => $this->disagreementCategory($reason, $row),
+                'task_seed_readiness' => $this->buildTaskSeedReadiness($row),
             ];
         }
 
@@ -121,6 +122,25 @@ final class AtlasLoopHardCaseAutoDiscovery
     private function providers(array $row): array
     {
         return array_values(array_filter((array) ($row['providers'] ?? []), 'is_array'));
+    }
+
+    /** @return array{ready:bool,route:string,blockers:list<string>,required_evidence_refs:list<string>} */
+    private function buildTaskSeedReadiness(array $row): array
+    {
+        $frozenHash = trim((string) ($row['bundle_sha256'] ?? ($row['frozen_bundle_hash'] ?? '')));
+        $bundleHashes = array_values(array_unique(array_filter(
+            array_map(static fn (array $p): string => trim((string) ($p['bundle_sha256'] ?? '')), $this->providers($row)),
+            static fn (string $h): bool => $h !== ''
+        )));
+
+        if (count($bundleHashes) > 1) {
+            return ['ready' => false, 'route' => 'verification_repair', 'blockers' => ['bundle_drift'], 'required_evidence_refs' => ['bundle_sha256']];
+        }
+        if ($frozenHash === '') {
+            return ['ready' => false, 'route' => 'blocked_missing_bundle', 'blockers' => ['missing_frozen_bundle_hash'], 'required_evidence_refs' => ['bundle_sha256']];
+        }
+
+        return ['ready' => true, 'route' => 'regrind_hard_case', 'blockers' => [], 'required_evidence_refs' => ['provider_verdicts', 'frozen_bundle_hash']];
     }
 
     /**
