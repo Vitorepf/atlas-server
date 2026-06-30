@@ -107,6 +107,54 @@ class AtlasSelfConstructionUnattendedSupervisorCycleTest extends TestCase
         self::assertSame(0, $called);
     }
 
+    public function test_brain_quota_must_run_now_with_callback_applies_and_records_planned_facts(): void
+    {
+        $invoked = false;
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['brain_quota' => ['must_run_now' => true, 'status' => 'stalled', 'temp_spec_path' => '']]),
+            [
+                AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW => function (array $action) use (&$invoked) {
+                    $invoked = true;
+
+                    return ['brain_started' => true];
+                },
+            ],
+            ['apply' => true],
+        );
+
+        self::assertTrue($invoked, 'brain callback must be invoked on must_run_now=true');
+        self::assertContains(
+            AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW,
+            array_column($verdict['applied_actions'], 'action'),
+        );
+        $receipt = array_values(array_filter(
+            $verdict['receipts'],
+            fn ($r) => $r['action'] === AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW,
+        ));
+        self::assertNotEmpty($receipt, 'receipt must be recorded for applied brain action');
+        self::assertArrayHasKey('planned_action', $receipt[0], 'receipt must preserve planned_action facts');
+        self::assertSame('act_run_brain_must_run_now', $receipt[0]['planned_action']['action_id']);
+        self::assertTrue($receipt[0]['planned_action']['atlas_native']);
+    }
+
+    public function test_brain_quota_must_run_now_without_callback_records_callback_missing_with_planned_facts(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['brain_quota' => ['must_run_now' => true, 'status' => 'stalled', 'temp_spec_path' => '']]),
+            [],
+            ['apply' => true],
+        );
+
+        $brainBlocked = array_values(array_filter(
+            $verdict['blocked_actions'],
+            fn ($b) => $b['action'] === AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW,
+        ));
+        self::assertNotEmpty($brainBlocked, 'missing brain callback must appear in blocked_actions');
+        self::assertSame('callback_missing', $brainBlocked[0]['reason']);
+        self::assertArrayHasKey('planned_action', $brainBlocked[0], 'planned recovery facts must not be lost');
+        self::assertTrue($brainBlocked[0]['planned_action']['atlas_native']);
+    }
+
     public function test_cycle_source_does_not_run_git_or_subprocesses(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/UnattendedRuntime/AtlasSelfConstructionUnattendedSupervisorCycle.php'));

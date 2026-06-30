@@ -63,8 +63,21 @@ final class AtlasSelfConstructionUnattendedSupervisorCycle
 
                     continue;
                 }
+                if (! (bool) ($planned['atlas_native'] ?? false)) {
+                    $blockedActions[] = [
+                        'action' => $actionId,
+                        'planned_action' => $planned,
+                        'reason' => 'non_atlas_native_action_refused',
+                    ];
+
+                    continue;
+                }
                 if (! isset($callbacks[$actionId]) || ! is_callable($callbacks[$actionId])) {
-                    $blockedActions[] = ['action' => $actionId, 'reason' => 'callback_missing'];
+                    $blockedActions[] = [
+                        'action' => $actionId,
+                        'planned_action' => $planned,
+                        'reason' => 'callback_missing',
+                    ];
 
                     continue;
                 }
@@ -82,6 +95,7 @@ final class AtlasSelfConstructionUnattendedSupervisorCycle
                 ];
                 $receipts[] = [
                     'action' => $actionId,
+                    'planned_action' => $planned,
                     'result' => is_array($callbackResult) ? $callbackResult : null,
                 ];
             }
