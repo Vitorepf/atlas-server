@@ -292,7 +292,11 @@ final class AtlasTaskFabricRoadmapGapMiner
      * Mine gaps from roadmap rows, exclude blocked families and live-target duplicates, then rank by
      * implementability leverage so the originator always sees the highest-impact work first.
      *
-     * Leverage score = ORGAN_PRIORITY[organ] + min(count(suggested_files), 5)
+     * Leverage score = ORGAN_PRIORITY[organ] + file_bonus + capability_delta + unblock_value + maturity_risk
+     *   file_bonus       = min(count(suggested_files), 5)
+     *   capability_delta = min(max(0, row[capability_delta]), 5)  — explicit leap size from row
+     *   unblock_value    = min(count(unlocks_capabilities), 3)    — capabilities unlocked when gap closes
+     *   maturity_risk    = 2 (experimental/emerging) | 1 (alpha) | 0 (other)
      * Candidates sorted: leverage_score DESC, organ ASC, capability ASC.
      * Rejections sorted deterministically: by reason ASC, organ ASC, capability ASC.
      *
@@ -368,7 +372,33 @@ final class AtlasTaskFabricRoadmapGapMiner
                 ? array_values(array_map('strval', $row['suggested_files']))
                 : [];
 
-            $leverageScore = (self::ORGAN_PRIORITY[$organ] ?? 0) + min(count($files), 5);
+            $organPriority   = self::ORGAN_PRIORITY[$organ] ?? 0;
+            $fileBonus       = min(count($files), 5);
+            $capabilityDelta = min(max(0, (int) ($row['capability_delta'] ?? 0)), 5);
+            $unblockItems    = array_values(array_filter(
+                array_map('trim', (array) ($row['unlocks_capabilities'] ?? [])),
+                static fn (string $s): bool => $s !== '',
+            ));
+            $unblockValue  = min(count($unblockItems), 3);
+            $maturityLevel = strtolower(trim((string) ($row['maturity_level'] ?? '')));
+            $maturityRisk  = match ($maturityLevel) {
+                'experimental', 'emerging' => 2,
+                'alpha' => 1,
+                default => 0,
+            };
+
+            $leverageScore = $organPriority + $fileBonus + $capabilityDelta + $unblockValue + $maturityRisk;
+
+            $reasonParts = ["organ_priority:{$organPriority}", "file_bonus:{$fileBonus}"];
+            if ($capabilityDelta > 0) {
+                $reasonParts[] = "capability_delta:{$capabilityDelta}";
+            }
+            if ($unblockValue > 0) {
+                $reasonParts[] = "unblock_value:{$unblockValue}";
+            }
+            if ($maturityRisk > 0) {
+                $reasonParts[] = "maturity_risk:{$maturityRisk}";
+            }
 
             $lane = trim((string) ($row['lane'] ?? ''));
             $tags = ['organ:'.$organ, 'capability:'.$capability];
@@ -377,15 +407,16 @@ final class AtlasTaskFabricRoadmapGapMiner
             }
 
             $candidate = array_merge([
-                'schema_version'  => self::SCHEMA,
-                'organ'           => $organ,
-                'capability'      => $capability,
-                'capability_gap'  => $gap,
-                'evidence_path'   => $evidence,
-                'suggested_files' => $files,
-                'owner_scope'     => 'atlas-native',
-                'leverage_score'  => $leverageScore,
-                'tags'            => $tags,
+                'schema_version'   => self::SCHEMA,
+                'organ'            => $organ,
+                'capability'       => $capability,
+                'capability_gap'   => $gap,
+                'evidence_path'    => $evidence,
+                'suggested_files'  => $files,
+                'owner_scope'      => 'atlas-native',
+                'leverage_score'   => $leverageScore,
+                'leverage_reasons' => $reasonParts,
+                'tags'             => $tags,
             ], $this->extractChainFields($row));
             if ($lane !== '') {
                 $candidate['lane'] = $lane;

@@ -530,4 +530,58 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
 
         $this->assertSame([], $out, 'live-target deduplication must still drop the candidate even with final-95 fields');
     }
+
+    // ── ranked scoring: capability_delta / unblock_value / maturity_risk ─────
+
+    public function test_mine_ranked_capability_delta_increases_leverage_score(): void
+    {
+        $base  = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'cap_a')]);
+        $delta = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'cap_a', ['capability_delta' => 3])]);
+
+        $this->assertGreaterThan($base['candidates'][0]['leverage_score'], $delta['candidates'][0]['leverage_score']);
+    }
+
+    public function test_mine_ranked_unblock_value_from_unlocks_capabilities_increases_score(): void
+    {
+        $base   = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'cap_b')]);
+        $unlock = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([
+            $this->row('Maestro', 'cap_b', ['unlocks_capabilities' => ['cap_x', 'cap_y']]),
+        ]);
+
+        $this->assertGreaterThan($base['candidates'][0]['leverage_score'], $unlock['candidates'][0]['leverage_score']);
+    }
+
+    public function test_mine_ranked_maturity_risk_emerging_increases_score_over_stable(): void
+    {
+        $stable   = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'cap_c', ['maturity_level' => 'stable'])]);
+        $emerging = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Maestro', 'cap_c', ['maturity_level' => 'emerging'])]);
+
+        $this->assertGreaterThan($stable['candidates'][0]['leverage_score'], $emerging['candidates'][0]['leverage_score']);
+    }
+
+    public function test_mine_ranked_candidate_has_leverage_reasons_field_with_organ_priority(): void
+    {
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Task Fabric', 'dep_ladder')]);
+
+        $candidate = $out['candidates'][0];
+        $this->assertArrayHasKey('leverage_reasons', $candidate);
+        $this->assertIsArray($candidate['leverage_reasons']);
+        $this->assertNotEmpty($candidate['leverage_reasons']);
+        $this->assertContains('organ_priority:10', $candidate['leverage_reasons']);
+    }
+
+    public function test_mine_ranked_leverage_reasons_includes_all_contributing_dimensions(): void
+    {
+        $row = $this->row('Maestro', 'full_score', [
+            'capability_delta'     => 2,
+            'unlocks_capabilities' => ['cap_a', 'cap_b'],
+            'maturity_level'       => 'emerging',
+        ]);
+        $out    = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $reasons = $out['candidates'][0]['leverage_reasons'];
+
+        $this->assertContains('capability_delta:2', $reasons);
+        $this->assertContains('unblock_value:2',    $reasons);
+        $this->assertContains('maturity_risk:2',    $reasons);
+    }
 }
