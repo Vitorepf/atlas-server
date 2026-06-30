@@ -69,7 +69,9 @@ final class AtlasLoopArmedCoverageReporter
             $missing = [];
             foreach ($consumers as $consumer) {
                 $source = (string) @file_get_contents($repoRoot.'/'.ltrim($consumer, '/'));
-                if ($className !== '' && $source !== '' && str_contains($source, $className)) {
+                // Word-boundary match: a superstring sibling (e.g. AtlasLoopLeverageSelectorAdvanced)
+                // must NOT count as wired — str_contains would match the primitive name as a bare substring.
+                if ($className !== '' && $source !== '' && preg_match('/\b'.preg_quote($className, '/').'\b/', $source) === 1) {
                     $wired++;
                 } else {
                     $missing[] = $consumer;

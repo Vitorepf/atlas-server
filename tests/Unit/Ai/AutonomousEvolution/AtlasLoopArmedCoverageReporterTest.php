@@ -21,10 +21,12 @@ final class AtlasLoopArmedCoverageReporterTest extends TestCase
         parent::setUp();
         $this->repoRoot = sys_get_temp_dir().'/atlas-armed-cov-'.bin2hex(random_bytes(6));
         mkdir($this->repoRoot.'/src', 0o755, true);
-        // 2 consumers reference the primitive (wired), 1 does not (missing).
+        // 2 consumers reference the primitive (wired), 1 does not (missing),
+        // 1 references only a SUPERSTRING sibling (must NOT count as wired).
         file_put_contents($this->repoRoot.'/src/A.php', "<?php\n// uses new AtlasLoopLeverageSelector()\n");
         file_put_contents($this->repoRoot.'/src/B.php', "<?php\nclass B { public function f() { return AtlasLoopLeverageSelector::class; } }\n");
         file_put_contents($this->repoRoot.'/src/C.php', "<?php\nclass C { public function f() { return 1; } }\n");
+        file_put_contents($this->repoRoot.'/src/D.php', "<?php\nclass D { public function f() { return AtlasLoopLeverageSelectorAdvanced::class; } }\n");
     }
 
     protected function tearDown(): void
@@ -42,7 +44,7 @@ final class AtlasLoopArmedCoverageReporterTest extends TestCase
             'file_path' => 'app/Services/Ai/AutonomousEvolution/AtlasLoopLeverageSelector.php',
             'config_flag' => 'atlas.loop.leverage_first_enabled',
             'status' => 'intended',
-            'intended_consumer_paths' => ['src/A.php', 'src/B.php', 'src/C.php'],
+            'intended_consumer_paths' => ['src/A.php', 'src/B.php', 'src/C.php', 'src/D.php'],
         ]];
     }
 
@@ -66,9 +68,22 @@ final class AtlasLoopArmedCoverageReporterTest extends TestCase
 
         $this->assertArrayHasKey('atlas_loop_leverage_selector', $report);
         $row = $report['atlas_loop_leverage_selector'];
-        $this->assertSame(3, $row['intended']);
+        $this->assertSame(4, $row['intended']);
         $this->assertSame(2, $row['wired'], 'exactly the 2 fixture files containing AtlasLoopLeverageSelector');
-        $this->assertSame(['src/C.php'], $row['missing'], 'the file without the primitive is dark');
+        $this->assertSame(['src/C.php', 'src/D.php'], $row['missing'], 'C is dark, D only references the superstring sibling');
+    }
+
+    public function test_superstring_sibling_not_counted_as_wired(): void
+    {
+        config(['atlas.loop.armed_coverage_reporter_enabled' => true]);
+
+        $report = $this->reporter()->report();
+        $row = $report['atlas_loop_leverage_selector'];
+
+        $this->assertNotContains('src/A.php', $row['missing']);
+        $this->assertNotContains('src/B.php', $row['missing']);
+        $this->assertContains('src/D.php', $row['missing'], 'superstring sibling consumer must be missing, not wired');
+        $this->assertSame(2, $row['wired'], 'wired must not be inflated by the superstring sibling');
     }
 
     public function test_is_read_only_and_recomputed_not_persisted(): void
