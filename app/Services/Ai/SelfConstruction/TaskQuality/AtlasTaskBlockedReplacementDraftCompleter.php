@@ -32,16 +32,46 @@ final class AtlasTaskBlockedReplacementDraftCompleter
     public function complete(array $items): array
     {
         $completedDrafts = [];
+        $totals = [
+            'can_submit' => 0,
+            'missing_fields' => 0,
+            'low_confidence' => 0,
+            'untrusted' => 0,
+            'forbidden_or_ambiguous' => 0,
+        ];
+
         foreach ($items as $item) {
             $draft = (array) ($item['draft'] ?? []);
             $fieldRecovery = (array) ($item['field_recovery'] ?? []);
-            $completedDrafts[] = $this->completeOne($draft, $fieldRecovery);
+            $completed = $this->completeOne($draft, $fieldRecovery);
+            $completedDrafts[] = $completed;
+
+            if ($completed['can_submit']) {
+                $totals['can_submit']++;
+            }
+            if ($completed['missing_fields'] !== []) {
+                $totals['missing_fields']++;
+            }
+            foreach ($completed['refusal_reasons'] as $refusalReason) {
+                if (str_starts_with((string) $refusalReason, 'confidence_below_threshold')) {
+                    $totals['low_confidence']++;
+                    break;
+                }
+            }
+
+            $trust = (string) ($fieldRecovery['trust'] ?? 'untrusted');
+            if ($trust === 'untrusted') {
+                $totals['untrusted']++;
+            } elseif ($trust !== self::TRUST_TRUSTED) {
+                $totals['forbidden_or_ambiguous']++;
+            }
         }
 
         return [
             'schema' => self::SCHEMA,
             'completed_drafts' => $completedDrafts,
             'mutates_queue' => false,
+            'burn_down_report' => array_merge(['total' => count($items)], $totals),
         ];
     }
 

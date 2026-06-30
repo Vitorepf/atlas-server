@@ -171,6 +171,95 @@ final class AtlasTaskBlockedReplacementDraftCompleterTest extends TestCase
         $this->assertFalse($result['mutates_queue']);
     }
 
+    public function test_burn_down_report_totals_match_completed_drafts_states(): void
+    {
+        $items = [
+            [
+                'draft' => $this->draft(['task_packet_id' => 'tp-burn-1']),
+                'field_recovery' => [
+                    'allowed_files' => ['app/Foo.php'],
+                    'acceptance_criteria' => ['criteria'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                    'trust' => 'trusted',
+                    'confidence' => 0.9,
+                ],
+            ],
+            [
+                'draft' => $this->draft(['task_packet_id' => 'tp-burn-2']),
+                'field_recovery' => [
+                    'allowed_files' => ['app/Foo.php'],
+                    'acceptance_criteria' => ['criteria'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                    'trust' => 'untrusted',
+                    'confidence' => 0.9,
+                ],
+            ],
+            [
+                'draft' => $this->draft(['task_packet_id' => 'tp-burn-3']),
+                'field_recovery' => [
+                    'allowed_files' => ['app/Foo.php'],
+                    'acceptance_criteria' => ['criteria'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                    'trust' => 'ambiguous',
+                    'confidence' => 0.9,
+                ],
+            ],
+            [
+                'draft' => $this->draft(['task_packet_id' => 'tp-burn-4']),
+                'field_recovery' => [
+                    'allowed_files' => ['app/Foo.php'],
+                    'acceptance_criteria' => ['criteria'],
+                    'required_evidence' => ['tests_or_gates_result'],
+                    'trust' => 'trusted',
+                    'confidence' => 0.4,
+                ],
+            ],
+            [
+                'draft' => $this->draft(['task_packet_id' => 'tp-burn-5']),
+                'field_recovery' => [
+                    'allowed_files' => ['app/Foo.php'],
+                    'trust' => 'trusted',
+                    'confidence' => 0.9,
+                ],
+            ],
+        ];
+
+        $result = $this->completer()->complete($items);
+
+        $expectedCanSubmit = count(array_filter($result['completed_drafts'], static fn (array $d): bool => $d['can_submit']));
+        $expectedMissingFields = count(array_filter($result['completed_drafts'], static fn (array $d): bool => $d['missing_fields'] !== []));
+
+        $this->assertSame(5, $result['burn_down_report']['total']);
+        $this->assertSame($expectedCanSubmit, $result['burn_down_report']['can_submit']);
+        $this->assertSame(1, $result['burn_down_report']['can_submit']);
+        $this->assertSame($expectedMissingFields, $result['burn_down_report']['missing_fields']);
+        $this->assertSame(1, $result['burn_down_report']['missing_fields']);
+        $this->assertSame(1, $result['burn_down_report']['low_confidence']);
+        $this->assertSame(1, $result['burn_down_report']['untrusted']);
+        $this->assertSame(1, $result['burn_down_report']['forbidden_or_ambiguous']);
+    }
+
+    public function test_burn_down_report_is_deterministic_and_does_not_mutate_queue(): void
+    {
+        $items = [[
+            'draft' => $this->draft(),
+            'field_recovery' => [
+                'allowed_files' => ['app/Foo.php'],
+                'acceptance_criteria' => ['criteria'],
+                'required_evidence' => ['tests_or_gates_result'],
+                'trust' => 'trusted',
+                'confidence' => 0.9,
+            ],
+        ]];
+
+        $completer = $this->completer();
+        $first = $completer->complete($items);
+        $second = $completer->complete($items);
+
+        $this->assertSame($first['burn_down_report'], $second['burn_down_report']);
+        $this->assertFalse($first['mutates_queue']);
+    }
+
     public function test_source_performs_no_queue_provider_file_or_git_io(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/TaskQuality/AtlasTaskBlockedReplacementDraftCompleter.php'));
