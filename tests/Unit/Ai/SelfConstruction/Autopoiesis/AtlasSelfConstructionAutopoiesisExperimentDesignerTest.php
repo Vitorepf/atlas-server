@@ -82,4 +82,13 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesignerTest extends TestC
         $b = $d->design($this->validHypothesis());
         $this->assertSame($a['plan_hash'], $b['plan_hash']);
     }
+
+    public function test_scope_paths_exceeding_risk_limit_throws(): void
+    {
+        $h = $this->validHypothesis();
+        $h['scope_paths'] = array_map(fn (int $i) => "app/Demo/File{$i}.php", range(1, AtlasSelfConstructionAutopoiesisExperimentDesigner::MAX_SCOPE_PATHS + 1));
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/scope_paths exceeds risk limit/');
+        (new AtlasSelfConstructionAutopoiesisExperimentDesigner)->design($h);
+    }
 }

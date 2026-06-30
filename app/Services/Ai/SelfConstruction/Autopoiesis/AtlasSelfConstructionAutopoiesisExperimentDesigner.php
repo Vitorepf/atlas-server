@@ -36,6 +36,8 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesigner
 {
     public const SCHEMA = 'atlas.autopoiesis.experiment_plan.v1';
 
+    public const MAX_SCOPE_PATHS = 5;
+
     public const SEPARATION_OF_POWERS = [
         'autopoiesis_role' => 'propose',
         'task_fabric_role' => 'packetize',
@@ -62,6 +64,9 @@ final class AtlasSelfConstructionAutopoiesisExperimentDesigner
         $scopePaths = is_array($hypothesis['scope_paths'] ?? null) ? array_values(array_map('strval', $hypothesis['scope_paths'])) : [];
         if ($scopePaths === []) {
             throw new RuntimeException('autopoiesis_designer: empty scope_paths');
+        }
+        if (count($scopePaths) > self::MAX_SCOPE_PATHS) {
+            throw new RuntimeException('autopoiesis_designer: scope_paths exceeds risk limit of '.self::MAX_SCOPE_PATHS);
         }
         foreach ($scopePaths as $p) {
             if ($p === '' || str_ends_with($p, '/') || ! str_contains(basename($p), '.')) {
