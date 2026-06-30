@@ -464,4 +464,67 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
         $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_DRAIN, $result['preferred_action']);
         $this->assertSame(25, $result['recommended_queue_action']['economics']['claimable_depth']);
     }
+
+    // ── stale low-throughput backlog ────────────────────────────────────────────
+
+    public function test_high_claimable_age_with_low_serve_rate_increases_carrying_cost_and_drains_instead_of_seeds(): void
+    {
+        $fresh = $this->model()->model([
+            'claimable_depth' => 10,
+            'queue_age_p95_minutes' => 5.0,
+            'serve_rate_per_minute' => 1.0,
+        ]);
+        $stale = $this->model()->model([
+            'claimable_depth' => 10,
+            'queue_age_p95_minutes' => 120.0,
+            'serve_rate_per_minute' => 0.02,
+        ]);
+
+        $this->assertGreaterThan($fresh['carrying_cost'], $stale['carrying_cost']);
+        $this->assertContains($stale['preferred_action'], [
+            AtlasExternalBrainBacklogCostModel::ACTION_DRAIN,
+            AtlasExternalBrainBacklogCostModel::ACTION_CONSOLIDATE,
+        ]);
+        $this->assertNotSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED, $stale['preferred_action']);
+    }
+
+    public function test_blocked_count_pressure_still_wins_over_stale_backlog_drain(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size' => 10,
+            'claimable_depth' => 10,
+            'blocked_count' => 5,
+            'queue_age_p95_minutes' => 120.0,
+            'serve_rate_per_minute' => 0.02,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_UNBLOCK, $result['preferred_action']);
+    }
+
+    public function test_recommended_queue_action_economics_includes_queue_age_and_serve_rate(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth' => 10,
+            'queue_age_p95_minutes' => 75.0,
+            'serve_rate_per_minute' => 0.05,
+        ]);
+
+        $economics = $result['recommended_queue_action']['economics'];
+        $this->assertArrayHasKey('queue_age_p95_minutes', $economics);
+        $this->assertArrayHasKey('serve_rate_per_minute', $economics);
+        $this->assertSame(75.0, $economics['queue_age_p95_minutes']);
+        $this->assertSame(0.05, $economics['serve_rate_per_minute']);
+        $this->assertArrayHasKey('stale_backlog_cost', $result['cost_breakdown']);
+    }
+
+    public function test_low_claimable_age_does_not_trigger_stale_drain(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth' => 10,
+            'queue_age_p95_minutes' => 5.0,
+            'serve_rate_per_minute' => 1.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED, $result['preferred_action']);
+    }
 }

@@ -69,6 +69,12 @@ final class AtlasExternalBrainBacklogCostModel
     /** expected_value_density below this triggers drain instead of seed when depth is high. */
     private const LOW_VALUE_DENSITY_THRESHOLD = 0.50;
 
+    /** Claimable-task age (minutes, p95) above which the backlog reads as genuinely stale. */
+    private const STALE_QUEUE_AGE_MINUTES = 60.0;
+
+    /** Serve rate (tasks/minute) below which muscles are not keeping up with the claimable backlog. */
+    private const LOW_SERVE_RATE_PER_MINUTE = 0.10;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -86,6 +92,8 @@ final class AtlasExternalBrainBacklogCostModel
         $impactConfidence     = min(1.0, max(0.0, (float) ($input['impact_confidence'] ?? 1.0)));
         $expectedValueDensity = min(1.0, max(0.0, (float) ($input['expected_value_density'] ?? 1.0)));
         $ageCost              = max(0.0, (float) ($input['age_cost'] ?? 0.0));
+        $queueAgeP95Minutes   = max(0.0, (float) ($input['queue_age_p95_minutes'] ?? $input['claimable_age_p95_minutes'] ?? 0.0));
+        $serveRatePerMinute   = max(0.0, (float) ($input['serve_rate_per_minute'] ?? 0.0));
 
         // ── Carrying cost breakdown ───────────────────────────────────────────
         $workerHoursCost     = round($backlogSize / $workerThroughput, 4);
@@ -95,9 +103,15 @@ final class AtlasExternalBrainBacklogCostModel
         $opportunityCost     = round($blockedCount * 2.0, 4);
         $ageCostContribution = round($ageCost * $backlogSize, 4);
 
+        // Stale-backlog carrying cost: hours of p95 staleness × the claimable depth muscles are NOT
+        // consuming within an hour at the observed serve rate. Real carrying cost of old, slow-moving
+        // work — not just a flat per-task age multiplier.
+        $unconsumedPerHour    = max(0.0, $claimableDepth - ($serveRatePerMinute * 60.0));
+        $staleBacklogCost     = round(($queueAgeP95Minutes / 60.0) * $unconsumedPerHour, 4);
+
         $carryingCost = round(
             $workerHoursCost + $giveBackBurden + $reviewBurden
-            + $integrationLoad + $opportunityCost + $ageCostContribution,
+            + $integrationLoad + $opportunityCost + $ageCostContribution + $staleBacklogCost,
             2
         );
 
@@ -115,6 +129,8 @@ final class AtlasExternalBrainBacklogCostModel
             $impactConfidence,
             $expectedValueDensity,
             $saturationRisk,
+            $queueAgeP95Minutes,
+            $serveRatePerMinute,
             $reasons,
         );
 
@@ -131,6 +147,7 @@ final class AtlasExternalBrainBacklogCostModel
                 'integration_load'     => $integrationLoad,
                 'opportunity_cost'     => $opportunityCost,
                 'age_cost_contribution' => $ageCostContribution,
+                'stale_backlog_cost'   => $staleBacklogCost,
             ],
             'recommended_queue_action' => [
                 'action'    => $preferredAction,
@@ -142,6 +159,8 @@ final class AtlasExternalBrainBacklogCostModel
                     'give_back_rate'         => $giveBackRate,
                     'expected_value_density' => $expectedValueDensity,
                     'age_cost'               => $ageCost,
+                    'queue_age_p95_minutes'  => $queueAgeP95Minutes,
+                    'serve_rate_per_minute'  => $serveRatePerMinute,
                 ],
             ],
         ];
@@ -170,9 +189,13 @@ final class AtlasExternalBrainBacklogCostModel
         float  $impactConfidence,
         float  $expectedValueDensity,
         string $saturationRisk,
+        float  $queueAgeP95Minutes,
+        float  $serveRatePerMinute,
         array  &$reasons,
     ): string {
-        // Priority 1 — unblock: blocked tasks are a disproportionate share.
+        // Priority 1 — unblock: blocked tasks are a disproportionate share. This MUST win over
+        // stale-backlog drain/consolidate — an unblock fixes the root cause that is also stalling
+        // throughput, so it always takes precedence.
         $blockedFraction = $backlogSize > 0
             ? $blockedCount / $backlogSize
             : ($blockedCount > 0 ? 1.0 : 0.0);
@@ -182,7 +205,23 @@ final class AtlasExternalBrainBacklogCostModel
             return self::ACTION_UNBLOCK;
         }
 
-        // Priority 2 — drain: high claimable depth but value density is falling.
+        // Priority 2 — stale low-throughput backlog: old claimable work is accumulating faster than
+        // muscles consume it. Prefer draining/working through it instead of seeding more on top.
+        $isStaleLowThroughput = $claimableDepth > 0
+            && $queueAgeP95Minutes >= self::STALE_QUEUE_AGE_MINUTES
+            && $serveRatePerMinute < self::LOW_SERVE_RATE_PER_MINUTE;
+        if ($isStaleLowThroughput) {
+            $reasons[] = sprintf(
+                'stale_backlog:queue_age_p95_minutes=%.1f serve_rate_per_minute=%.3f claimable_depth=%d drain_instead_of_seed',
+                $queueAgeP95Minutes,
+                $serveRatePerMinute,
+                $claimableDepth,
+            );
+
+            return self::ACTION_DRAIN;
+        }
+
+        // Priority 3 — drain: high claimable depth but value density is falling.
         //   The queue has plenty of claimable work, but tasks are losing expected value →
         //   work through existing backlog instead of seeding more.
         if ($claimableDepth >= self::HIGH_CLAIMABLE_DEPTH_THRESHOLD
