@@ -69,6 +69,10 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegration
 
         $deficit = max(0, $target - $claimable);
         $bounded = min(self::MAX_TARGET_NEW_PACKETS, $deficit);
+
+        $muscleCount   = max(0, (int)   ($cycle['muscle_count']    ?? 0));
+        $drainRateHint = max(0.0, (float) ($cycle['drain_rate_hint'] ?? 0.0));
+
         $request = [
             'action' => self::ACTION_TOP_UP,
             'cycle_id' => $cycleId,
@@ -79,6 +83,18 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegration
             'target_depth' => $target,
             'target_new_packet_count' => $bounded,
         ];
+
+        if ($muscleCount > 0 || $drainRateHint > 0.0) {
+            $request['depth_policy'] = [
+                'muscle_count'          => $muscleCount,
+                'drain_rate_hint'       => $drainRateHint,
+                'safe_target_depth'     => $bounded,
+                'deficit_reason'        => "claimable_{$claimable}_below_target_{$target}_deficit_{$deficit}",
+                'why_target_is_bounded' => $bounded < $deficit
+                    ? 'max_packet_cap_applied:'.self::MAX_TARGET_NEW_PACKETS.'_deficit_was_'.$deficit
+                    : 'deficit_within_cap',
+            ];
+        }
 
         return $this->envelope($request);
     }

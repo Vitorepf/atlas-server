@@ -86,4 +86,72 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegrationTest ext
         $this->assertArrayHasKey('action', $verdict['request']);
         $this->assertArrayHasKey('target_new_packet_count', $verdict['request']);
     }
+
+    // ── depth_policy (pressure-aware) ─────────────────────────────────────────
+
+    public function test_depth_policy_absent_when_no_pressure_data_supplied(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-nopress'],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $this->assertArrayNotHasKey('depth_policy', $verdict['request']);
+    }
+
+    public function test_depth_policy_emitted_when_muscle_count_supplied(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-p', 'muscle_count' => 3, 'drain_rate_hint' => 1.5],
+            'queue_health'  => ['malformed_count' => 0, 'claimable_depth' => 1, 'servable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+        $dp = $verdict['request']['depth_policy'];
+        $this->assertSame(3, $dp['muscle_count']);
+        $this->assertSame(1.5, $dp['drain_rate_hint']);
+        $this->assertSame(5, $dp['safe_target_depth']);
+        $this->assertStringContainsString('claimable_1', $dp['deficit_reason']);
+        $this->assertSame('deficit_within_cap', $dp['why_target_is_bounded']);
+        $this->assertSame('98d1df4af4bbb695f908ff6a2087b089a706669aa89e65dd0d871f28bd0b20cd', $verdict['payload_hash']);
+    }
+
+    public function test_why_target_is_bounded_shows_cap_when_deficit_exceeds_max(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-cap', 'muscle_count' => 5],
+            'queue_health'  => ['malformed_count' => 0, 'claimable_depth' => 0, 'depth_floor' => 3, 'target_depth' => 999],
+        ]);
+
+        $dp = $verdict['request']['depth_policy'];
+        $this->assertSame(8, $dp['safe_target_depth']); // capped at MAX
+        $this->assertSame(8, $verdict['request']['target_new_packet_count']);
+        $this->assertStringContainsString('max_packet_cap_applied', $dp['why_target_is_bounded']);
+        $this->assertStringContainsString('999', $dp['why_target_is_bounded']);
+    }
+
+    public function test_depth_policy_absent_for_repair_first_and_target_is_zero(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-3', 'muscle_count' => 4],
+            'queue_health'  => ['malformed_count' => 2, 'claimable_depth' => 5],
+        ]);
+
+        $this->assertSame('repair_first', $verdict['request']['action']);
+        $this->assertSame(0, $verdict['request']['target_new_packet_count']);
+        $this->assertArrayNotHasKey('depth_policy', $verdict['request']);
+    }
+
+    public function test_depth_policy_absent_for_wait_and_target_is_zero(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-2', 'muscle_count' => 4],
+            'queue_health'  => ['malformed_count' => 0, 'claimable_depth' => 5, 'depth_floor' => 3],
+        ]);
+
+        $this->assertSame('wait', $verdict['request']['action']);
+        $this->assertSame(0, $verdict['request']['target_new_packet_count']);
+        $this->assertArrayNotHasKey('depth_policy', $verdict['request']);
+    }
 }
