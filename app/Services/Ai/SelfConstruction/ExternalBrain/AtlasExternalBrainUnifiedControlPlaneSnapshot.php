@@ -54,6 +54,12 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
     private const SUCCESS_RATE_YELLOW_CEILING = 0.70;
     private const MALFORMED_RED_FLOOR         = 0.30;
 
+    /** Evidence older than this reads as stale — a green snapshot must never rest on it. */
+    private const STALE_EVIDENCE_HOURS_CEILING = 72.0;
+
+    /** Integration coverage below this percent reads as weak — wiring claims need real proof. */
+    private const WEAK_INTEGRATION_COVERAGE_FLOOR = 50.0;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array{schema:string, status:string, top_risks:list<string>, next_decision:string, recommended_batch_theme:string, stop_go_verdict:string}
@@ -69,10 +75,17 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         $malformedRate          = max(0.0, min(1.0, (float) ($input['malformed_rate']          ?? 0.0)));
         $taskValueDegrading     = (bool)   ($input['task_value_degrading']      ?? false);
         $muscleOutcomeDegrading = (bool)   ($input['muscle_outcomes_degrading'] ?? false);
+        $evidenceAgeHours       = max(0.0, (float) ($input['evidence_age_hours']            ?? 0.0));
+        $integrationCoverage    = max(0.0, min(100.0, (float) ($input['integration_coverage_percent'] ?? 100.0)));
+        $finalReadinessPercent  = max(0.0, min(100.0, (float) ($input['final_readiness_percent']      ?? 100.0)));
+
+        $evidenceFreshnessStatus = $evidenceAgeHours > self::STALE_EVIDENCE_HOURS_CEILING ? 'stale' : 'fresh';
+        $integrationCoverageStatus = $integrationCoverage < self::WEAK_INTEGRATION_COVERAGE_FLOOR ? 'weak' : 'adequate';
 
         [$status, $topRisks] = $this->resolveStatus(
             $queuePressure, $simplPressure, $amplifierStatus,
             $workerSuccessRate, $giveBackRate, $malformedRate, $taskValueDegrading, $muscleOutcomeDegrading,
+            $evidenceFreshnessStatus, $integrationCoverageStatus,
         );
 
         $nextDecision = $this->resolveDecision($queuePressure, $simplPressure, $maturityGapCount);
@@ -83,17 +96,20 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         );
 
         return [
-            'schema'                   => self::SCHEMA,
-            'status'                   => $status,
-            'top_risks'                => array_values($topRisks),
-            'next_decision'            => $nextDecision,
-            'recommended_batch_theme'  => $batchTheme,
-            'ranked_focus'             => $rankedFocus,
-            'stop_go_verdict'          => match ($status) {
+            'schema'                     => self::SCHEMA,
+            'status'                     => $status,
+            'top_risks'                  => array_values($topRisks),
+            'next_decision'              => $nextDecision,
+            'recommended_batch_theme'    => $batchTheme,
+            'ranked_focus'               => $rankedFocus,
+            'stop_go_verdict'            => match ($status) {
                 self::STATUS_RED    => self::VERDICT_STOP,
                 self::STATUS_YELLOW => self::VERDICT_WATCH,
                 default             => self::VERDICT_GO,
             },
+            'evidence_freshness_status'  => $evidenceFreshnessStatus,
+            'final_readiness_percent'    => $finalReadinessPercent,
+            'integration_coverage_status' => $integrationCoverageStatus,
         ];
     }
 
@@ -107,6 +123,8 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         float  $malformedRate,
         bool   $taskValueDegrading,
         bool   $muscleOutcomeDegrading,
+        string $evidenceFreshnessStatus,
+        string $integrationCoverageStatus,
     ): array {
         $risks = [];
 
@@ -150,6 +168,12 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         }
         if ($workerSuccessRate < self::SUCCESS_RATE_YELLOW_CEILING) {
             $yellowRisks[] = sprintf('worker_success_rate:%.4f<%.2f', $workerSuccessRate, self::SUCCESS_RATE_YELLOW_CEILING);
+        }
+        if ($evidenceFreshnessStatus === 'stale') {
+            $yellowRisks[] = 'evidence_freshness_status:stale';
+        }
+        if ($integrationCoverageStatus === 'weak') {
+            $yellowRisks[] = 'integration_coverage_status:weak';
         }
 
         if ($yellowRisks !== []) {

@@ -268,4 +268,52 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshotTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_SELF_HEAL, $r['ranked_focus']);
     }
+
+    // ── evidence freshness + integration coverage + final readiness ──────────
+
+    public function test_stale_evidence_prevents_green_even_when_otherwise_healthy(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['evidence_age_hours' => 96.0]));
+
+        $this->assertNotSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_GREEN, $r['status']);
+        $this->assertNotSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::VERDICT_GO, $r['stop_go_verdict']);
+        $this->assertSame('stale', $r['evidence_freshness_status']);
+    }
+
+    public function test_weak_integration_coverage_prevents_green_even_when_otherwise_healthy(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['integration_coverage_percent' => 20.0]));
+
+        $this->assertNotSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_GREEN, $r['status']);
+        $this->assertNotSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::VERDICT_GO, $r['stop_go_verdict']);
+        $this->assertSame('weak', $r['integration_coverage_status']);
+    }
+
+    public function test_fresh_evidence_and_adequate_coverage_allow_green(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['evidence_age_hours' => 1.0, 'integration_coverage_percent' => 95.0]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::STATUS_GREEN, $r['status']);
+        $this->assertSame('fresh', $r['evidence_freshness_status']);
+        $this->assertSame('adequate', $r['integration_coverage_status']);
+    }
+
+    public function test_final_readiness_percent_is_echoed_in_output(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['final_readiness_percent' => 62.5]));
+
+        $this->assertSame(62.5, $r['final_readiness_percent']);
+    }
+
+    public function test_result_includes_all_required_keys(): void
+    {
+        $r = $this->snapshot->compose($this->healthy());
+
+        foreach ([
+            'status', 'stop_go_verdict', 'next_decision', 'ranked_focus', 'top_risks',
+            'evidence_freshness_status', 'final_readiness_percent', 'integration_coverage_status',
+        ] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+    }
 }
