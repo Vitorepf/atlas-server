@@ -151,6 +151,74 @@ final class AtlasMaestroWorkloadConsumptionRateReporterTest extends TestCase
         $this->assertSame(0.0, $row['tasks_per_hour']);
     }
 
+    public function test_success_resolved_and_completed_aliases_all_count_as_completed(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'w', 'event' => 'success', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'resolved', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'completed', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'completed_dry_run', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $row = $report['rows'][0];
+        $this->assertSame('w', $row['client_id']);
+        $this->assertSame(4, $row['completed_count']);
+        $this->assertSame(4.0, $row['tasks_per_hour']);
+
+        $fleet = $report['rows'][1];
+        $this->assertSame('fleet', $fleet['client_id']);
+        $this->assertSame(4, $fleet['completed_count']);
+        $this->assertSame(4.0, $fleet['tasks_per_hour']);
+    }
+
+    public function test_give_back_and_failure_alias_still_populate_separate_counts_with_aliases(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'w', 'event' => 'give_back', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'failure', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'success', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $row = $report['rows'][0];
+        $this->assertSame(1, $row['completed_count'], 'give_back/failure must not inflate completed');
+        $this->assertSame(1, $row['give_back_count']);
+        $this->assertSame(1, $row['failed_count']);
+    }
+
+    public function test_reporter_exposes_deterministic_alias_evidence_showing_which_labels_counted(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'w', 'event' => 'success', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'success', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'completed_dry_run', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $row = $report['rows'][0];
+        $this->assertArrayHasKey('completed_alias_counts', $row);
+        $this->assertSame(2, $row['completed_alias_counts']['success']);
+        $this->assertSame(1, $row['completed_alias_counts']['completed_dry_run']);
+
+        $this->assertArrayHasKey('terminal_alias_evidence', $report);
+        $byAlias = array_column($report['terminal_alias_evidence'], 'count', 'alias');
+        $this->assertSame(2, $byAlias['success']);
+        $this->assertSame(1, $byAlias['completed_dry_run']);
+
+        $this->assertNoGoodhartKeys($report);
+
+        // determinism
+        $second = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+        $this->assertSame($report, $second);
+    }
+
     /**
      * @return array{events:list<array<string,string>>}
      */

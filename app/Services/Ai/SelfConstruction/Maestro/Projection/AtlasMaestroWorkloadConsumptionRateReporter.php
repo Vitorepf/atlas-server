@@ -10,6 +10,11 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
 {
     public const SCHEMA = 'atlas.maestro.projection.consumption_rate.v1';
 
+    /** Terminal labels that all mean "this task is done" — completed_dry_run is the legacy/canonical name. */
+    private const COMPLETED_ALIASES = ['completed_dry_run', 'success', 'resolved', 'completed'];
+
+    private const FAILURE_ALIASES = ['failed', 'failure'];
+
     public function __construct(
         private readonly ?object $queueRepository = null,
     ) {}
@@ -31,6 +36,7 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
 
         $perClient = [];
         $perFamily = [];
+        $aliasEvidence = [];
 
         foreach ($events as $event) {
             $clientId = trim((string) ($event['client_id'] ?? ''));
@@ -51,6 +57,7 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
                 'failed_count' => 0,
                 'started_count' => 0,
                 'tasks_per_hour' => 0.0,
+                'completed_alias_counts' => [],
                 'observed_at_iso' => $now->toIso8601String(),
             ];
 
@@ -64,13 +71,15 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
                 'observed_at_iso' => $now->toIso8601String(),
             ];
 
-            if ($eventName === 'completed_dry_run') {
+            if (in_array($eventName, self::COMPLETED_ALIASES, true)) {
                 $perClient[$clientId]['completed_count']++;
                 $perFamily[$taskFamily]['completed_count']++;
+                $perClient[$clientId]['completed_alias_counts'][$eventName] = ($perClient[$clientId]['completed_alias_counts'][$eventName] ?? 0) + 1;
+                $aliasEvidence[$eventName] = ($aliasEvidence[$eventName] ?? 0) + 1;
             } elseif ($eventName === 'give_back') {
                 $perClient[$clientId]['give_back_count']++;
                 $perFamily[$taskFamily]['give_back_count']++;
-            } elseif (in_array($eventName, ['failed', 'failure'], true)) {
+            } elseif (in_array($eventName, self::FAILURE_ALIASES, true)) {
                 $perClient[$clientId]['failed_count']++;
                 $perFamily[$taskFamily]['failed_count']++;
             }
@@ -91,12 +100,15 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
         $fleetStarted = 0;
         foreach ($perClient as $row) {
             $row['tasks_per_hour'] = $this->tasksPerHour((int) $row['completed_count'], $windowSeconds);
+            ksort($row['completed_alias_counts'], SORT_STRING);
             $fleetCompleted += (int) $row['completed_count'];
             $fleetGiveBack += (int) $row['give_back_count'];
             $fleetFailed += (int) $row['failed_count'];
             $fleetStarted += (int) $row['started_count'];
             $rows[] = $row;
         }
+
+        ksort($aliasEvidence, SORT_STRING);
 
         $rows[] = [
             'client_id' => 'fleet',
@@ -106,6 +118,7 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
             'failed_count' => $fleetFailed,
             'started_count' => $fleetStarted,
             'tasks_per_hour' => $this->tasksPerHour($fleetCompleted, $windowSeconds),
+            'completed_alias_counts' => $aliasEvidence,
             'observed_at_iso' => $now->toIso8601String(),
         ];
 
@@ -115,10 +128,16 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
             $familyRows[] = $row;
         }
 
+        $terminalAliasEvidence = [];
+        foreach ($aliasEvidence as $alias => $count) {
+            $terminalAliasEvidence[] = ['alias' => $alias, 'count' => $count];
+        }
+
         return [
             'schema' => self::SCHEMA,
             'rows' => $rows,
             'family_rows' => $familyRows,
+            'terminal_alias_evidence' => $terminalAliasEvidence,
             'observed_at_iso' => $now->toIso8601String(),
         ];
     }
