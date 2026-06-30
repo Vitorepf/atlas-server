@@ -66,10 +66,23 @@ final class OperatorCommandSurfaceIntegrityAnalyzer
             ];
         }
 
+        $steadyStateBlockers = [];
+        foreach ($rows as $row) {
+            if (self::isOrdinaryRuntimePath((string) $row['payload_path'])) {
+                $steadyStateBlockers[] = [
+                    'payload_path' => $row['payload_path'],
+                    'command' => $row['command'],
+                    'blocker' => 'steady_state_operator_dependency',
+                ];
+            }
+        }
+
+        $aligned = $missing === [] && $legacyAliasHits === [] && $steadyStateBlockers === [];
+
         $integrity = [
             'schema_version' => 'atlas.self_construction.operator_command_surface_integrity.v1',
             'mode' => 'read_only_operator_command_surface_integrity',
-            'status' => $missing === [] && $legacyAliasHits === [] ? 'command_surface_aligned' : 'command_surface_attention_required',
+            'status' => $aligned ? 'command_surface_aligned' : 'command_surface_attention_required',
             'command_name' => 'atlas:ai:self-construction',
             'command_count' => count($commands),
             'checked_option_count' => count(array_unique(array_merge(...array_map(
@@ -81,6 +94,9 @@ final class OperatorCommandSurfaceIntegrityAnalyzer
             'legacy_alias_free' => $legacyAliasHits === [],
             'legacy_alias_count' => count($legacyAliasHits),
             'legacy_aliases_detected' => $legacyAliasHits,
+            'steady_state_dependency_free' => $steadyStateBlockers === [],
+            'steady_state_dependency_blocker_count' => count($steadyStateBlockers),
+            'steady_state_dependency_blockers' => $steadyStateBlockers,
             'commands' => $rows,
             'can_execute_commands_from_integrity_check' => false,
             'can_persist_from_integrity_check' => false,
@@ -167,6 +183,11 @@ final class OperatorCommandSurfaceIntegrityAnalyzer
             'human-completion-receipt-closure-execution-pack',
             'operator-evidence-submission-readiness',
         ];
+    }
+
+    private static function isOrdinaryRuntimePath(string $path): bool
+    {
+        return str_contains(strtolower($path), 'ordinary_runtime');
     }
 
     /** @param array<string, mixed> $value */

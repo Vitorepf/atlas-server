@@ -90,4 +90,55 @@ class OperatorCommandSurfaceIntegrityAnalyzerTest extends TestCase
         sort($sorted);
         self::assertSame($sorted, $options);
     }
+
+    // --- steady-state runtime dependency tests --------------------------------
+
+    public function test_ordinary_runtime_reference_emits_steady_state_operator_dependency_blocker(): void
+    {
+        $payload = [
+            'ordinary_runtime' => [
+                'cmd' => 'php artisan atlas:ai:self-construction --json',
+            ],
+        ];
+
+        $result = OperatorCommandSurfaceIntegrityAnalyzer::integrity($payload);
+
+        self::assertSame('command_surface_attention_required', $result['status']);
+        self::assertFalse($result['steady_state_dependency_free']);
+        self::assertGreaterThan(0, $result['steady_state_dependency_blocker_count']);
+        $blockers = $result['steady_state_dependency_blockers'];
+        self::assertNotEmpty($blockers);
+        self::assertSame('steady_state_operator_dependency', $blockers[0]['blocker']);
+        self::assertStringContainsString('ordinary_runtime', $blockers[0]['payload_path']);
+    }
+
+    public function test_bootstrap_reference_remains_allowed_visibility_fact(): void
+    {
+        $payload = [
+            'bootstrap' => [
+                'cmd' => 'php artisan atlas:ai:self-construction --json',
+            ],
+        ];
+
+        $result = OperatorCommandSurfaceIntegrityAnalyzer::integrity($payload);
+
+        self::assertSame('command_surface_aligned', $result['status']);
+        self::assertTrue($result['steady_state_dependency_free']);
+        self::assertSame(0, $result['steady_state_dependency_blocker_count']);
+    }
+
+    public function test_emergency_reference_remains_allowed_visibility_fact(): void
+    {
+        $payload = [
+            'emergency' => [
+                'cmd' => 'php artisan atlas:ai:self-construction --json',
+            ],
+        ];
+
+        $result = OperatorCommandSurfaceIntegrityAnalyzer::integrity($payload);
+
+        self::assertSame('command_surface_aligned', $result['status']);
+        self::assertTrue($result['steady_state_dependency_free']);
+        self::assertSame(0, $result['steady_state_dependency_blocker_count']);
+    }
 }
