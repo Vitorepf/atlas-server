@@ -30,7 +30,7 @@ final class AtlasMaestroPacketAgeFactReporterTest extends TestCase
         $this->assertSame(60, $facts[2]['time_in_queue_seconds']);
 
         foreach ($facts as $f) {
-            $this->assertSame(['enqueued_at', 'observed_at', 'queue_status', 'task_packet_id', 'time_in_queue_seconds'], array_keys($f));
+            $this->assertSame(['age_bucket', 'enqueued_at', 'observed_at', 'queue_status', 'stale_risk', 'task_packet_id', 'time_in_queue_seconds'], array_keys($f));
         }
     }
 
@@ -52,6 +52,58 @@ final class AtlasMaestroPacketAgeFactReporterTest extends TestCase
             fn () => true,
         );
         $this->assertSame([], $reporter->report());
+    }
+
+    public function test_age_bucket_fresh_for_sub_60_seconds(): void
+    {
+        $reporter = new AtlasMaestroPacketAgeFactReporter(
+            fn () => [['task_packet_id' => 'p', 'enqueued_at' => '2026-06-25T05:00:00Z', 'queue_status' => 'waiting']],
+            fn () => '2026-06-25T05:00:59Z',
+            fn () => true,
+        );
+        $f = $reporter->report()[0];
+        $this->assertSame('fresh', $f['age_bucket']);
+        $this->assertSame('none', $f['stale_risk']);
+    }
+
+    public function test_age_bucket_stale_for_5_to_60_minutes(): void
+    {
+        $reporter = new AtlasMaestroPacketAgeFactReporter(
+            fn () => [['task_packet_id' => 'p', 'enqueued_at' => '2026-06-25T05:00:00Z', 'queue_status' => 'waiting']],
+            fn () => '2026-06-25T05:10:00Z',
+            fn () => true,
+        );
+        $f = $reporter->report()[0];
+        $this->assertSame('stale', $f['age_bucket']);
+        $this->assertSame('medium', $f['stale_risk']);
+    }
+
+    public function test_age_bucket_critical_for_over_one_hour(): void
+    {
+        $reporter = new AtlasMaestroPacketAgeFactReporter(
+            fn () => [['task_packet_id' => 'p', 'enqueued_at' => '2026-06-25T04:00:00Z', 'queue_status' => 'waiting']],
+            fn () => '2026-06-25T05:00:00Z',
+            fn () => true,
+        );
+        $f = $reporter->report()[0];
+        $this->assertSame('critical', $f['age_bucket']);
+        $this->assertSame('high', $f['stale_risk']);
+    }
+
+    public function test_sort_by_risk_then_age_then_id(): void
+    {
+        $reporter = new AtlasMaestroPacketAgeFactReporter(
+            fn () => [
+                ['task_packet_id' => 'aging-b', 'enqueued_at' => '2026-06-25T04:59:00Z', 'queue_status' => 'waiting'],
+                ['task_packet_id' => 'critical', 'enqueued_at' => '2026-06-25T03:00:00Z', 'queue_status' => 'waiting'],
+                ['task_packet_id' => 'aging-a', 'enqueued_at' => '2026-06-25T04:59:30Z', 'queue_status' => 'waiting'],
+                ['task_packet_id' => 'stale', 'enqueued_at' => '2026-06-25T04:50:00Z', 'queue_status' => 'waiting'],
+            ],
+            fn () => '2026-06-25T05:00:00Z',
+            fn () => true,
+        );
+        $ids = array_column($reporter->report(), 'task_packet_id');
+        $this->assertSame(['critical', 'stale', 'aging-b', 'aging-a'], $ids);
     }
 
     public function test_static_inspection_no_forbidden_symbols_in_reporter_source(): void

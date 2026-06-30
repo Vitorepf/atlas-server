@@ -60,18 +60,52 @@ final class AtlasMaestroPacketAgeFactReporter
         foreach ($packets as $p) {
             $enqueued = (string) ($p['enqueued_at'] ?? '');
             $ts = $this->isoToTs($enqueued);
+            $seconds = max(0, $observedTs - $ts);
+            $bucket = $this->ageBucket($seconds);
             $facts[] = [
+                'age_bucket' => $bucket,
                 'enqueued_at' => $enqueued,
                 'observed_at' => $observedAt,
                 'queue_status' => (string) ($p['queue_status'] ?? ''),
+                'stale_risk' => $this->staleRisk($bucket),
                 'task_packet_id' => (string) ($p['task_packet_id'] ?? ''),
-                'time_in_queue_seconds' => max(0, $observedTs - $ts),
+                'time_in_queue_seconds' => $seconds,
             ];
         }
 
-        usort($facts, static fn (array $a, array $b): int => strcmp((string) $a['enqueued_at'], (string) $b['enqueued_at']));
+        $riskRank = ['high' => 3, 'medium' => 2, 'low' => 1, 'none' => 0];
+        usort($facts, static function (array $a, array $b) use ($riskRank): int {
+            return ($riskRank[$b['stale_risk']] ?? 0) <=> ($riskRank[$a['stale_risk']] ?? 0)
+                ?: $b['time_in_queue_seconds'] <=> $a['time_in_queue_seconds']
+                ?: strcmp((string) $a['task_packet_id'], (string) $b['task_packet_id']);
+        });
 
         return $facts;
+    }
+
+    private function ageBucket(int $seconds): string
+    {
+        if ($seconds >= 3600) {
+            return 'critical';
+        }
+        if ($seconds >= 300) {
+            return 'stale';
+        }
+        if ($seconds >= 60) {
+            return 'aging';
+        }
+
+        return 'fresh';
+    }
+
+    private function staleRisk(string $bucket): string
+    {
+        return match ($bucket) {
+            'critical' => 'high',
+            'stale' => 'medium',
+            'aging' => 'low',
+            default => 'none',
+        };
     }
 
     private function isoToTs(string $iso): int
