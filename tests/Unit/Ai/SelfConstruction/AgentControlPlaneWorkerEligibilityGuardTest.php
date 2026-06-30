@@ -258,4 +258,48 @@ final class AgentControlPlaneWorkerEligibilityGuardTest extends TestCase
         // This is the byte-identical god-class behaviour (the `&& $taskPacketId !== ''` guard).
         $this->assertSame(1, $guard['eligible_claimable_task_count']);
     }
+
+    public function test_runtime_flag_detected_in_continuation_context(): void
+    {
+        $record = [
+            'task_packet_id' => 'TP-CTX',
+            'task_packet' => [
+                'continuation_context' => ['dispatch_allowed' => true],
+            ],
+        ];
+
+        $guard = $this->guardWith([$record])->workerEligibilityGuard([]);
+
+        $flagViolations = array_values(array_filter(
+            $guard['violations'],
+            static fn (array $v): bool => $v['code'] === 'claimable_task_runtime_flag_true' && $v['flag'] === 'dispatch_allowed',
+        ));
+        $this->assertNotEmpty($flagViolations, 'dispatch_allowed in continuation_context must produce a runtime-flag violation');
+        $this->assertSame(0, $guard['eligible_claimable_task_count']);
+    }
+
+    public function test_ineligible_task_ids_exposed_in_output(): void
+    {
+        $records = [
+            ['task_packet_id' => 'TP-BAD', 'task_packet' => ['continuation_context' => ['worker_executable' => false]]],
+            ['task_packet_id' => 'TP-GOOD', 'task_packet' => ['continuation_context' => []]],
+        ];
+
+        $guard = $this->guardWith($records)->workerEligibilityGuard([]);
+
+        $this->assertArrayHasKey('ineligible_task_ids', $guard);
+        $this->assertSame(['TP-BAD'], $guard['ineligible_task_ids']);
+    }
+
+    public function test_ineligible_task_ids_is_sorted_deterministically(): void
+    {
+        $records = [
+            ['task_packet_id' => 'TP-ZZZ', 'task_packet' => ['continuation_context' => ['operator_handoff_required' => true]]],
+            ['task_packet_id' => 'TP-AAA', 'task_packet' => ['continuation_context' => ['worker_executable' => false]]],
+        ];
+
+        $guard = $this->guardWith($records)->workerEligibilityGuard([]);
+
+        $this->assertSame(['TP-AAA', 'TP-ZZZ'], $guard['ineligible_task_ids']);
+    }
 }

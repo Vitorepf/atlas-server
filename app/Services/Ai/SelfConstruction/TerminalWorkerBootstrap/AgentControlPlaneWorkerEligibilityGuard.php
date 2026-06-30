@@ -92,11 +92,20 @@ class AgentControlPlaneWorkerEligibilityGuard
                         'flag' => $flag,
                     ];
                 }
+                if ((bool) data_get($record, 'task_packet.continuation_context.'.$flag, false)) {
+                    $violations[] = [
+                        'code' => 'claimable_task_runtime_flag_true',
+                        'task_packet_id' => $taskPacketId,
+                        'flag' => $flag,
+                    ];
+                }
             }
             if (count($violations) > $recordViolationCountBefore && $taskPacketId !== '') {
                 $ineligibleTaskIds[$taskPacketId] = true;
             }
         }
+        $ineligibleIds = array_keys($ineligibleTaskIds);
+        sort($ineligibleIds);
         $eligibleClaimableCount = count(array_values(array_filter(
             $records,
             static fn (array $record): bool => ! isset($ineligibleTaskIds[(string) ($record['task_packet_id'] ?? '')]),
@@ -117,6 +126,7 @@ class AgentControlPlaneWorkerEligibilityGuard
             ))),
             'violations' => $violations,
             'violation_count' => count($violations),
+            'ineligible_task_ids' => $ineligibleIds,
             'can_claim_after_guard' => $eligibleClaimableCount > 0,
             'non_execution_guarantees' => [
                 'worker_task_eligibility_guard_does_not_claim_tasks',
