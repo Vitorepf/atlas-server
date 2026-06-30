@@ -88,11 +88,6 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             $killTriggers[] = ['reason' => 'missing_mandatory_telemetry', 'recovery' => 'all_mandatory_telemetry_present', 'policy' => 'block_canary_until_telemetry_restored'];
         }
 
-        $killSwitchActive  = $killTriggers !== [];
-        $killReason        = $killSwitchActive ? $killTriggers[0]['reason']   : null;
-        $recoveryCondition = $killSwitchActive ? $killTriggers[0]['recovery'] : 'no_recovery_needed';
-        $safeModePolicy    = $killSwitchActive ? $killTriggers[0]['policy']   : 'normal_operation';
-
         // Ceiling breach checks (existing logic).
         $breached = [];
         if ($duplicateRate > self::DUPLICATE_CEILING) {
@@ -109,6 +104,24 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         }
         if ($lowValueRate > self::LOW_VALUE_CEILING) {
             $breached[] = sprintf('low_value_rate:%.4f>%.2f', $lowValueRate, self::LOW_VALUE_CEILING);
+        }
+
+        $killSwitchActive  = $killTriggers !== [];
+        if ($killSwitchActive) {
+            $killReason        = $killTriggers[0]['reason'];
+            $recoveryCondition = $killTriggers[0]['recovery'];
+            $safeModePolicy    = $killTriggers[0]['policy'];
+        } elseif ($breached !== []) {
+            // Rollback driven purely by ceiling breaches (no named kill-switch trigger) must
+            // still report an actionable recovery state — never "no_recovery_needed" while
+            // actively rolled back.
+            $killReason        = 'ceiling_threshold_breach';
+            $recoveryCondition = 'all_breached_thresholds_back_within_ceiling';
+            $safeModePolicy    = 'disable_amplifier_until_thresholds_recover';
+        } else {
+            $killReason        = null;
+            $recoveryCondition = 'no_recovery_needed';
+            $safeModePolicy    = 'normal_operation';
         }
 
         // Kill switch overrides action to rollback immediately.

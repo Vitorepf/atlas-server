@@ -129,6 +129,20 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitchTest extends TestCase
         $this->assertStringContainsString('low_value_rate', implode(' ', $result['breached_thresholds']));
     }
 
+    public function test_ceiling_breach_alone_reports_actionable_recovery_not_no_recovery_needed(): void
+    {
+        $input                   = $this->allGood();
+        $input['duplicate_rate'] = 0.50; // breach, no kill-switch trigger involved
+
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+        $this->assertFalse($result['kill_switch_active']);
+        $this->assertNotSame('no_recovery_needed', $result['recovery_condition']);
+        $this->assertNotSame('normal_operation', $result['safe_mode_policy']);
+        $this->assertNotNull($result['kill_reason']);
+    }
+
     // ── Multiple breaches all appear in breached_thresholds ──────────────────
 
     public function test_multiple_breaches_all_reported(): void
