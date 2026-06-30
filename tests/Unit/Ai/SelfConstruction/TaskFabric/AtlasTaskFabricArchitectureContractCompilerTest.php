@@ -56,7 +56,7 @@ final class AtlasTaskFabricArchitectureContractCompilerTest extends TestCase
         $c = $this->validContract();
         $c['evidence_seed'] = [];
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/empty evidence_seed/');
+        $this->expectExceptionMessageMatches('/missing-field:evidence_seed/');
         (new AtlasTaskFabricArchitectureContractCompiler)->compile($c);
     }
 
@@ -65,7 +65,16 @@ final class AtlasTaskFabricArchitectureContractCompilerTest extends TestCase
         $c = $this->validContract();
         $c['owner_scope'] = '';
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessageMatches('/missing owner_scope/');
+        $this->expectExceptionMessageMatches('/missing-field:owner_scope/');
+        (new AtlasTaskFabricArchitectureContractCompiler)->compile($c);
+    }
+
+    public function test_empty_capability_gap_throws(): void
+    {
+        $c = $this->validContract();
+        $c['capability_gap'] = '';
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing-field:capability_gap/');
         (new AtlasTaskFabricArchitectureContractCompiler)->compile($c);
     }
 
@@ -100,5 +109,66 @@ final class AtlasTaskFabricArchitectureContractCompilerTest extends TestCase
         $a = $c->compile($this->validContract());
         $b = $c->compile($this->validContract());
         $this->assertSame($a[0]['spec_hash'], $b[0]['spec_hash']);
+    }
+
+    // ── task_constraints, evidence_floor, anti_proxy_clauses, dependency_hints ──
+
+    public function test_draft_includes_all_new_enforced_fields(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        $this->assertArrayHasKey('task_constraints', $draft);
+        $this->assertArrayHasKey('dependency_hints', $draft);
+        $this->assertArrayHasKey('evidence_floor', $draft);
+        $this->assertArrayHasKey('anti_proxy_clauses', $draft);
+        $this->assertNotEmpty($draft['task_constraints']);
+        $this->assertNotEmpty($draft['evidence_floor']);
+        $this->assertNotEmpty($draft['anti_proxy_clauses']);
+    }
+
+    public function test_standard_risk_produces_min_refs_1(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        $this->assertSame(1, $draft['evidence_floor']['min_refs']);
+        $this->assertContains('evidence_refs_min:1', $draft['task_constraints']);
+        $this->assertNotContains('no_auto_merge', $draft['task_constraints']);
+    }
+
+    public function test_high_risk_produces_stricter_evidence_floor_and_no_auto_merge(): void
+    {
+        $c = $this->validContract();
+        $c['risk_class'] = 'high';
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertSame(2, $draft['evidence_floor']['min_refs']);
+        $this->assertContains('evidence_refs_min:2', $draft['task_constraints']);
+        $this->assertContains('no_auto_merge', $draft['task_constraints']);
+    }
+
+    public function test_anti_proxy_clauses_forbid_all_proxy_kinds(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        foreach (AtlasTaskFabricArchitectureContractCompiler::ANTI_PROXY_KINDS as $kind) {
+            $this->assertContains('forbidden_evidence_kind:'.$kind, $draft['anti_proxy_clauses']);
+            $this->assertContains($kind, $draft['evidence_floor']['forbidden_kinds']);
+        }
+    }
+
+    public function test_dependency_hints_from_contract_are_passed_through(): void
+    {
+        $c = $this->validContract();
+        $c['dependency_hints'] = ['ARCH-10', 'ARCH-11'];
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertSame(['ARCH-10', 'ARCH-11'], $draft['dependency_hints']);
+    }
+
+    public function test_dependency_hints_default_to_empty_when_not_provided(): void
+    {
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
+
+        $this->assertSame([], $draft['dependency_hints']);
     }
 }

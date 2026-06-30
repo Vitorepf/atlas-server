@@ -40,6 +40,8 @@ final class AtlasTaskFabricArchitectureContractCompiler
         'external_provider_runtime',
     ];
 
+    public const ANTI_PROXY_KINDS = ['task_count', 'line_churn', 'green_self_report', 'cosmetic_docs', 'queue_count'];
+
     /**
      * @param  array{contract_id:string, owner_scope:string, capability_gap:string, candidate_files:list<string>, acceptance_seed:list<string>, evidence_seed:list<string>, risk_class?:string}  $contract
      * @return list<array{id:string, contract_id:string, objective:string, allowed_files:list<string>, scope_in:list<string>, acceptance_criteria:list<string>, required_evidence:list<string>, rollback_hint:string, risk_class:string, spec_hash:string}>
@@ -53,18 +55,24 @@ final class AtlasTaskFabricArchitectureContractCompiler
         $acceptanceSeed = is_array($contract['acceptance_seed'] ?? null) ? array_values(array_map('strval', $contract['acceptance_seed'])) : [];
         $evidenceSeed = is_array($contract['evidence_seed'] ?? null) ? array_values(array_map('strval', $contract['evidence_seed'])) : [];
         $riskClass = trim((string) ($contract['risk_class'] ?? 'standard'));
+        $dependencyHints = is_array($contract['dependency_hints'] ?? null)
+            ? array_values(array_filter(array_map('strval', $contract['dependency_hints']), static fn ($s) => $s !== ''))
+            : [];
 
         if ($contractId === '') {
-            throw new RuntimeException('contract_compiler: empty contract_id');
+            throw new RuntimeException('contract_compiler: missing-field:contract_id');
         }
         if ($ownerScope === '') {
-            throw new RuntimeException('contract_compiler: missing owner_scope');
+            throw new RuntimeException('contract_compiler: missing-field:owner_scope');
+        }
+        if ($capabilityGap === '') {
+            throw new RuntimeException('contract_compiler: missing-field:capability_gap');
         }
         if ($acceptanceSeed === []) {
-            throw new RuntimeException('contract_compiler: empty acceptance_seed');
+            throw new RuntimeException('contract_compiler: missing-field:acceptance_seed');
         }
         if ($evidenceSeed === []) {
-            throw new RuntimeException('contract_compiler: empty evidence_seed');
+            throw new RuntimeException('contract_compiler: missing-field:evidence_seed');
         }
         $gapLower = strtolower($capabilityGap);
         foreach (self::FORBIDDEN_OWNERSHIP_PHRASES as $bad) {
@@ -84,7 +92,7 @@ final class AtlasTaskFabricArchitectureContractCompiler
 
         if ($impls === []) {
             // Tests-only contract — emit a single draft covering all the test files.
-            return [$this->draft($contractId, 'tests-only', $contractId.'-tests', $candidates, $candidates, $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap)];
+            return [$this->draft($contractId, 'tests-only', $contractId.'-tests', $candidates, $candidates, $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap, $dependencyHints)];
         }
 
         $drafts = [];
@@ -92,7 +100,7 @@ final class AtlasTaskFabricArchitectureContractCompiler
             $matchingTest = $this->matchingTestFor($impl, $tests);
             $allowed = $matchingTest === null ? [$impl] : [$impl, $matchingTest];
             $draftId = $contractId.'-p'.($i + 1);
-            $drafts[] = $this->draft($contractId, $impl, $draftId, $allowed, [$impl], $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap);
+            $drafts[] = $this->draft($contractId, $impl, $draftId, $allowed, [$impl], $acceptanceSeed, $evidenceSeed, $riskClass, $ownerScope, $capabilityGap, $dependencyHints);
         }
 
         return $drafts;
@@ -103,12 +111,21 @@ final class AtlasTaskFabricArchitectureContractCompiler
      * @param  list<string>  $scopeIn
      * @param  list<string>  $acceptance
      * @param  list<string>  $evidence
-     * @return array{id:string, contract_id:string, objective:string, allowed_files:list<string>, scope_in:list<string>, acceptance_criteria:list<string>, required_evidence:list<string>, rollback_hint:string, risk_class:string, spec_hash:string}
+     * @param  list<string>  $dependencyHints
+     * @return array<string,mixed>
      */
-    private function draft(string $contractId, string $implLabel, string $id, array $allowedFiles, array $scopeIn, array $acceptance, array $evidence, string $riskClass, string $ownerScope, string $gap): array
+    private function draft(string $contractId, string $implLabel, string $id, array $allowedFiles, array $scopeIn, array $acceptance, array $evidence, string $riskClass, string $ownerScope, string $gap, array $dependencyHints): array
     {
         $objective = sprintf('Atlas-native implementation for %s (contract %s, owner_scope=%s): %s', $implLabel, $contractId, $ownerScope, $gap);
         $rollbackHint = 'revert_commit:'.$contractId.':'.$id;
+
+        $minRefs = match ($riskClass) { 'high' => 2, 'critical' => 3, default => 1 };
+        $taskConstraints = ['write_scope_restricted_to:'.implode(',', $allowedFiles), 'evidence_refs_min:'.$minRefs];
+        if (in_array($riskClass, ['high', 'critical'], true)) {
+            $taskConstraints[] = 'no_auto_merge';
+        }
+        $evidenceFloor = ['min_refs' => $minRefs, 'required_kinds' => $evidence, 'forbidden_kinds' => self::ANTI_PROXY_KINDS];
+        $antiProxyClauses = array_map(static fn ($k) => 'forbidden_evidence_kind:'.$k, self::ANTI_PROXY_KINDS);
 
         $draft = [
             'id' => $id,
@@ -120,6 +137,10 @@ final class AtlasTaskFabricArchitectureContractCompiler
             'required_evidence' => $evidence,
             'rollback_hint' => $rollbackHint,
             'risk_class' => $riskClass,
+            'task_constraints' => $taskConstraints,
+            'dependency_hints' => $dependencyHints,
+            'evidence_floor' => $evidenceFloor,
+            'anti_proxy_clauses' => $antiProxyClauses,
         ];
         $canonical = [
             'contract_id' => $contractId,
@@ -129,6 +150,9 @@ final class AtlasTaskFabricArchitectureContractCompiler
             'acceptance_criteria' => $acceptance,
             'required_evidence' => $evidence,
             'risk_class' => $riskClass,
+            'task_constraints' => $taskConstraints,
+            'dependency_hints' => $dependencyHints,
+            'anti_proxy_clauses' => $antiProxyClauses,
         ];
         ksort($canonical);
         $draft['spec_hash'] = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
