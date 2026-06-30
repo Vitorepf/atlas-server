@@ -55,20 +55,26 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
      *   queue_health_effect?: string,
      *   cosmetic_only?: bool,
      *   test_only?: bool,
+     *   observed_behavior_delta?: string,
+     *   learning_delta?: string,
+     *   acceptance_delta?: string,
      * }  $input
-     * @return array{schema:string, commit_sha:string, task_packet_id:string, impact_label:string, label_reason:string, promised_delta_observed:bool, ranking_signal:float}
+     * @return array{schema:string, commit_sha:string, task_packet_id:string, impact_label:string, label_reason:string, promised_delta_observed:bool, ranking_signal:float, causal_proof_strength:float}
      */
     public function sample(array $input): array
     {
-        $commitSha      = trim((string) ($input['commit_sha']                ?? ''));
-        $taskPacketId   = trim((string) ($input['task_packet_id']            ?? ''));
-        $promisedDelta  = trim((string) ($input['promised_capability_delta'] ?? ''));
-        $queueEffect    = trim((string) ($input['queue_health_effect']       ?? 'neutral'));
-        $cosmeticOnly   = (bool) ($input['cosmetic_only'] ?? false);
-        $testOnly       = (bool) ($input['test_only']     ?? false);
+        $commitSha       = trim((string) ($input['commit_sha']                ?? ''));
+        $taskPacketId    = trim((string) ($input['task_packet_id']            ?? ''));
+        $promisedDelta   = trim((string) ($input['promised_capability_delta'] ?? ''));
+        $queueEffect     = trim((string) ($input['queue_health_effect']       ?? 'neutral'));
+        $cosmeticOnly    = (bool) ($input['cosmetic_only'] ?? false);
+        $testOnly        = (bool) ($input['test_only']     ?? false);
+        $behaviorDelta   = trim((string) ($input['observed_behavior_delta']   ?? ''));
+        $learningDelta   = trim((string) ($input['learning_delta']            ?? ''));
+        $acceptanceDelta = trim((string) ($input['acceptance_delta']          ?? ''));
 
-        $implFiles  = array_values(array_filter(array_map('trim', (array) ($input['observed_impl_files'] ?? [])), fn (string $s): bool => $s !== ''));
-        $testFiles  = array_values(array_filter(array_map('trim', (array) ($input['observed_test_files'] ?? [])), fn (string $s): bool => $s !== ''));
+        $implFiles = array_values(array_filter(array_map('trim', (array) ($input['observed_impl_files'] ?? [])), fn (string $s): bool => $s !== ''));
+        $testFiles = array_values(array_filter(array_map('trim', (array) ($input['observed_test_files'] ?? [])), fn (string $s): bool => $s !== ''));
 
         $hasImpl    = $implFiles !== [];
         $hasTests   = $testFiles !== [];
@@ -79,6 +85,18 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
 
         $promisedDeltaObserved = $hasImpl && $hasTests;
 
+        // AC3: causal_proof_strength = satisfied proof signals / 7 total.
+        $satisfied = array_sum([
+            (int) $hasImpl,
+            (int) $hasTests,
+            (int) $hasDelta,
+            (int) $queueUp,
+            (int) ($behaviorDelta !== ''),
+            (int) ($learningDelta !== ''),
+            (int) ($acceptanceDelta !== ''),
+        ]);
+        $causalProofStrength = round($satisfied / 7, 4);
+
         return [
             'schema'                  => self::SCHEMA,
             'commit_sha'              => $commitSha,
@@ -87,6 +105,7 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
             'label_reason'            => $reason,
             'promised_delta_observed' => $promisedDeltaObserved,
             'ranking_signal'          => self::RANKING_SIGNALS[$label],
+            'causal_proof_strength'   => $causalProofStrength,
         ];
     }
 
