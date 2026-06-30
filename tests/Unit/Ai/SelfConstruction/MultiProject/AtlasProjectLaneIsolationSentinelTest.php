@@ -106,6 +106,95 @@ final class AtlasProjectLaneIsolationSentinelTest extends TestCase
         $this->assertContains('leak:allowed_files_escape_lane', $v['blockers']);
     }
 
+    public function test_namespace_facts_without_project_id_cannot_pass(): void
+    {
+        $ns = $this->passingNamespace();
+        unset($ns['project_id']);
+
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate([
+            'project_id' => 'demo-lane',
+            'namespace_facts' => $ns,
+            'receipt_facts' => $this->passingReceipt(),
+            'leak_detector_verdict' => $this->passingLeak(),
+        ]);
+
+        $this->assertNotSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['status']);
+        $this->assertFalse($v['passed']);
+        $this->assertContains('namespace_policy_failed', $v['blockers']);
+    }
+
+    public function test_namespace_facts_with_mismatched_project_id_cannot_pass(): void
+    {
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate([
+            'project_id' => 'demo-lane',
+            'namespace_facts' => ['project_id' => 'other-project', 'namespace' => 'lane.demo-lane.abc.main'],
+            'receipt_facts' => $this->passingReceipt(),
+            'leak_detector_verdict' => $this->passingLeak(),
+        ]);
+
+        $this->assertNotSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['status']);
+        $this->assertContains('namespace_policy_failed', $v['blockers']);
+    }
+
+    public function test_receipt_with_wrong_schema_cannot_pass(): void
+    {
+        $receipt = [
+            'envelopes' => [[
+                'schema' => 'atlas.wrong.schema.v9',
+                'project_id' => 'demo-lane',
+                'envelope_hash' => 'env-hash-ok',
+            ]],
+        ];
+
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate([
+            'project_id' => 'demo-lane',
+            'namespace_facts' => $this->passingNamespace(),
+            'receipt_facts' => $receipt,
+            'leak_detector_verdict' => $this->passingLeak(),
+        ]);
+
+        $this->assertNotSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['status']);
+        $this->assertContains('receipt_policy_failed', $v['blockers']);
+    }
+
+    public function test_receipt_with_missing_envelope_hash_cannot_pass(): void
+    {
+        $receipt = [
+            'envelopes' => [[
+                'schema' => AtlasProjectLaneReceiptPolicy::SCHEMA,
+                'project_id' => 'demo-lane',
+                // envelope_hash absent
+            ]],
+        ];
+
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate([
+            'project_id' => 'demo-lane',
+            'namespace_facts' => $this->passingNamespace(),
+            'receipt_facts' => $receipt,
+            'leak_detector_verdict' => $this->passingLeak(),
+        ]);
+
+        $this->assertNotSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['status']);
+        $this->assertContains('receipt_policy_failed', $v['blockers']);
+    }
+
+    public function test_leak_verdict_with_different_project_id_cannot_pass(): void
+    {
+        $leak = array_replace($this->passingLeak(), ['project_id' => 'completely-different-project']);
+
+        $v = (new AtlasProjectLaneIsolationSentinel)->evaluate([
+            'project_id' => 'demo-lane',
+            'namespace_facts' => $this->passingNamespace(),
+            'receipt_facts' => $this->passingReceipt(),
+            'leak_detector_verdict' => $leak,
+        ]);
+
+        $this->assertNotSame(AtlasProjectLaneIsolationSentinel::STATUS_PASS, $v['status']);
+        $this->assertFalse($v['passed']);
+        $blockerStr = implode(',', $v['blockers']);
+        $this->assertStringContainsString('leak_detector_project_id_mismatch', $blockerStr);
+    }
+
     public function test_envelope_carries_canonical_schema_and_no_scalar_score(): void
     {
         $v = (new AtlasProjectLaneIsolationSentinel)->evaluate([

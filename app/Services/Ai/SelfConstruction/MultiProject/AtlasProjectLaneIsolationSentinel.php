@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\MultiProject;
 
+use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneReceiptPolicy;
+
 /**
  * READ-ONLY sentinel composing three independent FACT sources to prove a project lane is isolated
  * BEFORE 24/7 work runs there:
@@ -72,7 +74,15 @@ final class AtlasProjectLaneIsolationSentinel
         if ($receiptFacts !== null && ! $receiptPass) {
             $blockers[] = 'receipt_policy_failed';
         }
-        $leakPass = $leakVerdict !== null && (bool) ($leakVerdict['passed'] ?? false);
+        $leakPass = false;
+        if ($leakVerdict !== null) {
+            $leakProjectId = (string) ($leakVerdict['project_id'] ?? '');
+            $leakProjectIdOk = $leakProjectId === '' || $leakProjectId === $projectId;
+            $leakPass = (bool) ($leakVerdict['passed'] ?? false) && $leakProjectIdOk;
+            if (! $leakProjectIdOk) {
+                $blockers[] = 'leak_detector_project_id_mismatch:'.$leakProjectId;
+            }
+        }
         if ($leakVerdict !== null && ! $leakPass) {
             $blockers[] = 'leak_detector_failed';
             foreach ((array) ($leakVerdict['blockers'] ?? []) as $b) {
@@ -117,8 +127,9 @@ final class AtlasProjectLaneIsolationSentinel
      */
     private function namespacePass(array $facts, string $projectId): bool
     {
+        // project_id in namespace_facts must be present, non-empty, and match the sentinel's project_id.
         $factsProj = (string) ($facts['project_id'] ?? '');
-        if ($factsProj !== '' && $factsProj !== $projectId) {
+        if ($factsProj === '' || $factsProj !== $projectId) {
             return false;
         }
         // Must carry the canonical lane.<project_id>... namespace.
@@ -143,6 +154,9 @@ final class AtlasProjectLaneIsolationSentinel
                 return false;
             }
             if ((string) ($env['envelope_hash'] ?? '') === '') {
+                return false;
+            }
+            if ((string) ($env['schema'] ?? '') !== AtlasProjectLaneReceiptPolicy::SCHEMA) {
                 return false;
             }
         }
