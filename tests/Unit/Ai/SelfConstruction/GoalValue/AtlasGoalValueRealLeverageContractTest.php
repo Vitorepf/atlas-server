@@ -147,6 +147,78 @@ final class AtlasGoalValueRealLeverageContractTest extends TestCase
         }
     }
 
+    // ── structural_unlock dimension ───────────────────────────────────────────
+
+    public function test_structural_unlock_passes_with_unlocked_downstream_lane(): void
+    {
+        $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([
+            AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK => [
+                'evidence_kind' => 'lane_unblock_receipt',
+                'evidence_refs' => ['receipt:unlock-1'],
+                'before_fact' => 'multi-file tasks blocked behind missing planner',
+                'after_fact' => 'multi-file lane now open; 5 tasks can proceed',
+                'unlocked_downstream_lane' => 'multi_file_impl',
+            ],
+        ]);
+
+        $byId = array_column($verdict['dimensions'], null, 'id');
+        $this->assertTrue($byId[AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK]['passed']);
+        $this->assertTrue($verdict['real_leverage']);
+    }
+
+    public function test_structural_unlock_passes_with_blocked_work_removed(): void
+    {
+        $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([
+            AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK => [
+                'evidence_kind' => 'dependency_elimination',
+                'evidence_refs' => ['receipt:dep-rm'],
+                'before_fact' => 'external provider required for X',
+                'after_fact' => 'atlas-native impl; no external provider',
+                'blocked_work_removed' => 'external_provider_dependency',
+            ],
+        ]);
+
+        $byId = array_column($verdict['dimensions'], null, 'id');
+        $this->assertTrue($byId[AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK]['passed']);
+    }
+
+    public function test_structural_unlock_fails_without_downstream_unlock_fact(): void
+    {
+        $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([
+            AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK => [
+                'evidence_kind' => 'lane_unblock_receipt',
+                'evidence_refs' => ['receipt:unlock-2'],
+                'before_fact' => 'queue blocked',
+                'after_fact' => 'queue clear',
+                // no unlocked_downstream_lane or blocked_work_removed
+            ],
+        ]);
+
+        $byId = array_column($verdict['dimensions'], null, 'id');
+        $dim = $byId[AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK];
+        $this->assertFalse($dim['passed']);
+        $this->assertStringContainsString('missing_downstream_unlock_fact', $dim['reason']);
+        $this->assertFalse($verdict['real_leverage']);
+    }
+
+    public function test_queue_count_is_rejected_proxy_evidence_kind(): void
+    {
+        $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([
+            AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK => [
+                'evidence_kind' => 'queue_count',
+                'evidence_refs' => ['stat:q42'],
+                'before_fact' => '10 tasks',
+                'after_fact' => '20 tasks',
+                'unlocked_downstream_lane' => 'lane_x',
+            ],
+        ]);
+
+        $byId = array_column($verdict['dimensions'], null, 'id');
+        $dim = $byId[AtlasGoalValueRealLeverageContract::DIM_STRUCTURAL_UNLOCK];
+        $this->assertFalse($dim['passed']);
+        $this->assertStringContainsString('rejected_proxy_kind:queue_count', $dim['reason']);
+    }
+
     public function test_evaluation_is_deterministic_byte_identical(): void
     {
         $svc = new AtlasGoalValueRealLeverageContract;

@@ -34,6 +34,8 @@ final class AtlasGoalValueRealLeverageContract
 
     public const DIM_MULTI_PROJECT_REUSE = 'multi_project_reuse';
 
+    public const DIM_STRUCTURAL_UNLOCK = 'structural_unlock';
+
     public const VALUE_DIMENSIONS = [
         self::DIM_CAPABILITY_LIFT,
         self::DIM_AUTONOMY_LIFT,
@@ -42,10 +44,12 @@ final class AtlasGoalValueRealLeverageContract
         self::DIM_SPEED_LEVERAGE,
         self::DIM_SIMPLIFICATION,
         self::DIM_MULTI_PROJECT_REUSE,
+        self::DIM_STRUCTURAL_UNLOCK,
     ];
 
     public const REJECTED_EVIDENCE_KINDS = [
         'task_count',
+        'queue_count',
         'line_churn',
         'green_self_report',
         'cosmetic_docs',
@@ -114,6 +118,14 @@ final class AtlasGoalValueRealLeverageContract
         $afterFact = $evidence['after_fact'] ?? null;
         if ($beforeFact === null || $beforeFact === '' || $afterFact === null || $afterFact === '') {
             return ['id' => $dimId, 'passed' => false, 'reason' => $dimId.':missing_outcome_delta', 'evidence_kind' => $kind];
+        }
+
+        if ($dimId === self::DIM_STRUCTURAL_UNLOCK) {
+            $lane = trim((string) ($evidence['unlocked_downstream_lane'] ?? ''));
+            $removed = trim((string) ($evidence['blocked_work_removed'] ?? ''));
+            if ($lane === '' && $removed === '') {
+                return ['id' => $dimId, 'passed' => false, 'reason' => $dimId.':missing_downstream_unlock_fact', 'evidence_kind' => $kind];
+            }
         }
 
         return ['id' => $dimId, 'passed' => true, 'reason' => $dimId.':accepted', 'evidence_kind' => $kind];
