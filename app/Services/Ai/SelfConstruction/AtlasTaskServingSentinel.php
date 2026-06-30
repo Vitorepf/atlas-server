@@ -168,6 +168,68 @@ final class AtlasTaskServingSentinel
         ];
     }
 
+    /** Status values counted as a "claim" transition for window counters. */
+    private const CLAIM_STATUSES = ['claimed'];
+
+    /** Status values counted as a "completion" transition for window counters. */
+    private const COMPLETION_STATUSES = ['completed_dry_run'];
+
+    /** Status values counted as a "release" transition for window counters. */
+    private const RELEASE_STATUSES = ['released'];
+
+    /**
+     * Pure windowed claim/completion/release counters derived directly from queue
+     * transition history — gives Maestro a truthful drain signal even when serve_total
+     * telemetry (this sentinel's own JSONL log) is missing or not wired. NEVER fabricates
+     * serve_total or any other status() field; an empty history yields zero counters.
+     *
+     * @param  list<array{task_packet_id?: string, history?: list<array{status?: string, at?: string}>}>  $queueRecords
+     * @param  ?string  $windowStartIso  only transitions at/after this ISO8601 timestamp count; null = unbounded
+     * @return array{schema:string, claim_delta:int, completion_delta:int, release_delta:int, window_start_iso8601:?string}
+     */
+    public function windowCounters(array $queueRecords, ?string $windowStartIso = null): array
+    {
+        $windowStartTimestamp = $windowStartIso !== null ? strtotime($windowStartIso) : null;
+
+        $claimDelta = 0;
+        $completionDelta = 0;
+        $releaseDelta = 0;
+
+        foreach ($queueRecords as $record) {
+            $history = is_array($record['history'] ?? null) ? $record['history'] : [];
+            foreach ($history as $transition) {
+                if (! is_array($transition)) {
+                    continue;
+                }
+                $status = (string) ($transition['status'] ?? '');
+                $at = (string) ($transition['at'] ?? '');
+
+                if ($windowStartTimestamp !== false && $windowStartTimestamp !== null) {
+                    $atTimestamp = $at !== '' ? strtotime($at) : false;
+                    if ($atTimestamp === false || $atTimestamp < $windowStartTimestamp) {
+                        continue;
+                    }
+                }
+
+                if (in_array($status, self::CLAIM_STATUSES, true)) {
+                    $claimDelta++;
+                } elseif (in_array($status, self::COMPLETION_STATUSES, true)) {
+                    $completionDelta++;
+                } elseif (in_array($status, self::RELEASE_STATUSES, true)) {
+                    $releaseDelta++;
+                }
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'claim_delta' => $claimDelta,
+            'completion_delta' => $completionDelta,
+            'release_delta' => $releaseDelta,
+            'window_start_iso8601' => $windowStartIso,
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
