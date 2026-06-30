@@ -65,6 +65,32 @@ final class AtlasMaestroWorkloadProjectionFactEmitterTest extends TestCase
         $this->assertSame('2026-06-24T09:30:00+00:00', $fact['queue_empty_at_iso']);
     }
 
+    public function test_producer_shaped_packets_with_nested_metadata_client_id_yield_non_null_idle_hours(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-29T10:00:00Z');
+
+        // Producer nests client_id under metadata — flat client_id is absent.
+        $packets = [
+            ['task_packet_id' => 'p1', 'status' => 'claimable', 'metadata' => ['client_id' => 'worker-x']],
+            ['task_packet_id' => 'p2', 'status' => 'claimable', 'metadata' => ['client_id' => 'worker-x']],
+        ];
+        $registrySnapshot = ['packets' => $packets];
+
+        $consumptionFact = $this->consumptionFact(4.0, [
+            ['client_id' => 'worker-x', 'tasks_per_hour' => 4.0],
+        ], $now);
+
+        $fact = (new AtlasMaestroWorkloadProjectionFactEmitter)->emit($consumptionFact, $registrySnapshot, $now);
+
+        $this->assertNotEmpty($fact['per_worker'], 'per_worker must have rows when consumption rows exist');
+        $workerRow = $fact['per_worker'][0];
+        $this->assertSame('worker-x', $workerRow['client_id']);
+        $this->assertNotNull($workerRow['worker_idle_in_hours'],
+            'worker_idle_in_hours must not be null when producer-shaped packets nest client_id under metadata');
+        $this->assertEqualsWithDelta(0.5, $workerRow['worker_idle_in_hours'], 1e-9,
+            '2 claimable / 4 tasks_per_hour = 0.5 hours idle');
+    }
+
     /**
      * @param  list<array{client_id:string,tasks_per_hour:float}>  $workers
      * @return array<string,mixed>

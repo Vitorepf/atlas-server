@@ -108,7 +108,7 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
                 continue;
             }
 
-            if ((string) ($packet['client_id'] ?? '') !== $clientId) {
+            if ((string) ($packet['metadata']['client_id'] ?? $packet['client_id'] ?? '') !== $clientId) {
                 continue;
             }
 
