@@ -71,19 +71,34 @@ final class AtlasProjectLaneTaskFabricRouter
         $rawId = (string) ($candidate['task_packet_id'] ?? '');
         $packetId = str_starts_with($rawId, $projectId.':') ? $rawId : $projectId.':'.($rawId !== '' ? $rawId : substr(hash('sha256', $objective), 0, 12));
 
+        $checkedPaths = array_values(array_unique(array_merge($allowedFiles, $scopeIn)));
+        sort($checkedPaths);
+
         return [
             'schema_version' => self::SCHEMA,
             'task_packet_id' => $packetId,
-            'project_id' => $projectId,
-            'objective' => $objective,
-            'allowed_files' => $allowedFiles,
-            'scope_in' => $scopeIn,
+            'project_id'     => $projectId,
+            'objective'      => $objective,
+            'allowed_files'  => $allowedFiles,
+            'scope_in'       => $scopeIn,
             'acceptance_criteria' => array_values($acceptance),
-            'required_evidence' => array_values($evidence),
+            'required_evidence'   => array_values($evidence),
             'workspace_policy' => [
-                'isolation' => self::ISOLATION,
-                'simplicity' => self::SIMPLICITY,
+                'isolation'          => self::ISOLATION,
+                'simplicity'         => self::SIMPLICITY,
                 'allowed_scope_roots' => $allowedScopeRoots,
+            ],
+            'project_lane_proof_contract' => [
+                'lane_id'                 => $projectId,
+                'isolation_evidence_refs' => $allowedScopeRoots,
+                'queue_namespace'         => 'queue:'.$projectId,
+                'acceptance_command_hints' => array_values($acceptance),
+                'required_evidence'        => array_values($evidence),
+                'cross_project_leak_guard' => [
+                    'allowed_scope_roots'   => $allowedScopeRoots,
+                    'checked_paths'         => $checkedPaths,
+                    'all_paths_within_lane' => true,
+                ],
             ],
         ];
     }

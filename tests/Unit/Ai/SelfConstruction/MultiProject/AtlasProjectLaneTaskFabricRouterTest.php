@@ -156,4 +156,87 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
         $this->assertSame(['A', 'B', 'C'], $out['acceptance_criteria']);
         $this->assertSame(['lint', 'phpunit', 'mutop'], $out['required_evidence']);
     }
+
+    // ── project_lane_proof_contract ───────────────────────────────────────────
+
+    public function test_routed_packet_carries_proof_contract(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+
+        $this->assertArrayHasKey('project_lane_proof_contract', $out);
+    }
+
+    public function test_proof_contract_has_all_required_fields(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+        $pc  = $out['project_lane_proof_contract'];
+
+        foreach (['lane_id', 'isolation_evidence_refs', 'queue_namespace', 'acceptance_command_hints', 'required_evidence', 'cross_project_leak_guard'] as $key) {
+            $this->assertArrayHasKey($key, $pc, "proof_contract missing key: {$key}");
+        }
+    }
+
+    public function test_proof_contract_lane_id_matches_project_id(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+
+        $this->assertSame('atlas-server', $out['project_lane_proof_contract']['lane_id']);
+    }
+
+    public function test_proof_contract_queue_namespace_is_scoped_to_project(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+
+        $this->assertSame('queue:atlas-server', $out['project_lane_proof_contract']['queue_namespace']);
+    }
+
+    public function test_proof_contract_isolation_evidence_refs_match_lane_scope_roots(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+        $pc  = $out['project_lane_proof_contract'];
+
+        $this->assertSame($this->lane()['allowed_scope_roots'], $pc['isolation_evidence_refs']);
+    }
+
+    public function test_proof_contract_acceptance_command_hints_mirror_candidate_criteria(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route(
+            $this->lane(),
+            $this->candidate(['acceptance_criteria' => ['runnable:test A', 'runnable:test B']])
+        );
+
+        $this->assertSame(['runnable:test A', 'runnable:test B'], $out['project_lane_proof_contract']['acceptance_command_hints']);
+    }
+
+    public function test_proof_contract_required_evidence_mirrors_candidate_evidence(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route(
+            $this->lane(),
+            $this->candidate(['required_evidence' => ['phpunit_green', 'mutation_kills']])
+        );
+
+        $this->assertSame(['phpunit_green', 'mutation_kills'], $out['project_lane_proof_contract']['required_evidence']);
+    }
+
+    public function test_proof_contract_cross_project_leak_guard_contains_checked_paths_and_flag(): void
+    {
+        $out  = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+        $guard = $out['project_lane_proof_contract']['cross_project_leak_guard'];
+
+        $this->assertArrayHasKey('allowed_scope_roots', $guard);
+        $this->assertArrayHasKey('checked_paths', $guard);
+        $this->assertTrue($guard['all_paths_within_lane']);
+        $this->assertNotEmpty($guard['checked_paths']);
+        $this->assertContains('/repos/atlas-server/app/Foo.php', $guard['checked_paths']);
+    }
+
+    public function test_proof_contract_preserves_canonical_packet_fields_untouched(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+
+        // These top-level fields must still exist alongside the proof contract.
+        foreach (['objective', 'allowed_files', 'scope_in', 'acceptance_criteria', 'required_evidence', 'workspace_policy'] as $key) {
+            $this->assertArrayHasKey($key, $out, "top-level field missing: {$key}");
+        }
+    }
 }
