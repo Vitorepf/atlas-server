@@ -23,6 +23,8 @@ final class AtlasMaestroPacketClassifierTest extends TestCase
             AtlasMaestroPacketClassifier::MULTI_FILE,
             AtlasMaestroPacketClassifier::GRIND,
             AtlasMaestroPacketClassifier::DOC,
+            AtlasMaestroPacketClassifier::QUEUE_REPAIR,
+            AtlasMaestroPacketClassifier::LEARNING_LOOP,
         ]);
     }
 
@@ -63,6 +65,30 @@ final class AtlasMaestroPacketClassifierTest extends TestCase
 
         $this->assertSame(AtlasMaestroPacketClassifier::GRIND, $this->classifier()->classify($packet));
         $this->assertSame(AtlasMaestroPacketClassifier::REASON_GRIND, $this->classifier()->reasonFor($packet));
+    }
+
+    public function test_queue_repair_classification_on_objective_keyword(): void
+    {
+        $signals = ['respec the packet', 'poison task in queue', 'queue-repair needed', 'queue_health check', 'repair-blocked item'];
+        $c = $this->classifier();
+        foreach ($signals as $objective) {
+            $packet = $this->packet(['app/Services/Ai/Foo.php'], $objective);
+            $this->assertSame(AtlasMaestroPacketClassifier::QUEUE_REPAIR, $c->classify($packet), "objective: {$objective}");
+            $this->assertSame(AtlasMaestroPacketClassifier::REASON_QUEUE_REPAIR, $c->reasonFor($packet));
+        }
+    }
+
+    public function test_learning_loop_classification_on_objective_and_path_signal(): void
+    {
+        $c = $this->classifier();
+
+        $byObjective = $this->packet(['app/Services/Ai/Foo.php'], 'update outcome ledger for give_back events');
+        $this->assertSame(AtlasMaestroPacketClassifier::LEARNING_LOOP, $c->classify($byObjective));
+        $this->assertSame(AtlasMaestroPacketClassifier::REASON_LEARNING_LOOP, $c->reasonFor($byObjective));
+
+        $byPath = $this->packet(['app/Services/Ai/SelfConstruction/Maestro/ClosedLoop/OutcomeLedger.php'], 'store results');
+        $this->assertSame(AtlasMaestroPacketClassifier::LEARNING_LOOP, $c->classify($byPath),
+            'ClosedLoop path should trigger learning-loop via closed-loop signal');
     }
 
     /**
