@@ -15,9 +15,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   - NOT (is_bootstrap_only = true AND atlas_native_path_exists = true)
  *     (i.e. it is not a proven-native bootstrap seam)
  *
- * A step is OPTIONAL when:
+ * A step is OPTIONAL when EITHER:
  *   - is_bootstrap_only = true AND atlas_native_path_exists = true
- *   (external agents as accelerators are allowed; the Atlas-native path is complete)
+ *     (external agents as accelerators are allowed; the Atlas-native path is complete)
+ *   - dependency_context = exceptional_audit_or_policy_review AND
+ *     dependency_type is human or operator
+ *     (occasional human audit/policy review does not break 24/7 steady-state
+ *     autonomy; only a human/operator decision required to CREATE, REPAIR or
+ *     ROUTE an ordinary task on the steady-state path is blocking)
+ *
+ * dependency_context defaults to steady_state_human_dependency when omitted,
+ * so every step is treated as ordinary steady-state work unless explicitly
+ * marked exceptional.
  *
  * verdict: passed = true when blocking_dependencies is empty.
  *
@@ -34,6 +43,10 @@ final class AtlasExternalBrainOperatorIndependenceVerifier
     public const DEP_CLAUDE_CODEX      = 'claude_codex';
     public const DEP_EXTERNAL_PROVIDER = 'external_provider';
     public const DEP_ATLAS_NATIVE      = 'atlas_native';
+
+    public const CONTEXT_STEADY_STATE = 'steady_state_human_dependency';
+
+    public const CONTEXT_EXCEPTIONAL  = 'exceptional_audit_or_policy_review';
 
     private const BLOCKING_TYPES = [
         self::DEP_HUMAN,
@@ -80,18 +93,30 @@ final class AtlasExternalBrainOperatorIndependenceVerifier
             $onPath      = (bool) ($step['on_critical_path']       ?? false);
             $bootstrapOnly  = (bool) ($step['is_bootstrap_only']      ?? false);
             $nativeExists   = (bool) ($step['atlas_native_path_exists'] ?? false);
+            $dependencyContext = trim((string) ($step['dependency_context'] ?? self::CONTEXT_STEADY_STATE));
 
             if (! in_array($depType, self::BLOCKING_TYPES, true)) {
                 continue; // atlas_native or unknown: not a concern
             }
 
             $isProvenBootstrap = $bootstrapOnly && $nativeExists;
+            $isExceptionalReview = $dependencyContext === self::CONTEXT_EXCEPTIONAL
+                && in_array($depType, [self::DEP_HUMAN, self::DEP_OPERATOR], true);
 
             if ($isProvenBootstrap) {
                 $optional[] = [
                     'step'            => $stepName,
                     'dependency_type' => $depType,
                     'reason'          => 'bootstrap_only_with_proven_atlas_native_path',
+                ];
+                continue;
+            }
+
+            if ($isExceptionalReview) {
+                $optional[] = [
+                    'step'            => $stepName,
+                    'dependency_type' => $depType,
+                    'reason'          => 'exceptional_audit_or_policy_review_not_steady_state',
                 ];
                 continue;
             }
@@ -118,9 +143,12 @@ final class AtlasExternalBrainOperatorIndependenceVerifier
             'schema'                 => self::SCHEMA,
             'plan_id'                => $planId,
             'passed'                 => $passed,
+            'autonomy_status'        => $passed ? 'fully_autonomous_steady_state' : 'steady_state_human_dependency_detected',
             'blocking_dependencies'  => $blocking,
+            'blocking_dependency'    => $blocking[0] ?? null,
             'optional_dependencies'  => $optional,
             'next_unblock_action'    => $nextAction,
+            'remediation_hint'       => $nextAction,
         ];
     }
 }

@@ -60,10 +60,97 @@ final class AtlasExternalBrainOperatorIndependenceVerifierTest extends TestCase
     {
         $result = $this->verifier->verify($this->plan([]));
 
-        foreach (['schema', 'plan_id', 'passed', 'blocking_dependencies', 'optional_dependencies', 'next_unblock_action'] as $k) {
+        foreach (['schema', 'plan_id', 'passed', 'blocking_dependencies', 'optional_dependencies', 'next_unblock_action',
+                  'autonomy_status', 'blocking_dependency', 'remediation_hint'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainOperatorIndependenceVerifier::SCHEMA, $result['schema']);
+    }
+
+    // ── steady_state vs exceptional_audit_or_policy_review ────────────────────
+
+    public function test_exceptional_audit_review_human_dependency_is_optional_not_blocking(): void
+    {
+        $result = $this->verifier->verify($this->plan([
+            [
+                'step'                     => 'quarterly_policy_review',
+                'dependency_type'          => AtlasExternalBrainOperatorIndependenceVerifier::DEP_HUMAN,
+                'on_critical_path'         => true,
+                'is_bootstrap_only'        => false,
+                'atlas_native_path_exists' => false,
+                'dependency_context'       => AtlasExternalBrainOperatorIndependenceVerifier::CONTEXT_EXCEPTIONAL,
+            ],
+        ]));
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['blocking_dependencies']);
+        $this->assertCount(1, $result['optional_dependencies']);
+        $this->assertSame('exceptional_audit_or_policy_review_not_steady_state', $result['optional_dependencies'][0]['reason']);
+        $this->assertSame('fully_autonomous_steady_state', $result['autonomy_status']);
+    }
+
+    public function test_exceptional_audit_review_operator_dependency_is_optional(): void
+    {
+        $result = $this->verifier->verify($this->plan([
+            [
+                'step'                     => 'annual_audit',
+                'dependency_type'          => AtlasExternalBrainOperatorIndependenceVerifier::DEP_OPERATOR,
+                'on_critical_path'         => true,
+                'is_bootstrap_only'        => false,
+                'atlas_native_path_exists' => false,
+                'dependency_context'       => AtlasExternalBrainOperatorIndependenceVerifier::CONTEXT_EXCEPTIONAL,
+            ],
+        ]));
+
+        $this->assertTrue($result['passed']);
+    }
+
+    public function test_default_dependency_context_is_steady_state_and_blocks(): void
+    {
+        $result = $this->verifier->verify($this->plan([
+            $this->blockingStep(AtlasExternalBrainOperatorIndependenceVerifier::DEP_OPERATOR),
+        ]));
+
+        $this->assertFalse($result['passed']);
+        $this->assertSame('steady_state_human_dependency_detected', $result['autonomy_status']);
+    }
+
+    public function test_exceptional_context_does_not_exempt_claude_codex_or_external_provider(): void
+    {
+        $result = $this->verifier->verify($this->plan([
+            [
+                'step'                     => 'codex_every_cycle',
+                'dependency_type'          => AtlasExternalBrainOperatorIndependenceVerifier::DEP_CLAUDE_CODEX,
+                'on_critical_path'         => true,
+                'is_bootstrap_only'        => false,
+                'atlas_native_path_exists' => false,
+                'dependency_context'       => AtlasExternalBrainOperatorIndependenceVerifier::CONTEXT_EXCEPTIONAL,
+            ],
+        ]));
+
+        $this->assertFalse($result['passed']);
+    }
+
+    // ── autonomy_status / blocking_dependency / remediation_hint ──────────────
+
+    public function test_blocking_dependency_is_null_when_passed(): void
+    {
+        $result = $this->verifier->verify($this->plan([$this->nativeStep()]));
+
+        $this->assertTrue($result['passed']);
+        $this->assertNull($result['blocking_dependency']);
+        $this->assertNull($result['remediation_hint']);
+    }
+
+    public function test_blocking_dependency_matches_first_blocker_when_failed(): void
+    {
+        $result = $this->verifier->verify($this->plan([
+            $this->blockingStep(AtlasExternalBrainOperatorIndependenceVerifier::DEP_HUMAN, 'step_a'),
+        ]));
+
+        $this->assertSame('step_a', $result['blocking_dependency']['step']);
+        $this->assertNotNull($result['remediation_hint']);
+        $this->assertSame($result['next_unblock_action'], $result['remediation_hint']);
     }
 
     // ── AC3: all-native plan passes ───────────────────────────────────────────
