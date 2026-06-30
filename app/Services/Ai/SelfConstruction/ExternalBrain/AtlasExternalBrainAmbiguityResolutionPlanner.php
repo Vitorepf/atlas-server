@@ -35,6 +35,7 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
     public const ACTION_QUEUE_COLLISION     = 'queue_collision_check';
     public const ACTION_EVIDENCE_REPLAY     = 'evidence_replay';
     public const ACTION_EXPLICIT_ESCALATION = 'explicit_escalation';
+    public const ACTION_CAPABILITY_CLAIM    = 'capability_claim_check';
 
     private const UNRESOLVABLE_THRESHOLD = 0.80;
 
@@ -108,7 +109,12 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             return self::ACTION_LOCAL_GREP;
         }
 
-        // 5. Explicit escalation — nothing local can resolve
+        // 5. Capability claim — verify claimed capability exists in local codebase
+        if (! empty($item['capability_claim'])) {
+            return self::ACTION_CAPABILITY_CLAIM;
+        }
+
+        // 6. Explicit escalation — nothing local can resolve
         return self::ACTION_EXPLICIT_ESCALATION;
     }
 
@@ -127,6 +133,7 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             && empty($item['task_class'])
             && empty($item['task_family'])
             && empty($item['prior_evidence_id'])
+            && empty($item['capability_claim'])
         ) {
             return true;
         }
@@ -142,6 +149,7 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             self::ACTION_TARGET_EXISTENCE   => ['check_command' => 'test -f '.($item['target_path'] ?? '?')],
             self::ACTION_QUEUE_COLLISION    => ['check_command' => 'atlas:task:check-duplicate --class='.($item['task_class'] ?? $item['task_family'] ?? '?')],
             self::ACTION_EVIDENCE_REPLAY    => ['check_command' => 'atlas:evidence:replay --id='.($item['prior_evidence_id'] ?? '?')],
+            self::ACTION_CAPABILITY_CLAIM    => ['check_command' => 'grep -rli '.($item['capability_claim'] ?? '?').' app/'],
             self::ACTION_EXPLICIT_ESCALATION => ['check_command' => null, 'escalation_note' => 'require frontier model or operator review before proceeding'],
         };
     }

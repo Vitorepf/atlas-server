@@ -226,4 +226,67 @@ final class AtlasExternalBrainAmbiguityResolutionPlannerTest extends TestCase
         $this->assertTrue($result['task_creation_allowed']);
         $this->assertSame([], $result['unresolved_items']);
     }
+
+    // ── Capability claims ─────────────────────────────────────────────────────
+
+    public function test_capability_claim_maps_to_capability_claim_check(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern'    => null,
+            'capability_claim' => 'handles_streaming',
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_CAPABILITY_CLAIM,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
+
+    public function test_capability_claim_generates_check_command_containing_the_claim(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern'    => null,
+            'capability_claim' => 'AtlasStreamHandler',
+        ])));
+
+        $cmd = $result['resolution_actions'][0]['check_command'] ?? '';
+        $this->assertStringContainsString('AtlasStreamHandler', $cmd);
+    }
+
+    public function test_capability_claim_item_is_resolved_and_allows_task_creation(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern'    => null,
+            'capability_claim' => 'handles_streaming',
+        ])));
+
+        $this->assertSame([], $result['unresolved_items']);
+        $this->assertTrue($result['task_creation_allowed']);
+    }
+
+    public function test_capability_claim_with_high_ambiguity_score_remains_resolvable(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern'     => null,
+            'ambiguity_score'  => 0.95,
+            'capability_claim' => 'atlas_supports_embeddings',
+        ])));
+
+        $this->assertSame([], $result['unresolved_items']);
+        $this->assertTrue($result['task_creation_allowed']);
+    }
+
+    public function test_prior_evidence_id_takes_priority_over_capability_claim(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern'      => null,
+            'prior_evidence_id' => 'evid-789',
+            'capability_claim'  => 'handles_streaming',
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_EVIDENCE_REPLAY,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
 }
