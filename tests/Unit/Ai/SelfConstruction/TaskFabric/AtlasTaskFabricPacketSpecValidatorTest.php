@@ -105,4 +105,75 @@ final class AtlasTaskFabricPacketSpecValidatorTest extends TestCase
         $this->assertTrue($r['delegated_inspector']['stub']);
         $this->assertSame('demo-packet-1', $captured['task_packet_id'] ?? null);
     }
+
+    // ── implementation + test spec ────────────────────────────────────────────
+
+    public function test_allowed_files_with_no_test_file_yields_missing_test_spec(): void
+    {
+        $d = $this->validDraft();
+        $d['allowed_files'] = ['app/Demo/Helper.php']; // no test file
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('missing_test_spec', $r['blockers']);
+    }
+
+    public function test_allowed_files_with_only_test_files_yields_missing_implementation_spec(): void
+    {
+        $d = $this->validDraft();
+        $d['allowed_files'] = ['tests/Unit/Demo/HelperTest.php']; // no impl file
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('missing_implementation_spec', $r['blockers']);
+    }
+
+    // ── template-farm detection ───────────────────────────────────────────────
+
+    public function test_template_farm_objective_with_curly_placeholder_is_blocked(): void
+    {
+        $d = $this->validDraft();
+        $d['objective'] = 'Add {class_name} to handle {task}.';
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('template_farm_objective', $r['blockers']);
+    }
+
+    // ── cosmetic-only detection ───────────────────────────────────────────────
+
+    public function test_cosmetic_only_objective_is_blocked(): void
+    {
+        $d = $this->validDraft();
+        $d['objective'] = 'Fix whitespace in all service files.';
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('cosmetic_only_objective', $r['blockers']);
+    }
+
+    public function test_reformat_only_objective_is_blocked(): void
+    {
+        $d = $this->validDraft();
+        $d['objective'] = 'Reformat only the config files.';
+
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($d);
+
+        $this->assertFalse($r['self_sufficient']);
+        $this->assertContains('cosmetic_only_objective', $r['blockers']);
+    }
+
+    public function test_substantive_objective_is_not_flagged_as_cosmetic(): void
+    {
+        $r = (new AtlasTaskFabricPacketSpecValidator)->validate($this->validDraft());
+
+        $this->assertNotContains('cosmetic_only_objective',   $r['blockers']);
+        $this->assertNotContains('template_farm_objective',   $r['blockers']);
+        $this->assertNotContains('missing_implementation_spec', $r['blockers']);
+        $this->assertNotContains('missing_test_spec',          $r['blockers']);
+    }
 }

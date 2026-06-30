@@ -96,6 +96,37 @@ final class AtlasTaskFabricPacketSpecValidator
             $blockers[] = 'ownership:non_atlas_native';
         }
 
+        // Implementation + test spec: allowed_files must contain both kinds.
+        if ($allowed !== null && $allowed !== []) {
+            $hasImpl = false;
+            $hasTest = false;
+            foreach ($allowed as $path) {
+                $p = (string) $path;
+                if ($this->isTestFile($p)) {
+                    $hasTest = true;
+                } else {
+                    $hasImpl = true;
+                }
+            }
+            if (! $hasImpl) {
+                $blockers[] = 'missing_implementation_spec';
+            }
+            if (! $hasTest) {
+                $blockers[] = 'missing_test_spec';
+            }
+        }
+
+        // Template-farm detection: curly-brace placeholders in objective.
+        $objective = trim((string) ($spec['objective'] ?? ''));
+        if (preg_match('/\{[^}]+\}/', $objective)) {
+            $blockers[] = 'template_farm_objective';
+        }
+
+        // Cosmetic-only detection: objective describes a zero-behavior change.
+        if (preg_match('/\b(fix[_ -]whitespace|reformat[_ -]only|cosmetic[_ -]only|fix[_ -]indentation|cleanup[_ -]trailing|no[_ -]behavior[_ -]change)\b/i', $objective)) {
+            $blockers[] = 'cosmetic_only_objective';
+        }
+
         $delegated = null;
         if ($this->inspector !== null && isset($spec['task_packet_id'])) {
             // Delegate to the existing inspector for the full quality check. Read-only.
@@ -118,6 +149,14 @@ final class AtlasTaskFabricPacketSpecValidator
             'delegated_inspector' => $delegated,
             'worker_instruction_lint' => $workerInstructionLint,
         ];
+    }
+
+    private function isTestFile(string $path): bool
+    {
+        return str_starts_with($path, 'tests/')
+            || str_contains($path, '/tests/')
+            || str_ends_with($path, 'Test.php')
+            || str_ends_with($path, 'Spec.php');
     }
 
     /**
