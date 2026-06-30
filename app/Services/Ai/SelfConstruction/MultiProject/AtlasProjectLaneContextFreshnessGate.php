@@ -28,7 +28,7 @@ final class AtlasProjectLaneContextFreshnessGate
 {
     public const SCHEMA = 'atlas.multiproject.context_freshness.v1';
 
-    public const REQUIRED_EVIDENCE = ['docs_sync', 'code_index', 'context_pack'];
+    public const REQUIRED_EVIDENCE = ['docs_sync', 'code_index', 'context_pack', 'queue_namespace', 'receipt_ledger'];
 
     /**
      * @param  array<string,mixed>  $manifest
@@ -50,7 +50,7 @@ final class AtlasProjectLaneContextFreshnessGate
         // Explicit invalid freshness window values (provided but ≤0).
         $rawWindows = $manifest['freshness_window_seconds'] ?? null;
         if (is_array($rawWindows)) {
-            foreach (['docs_sync', 'code_index', 'context_pack'] as $key) {
+            foreach (['docs_sync', 'code_index', 'context_pack', 'queue_namespace', 'receipt_ledger'] as $key) {
                 $val = $rawWindows[$key] ?? null;
                 if ($val !== null && (! is_int($val) || $val <= 0)) {
                     $blockers[] = 'invalid_freshness_window:'.$key;
@@ -94,6 +94,26 @@ final class AtlasProjectLaneContextFreshnessGate
             $blockers[] = 'context_pack_stale';
         }
 
+        // queue_namespace — last sync timestamp must be present and within window.
+        $queueLast = $observations['queue_namespace_last_unix'] ?? null;
+        if (! is_int($queueLast)) {
+            $blockers[] = 'queue_namespace_missing';
+        } elseif ($now - $queueLast > $windows['queue_namespace']) {
+            $blockers[] = 'queue_namespace_stale';
+        }
+
+        // receipt_ledger — hash must be present AND timestamp within window.
+        $receiptHash = (string) ($observations['receipt_ledger_hash'] ?? '');
+        $receiptLast = $observations['receipt_ledger_last_unix'] ?? null;
+        if ($receiptHash === '') {
+            $blockers[] = 'receipt_ledger_hash_missing';
+        }
+        if (! is_int($receiptLast)) {
+            $blockers[] = 'receipt_ledger_missing';
+        } elseif ($now - $receiptLast > $windows['receipt_ledger']) {
+            $blockers[] = 'receipt_ledger_stale';
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'project_id' => (string) ($manifest['project_id'] ?? ''),
@@ -109,7 +129,7 @@ final class AtlasProjectLaneContextFreshnessGate
      */
     private function normalizeWindows(mixed $cfg): array
     {
-        $default = ['docs_sync' => 86400, 'code_index' => 86400, 'context_pack' => 3600];
+        $default = ['docs_sync' => 86400, 'code_index' => 86400, 'context_pack' => 3600, 'queue_namespace' => 3600, 'receipt_ledger' => 3600];
         if (is_int($cfg)) {
             return ['docs_sync' => $cfg, 'code_index' => $cfg, 'context_pack' => $cfg];
         }

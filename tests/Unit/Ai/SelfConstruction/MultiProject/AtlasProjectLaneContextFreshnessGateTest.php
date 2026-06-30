@@ -24,6 +24,9 @@ final class AtlasProjectLaneContextFreshnessGateTest extends TestCase
             'code_index_last_unix' => self::NOW - 100,
             'context_pack_hash' => 'abc123',
             'context_pack_last_unix' => self::NOW - 100,
+            'queue_namespace_last_unix' => self::NOW - 100,
+            'receipt_ledger_hash' => 'rh1',
+            'receipt_ledger_last_unix' => self::NOW - 100,
         ]);
 
         $this->assertTrue($verdict['conformant']);
@@ -74,13 +77,16 @@ final class AtlasProjectLaneContextFreshnessGateTest extends TestCase
     {
         $gate = new AtlasProjectLaneContextFreshnessGate;
 
-        // Tight 10s context_pack window: at age 30 ⇒ stale; long 3600s docs/code windows ⇒ fresh.
+        // Tight 10s context_pack window: at age 30 ⇒ stale; long 3600s docs/code/queue/receipt windows ⇒ fresh.
         $verdict = $gate->evaluate($this->manifest(['docs_sync' => 3600, 'code_index' => 3600, 'context_pack' => 10]), [
             'now_unix' => self::NOW,
             'docs_sync_last_unix' => self::NOW - 100,
             'code_index_last_unix' => self::NOW - 100,
             'context_pack_hash' => 'h',
             'context_pack_last_unix' => self::NOW - 30,
+            'queue_namespace_last_unix' => self::NOW - 100,
+            'receipt_ledger_hash' => 'rh1',
+            'receipt_ledger_last_unix' => self::NOW - 100,
         ]);
 
         $this->assertFalse($verdict['conformant']);
@@ -132,11 +138,79 @@ final class AtlasProjectLaneContextFreshnessGateTest extends TestCase
             $this->manifest(),
             ['now_unix' => self::NOW, 'docs_sync_last_unix' => self::NOW - 100,
              'code_index_last_unix' => self::NOW - 100, 'context_pack_hash' => 'h',
-             'context_pack_last_unix' => self::NOW - 100, 'context_pack_project_id' => 'lane-x']
+             'context_pack_last_unix' => self::NOW - 100, 'context_pack_project_id' => 'lane-x',
+             'queue_namespace_last_unix' => self::NOW - 100,
+             'receipt_ledger_hash' => 'rh1', 'receipt_ledger_last_unix' => self::NOW - 100]
         );
 
         $this->assertTrue($verdict['conformant']);
         $this->assertSame([], $verdict['blockers']);
+    }
+
+    // ── queue_namespace + receipt_ledger ──────────────────────────────────────
+
+    public function test_missing_queue_namespace_blocks_with_named_reason(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate($this->manifest(), [
+            'now_unix' => self::NOW,
+            'docs_sync_last_unix' => self::NOW - 100,
+            'code_index_last_unix' => self::NOW - 100,
+            'context_pack_hash' => 'h',
+            'context_pack_last_unix' => self::NOW - 100,
+            'receipt_ledger_hash' => 'rh1',
+            'receipt_ledger_last_unix' => self::NOW - 100,
+        ]);
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('queue_namespace_missing', $verdict['blockers']);
+    }
+
+    public function test_stale_queue_namespace_blocks_with_named_reason(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            ['project_id' => 'lane-x', 'freshness_window_seconds' => ['docs_sync' => 3600, 'code_index' => 3600, 'context_pack' => 3600, 'queue_namespace' => 60, 'receipt_ledger' => 3600]],
+            ['now_unix' => self::NOW,
+             'docs_sync_last_unix' => self::NOW - 100,
+             'code_index_last_unix' => self::NOW - 100,
+             'context_pack_hash' => 'h', 'context_pack_last_unix' => self::NOW - 100,
+             'queue_namespace_last_unix' => self::NOW - 1_000,
+             'receipt_ledger_hash' => 'rh1', 'receipt_ledger_last_unix' => self::NOW - 100]
+        );
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('queue_namespace_stale', $verdict['blockers']);
+    }
+
+    public function test_missing_receipt_ledger_hash_blocks(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate($this->manifest(), [
+            'now_unix' => self::NOW,
+            'docs_sync_last_unix' => self::NOW - 100,
+            'code_index_last_unix' => self::NOW - 100,
+            'context_pack_hash' => 'h',
+            'context_pack_last_unix' => self::NOW - 100,
+            'queue_namespace_last_unix' => self::NOW - 100,
+            'receipt_ledger_last_unix' => self::NOW - 100,
+        ]);
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('receipt_ledger_hash_missing', $verdict['blockers']);
+    }
+
+    public function test_stale_receipt_ledger_blocks(): void
+    {
+        $verdict = (new AtlasProjectLaneContextFreshnessGate)->evaluate(
+            ['project_id' => 'lane-x', 'freshness_window_seconds' => ['docs_sync' => 3600, 'code_index' => 3600, 'context_pack' => 3600, 'queue_namespace' => 3600, 'receipt_ledger' => 60]],
+            ['now_unix' => self::NOW,
+             'docs_sync_last_unix' => self::NOW - 100,
+             'code_index_last_unix' => self::NOW - 100,
+             'context_pack_hash' => 'h', 'context_pack_last_unix' => self::NOW - 100,
+             'queue_namespace_last_unix' => self::NOW - 100,
+             'receipt_ledger_hash' => 'rh1', 'receipt_ledger_last_unix' => self::NOW - 1_000]
+        );
+
+        $this->assertFalse($verdict['conformant']);
+        $this->assertContains('receipt_ledger_stale', $verdict['blockers']);
     }
 
     public function test_verdict_carries_no_numeric_score_field(): void
