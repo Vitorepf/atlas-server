@@ -24,6 +24,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   provider_details_detected    — fact mentions model/API identifiers
  *   speculative_claim            — evidence_strength = 'speculative' (not an allowed tier)
  *   duplicate_low_value          — same (type, normalized_fact) already accepted at ≥ evidence
+ *   vague_unactionable           — fact names no capability, pattern family, failure mode, or next action
  *
  * Pure / deterministic. No I/O.
  */
@@ -144,6 +145,11 @@ final class AtlasExternalBrainMemoryWritebackContract
             }
         }
 
+        // Actionability floor — reject vague facts that name no specifics.
+        if ($this->isVague($fact)) {
+            return $this->reject($source, 'vague_unactionable', 'fact names no capability, pattern family, failure mode, or next action');
+        }
+
         // Evidence strength normalisation
         $rawStrength = strtolower(trim((string) ($proposal['evidence_strength'] ?? '')));
         if ($rawStrength === 'speculative') {
@@ -178,6 +184,28 @@ final class AtlasExternalBrainMemoryWritebackContract
         }
 
         return ['accepted' => false, 'rejection' => $entry];
+    }
+
+    /**
+     * True when the fact carries no actionability signal:
+     *   - CamelCase identifier (capability/class name)
+     *   - snake_case term (pattern family / failure mode)
+     *   - hyphenated compound term
+     *   - digit (numeric specificity)
+     *   - domain action verb
+     */
+    private function isVague(string $fact): bool
+    {
+        return ! (
+            str_contains($fact, '_')                   // snake_case (pattern family, failure mode)
+            || str_contains($fact, '-')                // hyphenated compound
+            || (bool) preg_match('/\d/', $fact)        // numeric specifics
+            || (bool) preg_match('/[a-z][A-Z]/', $fact) // CamelCase identifier
+            || (bool) preg_match(
+                '/\b(?:prioritis|implement|fix|refactor|detect|ship|confirm|found|fail|avoid|deploy|skip)\w*/i',
+                $fact,
+            )
+        );
     }
 
     /** @param array<string,mixed> $normalized */

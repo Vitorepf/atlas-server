@@ -213,6 +213,70 @@ final class AtlasExternalBrainMemoryWritebackContractTest extends TestCase
         $this->assertSame(AtlasExternalBrainMemoryWritebackContract::SCHEMA, $result['schema']);
     }
 
+    // ── actionability floor (vague_unactionable) ──────────────────────────────
+
+    public function test_vague_fact_without_specific_anchor_is_rejected(): void
+    {
+        // No CamelCase, no snake_case, no digit, no hyphen, no action verb → vague
+        $result = $this->contract()->validate([
+            $this->proposal('next_cycle_hint', 'something interesting happened during the process'),
+        ]);
+
+        $this->assertCount(0, $result['accepted']);
+        $this->assertSame('vague_unactionable', $result['rejected'][0]['reason']);
+    }
+
+    public function test_camel_case_capability_name_prevents_vague_rejection(): void
+    {
+        $result = $this->contract()->validate([
+            $this->proposal('delivered_leverage', 'LeverageScorer now passes contract check', 'proven'),
+        ]);
+
+        $this->assertCount(1, $result['accepted']);
+        $this->assertCount(0, $result['rejected']);
+    }
+
+    public function test_snake_case_pattern_family_prevents_vague_rejection(): void
+    {
+        $result = $this->contract()->validate([
+            $this->proposal('failed_pattern', 'docs_sync category has repeated give_back outcomes'),
+        ]);
+
+        $this->assertCount(1, $result['accepted']);
+        $this->assertCount(0, $result['rejected']);
+    }
+
+    // ── AC2: stronger replacement accepted, not blocked as duplicate restatement ─
+
+    public function test_higher_evidence_replacement_is_accepted_not_blocked_as_restatement(): void
+    {
+        // Same (type, fact) but higher evidence on second → second must be accepted, not treated
+        // as a blocked duplicate restatement (AC2: evidence_strength is the gate, not content alone).
+        $proposals = [
+            $this->proposal('task_family_yield', 'bug_fix yield 0.7 this cycle', 'inferred',  'cycle-1'),
+            $this->proposal('task_family_yield', 'bug_fix yield 0.7 this cycle', 'proven',    'cycle-2'),
+        ];
+
+        $result = $this->contract()->validate($proposals);
+
+        // Both accepted: second has strictly higher evidence → passes duplicate gate.
+        $this->assertCount(2, $result['accepted']);
+        $this->assertCount(0, $result['rejected']);
+    }
+
+    public function test_same_evidence_duplicate_is_blocked(): void
+    {
+        $proposals = [
+            $this->proposal('task_family_yield', 'bug_fix yield 0.7 this cycle', 'observed', 'cycle-1'),
+            $this->proposal('task_family_yield', 'bug_fix yield 0.7 this cycle', 'observed', 'cycle-2'),
+        ];
+
+        $result = $this->contract()->validate($proposals);
+
+        $this->assertCount(1, $result['accepted']);
+        $this->assertSame('duplicate_low_value', $result['rejected'][0]['reason']);
+    }
+
     public function test_empty_proposals_returns_empty_accepted(): void
     {
         $result = $this->contract()->validate([]);
