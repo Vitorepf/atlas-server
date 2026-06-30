@@ -39,6 +39,8 @@ final class AtlasExternalBrainHighValueBatchComposer
 
     public const DEFAULT_MAX_BATCH = 20;
 
+    private const GENERIC_VM_KEYWORDS = ['general', 'misc', 'wrapper', 'observability-only'];
+
     private const WAVE_MAP = [
         'architecture_unlock' => 1,
         'test_gate'           => 1,
@@ -90,6 +92,17 @@ final class AtlasExternalBrainHighValueBatchComposer
 
                 continue;
             }
+
+            if ($this->hasGenericValueMechanism((string) ($opp['value_mechanism'] ?? ''), $opp)) {
+                $rejected[] = [
+                    'label'  => (string) ($opp['label'] ?? ''),
+                    'reason' => 'generic_value_mechanism',
+                    'detail' => 'value_mechanism:'.strtolower(trim((string) ($opp['value_mechanism'] ?? ''))),
+                ];
+
+                continue;
+            }
+
             $valid[] = $opp;
         }
 
@@ -195,6 +208,16 @@ final class AtlasExternalBrainHighValueBatchComposer
         }
         if (empty($this->allowedFiles($opp))) {
             $missing[] = 'allowed_files';
+        } else {
+            $files   = $this->allowedFiles($opp);
+            $hasImpl = (bool) array_filter($files, fn(string $f): bool => str_starts_with($f, 'app/'));
+            $hasTest = (bool) array_filter($files, fn(string $f): bool => str_starts_with($f, 'tests/'));
+            if (! $hasImpl) {
+                $missing[] = 'allowed_files_impl_path';
+            }
+            if (! $hasTest) {
+                $missing[] = 'allowed_files_test_path';
+            }
         }
         if (empty($this->listField($opp, 'acceptance_criteria'))) {
             $missing[] = 'acceptance_criteria';
@@ -211,8 +234,18 @@ final class AtlasExternalBrainHighValueBatchComposer
 
     private function isThin(array $opp): bool
     {
-        return count($this->allowedFiles($opp)) === 1
-            && count($this->listField($opp, 'acceptance_criteria')) === 1;
+        return count($this->listField($opp, 'acceptance_criteria')) === 1;
+    }
+
+    private function hasGenericValueMechanism(string $rawVm, array $opp): bool
+    {
+        $vm = strtolower(trim($rawVm));
+        foreach (self::GENERIC_VM_KEYWORDS as $kw) {
+            if ($vm === $kw || str_starts_with($vm, $kw.':') || str_starts_with($vm, $kw.'_') || str_starts_with($vm, $kw.'-')) {
+                return trim((string) ($opp['concrete_evidence'] ?? '')) === '';
+            }
+        }
+        return false;
     }
 
     /** @param  list<array<string,mixed>>  $tasks */

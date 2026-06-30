@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
 {
@@ -14,6 +14,7 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
         return new AtlasExternalBrainHighValueBatchComposer;
     }
 
+    /** Standard (non-thin) opportunity — 2 acceptance criteria so isThin() returns false. */
     private function valid(string $label, array $overrides = []): array
     {
         return array_merge([
@@ -21,21 +22,25 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
             'objective'           => 'Implement '.$label,
             'category'            => 'bug_fix',
             'allowed_files'       => ['app/Services/'.$label.'.php', 'tests/Unit/'.$label.'Test.php'],
-            'acceptance_criteria' => ['test passes: php artisan test --filter='.$label],
+            'acceptance_criteria' => [
+                'test passes: php artisan test --filter='.$label,
+                'implementation notes included in evidence',
+            ],
             'required_evidence'   => ['tests_or_gates_result'],
             'value_mechanism'     => 'fixes_recurring_bug:'.$label,
             'final_score'         => 0.6,
         ], $overrides);
     }
 
+    /** Thin opportunity — exactly 1 acceptance criterion so isThin() returns true. */
     private function thin(string $label, array $overrides = []): array
     {
         return array_merge([
             'label'               => $label,
             'objective'           => 'Thin task '.$label,
             'category'            => 'test_gate',
-            'allowed_files'       => ['app/Services/'.$label.'.php'],  // single file
-            'acceptance_criteria' => ['test passes: php artisan test --filter='.$label],  // single criterion
+            'allowed_files'       => ['app/Services/'.$label.'.php', 'tests/Unit/'.$label.'Test.php'],
+            'acceptance_criteria' => ['test passes: php artisan test --filter='.$label],
             'required_evidence'   => ['tests_or_gates_result'],
             'value_mechanism'     => 'adds_gate:'.$label,
             'final_score'         => 0.4,
@@ -99,7 +104,7 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
         $this->assertCount(2, $packet['grouped_from']);
         $this->assertContains('thin-a', $packet['grouped_from']);
         $this->assertContains('thin-b', $packet['grouped_from']);
-        $this->assertCount(2, $packet['allowed_files']);
+        $this->assertCount(4, $packet['allowed_files']);  // 2 impl + 2 test (unique)
         $this->assertCount(2, $packet['acceptance_criteria']);
     }
 
@@ -240,7 +245,131 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
         $this->assertSame(0, $result['stats']['opportunities_in']);
     }
 
-    // --- New fields: strategic_diversity, dependency_chain_summary, batch_thesis, rejected_template_farm_reasons ---
+    // ── AC1: allowed_files must include impl (app/) AND test (tests/) paths ───
+
+    public function test_opportunity_without_app_impl_path_is_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('no-impl', ['allowed_files' => ['tests/Unit/SomeTest.php']]),
+        ]);
+
+        $this->assertCount(0, $result['emitted']);
+        $this->assertSame('missing_required_fields', $result['rejected'][0]['reason']);
+        $this->assertStringContainsString('allowed_files_impl_path', $result['rejected'][0]['detail']);
+    }
+
+    public function test_opportunity_without_tests_path_is_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('no-test', ['allowed_files' => ['app/Services/Foo.php']]),
+        ]);
+
+        $this->assertCount(0, $result['emitted']);
+        $this->assertSame('missing_required_fields', $result['rejected'][0]['reason']);
+        $this->assertStringContainsString('allowed_files_test_path', $result['rejected'][0]['detail']);
+    }
+
+    public function test_opportunity_with_both_impl_and_test_paths_is_emitted(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('both-paths', [
+                'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            ]),
+        ]);
+
+        $this->assertCount(1, $result['emitted']);
+        $this->assertCount(0, $result['rejected']);
+    }
+
+    public function test_rejection_detail_is_deterministic_for_missing_paths(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('det', ['allowed_files' => ['tests/Unit/DetTest.php']]),
+        ]);
+
+        $a = $result['rejected'][0]['detail'];
+
+        $result2 = $this->composer()->compose([
+            $this->valid('det', ['allowed_files' => ['tests/Unit/DetTest.php']]),
+        ]);
+
+        $this->assertSame($a, $result2['rejected'][0]['detail']);
+    }
+
+    // ── AC2: generic value_mechanism rejection ────────────────────────────────
+
+    public function test_generic_value_mechanism_general_is_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('generic', ['value_mechanism' => 'general']),
+        ]);
+
+        $this->assertCount(0, $result['emitted']);
+        $this->assertSame('generic_value_mechanism', $result['rejected'][0]['reason']);
+    }
+
+    public function test_generic_value_mechanism_misc_is_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('misc-task', ['value_mechanism' => 'misc']),
+        ]);
+
+        $this->assertCount(0, $result['emitted']);
+        $this->assertSame('generic_value_mechanism', $result['rejected'][0]['reason']);
+    }
+
+    public function test_generic_value_mechanism_wrapper_is_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('wrapper-task', ['value_mechanism' => 'wrapper']),
+        ]);
+
+        $this->assertCount(0, $result['emitted']);
+        $this->assertSame('generic_value_mechanism', $result['rejected'][0]['reason']);
+    }
+
+    public function test_generic_value_mechanism_observability_only_is_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('obs-task', ['value_mechanism' => 'observability-only']),
+        ]);
+
+        $this->assertCount(0, $result['emitted']);
+        $this->assertSame('generic_value_mechanism', $result['rejected'][0]['reason']);
+    }
+
+    public function test_generic_value_mechanism_with_concrete_evidence_is_emitted(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('with-evidence', [
+                'value_mechanism'   => 'general',
+                'concrete_evidence' => 'Measured 30% reduction in p99 latency via load test results.',
+            ]),
+        ]);
+
+        $this->assertCount(1, $result['emitted']);
+        $this->assertCount(0, $result['rejected']);
+    }
+
+    public function test_specific_value_mechanism_is_not_rejected(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('specific', ['value_mechanism' => 'fixes_recurring_null_pointer_in_parser:FooService']),
+        ]);
+
+        $this->assertCount(1, $result['emitted']);
+    }
+
+    public function test_generic_value_mechanism_detail_contains_the_value(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('detail-check', ['value_mechanism' => 'misc']),
+        ]);
+
+        $this->assertStringContainsString('misc', $result['rejected'][0]['detail']);
+    }
+
+    // ── New fields: strategic_diversity, dependency_chain_summary, batch_thesis, rejected_template_farm_reasons ──
 
     public function test_output_has_new_canonical_keys(): void
     {
