@@ -136,6 +136,57 @@ final class AtlasVerificationCourtEvidenceContractTest extends TestCase
         $this->assertContains('receipt_hash_missing', $r['blockers']);
     }
 
+    // --- exit_code and passed=false contract ---
+
+    public function test_named_command_without_exit_code_yields_missing_command_exit_code(): void
+    {
+        $e = $this->validEvidence();
+        $e['commands_run'] = [['name' => 'phpunit']]; // no exit_code
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('missing_command_exit_code', $r['blockers']);
+        $this->assertNotContains('empty_command_proof', $r['blockers']);
+    }
+
+    public function test_named_command_with_string_exit_code_yields_missing_command_exit_code(): void
+    {
+        $e = $this->validEvidence();
+        $e['commands_run'] = [['name' => 'phpunit', 'exit_code' => '0']]; // string, not int
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('missing_command_exit_code', $r['blockers']);
+    }
+
+    public function test_named_command_with_integer_exit_code_passes(): void
+    {
+        $e = $this->validEvidence();
+        $e['commands_run'] = [['name' => 'phpunit', 'exit_code' => 0]];
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertNotContains('missing_command_exit_code', $r['blockers']);
+        $this->assertNotContains('empty_command_proof', $r['blockers']);
+    }
+
+    public function test_passed_false_allegation_is_accepted_when_bindings_complete_and_verified_null(): void
+    {
+        $e = $this->validEvidence();
+        $e['tests_or_gates_result'] = ['passed' => false, 'gate' => 'phpunit'];
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e, $this->validExpected());
+        $this->assertTrue($r['accepted'], 'passed=false is a valid allegation when bindings are complete');
+        $this->assertNull($r['verified'], 'verified is always null — only the court grants it');
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_passed_false_without_complete_bindings_is_still_blocked(): void
+    {
+        $e = $this->validEvidence();
+        $e['tests_or_gates_result'] = ['passed' => false];
+        $e['commands_run'] = [['name' => 'phpunit']]; // missing exit_code
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('missing_command_exit_code', $r['blockers']);
+        $this->assertNull($r['verified']);
+    }
+
     public function test_blockers_are_deterministically_sorted(): void
     {
         $r = (new AtlasVerificationCourtEvidenceContract)->evaluate([

@@ -61,16 +61,23 @@ final class AtlasVerificationCourtEvidenceContract
         if ($commandsRun === null) {
             $blockers[] = 'missing_commands_run';
         } else {
-            // Verify there's at least one command with a name (empty-command-proof guard).
             $hasNamedCommand = false;
+            $missingExitCode = false;
             foreach ($commandsRun as $c) {
-                if (is_array($c) && trim((string) ($c['name'] ?? '')) !== '') {
+                if (! is_array($c)) {
+                    continue;
+                }
+                if (trim((string) ($c['name'] ?? '')) !== '') {
                     $hasNamedCommand = true;
-                    break;
+                    if (! array_key_exists('exit_code', $c) || ! is_int($c['exit_code'])) {
+                        $missingExitCode = true;
+                    }
                 }
             }
             if (! $hasNamedCommand) {
                 $blockers[] = 'empty_command_proof';
+            } elseif ($missingExitCode) {
+                $blockers[] = 'missing_command_exit_code';
             }
         }
         $gateResult = is_array($evidence['tests_or_gates_result'] ?? null) ? $evidence['tests_or_gates_result'] : null;
