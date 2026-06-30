@@ -79,8 +79,17 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
         $poisonThreshold     = max(1, (int)   ($input['poison_pressure_threshold']      ?? self::DEFAULT_POISON_PRESSURE_THRESHOLD));
         $creationFloor       = max(0.0, (float) ($input['value_density_creation_floor'] ?? self::DEFAULT_VALUE_DENSITY_CREATION_FLOOR));
 
+        // Worker-shaped starvation floor (AC: prefer active_worker_count *
+        // minimum_claimable_per_worker over the flat burn-rate floor when
+        // both worker-shape inputs are present).
+        $activeWorkerCount         = max(0, (int) ($input['active_worker_count'] ?? 0));
+        $minimumClaimablePerWorker = max(0, (int) ($input['minimum_claimable_per_worker'] ?? 0));
+        $workerStarvationFloor     = $activeWorkerCount > 0 && $minimumClaimablePerWorker > 0
+            ? $activeWorkerCount * $minimumClaimablePerWorker
+            : $burnRateFloor;
+
         $queueSaturated      = $claimableDepth >= $saturationThreshold;
-        $musclesStarved      = $servableNow < $burnRateFloor;
+        $musclesStarved      = $servableNow < $workerStarvationFloor;
         $isExceptionalValue  = $valueDensity >= $exceptionFloor || $dependencyUnlock > 0;
         $poisonPressure      = $poisonPacketCount >= $poisonThreshold || $malformedPacketRate > 0.0;
         $queueStaleByAge     = $claimableAgeDays >= $ageSatThreshold;
