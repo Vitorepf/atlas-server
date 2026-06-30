@@ -10,6 +10,7 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *
  * INPUT:
  *   { packet_id, hidden_poison_facts:list<string>, missing_files:list<string>,
+ *     forbidden_missing_files?:list<string>, contradicting_fields?:list<string>,
  *     too_many_deficiencies?:bool, contradictory_acceptance?:bool, cli_clobber?:bool,
  *     autonomy_regression?:bool }
  *
@@ -86,16 +87,40 @@ final class AtlasTaskRespecPlanBuilder
         }
 
         if ((bool) ($facts['contradictory_acceptance'] ?? false)) {
-            return $envelope(self::ACTION_REWRITE_OBJECTIVE, 'acceptance_criteria are mutually contradictory', ['objective', 'acceptance_criteria'], ['atlas_task_quality_inspector', 'phpunit']);
+            $contradictingFields = is_array($facts['contradicting_fields'] ?? null)
+                ? array_values(array_map('strval', $facts['contradicting_fields']))
+                : [];
+            $affectedFields = array_values(array_unique(array_merge(['objective', 'acceptance_criteria'], $contradictingFields)));
+
+            return $envelope(
+                self::ACTION_REWRITE_OBJECTIVE,
+                'acceptance_criteria are mutually contradictory; propose concrete rewrite of affected fields',
+                $affectedFields,
+                ['atlas_task_quality_inspector', '/opt/homebrew/bin/php artisan test'],
+            );
         }
 
         if ((bool) ($facts['autonomy_regression'] ?? false)) {
-            // Atlas-native replacement — never propose a human dependency.
-            return $envelope(self::ACTION_SPLIT, 'autonomy regression: split into Atlas-native replacement slices', ['allowed_files', 'acceptance_criteria'], ['atlas_task_quality_inspector', 'phpunit'], 'non_atlas_native');
+            // Atlas-native replacement — never propose a human/operator/external-provider dependency.
+            return $envelope(
+                self::ACTION_SPLIT,
+                'autonomy regression: split into Atlas-native replacement slices with runnable gates',
+                ['allowed_files', 'acceptance_criteria'],
+                ['atlas_task_quality_inspector', '/opt/homebrew/bin/php artisan test'],
+                'non_atlas_native',
+            );
+        }
+
+        // Forbidden/pétreo missing files must be quarantined, not silently added.
+        $forbiddenMissing = is_array($facts['forbidden_missing_files'] ?? null)
+            ? array_values(array_map('strval', $facts['forbidden_missing_files']))
+            : [];
+        if ($missing !== [] && array_intersect($missing, $forbiddenMissing) !== []) {
+            return $envelope(self::ACTION_QUARANTINE, 'quarantine until respec: forbidden_or_petreo_file', ['allowed_files', 'status'], ['atlas_task_quality_inspector']);
         }
 
         if ($missing !== []) {
-            return $envelope(self::ACTION_ADD_FILE, 'missing impl files detected: '.implode(',', $missing), ['allowed_files'], ['atlas_task_quality_inspector']);
+            return $envelope(self::ACTION_ADD_FILE, 'missing impl+test pair candidates: '.implode(',', $missing), ['allowed_files'], ['atlas_task_quality_inspector', '/opt/homebrew/bin/php artisan test']);
         }
 
         if (in_array('too_broad_scope', $poison, true)) {

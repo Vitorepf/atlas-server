@@ -64,4 +64,53 @@ final class AtlasTaskRespecPlanBuilderTest extends TestCase
         $r = (new AtlasTaskRespecPlanBuilder)->build(['packet_id' => 'p-h', 'hidden_poison_facts' => ['stale_dependency']]);
         $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_GIVE_BACK, $r['action']);
     }
+
+    public function test_forbidden_petreo_missing_files_yield_quarantine_candidate(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build([
+            'packet_id' => 'p-forbidden',
+            'missing_files' => ['app/Services/Ai/Brain/SomePetreoFile.php'],
+            'forbidden_missing_files' => ['app/Services/Ai/Brain/SomePetreoFile.php'],
+        ]);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_QUARANTINE, $r['action']);
+        $this->assertStringContainsString('forbidden_or_petreo_file', $r['rationale']);
+        $this->assertContains('allowed_files', $r['affected_fields']);
+    }
+
+    public function test_safe_impl_test_pair_yields_add_missing_allowed_file_candidate(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build([
+            'packet_id' => 'p-safe',
+            'missing_files' => ['app/Services/Ai/AtlasFoo.php', 'tests/Unit/Ai/AtlasFooTest.php'],
+            'forbidden_missing_files' => [],
+        ]);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE, $r['action']);
+        $this->assertContains('/opt/homebrew/bin/php artisan test', $r['revalidation_gates']);
+    }
+
+    public function test_contradictory_acceptance_emits_affected_fields_and_runnable_php_gate(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build([
+            'packet_id' => 'p-contr',
+            'contradictory_acceptance' => true,
+            'contradicting_fields' => ['acceptance_criteria', 'allowed_files'],
+        ]);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_REWRITE_OBJECTIVE, $r['action']);
+        $this->assertContains('acceptance_criteria', $r['affected_fields']);
+        $this->assertContains('allowed_files', $r['affected_fields']);
+        $this->assertContains('/opt/homebrew/bin/php artisan test', $r['revalidation_gates']);
+    }
+
+    public function test_autonomy_regression_never_introduces_human_operator_or_provider_language(): void
+    {
+        $r = (new AtlasTaskRespecPlanBuilder)->build(['packet_id' => 'p-ar2', 'autonomy_regression' => true]);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_SPLIT, $r['action']);
+        $this->assertSame('non_atlas_native', $r['replaces_authority']);
+        $this->assertContains('/opt/homebrew/bin/php artisan test', $r['revalidation_gates']);
+        $forbidden = ['human', 'operator', 'external_provider', 'requires_human', 'requires_operator'];
+        foreach ($forbidden as $word) {
+            $this->assertStringNotContainsStringIgnoringCase($word, $r['rationale'],
+                "autonomy_regression rationale must not mention '{$word}'");
+        }
+    }
 }
