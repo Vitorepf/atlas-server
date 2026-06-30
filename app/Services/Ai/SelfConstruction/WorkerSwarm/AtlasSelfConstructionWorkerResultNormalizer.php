@@ -48,6 +48,17 @@ final class AtlasSelfConstructionWorkerResultNormalizer
         $gateOutputs = (array) ($result['gate_outputs'] ?? []);
         $evidenceRefs = array_values((array) ($result['evidence_refs'] ?? []));
 
+        // Quality facts preserved for the learning loop — never used to compute court_status.
+        $outcomeKind    = (string) ($result['outcome_kind'] ?? $claimedOutcome);
+        $workerQualityFacts = [
+            'worker_client_id' => (string) ($result['worker_client_id'] ?? ''),
+            'engine_kind'      => (string) ($result['engine_kind'] ?? ''),
+            'task_shape'       => (string) ($result['task_shape'] ?? ''),
+            'elapsed_seconds'  => isset($result['elapsed_seconds']) ? (float) $result['elapsed_seconds'] : null,
+            'outcome_kind'     => $outcomeKind,
+            'give_back_reason' => (string) ($result['give_back_reason'] ?? ''),
+        ];
+
         $blockers = [];
 
         // SCOPE check first — a scope violation invalidates everything else.
@@ -80,6 +91,12 @@ final class AtlasSelfConstructionWorkerResultNormalizer
             $status = self::STATUS_BLOCKED;
             $verifiedEvidence = [];
             $unverifiedClaims = [$claimedOutcome];
+        } elseif ($outcomeKind === 'give_back') {
+            // give_back never upgrades to verified_pass — worker abandoned the task.
+            // Evidence is preserved so the learning loop can observe diagnostic quality.
+            $status = self::STATUS_PENDING_REVIEW;
+            $verifiedEvidence = $evidenceRefs;
+            $unverifiedClaims = $missingEvidence !== [] ? ['missing_evidence_for:'.implode(',', $missingEvidence)] : [];
         } elseif ($missingEvidence !== [] || $failedGates !== []) {
             if ($failedGates !== []) {
                 $blockers[] = 'gates_failed:'.implode(',', $failedGates);
@@ -107,6 +124,7 @@ final class AtlasSelfConstructionWorkerResultNormalizer
             'unverified_claims' => array_values($unverifiedClaims),
             'out_of_scope_files' => $outOfScope,
             'blockers' => array_values($blockers),
+            'worker_quality_facts' => $workerQualityFacts,
         ];
     }
 }

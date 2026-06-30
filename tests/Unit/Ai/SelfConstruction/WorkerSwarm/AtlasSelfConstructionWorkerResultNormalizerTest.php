@@ -90,4 +90,79 @@ final class AtlasSelfConstructionWorkerResultNormalizerTest extends TestCase
         $this->assertSame(AtlasSelfConstructionWorkerResultNormalizer::STATUS_PENDING_REVIEW, $verdict['court_status']);
         $this->assertSame([], $verdict['verified_evidence']);
     }
+
+    // ── worker_quality_facts ──────────────────────────────────────────────────
+
+    public function test_worker_quality_facts_are_included_in_output(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome'  => 'success',
+            'changed_files'    => ['app/Foo.php'],
+            'gate_outputs'     => ['phpunit' => ['passed' => true]],
+            'evidence_refs'    => ['phpunit:t1', 'mutop:m1'],
+            'worker_client_id' => 'claude-muscle-4',
+            'engine_kind'      => 'claude-sonnet-4-6',
+            'task_shape'       => 'feature',
+            'elapsed_seconds'  => 47.3,
+            'outcome_kind'     => 'success',
+            'give_back_reason' => '',
+        ]);
+
+        $qf = $verdict['worker_quality_facts'];
+        $this->assertSame('claude-muscle-4', $qf['worker_client_id']);
+        $this->assertSame('claude-sonnet-4-6', $qf['engine_kind']);
+        $this->assertSame('feature', $qf['task_shape']);
+        $this->assertSame(47.3, $qf['elapsed_seconds']);
+        $this->assertSame('success', $qf['outcome_kind']);
+        $this->assertSame('', $qf['give_back_reason']);
+    }
+
+    public function test_worker_quality_facts_absent_fields_default_to_empty(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => true, 'mutop' => true],
+            'evidence_refs'   => ['phpunit:t1', 'mutop:m1'],
+        ]);
+
+        $qf = $verdict['worker_quality_facts'];
+        $this->assertSame('', $qf['worker_client_id']);
+        $this->assertSame('', $qf['engine_kind']);
+        $this->assertNull($qf['elapsed_seconds']);
+        $this->assertSame('success', $qf['outcome_kind']); // defaults to claimed_outcome
+    }
+
+    public function test_give_back_with_full_evidence_and_green_gates_is_not_verified_pass(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome'  => 'give_back',
+            'changed_files'    => [],
+            'gate_outputs'     => ['phpunit' => ['passed' => true], 'lint' => true],
+            'evidence_refs'    => ['phpunit:diag1', 'mutop:diag2'],
+            'outcome_kind'     => 'give_back',
+            'give_back_reason' => 'task_too_large',
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionWorkerResultNormalizer::STATUS_PENDING_REVIEW, $verdict['court_status']);
+        // Evidence is preserved for the learning loop.
+        $this->assertSame(['phpunit:diag1', 'mutop:diag2'], $verdict['verified_evidence']);
+        $this->assertSame([], $verdict['unverified_claims']);
+        $this->assertSame('give_back', $verdict['worker_quality_facts']['outcome_kind']);
+        $this->assertSame('task_too_large', $verdict['worker_quality_facts']['give_back_reason']);
+    }
+
+    public function test_give_back_with_missing_evidence_carries_diagnostic_unverified_claim(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'give_back',
+            'changed_files'   => [],
+            'gate_outputs'    => [],
+            'evidence_refs'   => ['phpunit:diag1'], // mutop missing
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionWorkerResultNormalizer::STATUS_PENDING_REVIEW, $verdict['court_status']);
+        $this->assertContains('missing_evidence_for:mutop', $verdict['unverified_claims']);
+        $this->assertSame(['phpunit:diag1'], $verdict['verified_evidence']);
+    }
 }
