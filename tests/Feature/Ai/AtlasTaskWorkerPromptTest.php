@@ -87,4 +87,22 @@ final class AtlasTaskWorkerPromptTest extends TestCase
         $this->assertStringContainsString('give_back', $out, 'disabled path must reference give_back');
         $this->assertStringContainsString('STOP', $out, 'disabled path must tell worker to stop');
     }
+
+    public function test_prompt_contains_no_instructional_git_add(): void
+    {
+        // Regression: a self-heal exception that stages files with `git add -- <files>` or `git add --all`
+        // would bypass the Atlas shared-main contract. Only `--commit` is the allowed staging path.
+        Artisan::call('atlas:task:worker-prompt', ['--client' => 'codex-7']);
+        $out = Artisan::output();
+
+        $this->assertStringNotContainsString('git add --', $out, 'no git add with path/flag arguments — --commit is the only staging path');
+    }
+
+    public function test_resolve_command_includes_json_flag(): void
+    {
+        Artisan::call('atlas:task:worker-prompt', ['--client' => 'codex-7']);
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('--commit --json', $out, 'the resolve command must carry --json for machine-readable output');
+    }
 }
