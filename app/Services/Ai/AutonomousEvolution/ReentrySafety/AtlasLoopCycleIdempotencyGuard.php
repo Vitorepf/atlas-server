@@ -64,7 +64,7 @@ final class AtlasLoopCycleIdempotencyGuard
     private function classifyMerge(array $checkpoint, string $baseCommitSha, string $kind): array
     {
         $mergedSha = $checkpoint['merged_sha'] ?? null;
-        $checkpointBase = (string) ($checkpoint['base_commit_sha'] ?? '');
+        $checkpointBase = (string) ($checkpoint['commit_sha_base'] ?? $checkpoint['base_commit_sha'] ?? '');
 
         if ($mergedSha === null) {
             return $this->envelope(self::FRESH, $kind, $baseCommitSha, null);

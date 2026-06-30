@@ -85,6 +85,16 @@ final class AtlasLoopCycleIdempotencyGuardTest extends TestCase
         $this->assertSame('FRESH', $verdict['verdict'], 'new base ⇒ FRESH even if prior merged_sha is reachable');
     }
 
+    public function test_fresh_merge_when_real_producer_key_commit_sha_base_differs(): void
+    {
+        $verdict = $this->guard(
+            ['merged_sha' => 'merged-sha-4', 'commit_sha_base' => 'base-sha-OLD'],
+            reachableShas: ['merged-sha-4'],
+        )->classify('cyc-1', 'merge_to_main', 'base-sha-NEW');
+
+        $this->assertSame('FRESH', $verdict['verdict'], 'real producer key commit_sha_base mismatch ⇒ FRESH');
+    }
+
     public function test_already_done_when_receipt_id_already_emitted(): void
     {
         $verdict = $this->guard(['emitted_receipt_ids' => ['rcpt-A', 'rcpt-B']])
