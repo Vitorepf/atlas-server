@@ -42,6 +42,54 @@ final class AtlasExternalBrainWorkerDrainRateForecaster
     private const LOW_GIVE_BACK_CEILING = 0.20;
     private const FAST_CLEAR_HOURS_CEILING = 2.0;
 
+    private const DEFAULT_SUFFICIENT_DEPTH_FLOOR = 10;
+
+    public const PROJECTION_RECOMMENDATION_WAIT = 'wait';
+    public const PROJECTION_RECOMMENDATION_REPLENISH = 'replenish';
+    public const PROJECTION_RECOMMENDATION_FIX_PROJECTION_TELEMETRY = 'fix_projection_telemetry';
+
+    /**
+     * Consumes Maestro projection facts (queue depth + telemetry_confidence from
+     * {@see \App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroMuscleThroughputContinuityModel})
+     * to decide whether the external brain should wait, replenish, or fix its own telemetry first.
+     *
+     * DECISION PRIORITY (first match wins):
+     *   1. replenish                  — queue_depth below sufficient_depth_floor, REGARDLESS of
+     *                                    telemetry mode (a thin queue is a thin queue either way).
+     *   2. fix_projection_telemetry   — depth looks sufficient but telemetry_confidence='blind':
+     *                                    a blind spot must never be silently read as "safe to wait".
+     *   3. wait                       — depth sufficient AND telemetry is not blind.
+     *
+     * @param  array<string,mixed>  $projectionFacts
+     *         queue_depth?:             int
+     *         sufficient_depth_floor?:  int
+     *         telemetry_confidence?:    string  'direct'|'estimated'|'blind'
+     * @return array<string,mixed>
+     */
+    public function recommendFromProjection(array $projectionFacts): array
+    {
+        $queueDepth = max(0, (int) ($projectionFacts['queue_depth'] ?? 0));
+        $sufficientDepthFloor = max(1, (int) ($projectionFacts['sufficient_depth_floor'] ?? self::DEFAULT_SUFFICIENT_DEPTH_FLOOR));
+        $telemetryConfidence = (string) ($projectionFacts['telemetry_confidence'] ?? 'blind');
+
+        $depthSufficient = $queueDepth >= $sufficientDepthFloor;
+
+        [$recommendation, $reason] = match (true) {
+            ! $depthSufficient => [self::PROJECTION_RECOMMENDATION_REPLENISH, "queue_depth={$queueDepth}_below_floor={$sufficientDepthFloor}"],
+            $telemetryConfidence === 'blind' => [self::PROJECTION_RECOMMENDATION_FIX_PROJECTION_TELEMETRY, 'telemetry_confidence_blind_cannot_trust_wait'],
+            default => [self::PROJECTION_RECOMMENDATION_WAIT, "queue_depth={$queueDepth}_sufficient_and_telemetry={$telemetryConfidence}"],
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'recommendation' => $recommendation,
+            'reason' => $reason,
+            'queue_depth' => $queueDepth,
+            'sufficient_depth_floor' => $sufficientDepthFloor,
+            'telemetry_confidence' => $telemetryConfidence,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
