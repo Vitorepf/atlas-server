@@ -56,6 +56,11 @@ final class AtlasSelfConstructionUnattendedStallClassifier
 
     public const ZERO_ACTIVE_BRAIN_COMMANDS = 'zero_active_brain_commands';
 
+    public const FEED_STARVATION_RISK = 'feed_starvation_risk';
+
+    /** claimable_count / active_leases at or below this ratio is a thin buffer. */
+    private const FEED_STARVATION_RATIO_CEILING = 2.0;
+
     public const SEVERITY_NONE = 'none';
 
     public const SEVERITY_LOW = 'low';
@@ -111,6 +116,10 @@ final class AtlasSelfConstructionUnattendedStallClassifier
             $classification = self::WORKER_UNAVAILABLE;
             $severity = self::SEVERITY_HIGH;
             $reasons[] = 'native_worker_not_ready';
+        } elseif ($this->feedStarvationRisk($queue)) {
+            $classification = self::FEED_STARVATION_RISK;
+            $severity = self::SEVERITY_MEDIUM;
+            $reasons[] = 'claimable_per_active_worker_at_or_below_ceiling_with_recent_no_claimable';
         } elseif ($brainStallReason === 'stale_brain_heartbeat') {
             $classification = self::STALE_BRAIN_HEARTBEAT;
             $severity = self::SEVERITY_MEDIUM;
@@ -150,6 +159,28 @@ final class AtlasSelfConstructionUnattendedStallClassifier
             'recovery_needed' => $recoveryNeeded,
             'classifier_hash' => $classifierHash,
         ];
+    }
+
+    /**
+     * Detects a thin claimable buffer BEFORE workers actually stall: active workers are drawing
+     * down a claimable pool that is already near-empty per worker, and the queue has recently
+     * surfaced no_claimable observations — a leading indicator, not a confirmed dry queue.
+     *
+     * @param  array<string,mixed>  $queue
+     */
+    private function feedStarvationRisk(array $queue): bool
+    {
+        $activeLeases = (int) ($queue['active_leases'] ?? 0);
+        $claimableDepth = (int) ($queue['claimable_count'] ?? $queue['claimable_depth'] ?? 0);
+        $recentNoClaimable = (int) ($queue['recent_no_claimable_count'] ?? 0);
+
+        if ($activeLeases <= 0 || $recentNoClaimable <= 0) {
+            return false;
+        }
+
+        $claimablePerActiveWorker = $claimableDepth / $activeLeases;
+
+        return $claimablePerActiveWorker <= self::FEED_STARVATION_RATIO_CEILING;
     }
 
     /**
