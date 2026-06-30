@@ -23,10 +23,17 @@ namespace App\Services\Ai\SelfConstruction\WorkerSwarm;
  *     allowed_scope_prefixes: list<string>,
  *     evidence_kinds_supported: list<string>,
  *     readiness: {ready:bool, freshness_unix?:int},
+ *     success_families?: list<string>,
+ *     give_back_families?: list<string>,
+ *     poison_families?: list<string>,
  *   }>
+ *   task.task_family (optional) activates outcome_fit_hints.
  *
  * Output:
- *   {schema_version, task_packet_id, eligible:list<{worker_id, reasons:list<string>}>, ineligible:list<{worker_id, reasons:list<string>}>}
+ *   {schema_version, task_packet_id, eligible:list<{worker_id, reasons:list<string>}>,
+ *    ineligible:list<{worker_id, reasons:list<string>}>,
+ *    outcome_fit_hints:list<{worker_id, fit:'preferred'|'caution'|'rejected_by_history'|'neutral', reasons:list<string>}>}
+ * outcome_fit_hints is advisory — does NOT affect eligible/ineligible split.
  *
  * Pure — NEVER starts workers, claims tasks, or writes ledgers.
  */
@@ -49,6 +56,7 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
         $taskRisk = strtolower((string) ($task['risk_class'] ?? 'low'));
         $allowedFiles = array_values((array) ($task['allowed_files'] ?? []));
         $requiredEvidence = array_values((array) ($task['required_evidence_kinds'] ?? []));
+        $taskFamily = (string) ($task['task_family'] ?? '');
 
         $eligible = [];
         $ineligible = [];
@@ -108,11 +116,24 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
         usort($eligible, static fn (array $a, array $b): int => strcmp($a['worker_id'], $b['worker_id']));
         usort($ineligible, static fn (array $a, array $b): int => strcmp($a['worker_id'], $b['worker_id']));
 
+        // outcome_fit_hints — advisory only, does not affect eligible/ineligible split.
+        $outcomeHints = [];
+        if ($taskFamily !== '') {
+            foreach ($workers as $w) {
+                if (! is_array($w)) {
+                    continue;
+                }
+                $outcomeHints[] = $this->outcomeHint($taskFamily, $w);
+            }
+            usort($outcomeHints, static fn (array $a, array $b): int => strcmp($a['worker_id'], $b['worker_id']));
+        }
+
         return [
-            'schema_version' => self::SCHEMA,
-            'task_packet_id' => (string) ($task['task_packet_id'] ?? ''),
-            'eligible' => $eligible,
-            'ineligible' => $ineligible,
+            'schema_version'      => self::SCHEMA,
+            'task_packet_id'      => (string) ($task['task_packet_id'] ?? ''),
+            'eligible'            => $eligible,
+            'ineligible'          => $ineligible,
+            'outcome_fit_hints'   => $outcomeHints,
         ];
     }
 
@@ -129,5 +150,30 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $worker
+     * @return array{worker_id:string, fit:string, reasons:list<string>}
+     */
+    private function outcomeHint(string $taskFamily, array $worker): array
+    {
+        $workerId       = (string) ($worker['worker_id'] ?? '');
+        $poisonFamilies = array_map('strval', (array) ($worker['poison_families'] ?? []));
+        $giveBackFams   = array_map('strval', (array) ($worker['give_back_families'] ?? []));
+        $successFams    = array_map('strval', (array) ($worker['success_families'] ?? []));
+
+        // Worst-signal-first: poison > give_back > success.
+        if (in_array($taskFamily, $poisonFamilies, true)) {
+            return ['worker_id' => $workerId, 'fit' => 'rejected_by_history', 'reasons' => ["poison_family_match:{$taskFamily}"]];
+        }
+        if (in_array($taskFamily, $giveBackFams, true)) {
+            return ['worker_id' => $workerId, 'fit' => 'caution', 'reasons' => ["give_back_family_match:{$taskFamily}"]];
+        }
+        if (in_array($taskFamily, $successFams, true)) {
+            return ['worker_id' => $workerId, 'fit' => 'preferred', 'reasons' => ["success_family_match:{$taskFamily}"]];
+        }
+
+        return ['worker_id' => $workerId, 'fit' => 'neutral', 'reasons' => []];
     }
 }
