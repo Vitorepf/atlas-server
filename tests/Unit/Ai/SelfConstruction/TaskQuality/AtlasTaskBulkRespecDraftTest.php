@@ -94,6 +94,75 @@ final class AtlasTaskBulkRespecDraftTest extends TestCase
         $this->assertSame(1, $r['summary'][AtlasTaskRespecPlanBuilder::ACTION_QUARANTINE]);
     }
 
+    // ── AC2: missing_impl_file drafts include allowed_files + acceptance/evidence hints ──
+
+    public function test_missing_file_draft_includes_allowed_files_and_acceptance_evidence_hints(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->draft([
+            ['packet_id' => 'p-a', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'p-b', 'missing_files' => ['app/Y.php']],
+        ]);
+        $draft = $r['drafts'][0];
+
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE, $draft['action']);
+        $this->assertNotNull($draft['allowed_files_repair_hint']);
+        $this->assertStringContainsString('allowed_files', $draft['allowed_files_repair_hint']);
+        $this->assertNotNull($draft['acceptance_repair_hint']);
+        $this->assertStringContainsString('php artisan test', $draft['acceptance_repair_hint']);
+        $this->assertNotNull($draft['evidence_repair_hint']);
+        $this->assertStringContainsString('tests_or_gates_result', $draft['evidence_repair_hint']);
+    }
+
+    // ── AC3: contradictory/forbidden families → retire/quarantine, never unsafe respec hints ──
+
+    public function test_contradictory_acceptance_draft_is_retire_with_no_respec_hints(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->draft([
+            ['packet_id' => 'p-a', 'contradictory_acceptance' => true],
+        ]);
+        $draft = $r['drafts'][0];
+
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_REWRITE_OBJECTIVE, $draft['action']);
+        $this->assertSame(AtlasTaskBulkRespecDraft::SAFE_ACTION_RETIRE, $draft['safe_action']);
+        $this->assertNotNull($draft['representative_objective_patch']);
+        $this->assertNull($draft['allowed_files_repair_hint']);
+        $this->assertNull($draft['acceptance_repair_hint']);
+        $this->assertNull($draft['evidence_repair_hint']);
+    }
+
+    public function test_quarantine_family_is_safe_action_quarantine_with_no_repair_hints(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->draft([
+            ['packet_id' => 'p-a', 'too_many_deficiencies' => true],
+        ]);
+        $draft = $r['drafts'][0];
+
+        $this->assertSame(AtlasTaskBulkRespecDraft::SAFE_ACTION_QUARANTINE, $draft['safe_action']);
+        $this->assertNull($draft['representative_objective_patch']);
+        $this->assertNull($draft['allowed_files_repair_hint']);
+    }
+
+    public function test_add_file_family_safe_action_is_respec(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->draft([
+            ['packet_id' => 'p-a', 'missing_files' => ['app/X.php']],
+        ]);
+        $this->assertSame(AtlasTaskBulkRespecDraft::SAFE_ACTION_RESPEC, $r['drafts'][0]['safe_action']);
+    }
+
+    // ── AC4: implementation remains pure/deterministic ────────────────────────
+
+    public function test_draft_output_is_deterministic(): void
+    {
+        $records = [
+            ['packet_id' => 'p-a', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'p-b', 'contradictory_acceptance' => true],
+        ];
+        $a = (new AtlasTaskBulkRespecDraft)->draft($records);
+        $b = (new AtlasTaskBulkRespecDraft)->draft($records);
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
+
     public function test_packet_ids_within_a_draft_are_sorted(): void
     {
         $r = (new AtlasTaskBulkRespecDraft)->draft([

@@ -17,8 +17,17 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *                             sort(revalidation_gates).implode(','))
  *
  * OUTPUT:
- *   { schema, drafts:list<{action, affected_fields, revalidation_gates, fingerprint, packet_ids:list<string>}>,
+ *   { schema, drafts:list<{action, safe_action, affected_fields, revalidation_gates, fingerprint,
+ *     representative_packet_id, representative_objective_patch, allowed_files_repair_hint,
+ *     acceptance_repair_hint, evidence_repair_hint, total_packet_count, packet_ids:list<string>}>,
  *     summary:array<string,int>  // per-action count (raw, not deduped) }
+ *
+ * SAFE_ACTION — each plan-builder action maps to ONE of respec|retire|quarantine. Unrepairable families
+ * (quarantine_candidate, rewrite_objective i.e. contradictory acceptance) NEVER receive a respec-style
+ * repair hint — they only carry the safe_action, matching {@see AtlasTaskBlockedPacketFamilyClassifier}'s
+ * forbidden_target/contradictory_acceptance → retire verdict. Repairable families (add-missing-file,
+ * split, give-back) get GENERIC (not packet-specific) repair hints — the repair PATTERN repeats across
+ * packets even though file names differ, so the hint stays reusable across the whole dedup family.
  *
  * INVARIANTS:
  *   - DETERMINISTIC ordering: drafts sorted by (action, fingerprint); packet_ids sorted byte-stably.
@@ -39,6 +48,23 @@ final class AtlasTaskBulkRespecDraft
         'rewrite_objective' => 3,
         'split_task_candidate' => 4,
         'add_missing_allowed_file_candidate' => 5,
+    ];
+
+    public const SAFE_ACTION_RESPEC = 'respec';
+
+    public const SAFE_ACTION_RETIRE = 'retire';
+
+    public const SAFE_ACTION_QUARANTINE = 'quarantine';
+
+    /** Plan-builder action → conservative bulk-safe verdict. Unrepairable actions never get a respec hint. */
+    private const SAFE_ACTION_MAP = [
+        'quarantine_candidate' => self::SAFE_ACTION_QUARANTINE,
+        // contradictory acceptance is unrepairable by file-edit alone — matches
+        // AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CONTRADICTORY_ACCEPTANCE → retire.
+        'rewrite_objective' => self::SAFE_ACTION_RETIRE,
+        'add_missing_allowed_file_candidate' => self::SAFE_ACTION_RESPEC,
+        'split_task_candidate' => self::SAFE_ACTION_RESPEC,
+        'give_back_hint' => self::SAFE_ACTION_RESPEC,
     ];
 
     public function __construct(private readonly AtlasTaskRespecPlanBuilder $planBuilder = new AtlasTaskRespecPlanBuilder) {}
@@ -87,6 +113,11 @@ final class AtlasTaskBulkRespecDraft
             $d['representative_packet_id'] = $ids[0] ?? '';
             $d['total_packet_count'] = count($ids);
             $d['packet_ids'] = array_slice($ids, 0, self::MAX_PACKET_IDS_PER_FAMILY);
+            $d['safe_action'] = self::SAFE_ACTION_MAP[$d['action']] ?? self::SAFE_ACTION_QUARANTINE;
+            $d['representative_objective_patch'] = $this->objectivePatchHint($d['action'], $d['affected_fields']);
+            $d['allowed_files_repair_hint'] = $this->allowedFilesRepairHint($d['action']);
+            $d['acceptance_repair_hint'] = $this->acceptanceRepairHint($d['action']);
+            $d['evidence_repair_hint'] = $this->evidenceRepairHint($d['action']);
         }
         unset($d);
         usort($drafts, function (array $a, array $b): int {
@@ -106,5 +137,44 @@ final class AtlasTaskBulkRespecDraft
             'drafts' => $drafts,
             'summary' => $summary,
         ];
+    }
+
+    /** @param  list<string>  $affectedFields */
+    private function objectivePatchHint(string $action, array $affectedFields): ?string
+    {
+        if ($action !== AtlasTaskRespecPlanBuilder::ACTION_REWRITE_OBJECTIVE) {
+            return null;
+        }
+
+        return 'Rewrite objective and '.implode(', ', $affectedFields)
+            .' so they no longer contradict each other; keep exactly one concrete, testable behavior per packet.';
+    }
+
+    private function allowedFilesRepairHint(string $action): ?string
+    {
+        return match ($action) {
+            AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE => 'Add the missing implementation/test counterpart file(s) to allowed_files so the impl+test pair is complete.',
+            AtlasTaskRespecPlanBuilder::ACTION_SPLIT => 'Split allowed_files into Atlas-native replacement slices, each with a disjoint, concrete scope.',
+            default => null,
+        };
+    }
+
+    private function acceptanceRepairHint(string $action): ?string
+    {
+        return match ($action) {
+            AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE,
+            AtlasTaskRespecPlanBuilder::ACTION_SPLIT => 'Add a runnable acceptance criterion, e.g. "/opt/homebrew/bin/php artisan test --filter=<ClassName>Test exits 0".',
+            default => null,
+        };
+    }
+
+    private function evidenceRepairHint(string $action): ?string
+    {
+        return match ($action) {
+            AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE,
+            AtlasTaskRespecPlanBuilder::ACTION_SPLIT => 'Ensure required_evidence includes tests_or_gates_result so the corrected file pair can be proven.',
+            AtlasTaskRespecPlanBuilder::ACTION_GIVE_BACK => 'Ensure required_evidence is complete before the next give_back attempt is graded.',
+            default => null,
+        };
     }
 }
