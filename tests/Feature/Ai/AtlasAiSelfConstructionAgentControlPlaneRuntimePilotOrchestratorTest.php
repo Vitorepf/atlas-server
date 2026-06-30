@@ -285,4 +285,99 @@ final class AtlasAiSelfConstructionAgentControlPlaneRuntimePilotOrchestratorTest
 
         return (string) data_get($payload, 'control_plane.persistent_runtime.next_required_slice');
     }
+
+    // ── evaluatePromotion ────────────────────────────────────────────────────────
+
+    private function promotionOrchestrator(): AgentControlPlaneRuntimePilotOrchestrator
+    {
+        $readiness = app(AtlasSelfConstructionReadinessService::class);
+
+        return $this->buildOrchestrator($readiness);
+    }
+
+    private function healthyEvidence(array $overrides = []): array
+    {
+        return array_merge([
+            'current_state' => 'dry_run',
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'worker_fit_known' => true,
+            'give_back_risk' => 0.1,
+            'give_back_risk_baseline' => 0.1,
+        ], $overrides);
+    }
+
+    public function test_healthy_evidence_promotes_dry_run_to_shadow(): void
+    {
+        $result = $this->promotionOrchestrator()->evaluatePromotion($this->healthyEvidence());
+
+        $this->assertSame('promote', $result['promotion_decision']);
+        $this->assertSame('shadow', $result['state']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertSame([], $result['missing_evidence']);
+    }
+
+    public function test_promotion_advances_through_all_states_in_order(): void
+    {
+        $orchestrator = $this->promotionOrchestrator();
+
+        $shadow = $orchestrator->evaluatePromotion($this->healthyEvidence(['current_state' => 'shadow']));
+        $this->assertSame('canary', $shadow['state']);
+
+        $canary = $orchestrator->evaluatePromotion($this->healthyEvidence(['current_state' => 'canary']));
+        $this->assertSame('live', $canary['state']);
+
+        $live = $orchestrator->evaluatePromotion($this->healthyEvidence(['current_state' => 'live']));
+        $this->assertSame('live', $live['state']);
+    }
+
+    public function test_worsened_queue_health_blocks_promotion(): void
+    {
+        $result = $this->promotionOrchestrator()->evaluatePromotion($this->healthyEvidence([
+            'queue_health_score' => 0.5,
+            'queue_health_baseline' => 0.9,
+        ]));
+
+        $this->assertSame('hold', $result['promotion_decision']);
+        $this->assertSame('dry_run', $result['state']);
+        $this->assertContains('queue_health_worsened', $result['blockers']);
+    }
+
+    public function test_unknown_worker_fit_blocks_promotion(): void
+    {
+        $result = $this->promotionOrchestrator()->evaluatePromotion($this->healthyEvidence(['worker_fit_known' => false]));
+
+        $this->assertSame('hold', $result['promotion_decision']);
+        $this->assertContains('worker_fit_unknown', $result['blockers']);
+    }
+
+    public function test_increased_give_back_risk_blocks_promotion(): void
+    {
+        $result = $this->promotionOrchestrator()->evaluatePromotion($this->healthyEvidence([
+            'give_back_risk' => 0.5,
+            'give_back_risk_baseline' => 0.1,
+        ]));
+
+        $this->assertSame('hold', $result['promotion_decision']);
+        $this->assertContains('give_back_risk_increased', $result['blockers']);
+    }
+
+    public function test_missing_evidence_blocks_promotion_and_is_reported(): void
+    {
+        $result = $this->promotionOrchestrator()->evaluatePromotion(['current_state' => 'dry_run']);
+
+        $this->assertSame('hold', $result['promotion_decision']);
+        $this->assertSame('dry_run', $result['state']);
+        $this->assertContains('queue_health_score', $result['missing_evidence']);
+        $this->assertContains('queue_health_baseline', $result['missing_evidence']);
+        $this->assertContains('give_back_risk', $result['missing_evidence']);
+        $this->assertContains('give_back_risk_baseline', $result['missing_evidence']);
+    }
+
+    public function test_invalid_current_state_defaults_to_dry_run(): void
+    {
+        $result = $this->promotionOrchestrator()->evaluatePromotion($this->healthyEvidence(['current_state' => 'nonsense']));
+
+        $this->assertSame('shadow', $result['state']);
+    }
 }

@@ -164,6 +164,77 @@ final class AgentControlPlaneRuntimePilotOrchestrator
         return $payload;
     }
 
+    public const PROMOTION_STATES = ['dry_run', 'shadow', 'canary', 'live'];
+
+    private const NEXT_STATE = ['dry_run' => 'shadow', 'shadow' => 'canary', 'canary' => 'live', 'live' => 'live'];
+
+    /**
+     * Pure promotion gate: a runtime task-serving change moves dry_run ->
+     * shadow -> canary -> live ONLY when evidence proves queue health did
+     * not worsen, worker fit is known, and give_back risk did not increase
+     * relative to their respective baselines. Already at live, the state
+     * never advances further (it is the terminal state).
+     *
+     * BLOCKERS (any one present -> promotion_decision=hold):
+     *   queue_health_score < queue_health_baseline   -> queue_health_worsened
+     *   worker_fit_known=false                        -> worker_fit_unknown
+     *   give_back_risk > give_back_risk_baseline       -> give_back_risk_increased
+     *
+     * missing_evidence lists which required signals were absent from the
+     * input (queue_health_score, queue_health_baseline, give_back_risk,
+     * give_back_risk_baseline) — present even when other blockers also
+     * fired, so the caller always knows what evidence to collect next.
+     *
+     * Pure: no I/O, no state mutation, no side effects.
+     *
+     * @param  array<string, mixed>  $evidence  { current_state?: string,
+     *   queue_health_score?: float, queue_health_baseline?: float,
+     *   worker_fit_known?: bool, give_back_risk?: float,
+     *   give_back_risk_baseline?: float }
+     * @return array{state: string, promotion_decision: string, blockers: list<string>, missing_evidence: list<string>}
+     */
+    public function evaluatePromotion(array $evidence): array
+    {
+        $currentState = (string) ($evidence['current_state'] ?? 'dry_run');
+        if (! in_array($currentState, self::PROMOTION_STATES, true)) {
+            $currentState = 'dry_run';
+        }
+
+        $missingEvidence = [];
+        foreach (['queue_health_score', 'queue_health_baseline', 'give_back_risk', 'give_back_risk_baseline'] as $field) {
+            if (! array_key_exists($field, $evidence) || $evidence[$field] === null) {
+                $missingEvidence[] = $field;
+            }
+        }
+
+        $queueHealthScore = (float) ($evidence['queue_health_score'] ?? 0.0);
+        $queueHealthBaseline = (float) ($evidence['queue_health_baseline'] ?? 0.0);
+        $workerFitKnown = (bool) ($evidence['worker_fit_known'] ?? false);
+        $giveBackRisk = (float) ($evidence['give_back_risk'] ?? 1.0);
+        $giveBackRiskBaseline = (float) ($evidence['give_back_risk_baseline'] ?? 0.0);
+
+        $blockers = [];
+        if ($queueHealthScore < $queueHealthBaseline) {
+            $blockers[] = 'queue_health_worsened';
+        }
+        if (! $workerFitKnown) {
+            $blockers[] = 'worker_fit_unknown';
+        }
+        if ($giveBackRisk > $giveBackRiskBaseline) {
+            $blockers[] = 'give_back_risk_increased';
+        }
+
+        $canPromote = $blockers === [] && $missingEvidence === [];
+        $nextState = $canPromote ? self::NEXT_STATE[$currentState] : $currentState;
+
+        return [
+            'state' => $nextState,
+            'promotion_decision' => $canPromote ? 'promote' : 'hold',
+            'blockers' => $blockers,
+            'missing_evidence' => $missingEvidence,
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
