@@ -315,5 +315,122 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouterTest extends TestC
         $this->assertSame([], $r['warnings']);
         $this->assertSame([], $r['next_batch_constraints']);
         $this->assertSame([], $r['ignored_low_evidence_commits']);
+        $this->assertSame([], $r['context_quality_feedback']);
+    }
+
+    // ── context_quality_feedback ─────────────────────────────────────────────────
+
+    public function test_hostile_context_emits_context_quality_feedback_and_constraint(): void
+    {
+        $r = $this->route([$this->commit('foo', ['hostile_context' => true])]);
+
+        $issues = array_column($r['context_quality_feedback'], 'issue');
+        $this->assertContains('hostile_context', $issues);
+
+        $constraints = array_column($r['next_batch_constraints'], 'constraint');
+        $this->assertContains('sanitize_hostile_context_before_injection', $constraints);
+        $this->assertSame($r['next_batch_constraints'], $r['negative_constraints']);
+    }
+
+    public function test_noisy_context_emits_context_quality_feedback_and_constraint(): void
+    {
+        $r = $this->route([$this->commit('foo', ['noisy_context' => true])]);
+
+        $issues = array_column($r['context_quality_feedback'], 'issue');
+        $this->assertContains('noisy_context', $issues);
+
+        $constraints = array_column($r['next_batch_constraints'], 'constraint');
+        $this->assertContains('filter_noisy_context_sources', $constraints);
+    }
+
+    public function test_weak_tests_appears_in_context_quality_feedback(): void
+    {
+        $r = $this->route([$this->commit('foo', ['test_strength' => 2])]);
+
+        $issues = array_column($r['context_quality_feedback'], 'issue');
+        $this->assertContains('weak_tests', $issues);
+    }
+
+    public function test_duplicate_detected_appears_in_context_quality_feedback(): void
+    {
+        $r = $this->route([$this->commit('foo', ['duplicate_detected' => true])]);
+
+        $issues = array_column($r['context_quality_feedback'], 'issue');
+        $this->assertContains('duplicate_capability', $issues);
+    }
+
+    public function test_excessive_scope_appears_in_context_quality_feedback(): void
+    {
+        $r = $this->route([$this->commit('foo', ['scope_size' => 5])]);
+
+        $issues = array_column($r['context_quality_feedback'], 'issue');
+        $this->assertContains('excessive_scope', $issues);
+    }
+
+    public function test_no_capability_delta_appears_in_context_quality_feedback(): void
+    {
+        $r = $this->route([$this->commit('foo', ['capability_delta' => 0])]);
+
+        $issues = array_column($r['context_quality_feedback'], 'issue');
+        $this->assertContains('no_capability_delta', $issues);
+    }
+
+    public function test_context_quality_feedback_entries_carry_constraint_and_severity(): void
+    {
+        $r = $this->route([$this->commit('foo', ['hostile_context' => true])]);
+
+        $entry = $r['context_quality_feedback'][0];
+        $this->assertArrayHasKey('issue', $entry);
+        $this->assertArrayHasKey('capability', $entry);
+        $this->assertArrayHasKey('constraint', $entry);
+        $this->assertArrayHasKey('severity', $entry);
+        $this->assertSame('foo', $entry['capability']);
+    }
+
+    public function test_clean_commit_has_no_context_quality_feedback(): void
+    {
+        $r = $this->route([$this->commit('foo')]);
+
+        $this->assertSame([], $r['context_quality_feedback']);
+    }
+
+    // ── AC2: positive lessons suppressed for weak-green commits ────────────────
+
+    public function test_positive_lessons_suppressed_when_context_quality_issue_present_with_weak_tests(): void
+    {
+        $r = $this->route([$this->commit('foo', [
+            'compounding_value' => 9,
+            'test_strength'     => 2,
+            'hostile_context'   => true,
+        ])]);
+
+        $this->assertContains(['lesson' => 'high_compounding_value', 'capability' => 'foo', 'compounding_value' => 9], $r['promoted_lessons']);
+        $this->assertSame([], $r['positive_lessons'], 'weak tests must suppress positive lessons even with a hostile_context flag present');
+    }
+
+    public function test_hostile_context_alone_does_not_suppress_positive_lessons_when_tests_are_strong(): void
+    {
+        // hostile_context is a context-quality constraint, not itself a positive-lesson blocker —
+        // only weak_tests / no_capability_delta gate positive lessons per the existing contract.
+        $r = $this->route([$this->commit('foo', [
+            'compounding_value' => 9,
+            'test_strength'     => 9,
+            'hostile_context'   => true,
+        ])]);
+
+        $this->assertNotEmpty($r['positive_lessons']);
+    }
+
+    public function test_context_quality_feedback_is_deterministic(): void
+    {
+        $commits = [$this->commit('foo', ['hostile_context' => true, 'noisy_context' => true])];
+
+        $a = $this->route($commits);
+        $b = $this->route($commits);
+
+        $this->assertSame(
+            json_encode($a['context_quality_feedback'], JSON_UNESCAPED_SLASHES),
+            json_encode($b['context_quality_feedback'], JSON_UNESCAPED_SLASHES),
+        );
     }
 }

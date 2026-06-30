@@ -55,6 +55,14 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
         'duplicate_capability' => ['constraint' => 'verify_no_duplicate_before_enqueue',  'severity' => 'medium'],
         'low_compounding_value' => ['constraint' => 'prefer_high_leverage_capabilities',  'severity' => 'low'],
         'no_capability_delta'  => ['constraint' => 'require_measurable_capability_delta', 'severity' => 'high'],
+        'hostile_context'      => ['constraint' => 'sanitize_hostile_context_before_injection', 'severity' => 'high'],
+        'noisy_context'        => ['constraint' => 'filter_noisy_context_sources',        'severity' => 'medium'],
+    ];
+
+    /** Context-quality issue types — these become constraints, never prose-only notes. */
+    private const CONTEXT_QUALITY_ISSUES = [
+        'hostile_context', 'noisy_context', 'weak_tests', 'duplicate_capability',
+        'excessive_scope', 'no_capability_delta',
     ];
 
     /**
@@ -73,6 +81,7 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
         $nextBatchConstraints   = [];
         $workerAffinityUpdates  = [];
         $taskFamilyPolicyUpdates = [];
+        $contextQualityFeedback = [];
 
         foreach ($commits as $commit) {
             $capability = trim((string) ($commit['changed_capability'] ?? ''));
@@ -88,6 +97,8 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
             $testStrength      = (int) ($commit['test_strength']        ?? 0);
             $scopeSize         = (int) ($commit['scope_size']           ?? 1);
             $duplicateDetected = (bool) ($commit['duplicate_detected']  ?? false);
+            $hostileContext    = (bool) ($commit['hostile_context']     ?? false);
+            $noisyContext      = (bool) ($commit['noisy_context']       ?? false);
 
             // AC2: positive_lessons is suppressed when weak_tests or no_capability_delta blocks.
             $weakTestsBlock      = $testStrength < self::WEAK_TEST_THRESHOLD;
@@ -163,6 +174,39 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
                     $nextBatchConstraints[] = self::CONSTRAINT_MAP['no_capability_delta'];
                 }
             }
+            if ($hostileContext) {
+                $warnings[] = ['warning' => 'hostile_context', 'capability' => $capability];
+                if (! isset($constraintsSeen['hostile_context'])) {
+                    $constraintsSeen['hostile_context'] = true;
+                    $nextBatchConstraints[] = self::CONSTRAINT_MAP['hostile_context'];
+                }
+            }
+            if ($noisyContext) {
+                $warnings[] = ['warning' => 'noisy_context', 'capability' => $capability];
+                if (! isset($constraintsSeen['noisy_context'])) {
+                    $constraintsSeen['noisy_context'] = true;
+                    $nextBatchConstraints[] = self::CONSTRAINT_MAP['noisy_context'];
+                }
+            }
+
+            // AC3: context-quality warnings become structured constraints, never prose-only notes.
+            foreach ([
+                'hostile_context'      => $hostileContext,
+                'noisy_context'        => $noisyContext,
+                'weak_tests'           => $weakTestsBlock,
+                'duplicate_capability' => $duplicateDetected,
+                'excessive_scope'      => $scopeSize > self::EXCESSIVE_SCOPE_THRESHOLD,
+                'no_capability_delta'  => $noCapabilityDelta,
+            ] as $issue => $triggered) {
+                if ($triggered) {
+                    $contextQualityFeedback[] = [
+                        'issue'      => $issue,
+                        'capability' => $capability,
+                        'constraint' => self::CONSTRAINT_MAP[$issue]['constraint'],
+                        'severity'   => self::CONSTRAINT_MAP[$issue]['severity'],
+                    ];
+                }
+            }
 
             // AC1: worker_affinity_updates — only when worker_id is provided.
             $workerId = (string) ($commit['worker_id'] ?? '');
@@ -204,6 +248,7 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouter
             'negative_constraints'       => $nextBatchConstraints,
             'worker_affinity_updates'    => $workerAffinityUpdates,
             'task_family_policy_updates' => $taskFamilyPolicyUpdates,
+            'context_quality_feedback'   => $contextQualityFeedback,
             'ignored_low_evidence_commits' => $ignoredCommits,
         ];
     }
