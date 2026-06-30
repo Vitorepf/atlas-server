@@ -47,7 +47,77 @@ final class AtlasTaskBlockedPacketFamilyClassifier
 
     public const FAMILY_DUPLICATE_OR_STALE_BRAIN_PACKET = 'duplicate_or_stale_brain_packet';
 
+    public const FAMILY_CODEX_META_SCHEMA_MIGRATION = 'codex_meta_schema_migration';
+
+    public const FAMILY_CODEX_META_RECEIPT_VERIFIER = 'codex_meta_receipt_verifier';
+
+    public const FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION = 'codex_meta_autopoietic_constitution';
+
+    public const FAMILY_CODEX_META_HARD_CASE_DATASET = 'codex_meta_hard_case_dataset';
+
+    public const FAMILY_CODEX_META_BACKUP_SNAPSHOT = 'codex_meta_backup_snapshot';
+
+    public const FAMILY_CODEX_META_PROCESS_ZOMBIE = 'codex_meta_process_zombie';
+
     public const FAMILY_UNKNOWN = 'unknown';
+
+    /**
+     * codex-meta- blocked packet id/objective slug → concrete family, in priority order
+     * (first matching marker set wins). Each maps to respec/retire/manual_review with its
+     * own rationale + repair hints, instead of collapsing into FAMILY_UNKNOWN.
+     *
+     * @var array<string, array{markers: list<string>, action: string, repairability: string, confidence: string, rationale: string, hints: list<string>}>
+     */
+    private const CODEX_META_SLUG_FAMILIES = [
+        self::FAMILY_CODEX_META_SCHEMA_MIGRATION => [
+            'markers' => ['schema-migration', 'schema_migration', 'migrate-schema'],
+            'action' => 'respec',
+            'repairability' => 'repairable',
+            'confidence' => 'medium',
+            'rationale' => "id/objective slug indicates a schema migration task: the target schema/contract version must be pinned and the migration plan respecified before this packet can be grinded",
+            'hints' => ['pin_target_schema_version', 'attach_migration_plan'],
+        ],
+        self::FAMILY_CODEX_META_RECEIPT_VERIFIER => [
+            'markers' => ['receipt-verifier', 'receipt_verifier', 'verifier', 'receipt-verification'],
+            'action' => 'respec',
+            'repairability' => 'repairable',
+            'confidence' => 'medium',
+            'rationale' => 'id/objective slug indicates a receipt/verifier task: the receipt contract and the verification command must be made explicit before this packet can be grinded',
+            'hints' => ['attach_receipt_contract', 'attach_runnable_verification_command'],
+        ],
+        self::FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION => [
+            'markers' => ['autopoietic', 'autopoiesis', 'constitution'],
+            'action' => 'manual_review',
+            'repairability' => 'conditional',
+            'confidence' => 'medium',
+            'rationale' => 'id/objective slug touches the autopoietic constitution layer: changes here are self-referential and require explicit human review before respec or retire',
+            'hints' => ['operator_review_constitution_change'],
+        ],
+        self::FAMILY_CODEX_META_HARD_CASE_DATASET => [
+            'markers' => ['hard-case', 'hard_case', 'hardcase-dataset', 'dataset'],
+            'action' => 'respec',
+            'repairability' => 'repairable',
+            'confidence' => 'medium',
+            'rationale' => 'id/objective slug indicates a hard-case dataset task: the dataset source and the expected fixture shape must be respecified before this packet can be grinded',
+            'hints' => ['attach_dataset_source', 'attach_expected_fixture_shape'],
+        ],
+        self::FAMILY_CODEX_META_BACKUP_SNAPSHOT => [
+            'markers' => ['backup-snapshot', 'backup_snapshot', 'snapshot-backup', 'backup', 'snapshot'],
+            'action' => 'respec',
+            'repairability' => 'repairable',
+            'confidence' => 'medium',
+            'rationale' => 'id/objective slug indicates a backup/snapshot task: the snapshot target and retention policy must be respecified before this packet can be grinded',
+            'hints' => ['attach_snapshot_target', 'attach_retention_policy'],
+        ],
+        self::FAMILY_CODEX_META_PROCESS_ZOMBIE => [
+            'markers' => ['zombie-process', 'zombie_process', 'zombie', 'process-leak', 'stale-process'],
+            'action' => 'respec',
+            'repairability' => 'repairable',
+            'confidence' => 'medium',
+            'rationale' => 'id/objective slug indicates a zombie/stale-process detection task: the reclaim/cleanup contract must be made explicit before this packet can be grinded',
+            'hints' => ['attach_reclaim_contract'],
+        ],
+    ];
 
     private const GIVE_BACK_THRESHOLD = 8;
 
@@ -130,6 +200,19 @@ final class AtlasTaskBlockedPacketFamilyClassifier
                     ? "task_packet_id matches a brain-seed enumeration pattern ('{$id}'): these are ephemeral auto-generated ids that go stale quickly"
                     : 'objective signals duplicate/stale work already resolved by a prior task',
                 ['retire'], $looksLikeBrainSeedId ? 'medium' : 'high');
+        }
+
+        // ── codex-meta- slug families: concrete, repairable categories instead of
+        //    collapsing all unmatched codex-meta- packets into FAMILY_UNKNOWN (AC1).
+        if (str_starts_with($idLower, 'codex-meta-')) {
+            foreach (self::CODEX_META_SLUG_FAMILIES as $family => $spec) {
+                foreach ($spec['markers'] as $marker) {
+                    if (str_contains($idAndObjective, $marker)) {
+                        return $this->record($id, $family, $spec['action'], $spec['repairability'],
+                            $spec['rationale'], $spec['hints'], $spec['confidence']);
+                    }
+                }
+            }
         }
 
         if (($facts['dormant_cli_arm_proxy'] ?? false) === true) {

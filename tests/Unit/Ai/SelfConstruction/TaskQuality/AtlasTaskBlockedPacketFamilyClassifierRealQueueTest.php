@@ -137,4 +137,100 @@ final class AtlasTaskBlockedPacketFamilyClassifierRealQueueTest extends TestCase
 
         $this->assertSame($classifier->classifyOne($packet), $classifier->classifyOne($packet));
     }
+
+    // ── codex-meta- slug families (AC1) — concrete, not unknown ─────────────────
+
+    public function test_codex_meta_schema_migration_slug_classifies_as_schema_migration(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-schema-migration-task-fabric-v3',
+            'objective' => 'Migrate the task fabric packet schema to v3',
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION, $result['family']);
+        $this->assertSame('respec', $result['recommended_action']);
+        $this->assertNotEmpty($result['rationale']);
+        $this->assertNotEmpty($result['required_respec_fields']);
+    }
+
+    public function test_codex_meta_receipt_verifier_slug_classifies_correctly(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-receipt-verifier-merge-governor',
+            'objective' => 'Build a receipt verifier for the merge governor',
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_RECEIPT_VERIFIER, $result['family']);
+        $this->assertSame('respec', $result['recommended_action']);
+    }
+
+    public function test_codex_meta_autopoietic_constitution_slug_requires_manual_review(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-autopoietic-constitution-update',
+            'objective' => 'Update the autopoietic constitution invariants',
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION, $result['family']);
+        $this->assertSame('manual_review', $result['recommended_action']);
+    }
+
+    public function test_codex_meta_hard_case_dataset_slug_classifies_correctly(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-hard-case-dataset-verification-court',
+            'objective' => 'Build the hard-case dataset for verification court',
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_HARD_CASE_DATASET, $result['family']);
+        $this->assertSame('respec', $result['recommended_action']);
+    }
+
+    public function test_codex_meta_backup_snapshot_slug_classifies_correctly(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-backup-snapshot-rotation',
+            'objective' => 'Add snapshot rotation for queue backups',
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_BACKUP_SNAPSHOT, $result['family']);
+        $this->assertSame('respec', $result['recommended_action']);
+    }
+
+    public function test_codex_meta_process_zombie_slug_classifies_correctly(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-zombie-process-reclaim',
+            'objective' => 'Detect and reclaim zombie worker processes',
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_PROCESS_ZOMBIE, $result['family']);
+        $this->assertSame('respec', $result['recommended_action']);
+    }
+
+    public function test_codex_meta_slug_families_are_deterministic(): void
+    {
+        $packet = [
+            'task_packet_id' => 'codex-meta-schema-migration-task-fabric-v3',
+            'objective' => 'Migrate the task fabric packet schema to v3',
+        ];
+
+        $classifier = new AtlasTaskBlockedPacketFamilyClassifier;
+        $this->assertSame($classifier->classifyOne($packet), $classifier->classifyOne($packet));
+    }
+
+    public function test_unrelated_codex_meta_packet_does_not_false_positive_into_new_families(): void
+    {
+        $result = $this->classify([
+            'task_packet_id' => 'codex-meta-add-input-validation-to-foo-service',
+            'objective' => 'Add input validation to AtlasFooService',
+        ]);
+
+        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_SCHEMA_MIGRATION, $result['family']);
+        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_RECEIPT_VERIFIER, $result['family']);
+        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION, $result['family']);
+        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_HARD_CASE_DATASET, $result['family']);
+        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_BACKUP_SNAPSHOT, $result['family']);
+        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_PROCESS_ZOMBIE, $result['family']);
+    }
 }
