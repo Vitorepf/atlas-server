@@ -79,6 +79,80 @@ final class AtlasMaestroWorkerTierRegistry
         return $out;
     }
 
+    /**
+     * Derive the dispatch tier for a task packet based on local facts only.
+     * No provider calls, no shell commands, no queue mutation.
+     *
+     * @param  array{risk_level?:string, required_evidence?:list<string>, allowed_files?:list<string>}  $taskPacket
+     * @return array{assigned_tier:string, tier_candidates:list<array{tier:string,rationale:string}>, escalation_reasons:list<string>, local_facts:array{allowed_files_count:int,risk_level:string,evidence_count:int}}
+     */
+    public function tierFor(array $taskPacket): array
+    {
+        $riskLevel     = (string) ($taskPacket['risk_level'] ?? 'low');
+        $allowedFiles  = array_values(array_filter(array_map('strval', (array) ($taskPacket['allowed_files'] ?? [])), static fn (string $f): bool => $f !== ''));
+        $evidence      = array_values(array_filter(array_map('strval', (array) ($taskPacket['required_evidence'] ?? [])), static fn (string $e): bool => $e !== ''));
+
+        $fileCount     = count($allowedFiles);
+        $evidenceCount = count($evidence);
+
+        $candidates        = [];
+        $escalationReasons = [];
+
+        // Signal 1: risk_level
+        $riskTier = match ($riskLevel) {
+            'low'           => AtlasMaestroTaskTierClassifier::TIER_EASY,
+            'medium'        => AtlasMaestroTaskTierClassifier::TIER_HARD,
+            default         => AtlasMaestroTaskTierClassifier::TIER_HARDEST,
+        };
+        if ($riskTier !== AtlasMaestroTaskTierClassifier::TIER_EASY) {
+            $escalationReasons[] = 'risk_level:'.$riskLevel;
+        }
+        $candidates[] = ['tier' => $riskTier, 'rationale' => 'risk_level='.$riskLevel];
+
+        // Signal 2: allowed_files breadth
+        $fileTier = match (true) {
+            $fileCount <= 1  => AtlasMaestroTaskTierClassifier::TIER_EASY,
+            $fileCount <= 5  => AtlasMaestroTaskTierClassifier::TIER_HARD,
+            default          => AtlasMaestroTaskTierClassifier::TIER_HARDEST,
+        };
+        if ($fileTier !== AtlasMaestroTaskTierClassifier::TIER_EASY) {
+            $escalationReasons[] = 'allowed_files_count:'.$fileCount;
+        }
+        $candidates[] = ['tier' => $fileTier, 'rationale' => 'allowed_files_count='.$fileCount];
+
+        // Signal 3: evidence requirements depth
+        $evidenceTier = match (true) {
+            $evidenceCount <= 1 => AtlasMaestroTaskTierClassifier::TIER_EASY,
+            $evidenceCount <= 3 => AtlasMaestroTaskTierClassifier::TIER_HARD,
+            default             => AtlasMaestroTaskTierClassifier::TIER_HARDEST,
+        };
+        if ($evidenceTier !== AtlasMaestroTaskTierClassifier::TIER_EASY) {
+            $escalationReasons[] = 'evidence_count:'.$evidenceCount;
+        }
+        $candidates[] = ['tier' => $evidenceTier, 'rationale' => 'evidence_count='.$evidenceCount];
+
+        $tierRank   = static fn (string $t): int => match ($t) {
+            AtlasMaestroTaskTierClassifier::TIER_EASY    => 0,
+            AtlasMaestroTaskTierClassifier::TIER_HARD    => 1,
+            AtlasMaestroTaskTierClassifier::TIER_HARDEST => 2,
+            default                                      => 99,
+        };
+        $assigned   = array_reduce($candidates, static function (string $max, array $c) use ($tierRank): string {
+            return $tierRank($c['tier']) > $tierRank($max) ? $c['tier'] : $max;
+        }, AtlasMaestroTaskTierClassifier::TIER_EASY);
+
+        return [
+            'assigned_tier'     => $assigned,
+            'tier_candidates'   => $candidates,
+            'escalation_reasons'=> array_values(array_unique($escalationReasons)),
+            'local_facts'       => [
+                'allowed_files_count' => $fileCount,
+                'risk_level'          => $riskLevel,
+                'evidence_count'      => $evidenceCount,
+            ],
+        ];
+    }
+
     public function revoke(string $clientId): bool
     {
         $snapshot = $this->loadSnapshot();

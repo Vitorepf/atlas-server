@@ -111,4 +111,87 @@ final class AtlasMaestroWorkerTierRegistryTest extends TestCase
     {
         $this->assertFalse($this->registry->revoke('ghost'));
     }
+
+    // ---------- tierFor() dispatch policy ----------
+
+    public function test_single_file_low_risk_task_maps_to_easy_tier(): void
+    {
+        $result = $this->registry->tierFor([
+            'risk_level'       => 'low',
+            'allowed_files'    => ['app/Foo.php'],
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame('easy', $result['assigned_tier']);
+        $this->assertSame([], $result['escalation_reasons']);
+        $this->assertSame(1, $result['local_facts']['allowed_files_count']);
+        $this->assertSame('low', $result['local_facts']['risk_level']);
+        $this->assertCount(3, $result['tier_candidates'], 'three signals produce three candidates');
+    }
+
+    public function test_multi_file_integration_task_maps_to_hard_tier(): void
+    {
+        $result = $this->registry->tierFor([
+            'risk_level'       => 'low',
+            'allowed_files'    => ['app/A.php', 'app/B.php', 'tests/ATest.php'],
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame('hard', $result['assigned_tier']);
+        $this->assertContains('allowed_files_count:3', $result['escalation_reasons']);
+    }
+
+    public function test_high_risk_runtime_task_maps_to_hardest_tier(): void
+    {
+        $result = $this->registry->tierFor([
+            'risk_level'       => 'high',
+            'allowed_files'    => ['app/Foo.php'],
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame('hardest', $result['assigned_tier']);
+        $this->assertContains('risk_level:high', $result['escalation_reasons']);
+    }
+
+    public function test_heavy_evidence_requirement_escalates_to_hard(): void
+    {
+        $result = $this->registry->tierFor([
+            'risk_level'       => 'low',
+            'allowed_files'    => ['app/Foo.php'],
+            'required_evidence'=> ['tests_or_gates_result', 'implementation_notes', 'diff_review'],
+        ]);
+
+        $this->assertSame('hard', $result['assigned_tier']);
+        $this->assertContains('evidence_count:3', $result['escalation_reasons']);
+    }
+
+    public function test_tier_for_is_deterministic_across_two_calls(): void
+    {
+        $packet = [
+            'risk_level'       => 'medium',
+            'allowed_files'    => ['app/A.php', 'app/B.php'],
+            'required_evidence'=> ['tests_or_gates_result', 'implementation_notes'],
+        ];
+        $first  = $this->registry->tierFor($packet);
+        $second = $this->registry->tierFor($packet);
+
+        $this->assertSame(
+            json_encode($first,  JSON_UNESCAPED_SLASHES),
+            json_encode($second, JSON_UNESCAPED_SLASHES),
+        );
+    }
+
+    public function test_tier_for_local_facts_never_contain_scalar_score_or_rank(): void
+    {
+        $result = $this->registry->tierFor([
+            'risk_level'       => 'medium',
+            'allowed_files'    => ['app/Foo.php', 'app/Bar.php'],
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $json = (string) json_encode($result);
+        $this->assertStringNotContainsString('"score"', $json);
+        $this->assertStringNotContainsString('"rank"', $json);
+        $this->assertStringNotContainsString('"percent"', $json);
+    }
 }
