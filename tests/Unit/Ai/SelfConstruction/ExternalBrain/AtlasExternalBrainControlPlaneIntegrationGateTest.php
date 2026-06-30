@@ -27,7 +27,7 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
     {
         $result = $this->gate()->evaluate(['organ_id' => 'test-organ']);
 
-        foreach (['schema', 'organ_id', 'count_as_delivered', 'exposure_path', 'reasons'] as $k) {
+        foreach (['schema', 'organ_id', 'count_as_delivered', 'exposure_path', 'reasons', 'integration_blockers'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
     }
@@ -249,6 +249,67 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
         $this->assertStringContainsString('missing_evidence_floor', $reasonStr);
         $this->assertStringContainsString('missing_consumer_links', $reasonStr);
         $this->assertStringContainsString('missing_expiry_or_review_condition', $reasonStr);
+    }
+
+    // ── integration_blockers (AC1) ────────────────────────────────────────────
+
+    public function test_integration_blockers_empty_when_delivered_via_control_plane(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'               => 'wired-organ',
+            'is_important'           => true,
+            'control_plane_exposure' => true,
+        ]);
+
+        $this->assertSame([], $result['integration_blockers']);
+    }
+
+    public function test_integration_blockers_contains_exposure_codes_when_fully_blocked(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'     => 'blocked-organ',
+            'is_important' => true,
+        ]);
+
+        $this->assertContains('no_control_plane_exposure', $result['integration_blockers']);
+        $this->assertContains('no_readiness_map_exposure', $result['integration_blockers']);
+        $this->assertContains('missing_standalone_reason', $result['integration_blockers']);
+        $this->assertContains('missing_evidence_floor',    $result['integration_blockers']);
+        $this->assertContains('missing_consumer_links',    $result['integration_blockers']);
+    }
+
+    public function test_integration_blockers_lists_only_missing_standalone_fields_for_partial_standalone(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'               => 'partial-standalone',
+            'is_important'           => true,
+            'control_plane_exposure' => false,
+            'readiness_map_exposure' => false,
+            'standalone_reason'      => 'valid reason',
+            'evidence_floor'         => 'at_least_3_tests',
+            'consumer_links'         => ['AtlasBrainOriginator'],
+            // missing expiry_or_review_condition only
+        ]);
+
+        $this->assertFalse($result['count_as_delivered']);
+        $this->assertContains('missing_expiry_or_review_condition', $result['integration_blockers']);
+        $this->assertNotContains('missing_standalone_reason', $result['integration_blockers']);
+        $this->assertNotContains('missing_evidence_floor',    $result['integration_blockers']);
+        $this->assertNotContains('missing_consumer_links',    $result['integration_blockers']);
+    }
+
+    public function test_integration_blockers_empty_when_standalone_complete(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'                   => 'standalone-organ',
+            'is_important'               => true,
+            'standalone_reason'          => 'no consumer yet but architecturally sound',
+            'evidence_floor'             => 'at_least_5_green_tests',
+            'consumer_links'             => ['AtlasBrainOriginator'],
+            'expiry_or_review_condition' => 'review_after_2026-09-01',
+        ]);
+
+        $this->assertSame([], $result['integration_blockers']);
     }
 
     // ── exposure path priority ────────────────────────────────────────────────

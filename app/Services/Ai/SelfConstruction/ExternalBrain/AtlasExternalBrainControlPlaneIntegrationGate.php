@@ -106,41 +106,53 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
         $reasons[] = 'important_organ_has_no_control_plane_exposure';
         $reasons[] = 'important_organ_has_no_readiness_map_exposure';
 
+        $integrationBlockers = ['no_control_plane_exposure', 'no_readiness_map_exposure'];
+
         $anyStandaloneField = $standaloneReason !== '' || $evidenceFloor !== ''
             || $consumerLinks !== [] || $expiryOrReviewCondition !== '';
 
         if (! $anyStandaloneField) {
             $reasons[] = 'standalone_exception_missing:all_four_fields_required';
+            $integrationBlockers[] = 'missing_standalone_reason';
+            $integrationBlockers[] = 'missing_evidence_floor';
+            $integrationBlockers[] = 'missing_consumer_links';
+            $integrationBlockers[] = 'missing_expiry_or_review_condition';
         } else {
             if ($standaloneReason === '') {
                 $reasons[] = 'standalone_exception_incomplete:missing_standalone_reason';
+                $integrationBlockers[] = 'missing_standalone_reason';
             }
             if ($evidenceFloor === '') {
                 $reasons[] = 'standalone_exception_incomplete:missing_evidence_floor';
+                $integrationBlockers[] = 'missing_evidence_floor';
             }
             if ($consumerLinks === []) {
                 $reasons[] = 'standalone_exception_incomplete:missing_consumer_links';
+                $integrationBlockers[] = 'missing_consumer_links';
             }
             if ($expiryOrReviewCondition === '') {
                 $reasons[] = 'standalone_exception_incomplete:missing_expiry_or_review_condition';
+                $integrationBlockers[] = 'missing_expiry_or_review_condition';
             }
         }
 
-        return $this->result($organId, false, self::PATH_NONE, $reasons);
+        return $this->result($organId, false, self::PATH_NONE, $reasons, $integrationBlockers);
     }
 
     /**
      * @param  list<string>  $reasons
+     * @param  list<string>  $integrationBlockers
      * @return array<string,mixed>
      */
-    private function result(string $organId, bool $delivered, string $exposurePath, array $reasons): array
+    private function result(string $organId, bool $delivered, string $exposurePath, array $reasons, array $integrationBlockers = []): array
     {
         return [
-            'schema'             => self::SCHEMA,
-            'organ_id'           => $organId,
-            'count_as_delivered' => $delivered,
-            'exposure_path'      => $exposurePath,
-            'reasons'            => array_values($reasons),
+            'schema'               => self::SCHEMA,
+            'organ_id'             => $organId,
+            'count_as_delivered'   => $delivered,
+            'exposure_path'        => $exposurePath,
+            'reasons'              => array_values($reasons),
+            'integration_blockers' => array_values($integrationBlockers),
         ];
     }
 }
