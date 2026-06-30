@@ -72,7 +72,9 @@ final class AtlasStrategyCouncilLeverageRanker
                     'capability_gap' => (int) ($c['capability_gap'] ?? 0),
                     'user_impact' => (int) ($c['user_impact'] ?? 0),
                     'autonomy_unlock' => (int) ($c['autonomy_unlock'] ?? 0),
+                    'unblocks_count' => (int) ($c['unblocks_count'] ?? 0),
                     'waste_reduction' => (int) ($c['waste_reduction'] ?? 0),
+                    'risk_reduction' => (int) ($c['risk_reduction'] ?? 0),
                     'risk' => (int) ($c['risk'] ?? 0),
                     'evidence_refs_count' => count($evidenceRefs),
                     'dependency_count' => (int) ($c['dependency_count'] ?? 0),
@@ -83,9 +85,11 @@ final class AtlasStrategyCouncilLeverageRanker
 
         usort($accepted, function (array $a, array $b): int {
             return $b['factors']['autonomy_unlock'] <=> $a['factors']['autonomy_unlock']
+                ?: $b['factors']['unblocks_count'] <=> $a['factors']['unblocks_count']
                 ?: $b['factors']['capability_gap'] <=> $a['factors']['capability_gap']
                 ?: $b['factors']['user_impact'] <=> $a['factors']['user_impact']
                 ?: $b['factors']['waste_reduction'] <=> $a['factors']['waste_reduction']
+                ?: $b['factors']['risk_reduction'] <=> $a['factors']['risk_reduction']
                 ?: $a['factors']['dependency_count'] <=> $b['factors']['dependency_count']
                 ?: $a['factors']['risk'] <=> $b['factors']['risk']
                 ?: strcmp($a['candidate_id'], $b['candidate_id']);
@@ -94,9 +98,11 @@ final class AtlasStrategyCouncilLeverageRanker
         foreach ($accepted as $i => $row) {
             $accepted[$i]['reasons'] = [
                 'autonomy_unlock='.$row['factors']['autonomy_unlock'],
+                'unblocks_count='.$row['factors']['unblocks_count'],
                 'capability_gap='.$row['factors']['capability_gap'],
                 'user_impact='.$row['factors']['user_impact'],
                 'waste_reduction='.$row['factors']['waste_reduction'],
+                'risk_reduction='.$row['factors']['risk_reduction'],
                 'dependency_count='.$row['factors']['dependency_count'],
                 'risk='.$row['factors']['risk'],
                 'evidence_refs_count='.$row['factors']['evidence_refs_count'],

@@ -135,4 +135,57 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    public function test_higher_unblocks_count_ranks_first_when_autonomy_ties(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'lo', 'unblocks_count' => 1]),
+            $this->candidate(['candidate_id' => 'hi', 'unblocks_count' => 9]),
+        ]);
+
+        $this->assertSame('hi', $verdict['ranked'][0]['candidate_id']);
+    }
+
+    public function test_reasons_include_unblocks_count_and_risk_reduction(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['unblocks_count' => 3, 'risk_reduction' => 5]),
+        ]);
+
+        $reasons = $verdict['ranked'][0]['reasons'];
+        $this->assertContains('unblocks_count=3', $reasons);
+        $this->assertContains('risk_reduction=5', $reasons);
+    }
+
+    public function test_task_count_only_proxy_is_rejected(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'task-count-only',
+                'proxy_signals' => ['task_count'],
+                'capability_gap' => 0,
+                'user_impact' => 0,
+                'autonomy_unlock' => 0,
+            ]),
+        ]);
+
+        $this->assertSame([], $verdict['ranked']);
+        $this->assertCount(1, $verdict['rejected']);
+    }
+
+    public function test_green_self_report_only_proxy_is_rejected(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'self-report',
+                'proxy_signals' => ['green_self_report'],
+                'capability_gap' => 0,
+                'user_impact' => 0,
+                'autonomy_unlock' => 0,
+            ]),
+        ]);
+
+        $this->assertSame([], $verdict['ranked']);
+        $this->assertCount(1, $verdict['rejected']);
+    }
 }
