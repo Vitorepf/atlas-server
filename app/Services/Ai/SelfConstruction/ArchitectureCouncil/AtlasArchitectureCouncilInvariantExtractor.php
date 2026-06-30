@@ -46,7 +46,8 @@ final class AtlasArchitectureCouncilInvariantExtractor
                 'test_hint' => 'assert that '.$organ.' writer and judge classes are NOT the same class',
             ];
         }
-        if ((string) ($contract['owning_runtime'] ?? '') === 'atlas_native') {
+        $owningRuntime = (string) ($contract['owning_runtime'] ?? '');
+        if ($owningRuntime === 'atlas_native') {
             $emitted[] = [
                 'invariant_id' => 'atlas_native_ownership',
                 'organ' => $organ,
@@ -54,6 +55,15 @@ final class AtlasArchitectureCouncilInvariantExtractor
                 'violation_effect' => 'block_promotion',
                 'test_hint' => 'audit::atlas_native == true (no operator/human/provider in steady-state path)',
             ];
+            $emitted[] = [
+                'invariant_id' => 'runtime_boundary_ownership',
+                'organ' => $organ,
+                'must_hold' => 'runtime boundary is owned and enforced by atlas_native (no external boundary crossing)',
+                'violation_effect' => 'block_promotion',
+                'test_hint' => 'assert runtime_boundary is scoped to atlas_native domain',
+            ];
+        } elseif ($owningRuntime !== '') {
+            return $this->envelope([], ['invalid_organ_ownership:'.$owningRuntime]);
         }
         if ((string) ($contract['workspace_topology'] ?? '') === 'shared_local_main_with_scope_lock') {
             $emitted[] = [
@@ -72,8 +82,18 @@ final class AtlasArchitectureCouncilInvariantExtractor
                 'violation_effect' => 'park_for_evidence',
                 'test_hint' => 'assert verified_evidence is non-empty before merge',
             ];
+            $emitted[] = [
+                'invariant_id' => 'evidence_contract_presence',
+                'organ' => $organ,
+                'must_hold' => 'evidence contract is declared and non-empty in the organ spec',
+                'violation_effect' => 'park_for_evidence',
+                'test_hint' => 'assert evidence_contract key is present and non-empty in contract',
+            ];
         }
-        if (array_key_exists('allows_self_certification', $contract) && (bool) $contract['allows_self_certification'] === false) {
+        if (array_key_exists('allows_self_certification', $contract)) {
+            if ((bool) $contract['allows_self_certification'] === true) {
+                return $this->envelope([], ['self_certification_forbidden']);
+            }
             $emitted[] = [
                 'invariant_id' => 'no_self_certification',
                 'organ' => $organ,
@@ -84,17 +104,27 @@ final class AtlasArchitectureCouncilInvariantExtractor
         }
 
         $extras = is_array($contract['extra_invariants'] ?? null) ? array_values($contract['extra_invariants']) : [];
+        $emptyMustHold = [];
         foreach ($extras as $extra) {
             if (! is_array($extra) || ! isset($extra['invariant_id'])) {
+                continue;
+            }
+            $mustHold = (string) ($extra['must_hold'] ?? '');
+            if ($mustHold === '') {
+                $emptyMustHold[] = (string) $extra['invariant_id'];
+
                 continue;
             }
             $emitted[] = [
                 'invariant_id' => (string) $extra['invariant_id'],
                 'organ' => (string) ($extra['organ'] ?? $organ),
-                'must_hold' => (string) ($extra['must_hold'] ?? ''),
+                'must_hold' => $mustHold,
                 'violation_effect' => (string) ($extra['violation_effect'] ?? 'block_promotion'),
                 'test_hint' => (string) ($extra['test_hint'] ?? ''),
             ];
+        }
+        if ($emptyMustHold !== []) {
+            return $this->envelope([], array_map(static fn (string $id): string => 'empty_must_hold:'.$id, $emptyMustHold));
         }
 
         // Duplicate detection BEFORE ordering.

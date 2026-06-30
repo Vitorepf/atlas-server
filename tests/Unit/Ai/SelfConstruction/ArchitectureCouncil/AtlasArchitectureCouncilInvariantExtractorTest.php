@@ -45,7 +45,7 @@ final class AtlasArchitectureCouncilInvariantExtractorTest extends TestCase
         ]);
 
         $ids = array_column($verdict['invariants'], 'invariant_id');
-        $this->assertSame(['evidence_required', 'no_self_certification', 'separation_of_powers'], $ids, 'deterministic order by invariant_id ASC');
+        $this->assertSame(['evidence_contract_presence', 'evidence_required', 'no_self_certification', 'separation_of_powers'], $ids, 'deterministic order by invariant_id ASC');
         $this->assertNotContains('atlas_native_ownership', $ids);
         $this->assertNotContains('shared_main_topology', $ids);
     }
@@ -92,5 +92,67 @@ final class AtlasArchitectureCouncilInvariantExtractorTest extends TestCase
         $svc = new AtlasArchitectureCouncilInvariantExtractor;
         $contract = ['organ' => 'merge_governor', 'separates_roles' => true, 'requires_evidence' => true];
         $this->assertSame(json_encode($svc->extract($contract)), json_encode($svc->extract($contract)));
+    }
+
+    public function test_atlas_native_ownership_emits_runtime_boundary_ownership_invariant(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'scheduler',
+            'owning_runtime' => 'atlas_native',
+        ]);
+
+        $ids = array_column($verdict['invariants'], 'invariant_id');
+        $this->assertContains('atlas_native_ownership', $ids);
+        $this->assertContains('runtime_boundary_ownership', $ids);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_evidence_required_emits_evidence_contract_presence_invariant(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'evidence_collector',
+            'requires_evidence' => true,
+        ]);
+
+        $ids = array_column($verdict['invariants'], 'invariant_id');
+        $this->assertContains('evidence_required', $ids);
+        $this->assertContains('evidence_contract_presence', $ids);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_invalid_organ_ownership_is_blocked(): void
+    {
+        foreach (['human', 'operator', 'external_provider', 'claude_code'] as $forbidden) {
+            $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+                'organ' => 'rogue_organ',
+                'owning_runtime' => $forbidden,
+            ]);
+            $this->assertSame([], $verdict['invariants'], "owning_runtime=$forbidden must block");
+            $this->assertContains('invalid_organ_ownership:'.$forbidden, $verdict['blockers']);
+        }
+    }
+
+    public function test_self_certifying_contract_is_blocked(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'certification_organ',
+            'allows_self_certification' => true,
+        ]);
+
+        $this->assertSame([], $verdict['invariants']);
+        $this->assertContains('self_certification_forbidden', $verdict['blockers']);
+    }
+
+    public function test_empty_must_hold_in_extra_invariants_is_blocked(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'loose_organ',
+            'extra_invariants' => [
+                ['invariant_id' => 'my_check', 'must_hold' => ''],
+            ],
+        ]);
+
+        $this->assertSame([], $verdict['invariants']);
+        $this->assertContains('empty_must_hold:my_check', $verdict['blockers']);
     }
 }
