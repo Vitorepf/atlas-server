@@ -79,31 +79,40 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
         $bottleneckShape = ! $dryQueue && $hasDeepBacklog && $isStale && $observedConsumption === 0;
 
         $reasons = [];
+        $requiredEvidence = [];
 
         if ($malformedRate >= self::HIGH_MALFORMED_THRESHOLD || $giveBackRate >= self::HIGH_GIVE_BACK_THRESHOLD) {
             $decision = self::DECISION_REPAIR_QUEUE;
             $confidence = 0.9;
             $reasons[] = sprintf('malformed_rate=%.2f give_back_rate=%.2f above the repair threshold', $malformedRate, $giveBackRate);
+            $requiredEvidence[] = 'health_snapshot.malformed_rate';
+            $requiredEvidence[] = 'health_snapshot.give_back_rate';
         } elseif ($bottleneckShape && $batchFixesBottleneck) {
             $decision = self::DECISION_CREATE_MORE;
             $confidence = 0.7;
             $reasons[] = 'high claimable depth and stale p95 age, but the proposed batch directly fixes the bottleneck';
+            $requiredEvidence[] = 'proposed_batch_leverage.fixes_bottleneck';
         } elseif ($bottleneckShape) {
             $decision = self::DECISION_DRAIN_EXISTING;
             $confidence = 0.85;
             $reasons[] = 'high claimable depth, stale p95 age, queue not dry, and no observed consumption — bottleneck is drain, not creation';
+            $requiredEvidence[] = 'queue_age_histogram.oldest_age_p95_seconds';
+            $requiredEvidence[] = 'worker_idle_prediction.observed_consumption_count';
         } elseif ($hasDeepBacklog && ! $consumptionProvided) {
             $decision = self::DECISION_PAUSE_ORIGINATION;
             $confidence = 0.5;
             $reasons[] = 'claimable backlog exists but worker consumption evidence is missing; pause origination rather than guess';
+            $requiredEvidence[] = 'worker_idle_prediction.observed_consumption_count';
         } elseif ($dryQueue && $urgencyScore > self::HIGH_URGENCY_THRESHOLD) {
             $decision = self::DECISION_CREATE_MORE;
             $confidence = 0.8;
             $reasons[] = 'queue is dry and replenish urgency is high';
+            $requiredEvidence[] = 'replenish_urgency.urgency_score';
         } elseif (! $hasDeepBacklog && $observedConsumption === 0 && ! $dryQueue) {
             $decision = self::DECISION_CONSOLIDATE;
             $confidence = 0.5;
             $reasons[] = 'no claimable backlog and no consumption signal; consolidate before originating more';
+            $requiredEvidence[] = 'worker_idle_prediction.observed_consumption_count';
         } else {
             $decision = self::DECISION_CREATE_MORE;
             $confidence = 0.75;
@@ -122,6 +131,7 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicy
             'reasons' => $reasons,
             'allowed_next_actions' => $allowedNextActions,
             'blocked_next_actions' => $blockedNextActions,
+            'required_evidence' => $requiredEvidence,
         ];
     }
 }

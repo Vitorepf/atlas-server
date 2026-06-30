@@ -209,4 +209,33 @@ final class AtlasExternalBrainBacklogFreshnessStopGoPolicyTest extends TestCase
         $this->assertGreaterThanOrEqual(0.0, $r['confidence']);
         $this->assertLessThanOrEqual(1.0, $r['confidence']);
     }
+
+    // ── AC: required_evidence ─────────────────────────────────────────────────
+
+    public function test_output_has_required_evidence_key(): void
+    {
+        $r = $this->svc()->decide($this->bottleneckFacts());
+        $this->assertArrayHasKey('required_evidence', $r);
+        $this->assertIsArray($r['required_evidence']);
+    }
+
+    public function test_pause_origination_required_evidence_names_missing_consumption_signal(): void
+    {
+        $r = $this->svc()->decide([
+            'health_snapshot' => ['dry_queue' => false],
+            'queue_age_histogram' => ['claimable_depth' => 10, 'oldest_age_p95_seconds' => 100, 'stale_threshold_seconds' => 3600],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_PAUSE_ORIGINATION, $r['decision']);
+        $this->assertContains('worker_idle_prediction.observed_consumption_count', $r['required_evidence']);
+    }
+
+    public function test_drain_existing_required_evidence_names_age_and_consumption_signals(): void
+    {
+        $r = $this->svc()->decide($this->bottleneckFacts());
+
+        $this->assertSame(AtlasExternalBrainBacklogFreshnessStopGoPolicy::DECISION_DRAIN_EXISTING, $r['decision']);
+        $this->assertContains('queue_age_histogram.oldest_age_p95_seconds', $r['required_evidence']);
+        $this->assertContains('worker_idle_prediction.observed_consumption_count', $r['required_evidence']);
+    }
 }
