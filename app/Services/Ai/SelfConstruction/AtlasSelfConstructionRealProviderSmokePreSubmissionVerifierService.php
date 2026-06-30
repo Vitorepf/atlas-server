@@ -3,28 +3,10 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
-
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_pre_submission_verifier.v1';
 
     public const MODE = 'read_only_real_provider_smoke_pre_submission_verifier';
@@ -90,7 +72,9 @@ final class AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService
                 'does_not_promote_completion' => true,
             ],
         ];
-        $payload['pre_submission_hash'] = $this->stableHash($payload);
+        $payloadForHash = $payload;
+        unset($payloadForHash['verified_at'], $payloadForHash['pre_submission_hash']);
+        $payload['pre_submission_hash'] = hash('sha256', (string) json_encode(ReadinessHash::ksortRecursive($payloadForHash), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
@@ -260,13 +244,4 @@ final class AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService
         return false;
     }
 
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['verified_at'], $payload['pre_submission_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    /** @param array<string, mixed> $value */
 }

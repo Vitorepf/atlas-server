@@ -3,22 +3,10 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
-
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRealProviderSmokeDraftService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_draft.v1';
 
     public const MODE = 'read_only_real_provider_smoke_draft';
@@ -126,7 +114,9 @@ final class AtlasSelfConstructionRealProviderSmokeDraftService
                 ? 'rerun_completion_evidence_status_to_count_real_provider_smoke'
                 : ($ready ? 'operator_may_persist_real_provider_smoke_through_existing_certifier' : 'operator_must_supply_real_smoke_observation_evidence'),
         ];
-        $payload['draft_hash'] = $this->stableHash($payload);
+        $payloadForHash = $payload;
+        unset($payloadForHash['generated_at'], $payloadForHash['draft_hash'], $payloadForHash['verification']['verified_at'], $payloadForHash['persistence']['certified_at']);
+        $payload['draft_hash'] = hash('sha256', (string) json_encode(ReadinessHash::ksortRecursive($payloadForHash), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
@@ -202,13 +192,4 @@ final class AtlasSelfConstructionRealProviderSmokeDraftService
         }));
     }
 
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['draft_hash'], $payload['verification']['verified_at'], $payload['persistence']['certified_at']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    /** @param array<string, mixed> $value */
 }

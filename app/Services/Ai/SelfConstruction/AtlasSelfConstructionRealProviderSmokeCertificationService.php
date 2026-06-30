@@ -3,14 +3,11 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionRealProviderSmokeCertificationService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_certification.v1';
 
     public const MODE = 'read_only_real_provider_smoke_certification';
@@ -135,7 +132,9 @@ final class AtlasSelfConstructionRealProviderSmokeCertificationService
                 ? 'allow_completion_audit_to_count_real_provider_smoke'
                 : 'run_operator_approved_real_provider_smoke_and_attach_receipts',
         ];
-        $payload['certification_hash'] = $this->stableHash($payload);
+        $payloadForHash = $payload;
+        unset($payloadForHash['certified_at'], $payloadForHash['certification_hash']);
+        $payload['certification_hash'] = hash('sha256', (string) json_encode(ReadinessHash::ksortRecursive($payloadForHash), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
@@ -212,13 +211,6 @@ final class AtlasSelfConstructionRealProviderSmokeCertificationService
         ));
         $registry[] = $entry;
         Storage::disk(self::STORAGE_DISK)->put(self::STORAGE_PREFIX.'/registry.json', json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
-
-    private function stableHash(array $payload): string
-    {
-        unset($payload['certified_at'], $payload['certification_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function hashes(): AtlasSelfConstructionCompletionEvidenceHashService

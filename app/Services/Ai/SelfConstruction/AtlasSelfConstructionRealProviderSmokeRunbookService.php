@@ -3,28 +3,10 @@
 namespace App\Services\Ai\SelfConstruction;
 
 
-
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionRealProviderSmokeRunbookService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.real_provider_smoke_runbook.v1';
 
     public const MODE = 'read_only_real_provider_smoke_runbook';
@@ -152,6 +134,10 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             'work_product_must_be_collected_before_smoke_passes' => true,
             'work_product_command' => 'php artisan atlas:ai:self-construction --agent-work-product --actor=<operator> --session=<session> --artifact-type=<type> --artifact-path=<path> --artifact-hash=<sha256> --summary="<short>" --json',
         ];
+        $templateForHash = $realProviderSmokeTemplate;
+        unset($templateForHash['generated_at'], $templateForHash['runbook_hash']);
+        $templateHash = hash('sha256', (string) json_encode(ReadinessHash::ksortRecursive($templateForHash), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -166,7 +152,7 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
             'token_cost_capture_requirements' => $tokenCostCaptureRequirements,
             'work_product_collection_requirements' => $workProductCollectionRequirements,
             'template_field_count' => count($realProviderSmokeTemplate),
-            'template_hash' => $this->stableHash($realProviderSmokeTemplate),
+            'template_hash' => $templateHash,
             'steps' => $steps,
             'commands' => [
                 'persist_real_provider_smoke' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --real-provider-smoke-json=@/path/to/real-provider-smoke.json --persist-completion-evidence --json',
@@ -188,7 +174,9 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
                 'real_provider_smoke_runbook_does_not_promote_completion',
             ],
         ];
-        $payload['runbook_hash'] = $this->stableHash($payload);
+        $payloadForHash = $payload;
+        unset($payloadForHash['generated_at'], $payloadForHash['runbook_hash']);
+        $payload['runbook_hash'] = hash('sha256', (string) json_encode(ReadinessHash::ksortRecursive($payloadForHash), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
@@ -211,14 +199,6 @@ final class AtlasSelfConstructionRealProviderSmokeRunbookService
     private function terminalLoopOperationalProofCanonicalBindingPath(): string
     {
         return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['runbook_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /** @param array<string, mixed> $value */
