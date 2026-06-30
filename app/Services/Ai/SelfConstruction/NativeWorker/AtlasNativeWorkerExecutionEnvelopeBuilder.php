@@ -63,7 +63,7 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
             'required_evidence' => $requiredEvidence,
             'gates' => $this->normalizeStringList($packet['gates'] ?? null),
             'rollback_plan' => is_array($packet['rollback_plan'] ?? null) ? $packet['rollback_plan'] : ['mode' => 'revert_commit'],
-            'evidence_template' => is_array($packet['evidence_template'] ?? null) ? $packet['evidence_template'] : $this->defaultEvidenceTemplate($requiredEvidence),
+            'evidence_template' => is_array($packet['evidence_template'] ?? null) ? $packet['evidence_template'] : array_fill_keys($requiredEvidence, null),
         ];
 
         $envelope['envelope_hash'] = $this->hash($envelope);
@@ -83,36 +83,16 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     private function normalizeStringList(mixed $value): array
     {
         if (! is_array($value)) {
             return [];
         }
-        $out = [];
-        foreach ($value as $v) {
-            $s = trim((string) $v);
-            if ($s !== '' && ! in_array($s, $out, true)) {
-                $out[] = $s;
-            }
-        }
 
-        return $out;
-    }
-
-    /**
-     * @param  list<string>  $requiredEvidence
-     * @return array<string,mixed>
-     */
-    private function defaultEvidenceTemplate(array $requiredEvidence): array
-    {
-        $tpl = [];
-        foreach ($requiredEvidence as $key) {
-            $tpl[$key] = null;
-        }
-
-        return $tpl;
+        return array_values(array_unique(array_filter(
+            array_map(fn ($v) => trim((string) $v), $value),
+            fn ($s) => $s !== '',
+        )));
     }
 }
