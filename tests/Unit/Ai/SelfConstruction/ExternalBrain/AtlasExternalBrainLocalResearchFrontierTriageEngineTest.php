@@ -46,6 +46,59 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
         $this->assertArrayHasKey('promising_count', $r);
         $this->assertArrayHasKey('next_research_action', $r);
         $this->assertArrayHasKey('leverage_rank', $r);
+        $this->assertArrayHasKey('hold_for_review', $r);
+        $this->assertArrayHasKey('duplicate_family_warnings', $r);
+        $this->assertArrayHasKey('source_diversity_summary', $r);
+    }
+
+    // ── task_seed_hints carries source_family + dedup_key ──────────────────────
+
+    public function test_task_seed_hints_includes_source_family_and_dedup_key(): void
+    {
+        $r = $this->engine()->triage(['frontier_rows' => [
+            $this->row(['source_family' => 'arxiv', 'dedup_key' => 'arxiv:paper-1']),
+        ]]);
+
+        $hints = $r['promising'][0]['task_seed_hints'];
+        $this->assertSame('arxiv', $hints['source_family']);
+        $this->assertSame('arxiv:paper-1', $hints['dedup_key']);
+    }
+
+    // ── duplicate family pressure ──────────────────────────────────────────────
+
+    public function test_duplicate_family_warning_emitted_when_multiple_promising_rows_share_family(): void
+    {
+        $r = $this->engine()->triage(['frontier_rows' => [
+            $this->row(['id' => 'a', 'source_family' => 'github']),
+            $this->row(['id' => 'b', 'source_family' => 'github']),
+        ]]);
+
+        $this->assertNotEmpty($r['duplicate_family_warnings']);
+        $this->assertTrue($r['leverage_rank'][0]['duplicate_family_pressure']);
+    }
+
+    public function test_no_duplicate_family_warning_when_families_distinct(): void
+    {
+        $r = $this->engine()->triage(['frontier_rows' => [
+            $this->row(['id' => 'a', 'source_family' => 'github']),
+            $this->row(['id' => 'b', 'source_family' => 'arxiv']),
+        ]]);
+
+        $this->assertSame([], $r['duplicate_family_warnings']);
+    }
+
+    // ── source diversity summary ────────────────────────────────────────────────
+
+    public function test_source_diversity_summary_counts_unique_families(): void
+    {
+        $r = $this->engine()->triage(['frontier_rows' => [
+            $this->row(['id' => 'a', 'source_family' => 'github']),
+            $this->row(['id' => 'b', 'source_family' => 'arxiv']),
+        ]]);
+
+        $this->assertSame(2, $r['source_diversity_summary']['unique_family_count']);
+        $this->assertSame(1, $r['source_diversity_summary']['counts_by_family']['github']);
+        $this->assertSame(1, $r['source_diversity_summary']['counts_by_family']['arxiv']);
     }
 
     public function test_empty_rows_yields_zero_counts(): void

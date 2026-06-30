@@ -76,6 +76,8 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             $evidenceUnknown      = (bool) ($row['evidence_quality_unknown']          ?? false);
             $implTarget           = (string) ($row['implementation_target']           ?? '');
             $testTarget           = (string) ($row['test_target']                     ?? '');
+            $sourceFamily         = (string) ($row['source_family']                   ?? '');
+            $dedupKey             = (string) ($row['dedup_key'] ?? ($sourceFamily !== '' ? $sourceFamily.':'.$title : $title));
 
             // AC1: deterministic score fields derived from inputs.
             $evidenceQualityScore    = round(min(1.0, $evidence + ($hasCode ? 0.10 : 0.0) + ($hasBenchmark ? 0.10 : 0.0)), 4);
@@ -92,6 +94,8 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                 'implementation_risk_score'   => $implementationRiskScore,
                 'provider_dependency_score'   => $providerDependencyScore,
                 'expected_compounding_impact' => $compoundImpact,
+                'source_family'               => $sourceFamily,
+                'dedup_key'                   => $dedupKey,
             ];
 
             // 1. Hype-only rejection.
@@ -146,6 +150,8 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                         'implementation_target' => $implTarget,
                         'test_target'           => $testTarget,
                         'expected_leverage'     => $compoundImpact,
+                        'source_family'         => $sourceFamily,
+                        'dedup_key'             => $dedupKey,
                     ],
                 ]);
                 continue;
@@ -155,8 +161,46 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             $exploratory[] = array_merge($entry, ['has_code' => $hasCode, 'has_benchmark' => $hasBenchmark]);
         }
 
+        // Duplicate family pressure: when 2+ promising rows share a source_family, the family
+        // is over-represented — emit a warning and apply a rank penalty so quantity-of-source
+        // never substitutes for diversity of evidence.
+        $familyCounts = [];
+        foreach ($promising as $row) {
+            if ($row['source_family'] !== '') {
+                $familyCounts[$row['source_family']] = ($familyCounts[$row['source_family']] ?? 0) + 1;
+            }
+        }
+        $duplicateFamilyWarnings = [];
+        foreach ($familyCounts as $family => $count) {
+            if ($count > 1) {
+                $duplicateFamilyWarnings[] = "source_family={$family}:count={$count}:duplicate_family_pressure_detected";
+            }
+        }
+
         $leverageRank = $promising;
-        usort($leverageRank, fn($a, $b): int => $b['expected_compounding_impact'] <=> $a['expected_compounding_impact']);
+        foreach ($leverageRank as &$row) {
+            $familyCount = $familyCounts[$row['source_family']] ?? 1;
+            $row['duplicate_family_pressure'] = $familyCount > 1;
+            // Lower-rank score (display-only) penalised by family over-representation; the raw
+            // expected_compounding_impact field is preserved unmodified.
+            $row['rank_score'] = $familyCount > 1
+                ? round($row['expected_compounding_impact'] * (1.0 / $familyCount), 4)
+                : $row['expected_compounding_impact'];
+        }
+        unset($row);
+        usort($leverageRank, fn ($a, $b): int => $b['rank_score'] <=> $a['rank_score']);
+
+        // Source diversity summary across promising + exploratory rows.
+        $diversityCounts = [];
+        foreach (array_merge($promising, $exploratory) as $row) {
+            $family = $row['source_family'] !== '' ? $row['source_family'] : 'unknown';
+            $diversityCounts[$family] = ($diversityCounts[$family] ?? 0) + 1;
+        }
+        ksort($diversityCounts);
+        $sourceDiversitySummary = [
+            'unique_family_count' => count($diversityCounts),
+            'counts_by_family'    => $diversityCounts,
+        ];
 
         return [
             'schema_version'               => self::SCHEMA,
@@ -175,6 +219,8 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             'ungrounded_rejected_count'    => count($ungroundedRejected),
             'next_research_action'         => $this->nextAction($promising, $exploratory, $providerDependentRejected, $highRiskRejected),
             'leverage_rank'                => $leverageRank,
+            'duplicate_family_warnings'    => $duplicateFamilyWarnings,
+            'source_diversity_summary'     => $sourceDiversitySummary,
         ];
     }
 
