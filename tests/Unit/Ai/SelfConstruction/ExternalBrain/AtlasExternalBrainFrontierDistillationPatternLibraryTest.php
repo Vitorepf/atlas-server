@@ -309,4 +309,80 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
         $this->assertSame([], $result['retired_patterns']);
         $this->assertSame([], $result['rejected_patterns']);
     }
+
+    // ── AC2/AC3: one-off and provider-specific-trick rejections ────────────────
+
+    public function test_one_off_output_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input(
+            $this->pattern(['is_one_off_output' => true]),
+        ));
+
+        $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_ONE_OFF_OUTPUT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_provider_specific_trick_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input(
+            $this->pattern(['is_provider_specific_trick' => true]),
+        ));
+
+        $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_PROVIDER_SPECIFIC_TRICK,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    // ── AC1/AC4: source_task_family, distilled_scaffold, transfer_limits, scaffold candidate ──
+
+    public function test_reusable_entry_records_source_family_scaffold_and_transfer_limits(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern([
+            'source_task_family' => 'evolution_loop_origination',
+            'distilled_scaffold' => 'check evidence before claiming lift',
+            'transfer_limits'    => ['requires_paired_evidence', 'not_for_self_declared_claims'],
+        ])));
+
+        $entry = $result['reusable_patterns'][0];
+        $this->assertSame('evolution_loop_origination', $entry['source_task_family']);
+        $this->assertSame('check evidence before claiming lift', $entry['distilled_scaffold']);
+        $this->assertSame(['requires_paired_evidence', 'not_for_self_declared_claims'], $entry['transfer_limits']);
+    }
+
+    public function test_provider_agnostic_scaffold_candidate_emitted_with_repeated_evidence(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern([
+            'success_count'       => 2,
+            'distilled_scaffold'  => 'reject claims lacking before/after evidence',
+            'risk_notes'          => ['may not generalize to single-shot tasks'],
+        ])));
+
+        $candidate = $result['reusable_patterns'][0]['provider_agnostic_scaffold_candidate'];
+        $this->assertNotNull($candidate);
+        $this->assertSame('reject claims lacking before/after evidence', $candidate['scaffold']);
+        $this->assertSame(['may not generalize to single-shot tasks'], $candidate['risk_notes']);
+        $this->assertSame(2, $candidate['evidence']['success_count']);
+    }
+
+    public function test_provider_agnostic_scaffold_candidate_null_without_repeated_evidence(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern([
+            'success_count'      => 1,
+            'distilled_scaffold' => 'a clever but unrepeated trick',
+        ])));
+
+        $this->assertNull($result['reusable_patterns'][0]['provider_agnostic_scaffold_candidate']);
+    }
+
+    public function test_provider_agnostic_scaffold_candidate_null_without_distilled_scaffold(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(['success_count' => 5])));
+
+        $this->assertNull($result['reusable_patterns'][0]['provider_agnostic_scaffold_candidate']);
+    }
 }

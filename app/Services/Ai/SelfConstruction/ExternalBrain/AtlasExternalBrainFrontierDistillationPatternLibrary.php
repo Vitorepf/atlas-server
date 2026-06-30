@@ -18,7 +18,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   contains_private_trace             → private_trace_violation
  *   contains_provider_session_id       → provider_session_id_violation
  *   contains_unredacted_prompt_fragment → unredacted_prompt_fragment_violation
+ *   is_one_off_output                  → one_off_output_violation (single clever result, not a repeatable pattern)
+ *   is_provider_specific_trick         → provider_specific_trick_violation (not provider-agnostic)
  *   type not in VALID_TYPES            → invalid_pattern_type
+ *
+ * Each reusable entry may optionally carry: source_task_family, distilled_scaffold, transfer_limits.
+ * provider_agnostic_scaffold_candidate is emitted per reusable entry ONLY when distilled_scaffold is
+ * non-empty AND success_count >= MIN_REPEAT_EVIDENCE_FOR_SCAFFOLD (repeated lift evidence) — it
+ * carries the scaffold, an evidence summary and risk_notes; null otherwise.
  *
  * Ranking + retirement:
  *   reusable_patterns sorted DESC by success_count.
@@ -50,6 +57,8 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
     public const REJECTION_PRIVATE_TRACE                = 'private_trace_violation';
     public const REJECTION_PROVIDER_SESSION_ID          = 'provider_session_id_violation';
     public const REJECTION_UNREDACTED_PROMPT_FRAGMENT   = 'unredacted_prompt_fragment_violation';
+    public const REJECTION_ONE_OFF_OUTPUT               = 'one_off_output_violation';
+    public const REJECTION_PROVIDER_SPECIFIC_TRICK      = 'provider_specific_trick_violation';
     public const REJECTION_INVALID_TYPE                 = 'invalid_pattern_type';
 
     public const RETIRE_REASON_GIVE_BACK_COUNT = 'give_back_count_threshold_exceeded';
@@ -70,6 +79,7 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
     private const RETIRE_LOW_VALUE_THRESHOLD = 2;
     private const MIN_OUTCOMES_FOR_RATE      = 4;
     private const MAX_INJECTION_RULES        = 3;
+    private const MIN_REPEAT_EVIDENCE_FOR_SCAFFOLD = 2;
 
     /**
      * @param  array{patterns?: list<array<string,mixed>>}  $input
@@ -105,6 +115,14 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
                 $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_UNREDACTED_PROMPT_FRAGMENT];
                 continue;
             }
+            if (! empty($pattern['is_one_off_output'])) {
+                $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_ONE_OFF_OUTPUT];
+                continue;
+            }
+            if (! empty($pattern['is_provider_specific_trick'])) {
+                $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_PROVIDER_SPECIFIC_TRICK];
+                continue;
+            }
             if (! in_array($type, self::VALID_TYPES, true)) {
                 $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_INVALID_TYPE];
                 continue;
@@ -115,21 +133,39 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
             $lowValueCount = max(0, (int) ($pattern['low_value_count'] ?? 0));
             $totalOutcomes = $successCount + $giveBackCount + $lowValueCount;
 
+            $sourceTaskFamily = (string) ($pattern['source_task_family'] ?? '');
+            $distilledScaffold = trim((string) ($pattern['distilled_scaffold'] ?? ''));
+            $transferLimits = array_values(array_map('strval', (array) ($pattern['transfer_limits'] ?? [])));
+            $riskNotes = array_values(array_map('strval', (array) ($pattern['risk_notes'] ?? [])));
+
             $retireReason = $this->retireReason($successCount, $giveBackCount, $lowValueCount, $totalOutcomes);
 
             $entry = [
-                'pattern_id'      => $patternId,
-                'type'            => $type,
-                'abstract_rule'   => $abstractRule,
-                'success_count'   => $successCount,
-                'give_back_count' => $giveBackCount,
-                'low_value_count' => $lowValueCount,
+                'pattern_id'          => $patternId,
+                'type'                => $type,
+                'abstract_rule'       => $abstractRule,
+                'success_count'       => $successCount,
+                'give_back_count'     => $giveBackCount,
+                'low_value_count'     => $lowValueCount,
+                'source_task_family'  => $sourceTaskFamily,
+                'distilled_scaffold'  => $distilledScaffold,
+                'transfer_limits'     => $transferLimits,
             ];
 
             if ($retireReason !== null) {
                 $entry['retire_reason'] = $retireReason;
                 $retired[]              = $entry;
             } else {
+                $entry['provider_agnostic_scaffold_candidate'] = ($distilledScaffold !== '' && $successCount >= self::MIN_REPEAT_EVIDENCE_FOR_SCAFFOLD)
+                    ? [
+                        'scaffold' => $distilledScaffold,
+                        'evidence' => [
+                            'success_count'       => $successCount,
+                            'source_task_family'  => $sourceTaskFamily,
+                        ],
+                        'risk_notes' => $riskNotes,
+                    ]
+                    : null;
                 $reusable[] = $entry;
             }
         }
