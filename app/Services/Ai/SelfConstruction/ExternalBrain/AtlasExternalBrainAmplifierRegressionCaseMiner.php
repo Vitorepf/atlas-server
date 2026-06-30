@@ -5,82 +5,116 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure miner: converts failed or weak amplified proposals into concrete,
- * provider-free regression cases for the spec regression harness.
+ * Pure miner: converts failed amplified proposals into held-out regression cases.
  *
- * A failure record is rejected when any of the following hold:
- *   A. has_provider_trace = true (provider internals not allowed in harness)
- *   B. expected_verdict not in VALID_VERDICTS ('rejection','repair','acceptance')
- *   C. observed_behavior shorter than MIN_DESCRIPTION_LENGTH chars (too vague)
+ * Promotion criteria (OR):
+ *   - repeated  : same (failure_type × trigger_shape) appears >= REPEAT_THRESHOLD times
+ *   - severe    : severity in SEVERE_LEVELS ('critical', 'high'), regardless of count
  *
- * Accepted failures produce regression_cases with: case_id, case_type,
- * input_pattern (first 100 chars of proposal_text), expected_verdict, and
- * an optional repair_action. harness_tags are unique failure types from
- * promoted cases. expected_verdicts maps failure_id → expected_verdict.
+ * Blocking (before promotion check, first match wins):
+ *   - has_provider_trace = true  → promotion_blockers (never enters promoted or rejected)
+ *
+ * Below-threshold: not repeated AND not severe → rejected_candidates.
+ *
+ * Dedup: only the first occurrence of each (failure_type × trigger_shape) key
+ *   is added to promoted_cases; subsequent occurrences are silently dropped.
+ *
+ * Supported failure types: give_back, poison, false_green, overfit,
+ *   duplicate_target, template_farm, low_compounding, provider_dependency.
+ *
+ * Output: promoted_cases, rejected_candidates, heldout_suite_updates,
+ *   promotion_blockers.
+ *
+ * Each promoted case includes: failure_id, failure_type, trigger_shape,
+ *   expected_rejection, heldout_reason.
+ *
+ * Pure: no I/O, no side effects, deterministic.
  */
 final class AtlasExternalBrainAmplifierRegressionCaseMiner
 {
     public const SCHEMA = 'atlas.external_brain.amplifier_regression_case_miner.v1';
 
-    public const MIN_DESCRIPTION_LENGTH = 30;
+    public const SUPPORTED_FAILURE_TYPES = [
+        'give_back', 'poison', 'false_green', 'overfit',
+        'duplicate_target', 'template_farm', 'low_compounding', 'provider_dependency',
+    ];
 
-    public const VALID_VERDICTS = ['rejection', 'repair', 'acceptance'];
+    private const REPEAT_THRESHOLD = 2;
+    private const SEVERE_LEVELS    = ['critical', 'high'];
 
     /**
-     * @param  array<string,mixed>  $input  failure_records list
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function mine(array $input): array
     {
         $failures = is_array($input['failure_records'] ?? null) ? $input['failure_records'] : [];
 
-        $regressionCases = [];
-        $rejectedFailures = [];
-        $expectedVerdicts = [];
-        $harnessTagSet = [];
+        // Pass 1 — count occurrences per (failure_type × trigger_shape).
+        $keyCounts = [];
+        foreach ($failures as $f) {
+            $key = (string) ($f['failure_type'] ?? '') . '::' . (string) ($f['trigger_shape'] ?? '');
+            $keyCounts[$key] = ($keyCounts[$key] ?? 0) + 1;
+        }
 
-        foreach ($failures as $failure) {
-            $id = (string) ($failure['failure_id'] ?? 'unknown');
-            $failureType = (string) ($failure['failure_type'] ?? 'unknown');
-            $proposalText = (string) ($failure['proposal_text'] ?? '');
-            $observedBehavior = (string) ($failure['observed_behavior'] ?? '');
-            $expectedVerdict = (string) ($failure['expected_verdict'] ?? '');
-            $repairAction = trim((string) ($failure['repair_action'] ?? ''));
-            $hasProviderTrace = (bool) ($failure['has_provider_trace'] ?? false);
+        $promotedCases     = [];
+        $rejectedCandidates = [];
+        $promotionBlockers = [];
+        $promotedKeys      = [];
 
-            $rejectionReason = null;
+        // Pass 2 — classify each failure.
+        foreach ($failures as $f) {
+            $id               = (string) ($f['failure_id']          ?? 'unknown');
+            $type             = (string) ($f['failure_type']        ?? '');
+            $trigger          = (string) ($f['trigger_shape']       ?? '');
+            $expectedRejection = (string) ($f['expected_rejection'] ?? '');
+            $heldoutReason    = trim((string) ($f['heldout_reason'] ?? ''));
+            $severity         = strtolower(trim((string) ($f['severity'] ?? 'low')));
+            $hasProviderTrace = (bool) ($f['has_provider_trace']    ?? false);
+
             if ($hasProviderTrace) {
-                $rejectionReason = 'contains_provider_trace';
-            } elseif (! in_array($expectedVerdict, self::VALID_VERDICTS, true)) {
-                $rejectionReason = 'invalid_or_missing_verdict';
-            } elseif (mb_strlen($observedBehavior) < self::MIN_DESCRIPTION_LENGTH) {
-                $rejectionReason = 'observed_behavior_too_vague';
-            }
-
-            if ($rejectionReason !== null) {
-                $rejectedFailures[] = ['failure_id' => $id, 'reason' => $rejectionReason];
-
+                $promotionBlockers[] = ['failure_id' => $id, 'blocker' => 'contains_provider_trace'];
                 continue;
             }
 
-            $regressionCases[] = array_filter([
-                'case_id' => $id,
-                'case_type' => $failureType,
-                'input_pattern' => mb_substr($proposalText, 0, 100),
-                'expected_verdict' => $expectedVerdict,
-                'repair_action' => $repairAction !== '' ? $repairAction : null,
-            ]);
+            $key        = $type . '::' . $trigger;
+            $isRepeated = ($keyCounts[$key] ?? 0) >= self::REPEAT_THRESHOLD;
+            $isSevere   = in_array($severity, self::SEVERE_LEVELS, true);
 
-            $expectedVerdicts[$id] = $expectedVerdict;
-            $harnessTagSet[$failureType] = true;
+            if (! $isRepeated && ! $isSevere) {
+                $rejectedCandidates[] = ['failure_id' => $id, 'rejection_reason' => 'below_threshold'];
+                continue;
+            }
+
+            // Dedup: only first occurrence of each key is promoted.
+            if (isset($promotedKeys[$key])) {
+                continue;
+            }
+            $promotedKeys[$key] = true;
+
+            $promotedCases[] = [
+                'failure_id'         => $id,
+                'failure_type'       => $type,
+                'trigger_shape'      => $trigger,
+                'expected_rejection' => $expectedRejection,
+                'heldout_reason'     => $heldoutReason !== ''
+                    ? $heldoutReason
+                    : ($isRepeated ? 'repeated_failure' : 'severe_singleton'),
+            ];
         }
 
+        $uniqueTypes = array_values(array_unique(array_column($promotedCases, 'failure_type')));
+
         return [
-            'schema_version' => self::SCHEMA,
-            'regression_cases' => $regressionCases,
-            'rejected_failures' => $rejectedFailures,
-            'expected_verdicts' => $expectedVerdicts,
-            'harness_tags' => array_keys($harnessTagSet),
+            'schema_version'       => self::SCHEMA,
+            'promoted_cases'       => $promotedCases,
+            'rejected_candidates'  => $rejectedCandidates,
+            'heldout_suite_updates' => [
+                'promoted_count'       => count($promotedCases),
+                'rejected_count'       => count($rejectedCandidates),
+                'unique_failure_types' => $uniqueTypes,
+            ],
+            'promotion_blockers'   => $promotionBlockers,
         ];
     }
 }
