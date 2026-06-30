@@ -10,9 +10,84 @@ use InvalidArgumentException;
 
 class AgentCodexRealInvokerPostStartProviderStartDriverGate
 {
+    public const BLOCK_REASON_ADAPTER_READINESS_SELF_DECLARED = 'adapter_readiness_self_declared';
+    public const BLOCK_REASON_ADAPTER_READINESS_STALE = 'adapter_readiness_stale';
+    public const BLOCK_REASON_SCOPED_COMMAND_MISSING = 'scoped_command_missing';
+    public const BLOCK_REASON_OUTPUT_RECEIPT_PATH_MISSING = 'output_receipt_path_missing';
+
+    public const ACCEPTED_READINESS_BASES = ['capability_probe', 'health_check', 'adapter_registry_verified'];
+
+    private const REQUIRED_PROOF = [
+        self::BLOCK_REASON_ADAPTER_READINESS_SELF_DECLARED => 'adapter_readiness_probe',
+        self::BLOCK_REASON_ADAPTER_READINESS_STALE => 'adapter_readiness_probe',
+        self::BLOCK_REASON_SCOPED_COMMAND_MISSING => 'scoped_command',
+        self::BLOCK_REASON_OUTPUT_RECEIPT_PATH_MISSING => 'output_receipt_path',
+    ];
+
+    public const DEFAULT_ADAPTER_READINESS_STALE_THRESHOLD_SECONDS = 300;
+
     public function __construct(
         private readonly AgentDispatchExecutorProviderStartDriver $providerStartDriver,
     ) {}
+
+    /**
+     * Pure pre-flight evaluator (AC1/AC2/AC3): the provider start driver only runs when adapter
+     * readiness is independently proven (never self-declared), the command is scoped, and an
+     * output receipt path exists to capture what the driver produces. Does not touch the
+     * database; this check runs before `preparePostStartProviderStartDriver()` is ever called.
+     *
+     * Block-reason priority (first failing check wins):
+     *   1. adapter_readiness_self_declared — readiness_basis is 'self_declared' or unrecognized
+     *   2. adapter_readiness_stale         — readiness age unknown or older than the threshold
+     *   3. scoped_command_missing          — scoped_command_present === false
+     *   4. output_receipt_path_missing     — output_receipt_path_present === false
+     *
+     * INPUT:
+     *   adapter_readiness_basis?: string (default 'self_declared')
+     *   adapter_readiness_age_seconds?: float|null
+     *   adapter_readiness_stale_threshold_seconds?: int (default 300)
+     *   scoped_command_present?: bool (default false)
+     *   output_receipt_path_present?: bool (default false)
+     *
+     * OUTPUT:
+     *   { driver_allowed, block_reason, block_reasons, required_proof }
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluateDriverStart(array $input): array
+    {
+        $readinessBasis = (string) ($input['adapter_readiness_basis'] ?? 'self_declared');
+        $readinessAge = isset($input['adapter_readiness_age_seconds']) ? (float) $input['adapter_readiness_age_seconds'] : null;
+        $staleThreshold = (int) ($input['adapter_readiness_stale_threshold_seconds'] ?? self::DEFAULT_ADAPTER_READINESS_STALE_THRESHOLD_SECONDS);
+        $scopedCommandPresent = (bool) ($input['scoped_command_present'] ?? false);
+        $outputReceiptPathPresent = (bool) ($input['output_receipt_path_present'] ?? false);
+
+        $blockReasons = [];
+
+        if (! in_array($readinessBasis, self::ACCEPTED_READINESS_BASES, true)) {
+            $blockReasons[] = self::BLOCK_REASON_ADAPTER_READINESS_SELF_DECLARED;
+        } elseif ($readinessAge === null || $readinessAge > $staleThreshold) {
+            $blockReasons[] = self::BLOCK_REASON_ADAPTER_READINESS_STALE;
+        }
+
+        if (! $scopedCommandPresent) {
+            $blockReasons[] = self::BLOCK_REASON_SCOPED_COMMAND_MISSING;
+        }
+
+        if (! $outputReceiptPathPresent) {
+            $blockReasons[] = self::BLOCK_REASON_OUTPUT_RECEIPT_PATH_MISSING;
+        }
+
+        $primaryReason = $blockReasons[0] ?? null;
+
+        return [
+            'driver_allowed' => $blockReasons === [],
+            'block_reason' => $primaryReason,
+            'block_reasons' => $blockReasons,
+            'required_proof' => $primaryReason !== null ? self::REQUIRED_PROOF[$primaryReason] : null,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input

@@ -357,6 +357,102 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProviderStartDriverGa
         ];
     }
 
+    // ── AC1/AC2/AC3: evaluateDriverStart — pure pre-flight evaluator ───────────
+
+    public function test_all_proofs_present_allows_driver(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class)->evaluateDriverStart([
+            'adapter_readiness_basis' => 'capability_probe',
+            'adapter_readiness_age_seconds' => 5.0,
+            'scoped_command_present' => true,
+            'output_receipt_path_present' => true,
+        ]);
+
+        $this->assertTrue($result['driver_allowed']);
+        $this->assertNull($result['block_reason']);
+        $this->assertNull($result['required_proof']);
+    }
+
+    public function test_self_declared_readiness_blocks_driver(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class)->evaluateDriverStart([
+            'adapter_readiness_basis' => 'self_declared',
+            'scoped_command_present' => true,
+            'output_receipt_path_present' => true,
+        ]);
+
+        $this->assertFalse($result['driver_allowed']);
+        $this->assertSame(
+            AgentCodexRealInvokerPostStartProviderStartDriverGate::BLOCK_REASON_ADAPTER_READINESS_SELF_DECLARED,
+            $result['block_reason'],
+        );
+        $this->assertSame('adapter_readiness_probe', $result['required_proof']);
+    }
+
+    public function test_unrecognized_readiness_basis_treated_as_self_declared(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class)->evaluateDriverStart([
+            'adapter_readiness_basis' => 'a_prompt_said_its_ready',
+        ]);
+
+        $this->assertSame(
+            AgentCodexRealInvokerPostStartProviderStartDriverGate::BLOCK_REASON_ADAPTER_READINESS_SELF_DECLARED,
+            $result['block_reason'],
+        );
+    }
+
+    public function test_stale_readiness_age_blocks_driver(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class)->evaluateDriverStart([
+            'adapter_readiness_basis' => 'capability_probe',
+            'adapter_readiness_age_seconds' => 9999.0,
+            'adapter_readiness_stale_threshold_seconds' => 300,
+        ]);
+
+        $this->assertSame(
+            AgentCodexRealInvokerPostStartProviderStartDriverGate::BLOCK_REASON_ADAPTER_READINESS_STALE,
+            $result['block_reason'],
+        );
+    }
+
+    public function test_missing_scoped_command_blocks_driver(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class)->evaluateDriverStart([
+            'adapter_readiness_basis' => 'capability_probe',
+            'adapter_readiness_age_seconds' => 5.0,
+            'scoped_command_present' => false,
+            'output_receipt_path_present' => true,
+        ]);
+
+        $this->assertSame(
+            AgentCodexRealInvokerPostStartProviderStartDriverGate::BLOCK_REASON_SCOPED_COMMAND_MISSING,
+            $result['block_reason'],
+        );
+    }
+
+    public function test_missing_output_receipt_path_blocks_driver(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class)->evaluateDriverStart([
+            'adapter_readiness_basis' => 'capability_probe',
+            'adapter_readiness_age_seconds' => 5.0,
+            'scoped_command_present' => true,
+            'output_receipt_path_present' => false,
+        ]);
+
+        $this->assertSame(
+            AgentCodexRealInvokerPostStartProviderStartDriverGate::BLOCK_REASON_OUTPUT_RECEIPT_PATH_MISSING,
+            $result['block_reason'],
+        );
+    }
+
+    public function test_evaluate_driver_start_is_deterministic(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProviderStartDriverGate::class);
+        $input = ['adapter_readiness_basis' => 'self_declared'];
+
+        $this->assertSame($gate->evaluateDriverStart($input), $gate->evaluateDriverStart($input));
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_sandbox_bindings');
