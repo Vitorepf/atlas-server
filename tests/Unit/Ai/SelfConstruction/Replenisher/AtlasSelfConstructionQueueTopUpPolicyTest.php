@@ -160,4 +160,153 @@ final class AtlasSelfConstructionQueueTopUpPolicyTest extends TestCase
         $this->assertTrue($r['top_up_required'], 'net_claimable(3) < target_worker_count(5) despite claimable>=low_water');
         $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $r['outcome']);
     }
+
+    // ── Stale-claimable backlog top-up path (AC2/AC3) ───────────────────────────
+
+    public function test_stale_backlog_above_low_water_with_active_workers_allows_bounded_top_up(): void
+    {
+        // claimable=30 >= low_water_mark=25 (raw looks healthy), but stale_claimable_count=28
+        // means effective supply is only 2 — and active_leases proves workers are present.
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 6,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 5,
+            'active_leases' => 3,
+            'stale_claimable_count' => 28,
+            'oldest_claimable_seconds' => 7200,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $r['outcome']);
+        // bounded by min(batch_cap=5, accepted=6, budget=10, lowWater-effective(25-2=23)) = 5
+        $this->assertSame(5, $r['new_packet_count']);
+        $this->assertSame(5, $r['target_new_packets']);
+        $this->assertContains('allow:stale_backlog_effective_low_water:5', $r['reasons']);
+    }
+
+    public function test_stale_backlog_top_up_bounded_by_accepted_frontier_count(): void
+    {
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 2,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'target_worker_count' => 4,
+            'stale_claimable_count' => 28,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $r['outcome']);
+        $this->assertSame(2, $r['new_packet_count']);
+    }
+
+    public function test_stale_backlog_top_up_bounded_by_risk_budget(): void
+    {
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 20, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'active_leases' => 1,
+            'stale_claimable_count' => 28,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $r['outcome']);
+        $this->assertSame(2, $r['new_packet_count']);
+    }
+
+    public function test_stale_backlog_without_active_workers_does_not_trigger_top_up(): void
+    {
+        // claimable=30 above low_water, stale_claimable_count high, but NO active_leases or
+        // target_worker_count present — workers are not proven active, so no top-up.
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'stale_claimable_count' => 28,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, $r['outcome']);
+    }
+
+    public function test_stale_backlog_below_effective_low_water_threshold_does_not_trigger(): void
+    {
+        // stale_claimable_count is small enough that effective claimable still clears low_water.
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'active_leases' => 2,
+            'stale_claimable_count' => 3,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, $r['outcome']);
+    }
+
+    public function test_queue_health_red_takes_precedence_over_stale_backlog_top_up(): void
+    {
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'red',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'active_leases' => 3,
+            'stale_claimable_count' => 28,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_STOP_SAFETY, $r['outcome']);
+    }
+
+    public function test_exhausted_risk_budget_takes_precedence_over_stale_backlog_top_up(): void
+    {
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 0, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'active_leases' => 3,
+            'stale_claimable_count' => 28,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_STOP_SAFETY, $r['outcome']);
+    }
+
+    public function test_malformed_count_takes_precedence_over_stale_backlog_top_up(): void
+    {
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 2,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 10],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'active_leases' => 3,
+            'stale_claimable_count' => 28,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_REPAIR_FIRST, $r['outcome']);
+    }
 }

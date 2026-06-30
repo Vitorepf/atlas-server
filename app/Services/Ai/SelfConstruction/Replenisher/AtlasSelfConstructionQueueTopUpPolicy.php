@@ -13,7 +13,15 @@ namespace App\Services\Ai\SelfConstruction\Replenisher;
  *     risk_budget:{remaining_units:int, required_per_packet:int},
  *     low_water_mark?:int, batch_cap?:int,
  *     target_worker_count?:int, active_leases?:int,
- *     quarantined_count?:int, consumption_rate_per_minute?:float }
+ *     quarantined_count?:int, consumption_rate_per_minute?:float,
+ *     stale_claimable_count?:int, oldest_claimable_seconds?:int }
+ *
+ * STALE-BACKLOG TOP-UP (bounded): a high stale_claimable_count means the raw claimable_depth
+ * overstates real supply — those packets have sat unclaimed long enough they are unlikely to be
+ * pulled by active workers. When workers are active (target_worker_count or active_leases > 0)
+ * and effective supply (claimable_depth net of stale_claimable_count) falls below low_water_mark,
+ * this allows a small top-up even though raw claimable_depth alone looks healthy. stop_for_safety
+ * and repair_first are checked FIRST and always take precedence over this path.
  *
  * OUTCOMES:
  *   stop_for_safety  — queue_health_status='red' OR risk_budget exhausted
@@ -71,6 +79,14 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         $topUpRequired = $targetWorkers > 0 && $netClaimable < $targetWorkers;
         $workerNeed = $targetWorkers > 0 ? max(0, $targetWorkers - $netClaimable) : 0;
 
+        // Stale-claimable backlog signal: raw claimable_depth overstates real supply when a
+        // chunk of it has sat unclaimed long enough to be effectively dead.
+        $activeLeases = (int) ($facts['active_leases'] ?? 0);
+        $workersActive = $targetWorkers > 0 || $activeLeases > 0;
+        $staleClaimable = min($claimable, max(0, (int) ($facts['stale_claimable_count'] ?? 0)));
+        $effectiveClaimable = max(0, $claimable - $staleClaimable);
+        $belowEffectiveLowWater = $workersActive && $staleClaimable > 0 && $effectiveClaimable < $lowWater;
+
         if ($queueStatus === 'red') {
             $reasons[] = 'stop:queue_health_red';
         }
@@ -87,9 +103,9 @@ final class AtlasSelfConstructionQueueTopUpPolicy
             return $this->envelope(self::OUTCOME_REPAIR_FIRST, 0, $topUpRequired, 0, ['repair_first:malformed_count:'.$malformed]);
         }
 
-        // Decide if any top-up is warranted (either low-water or worker-count path).
+        // Decide if any top-up is warranted (low-water, worker-count, or stale-backlog path).
         $belowLowWater = $claimable < $lowWater;
-        if (! $belowLowWater && ! $topUpRequired) {
+        if (! $belowLowWater && ! $topUpRequired && ! $belowEffectiveLowWater) {
             return $this->envelope(self::OUTCOME_WAIT, 0, false, 0, ['wait:claimable_above_low_water_mark:'.$claimable.'>='.$lowWater]);
         }
         if ($accepted <= 0) {
@@ -97,16 +113,21 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         }
 
         $byBudget = intdiv($budgetRem, $perPacket);
-        // Use the larger of the two needs (low-water gap vs worker-count gap).
+        // Use the largest of the three needs (low-water gap, worker-count gap, stale-backlog gap).
         $lowWaterNeed = $belowLowWater ? $lowWater - $claimable : 0;
-        $need = max($lowWaterNeed, $workerNeed);
+        $staleBacklogNeed = $belowEffectiveLowWater ? $lowWater - $effectiveClaimable : 0;
+        $need = max($lowWaterNeed, $workerNeed, $staleBacklogNeed);
         $newCount = max(0, min($batchCap, $accepted, $byBudget, $need));
 
         if ($newCount === 0) {
             return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:no_room_after_caps']);
         }
 
-        return $this->envelope(self::OUTCOME_ALLOW, $newCount, $topUpRequired, $newCount, ['allow:topping_up:'.$newCount]);
+        $reason = ($belowEffectiveLowWater && ! $belowLowWater && ! $topUpRequired)
+            ? 'allow:stale_backlog_effective_low_water:'.$newCount
+            : 'allow:topping_up:'.$newCount;
+
+        return $this->envelope(self::OUTCOME_ALLOW, $newCount, $topUpRequired, $newCount, [$reason]);
     }
 
     /**
