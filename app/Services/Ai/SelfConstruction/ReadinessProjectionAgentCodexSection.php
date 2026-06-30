@@ -4,26 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Closure;
-
 /**
  * AGENT CODEX projection section, extracted from the god-class
  * {@see AtlasSelfConstructionReadinessService}.
  *
  * Owns every public agentCodex* method (the agent-execution projection
  * family). The runtime service delegates each method to this collaborator
- * through thin byte-identical delegators. The collaborator also holds the
- * dependency on the `stableHash` closure the original kept in the runtime
- * service.
+ * through thin byte-identical delegators. Uses ReadinessHash::stable()
+ * directly for deterministic payload hashing.
  */
 final class ReadinessProjectionAgentCodexSection
 {
-    /**
-     * @param  Closure(array<string,mixed>): string  $stableHash
-     */
-    public function __construct(
-        private readonly Closure $stableHash,
-    ) {}
 
 public function agentCodexProviderExecutionContractTemplate(array $options = []): array
     {
@@ -32,7 +23,7 @@ public function agentCodexProviderExecutionContractTemplate(array $options = [])
 
         $template = [
             'status' => 'codex_provider_execution_contract_template_ready',
-            'contract_id' => 'CODEX-PROVIDER-EXECUTION-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-PROVIDER-EXECUTION-'.strtoupper(substr(ReadinessHash::stable([
                 'registry_preflight_hash' => data_get($registryPayload, 'provider_adapter_registry_preflight_hash'),
                 'execution_guard_preflight_hash' => data_get($guardPayload, 'provider_adapter_execution_guard_preflight_hash'),
                 'provider' => 'codex',
@@ -131,7 +122,7 @@ public function agentCodexProviderExecutionContractTemplate(array $options = [])
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_provider_execution_contract_template' => $template,
-            'codex_provider_execution_contract_template_hash' => $this->stableHash($template),
+            'codex_provider_execution_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_provider_execution_contract_template_does_not_start_codex',
                 'agent_codex_provider_execution_contract_template_does_not_call_codex',
@@ -224,7 +215,7 @@ public function agentCodexProviderExecutionPreflight(array $options = []): array
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_provider_execution_preflight' => $preflight,
-            'codex_provider_execution_preflight_hash' => $this->stableHash($preflight),
+            'codex_provider_execution_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_provider_execution_preflight_does_not_start_codex',
                 'agent_codex_provider_execution_preflight_does_not_call_codex',
@@ -340,7 +331,7 @@ public function agentCodexProviderExecutionImplementationPacket(array $options =
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_provider_execution_implementation_packet' => $packet,
-            'codex_provider_execution_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_provider_execution_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_provider_execution_implementation_packet_does_not_start_codex',
                 'agent_codex_provider_execution_implementation_packet_does_not_call_codex',
@@ -359,7 +350,7 @@ public function agentCodexProcessStartReleaseContractTemplate(array $options = [
 
         $template = [
             'status' => 'codex_process_start_release_contract_template_ready',
-            'contract_id' => 'CODEX-PROCESS-START-RELEASE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-PROCESS-START-RELEASE-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_provider_execution_preflight_hash' => data_get($codexPayload, 'codex_provider_execution_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -437,7 +428,7 @@ public function agentCodexProcessStartReleaseContractTemplate(array $options = [
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_start_release_contract_template' => $template,
-            'codex_process_start_release_contract_template_hash' => $this->stableHash($template),
+            'codex_process_start_release_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_process_start_release_contract_template_does_not_start_codex',
                 'agent_codex_process_start_release_contract_template_does_not_call_codex',
@@ -519,7 +510,7 @@ public function agentCodexProcessStartReleasePreflight(array $options = []): arr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_start_release_preflight' => $preflight,
-            'codex_process_start_release_preflight_hash' => $this->stableHash($preflight),
+            'codex_process_start_release_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_process_start_release_preflight_does_not_start_codex',
                 'agent_codex_process_start_release_preflight_does_not_call_codex',
@@ -635,7 +626,7 @@ public function agentCodexProcessStartReleaseImplementationPacket(array $options
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_start_release_implementation_packet' => $packet,
-            'codex_process_start_release_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_process_start_release_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_process_start_release_implementation_packet_does_not_start_codex',
                 'agent_codex_process_start_release_implementation_packet_does_not_call_codex',
@@ -654,7 +645,7 @@ public function agentCodexSupervisedStartExecutorContractTemplate(array $options
 
         $template = [
             'status' => 'codex_supervised_start_executor_contract_template_ready',
-            'contract_id' => 'CODEX-SUPERVISED-START-EXECUTOR-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-SUPERVISED-START-EXECUTOR-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_process_start_release_preflight_hash' => data_get($releasePayload, 'codex_process_start_release_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -737,7 +728,7 @@ public function agentCodexSupervisedStartExecutorContractTemplate(array $options
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_supervised_start_executor_contract_template' => $template,
-            'codex_supervised_start_executor_contract_template_hash' => $this->stableHash($template),
+            'codex_supervised_start_executor_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_supervised_start_executor_contract_template_does_not_start_codex',
                 'agent_codex_supervised_start_executor_contract_template_does_not_call_codex',
@@ -819,7 +810,7 @@ public function agentCodexSupervisedStartExecutorPreflight(array $options = []):
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_supervised_start_executor_preflight' => $preflight,
-            'codex_supervised_start_executor_preflight_hash' => $this->stableHash($preflight),
+            'codex_supervised_start_executor_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_supervised_start_executor_preflight_does_not_start_codex',
                 'agent_codex_supervised_start_executor_preflight_does_not_call_codex',
@@ -935,7 +926,7 @@ public function agentCodexSupervisedStartExecutorImplementationPacket(array $opt
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_supervised_start_executor_implementation_packet' => $packet,
-            'codex_supervised_start_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_supervised_start_executor_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_supervised_start_executor_implementation_packet_does_not_start_codex',
                 'agent_codex_supervised_start_executor_implementation_packet_does_not_call_codex',
@@ -954,7 +945,7 @@ public function agentCodexProcessSpawnEnablementContractTemplate(array $options 
 
         $template = [
             'status' => 'codex_process_spawn_enablement_contract_template_ready',
-            'contract_id' => 'CODEX-PROCESS-SPAWN-ENABLEMENT-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-PROCESS-SPAWN-ENABLEMENT-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_supervised_start_executor_preflight_hash' => data_get($supervisedPayload, 'codex_supervised_start_executor_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -1034,7 +1025,7 @@ public function agentCodexProcessSpawnEnablementContractTemplate(array $options 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_spawn_enablement_contract_template' => $template,
-            'codex_process_spawn_enablement_contract_template_hash' => $this->stableHash($template),
+            'codex_process_spawn_enablement_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_process_spawn_enablement_contract_template_does_not_start_codex',
                 'agent_codex_process_spawn_enablement_contract_template_does_not_call_codex',
@@ -1116,7 +1107,7 @@ public function agentCodexProcessSpawnEnablementPreflight(array $options = []): 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_spawn_enablement_preflight' => $preflight,
-            'codex_process_spawn_enablement_preflight_hash' => $this->stableHash($preflight),
+            'codex_process_spawn_enablement_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_process_spawn_enablement_preflight_does_not_start_codex',
                 'agent_codex_process_spawn_enablement_preflight_does_not_call_codex',
@@ -1232,7 +1223,7 @@ public function agentCodexProcessSpawnEnablementImplementationPacket(array $opti
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_spawn_enablement_implementation_packet' => $packet,
-            'codex_process_spawn_enablement_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_process_spawn_enablement_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_process_spawn_enablement_implementation_packet_does_not_start_codex',
                 'agent_codex_process_spawn_enablement_implementation_packet_does_not_call_codex',
@@ -1251,7 +1242,7 @@ public function agentCodexProcessSpawnExecutorContractTemplate(array $options = 
 
         $template = [
             'status' => 'codex_process_spawn_executor_contract_template_ready',
-            'contract_id' => 'CODEX-PROCESS-SPAWN-EXECUTOR-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-PROCESS-SPAWN-EXECUTOR-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_process_spawn_enablement_preflight_hash' => data_get($enablementPayload, 'codex_process_spawn_enablement_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -1335,7 +1326,7 @@ public function agentCodexProcessSpawnExecutorContractTemplate(array $options = 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_spawn_executor_contract_template' => $template,
-            'codex_process_spawn_executor_contract_template_hash' => $this->stableHash($template),
+            'codex_process_spawn_executor_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_process_spawn_executor_contract_template_does_not_start_codex',
                 'agent_codex_process_spawn_executor_contract_template_does_not_call_codex',
@@ -1417,7 +1408,7 @@ public function agentCodexProcessSpawnExecutorPreflight(array $options = []): ar
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_spawn_executor_preflight' => $preflight,
-            'codex_process_spawn_executor_preflight_hash' => $this->stableHash($preflight),
+            'codex_process_spawn_executor_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_process_spawn_executor_preflight_does_not_start_codex',
                 'agent_codex_process_spawn_executor_preflight_does_not_call_codex',
@@ -1533,7 +1524,7 @@ public function agentCodexProcessSpawnExecutorImplementationPacket(array $option
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_process_spawn_executor_implementation_packet' => $packet,
-            'codex_process_spawn_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_process_spawn_executor_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_process_spawn_executor_implementation_packet_does_not_start_codex',
                 'agent_codex_process_spawn_executor_implementation_packet_does_not_call_codex',
@@ -1552,7 +1543,7 @@ public function agentCodexExternalProcessRuntimeDriverContractTemplate(array $op
 
         $template = [
             'status' => 'codex_external_process_runtime_driver_contract_template_ready',
-            'contract_id' => 'CODEX-EXTERNAL-PROCESS-RUNTIME-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-EXTERNAL-PROCESS-RUNTIME-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_process_spawn_executor_preflight_hash' => data_get($spawnPayload, 'codex_process_spawn_executor_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -1635,7 +1626,7 @@ public function agentCodexExternalProcessRuntimeDriverContractTemplate(array $op
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_runtime_driver_contract_template' => $template,
-            'codex_external_process_runtime_driver_contract_template_hash' => $this->stableHash($template),
+            'codex_external_process_runtime_driver_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_runtime_driver_contract_template_does_not_start_codex',
                 'agent_codex_external_process_runtime_driver_contract_template_does_not_call_codex',
@@ -1717,7 +1708,7 @@ public function agentCodexExternalProcessRuntimeDriverPreflight(array $options =
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_runtime_driver_preflight' => $preflight,
-            'codex_external_process_runtime_driver_preflight_hash' => $this->stableHash($preflight),
+            'codex_external_process_runtime_driver_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_runtime_driver_preflight_does_not_start_codex',
                 'agent_codex_external_process_runtime_driver_preflight_does_not_call_codex',
@@ -1833,7 +1824,7 @@ public function agentCodexExternalProcessRuntimeDriverImplementationPacket(array
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_runtime_driver_implementation_packet' => $packet,
-            'codex_external_process_runtime_driver_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_external_process_runtime_driver_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_runtime_driver_implementation_packet_does_not_start_codex',
                 'agent_codex_external_process_runtime_driver_implementation_packet_does_not_call_codex',
@@ -1852,7 +1843,7 @@ public function agentCodexExternalProcessInvocationAuthorizationContractTemplate
 
         $template = [
             'status' => 'codex_external_process_invocation_authorization_contract_template_ready',
-            'contract_id' => 'CODEX-EXTERNAL-PROCESS-INVOCATION-AUTH-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-EXTERNAL-PROCESS-INVOCATION-AUTH-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_external_process_runtime_driver_preflight_hash' => data_get($runtimePayload, 'codex_external_process_runtime_driver_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -1940,7 +1931,7 @@ public function agentCodexExternalProcessInvocationAuthorizationContractTemplate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_invocation_authorization_contract_template' => $template,
-            'codex_external_process_invocation_authorization_contract_template_hash' => $this->stableHash($template),
+            'codex_external_process_invocation_authorization_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_invocation_authorization_contract_template_does_not_start_codex',
                 'agent_codex_external_process_invocation_authorization_contract_template_does_not_call_codex',
@@ -2022,7 +2013,7 @@ public function agentCodexExternalProcessInvocationAuthorizationPreflight(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_invocation_authorization_preflight' => $preflight,
-            'codex_external_process_invocation_authorization_preflight_hash' => $this->stableHash($preflight),
+            'codex_external_process_invocation_authorization_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_invocation_authorization_preflight_does_not_start_codex',
                 'agent_codex_external_process_invocation_authorization_preflight_does_not_call_codex',
@@ -2138,7 +2129,7 @@ public function agentCodexExternalProcessInvocationAuthorizationImplementationPa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_invocation_authorization_implementation_packet' => $packet,
-            'codex_external_process_invocation_authorization_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_external_process_invocation_authorization_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_invocation_authorization_implementation_packet_does_not_start_codex',
                 'agent_codex_external_process_invocation_authorization_implementation_packet_does_not_call_codex',
@@ -2157,7 +2148,7 @@ public function agentCodexExternalProcessInvokerDryRunContractTemplate(array $op
 
         $template = [
             'status' => 'codex_external_process_invoker_dry_run_contract_template_ready',
-            'contract_id' => 'CODEX-EXTERNAL-PROCESS-INVOKER-DRY-RUN-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-EXTERNAL-PROCESS-INVOKER-DRY-RUN-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_external_process_invocation_authorization_preflight_hash' => data_get($authorizationPayload, 'codex_external_process_invocation_authorization_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -2250,7 +2241,7 @@ public function agentCodexExternalProcessInvokerDryRunContractTemplate(array $op
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_invoker_dry_run_contract_template' => $template,
-            'codex_external_process_invoker_dry_run_contract_template_hash' => $this->stableHash($template),
+            'codex_external_process_invoker_dry_run_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_invoker_dry_run_contract_template_does_not_start_codex',
                 'agent_codex_external_process_invoker_dry_run_contract_template_does_not_call_codex',
@@ -2332,7 +2323,7 @@ public function agentCodexExternalProcessInvokerDryRunPreflight(array $options =
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_invoker_dry_run_preflight' => $preflight,
-            'codex_external_process_invoker_dry_run_preflight_hash' => $this->stableHash($preflight),
+            'codex_external_process_invoker_dry_run_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_invoker_dry_run_preflight_does_not_start_codex',
                 'agent_codex_external_process_invoker_dry_run_preflight_does_not_call_codex',
@@ -2448,7 +2439,7 @@ public function agentCodexExternalProcessInvokerDryRunImplementationPacket(array
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_external_process_invoker_dry_run_implementation_packet' => $packet,
-            'codex_external_process_invoker_dry_run_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_external_process_invoker_dry_run_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_external_process_invoker_dry_run_implementation_packet_does_not_start_codex',
                 'agent_codex_external_process_invoker_dry_run_implementation_packet_does_not_call_codex',
@@ -2467,7 +2458,7 @@ public function agentCodexRealInvokerReleasePreflightContractTemplate(array $opt
 
         $template = [
             'status' => 'codex_real_invoker_release_preflight_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-RELEASE-PREFLIGHT-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-RELEASE-PREFLIGHT-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_external_process_invoker_dry_run_preflight_hash' => data_get($dryRunPayload, 'codex_external_process_invoker_dry_run_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -2566,7 +2557,7 @@ public function agentCodexRealInvokerReleasePreflightContractTemplate(array $opt
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_release_preflight_contract_template' => $template,
-            'codex_real_invoker_release_preflight_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_release_preflight_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_release_preflight_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_release_preflight_contract_template_does_not_call_codex',
@@ -2648,7 +2639,7 @@ public function agentCodexRealInvokerReleasePreflightPreflight(array $options = 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_release_preflight_preflight' => $preflight,
-            'codex_real_invoker_release_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_release_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_release_preflight_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_release_preflight_preflight_does_not_call_codex',
@@ -2764,7 +2755,7 @@ public function agentCodexRealInvokerReleasePreflightImplementationPacket(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_release_preflight_implementation_packet' => $packet,
-            'codex_real_invoker_release_preflight_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_release_preflight_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_release_preflight_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_release_preflight_implementation_packet_does_not_call_codex',
@@ -2783,7 +2774,7 @@ public function agentCodexSignedRealInvokerReleaseGateContractTemplate(array $op
 
         $template = [
             'status' => 'codex_signed_real_invoker_release_gate_contract_template_ready',
-            'contract_id' => 'CODEX-SIGNED-REAL-INVOKER-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-SIGNED-REAL-INVOKER-RELEASE-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_release_preflight_hash' => data_get($releasePreflightPayload, 'codex_real_invoker_release_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -2880,7 +2871,7 @@ public function agentCodexSignedRealInvokerReleaseGateContractTemplate(array $op
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_signed_real_invoker_release_gate_contract_template' => $template,
-            'codex_signed_real_invoker_release_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_signed_real_invoker_release_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_signed_real_invoker_release_gate_contract_template_does_not_start_codex',
                 'agent_codex_signed_real_invoker_release_gate_contract_template_does_not_call_codex',
@@ -2962,7 +2953,7 @@ public function agentCodexSignedRealInvokerReleaseGatePreflight(array $options =
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_signed_real_invoker_release_gate_preflight' => $preflight,
-            'codex_signed_real_invoker_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_signed_real_invoker_release_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_signed_real_invoker_release_gate_preflight_does_not_start_codex',
                 'agent_codex_signed_real_invoker_release_gate_preflight_does_not_call_codex',
@@ -3078,7 +3069,7 @@ public function agentCodexSignedRealInvokerReleaseGateImplementationPacket(array
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_signed_real_invoker_release_gate_implementation_packet' => $packet,
-            'codex_signed_real_invoker_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_signed_real_invoker_release_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_signed_real_invoker_release_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_signed_real_invoker_release_gate_implementation_packet_does_not_call_codex',
@@ -3097,7 +3088,7 @@ public function agentCodexRealInvokerImplementationBoundaryContractTemplate(arra
 
         $template = [
             'status' => 'codex_real_invoker_implementation_boundary_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-IMPLEMENTATION-BOUNDARY-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-IMPLEMENTATION-BOUNDARY-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_signed_real_invoker_release_gate_preflight_hash' => data_get($signedGatePayload, 'codex_signed_real_invoker_release_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -3196,7 +3187,7 @@ public function agentCodexRealInvokerImplementationBoundaryContractTemplate(arra
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_implementation_boundary_contract_template' => $template,
-            'codex_real_invoker_implementation_boundary_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_implementation_boundary_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_implementation_boundary_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_implementation_boundary_contract_template_does_not_call_codex',
@@ -3278,7 +3269,7 @@ public function agentCodexRealInvokerImplementationBoundaryPreflight(array $opti
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_implementation_boundary_preflight' => $preflight,
-            'codex_real_invoker_implementation_boundary_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_implementation_boundary_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_implementation_boundary_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_implementation_boundary_preflight_does_not_call_codex',
@@ -3394,7 +3385,7 @@ public function agentCodexRealInvokerImplementationBoundaryImplementationPacket(
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_implementation_boundary_implementation_packet' => $packet,
-            'codex_real_invoker_implementation_boundary_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_implementation_boundary_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_implementation_boundary_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_implementation_boundary_implementation_packet_does_not_call_codex',
@@ -3413,7 +3404,7 @@ public function agentCodexRealInvokerExecutorPlanContractTemplate(array $options
 
         $template = [
             'status' => 'codex_real_invoker_executor_plan_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-PLAN-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-PLAN-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_implementation_boundary_preflight_hash' => data_get($boundaryPayload, 'codex_real_invoker_implementation_boundary_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -3518,7 +3509,7 @@ public function agentCodexRealInvokerExecutorPlanContractTemplate(array $options
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_plan_contract_template' => $template,
-            'codex_real_invoker_executor_plan_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_executor_plan_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_plan_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_executor_plan_contract_template_does_not_call_codex',
@@ -3601,7 +3592,7 @@ public function agentCodexRealInvokerExecutorPlanPreflight(array $options = []):
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_plan_preflight' => $preflight,
-            'codex_real_invoker_executor_plan_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_executor_plan_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_plan_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_executor_plan_preflight_does_not_call_codex',
@@ -3721,7 +3712,7 @@ public function agentCodexRealInvokerExecutorPlanImplementationPacket(array $opt
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_plan_implementation_packet' => $packet,
-            'codex_real_invoker_executor_plan_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_executor_plan_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_executor_plan_implementation_packet_does_not_call_codex',
@@ -3740,7 +3731,7 @@ public function agentCodexRealInvokerExecutorFreshReleaseGateContractTemplate(ar
 
         $template = [
             'status' => 'codex_real_invoker_executor_fresh_release_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-FRESH-RELEASE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-FRESH-RELEASE-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_executor_plan_preflight_hash' => data_get($executorPlanPayload, 'codex_real_invoker_executor_plan_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -3847,7 +3838,7 @@ public function agentCodexRealInvokerExecutorFreshReleaseGateContractTemplate(ar
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_fresh_release_gate_contract_template' => $template,
-            'codex_real_invoker_executor_fresh_release_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_executor_fresh_release_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_executor_fresh_release_gate_contract_template_does_not_call_codex',
@@ -3930,7 +3921,7 @@ public function agentCodexRealInvokerExecutorFreshReleaseGatePreflight(array $op
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_fresh_release_gate_preflight' => $preflight,
-            'codex_real_invoker_executor_fresh_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_executor_fresh_release_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_executor_fresh_release_gate_preflight_does_not_call_codex',
@@ -4051,7 +4042,7 @@ public function agentCodexRealInvokerExecutorFreshReleaseGateImplementationPacke
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_fresh_release_gate_implementation_packet' => $packet,
-            'codex_real_invoker_executor_fresh_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_executor_fresh_release_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_executor_fresh_release_gate_implementation_packet_does_not_call_codex',
@@ -4070,7 +4061,7 @@ public function agentCodexRealInvokerExecutorEnablementGateContractTemplate(arra
 
         $template = [
             'status' => 'codex_real_invoker_executor_enablement_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-ENABLEMENT-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-EXECUTOR-ENABLEMENT-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_executor_fresh_release_gate_preflight_hash' => data_get($freshReleasePayload, 'codex_real_invoker_executor_fresh_release_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -4183,7 +4174,7 @@ public function agentCodexRealInvokerExecutorEnablementGateContractTemplate(arra
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_enablement_gate_contract_template' => $template,
-            'codex_real_invoker_executor_enablement_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_executor_enablement_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_executor_enablement_gate_contract_template_does_not_call_codex',
@@ -4265,7 +4256,7 @@ public function agentCodexRealInvokerExecutorEnablementGatePreflight(array $opti
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_enablement_gate_preflight' => $preflight,
-            'codex_real_invoker_executor_enablement_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_executor_enablement_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_executor_enablement_gate_preflight_does_not_call_codex',
@@ -4384,7 +4375,7 @@ public function agentCodexRealInvokerExecutorEnablementGateImplementationPacket(
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_executor_enablement_gate_implementation_packet' => $packet,
-            'codex_real_invoker_executor_enablement_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_executor_enablement_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_executor_enablement_gate_implementation_packet_does_not_call_codex',
@@ -4402,7 +4393,7 @@ public function agentCodexRealInvokerSupervisedStartActivationGateContractTempla
 
         $template = [
             'status' => 'codex_real_invoker_supervised_start_activation_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-SUPERVISED-START-ACTIVATION-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-SUPERVISED-START-ACTIVATION-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_executor_enablement_gate_preflight_hash' => data_get($enablementPayload, 'codex_real_invoker_executor_enablement_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -4522,7 +4513,7 @@ public function agentCodexRealInvokerSupervisedStartActivationGateContractTempla
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_supervised_start_activation_gate_contract_template' => $template,
-            'codex_real_invoker_supervised_start_activation_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_supervised_start_activation_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_supervised_start_activation_gate_contract_template_does_not_call_codex',
@@ -4604,7 +4595,7 @@ public function agentCodexRealInvokerSupervisedStartActivationGatePreflight(arra
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_supervised_start_activation_gate_preflight' => $preflight,
-            'codex_real_invoker_supervised_start_activation_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_supervised_start_activation_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_supervised_start_activation_gate_preflight_does_not_call_codex',
@@ -4723,7 +4714,7 @@ public function agentCodexRealInvokerSupervisedStartActivationGateImplementation
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_supervised_start_activation_gate_implementation_packet' => $packet,
-            'codex_real_invoker_supervised_start_activation_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_supervised_start_activation_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_supervised_start_activation_gate_implementation_packet_does_not_call_codex',
@@ -4741,7 +4732,7 @@ public function agentCodexRealInvokerGuardedProcessStartExecutorContractTemplate
 
         $template = [
             'status' => 'codex_real_invoker_guarded_process_start_executor_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-GUARDED-PROCESS-START-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-GUARDED-PROCESS-START-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_supervised_start_activation_gate_preflight_hash' => data_get($activationPayload, 'codex_real_invoker_supervised_start_activation_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -4841,7 +4832,7 @@ public function agentCodexRealInvokerGuardedProcessStartExecutorContractTemplate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_guarded_process_start_executor_contract_template' => $template,
-            'codex_real_invoker_guarded_process_start_executor_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_guarded_process_start_executor_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_guarded_process_start_executor_contract_template_does_not_call_codex',
@@ -4924,7 +4915,7 @@ public function agentCodexRealInvokerGuardedProcessStartExecutorPreflight(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_guarded_process_start_executor_preflight' => $preflight,
-            'codex_real_invoker_guarded_process_start_executor_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_guarded_process_start_executor_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_guarded_process_start_executor_preflight_does_not_call_codex',
@@ -5044,7 +5035,7 @@ public function agentCodexRealInvokerGuardedProcessStartExecutorImplementationPa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_guarded_process_start_executor_implementation_packet' => $packet,
-            'codex_real_invoker_guarded_process_start_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_guarded_process_start_executor_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_guarded_process_start_executor_implementation_packet_does_not_call_codex',
@@ -5062,7 +5053,7 @@ public function agentCodexRealInvokerFinalProcessStartAuthorizationGateContractT
 
         $template = [
             'status' => 'codex_real_invoker_final_process_start_authorization_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-FINAL-PROCESS-START-AUTH-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-FINAL-PROCESS-START-AUTH-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_guarded_process_start_executor_preflight_hash' => data_get($guardedPayload, 'codex_real_invoker_guarded_process_start_executor_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -5153,7 +5144,7 @@ public function agentCodexRealInvokerFinalProcessStartAuthorizationGateContractT
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_final_process_start_authorization_gate_contract_template' => $template,
-            'codex_real_invoker_final_process_start_authorization_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_final_process_start_authorization_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_final_process_start_authorization_gate_contract_template_does_not_call_codex',
@@ -5236,7 +5227,7 @@ public function agentCodexRealInvokerFinalProcessStartAuthorizationGatePreflight
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_final_process_start_authorization_gate_preflight' => $preflight,
-            'codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_final_process_start_authorization_gate_preflight_does_not_call_codex',
@@ -5356,7 +5347,7 @@ public function agentCodexRealInvokerFinalProcessStartAuthorizationGateImplement
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_final_process_start_authorization_gate_implementation_packet' => $packet,
-            'codex_real_invoker_final_process_start_authorization_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_final_process_start_authorization_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_final_process_start_authorization_gate_implementation_packet_does_not_call_codex',
@@ -5374,7 +5365,7 @@ public function agentCodexRealInvokerActualProcessStartRehearsalExecutorContract
 
         $template = [
             'status' => 'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-ACTUAL-PROCESS-START-REHEARSAL-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-ACTUAL-PROCESS-START-REHEARSAL-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => data_get($authorizationPayload, 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -5473,7 +5464,7 @@ public function agentCodexRealInvokerActualProcessStartRehearsalExecutorContract
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template' => $template,
-            'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_actual_process_start_rehearsal_executor_contract_template_does_not_call_codex',
@@ -5556,7 +5547,7 @@ public function agentCodexRealInvokerActualProcessStartRehearsalExecutorPrefligh
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_actual_process_start_rehearsal_executor_preflight' => $preflight,
-            'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_does_not_call_codex',
@@ -5677,7 +5668,7 @@ public function agentCodexRealInvokerActualProcessStartRehearsalExecutorImplemen
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet' => $packet,
-            'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet_does_not_call_codex',
@@ -5695,7 +5686,7 @@ public function agentCodexRealInvokerProcessStartEnvelopeBuilderContractTemplate
 
         $template = [
             'status' => 'codex_real_invoker_process_start_envelope_builder_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-PROCESS-START-ENVELOPE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-PROCESS-START-ENVELOPE-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => data_get($rehearsalPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -5801,7 +5792,7 @@ public function agentCodexRealInvokerProcessStartEnvelopeBuilderContractTemplate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_process_start_envelope_builder_contract_template' => $template,
-            'codex_real_invoker_process_start_envelope_builder_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_process_start_envelope_builder_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_process_start_envelope_builder_contract_template_does_not_call_codex',
@@ -5884,7 +5875,7 @@ public function agentCodexRealInvokerProcessStartEnvelopeBuilderPreflight(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_process_start_envelope_builder_preflight' => $preflight,
-            'codex_real_invoker_process_start_envelope_builder_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_process_start_envelope_builder_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_process_start_envelope_builder_preflight_does_not_call_codex',
@@ -6004,7 +5995,7 @@ public function agentCodexRealInvokerProcessStartEnvelopeBuilderImplementationPa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_process_start_envelope_builder_implementation_packet' => $packet,
-            'codex_real_invoker_process_start_envelope_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_process_start_envelope_builder_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_process_start_envelope_builder_implementation_packet_does_not_call_codex',
@@ -6022,7 +6013,7 @@ public function agentCodexRealInvokerStartExecutionGateContractTemplate(array $o
 
         $template = [
             'status' => 'codex_real_invoker_start_execution_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-START-EXECUTION-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-START-EXECUTION-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_process_start_envelope_builder_preflight_hash' => data_get($envelopePayload, 'codex_real_invoker_process_start_envelope_builder_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -6123,7 +6114,7 @@ public function agentCodexRealInvokerStartExecutionGateContractTemplate(array $o
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_start_execution_gate_contract_template' => $template,
-            'codex_real_invoker_start_execution_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_start_execution_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_start_execution_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_start_execution_gate_contract_template_does_not_call_codex',
@@ -6206,7 +6197,7 @@ public function agentCodexRealInvokerStartExecutionGatePreflight(array $options 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_start_execution_gate_preflight' => $preflight,
-            'codex_real_invoker_start_execution_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_start_execution_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_start_execution_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_start_execution_gate_preflight_does_not_call_codex',
@@ -6326,7 +6317,7 @@ public function agentCodexRealInvokerStartExecutionGateImplementationPacket(arra
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_start_execution_gate_implementation_packet' => $packet,
-            'codex_real_invoker_start_execution_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_start_execution_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_start_execution_gate_implementation_packet_does_not_call_codex',
@@ -6344,7 +6335,7 @@ public function agentCodexRealInvokerProcessStarterReadinessGateContractTemplate
 
         $template = [
             'status' => 'codex_real_invoker_process_starter_readiness_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-PROCESS-STARTER-READINESS-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-PROCESS-STARTER-READINESS-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_start_execution_gate_preflight_hash' => data_get($startGatePayload, 'codex_real_invoker_start_execution_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -6449,7 +6440,7 @@ public function agentCodexRealInvokerProcessStarterReadinessGateContractTemplate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_process_starter_readiness_gate_contract_template' => $template,
-            'codex_real_invoker_process_starter_readiness_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_process_starter_readiness_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_process_starter_readiness_gate_contract_template_does_not_call_codex',
@@ -6532,7 +6523,7 @@ public function agentCodexRealInvokerProcessStarterReadinessGatePreflight(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_process_starter_readiness_gate_preflight' => $preflight,
-            'codex_real_invoker_process_starter_readiness_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_process_starter_readiness_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_process_starter_readiness_gate_preflight_does_not_call_codex',
@@ -6652,7 +6643,7 @@ public function agentCodexRealInvokerProcessStarterReadinessGateImplementationPa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_process_starter_readiness_gate_implementation_packet' => $packet,
-            'codex_real_invoker_process_starter_readiness_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_process_starter_readiness_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_process_starter_readiness_gate_implementation_packet_does_not_call_codex',
@@ -6670,7 +6661,7 @@ public function agentCodexRealInvokerManualStartExecutorReceiptWriterContractTem
 
         $template = [
             'status' => 'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-MANUAL-START-RECEIPT-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-MANUAL-START-RECEIPT-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_process_starter_readiness_gate_preflight_hash' => data_get($readinessPayload, 'codex_real_invoker_process_starter_readiness_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -6779,7 +6770,7 @@ public function agentCodexRealInvokerManualStartExecutorReceiptWriterContractTem
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_manual_start_executor_receipt_writer_contract_template' => $template,
-            'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_manual_start_executor_receipt_writer_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_manual_start_executor_receipt_writer_contract_template_does_not_call_codex',
@@ -6862,7 +6853,7 @@ public function agentCodexRealInvokerManualStartExecutorReceiptWriterPreflight(a
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_manual_start_executor_receipt_writer_preflight' => $preflight,
-            'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_manual_start_executor_receipt_writer_preflight_does_not_call_codex',
@@ -6982,7 +6973,7 @@ public function agentCodexRealInvokerManualStartExecutorReceiptWriterImplementat
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet' => $packet,
-            'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_manual_start_executor_receipt_writer_implementation_packet_does_not_call_codex',
@@ -7000,7 +6991,7 @@ public function agentCodexRealInvokerOperatorStartHandoffBuilderContractTemplate
 
         $template = [
             'status' => 'codex_real_invoker_operator_start_handoff_builder_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-OPERATOR-START-HANDOFF-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-OPERATOR-START-HANDOFF-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash' => data_get($receiptPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -7107,7 +7098,7 @@ public function agentCodexRealInvokerOperatorStartHandoffBuilderContractTemplate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_operator_start_handoff_builder_contract_template' => $template,
-            'codex_real_invoker_operator_start_handoff_builder_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_operator_start_handoff_builder_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_operator_start_handoff_builder_contract_template_does_not_call_codex',
@@ -7190,7 +7181,7 @@ public function agentCodexRealInvokerOperatorStartHandoffBuilderPreflight(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_operator_start_handoff_builder_preflight' => $preflight,
-            'codex_real_invoker_operator_start_handoff_builder_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_operator_start_handoff_builder_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_operator_start_handoff_builder_preflight_does_not_call_codex',
@@ -7310,7 +7301,7 @@ public function agentCodexRealInvokerOperatorStartHandoffBuilderImplementationPa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_operator_start_handoff_builder_implementation_packet' => $packet,
-            'codex_real_invoker_operator_start_handoff_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_operator_start_handoff_builder_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_operator_start_handoff_builder_implementation_packet_does_not_call_codex',
@@ -7328,7 +7319,7 @@ public function agentCodexRealInvokerPostStartReceiptContractBuilderContractTemp
 
         $template = [
             'status' => 'codex_real_invoker_post_start_receipt_contract_builder_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-RECEIPT-CONTRACT-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-RECEIPT-CONTRACT-'.strtoupper(substr(ReadinessHash::stable([
                 'codex_real_invoker_operator_start_handoff_builder_preflight_hash' => data_get($handoffPayload, 'codex_real_invoker_operator_start_handoff_builder_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -7426,7 +7417,7 @@ public function agentCodexRealInvokerPostStartReceiptContractBuilderContractTemp
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_receipt_contract_builder_contract_template' => $template,
-            'codex_real_invoker_post_start_receipt_contract_builder_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_receipt_contract_builder_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_receipt_contract_builder_contract_template_does_not_call_codex',
@@ -7511,7 +7502,7 @@ public function agentCodexRealInvokerPostStartReceiptContractBuilderPreflight(ar
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_receipt_contract_builder_preflight' => $preflight,
-            'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_receipt_contract_builder_preflight_does_not_call_codex',
@@ -7622,7 +7613,7 @@ public function agentCodexRealInvokerPostStartReceiptContractBuilderImplementati
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_receipt_contract_builder_implementation_packet_does_not_call_codex',
@@ -7641,7 +7632,7 @@ public function agentCodexRealInvokerPostStartEvidenceReceiptWriterContractTempl
 
         $template = [
             'status' => 'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EVIDENCE-RECEIPT-WRITER-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EVIDENCE-RECEIPT-WRITER-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_receipt_contract_builder_preflight_hash' => data_get($contractPayload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -7735,7 +7726,7 @@ public function agentCodexRealInvokerPostStartEvidenceReceiptWriterContractTempl
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_evidence_receipt_writer_contract_template' => $template,
-            'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_evidence_receipt_writer_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_evidence_receipt_writer_contract_template_does_not_call_codex',
@@ -7819,7 +7810,7 @@ public function agentCodexRealInvokerPostStartEvidenceReceiptWriterPreflight(arr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_evidence_receipt_writer_preflight' => $preflight,
-            'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_evidence_receipt_writer_preflight_does_not_call_codex',
@@ -7929,7 +7920,7 @@ public function agentCodexRealInvokerPostStartEvidenceReceiptWriterImplementatio
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_evidence_receipt_writer_implementation_packet_does_not_call_codex',
@@ -7949,7 +7940,7 @@ public function agentCodexRealInvokerPostStartEvidenceAcceptanceBridgeContractTe
 
         $template = [
             'status' => 'codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EVIDENCE-ACCEPTANCE-BRIDGE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EVIDENCE-ACCEPTANCE-BRIDGE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_operator_start_handoff_builder_preflight_hash' => data_get($handoffPayload, 'codex_real_invoker_post_start_operator_start_handoff_builder_preflight_hash'),
                 'post_start_receipt_contract_builder_preflight_hash' => data_get($receiptPayload, 'codex_real_invoker_post_start_receipt_contract_builder_preflight_hash'),
                 'post_start_evidence_receipt_writer_preflight_hash' => data_get($evidencePayload, 'codex_real_invoker_post_start_evidence_receipt_writer_preflight_hash'),
@@ -8046,7 +8037,7 @@ public function agentCodexRealInvokerPostStartEvidenceAcceptanceBridgeContractTe
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template' => $template,
-            'codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_contract_template_does_not_call_codex',
@@ -8136,7 +8127,7 @@ public function agentCodexRealInvokerPostStartEvidenceAcceptanceBridgePreflight(
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_evidence_acceptance_bridge_preflight' => $preflight,
-            'codex_real_invoker_post_start_evidence_acceptance_bridge_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_evidence_acceptance_bridge_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_preflight_does_not_call_codex',
@@ -8187,7 +8178,7 @@ public function agentCodexRealInvokerPostStartEvidenceAcceptanceBridgeImplementa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start evidence acceptance bridge implementation packet is ready; it accepts external-start evidence only as governed evidence before liveness monitoring.',
         ];
@@ -8198,7 +8189,7 @@ public function agentCodexRealInvokerPostStartLivenessMonitorContractTemplate(ar
     {
         $template = [
             'status' => 'codex_real_invoker_post_start_liveness_monitor_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-LIVENESS-MONITOR-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-LIVENESS-MONITOR-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_evidence_acceptance_bridge_service' => AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge::class,
                 'post_start_liveness_monitor_service' => AgentCodexRealInvokerPostStartLivenessMonitor::class,
                 'provider' => 'codex',
@@ -8285,7 +8276,7 @@ public function agentCodexRealInvokerPostStartLivenessMonitorContractTemplate(ar
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_liveness_monitor_contract_template' => $template,
-            'codex_real_invoker_post_start_liveness_monitor_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_liveness_monitor_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_liveness_monitor_contract_template_does_not_call_codex',
@@ -8368,7 +8359,7 @@ public function agentCodexRealInvokerPostStartLivenessMonitorPreflight(array $op
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_liveness_monitor_preflight' => $preflight,
-            'codex_real_invoker_post_start_liveness_monitor_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_liveness_monitor_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_liveness_monitor_preflight_does_not_call_codex',
@@ -8419,7 +8410,7 @@ public function agentCodexRealInvokerPostStartLivenessMonitorImplementationPacke
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_liveness_monitor_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_liveness_monitor_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_liveness_monitor_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_liveness_monitor_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start liveness monitor implementation packet is ready; it records external liveness only and does not call Codex.',
         ];
@@ -8433,7 +8424,7 @@ public function agentCodexRealInvokerPostStartDispatchReleaseGateContractTemplat
 
         $template = [
             'status' => 'codex_real_invoker_post_start_dispatch_release_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-RELEASE-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_liveness_monitor_preflight_hash' => data_get($livenessPayload, 'codex_real_invoker_post_start_liveness_monitor_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -8520,7 +8511,7 @@ public function agentCodexRealInvokerPostStartDispatchReleaseGateContractTemplat
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_release_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_dispatch_release_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_dispatch_release_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_dispatch_release_gate_contract_template_does_not_call_codex',
@@ -8607,7 +8598,7 @@ public function agentCodexRealInvokerPostStartDispatchReleaseGatePreflight(array
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_release_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_dispatch_release_gate_preflight_does_not_call_codex',
@@ -8658,7 +8649,7 @@ public function agentCodexRealInvokerPostStartDispatchReleaseGateImplementationP
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start dispatch release gate implementation packet is ready; it prepares a future dispatch release guard and does not dispatch work.',
         ];
@@ -8672,7 +8663,7 @@ public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGateCon
 
         $template = [
             'status' => 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SIGNED-DISPATCH-AUTHORIZATION-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SIGNED-DISPATCH-AUTHORIZATION-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_dispatch_release_gate_preflight_hash' => data_get($releasePayload, 'codex_real_invoker_post_start_dispatch_release_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -8766,7 +8757,7 @@ public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGateCon
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_contract_template_does_not_call_codex',
@@ -8853,7 +8844,7 @@ public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGatePre
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_does_not_call_codex',
@@ -8904,7 +8895,7 @@ public function agentCodexRealInvokerPostStartSignedDispatchAuthorizationGateImp
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start signed dispatch authorization gate implementation packet is ready; it records authorization and does not dispatch work.',
         ];
@@ -8918,7 +8909,7 @@ public function agentCodexRealInvokerPostStartDispatchExecutorHandoffContractTem
 
         $template = [
             'status' => 'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-EXECUTOR-HANDOFF-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-EXECUTOR-HANDOFF-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_signed_dispatch_authorization_gate_preflight_hash' => data_get($authorizationPayload, 'codex_real_invoker_post_start_signed_dispatch_authorization_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -9016,7 +9007,7 @@ public function agentCodexRealInvokerPostStartDispatchExecutorHandoffContractTem
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template' => $template,
-            'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_hash' => ReadinessHash::stable($template),
             'source_authorization_preflight' => $authorization,
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_contract_template_does_not_start_codex',
@@ -9104,7 +9095,7 @@ public function agentCodexRealInvokerPostStartDispatchExecutorHandoffPreflight(a
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_executor_handoff_preflight' => $preflight,
-            'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_preflight_does_not_call_codex',
@@ -9155,7 +9146,7 @@ public function agentCodexRealInvokerPostStartDispatchExecutorHandoffImplementat
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start dispatch executor handoff implementation packet is ready; it prepares executor handoff and does not dispatch work.',
         ];
@@ -9169,7 +9160,7 @@ public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorContract
 
         $template = [
             'status' => 'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-RECEIPT-USE-EXECUTOR-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-DISPATCH-RECEIPT-USE-EXECUTOR-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_dispatch_executor_handoff_preflight_hash' => data_get($handoffPayload, 'codex_real_invoker_post_start_dispatch_executor_handoff_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -9249,7 +9240,7 @@ public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorContract
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template' => $template,
-            'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_hash' => ReadinessHash::stable($template),
             'source_handoff_preflight' => $handoff,
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_contract_template_does_not_start_codex',
@@ -9341,7 +9332,7 @@ public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorPrefligh
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight' => $preflight,
-            'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_start_codex',
                 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_does_not_call_codex',
@@ -9392,7 +9383,7 @@ public function agentCodexRealInvokerPostStartDispatchReceiptUseExecutorImplemen
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start dispatch receipt-use executor implementation packet is ready; it marks receipt use but does not start Codex.',
         ];
@@ -9406,7 +9397,7 @@ public function agentCodexRealInvokerPostStartProviderStartDriverGateContractTem
 
         $template = [
             'status' => 'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROVIDER-START-DRIVER-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROVIDER-START-DRIVER-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'receipt_use_preflight_hash' => data_get($receiptUsePayload, 'codex_real_invoker_post_start_dispatch_receipt_use_executor_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -9463,7 +9454,7 @@ public function agentCodexRealInvokerPostStartProviderStartDriverGateContractTem
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_provider_start_driver_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_provider_start_driver_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_receipt_use_preflight' => $receiptUse,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_contract_template_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start provider start driver gate contract template bridges receipt-use to the generic provider start driver without calling Codex.',
@@ -9551,7 +9542,7 @@ public function agentCodexRealInvokerPostStartProviderStartDriverGatePreflight(a
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_provider_start_driver_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start provider start driver gate is ready; it prepares the driver bridge but still does not call Codex.'
@@ -9597,7 +9588,7 @@ public function agentCodexRealInvokerPostStartProviderStartDriverGateImplementat
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start provider start driver gate implementation packet is ready; it prepares the driver bridge but does not call Codex.',
         ];
@@ -9611,7 +9602,7 @@ public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGateContr
 
         $template = [
             'status' => 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ADAPTER-INVOCATION-BOUNDARY-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ADAPTER-INVOCATION-BOUNDARY-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'provider_start_driver_preflight_hash' => data_get($providerStartPayload, 'codex_real_invoker_post_start_provider_start_driver_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -9668,7 +9659,7 @@ public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGateContr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_provider_start_driver_preflight' => $providerStart,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract_template_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start adapter invocation boundary gate contract template bridges provider start driver metadata to the generic adapter invocation boundary without calling Codex.',
@@ -9750,7 +9741,7 @@ public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGatePrefl
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start adapter invocation boundary gate is ready; it prepares the boundary bridge but still does not call Codex.'
@@ -9796,7 +9787,7 @@ public function agentCodexRealInvokerPostStartAdapterInvocationBoundaryGateImple
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start adapter invocation boundary gate implementation packet is ready; it prepares the boundary bridge but does not call Codex.',
         ];
@@ -9810,7 +9801,7 @@ public function agentCodexRealInvokerPostStartAdapterExecutionGuardGateContractT
 
         $template = [
             'status' => 'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ADAPTER-EXECUTION-GUARD-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ADAPTER-EXECUTION-GUARD-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'adapter_invocation_boundary_preflight_hash' => data_get($boundaryPayload, 'codex_real_invoker_post_start_adapter_invocation_boundary_gate_preflight_hash'),
                 'provider' => 'codex',
                 'adapter' => 'codex',
@@ -9869,7 +9860,7 @@ public function agentCodexRealInvokerPostStartAdapterExecutionGuardGateContractT
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_adapter_invocation_boundary_preflight' => $boundary,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_contract_template_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start adapter execution guard gate contract template bridges the adapter boundary to the provider adapter execution guard without calling Codex.',
@@ -9949,7 +9940,7 @@ public function agentCodexRealInvokerPostStartAdapterExecutionGuardGatePreflight
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start adapter execution guard gate is ready; it records the execution block but still does not call Codex.'
@@ -9995,7 +9986,7 @@ public function agentCodexRealInvokerPostStartAdapterExecutionGuardGateImplement
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start adapter execution guard gate implementation packet is ready; it records the guard bridge but does not call Codex.',
         ];
@@ -10010,7 +10001,7 @@ public function agentCodexRealInvokerPostStartProviderExecutionContractGateContr
 
         $template = [
             'status' => 'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROVIDER-EXECUTION-CONTRACT-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'adapter_execution_guard_preflight_hash' => data_get($guardPayload, 'codex_real_invoker_post_start_adapter_execution_guard_gate_preflight_hash'),
                 'codex_provider_execution_preflight_hash' => data_get($codexPayload, 'codex_provider_execution_preflight_hash'),
                 'provider' => 'codex',
@@ -10074,7 +10065,7 @@ public function agentCodexRealInvokerPostStartProviderExecutionContractGateContr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_adapter_execution_guard_preflight' => $guard,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_contract_template_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start provider execution contract gate template bridges the post-start adapter execution guard to the Codex provider execution driver without starting Codex.',
@@ -10159,7 +10150,7 @@ public function agentCodexRealInvokerPostStartProviderExecutionContractGatePrefl
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_provider_execution_contract_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start provider execution contract gate is ready; it prepares the Codex-specific execution contract but still does not start Codex.'
@@ -10205,7 +10196,7 @@ public function agentCodexRealInvokerPostStartProviderExecutionContractGateImple
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start provider execution contract gate implementation packet is ready; it prepares the Codex-specific contract bridge but does not start Codex.',
         ];
@@ -10221,7 +10212,7 @@ public function agentCodexRealInvokerPostStartProcessStartReleaseGateContractTem
 
         $template = [
             'status' => 'codex_real_invoker_post_start_process_start_release_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-START-RELEASE-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'provider_execution_contract_gate_preflight_hash' => data_get($providerExecutionPayload, 'codex_real_invoker_post_start_provider_execution_contract_gate_preflight_hash'),
                 'codex_process_start_release_preflight_hash' => data_get($releasePayload, 'codex_process_start_release_preflight_hash'),
                 'provider' => 'codex',
@@ -10286,7 +10277,7 @@ public function agentCodexRealInvokerPostStartProcessStartReleaseGateContractTem
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_start_release_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_process_start_release_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_process_start_release_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_provider_execution_contract_gate_preflight' => $providerExecution,
             'source_codex_process_start_release_preflight' => $release,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_release_gate_contract_template_does_not_dispatch_work'],
@@ -10366,7 +10357,7 @@ public function agentCodexRealInvokerPostStartProcessStartReleaseGatePreflight(a
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_start_release_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_process_start_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_process_start_release_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_release_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start process start release gate is ready; it authorizes only the release bridge and still requires a separate supervised start executor.'
@@ -10412,7 +10403,7 @@ public function agentCodexRealInvokerPostStartProcessStartReleaseGateImplementat
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_start_release_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_process_start_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_process_start_release_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_release_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start process start release gate implementation packet is ready; it authorizes only the release bridge and does not run the supervised start executor.',
         ];
@@ -10428,7 +10419,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartExecutorGateContrac
 
         $template = [
             'status' => 'codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-EXECUTOR-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-EXECUTOR-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_process_start_release_gate_preflight_hash' => data_get($postStartReleasePayload, 'codex_real_invoker_post_start_process_start_release_gate_preflight_hash'),
                 'codex_supervised_start_executor_preflight_hash' => data_get($supervisedStartPayload, 'codex_supervised_start_executor_preflight_hash'),
                 'provider' => 'codex',
@@ -10493,7 +10484,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartExecutorGateContrac
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_supervised_start_executor_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_process_start_release_gate_preflight' => $postStartRelease,
             'source_codex_supervised_start_executor_preflight' => $supervisedStart,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_contract_template_does_not_dispatch_work'],
@@ -10573,7 +10564,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartExecutorGatePreflig
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_supervised_start_executor_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_supervised_start_executor_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_supervised_start_executor_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start supervised start executor gate is ready; it prepares supervised start and still requires separate spawn enablement.'
@@ -10619,7 +10610,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartExecutorGateImpleme
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start supervised start executor gate implementation packet is ready; it prepares supervised start and does not enable process spawn.',
         ];
@@ -10635,7 +10626,7 @@ public function agentCodexRealInvokerPostStartProcessSpawnEnablementGateContract
 
         $template = [
             'status' => 'codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-SPAWN-ENABLEMENT-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-SPAWN-ENABLEMENT-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_supervised_start_executor_gate_preflight_hash' => data_get($postStartSupervisedPayload, 'codex_real_invoker_post_start_supervised_start_executor_gate_preflight_hash'),
                 'codex_process_spawn_enablement_preflight_hash' => data_get($spawnEnablementPayload, 'codex_process_spawn_enablement_preflight_hash'),
                 'provider' => 'codex',
@@ -10700,7 +10691,7 @@ public function agentCodexRealInvokerPostStartProcessSpawnEnablementGateContract
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_supervised_start_executor_gate_preflight' => $postStartSupervised,
             'source_codex_process_spawn_enablement_preflight' => $spawnEnablement,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_contract_template_does_not_dispatch_work'],
@@ -10780,7 +10771,7 @@ public function agentCodexRealInvokerPostStartProcessSpawnEnablementGatePrefligh
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_spawn_enablement_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start process spawn enablement gate is ready; it records spawn enablement and still requires final process spawn executor.'
@@ -10826,7 +10817,7 @@ public function agentCodexRealInvokerPostStartProcessSpawnEnablementGateImplemen
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start process spawn enablement gate implementation packet is ready; it records enablement and does not run the final process spawn executor.',
         ];
@@ -10842,7 +10833,7 @@ public function agentCodexRealInvokerPostStartFinalProcessSpawnExecutorGateContr
 
         $template = [
             'status' => 'codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-FINAL-PROCESS-SPAWN-EXECUTOR-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-FINAL-PROCESS-SPAWN-EXECUTOR-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_process_spawn_enablement_gate_preflight_hash' => data_get($postStartSpawnEnablementPayload, 'codex_real_invoker_post_start_process_spawn_enablement_gate_preflight_hash'),
                 'codex_process_spawn_executor_preflight_hash' => data_get($spawnExecutorPayload, 'codex_process_spawn_executor_preflight_hash'),
                 'provider' => 'codex',
@@ -10907,7 +10898,7 @@ public function agentCodexRealInvokerPostStartFinalProcessSpawnExecutorGateContr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_process_spawn_enablement_gate_preflight' => $postStartSpawnEnablement,
             'source_codex_process_spawn_executor_preflight' => $spawnExecutor,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_contract_template_does_not_dispatch_work'],
@@ -10987,7 +10978,7 @@ public function agentCodexRealInvokerPostStartFinalProcessSpawnExecutorGatePrefl
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start final process spawn executor gate is ready; it prepares final spawn executor and still requires external process runtime.'
@@ -11033,7 +11024,7 @@ public function agentCodexRealInvokerPostStartFinalProcessSpawnExecutorGateImple
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start final process spawn executor gate implementation packet is ready; it prepares final executor and does not run external process runtime.',
         ];
@@ -11049,7 +11040,7 @@ public function agentCodexRealInvokerPostStartExternalProcessRuntimeGateContract
 
         $template = [
             'status' => 'codex_real_invoker_post_start_external_process_runtime_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXTERNAL-PROCESS-RUNTIME-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXTERNAL-PROCESS-RUNTIME-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_final_process_spawn_executor_gate_preflight_hash' => data_get($finalSpawnPayload, 'codex_real_invoker_post_start_final_process_spawn_executor_gate_preflight_hash'),
                 'codex_external_process_runtime_driver_preflight_hash' => data_get($runtimeDriverPayload, 'codex_external_process_runtime_driver_preflight_hash'),
                 'provider' => 'codex',
@@ -11114,7 +11105,7 @@ public function agentCodexRealInvokerPostStartExternalProcessRuntimeGateContract
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_external_process_runtime_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_external_process_runtime_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_external_process_runtime_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_final_process_spawn_executor_gate_preflight' => $finalSpawn,
             'source_codex_external_process_runtime_driver_preflight' => $runtimeDriver,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_external_process_runtime_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_contract_template_does_not_dispatch_work'],
@@ -11194,7 +11185,7 @@ public function agentCodexRealInvokerPostStartExternalProcessRuntimeGatePrefligh
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_external_process_runtime_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_external_process_runtime_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_external_process_runtime_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_external_process_runtime_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start external process runtime gate is ready; it prepares runtime metadata and still requires process invocation authorization.'
@@ -11240,7 +11231,7 @@ public function agentCodexRealInvokerPostStartExternalProcessRuntimeGateImplemen
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start external process runtime gate implementation packet is ready; it prepares external runtime and does not run process invocation.',
         ];
@@ -11256,7 +11247,7 @@ public function agentCodexRealInvokerPostStartProcessInvocationAuthorizationGate
 
         $template = [
             'status' => 'codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-INVOCATION-AUTHORIZATION-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-INVOCATION-AUTHORIZATION-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_external_process_runtime_gate_preflight_hash' => data_get($externalRuntimePayload, 'codex_real_invoker_post_start_external_process_runtime_gate_preflight_hash'),
                 'codex_external_process_invocation_authorization_preflight_hash' => data_get($authorizationPayload, 'codex_external_process_invocation_authorization_preflight_hash'),
                 'provider' => 'codex',
@@ -11321,7 +11312,7 @@ public function agentCodexRealInvokerPostStartProcessInvocationAuthorizationGate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_external_process_runtime_gate_preflight' => $externalRuntime,
             'source_codex_external_process_invocation_authorization_preflight' => $authorization,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_contract_template_does_not_dispatch_work'],
@@ -11401,7 +11392,7 @@ public function agentCodexRealInvokerPostStartProcessInvocationAuthorizationGate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_invocation_authorization_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start process invocation authorization gate is ready; it records authorization and still requires invoker dry-run.'
@@ -11447,7 +11438,7 @@ public function agentCodexRealInvokerPostStartProcessInvocationAuthorizationGate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start process invocation authorization gate implementation packet is ready; it records authorization and does not run invoker dry-run.',
         ];
@@ -11463,7 +11454,7 @@ public function agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGateCo
 
         $template = [
             'status' => 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXTERNAL-PROCESS-INVOKER-DRY-RUN-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXTERNAL-PROCESS-INVOKER-DRY-RUN-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_process_invocation_authorization_gate_preflight_hash' => data_get($authorizationPayload, 'codex_real_invoker_post_start_process_invocation_authorization_gate_preflight_hash'),
                 'codex_external_process_invoker_dry_run_preflight_hash' => data_get($dryRunPayload, 'codex_external_process_invoker_dry_run_preflight_hash'),
                 'provider' => 'codex',
@@ -11528,7 +11519,7 @@ public function agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGateCo
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_process_invocation_authorization_gate_preflight' => $authorization,
             'source_codex_external_process_invoker_dry_run_preflight' => $dryRun,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_contract_template_does_not_dispatch_work'],
@@ -11608,7 +11599,7 @@ public function agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGatePr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start external process invoker dry-run gate is ready; it prepares dry-run and still requires real invoker execution gate.'
@@ -11654,7 +11645,7 @@ public function agentCodexRealInvokerPostStartExternalProcessInvokerDryRunGateIm
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start external process invoker dry-run gate implementation packet is ready; it prepares dry-run and does not run real invoker execution.',
         ];
@@ -11670,7 +11661,7 @@ public function agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateCon
 
         $template = [
             'status' => 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-REAL-INVOKER-RELEASE-PREFLIGHT-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-REAL-INVOKER-RELEASE-PREFLIGHT-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_external_process_invoker_dry_run_gate_preflight_hash' => data_get($dryRunPayload, 'codex_real_invoker_post_start_external_process_invoker_dry_run_gate_preflight_hash'),
                 'codex_real_invoker_release_preflight_preflight_hash' => data_get($releasePreflightPayload, 'codex_real_invoker_release_preflight_preflight_hash'),
                 'provider' => 'codex',
@@ -11736,7 +11727,7 @@ public function agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateCon
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_external_process_invoker_dry_run_gate_preflight' => $dryRun,
             'source_codex_real_invoker_release_preflight_preflight' => $releasePreflight,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_contract_template_does_not_dispatch_work'],
@@ -11816,7 +11807,7 @@ public function agentCodexRealInvokerPostStartRealInvokerReleasePreflightGatePre
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start release preflight gate is ready; it records preflight and still requires signed release gate.'
@@ -11862,7 +11853,7 @@ public function agentCodexRealInvokerPostStartRealInvokerReleasePreflightGateImp
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start release preflight gate implementation packet is ready; it records preflight and does not sign release or run real invoker execution.',
         ];
@@ -11878,7 +11869,7 @@ public function agentCodexRealInvokerPostStartSignedRealInvokerReleaseGateContra
 
         $template = [
             'status' => 'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SIGNED-REAL-INVOKER-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SIGNED-REAL-INVOKER-RELEASE-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_release_preflight_hash' => data_get($postStartReleasePreflightPayload, 'codex_real_invoker_post_start_real_invoker_release_preflight_gate_preflight_hash'),
                 'signed_release_preflight_hash' => data_get($signedReleasePayload, 'codex_signed_real_invoker_release_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -11943,7 +11934,7 @@ public function agentCodexRealInvokerPostStartSignedRealInvokerReleaseGateContra
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_real_invoker_release_preflight_gate_preflight' => $postStartReleasePreflight,
             'source_codex_signed_real_invoker_release_gate_preflight' => $signedRelease,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_contract_template_does_not_dispatch_work'],
@@ -12023,7 +12014,7 @@ public function agentCodexRealInvokerPostStartSignedRealInvokerReleaseGatePrefli
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === []
                 ? 'Codex real invoker post-start signed release gate is ready; it records signed release authorization and still requires implementation boundary.'
@@ -12069,7 +12060,7 @@ public function agentCodexRealInvokerPostStartSignedRealInvokerReleaseGateImplem
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start signed release gate implementation packet is ready; it records signed release authorization and does not run real invoker execution.',
         ];
@@ -12085,7 +12076,7 @@ public function agentCodexRealInvokerPostStartImplementationBoundaryGateContract
 
         $template = [
             'status' => 'codex_real_invoker_post_start_implementation_boundary_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-IMPLEMENTATION-BOUNDARY-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-IMPLEMENTATION-BOUNDARY-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_signed_release_hash' => data_get($postStartSignedPayload, 'codex_real_invoker_post_start_signed_real_invoker_release_gate_preflight_hash'),
                 'implementation_boundary_hash' => data_get($boundaryPayload, 'codex_real_invoker_implementation_boundary_preflight_hash'),
                 'provider' => 'codex',
@@ -12119,7 +12110,7 @@ public function agentCodexRealInvokerPostStartImplementationBoundaryGateContract
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_implementation_boundary_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_implementation_boundary_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_implementation_boundary_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_signed_real_invoker_release_gate_preflight' => $postStartSigned,
             'source_codex_real_invoker_implementation_boundary_preflight' => $boundary,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_implementation_boundary_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_contract_template_does_not_dispatch_work'],
@@ -12167,7 +12158,7 @@ public function agentCodexRealInvokerPostStartImplementationBoundaryGatePrefligh
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_implementation_boundary_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_implementation_boundary_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_implementation_boundary_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_implementation_boundary_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start implementation boundary gate is ready; it records boundary preparation and still requires executor plan.' : 'Codex real invoker post-start implementation boundary gate is blocked until signed release, boundary and ledger prerequisites exist.',
         ];
@@ -12196,7 +12187,7 @@ public function agentCodexRealInvokerPostStartImplementationBoundaryGateImplemen
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start implementation boundary gate implementation packet is ready; it records boundary preparation and does not run real invoker execution.',
         ];
@@ -12212,7 +12203,7 @@ public function agentCodexRealInvokerPostStartExecutorPlanGateContractTemplate(a
 
         $template = [
             'status' => 'codex_real_invoker_post_start_executor_plan_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXECUTOR-PLAN-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXECUTOR-PLAN-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_implementation_boundary_hash' => data_get($postStartBoundaryPayload, 'codex_real_invoker_post_start_implementation_boundary_gate_preflight_hash'),
                 'executor_plan_hash' => data_get($executorPlanPayload, 'codex_real_invoker_executor_plan_preflight_hash'),
                 'provider' => 'codex',
@@ -12246,7 +12237,7 @@ public function agentCodexRealInvokerPostStartExecutorPlanGateContractTemplate(a
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_plan_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_executor_plan_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_executor_plan_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_implementation_boundary_gate_preflight' => $postStartBoundary,
             'source_codex_real_invoker_executor_plan_preflight' => $executorPlan,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_plan_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_plan_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_plan_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_plan_gate_contract_template_does_not_dispatch_work'],
@@ -12294,7 +12285,7 @@ public function agentCodexRealInvokerPostStartExecutorPlanGatePreflight(array $o
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_plan_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_executor_plan_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_executor_plan_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_plan_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_plan_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_plan_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_plan_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start executor plan gate is ready; it records executor plan preparation and still requires fresh release.' : 'Codex real invoker post-start executor plan gate is blocked until implementation boundary, executor plan and ledger prerequisites exist.',
         ];
@@ -12323,7 +12314,7 @@ public function agentCodexRealInvokerPostStartExecutorPlanGateImplementationPack
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_plan_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_executor_plan_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_executor_plan_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_plan_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_plan_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_plan_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_plan_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start executor plan gate implementation packet is ready; it records executor plan preparation and does not enable executor execution.',
         ];
@@ -12339,7 +12330,7 @@ public function agentCodexRealInvokerPostStartExecutorFreshReleaseGateContractTe
 
         $template = [
             'status' => 'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXECUTOR-FRESH-RELEASE-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXECUTOR-FRESH-RELEASE-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_executor_plan_hash' => data_get($postStartPlanPayload, 'codex_real_invoker_post_start_executor_plan_gate_preflight_hash'),
                 'executor_fresh_release_hash' => data_get($freshReleasePayload, 'codex_real_invoker_executor_fresh_release_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -12373,7 +12364,7 @@ public function agentCodexRealInvokerPostStartExecutorFreshReleaseGateContractTe
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_executor_plan_gate_preflight' => $postStartPlan,
             'source_codex_real_invoker_executor_fresh_release_gate_preflight' => $freshRelease,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_contract_template_does_not_dispatch_work'],
@@ -12421,7 +12412,7 @@ public function agentCodexRealInvokerPostStartExecutorFreshReleaseGatePreflight(
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_fresh_release_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_executor_fresh_release_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_executor_fresh_release_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_fresh_release_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start executor fresh release gate is ready; it records fresh release authorization and still requires executor enablement.' : 'Codex real invoker post-start executor fresh release gate is blocked until executor plan, fresh release and ledger prerequisites exist.',
         ];
@@ -12450,7 +12441,7 @@ public function agentCodexRealInvokerPostStartExecutorFreshReleaseGateImplementa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start executor fresh release gate implementation packet is ready; it records fresh release authorization and does not enable executor execution.',
         ];
@@ -12466,7 +12457,7 @@ public function agentCodexRealInvokerPostStartExecutorEnablementGateContractTemp
 
         $template = [
             'status' => 'codex_real_invoker_post_start_executor_enablement_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXECUTOR-ENABLEMENT-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-EXECUTOR-ENABLEMENT-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_executor_fresh_release_hash' => data_get($postStartFreshReleasePayload, 'codex_real_invoker_post_start_executor_fresh_release_gate_preflight_hash'),
                 'executor_enablement_hash' => data_get($enablementPayload, 'codex_real_invoker_executor_enablement_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -12500,7 +12491,7 @@ public function agentCodexRealInvokerPostStartExecutorEnablementGateContractTemp
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_enablement_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_executor_enablement_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_executor_enablement_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_executor_fresh_release_gate_preflight' => $postStartFreshRelease,
             'source_codex_real_invoker_executor_enablement_gate_preflight' => $enablement,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_enablement_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_enablement_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_enablement_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_enablement_gate_contract_template_does_not_dispatch_work'],
@@ -12548,7 +12539,7 @@ public function agentCodexRealInvokerPostStartExecutorEnablementGatePreflight(ar
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_enablement_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_executor_enablement_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_executor_enablement_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_enablement_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_enablement_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_enablement_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_enablement_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start executor enablement gate is ready; it enables executor metadata while keeping real process start, token spend and dispatch blocked.' : 'Codex real invoker post-start executor enablement gate is blocked until fresh release, enablement and ledger prerequisites exist.',
         ];
@@ -12577,7 +12568,7 @@ public function agentCodexRealInvokerPostStartExecutorEnablementGateImplementati
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_executor_enablement_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start executor enablement gate implementation packet is ready; it enables executor metadata but does not start Codex or dispatch work.',
         ];
@@ -12593,7 +12584,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartActivationGateContr
 
         $template = [
             'status' => 'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-ACTIVATION-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-SUPERVISED-START-ACTIVATION-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_executor_enablement_hash' => data_get($postStartEnablementPayload, 'codex_real_invoker_post_start_executor_enablement_gate_preflight_hash'),
                 'supervised_start_activation_hash' => data_get($activationPayload, 'codex_real_invoker_supervised_start_activation_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -12627,7 +12618,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartActivationGateContr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_executor_enablement_gate_preflight' => $postStartEnablement,
             'source_codex_real_invoker_supervised_start_activation_gate_preflight' => $activation,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_contract_template_does_not_dispatch_work'],
@@ -12675,7 +12666,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartActivationGatePrefl
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_supervised_start_activation_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_supervised_start_activation_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_supervised_start_activation_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_supervised_start_activation_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start supervised start activation gate is ready; it arms process start metadata while keeping real process start, token spend and dispatch blocked.' : 'Codex real invoker post-start supervised start activation gate is blocked until executor enablement, activation and ledger prerequisites exist.',
         ];
@@ -12704,7 +12695,7 @@ public function agentCodexRealInvokerPostStartSupervisedStartActivationGateImple
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start supervised start activation gate implementation packet is ready; it arms process start metadata but does not start Codex or dispatch work.',
         ];
@@ -12720,7 +12711,7 @@ public function agentCodexRealInvokerPostStartGuardedProcessStartExecutorGateCon
 
         $template = [
             'status' => 'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-GUARDED-PROCESS-START-GATE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-GUARDED-PROCESS-START-GATE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_supervised_activation_hash' => data_get($activationPayload, 'codex_real_invoker_post_start_supervised_start_activation_gate_preflight_hash'),
                 'guarded_process_start_hash' => data_get($guardedPayload, 'codex_real_invoker_guarded_process_start_executor_preflight_hash'),
                 'provider' => 'codex',
@@ -12754,7 +12745,7 @@ public function agentCodexRealInvokerPostStartGuardedProcessStartExecutorGateCon
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_supervised_start_activation_gate_preflight' => $activation,
             'source_codex_real_invoker_guarded_process_start_executor_preflight' => $guarded,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_contract_template_does_not_dispatch_work'],
@@ -12802,7 +12793,7 @@ public function agentCodexRealInvokerPostStartGuardedProcessStartExecutorGatePre
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start guarded process start gate is ready; it prepares disabled guarded start metadata while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start guarded process start gate is blocked until supervised activation, guarded executor and ledger prerequisites exist.',
         ];
@@ -12831,7 +12822,7 @@ public function agentCodexRealInvokerPostStartGuardedProcessStartExecutorGateImp
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start guarded process start gate implementation packet is ready; it prepares disabled guarded start metadata but does not start Codex or dispatch work.',
         ];
@@ -12847,7 +12838,7 @@ public function agentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate
 
         $template = [
             'status' => 'codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-FINAL-PROCESS-START-AUTH-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-FINAL-PROCESS-START-AUTH-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_guarded_process_start_hash' => data_get($guardedPayload, 'codex_real_invoker_post_start_guarded_process_start_executor_gate_preflight_hash'),
                 'final_process_start_authorization_hash' => data_get($authorizationPayload, 'codex_real_invoker_final_process_start_authorization_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -12881,7 +12872,7 @@ public function agentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_guarded_process_start_gate_preflight' => $guarded,
             'source_codex_real_invoker_final_process_start_authorization_gate_preflight' => $authorization,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_contract_template_does_not_dispatch_work'],
@@ -12929,7 +12920,7 @@ public function agentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_final_process_start_authorization_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start final process start authorization gate is ready; it records final authorization metadata while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start final process start authorization gate is blocked until guarded start, final authorization and ledger prerequisites exist.',
         ];
@@ -12958,7 +12949,7 @@ public function agentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start final process start authorization gate implementation packet is ready; it records final authorization metadata but does not start Codex or dispatch work.',
         ];
@@ -12974,7 +12965,7 @@ public function agentCodexRealInvokerPostStartActualProcessStartRehearsalGateCon
 
         $template = [
             'status' => 'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ACTUAL-PROCESS-START-REHEARSAL-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-ACTUAL-PROCESS-START-REHEARSAL-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_final_authorization_hash' => data_get($authorizationPayload, 'codex_real_invoker_post_start_final_process_start_authorization_gate_preflight_hash'),
                 'actual_process_start_rehearsal_hash' => data_get($rehearsalPayload, 'codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash'),
                 'provider' => 'codex',
@@ -13008,7 +12999,7 @@ public function agentCodexRealInvokerPostStartActualProcessStartRehearsalGateCon
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_final_process_start_authorization_gate_preflight' => $authorization,
             'source_codex_real_invoker_actual_process_start_rehearsal_executor_preflight' => $rehearsal,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_contract_template_does_not_dispatch_work'],
@@ -13056,7 +13047,7 @@ public function agentCodexRealInvokerPostStartActualProcessStartRehearsalGatePre
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start actual process start rehearsal gate is ready; it records rehearsal metadata while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start actual process start rehearsal gate is blocked until final authorization, rehearsal executor and ledger prerequisites exist.',
         ];
@@ -13085,7 +13076,7 @@ public function agentCodexRealInvokerPostStartActualProcessStartRehearsalGateImp
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start actual process start rehearsal gate implementation packet is ready; it records rehearsal metadata but does not start Codex or dispatch work.',
         ];
@@ -13101,7 +13092,7 @@ public function agentCodexRealInvokerPostStartProcessStartEnvelopeGateContractTe
 
         $template = [
             'status' => 'codex_real_invoker_post_start_process_start_envelope_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-START-ENVELOPE-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-START-ENVELOPE-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_actual_process_start_rehearsal_hash' => data_get($rehearsalPayload, 'codex_real_invoker_post_start_actual_process_start_rehearsal_gate_preflight_hash'),
                 'process_start_envelope_builder_hash' => data_get($envelopePayload, 'codex_real_invoker_process_start_envelope_builder_preflight_hash'),
                 'provider' => 'codex',
@@ -13135,7 +13126,7 @@ public function agentCodexRealInvokerPostStartProcessStartEnvelopeGateContractTe
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_start_envelope_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_process_start_envelope_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_process_start_envelope_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_actual_process_start_rehearsal_gate_preflight' => $rehearsal,
             'source_codex_real_invoker_process_start_envelope_builder_preflight' => $envelope,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_envelope_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_contract_template_does_not_dispatch_work'],
@@ -13183,7 +13174,7 @@ public function agentCodexRealInvokerPostStartProcessStartEnvelopeGatePreflight(
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_start_envelope_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_process_start_envelope_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_process_start_envelope_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_envelope_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start process start envelope gate is ready; it builds envelope metadata while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start process start envelope gate is blocked until rehearsal, envelope builder and ledger prerequisites exist.',
         ];
@@ -13212,7 +13203,7 @@ public function agentCodexRealInvokerPostStartProcessStartEnvelopeGateImplementa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start process start envelope gate implementation packet is ready; it builds envelope metadata but does not start Codex or dispatch work.',
         ];
@@ -13228,7 +13219,7 @@ public function agentCodexRealInvokerPostStartStartExecutionGateContractTemplate
 
         $template = [
             'status' => 'codex_real_invoker_post_start_start_execution_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-START-EXECUTION-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-START-EXECUTION-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_process_start_envelope_hash' => data_get($envelopePayload, 'codex_real_invoker_post_start_process_start_envelope_gate_preflight_hash'),
                 'start_execution_gate_hash' => data_get($startGatePayload, 'codex_real_invoker_start_execution_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -13262,7 +13253,7 @@ public function agentCodexRealInvokerPostStartStartExecutionGateContractTemplate
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_start_execution_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_start_execution_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_start_execution_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_process_start_envelope_gate_preflight' => $envelope,
             'source_codex_real_invoker_start_execution_gate_preflight' => $startGate,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_start_execution_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_start_execution_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_start_execution_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_start_execution_gate_contract_template_does_not_dispatch_work'],
@@ -13310,7 +13301,7 @@ public function agentCodexRealInvokerPostStartStartExecutionGatePreflight(array 
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_start_execution_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_start_execution_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_start_execution_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_start_execution_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_start_execution_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_start_execution_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_start_execution_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start start execution gate is ready; it authorizes the next guarded layer while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start start execution gate is blocked until envelope, start gate and ledger prerequisites exist.',
         ];
@@ -13339,7 +13330,7 @@ public function agentCodexRealInvokerPostStartStartExecutionGateImplementationPa
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_start_execution_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_start_execution_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_start_execution_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_start_execution_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_start_execution_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_start_execution_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_start_execution_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start start execution gate implementation packet is ready; it authorizes the next guarded layer but does not start Codex or dispatch work.',
         ];
@@ -13355,7 +13346,7 @@ public function agentCodexRealInvokerPostStartProcessStarterReadinessGateContrac
 
         $template = [
             'status' => 'codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-STARTER-READINESS-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-PROCESS-STARTER-READINESS-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_start_execution_hash' => data_get($postStartStartExecutionPayload, 'codex_real_invoker_post_start_start_execution_gate_preflight_hash'),
                 'process_starter_readiness_hash' => data_get($processStarterPayload, 'codex_real_invoker_process_starter_readiness_gate_preflight_hash'),
                 'provider' => 'codex',
@@ -13389,7 +13380,7 @@ public function agentCodexRealInvokerPostStartProcessStarterReadinessGateContrac
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_starter_readiness_gate_contract_template' => $template,
-            'codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_start_execution_gate_preflight' => $postStartStartExecution,
             'source_codex_real_invoker_process_starter_readiness_gate_preflight' => $processStarter,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_contract_template_does_not_dispatch_work'],
@@ -13437,7 +13428,7 @@ public function agentCodexRealInvokerPostStartProcessStarterReadinessGatePreflig
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_starter_readiness_gate_preflight' => $preflight,
-            'codex_real_invoker_post_start_process_starter_readiness_gate_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_process_starter_readiness_gate_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_starter_readiness_gate_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start process starter readiness gate is ready; it prepares the manual starter boundary while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start process starter readiness gate is blocked until start execution, process starter and ledger prerequisites exist.',
         ];
@@ -13466,7 +13457,7 @@ public function agentCodexRealInvokerPostStartProcessStarterReadinessGateImpleme
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start process starter readiness gate implementation packet is ready; it prepares the manual starter boundary but does not start Codex or dispatch work.',
         ];
@@ -13482,7 +13473,7 @@ public function agentCodexRealInvokerPostStartManualStartExecutorReceiptWriterCo
 
         $template = [
             'status' => 'codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-MANUAL-START-RECEIPT-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-MANUAL-START-RECEIPT-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_process_starter_readiness_hash' => data_get($postStartReadinessPayload, 'codex_real_invoker_post_start_process_starter_readiness_gate_preflight_hash'),
                 'manual_start_executor_receipt_hash' => data_get($manualReceiptPayload, 'codex_real_invoker_manual_start_executor_receipt_writer_preflight_hash'),
                 'provider' => 'codex',
@@ -13516,7 +13507,7 @@ public function agentCodexRealInvokerPostStartManualStartExecutorReceiptWriterCo
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template' => $template,
-            'codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_process_starter_readiness_gate_preflight' => $postStartReadiness,
             'source_codex_real_invoker_manual_start_executor_receipt_writer_preflight' => $manualReceipt,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_contract_template_does_not_dispatch_work'],
@@ -13564,7 +13555,7 @@ public function agentCodexRealInvokerPostStartManualStartExecutorReceiptWriterPr
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight' => $preflight,
-            'codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start manual start executor receipt writer is ready; it records the manual receipt bridge while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start manual start executor receipt writer is blocked until post-start readiness, manual receipt and ledger prerequisites exist.',
         ];
@@ -13593,7 +13584,7 @@ public function agentCodexRealInvokerPostStartManualStartExecutorReceiptWriterIm
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_manual_start_executor_receipt_writer_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start manual start executor receipt writer implementation packet is ready; it records the manual receipt bridge but does not start Codex or dispatch work.',
         ];
@@ -13609,7 +13600,7 @@ public function agentCodexRealInvokerPostStartOperatorStartHandoffBuilderContrac
 
         $template = [
             'status' => 'codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_ready',
-            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-OPERATOR-HANDOFF-'.strtoupper(substr($this->stableHash([
+            'contract_id' => 'CODEX-REAL-INVOKER-POST-START-OPERATOR-HANDOFF-'.strtoupper(substr(ReadinessHash::stable([
                 'post_start_manual_receipt_hash' => data_get($postStartManualReceiptPayload, 'codex_real_invoker_post_start_manual_start_executor_receipt_writer_preflight_hash'),
                 'operator_start_handoff_hash' => data_get($operatorHandoffPayload, 'codex_real_invoker_operator_start_handoff_builder_preflight_hash'),
                 'provider' => 'codex',
@@ -13643,7 +13634,7 @@ public function agentCodexRealInvokerPostStartOperatorStartHandoffBuilderContrac
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_operator_start_handoff_builder_contract_template' => $template,
-            'codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_hash' => $this->stableHash($template),
+            'codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_hash' => ReadinessHash::stable($template),
             'source_post_start_manual_start_executor_receipt_writer_preflight' => $postStartManualReceipt,
             'source_codex_real_invoker_operator_start_handoff_builder_preflight' => $operatorHandoff,
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_does_not_start_codex', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_does_not_call_codex', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_contract_template_does_not_dispatch_work'],
@@ -13691,7 +13682,7 @@ public function agentCodexRealInvokerPostStartOperatorStartHandoffBuilderPreflig
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_operator_start_handoff_builder_preflight' => $preflight,
-            'codex_real_invoker_post_start_operator_start_handoff_builder_preflight_hash' => $this->stableHash($preflight),
+            'codex_real_invoker_post_start_operator_start_handoff_builder_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_operator_start_handoff_builder_preflight_does_not_start_codex', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_preflight_does_not_call_codex', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_preflight_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_preflight_does_not_dispatch_work'],
             'human_summary' => $blockingReasons === [] ? 'Codex real invoker post-start operator start handoff builder is ready; it mirrors handoff metadata while keeping actual start, token spend and dispatch blocked.' : 'Codex real invoker post-start operator start handoff builder is blocked until post-start manual receipt, operator handoff and ledger prerequisites exist.',
         ];
@@ -13720,7 +13711,7 @@ public function agentCodexRealInvokerPostStartOperatorStartHandoffBuilderImpleme
             'ledger_write_allowed' => false,
             'runtime_write_allowed' => false,
             'codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet' => $packet,
-            'codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet_hash' => $this->stableHash($packet),
+            'codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => ['agent_codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet_does_not_start_codex', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet_does_not_call_codex', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet_does_not_spend_tokens', 'agent_codex_real_invoker_post_start_operator_start_handoff_builder_implementation_packet_does_not_dispatch_work'],
             'human_summary' => 'Codex real invoker post-start operator start handoff builder implementation packet is ready; it mirrors handoff metadata but does not start Codex or dispatch work.',
         ];

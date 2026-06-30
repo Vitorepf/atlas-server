@@ -4,26 +4,17 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Closure;
-
 /**
  * CODEX REVIEW MERGE projection section, extracted from the god-class
  * {@see AtlasSelfConstructionReadinessService}.
  *
  * Owns every public codexReviewMerge* method (the merge-action projection
  * family). The runtime service delegates each method to this collaborator
- * through thin byte-identical delegators. The collaborator also holds the
- * dependency on the `stableHash` closure the original kept in the runtime
- * service.
+ * through thin byte-identical delegators. Uses ReadinessHash::stable()
+ * directly for deterministic payload hashing.
  */
 final class ReadinessProjectionCodexReviewMergeSection
 {
-    /**
-     * @param  Closure(array<string,mixed>): string  $stableHash
-     */
-    public function __construct(
-        private readonly Closure $stableHash,
-    ) {}
 
 public function codexReviewMergeActionTemplate(array $options = []): array
     {
@@ -98,7 +89,7 @@ public function codexReviewMergeActionTemplate(array $options = []): array
             'merge_allowed' => false,
             'signature_valid' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_action_template_does_not_claim_packets',
                 'codex_review_merge_action_template_does_not_complete_packets',
@@ -227,7 +218,7 @@ public function codexReviewMergePreflight(array $options = []): array
             'merge_allowed' => false,
             'signature_valid' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_preflight_does_not_claim_packets',
                 'codex_review_merge_preflight_does_not_complete_packets',
@@ -315,7 +306,7 @@ public function codexReviewMergeActionDraft(array $options = []): array
             'merge_allowed' => false,
             'signature_valid' => false,
             'draft' => $draft,
-            'draft_hash' => $this->stableHash($draft),
+            'draft_hash' => ReadinessHash::stable($draft),
             'non_execution_guarantees' => [
                 'codex_review_merge_action_draft_does_not_claim_packets',
                 'codex_review_merge_action_draft_does_not_complete_packets',
@@ -390,7 +381,7 @@ public function codexReviewMergeReceiptDraft(array $options = []): array
             'merge_allowed' => false,
             'signature_valid' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_receipt_draft_does_not_complete_packets',
@@ -439,7 +430,7 @@ public function codexReviewMergeSignatureRequest(array $options = []): array
             'request_id' => 'CODEX-REVIEW-MERGE-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
             'status' => $receiptReady ? 'waiting_for_external_signature' : 'blocked_before_merge_receipt_draft',
             'source_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
-            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
             'signature_required' => true,
             'signature_present' => false,
             'signature_valid' => false,
@@ -463,8 +454,8 @@ public function codexReviewMergeSignatureRequest(array $options = []): array
             'signature_valid' => false,
             'signature_request' => $signatureRequest,
             'signable_payload' => $signablePayload,
-            'signable_payload_hash' => $this->stableHash($signablePayload),
-            'request_hash' => $this->stableHash($signatureRequest),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
+            'request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_signature_request_does_not_claim_packets',
                 'codex_review_merge_signature_request_does_not_complete_packets',
@@ -567,7 +558,7 @@ public function codexReviewMergePostSignatureRunbook(array $options = []): array
             'merge_allowed' => false,
             'signature_valid' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_signature_runbook_does_not_claim_packets',
                 'codex_review_merge_post_signature_runbook_does_not_complete_packets',
@@ -665,7 +656,7 @@ public function codexReviewMergeExecutionChecklist(array $options = []): array
             'merge_allowed' => false,
             'signature_valid' => false,
             'checklist' => $checklist,
-            'checklist_hash' => $this->stableHash($checklist),
+            'checklist_hash' => ReadinessHash::stable($checklist),
             'non_execution_guarantees' => [
                 'codex_review_merge_execution_checklist_does_not_claim_packets',
                 'codex_review_merge_execution_checklist_does_not_complete_packets',
@@ -749,7 +740,7 @@ public function codexReviewMergeAuthorizationTemplate(array $options = []): arra
             'merge_allowed' => false,
             'signature_valid' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_authorization_template_does_not_claim_packets',
                 'codex_review_merge_authorization_template_does_not_complete_packets',
@@ -826,7 +817,7 @@ public function codexReviewMergeAuthorizationReceiptDraft(array $options = []): 
             'merge_allowed' => false,
             'signature_valid' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_authorization_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_authorization_receipt_draft_does_not_complete_packets',
@@ -880,7 +871,7 @@ public function codexReviewMergeAuthorizationSignatureRequest(array $options = [
             'request_id' => 'CODEX-REVIEW-MERGE-AUTHORIZATION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
             'status' => $requestReady ? 'waiting_for_external_authorization_signature' : 'blocked_before_authorization_receipt_draft',
             'source_authorization_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
-            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
             'signature_required' => true,
             'signature_present' => false,
             'signature_valid' => false,
@@ -904,8 +895,8 @@ public function codexReviewMergeAuthorizationSignatureRequest(array $options = [
             'signature_valid' => false,
             'signature_request' => $signatureRequest,
             'signable_payload' => $signablePayload,
-            'signable_payload_hash' => $this->stableHash($signablePayload),
-            'request_hash' => $this->stableHash($signatureRequest),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
+            'request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_authorization_signature_request_does_not_claim_packets',
                 'codex_review_merge_authorization_signature_request_does_not_complete_packets',
@@ -1009,7 +1000,7 @@ public function codexReviewMergeAuthorizationPostSignatureRunbook(array $options
             'merge_allowed' => false,
             'signature_valid' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_authorization_post_signature_runbook_does_not_claim_packets',
                 'codex_review_merge_authorization_post_signature_runbook_does_not_complete_packets',
@@ -1123,7 +1114,7 @@ public function codexReviewMergeFinalAuthorizationPreflight(array $options = [])
             'merge_allowed' => false,
             'signature_valid' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_final_authorization_preflight_does_not_claim_packets',
                 'codex_review_merge_final_authorization_preflight_does_not_complete_packets',
@@ -1244,7 +1235,7 @@ public function codexReviewMergeAuthorizingActionTemplate(array $options = []): 
             'merge_allowed' => false,
             'signature_valid' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_authorizing_action_template_does_not_claim_packets',
                 'codex_review_merge_authorizing_action_template_does_not_complete_packets',
@@ -1345,7 +1336,7 @@ public function codexReviewMergeFinalReceiptDraft(array $options = []): array
             'signature_valid' => false,
             'receipt_signed' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_final_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_final_receipt_draft_does_not_complete_packets',
@@ -1396,7 +1387,7 @@ public function codexReviewMergeFinalSignatureRequest(array $options = []): arra
             'request_id' => 'CODEX-REVIEW-MERGE-FINAL-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
             'status' => $requestReady ? 'waiting_for_external_final_merge_receipt_signature' : 'blocked_before_final_receipt_draft',
             'source_final_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
-            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
             'signature_required' => true,
             'signature_present' => false,
             'signature_valid' => false,
@@ -1423,8 +1414,8 @@ public function codexReviewMergeFinalSignatureRequest(array $options = []): arra
             'receipt_signed' => false,
             'signature_request' => $signatureRequest,
             'signable_payload' => $signablePayload,
-            'signable_payload_hash' => $this->stableHash($signablePayload),
-            'request_hash' => $this->stableHash($signatureRequest),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
+            'request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_final_signature_request_does_not_claim_packets',
                 'codex_review_merge_final_signature_request_does_not_complete_packets',
@@ -1535,7 +1526,7 @@ public function codexReviewMergeFinalPostSignatureRunbook(array $options = []): 
             'signature_valid' => false,
             'receipt_signed' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_final_post_signature_runbook_does_not_claim_packets',
                 'codex_review_merge_final_post_signature_runbook_does_not_complete_packets',
@@ -1651,7 +1642,7 @@ public function codexReviewMergeSignedFinalReceiptTemplate(array $options = []):
             'receipt_signed' => false,
             'executor_allowed' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_signed_final_receipt_template_does_not_claim_packets',
                 'codex_review_merge_signed_final_receipt_template_does_not_complete_packets',
@@ -1751,7 +1742,7 @@ public function codexReviewMergeSignedFinalReceiptPreflight(array $options = [])
             'receipt_signed' => false,
             'executor_allowed' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_signed_final_receipt_preflight_does_not_claim_packets',
                 'codex_review_merge_signed_final_receipt_preflight_does_not_complete_packets',
@@ -1865,7 +1856,7 @@ public function codexReviewMergeSignedFinalReceiptPersistenceTemplate(array $opt
             'merge_allowed' => false,
             'executor_allowed' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_signed_final_receipt_persistence_template_does_not_claim_packets',
                 'codex_review_merge_signed_final_receipt_persistence_template_does_not_complete_packets',
@@ -1969,7 +1960,7 @@ public function codexReviewMergeExecutorReleasePreflight(array $options = []): a
             'executor_allowed' => false,
             'merge_allowed' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_executor_release_preflight_does_not_claim_packets',
                 'codex_review_merge_executor_release_preflight_does_not_complete_packets',
@@ -2079,7 +2070,7 @@ public function codexReviewMergeExecutorContractTemplate(array $options = []): a
             'executor_allowed' => false,
             'merge_allowed' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_executor_contract_template_does_not_claim_packets',
                 'codex_review_merge_executor_contract_template_does_not_complete_packets',
@@ -2180,7 +2171,7 @@ public function codexReviewMergeExecutionReceiptTemplate(array $options = []): a
             'receipt_persisted' => false,
             'merge_allowed' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_execution_receipt_template_does_not_claim_packets',
                 'codex_review_merge_execution_receipt_template_does_not_complete_packets',
@@ -2276,7 +2267,7 @@ public function codexReviewMergePostExecutionPreflight(array $options = []): arr
             'approval_granted' => false,
             'merge_allowed' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_preflight_does_not_complete_packets',
@@ -2367,7 +2358,7 @@ public function codexReviewMergePostExecutionActionTemplate(array $options = [])
             'approval_granted' => false,
             'merge_allowed' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_template_does_not_complete_packets',
@@ -2450,7 +2441,7 @@ public function codexReviewMergePostExecutionActionReceiptDraft(array $options =
             'merge_allowed' => false,
             'receipt_signed' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_receipt_draft_does_not_complete_packets',
@@ -2507,7 +2498,7 @@ public function codexReviewMergePostExecutionActionSignatureRequest(array $optio
             'request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
             'status' => $requestReady ? 'waiting_for_external_final_merge_action_signature' : 'blocked_before_post_execution_action_receipt_draft',
             'source_post_execution_action_receipt_hash' => data_get($receiptPayload, 'receipt_hash'),
-            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
             'signature_required' => true,
             'signature_present' => false,
             'signature_valid' => false,
@@ -2530,8 +2521,8 @@ public function codexReviewMergePostExecutionActionSignatureRequest(array $optio
             'receipt_persisted' => false,
             'signature_request' => $signatureRequest,
             'signable_payload' => $signablePayload,
-            'signable_payload_hash' => $this->stableHash($signablePayload),
-            'request_hash' => $this->stableHash($signatureRequest),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
+            'request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signature_request_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signature_request_does_not_complete_packets',
@@ -2614,7 +2605,7 @@ public function codexReviewMergePostExecutionActionPostSignatureRunbook(array $o
             'signature_valid' => false,
             'receipt_persisted' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_post_signature_runbook_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_post_signature_runbook_does_not_complete_packets',
@@ -2721,7 +2712,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptTemplate(array $
             'signature_valid' => false,
             'receipt_persisted' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_template_does_not_complete_packets',
@@ -2805,7 +2796,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPreflight(array 
             'signature_valid' => false,
             'receipt_persisted' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_preflight_does_not_complete_packets',
@@ -2905,7 +2896,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceTempl
             'signature_valid' => false,
             'receipt_persisted' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_template_does_not_complete_packets',
@@ -2985,7 +2976,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceRecei
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft_does_not_complete_packets',
@@ -3076,7 +3067,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistencePrefl
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_preflight_does_not_complete_packets',
@@ -3183,7 +3174,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistencePostP
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_does_not_complete_packets',
@@ -3289,7 +3280,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceAppen
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'payload' => $payload,
-            'payload_hash' => $this->stableHash($payload),
+            'payload_hash' => ReadinessHash::stable($payload),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_append_only_event_payload_template_does_not_complete_packets',
@@ -3390,7 +3381,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'writer_preflight' => $writerPreflight,
-            'writer_preflight_hash' => $this->stableHash($writerPreflight),
+            'writer_preflight_hash' => ReadinessHash::stable($writerPreflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_preflight_does_not_complete_packets',
@@ -3480,7 +3471,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'contract' => $contract,
-            'contract_hash' => $this->stableHash($contract),
+            'contract_hash' => ReadinessHash::stable($contract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_contract_template_does_not_complete_packets',
@@ -3589,7 +3580,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'implementation_preflight' => $implementationPreflight,
-            'implementation_preflight_hash' => $this->stableHash($implementationPreflight),
+            'implementation_preflight_hash' => ReadinessHash::stable($implementationPreflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_implementation_preflight_does_not_complete_packets',
@@ -3690,7 +3681,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'authorization' => $authorization,
-            'authorization_hash' => $this->stableHash($authorization),
+            'authorization_hash' => ReadinessHash::stable($authorization),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_template_does_not_complete_packets',
@@ -3785,7 +3776,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'receipt_signed' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_preflight_does_not_complete_packets',
@@ -3883,7 +3874,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_receipt_draft_does_not_complete_packets',
@@ -3934,7 +3925,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'signature_present' => false,
             'signature_valid' => false,
             'signable_payload' => $signablePayload,
-            'signable_payload_hash' => $this->stableHash($signablePayload),
+            'signable_payload_hash' => ReadinessHash::stable($signablePayload),
             'required_external_signature_evidence' => [
                 'external_writer_release_signature_value',
                 'external_writer_release_signature_validator_identity',
@@ -3981,7 +3972,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'signature_request' => $signatureRequest,
-            'request_hash' => $this->stableHash($signatureRequest),
+            'request_hash' => ReadinessHash::stable($signatureRequest),
             'signable_payload_hash' => data_get($signatureRequest, 'signable_payload_hash'),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signature_request_does_not_claim_packets',
@@ -4081,7 +4072,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_post_signature_runbook_does_not_complete_packets',
@@ -4180,7 +4171,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_authorization_signed_receipt_template_does_not_complete_packets',
@@ -4287,7 +4278,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_preflight_does_not_complete_packets',
@@ -4386,7 +4377,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'receipt' => $receipt,
-            'receipt_hash' => $this->stableHash($receipt),
+            'receipt_hash' => ReadinessHash::stable($receipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_receipt_draft_does_not_complete_packets',
@@ -4421,7 +4412,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'requested_signature_scope' => 'writer_release_receipt_only',
             'requested_signer_role' => 'human_operator_or_policy_authority',
         ];
-        $signablePayloadHash = $this->stableHash($signablePayload);
+        $signablePayloadHash = ReadinessHash::stable($signablePayload);
 
         $signatureRequest = [
             'request_id' => 'CODEX-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
@@ -4486,7 +4477,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'signature_request' => $signatureRequest,
             'signable_payload_hash' => $signablePayloadHash,
-            'request_hash' => $this->stableHash($signatureRequest),
+            'request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signature_request_does_not_complete_packets',
@@ -4589,7 +4580,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_signature_runbook_does_not_complete_packets',
@@ -4692,7 +4683,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_signed_receipt_template_does_not_complete_packets',
@@ -4801,7 +4792,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_preflight_does_not_complete_packets',
@@ -4923,7 +4914,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'contract' => $contract,
-            'contract_hash' => $this->stableHash($contract),
+            'contract_hash' => ReadinessHash::stable($contract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_execution_contract_template_does_not_complete_packets',
@@ -5043,7 +5034,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'disable_contract' => $disableContract,
-            'disable_contract_hash' => $this->stableHash($disableContract),
+            'disable_contract_hash' => ReadinessHash::stable($disableContract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_disable_contract_template_does_not_complete_packets',
@@ -5175,7 +5166,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'observability_contract' => $observabilityContract,
-            'observability_contract_hash' => $this->stableHash($observabilityContract),
+            'observability_contract_hash' => ReadinessHash::stable($observabilityContract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_observability_contract_template_does_not_complete_packets',
@@ -5300,7 +5291,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'review_template' => $reviewTemplate,
-            'review_template_hash' => $this->stableHash($reviewTemplate),
+            'review_template_hash' => ReadinessHash::stable($reviewTemplate),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_post_monitoring_review_template_does_not_complete_packets',
@@ -5419,7 +5410,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'reenable_packet' => $reenablePacket,
-            'reenable_packet_hash' => $this->stableHash($reenablePacket),
+            'reenable_packet_hash' => ReadinessHash::stable($reenablePacket),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_complete_packets',
@@ -5536,7 +5527,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'authorization_request' => $authorizationRequest,
-            'authorization_request_hash' => $this->stableHash($authorizationRequest),
+            'authorization_request_hash' => ReadinessHash::stable($authorizationRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_complete_packets',
@@ -5653,7 +5644,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'receipt_draft' => $receiptDraft,
-            'receipt_draft_hash' => $this->stableHash($receiptDraft),
+            'receipt_draft_hash' => ReadinessHash::stable($receiptDraft),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_complete_packets',
@@ -5762,7 +5753,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'signature_request' => $signatureRequest,
-            'signature_request_hash' => $this->stableHash($signatureRequest),
+            'signature_request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_complete_packets',
@@ -5867,7 +5858,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_complete_packets',
@@ -5973,7 +5964,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_complete_packets',
@@ -6077,7 +6068,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_complete_packets',
@@ -6212,7 +6203,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'contract' => $contract,
-            'contract_hash' => $this->stableHash($contract),
+            'contract_hash' => ReadinessHash::stable($contract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_complete_packets',
@@ -6338,7 +6329,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'disable_contract' => $disableContract,
-            'disable_contract_hash' => $this->stableHash($disableContract),
+            'disable_contract_hash' => ReadinessHash::stable($disableContract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_complete_packets',
@@ -6472,7 +6463,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'observability_contract' => $observabilityContract,
-            'observability_contract_hash' => $this->stableHash($observabilityContract),
+            'observability_contract_hash' => ReadinessHash::stable($observabilityContract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_does_not_complete_packets',
@@ -6601,7 +6592,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_signed' => false,
             'receipt_persisted' => false,
             'review_template' => $reviewTemplate,
-            'review_template_hash' => $this->stableHash($reviewTemplate),
+            'review_template_hash' => ReadinessHash::stable($reviewTemplate),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_does_not_complete_packets',
@@ -6707,7 +6698,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'health_decision' => $healthDecision,
-            'health_decision_hash' => $this->stableHash($healthDecision),
+            'health_decision_hash' => ReadinessHash::stable($healthDecision),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_does_not_complete_packets',
@@ -6816,7 +6807,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_request' => $disableRequest,
-            'disable_request_hash' => $this->stableHash($disableRequest),
+            'disable_request_hash' => ReadinessHash::stable($disableRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_does_not_complete_packets',
@@ -6936,7 +6927,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'new_cycle_request' => $newCycleRequest,
-            'new_cycle_request_hash' => $this->stableHash($newCycleRequest),
+            'new_cycle_request_hash' => ReadinessHash::stable($newCycleRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_does_not_complete_packets',
@@ -7046,7 +7037,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'authorization_request' => $authorizationRequest,
-            'authorization_request_hash' => $this->stableHash($authorizationRequest),
+            'authorization_request_hash' => ReadinessHash::stable($authorizationRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_does_not_complete_packets',
@@ -7154,7 +7145,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'receipt_draft' => $receiptDraft,
-            'receipt_draft_hash' => $this->stableHash($receiptDraft),
+            'receipt_draft_hash' => ReadinessHash::stable($receiptDraft),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_does_not_complete_packets',
@@ -7263,7 +7254,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'signature_request' => $signatureRequest,
-            'signature_request_hash' => $this->stableHash($signatureRequest),
+            'signature_request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_does_not_complete_packets',
@@ -7370,7 +7361,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'runbook' => $runbook,
-            'runbook_hash' => $this->stableHash($runbook),
+            'runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_does_not_complete_packets',
@@ -7481,7 +7472,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'template' => $template,
-            'template_hash' => $this->stableHash($template),
+            'template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signed_receipt_template_does_not_complete_packets',
@@ -7589,7 +7580,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'preflight' => $preflight,
-            'preflight_hash' => $this->stableHash($preflight),
+            'preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_preflight_template_does_not_complete_packets',
@@ -7729,7 +7720,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'contract' => $contract,
-            'contract_hash' => $this->stableHash($contract),
+            'contract_hash' => ReadinessHash::stable($contract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_execution_contract_template_does_not_complete_packets',
@@ -7860,7 +7851,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_contract' => $disableContract,
-            'disable_contract_hash' => $this->stableHash($disableContract),
+            'disable_contract_hash' => ReadinessHash::stable($disableContract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_contract_template_does_not_complete_packets',
@@ -7999,7 +7990,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'observability_contract' => $observabilityContract,
-            'observability_contract_hash' => $this->stableHash($observabilityContract),
+            'observability_contract_hash' => ReadinessHash::stable($observabilityContract),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_observability_contract_template_does_not_complete_packets',
@@ -8133,7 +8124,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'review_template' => $reviewTemplate,
-            'review_template_hash' => $this->stableHash($reviewTemplate),
+            'review_template_hash' => ReadinessHash::stable($reviewTemplate),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_monitoring_review_template_does_not_complete_packets',
@@ -8242,7 +8233,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'health_decision' => $healthDecision,
-            'health_decision_hash' => $this->stableHash($healthDecision),
+            'health_decision_hash' => ReadinessHash::stable($healthDecision),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_health_decision_template_does_not_complete_packets',
@@ -8354,7 +8345,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_request' => $disableRequest,
-            'disable_request_hash' => $this->stableHash($disableRequest),
+            'disable_request_hash' => ReadinessHash::stable($disableRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_request_template_does_not_complete_packets',
@@ -8466,7 +8457,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_preflight' => $disableExecutionPreflight,
-            'disable_execution_preflight_hash' => $this->stableHash($disableExecutionPreflight),
+            'disable_execution_preflight_hash' => ReadinessHash::stable($disableExecutionPreflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_preflight_template_does_not_complete_packets',
@@ -8580,7 +8571,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_receipt_draft' => $disableExecutionReceiptDraft,
-            'disable_execution_receipt_draft_hash' => $this->stableHash($disableExecutionReceiptDraft),
+            'disable_execution_receipt_draft_hash' => ReadinessHash::stable($disableExecutionReceiptDraft),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_receipt_draft_template_does_not_complete_packets',
@@ -8686,7 +8677,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_signed_receipt' => $signedReceipt,
-            'disable_execution_signed_receipt_hash' => $this->stableHash($signedReceipt),
+            'disable_execution_signed_receipt_hash' => ReadinessHash::stable($signedReceipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_signed_receipt_template_does_not_complete_packets',
@@ -8799,7 +8790,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_persistence_preflight' => $persistencePreflight,
-            'disable_execution_persistence_preflight_hash' => $this->stableHash($persistencePreflight),
+            'disable_execution_persistence_preflight_hash' => ReadinessHash::stable($persistencePreflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_preflight_template_does_not_complete_packets',
@@ -8913,7 +8904,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_persistence_receipt' => $persistenceReceipt,
-            'disable_execution_persistence_receipt_hash' => $this->stableHash($persistenceReceipt),
+            'disable_execution_persistence_receipt_hash' => ReadinessHash::stable($persistenceReceipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_persistence_receipt_template_does_not_complete_packets',
@@ -9023,7 +9014,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_post_persistence_review' => $postPersistenceReview,
-            'disable_execution_post_persistence_review_hash' => $this->stableHash($postPersistenceReview),
+            'disable_execution_post_persistence_review_hash' => ReadinessHash::stable($postPersistenceReview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_post_persistence_review_template_does_not_complete_packets',
@@ -9136,7 +9127,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_follow_up_observability' => $followUpObservability,
-            'disable_execution_follow_up_observability_hash' => $this->stableHash($followUpObservability),
+            'disable_execution_follow_up_observability_hash' => ReadinessHash::stable($followUpObservability),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_follow_up_observability_template_does_not_complete_packets',
@@ -9246,7 +9237,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_evidence_repair_request' => $evidenceRepairRequest,
-            'disable_execution_evidence_repair_request_hash' => $this->stableHash($evidenceRepairRequest),
+            'disable_execution_evidence_repair_request_hash' => ReadinessHash::stable($evidenceRepairRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_evidence_repair_request_template_does_not_complete_packets',
@@ -9360,7 +9351,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_repaired_evidence_packet' => $repairedEvidencePacket,
-            'disable_execution_repaired_evidence_packet_hash' => $this->stableHash($repairedEvidencePacket),
+            'disable_execution_repaired_evidence_packet_hash' => ReadinessHash::stable($repairedEvidencePacket),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repaired_evidence_packet_template_does_not_complete_packets',
@@ -9469,7 +9460,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_repair_review' => $repairReview,
-            'disable_execution_repair_review_hash' => $this->stableHash($repairReview),
+            'disable_execution_repair_review_hash' => ReadinessHash::stable($repairReview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_review_template_does_not_complete_packets',
@@ -9588,7 +9579,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'receipt_persisted' => false,
             'decision_recorded' => false,
             'disable_execution_repair_outcome_packet' => $repairOutcomePacket,
-            'disable_execution_repair_outcome_packet_hash' => $this->stableHash($repairOutcomePacket),
+            'disable_execution_repair_outcome_packet_hash' => ReadinessHash::stable($repairOutcomePacket),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_does_not_complete_packets',
@@ -9708,7 +9699,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_request' => $laterCycleRequest,
-            'disable_execution_later_cycle_request_hash' => $this->stableHash($laterCycleRequest),
+            'disable_execution_later_cycle_request_hash' => ReadinessHash::stable($laterCycleRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_does_not_complete_packets',
@@ -9845,7 +9836,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_preflight' => $laterCyclePreflight,
-            'disable_execution_later_cycle_preflight_hash' => $this->stableHash($laterCyclePreflight),
+            'disable_execution_later_cycle_preflight_hash' => ReadinessHash::stable($laterCyclePreflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_does_not_complete_packets',
@@ -9971,7 +9962,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_request' => $laterCycleAuthorizationRequest,
-            'disable_execution_later_cycle_authorization_request_hash' => $this->stableHash($laterCycleAuthorizationRequest),
+            'disable_execution_later_cycle_authorization_request_hash' => ReadinessHash::stable($laterCycleAuthorizationRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_does_not_complete_packets',
@@ -10097,7 +10088,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_receipt_draft' => $receiptDraft,
-            'disable_execution_later_cycle_authorization_receipt_draft_hash' => $this->stableHash($receiptDraft),
+            'disable_execution_later_cycle_authorization_receipt_draft_hash' => ReadinessHash::stable($receiptDraft),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_does_not_complete_packets',
@@ -10228,7 +10219,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_signature_request' => $signatureRequest,
-            'disable_execution_later_cycle_authorization_signature_request_hash' => $this->stableHash($signatureRequest),
+            'disable_execution_later_cycle_authorization_signature_request_hash' => ReadinessHash::stable($signatureRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_does_not_complete_packets',
@@ -10371,7 +10362,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_post_signature_runbook' => $runbook,
-            'disable_execution_later_cycle_authorization_post_signature_runbook_hash' => $this->stableHash($runbook),
+            'disable_execution_later_cycle_authorization_post_signature_runbook_hash' => ReadinessHash::stable($runbook),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_does_not_complete_packets',
@@ -10511,7 +10502,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_signature_validation_report' => $report,
-            'disable_execution_later_cycle_authorization_signature_validation_report_hash' => $this->stableHash($report),
+            'disable_execution_later_cycle_authorization_signature_validation_report_hash' => ReadinessHash::stable($report),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_does_not_complete_packets',
@@ -10636,7 +10627,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_signed_receipt_template' => $template,
-            'disable_execution_later_cycle_authorization_signed_receipt_template_hash' => $this->stableHash($template),
+            'disable_execution_later_cycle_authorization_signed_receipt_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_does_not_complete_packets',
@@ -10781,7 +10772,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_signed_receipt_preflight' => $preflight,
-            'disable_execution_later_cycle_authorization_signed_receipt_preflight_hash' => $this->stableHash($preflight),
+            'disable_execution_later_cycle_authorization_signed_receipt_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_preflight_template_does_not_complete_packets',
@@ -10926,7 +10917,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_persistence_preflight' => $preflight,
-            'disable_execution_later_cycle_authorization_persistence_preflight_hash' => $this->stableHash($preflight),
+            'disable_execution_later_cycle_authorization_persistence_preflight_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_preflight_template_does_not_complete_packets',
@@ -11052,7 +11043,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_persistence_receipt_template' => $template,
-            'disable_execution_later_cycle_authorization_persistence_receipt_template_hash' => $this->stableHash($template),
+            'disable_execution_later_cycle_authorization_persistence_receipt_template_hash' => ReadinessHash::stable($template),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_receipt_template_does_not_complete_packets',
@@ -11177,7 +11168,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_post_persistence_review' => $review,
-            'disable_execution_later_cycle_authorization_post_persistence_review_hash' => $this->stableHash($review),
+            'disable_execution_later_cycle_authorization_post_persistence_review_hash' => ReadinessHash::stable($review),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_persistence_review_template_does_not_complete_packets',
@@ -11307,7 +11298,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_follow_up_observability' => $observability,
-            'disable_execution_later_cycle_authorization_follow_up_observability_hash' => $this->stableHash($observability),
+            'disable_execution_later_cycle_authorization_follow_up_observability_hash' => ReadinessHash::stable($observability),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_follow_up_observability_template_does_not_complete_packets',
@@ -11433,7 +11424,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_evidence_repair_request' => $repairRequest,
-            'disable_execution_later_cycle_authorization_evidence_repair_request_hash' => $this->stableHash($repairRequest),
+            'disable_execution_later_cycle_authorization_evidence_repair_request_hash' => ReadinessHash::stable($repairRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_evidence_repair_request_template_does_not_complete_packets',
@@ -11563,7 +11554,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_repaired_evidence_packet' => $packet,
-            'disable_execution_later_cycle_authorization_repaired_evidence_packet_hash' => $this->stableHash($packet),
+            'disable_execution_later_cycle_authorization_repaired_evidence_packet_hash' => ReadinessHash::stable($packet),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repaired_evidence_packet_template_does_not_complete_packets',
@@ -11687,7 +11678,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_repair_review' => $repairReview,
-            'disable_execution_later_cycle_authorization_repair_review_hash' => $this->stableHash($repairReview),
+            'disable_execution_later_cycle_authorization_repair_review_hash' => ReadinessHash::stable($repairReview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_does_not_complete_packets',
@@ -11821,7 +11812,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_persistence_rejection' => $persistenceRejection,
-            'disable_execution_later_cycle_authorization_persistence_rejection_hash' => $this->stableHash($persistenceRejection),
+            'disable_execution_later_cycle_authorization_persistence_rejection_hash' => ReadinessHash::stable($persistenceRejection),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_does_not_complete_packets',
@@ -11964,7 +11955,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'human_notified' => false,
             'human_task_created' => false,
             'disable_execution_later_cycle_authorization_human_escalation' => $humanEscalation,
-            'disable_execution_later_cycle_authorization_human_escalation_hash' => $this->stableHash($humanEscalation),
+            'disable_execution_later_cycle_authorization_human_escalation_hash' => ReadinessHash::stable($humanEscalation),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_does_not_complete_packets',
@@ -12114,7 +12105,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'human_task_created' => false,
             'manual_decision_requested' => false,
             'disable_execution_later_cycle_authorization_manual_decision_request' => $manualDecisionRequest,
-            'disable_execution_later_cycle_authorization_manual_decision_request_hash' => $this->stableHash($manualDecisionRequest),
+            'disable_execution_later_cycle_authorization_manual_decision_request_hash' => ReadinessHash::stable($manualDecisionRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_does_not_complete_packets',
@@ -12263,7 +12254,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_manual_decision_response' => $manualDecisionResponse,
-            'disable_execution_later_cycle_authorization_manual_decision_response_hash' => $this->stableHash($manualDecisionResponse),
+            'disable_execution_later_cycle_authorization_manual_decision_response_hash' => ReadinessHash::stable($manualDecisionResponse),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_response_template_does_not_complete_packets',
@@ -12418,7 +12409,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_draft' => $decisionRecordDraft,
-            'disable_execution_later_cycle_authorization_decision_record_draft_hash' => $this->stableHash($decisionRecordDraft),
+            'disable_execution_later_cycle_authorization_decision_record_draft_hash' => ReadinessHash::stable($decisionRecordDraft),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_draft_template_does_not_complete_packets',
@@ -12574,7 +12565,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_persistence_preflight' => $decisionRecordPersistencePreflight,
-            'disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash' => $this->stableHash($decisionRecordPersistencePreflight),
+            'disable_execution_later_cycle_authorization_decision_record_persistence_preflight_hash' => ReadinessHash::stable($decisionRecordPersistencePreflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_preflight_template_does_not_complete_packets',
@@ -12737,7 +12728,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_persistence_receipt' => $decisionRecordPersistenceReceipt,
-            'disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash' => $this->stableHash($decisionRecordPersistenceReceipt),
+            'disable_execution_later_cycle_authorization_decision_record_persistence_receipt_hash' => ReadinessHash::stable($decisionRecordPersistenceReceipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_receipt_template_does_not_complete_packets',
@@ -12899,7 +12890,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_post_persistence_review' => $postPersistenceReview,
-            'disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash' => $this->stableHash($postPersistenceReview),
+            'disable_execution_later_cycle_authorization_decision_record_post_persistence_review_hash' => ReadinessHash::stable($postPersistenceReview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_persistence_review_template_does_not_complete_packets',
@@ -13080,7 +13071,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_persistence_rejection' => $persistenceRejection,
-            'disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash' => $this->stableHash($persistenceRejection),
+            'disable_execution_later_cycle_authorization_decision_record_persistence_rejection_hash' => ReadinessHash::stable($persistenceRejection),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_persistence_rejection_template_does_not_complete_packets',
@@ -13254,7 +13245,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_follow_up_observability' => $followUpObservability,
-            'disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash' => $this->stableHash($followUpObservability),
+            'disable_execution_later_cycle_authorization_decision_record_follow_up_observability_hash' => ReadinessHash::stable($followUpObservability),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_follow_up_observability_template_does_not_complete_packets',
@@ -13433,7 +13424,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report' => $finalReport,
-            'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_hash' => $this->stableHash($finalReport),
+            'disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_hash' => ReadinessHash::stable($finalReport),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_non_execution_report_template_does_not_complete_packets',
@@ -13607,7 +13598,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_archive_index' => $archiveIndex,
-            'disable_execution_later_cycle_authorization_decision_record_archive_index_hash' => $this->stableHash($archiveIndex),
+            'disable_execution_later_cycle_authorization_decision_record_archive_index_hash' => ReadinessHash::stable($archiveIndex),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_archive_index_template_does_not_complete_packets',
@@ -13789,7 +13780,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_human_review_packet' => $humanReviewPacket,
-            'disable_execution_later_cycle_authorization_decision_record_human_review_packet_hash' => $this->stableHash($humanReviewPacket),
+            'disable_execution_later_cycle_authorization_decision_record_human_review_packet_hash' => ReadinessHash::stable($humanReviewPacket),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_human_review_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_human_review_packet_template_does_not_complete_packets',
@@ -13979,7 +13970,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate' => $durableWriterCandidate,
-            'disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate_hash' => $this->stableHash($durableWriterCandidate),
+            'disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate_hash' => ReadinessHash::stable($durableWriterCandidate),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_durable_writer_candidate_template_does_not_complete_packets',
@@ -14180,7 +14171,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'manual_decision_requested' => false,
             'manual_decision_response_recorded' => false,
             'disable_execution_later_cycle_authorization_decision_record_writer_activation_request' => $activationRequest,
-            'disable_execution_later_cycle_authorization_decision_record_writer_activation_request_hash' => $this->stableHash($activationRequest),
+            'disable_execution_later_cycle_authorization_decision_record_writer_activation_request_hash' => ReadinessHash::stable($activationRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_request_template_does_not_complete_packets',
@@ -14345,7 +14336,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt' => $activationReceipt,
-            'disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt_hash' => $this->stableHash($activationReceipt),
+            'disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt_hash' => ReadinessHash::stable($activationReceipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_receipt_template_does_not_complete_packets',
@@ -14506,7 +14497,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_post_activation_observability' => $observability,
-            'disable_execution_later_cycle_authorization_decision_record_post_activation_observability_hash' => $this->stableHash($observability),
+            'disable_execution_later_cycle_authorization_decision_record_post_activation_observability_hash' => ReadinessHash::stable($observability),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_activation_observability_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_post_activation_observability_template_does_not_complete_packets',
@@ -14634,7 +14625,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection' => $rejection,
-            'disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection_hash' => $this->stableHash($rejection),
+            'disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection_hash' => ReadinessHash::stable($rejection),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_writer_activation_rejection_template_does_not_reject_activation_as_action',
@@ -14774,7 +14765,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report' => $finalReport,
-            'disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report_hash' => $this->stableHash($finalReport),
+            'disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report_hash' => ReadinessHash::stable($finalReport),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_final_activation_non_execution_report_template_does_not_persist_final_report',
@@ -14916,7 +14907,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_archive_index' => $activationArchiveIndex,
-            'disable_execution_later_cycle_authorization_decision_record_activation_archive_index_hash' => $this->stableHash($activationArchiveIndex),
+            'disable_execution_later_cycle_authorization_decision_record_activation_archive_index_hash' => ReadinessHash::stable($activationArchiveIndex),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_archive_index_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_archive_index_template_does_not_persist_archive_index',
@@ -15064,7 +15055,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet' => $humanReviewPacket,
-            'disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet_hash' => $this->stableHash($humanReviewPacket),
+            'disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet_hash' => ReadinessHash::stable($humanReviewPacket),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_human_review_packet_template_does_not_notify_human',
@@ -15210,7 +15201,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate' => $candidate,
-            'disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate_hash' => $this->stableHash($candidate),
+            'disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate_hash' => ReadinessHash::stable($candidate),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_durable_writer_candidate_template_does_not_implement_writer',
@@ -15380,7 +15371,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request' => $activationRequest,
-            'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request_hash' => $this->stableHash($activationRequest),
+            'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request_hash' => ReadinessHash::stable($activationRequest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_request_template_does_not_request_writer_activation',
@@ -15536,7 +15527,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt' => $activationReceipt,
-            'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt_hash' => $this->stableHash($activationReceipt),
+            'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt_hash' => ReadinessHash::stable($activationReceipt),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_receipt_template_does_not_sign_activation_receipt',
@@ -15690,7 +15681,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability' => $observability,
-            'disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability_hash' => $this->stableHash($observability),
+            'disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability_hash' => ReadinessHash::stable($observability),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_post_activation_observability_template_does_not_observe_live_writer',
@@ -15834,7 +15825,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection' => $rejection,
-            'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection_hash' => $this->stableHash($rejection),
+            'disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection_hash' => ReadinessHash::stable($rejection),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_writer_activation_rejection_template_does_not_reject_activation_as_action',
@@ -15978,7 +15969,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report' => $finalReport,
-            'disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report_hash' => $this->stableHash($finalReport),
+            'disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report_hash' => ReadinessHash::stable($finalReport),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_final_activation_non_execution_report_template_does_not_persist_final_report',
@@ -16119,7 +16110,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index' => $closureIndex,
-            'disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index_hash' => $this->stableHash($closureIndex),
+            'disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index_hash' => ReadinessHash::stable($closureIndex),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_archive_closure_index_template_does_not_persist_closure_index',
@@ -16272,7 +16263,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet' => $closeoutPacket,
-            'disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet_hash' => $this->stableHash($closeoutPacket),
+            'disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet_hash' => ReadinessHash::stable($closeoutPacket),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_closeout_packet_template_does_not_persist_packet',
@@ -16420,7 +16411,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation' => $reconciliation,
-            'disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation_hash' => $this->stableHash($reconciliation),
+            'disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation_hash' => ReadinessHash::stable($reconciliation),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_readiness_reconciliation_template_does_not_persist_reconciliation',
@@ -16566,7 +16557,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_governance_summary' => $summary,
-            'disable_execution_later_cycle_authorization_decision_record_activation_governance_summary_hash' => $this->stableHash($summary),
+            'disable_execution_later_cycle_authorization_decision_record_activation_governance_summary_hash' => ReadinessHash::stable($summary),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_governance_summary_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_governance_summary_template_does_not_persist_summary',
@@ -16712,7 +16703,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest' => $digest,
-            'disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest_hash' => $this->stableHash($digest),
+            'disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest_hash' => ReadinessHash::stable($digest),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_operator_readiness_digest_template_does_not_persist_digest',
@@ -16870,7 +16861,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest' => $handoff,
-            'disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest_hash' => $this->stableHash($handoff),
+            'disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest_hash' => ReadinessHash::stable($handoff),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest_template_does_not_claim_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_handoff_digest_template_does_not_complete_packets',
@@ -17033,7 +17024,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary' => $bootstrap,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary_hash' => $this->stableHash($bootstrap),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary_hash' => ReadinessHash::stable($bootstrap),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary_template_does_not_create_codex_start_packet',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_bootstrap_summary_template_does_not_claim_packets',
@@ -17199,7 +17190,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest' => $preflight,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest_hash' => $this->stableHash($preflight),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest_hash' => ReadinessHash::stable($preflight),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest_template_does_not_create_codex_start_packet',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_preflight_digest_template_does_not_claim_packets',
@@ -17368,7 +17359,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard' => $scopeGuard,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_hash' => $this->stableHash($scopeGuard),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_hash' => ReadinessHash::stable($scopeGuard),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_template_does_not_allow_file_edits',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_scope_guard_template_does_not_create_writer_files',
@@ -17545,7 +17536,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview' => $preview,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash' => $this->stableHash($preview),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_hash' => ReadinessHash::stable($preview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_template_does_not_create_tasks',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_work_intake_preview_template_does_not_assign_work',
@@ -17738,7 +17729,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline' => $outline,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash' => $this->stableHash($outline),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_hash' => ReadinessHash::stable($outline),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_create_tasks',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_task_candidate_outline_template_does_not_assign_work',
@@ -17935,7 +17926,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview' => $preview,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash' => $this->stableHash($preview),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_hash' => ReadinessHash::stable($preview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_create_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_draft_preview_template_does_not_create_tasks',
@@ -18148,7 +18139,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview' => $preview,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash' => $this->stableHash($preview),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_hash' => ReadinessHash::stable($preview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_create_packets',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_scope_preview_template_does_not_create_tasks',
@@ -18344,7 +18335,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview' => $preview,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash' => $this->stableHash($preview),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_hash' => ReadinessHash::stable($preview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_create_start_contract',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_packet_start_contract_preview_template_does_not_create_codex_start_packet',
@@ -18550,7 +18541,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview' => $preview,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash' => $this->stableHash($preview),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_hash' => ReadinessHash::stable($preview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_persist_prompt',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_operator_prompt_preview_template_does_not_start_session',
@@ -18766,7 +18757,7 @@ public function codexReviewMergePostExecutionActionSignedReceiptPersistenceWrite
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
             'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview' => $preview,
-            'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_hash' => $this->stableHash($preview),
+            'disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_hash' => ReadinessHash::stable($preview),
             'non_execution_guarantees' => [
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_mark_session_ready',
                 'codex_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_decision_record_activation_session_session_ready_check_preview_template_does_not_persist_ready_check',

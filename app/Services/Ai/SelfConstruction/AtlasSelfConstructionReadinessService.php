@@ -6624,9 +6624,7 @@ final class AtlasSelfConstructionReadinessService
 
     private function codexReviewMergeSection(): \App\Services\Ai\SelfConstruction\ReadinessProjectionCodexReviewMergeSection
     {
-        return $this->codexReviewMergeSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionCodexReviewMergeSection(
-            fn (array $payload): string => $this->stableHash($payload),
-        );
+        return $this->codexReviewMergeSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionCodexReviewMergeSection();
     }
 
 public function releasePacket(array $options = []): array
@@ -51559,9 +51557,7 @@ public function releasePacket(array $options = []): array
 
     private function agentCodexSection(): \App\Services\Ai\SelfConstruction\ReadinessProjectionAgentCodexSection
     {
-        return $this->agentCodexSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionAgentCodexSection(
-            fn (array $payload): string => $this->stableHash($payload),
-        );
+        return $this->agentCodexSection ??= new \App\Services\Ai\SelfConstruction\ReadinessProjectionAgentCodexSection();
     }
 
     /**

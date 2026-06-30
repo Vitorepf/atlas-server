@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ReadinessHash;
 use App\Services\Ai\SelfConstruction\ReadinessProjectionAgentCodexSection;
 use Tests\TestCase;
 
@@ -21,17 +22,21 @@ final class AtlasAiSelfConstructionReadinessProjectionAgentCodexSectionTest exte
 {
     public function test_section_class_is_resolvable(): void
     {
-        $section = new ReadinessProjectionAgentCodexSection(
-            fn (array $payload): string => 'hash:'.md5((string) json_encode($payload))
-        );
+        $section = new ReadinessProjectionAgentCodexSection();
         $this->assertInstanceOf(ReadinessProjectionAgentCodexSection::class, $section);
+    }
+
+    public function test_hashes_use_readiness_hash_stable_convention(): void
+    {
+        $payload = ['key' => 'value', 'z' => 1, 'a' => 2];
+        $expected = ReadinessHash::stable($payload);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $expected);
+        $this->assertSame($expected, ReadinessHash::stable($payload), 'ReadinessHash::stable must be deterministic');
     }
 
     public function test_all_171_agent_codex_methods_exist_on_section(): void
     {
-        $section = new ReadinessProjectionAgentCodexSection(
-            fn (array $payload): string => 'hash'
-        );
+        $section = new ReadinessProjectionAgentCodexSection();
 
         // Use reflection to count actual unique public methods on the section.
         $ref = new \ReflectionClass($section);
