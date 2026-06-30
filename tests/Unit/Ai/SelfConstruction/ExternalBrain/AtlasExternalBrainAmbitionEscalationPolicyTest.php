@@ -146,4 +146,39 @@ final class AtlasExternalBrainAmbitionEscalationPolicyTest extends TestCase
         $r = $this->policy->decide([]);
         $this->assertSame(AtlasExternalBrainAmbitionEscalationPolicy::SCHEMA, $r['schema']);
     }
+
+    // ---------- anti-template-farm: volume irrelevant without evidence ----------
+
+    public function test_high_wave_number_without_evidence_does_not_short_circuit_to_exhausted(): void
+    {
+        // A very high wave_number with no evidence must never trigger honest_exhausted.
+        $r = $this->policy->decide(['wave_number' => 99, 'wave_yield' => 0.01, 'attempted_modes' => []]);
+        $this->assertFalse($r['honest_exhausted']);
+        $this->assertNotSame(AtlasExternalBrainAmbitionEscalationPolicy::MODE_HONEST_EXHAUSTED, $r['next_mode']);
+    }
+
+    public function test_wave_metadata_does_not_affect_mode_selection(): void
+    {
+        // wave_number and wave_yield are anti-template-farm signals only; mode selection is evidence+attempt driven.
+        $with    = $this->policy->decide(['wave_number' => 50, 'wave_yield' => 0.01]);
+        $without = $this->policy->decide([]);
+        $this->assertSame($with['next_mode'], $without['next_mode']);
+    }
+
+    // ---------- refusal: attempts without evidence must not stop the ladder ----------
+
+    public function test_all_modes_attempted_with_no_evidence_refuses_to_claim_exhausted(): void
+    {
+        $all = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $r = $this->policy->decide(['attempted_modes' => $all, 'evidence_by_mode' => []]);
+        $this->assertFalse($r['honest_exhausted']);
+        $this->assertNotSame(AtlasExternalBrainAmbitionEscalationPolicy::MODE_HONEST_EXHAUSTED, $r['next_mode']);
+    }
 }
