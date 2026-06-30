@@ -35,7 +35,13 @@ final class AtlasExternalBrainDecisionTraceExplainerTest extends TestCase
             'rejected_alternatives' => [$this->rejected('t2', 'outscored_by_winner')],
         ]);
 
-        foreach (['schema', 'trace_id', 'top_signals', 'chosen_reasons', 'rejected_reasons', 'uncertainty', 'evidence_to_reconsider', 'provider_safe'] as $key) {
+        foreach ([
+            'schema', 'trace_id',
+            'selected_tasks',
+            'top_signals', 'chosen_reasons', 'rejected_reasons',
+            'uncertainty', 'uncertainty_level',
+            'evidence_to_reconsider', 'provider_safe',
+        ] as $key) {
             $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
         }
         $this->assertSame(AtlasExternalBrainDecisionTraceExplainer::SCHEMA, $result['schema']);
@@ -158,6 +164,67 @@ final class AtlasExternalBrainDecisionTraceExplainerTest extends TestCase
 
         $evidenceStr = implode(' ', $result['evidence_to_reconsider']);
         $this->assertStringContainsString('blind-task', $evidenceStr);
+    }
+
+    // ── AC1: selected_tasks in output ────────────────────────────────────────
+
+    public function test_selected_tasks_is_list_of_safe_task_objects(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks' => [
+                $this->task('t1', ['arena_score' => 0.9]),
+                $this->task('t2', ['arena_score' => 0.7]),
+            ],
+        ]);
+
+        $this->assertIsArray($result['selected_tasks']);
+        $this->assertCount(2, $result['selected_tasks']);
+        $this->assertSame('t1', $result['selected_tasks'][0]['task_packet_id']);
+        $this->assertSame('t2', $result['selected_tasks'][1]['task_packet_id']);
+    }
+
+    public function test_selected_tasks_strips_private_fields(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks' => [
+                $this->task('t1', ['raw_prompt' => 'SECRET', 'api_key' => 'sk-abc']),
+            ],
+        ]);
+
+        $encoded = (string) json_encode($result['selected_tasks']);
+        $this->assertStringNotContainsString('SECRET', $encoded);
+        $this->assertStringNotContainsString('sk-abc', $encoded);
+        $this->assertStringContainsString('t1', $encoded);
+    }
+
+    public function test_selected_tasks_is_empty_when_no_tasks_selected(): void
+    {
+        $result = $this->explainer->explain(['selected_tasks' => []]);
+
+        $this->assertSame([], $result['selected_tasks']);
+    }
+
+    // ── AC1: uncertainty_level ────────────────────────────────────────────────
+
+    public function test_uncertainty_level_matches_uncertainty(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks'        => [$this->task('t1')],
+            'rejected_alternatives' => [$this->rejected('t2', 'outscored')],
+            'scoring_facts'         => ['evidence_strength' => 0.90],
+        ]);
+
+        $this->assertSame($result['uncertainty'], $result['uncertainty_level']);
+    }
+
+    public function test_uncertainty_level_high_when_weak_evidence(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks' => [$this->task('t1')],
+            'scoring_facts'  => ['evidence_strength' => 0.20],
+        ]);
+
+        $this->assertSame('high', $result['uncertainty_level']);
     }
 
     // ── Determinism ──────────────────────────────────────────────────────────

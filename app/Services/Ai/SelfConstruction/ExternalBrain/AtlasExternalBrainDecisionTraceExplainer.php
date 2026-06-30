@@ -66,15 +66,23 @@ final class AtlasExternalBrainDecisionTraceExplainer
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 24);
 
         return [
-            'schema'                => self::SCHEMA,
-            'trace_id'              => $traceId,
-            'top_signals'           => $topSignals,
-            'chosen_reasons'        => $chosenReasons,
-            'rejected_reasons'      => $rejectedReasons,
-            'uncertainty'           => $uncertainty,
+            'schema'                 => self::SCHEMA,
+            'trace_id'               => $traceId,
+            'selected_tasks'         => $this->safeSelectedTasks($selected),
+            'top_signals'            => $topSignals,
+            'chosen_reasons'         => $chosenReasons,
+            'rejected_reasons'       => $rejectedReasons,
+            'uncertainty'            => $uncertainty,
+            'uncertainty_level'      => $uncertainty,
             'evidence_to_reconsider' => $evidenceToReconsider,
-            'provider_safe'         => true,
+            'provider_safe'          => true,
         ];
+    }
+
+    /** Return the selected tasks stripped of private fields. */
+    private function safeSelectedTasks(array $selected): array
+    {
+        return array_values(array_map(fn(array $t): array => $this->stripPrivate($t), $selected));
     }
 
     /** Extract the key signals that drove the decision — provider-safe only. */
