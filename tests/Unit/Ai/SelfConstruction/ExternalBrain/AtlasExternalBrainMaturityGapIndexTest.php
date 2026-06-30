@@ -195,4 +195,164 @@ final class AtlasExternalBrainMaturityGapIndexTest extends TestCase
         $this->assertSame([], $r['gaps']);
         $this->assertCount(2, $r['complete_dimensions']);
     }
+
+    // ── final-95 blocker map fields ───────────────────────────────────────────
+
+    public function test_gaps_include_blocker_map_keys(): void
+    {
+        $rubric = [$this->dim('loop_origination', 0.9, ['loop_signal'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $gap = $r['gaps'][0];
+        foreach (['blocker_class', 'next_best_task_family', 'missing_proof_type',
+                  'autonomy_blocker', 'simplification_needed', 'readiness_tier'] as $key) {
+            $this->assertArrayHasKey($key, $gap, "gap must contain {$key}");
+        }
+    }
+
+    public function test_blocker_class_no_evidence_yet_when_no_queue_and_proof_gap_one(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => [], 'queue_counts' => []]);
+
+        $this->assertSame('no_evidence_yet', $r['gaps'][0]['blocker_class']);
+    }
+
+    public function test_blocker_class_queue_without_proof_when_queue_active_but_no_evidence(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1'])];
+        $r = $this->index->compute($rubric, [
+            'proven_evidence' => [],
+            'queue_counts'    => ['dim' => 5],
+        ]);
+
+        $this->assertSame('queue_without_proof', $r['gaps'][0]['blocker_class']);
+    }
+
+    public function test_blocker_class_partial_evidence_gap_when_some_proven(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1', 's2'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => ['s1']]);
+
+        $this->assertSame('partial_evidence_gap', $r['gaps'][0]['blocker_class']);
+    }
+
+    public function test_readiness_tier_not_started_when_proof_gap_one(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1', 's2'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertSame('not_started', $r['gaps'][0]['readiness_tier']);
+    }
+
+    public function test_readiness_tier_partial_when_proof_gap_between_025_and_1(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1', 's2', 's3', 's4'])];
+        // 3 of 4 missing → proof_gap = 0.75
+        $r = $this->index->compute($rubric, ['proven_evidence' => ['s1']]);
+
+        $this->assertSame('partial', $r['gaps'][0]['readiness_tier']);
+    }
+
+    public function test_readiness_tier_near_complete_when_proof_gap_small(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'])];
+        // only 1 of 8 missing → proof_gap = 0.125
+        $proven = ['s1', 's2', 's3', 's4', 's5', 's6', 's7'];
+        $r = $this->index->compute($rubric, ['proven_evidence' => $proven]);
+
+        $this->assertSame('near_complete', $r['gaps'][0]['readiness_tier']);
+    }
+
+    public function test_next_best_task_family_bootstrap_when_proof_gap_one(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1'], 'wiring')];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertSame('wiring_bootstrap', $r['gaps'][0]['next_best_task_family']);
+    }
+
+    public function test_next_best_task_family_evidence_close_when_partial(): void
+    {
+        $rubric = [$this->dim('dim', 0.8, ['s1', 's2'], 'wiring')];
+        $r = $this->index->compute($rubric, ['proven_evidence' => ['s1']]);
+
+        $this->assertSame('wiring_evidence_close', $r['gaps'][0]['next_best_task_family']);
+    }
+
+    public function test_missing_proof_type_test_gate_when_signal_contains_test(): void
+    {
+        $rubric = [$this->dim('dim', 0.5, ['test_passes_green', 'gate_rejects_invalid'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertSame('test_gate', $r['gaps'][0]['missing_proof_type']);
+    }
+
+    public function test_missing_proof_type_certification_when_signal_contains_cert(): void
+    {
+        $rubric = [$this->dim('dim', 0.5, ['certification_issued', 'cert_verified'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertSame('certification', $r['gaps'][0]['missing_proof_type']);
+    }
+
+    public function test_missing_proof_type_runtime_evidence_when_signal_contains_runtime(): void
+    {
+        $rubric = [$this->dim('dim', 0.5, ['runtime_health_proven', 'live_evidence'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertSame('runtime_evidence', $r['gaps'][0]['missing_proof_type']);
+    }
+
+    public function test_autonomy_blocker_true_for_high_leverage(): void
+    {
+        $rubric = [$this->dim('dim', 0.9, ['s1'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertTrue($r['gaps'][0]['autonomy_blocker']);
+    }
+
+    public function test_autonomy_blocker_false_for_low_leverage(): void
+    {
+        $rubric = [$this->dim('dim', 0.3, ['s1'])];
+        $r = $this->index->compute($rubric, ['proven_evidence' => []]);
+
+        $this->assertFalse($r['gaps'][0]['autonomy_blocker']);
+    }
+
+    public function test_autonomy_blocker_explicit_override_from_rubric(): void
+    {
+        $dim = array_merge($this->dim('dim', 0.9, ['s1']), ['autonomy_blocker' => false]);
+        $r = $this->index->compute([$dim], ['proven_evidence' => []]);
+
+        // leverage 0.9 would derive true, but explicit false wins
+        $this->assertFalse($r['gaps'][0]['autonomy_blocker']);
+    }
+
+    // ── acceptance criterion: queue-active dimension stays in blocker map ─────
+
+    public function test_queue_active_dimension_with_no_proof_appears_in_blocker_map(): void
+    {
+        $rubric = [$this->dim('loop_origination', 0.9, ['loop_originates_novel_task'])];
+
+        $r = $this->index->compute($rubric, [
+            'proven_evidence' => [],
+            'queue_counts'    => ['loop_origination' => 42],
+        ]);
+
+        // Dimension must remain incomplete
+        $this->assertSame([], $r['complete_dimensions']);
+        $this->assertCount(1, $r['gaps']);
+
+        $gap = $r['gaps'][0];
+        $this->assertSame('loop_origination', $gap['dimension']);
+        $this->assertTrue($gap['has_queue_activity']);
+
+        // Must appear in blocker map with queue_without_proof class
+        $this->assertSame('queue_without_proof', $gap['blocker_class']);
+        $this->assertArrayHasKey('readiness_tier',       $gap);
+        $this->assertArrayHasKey('missing_proof_type',   $gap);
+        $this->assertArrayHasKey('autonomy_blocker',     $gap);
+        $this->assertArrayHasKey('simplification_needed', $gap);
+    }
 }

@@ -13,7 +13,12 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * has_queue_activity for informational purposes, but can NEVER be used to mark a dimension complete.
  *
  * INPUT rubric:
- *   list<{ dimension:string, leverage:float, required_evidence_signals:list<string>, task_family:string }>
+ *   list<{
+ *     dimension:string, leverage:float,
+ *     required_evidence_signals:list<string>, task_family:string,
+ *     autonomy_blocker?:bool,    — explicit override; derived from leverage if absent
+ *     simplification_needed?:bool — explicit override; derived from signal count if absent
+ *   }>
  *
  * INPUT controlPlaneSnapshot:
  *   { proven_evidence:list<string>, queue_counts?:array<string,int> }
@@ -21,8 +26,17 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * OUTPUT:
  *   { schema, gaps:list<Gap>, complete_dimensions:list<string> }
  *
- * Gap: { dimension, leverage, proof_gap, missing_evidence, has_queue_activity, suggested_task_family }
- *   proof_gap = missing_signal_count / total_required_signals  (0.0 when complete, 1.0 when nothing proven)
+ * Gap fields:
+ *   dimension, leverage, proof_gap, missing_evidence, has_queue_activity, suggested_task_family
+ *   — final-95 blocker map (added for each incomplete dimension) —
+ *   blocker_class        'no_evidence_yet' | 'queue_without_proof' | 'partial_evidence_gap'
+ *   next_best_task_family  task family most likely to close the gap
+ *   missing_proof_type   'test_gate' | 'runtime_evidence' | 'certification' | 'evidence_ref'
+ *   autonomy_blocker     bool — true when this gap prevents unattended autonomous operation
+ *   simplification_needed bool — true when the dimension has many missing signals at high proof_gap
+ *   readiness_tier       'not_started' | 'partial' | 'near_complete'
+ *
+ *   proof_gap = missing_signal_count / total_required_signals  (0.0 complete, 1.0 nothing proven)
  *   Sorted: leverage DESC, proof_gap DESC (most urgent gap first).
  *
  * PURE / DETERMINISTIC. No I/O.
@@ -32,7 +46,7 @@ final class AtlasExternalBrainMaturityGapIndex
     public const SCHEMA = 'atlas.external_brain.maturity_gap_index.v1';
 
     /**
-     * @param  list<array{dimension:string, leverage:float, required_evidence_signals:list<string>, task_family:string}>  $rubric
+     * @param  list<array<string,mixed>>  $rubric
      * @param  array{proven_evidence?:list<string>, queue_counts?:array<string,int>}  $controlPlaneSnapshot
      * @return array{schema:string, gaps:list<array<string,mixed>>, complete_dimensions:list<string>}
      */
@@ -73,14 +87,14 @@ final class AtlasExternalBrainMaturityGapIndex
             $proofGap = $total > 0 ? count($missing) / $total : 1.0;
             $hasQueueActivity = ($queueCounts[$name] ?? 0) > 0;
 
-            $gaps[] = [
-                'dimension' => $name,
-                'leverage' => $leverage,
-                'proof_gap' => $proofGap,
-                'missing_evidence' => $missing,
-                'has_queue_activity' => $hasQueueActivity,
+            $gaps[] = array_merge([
+                'dimension'             => $name,
+                'leverage'              => $leverage,
+                'proof_gap'             => $proofGap,
+                'missing_evidence'      => $missing,
+                'has_queue_activity'    => $hasQueueActivity,
                 'suggested_task_family' => $taskFamily,
-            ];
+            ], $this->blockerMap($dim, $missing, $proofGap, $leverage, $taskFamily, $hasQueueActivity));
         }
 
         // Sort: leverage DESC, proof_gap DESC (most critical unproven gap first).
@@ -88,9 +102,75 @@ final class AtlasExternalBrainMaturityGapIndex
             [$b['leverage'], $b['proof_gap']] <=> [$a['leverage'], $a['proof_gap']]);
 
         return [
-            'schema' => self::SCHEMA,
-            'gaps' => $gaps,
-            'complete_dimensions' => $complete,
+            'schema'               => self::SCHEMA,
+            'gaps'                 => $gaps,
+            'complete_dimensions'  => $complete,
         ];
+    }
+
+    /**
+     * Build the final-95 blocker map for one incomplete dimension.
+     *
+     * @param  array<string,mixed>  $rubricDim
+     * @param  list<string>         $missing
+     * @return array<string,mixed>
+     */
+    private function blockerMap(
+        array $rubricDim,
+        array $missing,
+        float $proofGap,
+        float $leverage,
+        string $taskFamily,
+        bool $hasQueueActivity,
+    ): array {
+        $blockerClass = match (true) {
+            $proofGap >= 1.0 && ! $hasQueueActivity => 'no_evidence_yet',
+            $hasQueueActivity && $proofGap > 0.0    => 'queue_without_proof',
+            default                                  => 'partial_evidence_gap',
+        };
+
+        $nextBestTaskFamily = $proofGap >= 1.0
+            ? $taskFamily.'_bootstrap'
+            : $taskFamily.'_evidence_close';
+
+        $missingProofType = $this->deriveMissingProofType($missing);
+
+        $readinessTier = match (true) {
+            $proofGap >= 1.0 => 'not_started',
+            $proofGap > 0.25 => 'partial',
+            default          => 'near_complete',
+        };
+
+        // autonomy_blocker: honour explicit rubric field; fall back to leverage threshold.
+        $autonomyBlocker = isset($rubricDim['autonomy_blocker'])
+            ? (bool) $rubricDim['autonomy_blocker']
+            : $leverage >= 0.7;
+
+        // simplification_needed: honour explicit rubric field; fall back to heuristic.
+        $simplificationNeeded = isset($rubricDim['simplification_needed'])
+            ? (bool) $rubricDim['simplification_needed']
+            : (count($missing) >= 3 && $proofGap >= 0.5);
+
+        return [
+            'blocker_class'         => $blockerClass,
+            'next_best_task_family' => $nextBestTaskFamily,
+            'missing_proof_type'    => $missingProofType,
+            'autonomy_blocker'      => $autonomyBlocker,
+            'simplification_needed' => $simplificationNeeded,
+            'readiness_tier'        => $readinessTier,
+        ];
+    }
+
+    /** @param list<string> $missing */
+    private function deriveMissingProofType(array $missing): string
+    {
+        $joined = strtolower(implode(' ', $missing));
+
+        return match (true) {
+            str_contains($joined, 'cert')                                     => 'certification',
+            str_contains($joined, 'test') || str_contains($joined, 'gate')    => 'test_gate',
+            str_contains($joined, 'runtime') || str_contains($joined, 'live') => 'runtime_evidence',
+            default                                                            => 'evidence_ref',
+        };
     }
 }
