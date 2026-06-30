@@ -14,9 +14,82 @@ class AgentCodexRealInvokerPostStartDispatchReleaseGate
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
 
+    public const BLOCK_REASON_RECEIPT_PROOF_MISSING = 'receipt_proof_missing';
+    public const BLOCK_REASON_RECEIPT_PROOF_STALE = 'receipt_proof_stale';
+    public const BLOCK_REASON_SCOPE_DRIFT_DETECTED = 'scope_drift_detected';
+    public const BLOCK_REASON_QUEUE_HEALTH_DEGRADED = 'queue_health_degraded';
+
+    private const REQUIRED_REPROOF = [
+        self::BLOCK_REASON_RECEIPT_PROOF_MISSING => 'receipt_proof',
+        self::BLOCK_REASON_RECEIPT_PROOF_STALE => 'receipt_proof',
+        self::BLOCK_REASON_SCOPE_DRIFT_DETECTED => 'scope_proof',
+        self::BLOCK_REASON_QUEUE_HEALTH_DEGRADED => 'queue_health_check',
+    ];
+
+    public const DEFAULT_RECEIPT_PROOF_STALE_THRESHOLD_SECONDS = 300;
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
+
+    /**
+     * Pure post-start release evaluator (AC1/AC2/AC3): a dispatch release is only allowed after
+     * receipt proof, scope proof and current queue health all stay clean. Does not touch the
+     * database or the ledger — this is the deterministic check the gate exists to enforce before
+     * `preparePostStartDispatchRelease()` is ever called.
+     *
+     * Block-reason priority (first failing check wins):
+     *   1. receipt_proof_missing   — receipt_proof_present === false
+     *   2. receipt_proof_stale     — proof age unknown or older than the threshold
+     *   3. scope_drift_detected    — scope_drift_detected === true
+     *   4. queue_health_degraded   — queue_health_status !== 'healthy'
+     *
+     * INPUT:
+     *   receipt_proof_present?: bool (default false)
+     *   receipt_proof_age_seconds?: float|null
+     *   receipt_proof_stale_threshold_seconds?: int (default 300)
+     *   scope_drift_detected?: bool (default false)
+     *   queue_health_status?: string (default 'healthy')
+     *
+     * OUTPUT:
+     *   { release_allowed, block_reason, block_reasons, required_reproof }
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluateRelease(array $input): array
+    {
+        $receiptProofPresent = (bool) ($input['receipt_proof_present'] ?? false);
+        $receiptProofAge = isset($input['receipt_proof_age_seconds']) ? (float) $input['receipt_proof_age_seconds'] : null;
+        $staleThreshold = (int) ($input['receipt_proof_stale_threshold_seconds'] ?? self::DEFAULT_RECEIPT_PROOF_STALE_THRESHOLD_SECONDS);
+        $scopeDriftDetected = (bool) ($input['scope_drift_detected'] ?? false);
+        $queueHealthStatus = (string) ($input['queue_health_status'] ?? 'healthy');
+
+        $blockReasons = [];
+
+        if (! $receiptProofPresent) {
+            $blockReasons[] = self::BLOCK_REASON_RECEIPT_PROOF_MISSING;
+        } elseif ($receiptProofAge === null || $receiptProofAge > $staleThreshold) {
+            $blockReasons[] = self::BLOCK_REASON_RECEIPT_PROOF_STALE;
+        }
+
+        if ($scopeDriftDetected) {
+            $blockReasons[] = self::BLOCK_REASON_SCOPE_DRIFT_DETECTED;
+        }
+
+        if ($queueHealthStatus !== 'healthy') {
+            $blockReasons[] = self::BLOCK_REASON_QUEUE_HEALTH_DEGRADED;
+        }
+
+        $primaryReason = $blockReasons[0] ?? null;
+
+        return [
+            'release_allowed' => $blockReasons === [],
+            'block_reason' => $primaryReason,
+            'block_reasons' => $blockReasons,
+            'required_reproof' => $primaryReason !== null ? self::REQUIRED_REPROOF[$primaryReason] : null,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input

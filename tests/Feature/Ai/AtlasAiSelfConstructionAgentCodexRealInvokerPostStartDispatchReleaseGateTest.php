@@ -269,6 +269,100 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReleaseGateTe
         ];
     }
 
+    // ── AC1/AC2/AC3: evaluateRelease — pure post-start release evaluator ───────
+
+    public function test_all_proofs_clean_allows_release(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => true,
+            'receipt_proof_age_seconds' => 5.0,
+        ]);
+
+        $this->assertTrue($result['release_allowed']);
+        $this->assertNull($result['block_reason']);
+        $this->assertNull($result['required_reproof']);
+    }
+
+    public function test_missing_receipt_proof_blocks_release(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => false,
+        ]);
+
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_RECEIPT_PROOF_MISSING, $result['block_reason']);
+        $this->assertSame('receipt_proof', $result['required_reproof']);
+    }
+
+    public function test_stale_receipt_proof_blocks_release(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => true,
+            'receipt_proof_age_seconds' => 9999.0,
+            'receipt_proof_stale_threshold_seconds' => 300,
+        ]);
+
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_RECEIPT_PROOF_STALE, $result['block_reason']);
+    }
+
+    public function test_unknown_receipt_proof_age_treated_as_stale(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => true,
+        ]);
+
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_RECEIPT_PROOF_STALE, $result['block_reason']);
+    }
+
+    public function test_scope_drift_blocks_release(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => true,
+            'receipt_proof_age_seconds' => 5.0,
+            'scope_drift_detected' => true,
+        ]);
+
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_SCOPE_DRIFT_DETECTED, $result['block_reason']);
+        $this->assertSame('scope_proof', $result['required_reproof']);
+    }
+
+    public function test_degraded_queue_health_blocks_release(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => true,
+            'receipt_proof_age_seconds' => 5.0,
+            'queue_health_status' => 'degraded',
+        ]);
+
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_QUEUE_HEALTH_DEGRADED, $result['block_reason']);
+        $this->assertSame('queue_health_check', $result['required_reproof']);
+    }
+
+    public function test_all_block_reasons_recorded_when_multiple_fail(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class)->evaluateRelease([
+            'receipt_proof_present' => false,
+            'scope_drift_detected' => true,
+            'queue_health_status' => 'degraded',
+        ]);
+
+        $this->assertContains(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_RECEIPT_PROOF_MISSING, $result['block_reasons']);
+        $this->assertContains(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_SCOPE_DRIFT_DETECTED, $result['block_reasons']);
+        $this->assertContains(AgentCodexRealInvokerPostStartDispatchReleaseGate::BLOCK_REASON_QUEUE_HEALTH_DEGRADED, $result['block_reasons']);
+    }
+
+    public function test_evaluate_release_is_deterministic(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartDispatchReleaseGate::class);
+        $input = ['receipt_proof_present' => false, 'scope_drift_detected' => true];
+
+        $this->assertSame($gate->evaluateRelease($input), $gate->evaluateRelease($input));
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
