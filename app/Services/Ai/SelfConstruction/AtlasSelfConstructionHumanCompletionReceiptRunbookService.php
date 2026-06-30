@@ -5,13 +5,14 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
 {
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
+    use HashesKsortedPayloadCanonically;
     use KsortsArraysByReference;
 
 
@@ -72,6 +73,8 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
             ],
         ];
 
+        $templateHashInput = $humanCompletionTemplate;
+        unset($templateHashInput['generated_at'], $templateHashInput['runbook_hash'], $templateHashInput['receipt_id']);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -80,7 +83,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
             'required_evidence_fields' => $requiredEvidenceFields,
             'required_acknowledgements' => $requiredAcknowledgements,
             'template_field_count' => count($humanCompletionTemplate),
-            'template_hash' => $this->stableHash($humanCompletionTemplate),
+            'template_hash' => $this->stableHash($templateHashInput),
             'steps' => $steps,
             'commands' => [
                 'persist_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
@@ -103,7 +106,9 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
                 'human_completion_receipt_runbook_does_not_spend_tokens',
             ],
         ];
-        $payload['runbook_hash'] = $this->stableHash($payload);
+        $runbookHashInput = $payload;
+        unset($runbookHashInput['generated_at'], $runbookHashInput['runbook_hash'], $runbookHashInput['receipt_id']);
+        $payload['runbook_hash'] = $this->stableHash($runbookHashInput);
 
         return $payload;
     }
@@ -126,15 +131,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
     private function terminalLoopOperationalProofCanonicalBindingPath(): string
     {
         return 'storage/app/private/atlas/self-construction/operator-submissions/terminal-loop-operational-proof-binding.json';
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['runbook_hash']);
-        unset($payload['receipt_id']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /** @param array<string, mixed> $value */

@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
@@ -18,7 +19,7 @@ use Carbon\CarbonImmutable;
 final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService
 {
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
+    use HashesKsortedPayloadCanonically;
     use KsortsArraysByReference;
 
 
@@ -208,7 +209,9 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
             ],
         ];
 
-        $payload['pre_submission_verification_hash'] = $this->stableHash($payload);
+        $preSubHashInput = $payload;
+        unset($preSubHashInput['verified_at'], $preSubHashInput['pre_submission_verification_hash']);
+        $payload['pre_submission_verification_hash'] = $this->stableHash($preSubHashInput);
 
         return $payload;
     }
@@ -269,14 +272,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
         }
 
         return $failed;
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['verified_at'], $payload['pre_submission_verification_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /** @param array<string, mixed> $value */

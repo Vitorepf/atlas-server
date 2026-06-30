@@ -5,13 +5,14 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
 {
     use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
+    use HashesKsortedPayloadCanonically;
     use KsortsArraysByReference;
 
 
@@ -71,7 +72,9 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
             'adapter_execution_allowed' => false,
             'self_programming_allowed' => false,
         ];
-        $payload['verification_hash'] = $this->stableHash($payload);
+        $verifierHashInput = $payload;
+        unset($verifierHashInput['verified_at'], $verifierHashInput['verification_hash']);
+        $payload['verification_hash'] = $this->stableHash($verifierHashInput);
 
         return $payload;
     }
@@ -93,14 +96,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
             'persisted' => (bool) data_get($persisted, 'persisted', false),
             'receipt_path' => (string) data_get($persisted, 'receipt_path', ''),
         ];
-    }
-
-    /** @param array<string, mixed> $payload */
-    private function stableHash(array $payload): string
-    {
-        unset($payload['verified_at'], $payload['verification_hash']);
-
-        return hash('sha256', (string) json_encode($this->ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function isPlaceholderSigner(string $signedBy): bool
