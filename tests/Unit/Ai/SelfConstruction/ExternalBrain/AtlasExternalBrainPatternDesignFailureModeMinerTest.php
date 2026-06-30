@@ -271,4 +271,42 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         $this->assertSame([], $result['confidence_reasons']);
         $this->assertSame([], $result['task_fabric_patch_hints']);
     }
+
+    // ── affected_families / repair_hint (AC3) ───────────────────────────────────
+
+    public function test_promoted_pattern_emits_affected_families_list(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [$this->good()]]);
+
+        $this->assertArrayHasKey('affected_families', $result['promoted_patterns'][0]);
+        $this->assertContains('task_fabric:origination_quality', $result['promoted_patterns'][0]['affected_families']);
+    }
+
+    public function test_affected_families_merges_extra_families_input(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [
+            $this->good(['affected_task_families' => ['task_fabric:scope_repair', 'task_fabric:dedup']]),
+        ]]);
+
+        $families = $result['promoted_patterns'][0]['affected_families'];
+        $this->assertContains('task_fabric:origination_quality', $families);
+        $this->assertContains('task_fabric:scope_repair', $families);
+        $this->assertContains('task_fabric:dedup', $families);
+    }
+
+    public function test_promoted_pattern_emits_non_empty_repair_hint(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [$this->good()]]);
+
+        $this->assertNotEmpty($result['promoted_patterns'][0]['repair_hint']);
+        $this->assertStringContainsString('require at least one artisan/phpunit command', $result['promoted_patterns'][0]['repair_hint']);
+    }
+
+    public function test_avoids_overgeneralizing_from_isolated_failure(): void
+    {
+        $result = $this->miner->mine(['failure_candidates' => [$this->good(['task_count' => 1])]]);
+
+        $this->assertSame([], $result['promoted_patterns']);
+        $this->assertSame(AtlasExternalBrainPatternDesignFailureModeMiner::REJECTION_ONE_OFF_ANECDOTE, $result['rejected_candidates'][0]['rejection_reason']);
+    }
 }

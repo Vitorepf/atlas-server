@@ -71,6 +71,10 @@ final class AtlasExternalBrainPatternDesignFailureModeMiner
             $enforcementHook     = trim((string) ($candidate['enforcement_hook']     ?? ''));
             $affectedTaskFamily  = trim((string) ($candidate['affected_task_family'] ?? ''));
             $falsificationCheck  = trim((string) ($candidate['falsification_check']  ?? ''));
+            $extraFamilies       = array_values(array_filter(
+                array_map('trim', (array) ($candidate['affected_task_families'] ?? [])),
+                static fn (string $f): bool => $f !== '',
+            ));
 
             $reason = $this->reject(
                 $taskCount, $rootCauseLabel, $preventionRule, $enforcementHook,
@@ -86,6 +90,11 @@ final class AtlasExternalBrainPatternDesignFailureModeMiner
                 ? self::CONFIDENCE_HIGH
                 : self::CONFIDENCE_MEDIUM;
 
+            $affectedFamilies = array_values(array_unique(array_filter(
+                [$affectedTaskFamily, ...$extraFamilies],
+                static fn (string $f): bool => $f !== '',
+            )));
+
             $promoted[] = [
                 'failure_id'           => $failureId,
                 'root_cause_label'     => $rootCauseLabel,
@@ -94,8 +103,10 @@ final class AtlasExternalBrainPatternDesignFailureModeMiner
                 'prevention_rule'      => $preventionRule,
                 'enforcement_hook'     => $enforcementHook,
                 'affected_task_family' => $affectedTaskFamily,
+                'affected_families'    => $affectedFamilies,
                 'falsification_check'  => $falsificationCheck,
                 'confidence'           => $confidence,
+                'repair_hint'          => "{$preventionRule} (enforce via {$enforcementHook}; verify via {$falsificationCheck})",
             ];
 
             $confidenceReasons[] = [
