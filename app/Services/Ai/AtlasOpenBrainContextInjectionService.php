@@ -178,7 +178,26 @@ class AtlasOpenBrainContextInjectionService
         $operatorRefs = $this->operatorContextRefs($operatorContext);
         $contextDeliveryPolicy = $this->contextDeliveryPolicy($payload, $pack);
         $contextDeliveryRefs = $contextDeliveryPolicy !== null ? $this->contextDeliveryRefs($contextDeliveryPolicy) : [];
-        $contextRefs = $this->mergeRefs($contextPack->contextRefs(), $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs, $contextDeliveryRefs);
+
+        // Hygiene gate: drop any ref carrying an unsafe marker (quarantine,
+        // require_sanitization, non_instructional_context, hostile_memory,
+        // raw_prompt_leakage, raw_prompt_detected) or provider_safe===false BEFORE it can
+        // reach the merged refs, the deterministic hash or the rendered prompt section.
+        // Omitted refs are dropped from prompt text but counted into hygiene_receipt below.
+        $omissionReasons = [];
+        $omittedRefCount = 0;
+        $contextPackRefs = $this->filterProviderUnsafeRefs($contextPack->contextRefs(), $omissionReasons, $omittedRefCount);
+        $knowledgeRefs = $this->filterProviderUnsafeRefs($knowledgeRefs, $omissionReasons, $omittedRefCount);
+        $codeRefs = $this->filterProviderUnsafeRefs($codeRefs, $omissionReasons, $omittedRefCount);
+        $codeGraphRefs = $this->filterProviderUnsafeRefs($codeGraphRefs, $omissionReasons, $omittedRefCount);
+        $memoryRecallRefs = $this->filterProviderUnsafeRefs($memoryRecallRefs, $omissionReasons, $omittedRefCount);
+        $realityGraphRefs = $this->filterProviderUnsafeRefs($realityGraphRefs, $omissionReasons, $omittedRefCount);
+        $operatorRefs = $this->filterProviderUnsafeRefs($operatorRefs, $omissionReasons, $omittedRefCount);
+        $contextDeliveryRefs = $this->filterProviderUnsafeRefs($contextDeliveryRefs, $omissionReasons, $omittedRefCount);
+        $omissionReasons = array_values(array_unique($omissionReasons));
+        sort($omissionReasons);
+
+        $contextRefs = $this->mergeRefs($contextPackRefs, $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs, $contextDeliveryRefs);
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
@@ -351,6 +370,10 @@ class AtlasOpenBrainContextInjectionService
             'next_actions' => $this->nextActions($warnings, $summary),
             'context_refs' => $contextRefs,
             'policy' => $policy,
+            'hygiene_receipt' => [
+                'omitted_ref_count' => $omittedRefCount,
+                'omission_reasons' => $omissionReasons,
+            ],
         ];
     }
 
@@ -666,7 +689,16 @@ class AtlasOpenBrainContextInjectionService
                     'title' => (string) ($item['title'] ?? ''),
                     'summary' => (string) ($item['summary'] ?? ''),
                     'reason' => (string) ($item['reason'] ?? ''),
-                    'provider_safe' => true,
+                    // The source recall row carries the unsafe-marker verdict; propagate it
+                    // verbatim instead of hard-coding true, so the hygiene gate downstream can
+                    // still see/drop quarantined or otherwise unsafe recalled memory.
+                    'provider_safe' => ($item['provider_safe'] ?? true) !== false,
+                    'quarantine' => (bool) ($item['quarantine'] ?? false),
+                    'require_sanitization' => (bool) ($item['require_sanitization'] ?? false),
+                    'non_instructional_context' => (bool) ($item['non_instructional_context'] ?? false),
+                    'hostile_memory' => (bool) ($item['hostile_memory'] ?? false),
+                    'raw_prompt_leakage' => (bool) ($item['raw_prompt_leakage'] ?? false),
+                    'raw_prompt_detected' => (bool) ($item['raw_prompt_detected'] ?? false),
                 ])
                 ->values()
                 ->all();
@@ -1446,6 +1478,63 @@ class AtlasOpenBrainContextInjectionService
             ->unique(fn (array $ref): string => (string) ($ref['type'] ?? 'unknown').':'.(string) ($ref['id'] ?? $ref['slug'] ?? $ref['canonical_path'] ?? $ref['root_path'] ?? md5(json_encode($ref) ?: '')))
             ->values()
             ->all();
+    }
+
+    /**
+     * Hardening: a ref carrying any unsafe marker (quarantine, require_sanitization,
+     * non_instructional_context, hostile_memory, raw_prompt_leakage, raw_prompt_detected)
+     * or an explicit provider_safe===false must NEVER reach a rendered provider prompt
+     * section. This is the single shared choke point all ref lists pass through before
+     * being merged/rendered/hashed.
+     */
+    private function isRefProviderSafe(array $ref): bool
+    {
+        foreach (['quarantine', 'require_sanitization', 'non_instructional_context', 'hostile_memory', 'raw_prompt_leakage', 'raw_prompt_detected'] as $marker) {
+            if ((bool) ($ref[$marker] ?? false)) {
+                return false;
+            }
+        }
+
+        return ($ref['provider_safe'] ?? true) !== false;
+    }
+
+    /**
+     * Filters a ref list through {@see isRefProviderSafe()}, recording which marker(s)
+     * caused each omission into $omissionReasons (deduplicated by caller) and bumping
+     * $omittedCount for every dropped ref.
+     *
+     * @param  array<int,array<string,mixed>>  $refs
+     * @param  array<int,string>  $omissionReasons
+     * @return array<int,array<string,mixed>>
+     */
+    private function filterProviderUnsafeRefs(array $refs, array &$omissionReasons, int &$omittedCount): array
+    {
+        $markers = ['quarantine', 'require_sanitization', 'non_instructional_context', 'hostile_memory', 'raw_prompt_leakage', 'raw_prompt_detected'];
+
+        return array_values(array_filter($refs, function (mixed $ref) use ($markers, &$omissionReasons, &$omittedCount): bool {
+            if (! is_array($ref)) {
+                return true;
+            }
+
+            $reasons = [];
+            foreach ($markers as $marker) {
+                if ((bool) ($ref[$marker] ?? false)) {
+                    $reasons[] = $marker;
+                }
+            }
+            if (($ref['provider_safe'] ?? true) === false) {
+                $reasons[] = 'provider_safe_false';
+            }
+
+            if ($reasons === []) {
+                return true;
+            }
+
+            $omittedCount++;
+            $omissionReasons = [...$omissionReasons, ...$reasons];
+
+            return false;
+        }));
     }
 
     /**

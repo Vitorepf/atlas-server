@@ -648,6 +648,161 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertStringContainsString('history: prior_runs=1; previous_traces=1; prior_decisions=1', $result['prompt_section'] ?? '');
     }
 
+    // --- hygiene gate: unsafe refs must never reach the rendered prompt ---
+
+    public function test_ref_with_quarantine_marker_is_omitted_from_context_refs(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'quarantined-1', 'title' => 'QUARANTINED_REF_TEXT', 'quarantine' => true],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('QUARANTINED_REF_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(['quarantine'], data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_ref_with_require_sanitization_marker_is_omitted(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'unsafe-2', 'title' => 'NEEDS_SANITIZATION_TEXT', 'require_sanitization' => true],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('NEEDS_SANITIZATION_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(['require_sanitization'], data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_ref_with_non_instructional_context_marker_is_omitted(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'unsafe-3', 'title' => 'NON_INSTRUCTIONAL_TEXT', 'non_instructional_context' => true],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('NON_INSTRUCTIONAL_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(['non_instructional_context'], data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_ref_with_hostile_memory_marker_is_omitted(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'unsafe-4', 'title' => 'HOSTILE_MEMORY_TEXT', 'hostile_memory' => true],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('HOSTILE_MEMORY_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(['hostile_memory'], data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_ref_with_raw_prompt_leakage_marker_is_omitted(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'unsafe-5', 'title' => 'RAW_PROMPT_LEAKAGE_TEXT', 'raw_prompt_leakage' => true],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('RAW_PROMPT_LEAKAGE_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(['raw_prompt_leakage'], data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_ref_with_raw_prompt_detected_marker_is_omitted(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'unsafe-6', 'title' => 'RAW_PROMPT_DETECTED_TEXT', 'raw_prompt_detected' => true],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('RAW_PROMPT_DETECTED_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(['raw_prompt_detected'], data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_ref_with_provider_safe_false_is_omitted(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'unsafe-7', 'title' => 'PROVIDER_UNSAFE_TEXT', 'provider_safe' => false],
+        ]);
+
+        $this->assertSame([], $result['context_refs']);
+        $this->assertStringNotContainsString('PROVIDER_UNSAFE_TEXT', (string) $result['prompt_section']);
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertNotEmpty(data_get($result, 'hygiene_receipt.omission_reasons'));
+    }
+
+    public function test_hygiene_receipt_counts_and_dedupes_reasons_across_multiple_omitted_refs(): void
+    {
+        $result = $this->injectWithContextRefs([
+            ['type' => 'semantic_note', 'id' => 'safe-1', 'title' => 'SAFE_REF_TEXT'],
+            ['type' => 'semantic_note', 'id' => 'unsafe-a', 'title' => 'UNSAFE_A', 'quarantine' => true],
+            ['type' => 'semantic_note', 'id' => 'unsafe-b', 'title' => 'UNSAFE_B', 'hostile_memory' => true],
+            ['type' => 'semantic_note', 'id' => 'unsafe-c', 'title' => 'UNSAFE_C', 'quarantine' => true, 'raw_prompt_leakage' => true],
+        ]);
+
+        $this->assertSame(3, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertSame(
+            ['hostile_memory', 'quarantine', 'raw_prompt_leakage'],
+            data_get($result, 'hygiene_receipt.omission_reasons'),
+        );
+
+        // The clean/safe ref still appears exactly once in the structured context_refs
+        // (contextPack->contextRefs() ids/titles are not separately re-rendered as their
+        // own prompt-text block by toPromptSection(), so the structured refs array — the
+        // shape downstream consumers and the dedup/omission contract actually govern — is
+        // the correct surface to assert "appears exactly once, never dropped" against).
+        $safeRefs = collect($result['context_refs'])
+            ->filter(fn (array $ref): bool => ($ref['id'] ?? null) === 'safe-1')
+            ->all();
+        $this->assertCount(1, $safeRefs);
+        $unsafeIds = collect($result['context_refs'])->pluck('id')->all();
+        $this->assertNotContains('unsafe-a', $unsafeIds);
+        $this->assertNotContains('unsafe-b', $unsafeIds);
+        $this->assertNotContains('unsafe-c', $unsafeIds);
+    }
+
+    public function test_skip_path_is_unaffected_by_hygiene_gate(): void
+    {
+        // Representative skip-path test (policy disabled) — proves the hygiene hardening
+        // did not touch skipped()'s return shape.
+        $result = $this->service->inject(
+            'implementar feature X',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['open_brain' => ['mode' => 'off']]],
+        );
+
+        $this->assertSame('skipped', $result['status']);
+        $this->assertSame('policy_off', $result['reason']);
+        $this->assertNull($result['prompt_section']);
+        $this->assertArrayNotHasKey('hygiene_receipt', $result);
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $contextRefs
+     * @return array<string,mixed>
+     */
+    private function injectWithContextRefs(array $contextRefs): array
+    {
+        return $this->service->inject(
+            'implementar feature com refs de memoria',
+            $this->task('dev'),
+            new AiContextPack(
+                data: [
+                    'task' => ['type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'low', 'domain' => 'developer', 'objective' => 'test'],
+                    'surface' => ['kind' => 'mac_cli', 'workspace' => base_path()],
+                    'memory' => ['recall' => [], 'registry' => [], 'verbatim' => [], 'semantic' => []],
+                    'constraints' => [],
+                ],
+                contextRefs: $contextRefs,
+            ),
+            ['payload' => ['atlas_workflow_mode' => 'dev']],
+        );
+    }
+
     // --- prompt section shape ---
 
     public function test_prompt_section_contains_hash_and_surface(): void
@@ -1457,6 +1612,41 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $second = $service->inject('dev task', $this->task('dev'), $this->pack(), ['payload' => ['atlas_workflow_mode' => 'dev']]);
 
         $this->assertSame($first['context_pack_hash'], $second['context_pack_hash']);
+    }
+
+    // --- hygiene gate: a real-shaped flagged ref (memory recall) never reaches the prompt ---
+
+    public function test_memory_recall_ref_with_quarantine_marker_is_omitted_from_prompt_and_hash(): void
+    {
+        config()->set('atlas.open_brain.injection.include_memory_recall', true);
+
+        [$service] = $this->serviceWithMemoryRecall([
+            'recall' => [
+                [
+                    'source' => 'registry',
+                    'source_ref_type' => 'atlas_memory_entry',
+                    'source_ref_id' => 'mem-quarantined',
+                    'type' => 'decision',
+                    'scope' => 'global',
+                    'title' => 'Quarantined Memory',
+                    'summary' => 'should never reach the prompt',
+                    'reason' => 'recall provider-safe filtrado',
+                    'quarantine' => true,
+                ],
+            ],
+        ]);
+
+        $result = $service->inject(
+            'qual provider uso para corrigir codigo',
+            $this->task('dev'),
+            $this->pack(),
+            ['payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()]],
+        );
+
+        $this->assertStringNotContainsString('Quarantined Memory', (string) $result['prompt_section']);
+        $this->assertSame(0, data_get($result, 'summary.memory_recall_refs'));
+        $this->assertSame(1, data_get($result, 'hygiene_receipt.omitted_ref_count'));
+        $this->assertContains('quarantine', data_get($result, 'hygiene_receipt.omission_reasons'));
     }
 
     // --- helpers ---
