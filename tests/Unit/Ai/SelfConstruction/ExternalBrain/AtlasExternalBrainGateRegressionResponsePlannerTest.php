@@ -162,4 +162,78 @@ final class AtlasExternalBrainGateRegressionResponsePlannerTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainGateRegressionResponsePlanner::SEVERITY_CRITICAL, $result['highest_severity']);
     }
+
+    // ── AC3: severity-based hole sorting ─────────────────────────────────────
+
+    public function test_critical_hole_selected_over_high_regardless_of_input_order(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'high_attack',     'severity' => 'high']),
+            $this->hole(['attack' => 'critical_attack', 'severity' => 'critical']),
+        ]));
+
+        $this->assertSame('critical_attack', $result['repair_target']);
+    }
+
+    public function test_high_hole_selected_over_medium(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'medium_attack', 'severity' => 'medium']),
+            $this->hole(['attack' => 'high_attack',   'severity' => 'high']),
+        ]));
+
+        $this->assertSame('high_attack', $result['repair_target']);
+    }
+
+    public function test_same_severity_holes_preserve_input_order(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'first',  'severity' => 'high']),
+            $this->hole(['attack' => 'second', 'severity' => 'high']),
+        ]));
+
+        $this->assertSame('first', $result['repair_target']);
+    }
+
+    public function test_sorted_holes_present_in_output(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'low',  'severity' => 'medium']),
+            $this->hole(['attack' => 'high', 'severity' => 'critical']),
+        ]));
+
+        $this->assertArrayHasKey('sorted_holes', $result);
+        $this->assertSame('high', $result['sorted_holes'][0]['attack']);
+        $this->assertSame('low',  $result['sorted_holes'][1]['attack']);
+    }
+
+    public function test_remaining_holes_reflect_sorted_order(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'medium_one', 'severity' => 'medium']),
+            $this->hole(['attack' => 'critical_one', 'severity' => 'critical']),
+        ]));
+
+        // After sort: critical_one first, medium_one is the remaining.
+        $this->assertCount(1, $result['remaining_holes']);
+        $this->assertSame('medium_one', $result['remaining_holes'][0]['attack']);
+    }
+
+    // ── AC4: mixed-severity test coverage ────────────────────────────────────
+
+    public function test_three_holes_critical_high_medium_sorted_correctly(): void
+    {
+        $result = $this->planner->plan($this->auditWithHoles([
+            $this->hole(['attack' => 'med',  'severity' => 'medium']),
+            $this->hole(['attack' => 'crit', 'severity' => 'critical']),
+            $this->hole(['attack' => 'hi',   'severity' => 'high']),
+        ]));
+
+        $sorted = $result['sorted_holes'];
+        $this->assertSame('crit', $sorted[0]['attack']);
+        $this->assertSame('hi',   $sorted[1]['attack']);
+        $this->assertSame('med',  $sorted[2]['attack']);
+        $this->assertSame(3, $result['regression_count']);
+        $this->assertTrue($result['blocked_origination']);
+    }
 }
