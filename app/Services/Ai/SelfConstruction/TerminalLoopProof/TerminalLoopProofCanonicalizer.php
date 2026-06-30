@@ -42,6 +42,39 @@ final class TerminalLoopProofCanonicalizer
         return hash('sha256', (string) json_encode(self::ksortRecursive($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
+    /** @param array<string, mixed> $payload */
+    public static function hasSecretOrPlaceholder(array $payload): bool
+    {
+        foreach ($payload as $key => $value) {
+            if (preg_match('/SECRET|TOKEN|API_KEY|PASSWORD/i', (string) $key)) {
+                return true;
+            }
+            if (is_string($value) && self::isPlaceholderValue($value)) {
+                return true;
+            }
+            if (is_array($value) && self::hasSecretOrPlaceholder($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function isPlaceholderValue(string $value): bool
+    {
+        $v = strtolower(trim($value));
+        if ($v === '' || str_starts_with($v, '<') || str_starts_with($v, '__')) {
+            return true;
+        }
+        foreach (['placeholder', 'todo', 'fake', 'simulated', 'fixture', 'mock', 'dummy'] as $fragment) {
+            if (str_contains($v, $fragment)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @param array<string, mixed> $value */
     public static function ksortRecursive(array $value): array
     {

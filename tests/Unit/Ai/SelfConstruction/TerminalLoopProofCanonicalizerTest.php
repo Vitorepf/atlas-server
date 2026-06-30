@@ -128,4 +128,42 @@ class TerminalLoopProofCanonicalizerTest extends TestCase
 
         self::assertNotSame($a, $b);
     }
+
+    public function test_has_secret_or_placeholder_detects_secret_key_name(): void
+    {
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder(['API_KEY' => 'real-value']));
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder(['db_password' => 'x']));
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder(['auth_token' => 'y']));
+    }
+
+    public function test_has_secret_or_placeholder_detects_placeholder_value(): void
+    {
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder(['task_id' => '<todo>']));
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder(['field' => '__incomplete']));
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder(['x' => 'fake-hash']));
+    }
+
+    public function test_has_secret_or_placeholder_detects_nested(): void
+    {
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder([
+            'meta' => ['TOKEN' => 'abc'],
+        ]));
+        self::assertTrue(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder([
+            'context' => ['task_id' => 'placeholder-value'],
+        ]));
+    }
+
+    public function test_has_secret_or_placeholder_returns_false_for_clean(): void
+    {
+        self::assertFalse(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder([
+            'task_id' => 'real-task-abc123',
+            'status' => 'done',
+            'count' => 5,
+        ]));
+    }
+
+    public function test_has_secret_or_placeholder_returns_false_for_empty(): void
+    {
+        self::assertFalse(TerminalLoopProofCanonicalizer::hasSecretOrPlaceholder([]));
+    }
 }
