@@ -41,6 +41,10 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
 
     public const HOLD_STALE_CONTEXT = 'stale_context';
 
+    public const STARVATION_COUNT_THRESHOLD = 3;
+
+    public const STARVATION_TICK_AGE_THRESHOLD_SECONDS = 300;
+
     /**
      * @param  list<array<string,mixed>>  $instances output of {@see AtlasProjectLaneRuntimeInstanceRegistry::build}.instances
      * @param  array<string,mixed>  $facts {max_parallel_lanes?, lane_health?, budget?}
@@ -123,21 +127,40 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
                 $writeRootClaims[$root] = $projectId;
             }
 
+            $starvationCount = (int) ($laneFacts['starvation_count'] ?? 0);
+            $timeSinceTick   = (int) ($laneFacts['time_since_last_tick_seconds'] ?? 0);
+            $starvationBoosted = $starvationCount >= self::STARVATION_COUNT_THRESHOLD
+                || $timeSinceTick >= self::STARVATION_TICK_AGE_THRESHOLD_SECONDS;
+
             $ready[] = [
                 'instance' => $instance,
                 'urgency' => (int) ($laneFacts['urgency'] ?? 0),
                 'heartbeat_age_seconds' => (int) ($laneFacts['heartbeat_age_seconds'] ?? 0),
                 'lane_id' => $laneId,
+                'starvation_boosted' => $starvationBoosted,
+                'starvation_count' => $starvationCount,
+                'time_since_last_tick' => $timeSinceTick,
             ];
         }
 
         usort($ready, static function (array $a, array $b): int {
-            return [-$a['urgency'], -$a['heartbeat_age_seconds'], $a['lane_id']]
-                <=> [-$b['urgency'], -$b['heartbeat_age_seconds'], $b['lane_id']];
+            return [
+                -$a['urgency'],
+                $a['starvation_boosted'] ? 0 : 1,
+                -$a['heartbeat_age_seconds'],
+                $a['lane_id'],
+            ] <=> [
+                -$b['urgency'],
+                $b['starvation_boosted'] ? 0 : 1,
+                -$b['heartbeat_age_seconds'],
+                $b['lane_id'],
+            ];
         });
 
         $remainingBudget = isset($budget['max_ticks']) ? max(0, (int) $budget['max_ticks']) : PHP_INT_MAX;
         $tickNow = [];
+        $tickNowFairnessReasons = [];
+        $rank = 0;
         foreach ($ready as $r) {
             if (count($tickNow) >= $maxParallel) {
                 $blocked[] = [
@@ -157,6 +180,17 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
 
                 continue;
             }
+            $rank++;
+            $laneReasons = ['urgency:'.$r['urgency'], 'rank:'.$rank];
+            if ($r['starvation_boosted']) {
+                if ($r['starvation_count'] >= self::STARVATION_COUNT_THRESHOLD) {
+                    $laneReasons[] = 'starvation_count:'.$r['starvation_count'];
+                }
+                if ($r['time_since_last_tick'] >= self::STARVATION_TICK_AGE_THRESHOLD_SECONDS) {
+                    $laneReasons[] = 'tick_age:'.$r['time_since_last_tick'].'s';
+                }
+            }
+            $tickNowFairnessReasons[$r['lane_id']] = $laneReasons;
             $tickNow[] = $r['instance'];
             $remainingBudget--;
         }
@@ -204,6 +238,7 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
                 'starvation_risk_lanes'       => $starvationRiskLanes,
                 'fairness_reason'             => $fairnessReason,
                 'next_lane_to_unblock'        => $starvationRiskLanes[0] ?? null,
+                'tick_now_fairness_reasons'   => $tickNowFairnessReasons,
             ],
         ];
         $payload['scheduler_hash'] = $this->hash($payload);

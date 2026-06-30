@@ -328,4 +328,83 @@ final class AtlasProjectLaneRuntimeInstanceSchedulerTest extends TestCase
         $this->assertSame($r1['scheduler_hash'], $r2['scheduler_hash'],
             'hash must remain deterministic with fairness_facts included');
     }
+
+    // ── starvation fairness ───────────────────────────────────────────────────
+
+    public function test_starved_lane_by_count_ranks_ahead_of_equal_urgency_fresh_lane(): void
+    {
+        // 'fresh' and 'starved' have the same urgency, but 'starved' has starvation_count >= threshold.
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('fresh', 'p1'),
+            $this->laneInstance('starved', 'p2'),
+        ], [
+            'max_parallel_lanes' => 1,
+            'lane_health' => [
+                'fresh'   => ['urgency' => 5, 'starvation_count' => 0],
+                'starved' => ['urgency' => 5, 'starvation_count' => AtlasProjectLaneRuntimeInstanceScheduler::STARVATION_COUNT_THRESHOLD],
+            ],
+        ]);
+
+        $this->assertSame('starved', $r['tick_now'][0]['lane_id'],
+            'starved lane must rank ahead of equally-urgent fresh lane');
+        $this->assertSame('fresh', $r['blocked_lanes'][0]['lane_id']);
+    }
+
+    public function test_starved_lane_by_tick_age_ranks_ahead_of_equal_urgency_fresh_lane(): void
+    {
+        $threshold = AtlasProjectLaneRuntimeInstanceScheduler::STARVATION_TICK_AGE_THRESHOLD_SECONDS;
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('fresh', 'p1'),
+            $this->laneInstance('aged', 'p2'),
+        ], [
+            'max_parallel_lanes' => 1,
+            'lane_health' => [
+                'fresh' => ['urgency' => 4, 'time_since_last_tick_seconds' => 0],
+                'aged'  => ['urgency' => 4, 'time_since_last_tick_seconds' => $threshold],
+            ],
+        ]);
+
+        $this->assertSame('aged', $r['tick_now'][0]['lane_id'],
+            'long-idle lane must rank ahead of equally-urgent fresh lane');
+    }
+
+    public function test_high_urgency_still_beats_starved_low_urgency_lane(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('low-starved', 'p1'),
+            $this->laneInstance('high-fresh', 'p2'),
+        ], [
+            'max_parallel_lanes' => 1,
+            'lane_health' => [
+                'low-starved' => ['urgency' => 2, 'starvation_count' => 10],
+                'high-fresh'  => ['urgency' => 9],
+            ],
+        ]);
+
+        $this->assertSame('high-fresh', $r['tick_now'][0]['lane_id'],
+            'higher urgency must still win over a starved lower-urgency lane');
+    }
+
+    public function test_tick_now_fairness_reasons_present_for_each_scheduled_lane(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('a', 'p1'),
+            $this->laneInstance('b', 'p2'),
+        ], [
+            'max_parallel_lanes' => 2,
+            'lane_health' => [
+                'a' => ['urgency' => 3, 'starvation_count' => AtlasProjectLaneRuntimeInstanceScheduler::STARVATION_COUNT_THRESHOLD],
+                'b' => ['urgency' => 5],
+            ],
+        ]);
+
+        $reasons = $r['fairness_facts']['tick_now_fairness_reasons'];
+        $this->assertArrayHasKey('a', $reasons);
+        $this->assertArrayHasKey('b', $reasons);
+        $this->assertNotEmpty($reasons['a']);
+        $this->assertNotEmpty($reasons['b']);
+        // Starved lane should report starvation_count in its reasons.
+        $aReasonsStr = implode(',', $reasons['a']);
+        $this->assertStringContainsString('starvation_count', $aReasonsStr);
+    }
 }
