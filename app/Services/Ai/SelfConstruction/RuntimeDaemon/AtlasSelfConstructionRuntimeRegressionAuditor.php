@@ -71,6 +71,18 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
             }
         }
 
+        // Duplicate required case without an explicit acknowledged_repeat is not creditable.
+        $acknowledgedRepeats = array_values((array) ($facts['acknowledged_repeats'] ?? []));
+        $requiredKindCounts = array_count_values(array_filter(
+            $kinds,
+            static fn (string $k): bool => in_array($k, self::REQUIRED_CASES, true),
+        ));
+        foreach ($requiredKindCounts as $kind => $count) {
+            if ($count > 1 && ! in_array($kind, $acknowledgedRepeats, true)) {
+                $blockers[] = 'duplicate_required_case_unacknowledged:'.$kind;
+            }
+        }
+
         $recoveryKindsExercised = array_intersect(self::RECOVERY_CASES, $kinds);
         if ($tickCount > 0 && $recoveryKindsExercised === []) {
             $blockers[] = 'missing_recovery:no_recovery_kind_exercised';
@@ -85,6 +97,24 @@ final class AtlasSelfConstructionRuntimeRegressionAuditor
 
         if ($passed && $evidenceRefs === []) {
             $blockers[] = 'fake_green:success_without_evidence_refs';
+        }
+
+        // When recovery cases are exercised, at least 2 evidence refs are required (runtime + recovery proof).
+        if ($recoveryKindsExercised !== [] && $passed && count($evidenceRefs) < 2) {
+            $blockers[] = 'missing_recovery_evidence:insufficient_refs_for_recovery_proof';
+        }
+
+        // Stale evidence: any timestamp older than max_evidence_age_seconds prevents PASS.
+        $evidenceTimestamps = array_values((array) ($facts['evidence_timestamps'] ?? []));
+        $maxAgeSeconds = (int) ($facts['max_evidence_age_seconds'] ?? 0);
+        if ($evidenceTimestamps !== [] && $maxAgeSeconds > 0) {
+            $nowUnix = (int) ($facts['now_unix'] ?? time());
+            foreach ($evidenceTimestamps as $ts) {
+                if (($nowUnix - (int) $ts) > $maxAgeSeconds) {
+                    $blockers[] = 'stale_evidence:max_age='.$maxAgeSeconds.'s_exceeded';
+                    break;
+                }
+            }
         }
 
         if ($dependencyViolations !== []) {
