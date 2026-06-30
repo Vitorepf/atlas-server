@@ -130,4 +130,120 @@ class AgentProviderAdapterRegistry
     {
         return strtolower(trim($value));
     }
+
+    private const DEFAULT_MAX_EVIDENCE_AGE_DAYS = 14;
+
+    private const HIGH_GIVE_BACK_RATE_CEILING = 0.50;
+
+    private const MIN_OUTCOME_SAMPLE_FOR_VERDICT = 3;
+
+    /**
+     * Evaluates a provider adapter's REAL capability per task family, from
+     * observed outcomes — never from its static descriptor name or an
+     * assumed model strength tier.
+     *
+     * Globally fails closed (every family blocked, routing_hint forced to
+     * caution) when capability_facts.self_declared=true with no outcome
+     * evidence, or evidence_age_days exceeds max_evidence_age_days — a
+     * provider cannot certify itself, and old evidence may be wrong now.
+     *
+     * Per-family blockers (any one excludes the family):
+     *   missing_capability:<name>
+     *   high_give_back_rate (enough samples, give_back_rate over ceiling)
+     *   known_failure_mode
+     *
+     * safe_routing_hint:
+     *   route_with_caution_collect_evidence — global evidence failure
+     *   avoid_routing                       — no family allowed
+     *   route_only_to_allowed_families       — some allowed, some blocked
+     *   route_freely                        — all evaluated families allowed
+     *
+     * @param  array<string, mixed>  $capabilityFacts
+     * @return array<string, mixed>
+     */
+    public function evaluateAdapterCapability(string $provider, array $capabilityFacts): array
+    {
+        $provider = $this->normalizeKey($provider);
+        $capabilities = array_map('strval', (array) ($capabilityFacts['capabilities'] ?? []));
+        $taskFamilies = (array) ($capabilityFacts['task_families'] ?? []);
+        $selfDeclared = (bool) ($capabilityFacts['self_declared'] ?? false);
+        $evidenceAgeDays = (int) ($capabilityFacts['evidence_age_days'] ?? 0);
+        $maxEvidenceAgeDays = (int) ($capabilityFacts['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
+        $recentOutcomes = (array) ($capabilityFacts['recent_outcomes'] ?? []);
+        $knownFailureModes = array_map('strval', (array) ($capabilityFacts['known_failure_modes'] ?? []));
+
+        $evidenceStale = $evidenceAgeDays > $maxEvidenceAgeDays;
+        $globalEvidenceFailure = $selfDeclared || $evidenceStale;
+
+        $allowed = [];
+        $blocked = [];
+
+        foreach ($taskFamilies as $familyFacts) {
+            if (! is_array($familyFacts) || ! isset($familyFacts['family'])) {
+                continue;
+            }
+            $family = (string) $familyFacts['family'];
+            $requiredCapabilities = array_map('strval', (array) ($familyFacts['required_capabilities'] ?? []));
+
+            $reasons = [];
+            if ($selfDeclared) {
+                $reasons[] = 'self_declared_evidence_not_verified';
+            }
+            if ($evidenceStale) {
+                $reasons[] = sprintf('stale_evidence_age_days_%d_exceeds_max_%d', $evidenceAgeDays, $maxEvidenceAgeDays);
+            }
+
+            foreach (array_diff($requiredCapabilities, $capabilities) as $missing) {
+                $reasons[] = "missing_capability:{$missing}";
+            }
+
+            $familyOutcomes = array_values(array_filter(
+                $recentOutcomes,
+                static fn ($o): bool => is_array($o) && (string) ($o['family'] ?? '') === $family,
+            ));
+            $sampleSize = count($familyOutcomes);
+            $giveBackCount = count(array_filter(
+                $familyOutcomes,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'give_back',
+            ));
+            $giveBackRate = $sampleSize > 0 ? round($giveBackCount / $sampleSize, 4) : 0.0;
+            if ($sampleSize >= self::MIN_OUTCOME_SAMPLE_FOR_VERDICT && $giveBackRate > self::HIGH_GIVE_BACK_RATE_CEILING) {
+                $reasons[] = 'high_give_back_rate';
+            }
+
+            if (in_array($family, $knownFailureModes, true)) {
+                $reasons[] = 'known_failure_mode';
+            }
+
+            if ($reasons === []) {
+                $allowed[] = $family;
+            } else {
+                $blocked[] = ['family' => $family, 'reasons' => $reasons];
+            }
+        }
+
+        $safeRoutingHint = match (true) {
+            $globalEvidenceFailure => 'route_with_caution_collect_evidence',
+            $allowed === [] => 'avoid_routing',
+            $blocked !== [] => 'route_only_to_allowed_families',
+            default => 'route_freely',
+        };
+
+        return [
+            'provider' => $provider,
+            'capabilities' => $capabilities,
+            'evidence_freshness' => [
+                'age_days' => $evidenceAgeDays,
+                'max_age_days' => $maxEvidenceAgeDays,
+                'is_stale' => $evidenceStale,
+                'self_declared' => $selfDeclared,
+            ],
+            'global_evidence_failure' => $globalEvidenceFailure,
+            'safe_task_families' => $allowed,
+            'blocked_task_families' => $blocked,
+            'safe_routing_hint' => $safeRoutingHint,
+            'external_process_start_enabled' => false,
+            'token_spend_allowed' => false,
+        ];
+    }
 }
