@@ -290,4 +290,68 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
             $this->assertLessThanOrEqual(1.0, $r['saturation_score']);
         }
     }
+
+    // ── AC3: next_search_plan always present ─────────────────────────────────
+
+    public function test_next_search_plan_always_present(): void
+    {
+        $r = $this->meter->measure('s', [$this->candidate(), $this->candidate(), $this->candidate()]);
+
+        $this->assertArrayHasKey('next_search_plan', $r);
+        $this->assertArrayHasKey('ranked_modes',    $r['next_search_plan']);
+        $this->assertArrayHasKey('evidence_needed', $r['next_search_plan']);
+        $this->assertArrayHasKey('stop_condition',  $r['next_search_plan']);
+    }
+
+    public function test_next_search_plan_ranked_modes_matches_missing_modes(): void
+    {
+        $r = $this->meter->measure('s', [$this->candidate(), $this->candidate(), $this->candidate()]);
+
+        $this->assertSame($r['missing_modes'], $r['next_search_plan']['ranked_modes']);
+    }
+
+    public function test_next_search_plan_evidence_needed_names_missing_modes(): void
+    {
+        $r = $this->meter->measure('s', [$this->candidate(), $this->candidate(), $this->candidate()]);
+
+        foreach ($r['missing_modes'] as $mode) {
+            $this->assertStringContainsString($mode, $r['next_search_plan']['evidence_needed']);
+        }
+    }
+
+    public function test_next_search_plan_all_covered_evidence_message(): void
+    {
+        $r = $this->meter->measure('s',
+            array_fill(0, 3, $this->candidate()),
+            ['mode_passes' => $this->allModePasses()],
+        );
+
+        $this->assertStringContainsString('covered', $r['next_search_plan']['evidence_needed']);
+        $this->assertSame([], $r['next_search_plan']['ranked_modes']);
+    }
+
+    // ── AC2: under_evidenced (opt-in via strict_mode_evidence) ───────────────
+
+    public function test_under_evidenced_verdict_when_strict_mode_evidence_enabled(): void
+    {
+        $candidates = array_fill(0, 3, $this->duplicate()); // all dupes + low yield → high rates
+        $r = $this->meter->measure('s', $candidates, ['strict_mode_evidence' => true]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_UNDER_EVIDENCED, $r['verdict']);
+        $this->assertNotEmpty($r['missing_modes']);
+    }
+
+    public function test_under_evidenced_not_triggered_without_flag(): void
+    {
+        $candidates = array_fill(0, 3, $this->duplicate());
+        $r = $this->meter->measure('s', $candidates);
+
+        // Without flag → still deepen (backward compat)
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_DEEPEN, $r['verdict']);
+    }
+
+    public function test_under_evidenced_constant_exists(): void
+    {
+        $this->assertSame('under_evidenced', AtlasExternalBrainSurfaceSaturationMeter::VERDICT_UNDER_EVIDENCED);
+    }
 }

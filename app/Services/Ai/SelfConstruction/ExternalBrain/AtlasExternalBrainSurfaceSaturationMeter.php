@@ -54,6 +54,9 @@ final class AtlasExternalBrainSurfaceSaturationMeter
 
     public const VERDICT_INSUFFICIENT = 'insufficient_data';
 
+    /** AC2: opt-in verdict when high-dupe+high-yield surface still lacks required mode coverage. */
+    public const VERDICT_UNDER_EVIDENCED = 'under_evidenced';
+
     /** All five modes must have non-stale pass records before the surface can be declared exhausted. */
     public const REQUIRED_SEARCH_MODES = ['bug-hunt', 'architecture', 'research', 'simplification', 'proof-gap'];
 
@@ -67,14 +70,16 @@ final class AtlasExternalBrainSurfaceSaturationMeter
      * @param  list<array{candidate_id?:string, subsystem?:string, target_path?:string,
      *                    value_mechanism?:string, yield?:float, duplicate?:bool}>  $recentCandidates
      * @param  array{yield_floor?:float, saturation_threshold?:float, min_candidates_for_decision?:int,
-     *               mode_passes?:array<string,array{passed?:bool,stale?:bool}>}  $context
+     *               mode_passes?:array<string,array{passed?:bool,stale?:bool}>,
+     *               strict_mode_evidence?:bool}  $context
      * @return array<string,mixed>
      */
     public function measure(string $surfaceId, array $recentCandidates, array $context = []): array
     {
-        $yieldFloor = max(0.0, min(1.0, (float) ($context['yield_floor'] ?? self::DEFAULT_YIELD_FLOOR)));
-        $threshold = max(0.0, min(1.0, (float) ($context['saturation_threshold'] ?? self::DEFAULT_SATURATION_THRESHOLD)));
-        $minCandidates = max(1, (int) ($context['min_candidates_for_decision'] ?? self::DEFAULT_MIN_CANDIDATES));
+        $yieldFloor          = max(0.0, min(1.0, (float) ($context['yield_floor']               ?? self::DEFAULT_YIELD_FLOOR)));
+        $threshold           = max(0.0, min(1.0, (float) ($context['saturation_threshold']      ?? self::DEFAULT_SATURATION_THRESHOLD)));
+        $minCandidates       = max(1, (int) ($context['min_candidates_for_decision']            ?? self::DEFAULT_MIN_CANDIDATES));
+        $strictModeEvidence  = (bool) ($context['strict_mode_evidence'] ?? false);
 
         $total = count($recentCandidates);
 
@@ -125,7 +130,9 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         if ($duplicateRate >= $threshold && $lowYieldRate >= $threshold) {
             // Block exhausted verdict until all five search modes have non-stale pass records.
             if ($missingModes !== []) {
-                return $this->result($surfaceId, self::VERDICT_DEEPEN, $saturationScore,
+                // AC2: strict_mode_evidence=true → under_evidenced; default keeps deepen for backward compat.
+                $blockedVerdict = $strictModeEvidence ? self::VERDICT_UNDER_EVIDENCED : self::VERDICT_DEEPEN;
+                return $this->result($surfaceId, $blockedVerdict, $saturationScore,
                     "Rates suggest exhaustion (duplicate_rate={$duplicateRate}, low_yield_rate={$lowYieldRate}) but search modes not fully covered. Run {$nextRecommendedMode} next.",
                     $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
             }
@@ -178,17 +185,27 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         array $missingModes,
         ?string $nextRecommendedMode,
     ): array {
+        // AC3: next_search_plan — ranked modes, evidence needed, and stop condition.
+        $evidenceNeeded = $missingModes !== []
+            ? 'non-stale pass records required for: ' . implode(', ', $missingModes)
+            : 'all required search modes covered';
+
         return [
-            'schema' => self::SCHEMA,
-            'surface_id' => $surfaceId,
-            'verdict' => $verdict,
-            'saturation_score' => round($saturationScore, 4),
-            'reasoning' => $reasoning,
-            'dominant_subsystem' => $dominantSubsystem,
-            'duplicate_rate' => round($duplicateRate, 4),
-            'low_yield_rate' => round($lowYieldRate, 4),
-            'missing_modes' => $missingModes,
+            'schema'                => self::SCHEMA,
+            'surface_id'            => $surfaceId,
+            'verdict'               => $verdict,
+            'saturation_score'      => round($saturationScore, 4),
+            'reasoning'             => $reasoning,
+            'dominant_subsystem'    => $dominantSubsystem,
+            'duplicate_rate'        => round($duplicateRate, 4),
+            'low_yield_rate'        => round($lowYieldRate, 4),
+            'missing_modes'         => $missingModes,
             'next_recommended_mode' => $nextRecommendedMode,
+            'next_search_plan'      => [
+                'ranked_modes'   => $missingModes,
+                'evidence_needed' => $evidenceNeeded,
+                'stop_condition' => 'all required search modes must have non-stale pass records',
+            ],
         ];
     }
 }
