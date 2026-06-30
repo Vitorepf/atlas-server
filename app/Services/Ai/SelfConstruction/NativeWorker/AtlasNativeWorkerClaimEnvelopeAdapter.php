@@ -48,6 +48,10 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
 
     public const REASON_EXTERNAL_PROVIDER_DEPENDENCY = 'external_provider_dependency_present';
 
+    public const REASON_TEST_ONLY_SCOPE = 'test_only_scope_no_impl';
+
+    public const REASON_NO_RUNNABLE_PROOF = 'no_runnable_proof_in_acceptance';
+
     /**
      * @param  array<string,mixed>  $claim
      * @return array<string,mixed>
@@ -87,6 +91,11 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
         if ($allowedFiles === []) {
             return $this->refuse(self::REASON_ALLOWED_FILES_EMPTY);
         }
+        $hasTestFile = $this->anyTestFile($allowedFiles);
+        $hasImplFile = $this->anyImplFile($allowedFiles);
+        if ($hasTestFile && ! $hasImplFile) {
+            return $this->refuse(self::REASON_TEST_ONLY_SCOPE);
+        }
         if ($scopeIn === []) {
             // Default scope_in to allowed_files if absent.
             $scopeIn = $allowedFiles;
@@ -96,6 +105,9 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
         }
         if ($evidence === []) {
             return $this->refuse(self::REASON_EVIDENCE_EMPTY);
+        }
+        if (! $hasTestFile && ! $this->hasRunnableProof($acceptance)) {
+            return $this->refuse(self::REASON_NO_RUNNABLE_PROOF);
         }
 
         if (array_key_exists('worker_executable', $packet) && ! (bool) $packet['worker_executable']) {
@@ -160,6 +172,44 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
             'normalized_packet' => $normalized,
             'adapter_hash' => $this->adapterHash($normalized),
         ];
+    }
+
+    /** @param list<mixed> $files */
+    private function anyTestFile(array $files): bool
+    {
+        foreach ($files as $f) {
+            $f = (string) $f;
+            if (str_starts_with($f, 'tests/') || str_ends_with($f, 'Test.php')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<mixed> $files */
+    private function anyImplFile(array $files): bool
+    {
+        foreach ($files as $f) {
+            $f = (string) $f;
+            if (! str_starts_with($f, 'tests/') && ! str_ends_with($f, 'Test.php')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<mixed> $acceptance */
+    private function hasRunnableProof(array $acceptance): bool
+    {
+        foreach ($acceptance as $criterion) {
+            if (str_contains((string) $criterion, 'php artisan')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

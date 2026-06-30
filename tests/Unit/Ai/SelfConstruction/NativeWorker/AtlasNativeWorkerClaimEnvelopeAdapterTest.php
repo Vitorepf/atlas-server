@@ -178,6 +178,41 @@ class AtlasNativeWorkerClaimEnvelopeAdapterTest extends TestCase
         self::assertSame($a['adapter_hash'], $b['adapter_hash']);
     }
 
+    public function test_test_only_allowed_files_fails_closed(): void
+    {
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($this->validClaim([
+            'allowed_files' => ['tests/Unit/FooTest.php', 'tests/Unit/BarTest.php'],
+            'scope_in' => ['tests/Unit/FooTest.php', 'tests/Unit/BarTest.php'],
+        ]));
+
+        self::assertFalse($verdict['ok']);
+        self::assertSame(AtlasNativeWorkerClaimEnvelopeAdapter::REASON_TEST_ONLY_SCOPE, $verdict['reason']);
+    }
+
+    public function test_impl_only_without_runnable_proof_fails_closed(): void
+    {
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($this->validClaim([
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
+            'scope_in' => ['app/Foo.php', 'app/Bar.php'],
+            'acceptance_criteria' => ['do the thing', 'verify manually'],
+        ]));
+
+        self::assertFalse($verdict['ok']);
+        self::assertSame(AtlasNativeWorkerClaimEnvelopeAdapter::REASON_NO_RUNNABLE_PROOF, $verdict['reason']);
+    }
+
+    public function test_impl_only_with_artisan_command_in_acceptance_passes(): void
+    {
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($this->validClaim([
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
+            'scope_in' => ['app/Foo.php', 'app/Bar.php'],
+            'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php passes'],
+        ]));
+
+        self::assertTrue($verdict['ok']);
+        self::assertSame('ok', $verdict['reason']);
+    }
+
     public function test_adapter_source_does_not_call_providers_or_processes(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimEnvelopeAdapter.php'));
