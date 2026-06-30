@@ -70,6 +70,31 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
         self::DRIFT_MISSING_NEXT_LEVERAGE  => ['leverage_assessment', 'next_opportunity_scan'],
     ];
 
+    /** @var array<string,string> drift_type → repair_action (queue conflict resolved per-state below). */
+    private const REPAIR_ACTION_BY_DRIFT = [
+        self::DRIFT_CONTRADICTORY          => 'request_completion_proof_or_demote_state',
+        self::DRIFT_MISSING                => 'add_area_to_capability_map',
+        self::DRIFT_STALE                  => 'revalidate_area_freshness',
+        self::DRIFT_MISSING_OWNER          => 'assign_owner',
+        self::DRIFT_MISSING_MATURITY_BAND  => 'assess_maturity_band',
+        self::DRIFT_STALE_OWNER_EVIDENCE   => 'revalidate_ownership',
+        self::DRIFT_MATURITY_REGRESSION    => 'root_cause_regression_and_link_follow_up_task',
+        self::DRIFT_MISSING_NEXT_LEVERAGE  => 'run_leverage_assessment',
+    ];
+
+    /** @var array<string,string> drift_type → Task Fabric handling advice. */
+    private const TASK_FABRIC_ADVICE_BY_DRIFT = [
+        self::DRIFT_CONTRADICTORY          => 'treat_claims_as_unverified_until_repaired',
+        self::DRIFT_MISSING                => 'do_not_enqueue_until_area_is_mapped',
+        self::DRIFT_RETIRED_BLOCKED_QUEUE  => 'do_not_enqueue_until_reactivation_gate_passes',
+        self::DRIFT_STALE                  => 'proceed_with_caution_pending_revalidation',
+        self::DRIFT_MISSING_OWNER          => 'proceed_with_caution_pending_repair',
+        self::DRIFT_MISSING_MATURITY_BAND  => 'proceed_with_caution_pending_repair',
+        self::DRIFT_STALE_OWNER_EVIDENCE   => 'proceed_with_caution_pending_repair',
+        self::DRIFT_MATURITY_REGRESSION    => 'proceed_with_caution_pending_repair',
+        self::DRIFT_MISSING_NEXT_LEVERAGE  => 'proceed_with_caution_pending_repair',
+    ];
+
     /**
      * @param  array<string,mixed>  $input  map_entries, queued_areas
      * @return array{schema_version:string, has_drift:bool, findings:list<array<string,mixed>>, total_findings:int}
@@ -175,7 +200,7 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
             if (! in_array($area, $mappedIds, true)) {
                 $findings[] = $this->finding($area, self::DRIFT_MISSING, 'high', 'high');
             } elseif (in_array($areaStateMap[$area] ?? '', ['retired', 'blocked'], true)) {
-                $findings[] = $this->finding($area, self::DRIFT_RETIRED_BLOCKED_QUEUE, 'high', 'high');
+                $findings[] = $this->finding($area, self::DRIFT_RETIRED_BLOCKED_QUEUE, 'high', 'high', $areaStateMap[$area]);
             }
         }
 
@@ -195,14 +220,25 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
     }
 
     /** @return array<string,mixed> */
-    private function finding(string $areaId, string $driftType, string $impactLevel, string $confidence): array
+    private function finding(string $areaId, string $driftType, string $impactLevel, string $confidence, string $queueState = ''): array
     {
+        $repairAction = $driftType === self::DRIFT_RETIRED_BLOCKED_QUEUE
+            ? ($queueState === 'retired' ? 'queue_redirect' : 'reactivation_gate')
+            : (self::REPAIR_ACTION_BY_DRIFT[$driftType] ?? 'review_finding');
+
+        $evidence = self::EVIDENCE_BY_DRIFT[$driftType];
+
         return [
-            'area_id'         => $areaId,
-            'drift_type'      => $driftType,
-            'impact_level'    => $impactLevel,
-            'confidence'      => $confidence,
-            'evidence_needed' => self::EVIDENCE_BY_DRIFT[$driftType],
+            'area_id'             => $areaId,
+            'drift_type'          => $driftType,
+            'impact_level'        => $impactLevel,
+            'impact'              => $impactLevel,
+            'confidence'          => $confidence,
+            'evidence_needed'     => $evidence,
+            'required_evidence'   => $evidence,
+            'repair_action'       => $repairAction,
+            'task_fabric_advice'  => self::TASK_FABRIC_ADVICE_BY_DRIFT[$driftType] ?? 'proceed_with_caution_pending_repair',
+            'enqueue_safe'        => $impactLevel !== 'high',
         ];
     }
 }

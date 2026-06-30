@@ -318,6 +318,34 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
         $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_RETIRED_BLOCKED_QUEUE, $f['drift_type']);
         $this->assertSame('high', $f['impact_level']);
         $this->assertContains('queue_redirect', $f['evidence_needed']);
+        $this->assertSame('queue_redirect', $f['repair_action']);
+        $this->assertFalse($f['enqueue_safe']);
+    }
+
+    public function test_findings_carry_actionable_repair_plan_fields(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('mod-a', 'mapped', 99)],
+        ]);
+
+        $f = $this->findingFor($r, 'mod-a');
+        $this->assertNotNull($f);
+        foreach (['drift_type', 'impact', 'confidence', 'required_evidence', 'repair_action', 'task_fabric_advice', 'enqueue_safe'] as $k) {
+            $this->assertArrayHasKey($k, $f, "Missing key: {$k}");
+        }
+        $this->assertIsBool($f['enqueue_safe']);
+    }
+
+    public function test_blocked_queue_conflict_uses_reactivation_gate_repair_action(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('gated-module-2', 'blocked')],
+            'queued_areas' => ['gated-module-2'],
+        ]);
+
+        $f = $this->findingFor($r, 'gated-module-2');
+        $this->assertSame('reactivation_gate', $f['repair_action']);
+        $this->assertFalse($f['enqueue_safe']);
     }
 
     public function test_queued_area_targeting_blocked_map_entry_is_high_impact(): void
