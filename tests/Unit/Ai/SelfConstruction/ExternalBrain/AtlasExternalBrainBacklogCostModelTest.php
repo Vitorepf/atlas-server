@@ -527,4 +527,76 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED, $result['preferred_action']);
     }
+
+    // ── cost_by_action ───────────────────────────────────────────────────────
+
+    public function test_cost_by_action_has_all_five_actions(): void
+    {
+        $result = $this->model()->model([]);
+
+        $this->assertArrayHasKey('cost_by_action', $result);
+        foreach ([
+            AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE,
+            AtlasExternalBrainBacklogCostModel::ACTION_DRAIN_EXISTING,
+            AtlasExternalBrainBacklogCostModel::ACTION_CONSOLIDATE,
+            AtlasExternalBrainBacklogCostModel::ACTION_REPAIR_QUEUE,
+            AtlasExternalBrainBacklogCostModel::ACTION_RETIRE_STALE,
+        ] as $action) {
+            $this->assertArrayHasKey($action, $result['cost_by_action']);
+        }
+    }
+
+    public function test_stale_low_value_backlog_with_limited_capacity_makes_create_more_more_expensive(): void
+    {
+        $result = $this->model()->model([
+            'claimable_depth' => 30,
+            'queue_age_p95_minutes' => 90.0,
+            'serve_rate_per_minute' => 0.02,
+            'expected_value_density' => 0.10,
+            'worker_capacity' => 1,
+        ]);
+
+        $costs = $result['cost_by_action'];
+        $this->assertGreaterThan($costs[AtlasExternalBrainBacklogCostModel::ACTION_DRAIN_EXISTING], $costs[AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE]);
+        $this->assertGreaterThan($costs[AtlasExternalBrainBacklogCostModel::ACTION_RETIRE_STALE], $costs[AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE]);
+    }
+
+    public function test_high_dependency_unlock_value_lowers_create_more_cost_when_risk_is_low(): void
+    {
+        $low = $this->model()->model([
+            'dependency_unlock_value' => 0.0,
+            'give_back_rate' => 0.05,
+            'malformed_rate' => 0.02,
+        ]);
+        $high = $this->model()->model([
+            'dependency_unlock_value' => 1.0,
+            'give_back_rate' => 0.05,
+            'malformed_rate' => 0.02,
+        ]);
+
+        $this->assertLessThan(
+            $low['cost_by_action'][AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE],
+            $high['cost_by_action'][AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE],
+        );
+    }
+
+    public function test_high_dependency_unlock_value_does_not_lower_create_more_cost_when_risk_is_high(): void
+    {
+        $baseline = $this->model()->model([
+            'dependency_unlock_value' => 0.0,
+            'give_back_rate' => 0.50,
+            'malformed_rate' => 0.50,
+        ]);
+        $withUnlockValue = $this->model()->model([
+            'dependency_unlock_value' => 1.0,
+            'give_back_rate' => 0.50,
+            'malformed_rate' => 0.50,
+        ]);
+
+        $this->assertSame(
+            $baseline['cost_by_action'][AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE],
+            $withUnlockValue['cost_by_action'][AtlasExternalBrainBacklogCostModel::ACTION_CREATE_MORE],
+            'dependency_unlock_value must not discount create_more cost when give_back/malformed risk is above threshold',
+        );
+    }
 }

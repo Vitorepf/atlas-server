@@ -75,6 +75,16 @@ final class AtlasExternalBrainBacklogCostModel
     /** Serve rate (tasks/minute) below which muscles are not keeping up with the claimable backlog. */
     private const LOW_SERVE_RATE_PER_MINUTE = 0.10;
 
+    public const ACTION_CREATE_MORE   = 'create_more';
+    public const ACTION_DRAIN_EXISTING = 'drain_existing';
+    public const ACTION_REPAIR_QUEUE  = 'repair_queue';
+    public const ACTION_RETIRE_STALE  = 'retire_stale';
+
+    /** give_back_rate / malformed_rate above these thresholds block dependency_unlock_value from discounting create_more. */
+    private const GIVE_BACK_RISK_THRESHOLD = 0.30;
+    private const MALFORMED_RISK_THRESHOLD = 0.15;
+    private const DEPENDENCY_UNLOCK_WEIGHT = 5.0;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -94,6 +104,8 @@ final class AtlasExternalBrainBacklogCostModel
         $ageCost              = max(0.0, (float) ($input['age_cost'] ?? 0.0));
         $queueAgeP95Minutes   = max(0.0, (float) ($input['queue_age_p95_minutes'] ?? $input['claimable_age_p95_minutes'] ?? 0.0));
         $serveRatePerMinute   = max(0.0, (float) ($input['serve_rate_per_minute'] ?? 0.0));
+        $malformedRate        = min(1.0, max(0.0, (float) ($input['malformed_rate'] ?? 0.0)));
+        $dependencyUnlockValue = min(1.0, max(0.0, (float) ($input['dependency_unlock_value'] ?? 0.0)));
 
         // ── Carrying cost breakdown ───────────────────────────────────────────
         $workerHoursCost     = round($backlogSize / $workerThroughput, 4);
@@ -134,12 +146,50 @@ final class AtlasExternalBrainBacklogCostModel
             $reasons,
         );
 
+        // ── cost_by_action: opportunity cost of each candidate action ──────────
+        $isStaleLowThroughput = $claimableDepth > 0
+            && $queueAgeP95Minutes >= self::STALE_QUEUE_AGE_MINUTES
+            && $serveRatePerMinute < self::LOW_SERVE_RATE_PER_MINUTE;
+        $queueHealthy = $claimableDepth >= self::HEALTHY_SERVABLE_DEPTH;
+        $staleLowValueScenario = $isStaleLowThroughput && $expectedValueDensity < self::LOW_VALUE_DENSITY_THRESHOLD;
+
+        // dependency_unlock_value only discounts create_more when give_back/malformed risk stay below threshold.
+        $riskAboveThreshold = $giveBackRate >= self::GIVE_BACK_RISK_THRESHOLD || $malformedRate >= self::MALFORMED_RISK_THRESHOLD;
+        $dependencyBonus = $riskAboveThreshold ? 0.0 : ($dependencyUnlockValue * self::DEPENDENCY_UNLOCK_WEIGHT);
+
+        $createMoreCost = round(max(0.0,
+            10.0
+            + ($giveBackRate * 20.0)
+            + ($malformedRate * 20.0)
+            + ($staleLowValueScenario ? 15.0 / $workerCapacity : 0.0)
+            - $dependencyBonus,
+        ), 4);
+
+        $drainExistingCost = round(2.0 + ($giveBackRate * 5.0), 4);
+
+        $consolidateCost = round((5.0 * $impactConfidence) + ($queueHealthy ? 0.0 : 3.0), 4);
+
+        $repairQueueCost = round(max(0.5, 10.0 - ($giveBackRate * 15.0) - ($malformedRate * 15.0)), 4);
+
+        $retireStaleCost = round(max(0.0,
+            max(0.5, 5.0 * $expectedValueDensity) - ($queueAgeP95Minutes >= self::STALE_QUEUE_AGE_MINUTES ? 2.0 : 0.0),
+        ), 4);
+
+        $costByAction = [
+            self::ACTION_CREATE_MORE    => $createMoreCost,
+            self::ACTION_DRAIN_EXISTING => $drainExistingCost,
+            self::ACTION_CONSOLIDATE    => $consolidateCost,
+            self::ACTION_REPAIR_QUEUE   => $repairQueueCost,
+            self::ACTION_RETIRE_STALE   => $retireStaleCost,
+        ];
+
         return [
             'schema'           => self::SCHEMA,
             'carrying_cost'    => $carryingCost,
             'saturation_risk'  => $saturationRisk,
             'preferred_action' => $preferredAction,
             'reasons'          => array_values($reasons),
+            'cost_by_action'   => $costByAction,
             'cost_breakdown'   => [
                 'worker_hours_cost'    => $workerHoursCost,
                 'give_back_burden'     => $giveBackBurden,
