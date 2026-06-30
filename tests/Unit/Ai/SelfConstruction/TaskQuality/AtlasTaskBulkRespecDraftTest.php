@@ -48,15 +48,39 @@ final class AtlasTaskBulkRespecDraftTest extends TestCase
         $this->assertSame([], $r['drafts']);
     }
 
-    public function test_drafts_sorted_byte_stably_by_action_then_fingerprint(): void
+    public function test_drafts_sorted_by_severity_before_action_name(): void
     {
         $r = (new AtlasTaskBulkRespecDraft)->draft([
-            ['packet_id' => 'p-quar', 'cli_clobber' => true],
-            ['packet_id' => 'p-mis', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'p-mis', 'missing_files' => ['app/X.php']],   // add_missing_allowed_file_candidate (severity 5)
+            ['packet_id' => 'p-quar', 'cli_clobber' => true],              // quarantine_candidate (severity 1)
         ]);
-        $copy = $r['drafts'];
-        usort($copy, static fn (array $a, array $b): int => strcmp($a['action'].'|'.$a['fingerprint'], $b['action'].'|'.$b['fingerprint']));
-        $this->assertSame($copy, $r['drafts']);
+        // quarantine has higher severity → must appear first regardless of action name ordering.
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_QUARANTINE, $r['drafts'][0]['action']);
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE, $r['drafts'][1]['action']);
+    }
+
+    public function test_draft_includes_representative_packet_id_as_first_sorted_packet(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->draft([
+            ['packet_id' => 'zz-last', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'aa-first', 'missing_files' => ['app/Y.php']],
+        ]);
+        $draft = $r['drafts'][0];
+        $this->assertArrayHasKey('representative_packet_id', $draft);
+        $this->assertSame('aa-first', $draft['representative_packet_id']);
+    }
+
+    public function test_packet_ids_capped_and_total_count_preserved(): void
+    {
+        $cap = AtlasTaskBulkRespecDraft::MAX_PACKET_IDS_PER_FAMILY;
+        $records = [];
+        for ($i = 0; $i < $cap + 5; $i++) {
+            $records[] = ['packet_id' => sprintf('pkt-%03d', $i), 'missing_files' => ['app/X.php']];
+        }
+        $r = (new AtlasTaskBulkRespecDraft)->draft($records);
+        $draft = $r['drafts'][0];
+        $this->assertCount($cap, $draft['packet_ids'], 'packet_ids must be capped');
+        $this->assertSame($cap + 5, $draft['total_packet_count'], 'total_packet_count must reflect raw count');
     }
 
     public function test_summary_counts_every_action_including_keep(): void

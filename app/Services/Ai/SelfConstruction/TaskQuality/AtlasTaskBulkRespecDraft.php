@@ -29,6 +29,18 @@ final class AtlasTaskBulkRespecDraft
 {
     public const SCHEMA = 'atlas.task_quality.bulk_respec_draft.v1';
 
+    /** Hard cap on packet_ids per draft family; total_packet_count still reflects the raw count. */
+    public const MAX_PACKET_IDS_PER_FAMILY = 20;
+
+    /** Lower value = higher severity → appears first in output. */
+    private const SEVERITY_ORDER = [
+        'quarantine_candidate' => 1,
+        'give_back_hint' => 2,
+        'rewrite_objective' => 3,
+        'split_task_candidate' => 4,
+        'add_missing_allowed_file_candidate' => 5,
+    ];
+
     public function __construct(private readonly AtlasTaskRespecPlanBuilder $planBuilder = new AtlasTaskRespecPlanBuilder) {}
 
     /**
@@ -70,11 +82,23 @@ final class AtlasTaskBulkRespecDraft
 
         $drafts = array_values($byFingerprint);
         foreach ($drafts as &$d) {
-            $d['packet_ids'] = array_values(array_unique($d['packet_ids']));
-            sort($d['packet_ids'], SORT_STRING);
+            $ids = array_values(array_unique($d['packet_ids']));
+            sort($ids, SORT_STRING);
+            $d['representative_packet_id'] = $ids[0] ?? '';
+            $d['total_packet_count'] = count($ids);
+            $d['packet_ids'] = array_slice($ids, 0, self::MAX_PACKET_IDS_PER_FAMILY);
         }
         unset($d);
-        usort($drafts, static fn (array $a, array $b): int => strcmp($a['action'].'|'.$a['fingerprint'], $b['action'].'|'.$b['fingerprint']));
+        usort($drafts, function (array $a, array $b): int {
+            $sa = self::SEVERITY_ORDER[$a['action']] ?? 99;
+            $sb = self::SEVERITY_ORDER[$b['action']] ?? 99;
+            if ($sa !== $sb) {
+                return $sa <=> $sb;
+            }
+            $c = strcmp($a['action'], $b['action']);
+
+            return $c !== 0 ? $c : strcmp($a['fingerprint'], $b['fingerprint']);
+        });
         ksort($summary);
 
         return [
