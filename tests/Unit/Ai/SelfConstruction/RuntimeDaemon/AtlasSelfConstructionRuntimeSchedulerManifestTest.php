@@ -85,4 +85,62 @@ final class AtlasSelfConstructionRuntimeSchedulerManifestTest extends TestCase
         $this->assertFalse($m['self_install']);
         $this->assertSame('atlas_existing_scheduler_or_launchd_bridge', $m['expected_consumer']);
     }
+
+    // ---------- lanes, queue thresholds, cadence, manifest hash ----------
+
+    public function test_enabled_lanes_defaults_contain_all_seven_final_brain_lanes(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+        $this->assertContains('self-recovery',           $m['enabled_lanes']);
+        $this->assertContains('compounding',             $m['enabled_lanes']);
+        $this->assertContains('completion-certification',$m['enabled_lanes']);
+        $this->assertCount(7, $m['enabled_lanes']);
+    }
+
+    public function test_disabled_lanes_are_excluded_from_enabled_lanes(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest([
+            'disabled_lanes' => ['compounding', 'frontier-import'],
+        ]);
+        $this->assertNotContains('compounding',     $m['enabled_lanes']);
+        $this->assertNotContains('frontier-import', $m['enabled_lanes']);
+        $this->assertContains('compounding',     $m['disabled_lanes']);
+        $this->assertContains('frontier-import', $m['disabled_lanes']);
+        $this->assertCount(5, $m['enabled_lanes']);
+    }
+
+    public function test_queue_thresholds_defaults_are_present(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+        $this->assertSame(500, $m['queue_thresholds']['max_queued']);
+        $this->assertSame(20,  $m['queue_thresholds']['max_claimed']);
+        $this->assertFalse($m['queue_thresholds']['drain_before_stop']);
+    }
+
+    public function test_queue_thresholds_can_be_overridden(): void
+    {
+        $m = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest([
+            'queue_thresholds' => ['max_queued' => 100],
+        ]);
+        $this->assertSame(100, $m['queue_thresholds']['max_queued']);
+        $this->assertSame(20,  $m['queue_thresholds']['max_claimed']); // default preserved
+    }
+
+    public function test_cadence_is_configurable_and_bounded_to_at_least_one(): void
+    {
+        $m1 = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['cadence_seconds' => 30]);
+        $this->assertSame(30, $m1['cadence_seconds']);
+
+        $m2 = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['cadence_seconds' => 0]);
+        $this->assertSame(1, $m2['cadence_seconds']); // clamped
+    }
+
+    public function test_manifest_hash_is_64_char_sha256_and_changes_with_options(): void
+    {
+        $m1 = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest();
+        $m2 = (new AtlasSelfConstructionRuntimeSchedulerManifest)->manifest(['cadence_seconds' => 30]);
+
+        $this->assertSame(64, strlen($m1['manifest_hash']));
+        $this->assertNotSame($m1['manifest_hash'], $m2['manifest_hash']);
+    }
 }

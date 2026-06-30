@@ -31,17 +31,37 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
 
     public const DEFAULT_MAX_RUNTIME_SECONDS = 21600; // 6 hours
 
+    public const DEFAULT_ENABLED_LANES = [
+        'self-recovery', 'lane-governance', 'task-repair',
+        'muscle-feedback', 'frontier-import', 'compounding', 'completion-certification',
+    ];
+
+    public const DEFAULT_QUEUE_THRESHOLDS = [
+        'max_queued'   => 500,
+        'max_claimed'  => 20,
+        'drain_before_stop' => false,
+    ];
+
     /**
-     * @param  array<string,mixed>  $options {php_bin?, cadence_seconds?, heartbeat_max_age_seconds?, max_runtime_seconds?, facts_path?}
+     * @param  array<string,mixed>  $options {php_bin?, cadence_seconds?, heartbeat_max_age_seconds?, max_runtime_seconds?, facts_path?, enabled_lanes?, disabled_lanes?, queue_thresholds?}
      * @return array<string,mixed>
      */
     public function manifest(array $options = []): array
     {
-        $phpBin = (string) ($options['php_bin'] ?? self::DEFAULT_PHP_BIN);
-        $cadence = max(1, (int) ($options['cadence_seconds'] ?? self::DEFAULT_CADENCE_SECONDS));
+        $phpBin          = (string) ($options['php_bin'] ?? self::DEFAULT_PHP_BIN);
+        $cadence         = max(1, (int) ($options['cadence_seconds'] ?? self::DEFAULT_CADENCE_SECONDS));
         $heartbeatMaxAge = max(1, (int) ($options['heartbeat_max_age_seconds'] ?? self::DEFAULT_HEARTBEAT_MAX_AGE_SECONDS));
-        $maxRuntime = max(1, (int) ($options['max_runtime_seconds'] ?? self::DEFAULT_MAX_RUNTIME_SECONDS));
-        $factsPath = (string) ($options['facts_path'] ?? '');
+        $maxRuntime      = max(1, (int) ($options['max_runtime_seconds'] ?? self::DEFAULT_MAX_RUNTIME_SECONDS));
+        $factsPath       = (string) ($options['facts_path'] ?? '');
+
+        $enabledLanes  = array_values((array) ($options['enabled_lanes']  ?? self::DEFAULT_ENABLED_LANES));
+        $disabledLanes = array_values((array) ($options['disabled_lanes'] ?? []));
+        $enabledLanes  = array_values(array_diff($enabledLanes, $disabledLanes));
+
+        $queueThresholds = array_replace(
+            self::DEFAULT_QUEUE_THRESHOLDS,
+            array_filter((array) ($options['queue_thresholds'] ?? []), static fn ($v): bool => $v !== null),
+        );
 
         $tickCommand = $phpBin.' artisan atlas:self-construction:runtime-daemon tick --apply --json';
         $statusCommand = $phpBin.' artisan atlas:self-construction:runtime-daemon status --json';
@@ -52,7 +72,7 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
             $planCommand .= ' --facts='.$factsPath;
         }
 
-        return [
+        $body = [
             'schema_version' => self::SCHEMA,
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => 'atlas_server',
@@ -100,8 +120,17 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
                 'aws',
                 'sudo',
             ],
-            'self_install' => false,
+            'self_install'       => false,
             'expected_consumer' => 'atlas_existing_scheduler_or_launchd_bridge',
+            'enabled_lanes'     => $enabledLanes,
+            'disabled_lanes'    => $disabledLanes,
+            'queue_thresholds'  => $queueThresholds,
         ];
+
+        // Stable hash over the full manifest so consumers can detect drift.
+        ksort($body);
+        $body['manifest_hash'] = hash('sha256', (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return $body;
     }
 }
