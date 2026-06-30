@@ -30,9 +30,10 @@ final class AtlasExternalBrainGracefulDegradationPolicy
 {
     public const SCHEMA = 'atlas.external_brain.graceful_degradation_policy.v1';
 
-    public const MODE_FULL     = 'full';
-    public const MODE_DEGRADED = 'degraded';
-    public const MODE_MINIMAL  = 'minimal';
+    public const MODE_FULL      = 'full';
+    public const MODE_DEGRADED  = 'degraded';
+    public const MODE_MINIMAL   = 'minimal';
+    public const MODE_SAFE_HOLD = 'safe_hold';
 
     public const STRICTNESS_STANDARD = 'standard';
     public const STRICTNESS_STRICT   = 'strict';
@@ -50,16 +51,18 @@ final class AtlasExternalBrainGracefulDegradationPolicy
 
     // Ambition caps per mode
     private const AMBITION_CAPS = [
-        self::MODE_FULL     => 1.0,
-        self::MODE_DEGRADED => 0.60,
-        self::MODE_MINIMAL  => 0.30,
+        self::MODE_FULL      => 1.0,
+        self::MODE_DEGRADED  => 0.60,
+        self::MODE_MINIMAL   => 0.30,
+        self::MODE_SAFE_HOLD => 0.0,
     ];
 
-    // Max batch sizes per mode (multiplier on current batch size)
+    // Max batch sizes per mode
     private const BATCH_SIZE_CAPS = [
-        self::MODE_FULL     => 10,
-        self::MODE_DEGRADED => 5,
-        self::MODE_MINIMAL  => 2,
+        self::MODE_FULL      => 10,
+        self::MODE_DEGRADED  => 5,
+        self::MODE_MINIMAL   => 2,
+        self::MODE_SAFE_HOLD => 0,
     ];
 
     /**
@@ -76,51 +79,60 @@ final class AtlasExternalBrainGracefulDegradationPolicy
         $frontierExplicit    = $input['frontier_available']          ?? null;
         $currentBatchSize    = max(1, (int) ($input['current_batch_size'] ?? 5));
 
-        $hasFrontier    = $frontierExplicit !== null
+        $hasFrontier   = $frontierExplicit !== null
             ? (bool) $frontierExplicit
             : in_array(self::TIER_FRONTIER, $availableTiers, true);
-        $hasScaffolded  = in_array(self::TIER_SCAFFOLDED, $availableTiers, true);
+        $hasScaffolded = in_array(self::TIER_SCAFFOLDED, $availableTiers, true);
+        $hasSmall      = in_array(self::TIER_SMALL, $availableTiers, true);
 
-        $mode = $this->resolveMode($hasFrontier, $hasScaffolded);
+        $mode = $this->resolveMode($hasFrontier, $hasScaffolded, $hasSmall);
 
         return [
             'schema'                      => self::SCHEMA,
             'mode'                        => $mode,
             'ambition_cap'                => self::AMBITION_CAPS[$mode],
-            'required_scaffold_strictness' => $this->strictness($mode),
+            'strictness'                  => $this->strictness($mode),
+            'required_scaffold_strictness' => $this->strictness($mode), // backward-compat alias
             'forbidden_task_classes'      => $this->forbiddenClasses($mode),
             'fallback_batch_constraints'  => $this->batchConstraints($mode, $currentBatchSize),
+            'recovery_conditions'         => $this->recoveryConditions($mode),
         ];
     }
 
-    private function resolveMode(bool $hasFrontier, bool $hasScaffolded): string
+    private function resolveMode(bool $hasFrontier, bool $hasScaffolded, bool $hasSmall): string
     {
         if ($hasFrontier) {
             return self::MODE_FULL;
         }
+        if ($hasScaffolded) {
+            return self::MODE_DEGRADED;
+        }
+        if ($hasSmall) {
+            return self::MODE_MINIMAL;
+        }
 
-        return $hasScaffolded ? self::MODE_DEGRADED : self::MODE_MINIMAL;
+        return self::MODE_SAFE_HOLD;
     }
 
     private function strictness(string $mode): string
     {
         return match ($mode) {
-            self::MODE_FULL     => self::STRICTNESS_STANDARD,
-            self::MODE_DEGRADED => self::STRICTNESS_STRICT,
-            default             => self::STRICTNESS_MAXIMUM,
+            self::MODE_FULL      => self::STRICTNESS_STANDARD,
+            self::MODE_DEGRADED  => self::STRICTNESS_STRICT,
+            default              => self::STRICTNESS_MAXIMUM,
         };
     }
 
     /** @return list<string> */
     private function forbiddenClasses(string $mode): array
     {
+        $all = array_values(array_unique([...self::FRONTIER_ONLY_CLASSES, ...self::SCAFFOLDED_REQUIRED_CLASSES]));
+
         return match ($mode) {
-            self::MODE_FULL     => [],
-            self::MODE_DEGRADED => self::FRONTIER_ONLY_CLASSES,
-            default             => array_values(array_unique([
-                ...self::FRONTIER_ONLY_CLASSES,
-                ...self::SCAFFOLDED_REQUIRED_CLASSES,
-            ])),
+            self::MODE_FULL      => [],
+            self::MODE_DEGRADED  => self::FRONTIER_ONLY_CLASSES,
+            self::MODE_MINIMAL   => $all,
+            self::MODE_SAFE_HOLD => $all,
         };
     }
 
@@ -128,6 +140,10 @@ final class AtlasExternalBrainGracefulDegradationPolicy
     private function batchConstraints(string $mode, int $currentBatchSize): array
     {
         $cap = self::BATCH_SIZE_CAPS[$mode];
+
+        if ($mode === self::MODE_SAFE_HOLD) {
+            return ['max_batch_size: 0', 'all origination halted until safe tier is restored'];
+        }
 
         $constraints = [
             sprintf('max_batch_size: %d', min($currentBatchSize, $cap)),
@@ -146,5 +162,16 @@ final class AtlasExternalBrainGracefulDegradationPolicy
         }
 
         return $constraints;
+    }
+
+    /** @return list<string> */
+    private function recoveryConditions(string $mode): array
+    {
+        return match ($mode) {
+            self::MODE_FULL      => [],
+            self::MODE_DEGRADED  => ['restore frontier_model tier availability', 'run preflight health check after restoration'],
+            self::MODE_MINIMAL   => ['restore scaffolded_small_model or frontier_model tier', 'validate tier readiness before escalating mode'],
+            self::MODE_SAFE_HOLD => ['restore any safe tier (small_model, scaffolded_small_model, or frontier_model)', 'run preflight health check', 'require operator approval before resuming origination'],
+        };
     }
 }

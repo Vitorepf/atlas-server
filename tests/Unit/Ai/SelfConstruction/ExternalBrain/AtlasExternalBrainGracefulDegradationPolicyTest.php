@@ -22,7 +22,7 @@ final class AtlasExternalBrainGracefulDegradationPolicyTest extends TestCase
     {
         $result = $this->policy->apply(['available_tiers' => ['frontier_model']]);
 
-        foreach (['schema', 'mode', 'ambition_cap', 'required_scaffold_strictness', 'forbidden_task_classes', 'fallback_batch_constraints'] as $k) {
+        foreach (['schema', 'mode', 'ambition_cap', 'strictness', 'forbidden_task_classes', 'fallback_batch_constraints', 'recovery_conditions'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::SCHEMA, $result['schema']);
@@ -206,5 +206,81 @@ final class AtlasExternalBrainGracefulDegradationPolicyTest extends TestCase
         $result = $this->policy->apply(['available_tiers' => ['frontier_model'], 'current_batch_size' => 10]);
 
         $this->assertCount(1, $result['fallback_batch_constraints']); // only max_batch_size
+    }
+
+    // ── safe_hold mode ────────────────────────────────────────────────────────
+
+    public function test_no_tiers_available_yields_safe_hold_mode(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => []]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::MODE_SAFE_HOLD, $result['mode']);
+    }
+
+    public function test_safe_hold_ambition_cap_is_zero(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => []]);
+
+        $this->assertSame(0.0, $result['ambition_cap']);
+    }
+
+    public function test_safe_hold_forbids_all_known_task_classes(): void
+    {
+        $minimal   = $this->policy->apply(['available_tiers' => ['small_model']]);
+        $safe_hold = $this->policy->apply(['available_tiers' => []]);
+
+        // safe_hold forbids at least as many classes as minimal
+        $this->assertGreaterThanOrEqual(count($minimal['forbidden_task_classes']), count($safe_hold['forbidden_task_classes']));
+        $this->assertContains('architecture_tradeoff',      $safe_hold['forbidden_task_classes']);
+        $this->assertContains('novel_capability_origination', $safe_hold['forbidden_task_classes']);
+    }
+
+    public function test_safe_hold_recovery_conditions_not_empty(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => []]);
+
+        $this->assertNotEmpty($result['recovery_conditions']);
+        $conditions = implode(' ', $result['recovery_conditions']);
+        $this->assertStringContainsString('safe tier', $conditions);
+    }
+
+    // ── strictness field ──────────────────────────────────────────────────────
+
+    public function test_full_mode_strictness_field_is_standard(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['frontier_model']]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::STRICTNESS_STANDARD, $result['strictness']);
+    }
+
+    public function test_degraded_mode_strictness_field_is_strict(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['scaffolded_small_model']]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::STRICTNESS_STRICT, $result['strictness']);
+    }
+
+    public function test_minimal_mode_strictness_field_is_maximum(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['small_model']]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::STRICTNESS_MAXIMUM, $result['strictness']);
+    }
+
+    // ── recovery_conditions ───────────────────────────────────────────────────
+
+    public function test_full_mode_recovery_conditions_are_empty(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['frontier_model']]);
+
+        $this->assertSame([], $result['recovery_conditions']);
+    }
+
+    public function test_degraded_mode_recovery_conditions_mention_frontier(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['scaffolded_small_model']]);
+
+        $conditions = implode(' ', $result['recovery_conditions']);
+        $this->assertStringContainsString('frontier', $conditions);
     }
 }
