@@ -112,6 +112,80 @@ class AgentCodexProcessStartReleaseGate
         });
     }
 
+    private const ROLLOUT_DRY_RUN = 'dry_run';
+
+    private const ROLLOUT_CANARY = 'canary';
+
+    private const ROLLOUT_LIVE = 'live';
+
+    private const VALID_ROLLOUT_STAGES = [self::ROLLOUT_DRY_RUN, self::ROLLOUT_CANARY, self::ROLLOUT_LIVE];
+
+    private const MIN_CANARY_PROVEN_RUNS = 3;
+
+    /**
+     * Decides whether new codex-process-start behavior may move to the next
+     * rollout stage (dry_run -> canary -> live), or must stay/roll back.
+     *
+     * A behavior change can only reach live after it has been proven via a
+     * dry_run (no side effects) and then a canary stage with enough
+     * proven (non-faked, non-error) runs. Any canary failure blocks
+     * promotion and recommends rollback to dry_run.
+     *
+     * @param  array<string,mixed>  $input  { current_stage: string,
+     *   dry_run_completed?: bool, dry_run_errors?: int, canary_runs_total?: int,
+     *   canary_runs_proven?: int, canary_failures?: int }
+     * @return array<string,mixed>
+     */
+    public function evaluateRolloutPromotion(array $input): array
+    {
+        $currentStage = (string) ($input['current_stage'] ?? '');
+
+        if (! in_array($currentStage, self::VALID_ROLLOUT_STAGES, true)) {
+            throw new InvalidArgumentException('invalid_current_stage');
+        }
+
+        $dryRunCompleted = (bool) ($input['dry_run_completed'] ?? false);
+        $dryRunErrors = (int) ($input['dry_run_errors'] ?? 0);
+        $canaryRunsTotal = (int) ($input['canary_runs_total'] ?? 0);
+        $canaryRunsProven = (int) ($input['canary_runs_proven'] ?? 0);
+        $canaryFailures = (int) ($input['canary_failures'] ?? 0);
+
+        if ($currentStage === self::ROLLOUT_DRY_RUN) {
+            if (! $dryRunCompleted || $dryRunErrors > 0) {
+                return $this->rolloutResult(self::ROLLOUT_DRY_RUN, false, 'dry_run_not_clean', 'rerun_dry_run_until_zero_errors');
+            }
+
+            return $this->rolloutResult(self::ROLLOUT_CANARY, true, null, null);
+        }
+
+        if ($currentStage === self::ROLLOUT_CANARY) {
+            if ($canaryFailures > 0) {
+                return $this->rolloutResult(self::ROLLOUT_DRY_RUN, false, 'canary_failure_detected', 'rollback_to_dry_run');
+            }
+
+            if ($canaryRunsTotal < self::MIN_CANARY_PROVEN_RUNS || $canaryRunsProven < self::MIN_CANARY_PROVEN_RUNS) {
+                return $this->rolloutResult(self::ROLLOUT_CANARY, false, 'insufficient_canary_proven_runs', 'continue_canary_until_'.self::MIN_CANARY_PROVEN_RUNS.'_proven_runs');
+            }
+
+            return $this->rolloutResult(self::ROLLOUT_LIVE, true, null, null);
+        }
+
+        return $this->rolloutResult(self::ROLLOUT_LIVE, false, 'already_live', null);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function rolloutResult(string $nextStage, bool $promotion_allowed, ?string $blockReason, ?string $recoveryHint): array
+    {
+        return [
+            'next_stage' => $nextStage,
+            'promotion_allowed' => $promotion_allowed,
+            'block_reason' => $blockReason,
+            'recovery_hint' => $recoveryHint,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

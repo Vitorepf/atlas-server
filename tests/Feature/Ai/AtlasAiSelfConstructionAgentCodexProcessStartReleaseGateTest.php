@@ -195,6 +195,84 @@ class AtlasAiSelfConstructionAgentCodexProcessStartReleaseGateTest extends TestC
         ];
     }
 
+    public function test_dry_run_clean_promotes_to_canary(): void
+    {
+        $result = app(AgentCodexProcessStartReleaseGate::class)->evaluateRolloutPromotion([
+            'current_stage' => 'dry_run',
+            'dry_run_completed' => true,
+            'dry_run_errors' => 0,
+        ]);
+
+        $this->assertTrue($result['promotion_allowed']);
+        $this->assertSame('canary', $result['next_stage']);
+        $this->assertNull($result['block_reason']);
+    }
+
+    public function test_dry_run_with_errors_blocks_promotion(): void
+    {
+        $result = app(AgentCodexProcessStartReleaseGate::class)->evaluateRolloutPromotion([
+            'current_stage' => 'dry_run',
+            'dry_run_completed' => true,
+            'dry_run_errors' => 2,
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertSame('dry_run', $result['next_stage']);
+        $this->assertSame('dry_run_not_clean', $result['block_reason']);
+    }
+
+    public function test_canary_with_enough_proven_runs_promotes_to_live(): void
+    {
+        $result = app(AgentCodexProcessStartReleaseGate::class)->evaluateRolloutPromotion([
+            'current_stage' => 'canary',
+            'canary_runs_total' => 3,
+            'canary_runs_proven' => 3,
+            'canary_failures' => 0,
+        ]);
+
+        $this->assertTrue($result['promotion_allowed']);
+        $this->assertSame('live', $result['next_stage']);
+    }
+
+    public function test_canary_with_insufficient_proven_runs_stays_in_canary(): void
+    {
+        $result = app(AgentCodexProcessStartReleaseGate::class)->evaluateRolloutPromotion([
+            'current_stage' => 'canary',
+            'canary_runs_total' => 2,
+            'canary_runs_proven' => 2,
+            'canary_failures' => 0,
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertSame('canary', $result['next_stage']);
+        $this->assertSame('insufficient_canary_proven_runs', $result['block_reason']);
+    }
+
+    public function test_canary_failure_rolls_back_to_dry_run(): void
+    {
+        $result = app(AgentCodexProcessStartReleaseGate::class)->evaluateRolloutPromotion([
+            'current_stage' => 'canary',
+            'canary_runs_total' => 5,
+            'canary_runs_proven' => 4,
+            'canary_failures' => 1,
+        ]);
+
+        $this->assertFalse($result['promotion_allowed']);
+        $this->assertSame('dry_run', $result['next_stage']);
+        $this->assertSame('canary_failure_detected', $result['block_reason']);
+        $this->assertSame('rollback_to_dry_run', $result['recovery_hint']);
+    }
+
+    public function test_invalid_current_stage_throws(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('invalid_current_stage');
+
+        app(AgentCodexProcessStartReleaseGate::class)->evaluateRolloutPromotion([
+            'current_stage' => 'bogus',
+        ]);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
