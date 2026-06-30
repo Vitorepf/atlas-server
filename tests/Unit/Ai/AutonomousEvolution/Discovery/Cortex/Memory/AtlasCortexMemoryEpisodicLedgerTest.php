@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution\Discovery\Cortex\Memory;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodeRecord;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Memory\AtlasCortexMemoryEpisodicLedger;
 use PHPUnit\Framework\TestCase;
@@ -19,14 +20,22 @@ final class AtlasCortexMemoryEpisodicLedgerTest extends TestCase
 {
     private string $ledgerPath;
 
+    private string $masterEnvPath = '';
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->ledgerPath = sys_get_temp_dir().'/atlas_cortex_episodes_'.bin2hex(random_bytes(6)).'.ndjson';
+        // Keep the master switch ON for all tests except those that explicitly disable it.
+        $this->masterEnvPath = (string) tempnam(sys_get_temp_dir(), 'atlas-master-on-');
+        file_put_contents($this->masterEnvPath, "ATLAS_LOOP_MASTER_ENABLED=1\n");
+        AtlasLoopMasterSwitch::$envPathOverride = $this->masterEnvPath;
     }
 
     protected function tearDown(): void
     {
+        AtlasLoopMasterSwitch::$envPathOverride = null;
+        @unlink($this->masterEnvPath);
         @unlink($this->ledgerPath);
         parent::tearDown();
     }
@@ -118,5 +127,25 @@ final class AtlasCortexMemoryEpisodicLedgerTest extends TestCase
     public function test_digest_of_unknown_cycle_returns_null(): void
     {
         $this->assertNull($this->ledger()->digest_of('nonexistent'));
+    }
+
+    public function test_master_switch_off_append_is_byte_identical_noop(): void
+    {
+        // Point the master switch at a temp .env without the ENABLED key → enabled()=false
+        $tmpEnv = (string) tempnam(sys_get_temp_dir(), 'atlas-master-test-');
+        file_put_contents($tmpEnv, "# no master key\n");
+        AtlasLoopMasterSwitch::$envPathOverride = $tmpEnv;
+
+        try {
+            $ledger = $this->ledger();
+            $ep = $this->episode('noop-cycle', 5000);
+            $returned = $ledger->append($ep);
+
+            $this->assertSame($ep, $returned, 'append() must return the episode even when no-op');
+            $this->assertFileDoesNotExist($this->ledgerPath, 'master-off append must write NO file');
+        } finally {
+            AtlasLoopMasterSwitch::$envPathOverride = null;
+            @unlink($tmpEnv);
+        }
     }
 }

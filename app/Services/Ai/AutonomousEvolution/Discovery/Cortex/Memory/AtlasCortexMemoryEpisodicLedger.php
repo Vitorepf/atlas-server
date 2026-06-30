@@ -47,6 +47,10 @@ final class AtlasCortexMemoryEpisodicLedger
         $canonical = $episode->toCanonicalArray();
         $this->guardSchema($canonical);
 
+        if (! $this->masterEnabled()) {
+            return $episode;
+        }
+
         // Duplicate-cycle_id fail-closed check (under LOCK_EX for true serialization).
         $this->ensureDirExists();
         $fh = @fopen($this->ledgerPath, 'a+');
