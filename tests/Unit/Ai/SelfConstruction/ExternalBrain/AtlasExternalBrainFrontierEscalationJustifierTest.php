@@ -1,0 +1,198 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFrontierEscalationJustifier;
+use PHPUnit\Framework\TestCase;
+
+final class AtlasExternalBrainFrontierEscalationJustifierTest extends TestCase
+{
+    private function justifier(): AtlasExternalBrainFrontierEscalationJustifier
+    {
+        return new AtlasExternalBrainFrontierEscalationJustifier;
+    }
+
+    // ── AC4: output shape ─────────────────────────────────────────────────────
+
+    public function test_output_has_required_keys(): void
+    {
+        $r = $this->justifier()->justify([]);
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::SCHEMA, $r['schema_version']);
+        $this->assertArrayHasKey('recommended_tier', $r);
+        $this->assertArrayHasKey('escalation_reasons', $r);
+        $this->assertArrayHasKey('small_model_sufficiency_reasons', $r);
+        $this->assertArrayHasKey('frontier_cost_justification', $r);
+        $this->assertArrayHasKey('confidence', $r);
+    }
+
+    // ── AC2: frontier escalation triggers ────────────────────────────────────
+
+    public function test_high_ambiguity_triggers_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'              => 0.80,
+            'blast_radius'                 => 0.1,
+            'is_conflicting_evidence'      => false,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units'   => 1.0,
+        ]);
+        $this->assertContains('high_ambiguity_score', $r['escalation_reasons']);
+        $this->assertSame('frontier_model', $r['recommended_tier']);
+    }
+
+    public function test_high_blast_radius_triggers_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'              => 0.1,
+            'blast_radius'                 => 0.75,
+            'is_conflicting_evidence'      => false,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units'   => 1.0,
+        ]);
+        $this->assertContains('high_blast_radius', $r['escalation_reasons']);
+        $this->assertSame('frontier_model', $r['recommended_tier']);
+    }
+
+    public function test_conflicting_evidence_triggers_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'is_conflicting_evidence'      => true,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units'   => 1.0,
+        ]);
+        $this->assertContains('conflicting_evidence_requires_synthesis', $r['escalation_reasons']);
+        $this->assertSame('frontier_model', $r['recommended_tier']);
+    }
+
+    public function test_multiple_escalation_reasons_all_reported(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'         => 0.8,
+            'blast_radius'            => 0.7,
+            'is_conflicting_evidence' => true,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units'    => 1.0,
+        ]);
+        $this->assertContains('high_ambiguity_score',                 $r['escalation_reasons']);
+        $this->assertContains('high_blast_radius',                    $r['escalation_reasons']);
+        $this->assertContains('conflicting_evidence_requires_synthesis', $r['escalation_reasons']);
+    }
+
+    // ── AC3: small-model sufficiency ─────────────────────────────────────────
+
+    public function test_all_sufficiency_conditions_met_yields_small_model(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'       => 0.2,
+            'blast_radius'          => 0.1,
+            'is_conflicting_evidence' => false,
+            'evidence_strength'     => 0.85,
+            'task_classification'   => 'known',
+        ]);
+        $this->assertSame('small_model', $r['recommended_tier']);
+        $this->assertContains('strong_scaffold_evidence',     $r['small_model_sufficiency_reasons']);
+        $this->assertContains('task_classification_is_known', $r['small_model_sufficiency_reasons']);
+        $this->assertContains('low_ambiguity_score',          $r['small_model_sufficiency_reasons']);
+    }
+
+    public function test_partial_sufficiency_yields_scaffolded_not_small(): void
+    {
+        // Only two of three sufficiency conditions → scaffolded_small_model.
+        $r = $this->justifier()->justify([
+            'ambiguity_score'     => 0.50, // >= LOW_AMBIGUITY(0.35) → NOT low ambiguity
+            'evidence_strength'   => 0.85,
+            'task_classification' => 'known',
+        ]);
+        $this->assertSame('scaffolded_small_model', $r['recommended_tier']);
+    }
+
+    public function test_extraction_classification_qualifies_as_known(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'     => 0.1,
+            'evidence_strength'   => 0.9,
+            'task_classification' => 'extraction',
+        ]);
+        $this->assertContains('task_classification_is_known', $r['small_model_sufficiency_reasons']);
+    }
+
+    // ── Cost justification ────────────────────────────────────────────────────
+
+    public function test_escalation_downgraded_to_scaffolded_when_cost_too_high(): void
+    {
+        // cost_ratio = 10 / 1 = 10.0 > MAX_COST_RATIO(5.0) → downgrade.
+        $r = $this->justifier()->justify([
+            'ambiguity_score'              => 0.80,
+            'estimated_frontier_cost_units' => 10.0,
+            'estimated_small_cost_units'   =>  1.0,
+        ]);
+        $this->assertNotEmpty($r['escalation_reasons']);
+        $this->assertSame('scaffolded_small_model', $r['recommended_tier']);
+        $this->assertFalse($r['frontier_cost_justification']['justified']);
+    }
+
+    public function test_cost_ratio_within_bound_justified(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'              => 0.80,
+            'estimated_frontier_cost_units' => 4.0,
+            'estimated_small_cost_units'   => 1.0,
+        ]);
+        $this->assertTrue($r['frontier_cost_justification']['justified']);
+        $this->assertSame(4.0, $r['frontier_cost_justification']['cost_ratio']);
+    }
+
+    public function test_no_escalation_reasons_cost_not_justified(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'     => 0.1,
+            'blast_radius'        => 0.1,
+            'evidence_strength'   => 0.9,
+            'task_classification' => 'known',
+        ]);
+        $this->assertEmpty($r['escalation_reasons']);
+        $this->assertFalse($r['frontier_cost_justification']['justified']);
+    }
+
+    // ── Confidence ────────────────────────────────────────────────────────────
+
+    public function test_high_confidence_for_clear_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'              => 0.9,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units'   => 1.0,
+        ]);
+        $this->assertSame('high', $r['confidence']);
+    }
+
+    public function test_high_confidence_for_clear_small_model(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score'     => 0.1,
+            'evidence_strength'   => 0.9,
+            'task_classification' => 'known',
+        ]);
+        $this->assertSame('high', $r['confidence']);
+    }
+
+    // ── Determinism ───────────────────────────────────────────────────────────
+
+    public function test_output_is_deterministic(): void
+    {
+        $facts = [
+            'ambiguity_score'              => 0.7,
+            'blast_radius'                 => 0.3,
+            'is_conflicting_evidence'      => false,
+            'evidence_strength'            => 0.6,
+            'task_classification'          => 'known',
+            'estimated_frontier_cost_units' => 3.0,
+            'estimated_small_cost_units'   => 1.0,
+        ];
+        $a = $this->justifier()->justify($facts);
+        $b = $this->justifier()->justify($facts);
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
+}
