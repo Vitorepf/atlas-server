@@ -25,6 +25,8 @@ final class AtlasMaestroPacketClassifierTest extends TestCase
             AtlasMaestroPacketClassifier::DOC,
             AtlasMaestroPacketClassifier::QUEUE_REPAIR,
             AtlasMaestroPacketClassifier::LEARNING_LOOP,
+            AtlasMaestroPacketClassifier::TASK_FABRIC,
+            AtlasMaestroPacketClassifier::MODEL_AMPLIFIER,
         ]);
     }
 
@@ -89,6 +91,45 @@ final class AtlasMaestroPacketClassifierTest extends TestCase
         $byPath = $this->packet(['app/Services/Ai/SelfConstruction/Maestro/ClosedLoop/OutcomeLedger.php'], 'store results');
         $this->assertSame(AtlasMaestroPacketClassifier::LEARNING_LOOP, $c->classify($byPath),
             'ClosedLoop path should trigger learning-loop via closed-loop signal');
+    }
+
+    public function test_task_fabric_classification_on_objective_keyword(): void
+    {
+        $signals = ['harden the task fabric', 'extend task_packet builder', 'fix the task-queue orchestrator', 'enforce claim_lease ttl', 'tighten scope_lock validator'];
+        $c = $this->classifier();
+        foreach ($signals as $objective) {
+            $packet = $this->packet(['app/Services/Ai/Foo.php'], $objective);
+            $this->assertSame(AtlasMaestroPacketClassifier::TASK_FABRIC, $c->classify($packet), "objective: {$objective}");
+            $this->assertSame(AtlasMaestroPacketClassifier::REASON_TASK_FABRIC, $c->reasonFor($packet));
+        }
+    }
+
+    public function test_task_fabric_classification_on_path_signal_with_terse_objective(): void
+    {
+        $packet = $this->packet(['app/Services/Ai/SelfConstruction/AgentControlPlaneTaskPacketQueueRepository.php'], 'fix it');
+
+        $this->assertSame(AtlasMaestroPacketClassifier::TASK_FABRIC, $this->classifier()->classify($packet),
+            'a task_packet path must trigger task-fabric even with a terse objective');
+    }
+
+    public function test_model_amplifier_classification_on_objective_keyword(): void
+    {
+        $signals = ['add a model_amplifier contract', 'amplify the smaller model with extra sources', 'amplify a weaker model for dev tasks'];
+        $c = $this->classifier();
+        foreach ($signals as $objective) {
+            $packet = $this->packet(['app/Services/Ai/Foo.php'], $objective);
+            $this->assertSame(AtlasMaestroPacketClassifier::MODEL_AMPLIFIER, $c->classify($packet), "objective: {$objective}");
+            $this->assertSame(AtlasMaestroPacketClassifier::REASON_MODEL_AMPLIFIER, $c->reasonFor($packet));
+        }
+    }
+
+    public function test_objective_evidence_wins_over_generic_paths(): void
+    {
+        // Path is a plain, generic file — no family-specific signal lives in it. The objective
+        // keyword alone must decide the family.
+        $packet = $this->packet(['app/Services/Ai/Foo.php'], 'add a model_amplifier contract for dev tasks');
+
+        $this->assertSame(AtlasMaestroPacketClassifier::MODEL_AMPLIFIER, $this->classifier()->classify($packet));
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\MultiProvider;
 
+use Illuminate\Support\Str;
+
 final class AtlasMaestroPacketClassifier
 {
     public const ARCHITECTURE = 'architecture';
@@ -12,6 +14,8 @@ final class AtlasMaestroPacketClassifier
     public const DOC = 'doc';
     public const QUEUE_REPAIR = 'queue-repair';
     public const LEARNING_LOOP = 'learning-loop';
+    public const TASK_FABRIC = 'task-fabric';
+    public const MODEL_AMPLIFIER = 'model-amplifier';
 
     public const REASON_DOC = 'doc-paths-only';
     public const REASON_MULTI_FILE = '3plus-paths-2plus-subtrees';
@@ -19,13 +23,17 @@ final class AtlasMaestroPacketClassifier
     public const REASON_GRIND = 'grind-default';
     public const REASON_QUEUE_REPAIR = 'queue-repair-signal';
     public const REASON_LEARNING_LOOP = 'learning-loop-signal';
+    public const REASON_TASK_FABRIC = 'task-fabric-signal';
+    public const REASON_MODEL_AMPLIFIER = 'model-amplifier-signal';
 
     public function classify(array $packet): string
     {
         return match ($this->reasonFor($packet)) {
             self::REASON_DOC => self::DOC,
             self::REASON_MULTI_FILE => self::MULTI_FILE,
+            self::REASON_TASK_FABRIC => self::TASK_FABRIC,
             self::REASON_QUEUE_REPAIR => self::QUEUE_REPAIR,
+            self::REASON_MODEL_AMPLIFIER => self::MODEL_AMPLIFIER,
             self::REASON_LEARNING_LOOP => self::LEARNING_LOOP,
             self::REASON_ARCHITECTURE => self::ARCHITECTURE,
             default => self::GRIND,
@@ -45,8 +53,16 @@ final class AtlasMaestroPacketClassifier
             return self::REASON_MULTI_FILE;
         }
 
+        if ($this->hasTaskFabricSignal($packet, $allowedFiles)) {
+            return self::REASON_TASK_FABRIC;
+        }
+
         if ($this->hasQueueRepairSignal($packet, $allowedFiles)) {
             return self::REASON_QUEUE_REPAIR;
+        }
+
+        if ($this->hasModelAmplifierSignal($packet, $allowedFiles)) {
+            return self::REASON_MODEL_AMPLIFIER;
         }
 
         if ($this->hasLearningLoopSignal($packet, $allowedFiles)) {
@@ -104,6 +120,46 @@ final class AtlasMaestroPacketClassifier
         }
 
         return array_keys($subtrees);
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function hasTaskFabricSignal(array $packet, array $allowedFiles): bool
+    {
+        $haystack = $this->squash((string) ($packet['objective'] ?? '').' '.implode(' ', $allowedFiles));
+
+        foreach (['taskfabric', 'taskpacket', 'taskqueue', 'claimlease', 'scopelock'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Lowercase and strip word separators (spaces, underscores, hyphens) so "task_packet",
+     * "task-packet", "task packet", and the camelCase "TaskPacket" all collapse to "taskpacket"
+     * for substring matching against objectives and file paths alike.
+     */
+    private function squash(string $value): string
+    {
+        return str_replace([' ', '_', '-'], '', Str::lower($value));
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function hasModelAmplifierSignal(array $packet, array $allowedFiles): bool
+    {
+        $haystack = $this->squash((string) ($packet['objective'] ?? '').' '.implode(' ', $allowedFiles));
+
+        if (str_contains($haystack, 'modelamplifier')) {
+            return true;
+        }
+
+        return preg_match('/amplif(y|ies|ying).{0,30}model/', $haystack) === 1;
     }
 
     /**
