@@ -53,12 +53,12 @@ final class AtlasTaskFabricAdmissionPipelineBinder
             $verdict = $this->gate->decide($merged);
 
             if ($verdict['admitted'] ?? false) {
-                $admitted[] = $this->preservedFields($candidate, $verdict);
+                $admitted[] = $this->preservedFields($candidate, $verdict, $merged);
                 $valueSum += (float) ($verdict['value_score'] ?? 0.0);
             } else {
                 $gateReasons = is_array($verdict['rejection_reasons'] ?? null) ? $verdict['rejection_reasons'] : [];
                 $rejected[] = array_merge(
-                    $this->preservedFields($candidate, $verdict),
+                    $this->preservedFields($candidate, $verdict, $merged),
                     ['gate_reasons' => $gateReasons],
                 );
                 foreach ($gateReasons as $reason) {
@@ -76,10 +76,16 @@ final class AtlasTaskFabricAdmissionPipelineBinder
         ];
     }
 
-    /** @return array<string,mixed> */
-    private function preservedFields(array $candidate, array $verdict): array
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  array<string,mixed>  $verdict
+     * @param  array<string,mixed>  $merged  candidate merged with shared_facts — the source of
+     *                                       worker_floor/replenish_soon admission facts
+     * @return array<string,mixed>
+     */
+    private function preservedFields(array $candidate, array $verdict, array $merged = []): array
     {
-        return [
+        $fields = [
             'task_packet_id' => $candidate['task_packet_id'] ?? null,
             'allowed_files' => $candidate['allowed_files'] ?? [],
             'acceptance_criteria' => $candidate['acceptance_criteria'] ?? [],
@@ -87,5 +93,17 @@ final class AtlasTaskFabricAdmissionPipelineBinder
             'objective' => $candidate['objective'] ?? '',
             'value_score' => $verdict['value_score'] ?? null,
         ];
+
+        // Worker-floor / replenish-soon admission facts, when supplied, ride along on the
+        // receipt so later audits can distinguish emergency-but-valid replenishment (a
+        // candidate admitted BECAUSE the worker floor was breached) from ordinary padding.
+        if (array_key_exists('worker_floor', $merged)) {
+            $fields['worker_floor'] = $merged['worker_floor'];
+        }
+        if (array_key_exists('replenish_soon', $merged)) {
+            $fields['replenish_soon'] = $merged['replenish_soon'];
+        }
+
+        return $fields;
     }
 }

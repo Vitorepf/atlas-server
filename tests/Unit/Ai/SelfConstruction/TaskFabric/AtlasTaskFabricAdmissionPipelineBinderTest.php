@@ -68,6 +68,32 @@ final class AtlasTaskFabricAdmissionPipelineBinderTest extends TestCase
         $this->assertSame($c['required_evidence'], $admitted['required_evidence']);
     }
 
+    public function test_admission_receipt_includes_worker_floor_and_replenish_soon_when_supplied(): void
+    {
+        $c = $this->good('TaskFloor');
+        $r = $this->filter([$c], ['worker_floor' => true, 'replenish_soon' => true]);
+
+        $this->assertCount(1, $r['admitted']);
+        $this->assertTrue($r['admitted'][0]['worker_floor']);
+        $this->assertTrue($r['admitted'][0]['replenish_soon']);
+    }
+
+    public function test_admission_receipt_omits_worker_floor_facts_when_absent(): void
+    {
+        $r = $this->filter([$this->good('TaskNoFloor')]);
+
+        $this->assertArrayNotHasKey('worker_floor', $r['admitted'][0]);
+        $this->assertArrayNotHasKey('replenish_soon', $r['admitted'][0]);
+    }
+
+    public function test_rejected_receipt_also_includes_worker_floor_facts_when_supplied(): void
+    {
+        $r = $this->filter([$this->low('TaskLowFloor')], ['worker_floor' => true]);
+
+        $this->assertCount(1, $r['rejected']);
+        $this->assertTrue($r['rejected'][0]['worker_floor']);
+    }
+
     // ── rejection ─────────────────────────────────────────────────────────────
 
     public function test_low_impact_candidate_is_rejected(): void
