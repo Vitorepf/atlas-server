@@ -10,6 +10,15 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
 {
     public const SCHEMA = 'atlas.maestro.projection.time_to_empty.v1';
 
+    public const RISK_HEALTHY = 'healthy';
+    public const RISK_LOW_BUFFER = 'low_buffer';
+    public const RISK_REPLENISH_NOW = 'replenish_now';
+
+    /** Queue drains in fewer than this many hours → replenish_now. */
+    public const HORIZON_REPLENISH_HOURS = 1.0;
+    /** Queue drains in fewer than this many hours → low_buffer. */
+    public const HORIZON_LOW_BUFFER_HOURS = 4.0;
+
     /**
      * @param  array<string,mixed>  $consumptionRateFact
      * @param  array<string,mixed>  $registrySnapshot
@@ -32,6 +41,14 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
             $reason = 'insufficient_throughput';
         }
 
+        $risk = $this->classifyRisk($queueEmptyInHours);
+        $bottleneckReason = match (true) {
+            $reason === 'insufficient_throughput' => 'queue_not_draining:throughput=zero',
+            $risk === self::RISK_REPLENISH_NOW => sprintf('queue_exhausts_before_replenish_horizon:hours=%.4f,threshold=%.4f', $queueEmptyInHours, self::HORIZON_REPLENISH_HOURS),
+            $risk === self::RISK_LOW_BUFFER => sprintf('queue_low_buffer:hours=%.4f,threshold=%.4f', $queueEmptyInHours, self::HORIZON_LOW_BUFFER_HOURS),
+            default => null,
+        };
+
         return [
             'schema' => self::SCHEMA,
             'observed_at_iso' => $now->toIso8601String(),
@@ -39,6 +56,8 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
             'queue_empty_in_hours' => $queueEmptyInHours,
             'queue_empty_at_iso' => $queueEmptyAtIso,
             'reason' => $reason,
+            'risk' => $risk,
+            'bottleneck_reason' => $bottleneckReason,
             'per_worker' => $this->perWorkerRows($consumptionRateFact, $packets, $now),
         ];
     }
@@ -70,6 +89,7 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
                 'client_id' => $clientId,
                 'worker_idle_in_hours' => $idleInHours,
                 'worker_idle_at_iso' => $idleAtIso,
+                'risk' => $this->classifyRisk($idleInHours),
             ];
         }
 
@@ -132,5 +152,17 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
     private function plusHours(CarbonImmutable $now, float $hours): CarbonImmutable
     {
         return $now->addSeconds((int) round($hours * 3600));
+    }
+
+    private function classifyRisk(?float $hoursUntilEmpty): string
+    {
+        if ($hoursUntilEmpty === null || $hoursUntilEmpty < self::HORIZON_REPLENISH_HOURS) {
+            return self::RISK_REPLENISH_NOW;
+        }
+        if ($hoursUntilEmpty < self::HORIZON_LOW_BUFFER_HOURS) {
+            return self::RISK_LOW_BUFFER;
+        }
+
+        return self::RISK_HEALTHY;
     }
 }

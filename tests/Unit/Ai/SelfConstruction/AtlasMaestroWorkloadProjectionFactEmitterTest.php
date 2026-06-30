@@ -91,6 +91,46 @@ final class AtlasMaestroWorkloadProjectionFactEmitterTest extends TestCase
             '2 claimable / 4 tasks_per_hour = 0.5 hours idle');
     }
 
+    public function test_emit_marks_replenish_now_when_queue_exhausts_before_minimum_horizon(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-24T07:00:00Z');
+        // 2 queued packets / 10 tasks_per_hour = 0.2 h < HORIZON_REPLENISH_HOURS (1.0) → replenish_now
+        $snapshot = ['packets' => [
+            ['task_packet_id' => 'p1', 'status' => 'queued'],
+            ['task_packet_id' => 'p2', 'status' => 'queued'],
+        ]];
+
+        $fact = (new AtlasMaestroWorkloadProjectionFactEmitter)->emit(
+            $this->consumptionFact(10.0, [], $now),
+            $snapshot,
+            $now,
+        );
+
+        $this->assertSame(AtlasMaestroWorkloadProjectionFactEmitter::RISK_REPLENISH_NOW, $fact['risk']);
+        $this->assertNotEmpty($fact['bottleneck_reason']);
+        $this->assertStringContainsString('queue_exhausts_before_replenish_horizon', $fact['bottleneck_reason']);
+    }
+
+    public function test_emit_healthy_when_stock_is_sufficient_and_no_external_calls(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-24T07:00:00Z');
+        // 20 queued packets / 1 task_per_hour = 20 h > HORIZON_LOW_BUFFER_HOURS (4.0) → healthy
+        $packets = array_map(
+            static fn (int $i): array => ['task_packet_id' => "p{$i}", 'status' => 'queued'],
+            range(1, 20),
+        );
+
+        $fact = (new AtlasMaestroWorkloadProjectionFactEmitter)->emit(
+            $this->consumptionFact(1.0, [], $now),
+            ['packets' => $packets],
+            $now,
+        );
+
+        $this->assertSame(AtlasMaestroWorkloadProjectionFactEmitter::RISK_HEALTHY, $fact['risk']);
+        $this->assertNull($fact['bottleneck_reason']);
+        $this->assertNull($fact['reason']); // no insufficient_throughput flag either
+    }
+
     /**
      * @param  list<array{client_id:string,tasks_per_hour:float}>  $workers
      * @return array<string,mixed>
