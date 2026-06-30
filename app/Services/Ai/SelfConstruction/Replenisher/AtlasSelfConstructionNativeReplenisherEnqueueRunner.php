@@ -32,7 +32,7 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
      * @param  array{outcome:string, new_packet_count:int}  $topUpDecision
      * @return array{schema:string, enqueued:list<string>, skipped_existing:list<string>, skipped_rejected:list<string>, prepare_blocked:list<array{packet_id:string, reason:string}>, counts:array<string,int>}
      */
-    public function run(array $accepted, array $topUpDecision, object $orchestrator): array
+    public function run(array $accepted, array $topUpDecision, object $orchestrator, array $workerFloorInputs = []): array
     {
         $enqueued = [];
         $skippedExisting = [];
@@ -43,7 +43,7 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
         $limit = (int) ($topUpDecision['new_packet_count'] ?? 0);
 
         if ($outcome !== AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW || $limit <= 0) {
-            return $this->envelope($enqueued, $skippedExisting, $skippedRejected, $blocked, attempted: 0);
+            return $this->envelope($enqueued, $skippedExisting, $skippedRejected, $blocked, attempted: 0, workerFloorInputs: $workerFloorInputs);
         }
 
         $attempted = 0;
@@ -82,7 +82,7 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
         sort($skippedRejected, SORT_STRING);
         usort($blocked, static fn (array $a, array $b): int => strcmp($a['packet_id'], $b['packet_id']));
 
-        return $this->envelope($enqueued, $skippedExisting, $skippedRejected, $blocked, attempted: $attempted);
+        return $this->envelope($enqueued, $skippedExisting, $skippedRejected, $blocked, attempted: $attempted, workerFloorInputs: $workerFloorInputs);
     }
 
     /**
@@ -90,10 +90,14 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
      * @param  list<string>  $skippedExisting
      * @param  list<string>  $skippedRejected
      * @param  list<array{packet_id:string, reason:string}>  $blocked
-     * @return array{schema:string, enqueued:list<string>, skipped_existing:list<string>, skipped_rejected:list<string>, prepare_blocked:list<array{packet_id:string, reason:string}>, counts:array<string,int>}
+     * @param  array<string,mixed>  $workerFloorInputs
+     * @return array{schema:string, enqueued:list<string>, skipped_existing:list<string>, skipped_rejected:list<string>, prepare_blocked:list<array{packet_id:string, reason:string}>, counts:array<string,int>, worker_floor:array<string,mixed>, produced_claimable_count:int, top_up_effective:bool}
      */
-    private function envelope(array $enqueued, array $skippedExisting, array $skippedRejected, array $blocked, int $attempted): array
+    private function envelope(array $enqueued, array $skippedExisting, array $skippedRejected, array $blocked, int $attempted, array $workerFloorInputs = []): array
     {
+        $producedClaimableCount = count($enqueued);
+        $rejectedCount = count($skippedRejected) + count($blocked);
+
         return [
             'schema' => self::SCHEMA,
             'enqueued' => $enqueued,
@@ -102,11 +106,16 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
             'prepare_blocked' => $blocked,
             'counts' => [
                 'attempted' => $attempted,
-                'enqueued' => count($enqueued),
+                'enqueued' => $producedClaimableCount,
+                'accepted' => $producedClaimableCount,
+                'rejected' => $rejectedCount,
                 'skipped_existing' => count($skippedExisting),
                 'skipped_rejected' => count($skippedRejected),
                 'prepare_blocked' => count($blocked),
             ],
+            'worker_floor' => $workerFloorInputs,
+            'produced_claimable_count' => $producedClaimableCount,
+            'top_up_effective' => $producedClaimableCount > 0,
         ];
     }
 }

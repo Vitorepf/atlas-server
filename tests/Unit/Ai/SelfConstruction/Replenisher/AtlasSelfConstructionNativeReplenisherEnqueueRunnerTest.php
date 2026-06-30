@@ -116,6 +116,39 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunnerTest extends Test
         $this->assertContains('f-ok', $r['enqueued']);
     }
 
+    public function test_receipt_includes_worker_floor_inputs_and_accepted_rejected_produced_counts(): void
+    {
+        $accepted = [
+            ['packet' => ['frontier_id' => 'f-1']],
+            ['packet' => ['frontier_id' => 'f-block']],
+        ];
+        $decision = ['outcome' => AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, 'new_packet_count' => 5];
+        $orchestrator = $this->fakeOrchestrator(['f-block' => 'prepare_blocked']);
+        $workerFloorInputs = ['active_worker_count' => 6, 'claimable_per_active_worker' => 1.5];
+
+        $r = (new AtlasSelfConstructionNativeReplenisherEnqueueRunner)->run($accepted, $decision, $orchestrator, $workerFloorInputs);
+
+        $this->assertSame($workerFloorInputs, $r['worker_floor']);
+        $this->assertSame(2, $r['counts']['attempted']);
+        $this->assertSame(1, $r['counts']['accepted']);
+        $this->assertSame(1, $r['counts']['rejected']);
+        $this->assertSame(1, $r['produced_claimable_count']);
+        $this->assertTrue($r['top_up_effective']);
+    }
+
+    public function test_top_up_effective_is_false_when_produced_claimable_count_is_zero(): void
+    {
+        $accepted = [['packet' => ['frontier_id' => 'f-block']]];
+        $decision = ['outcome' => AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, 'new_packet_count' => 5];
+        $orchestrator = $this->fakeOrchestrator(['f-block' => 'prepare_blocked']);
+
+        $r = (new AtlasSelfConstructionNativeReplenisherEnqueueRunner)->run($accepted, $decision, $orchestrator, ['active_worker_count' => 3]);
+
+        $this->assertSame(0, $r['produced_claimable_count']);
+        $this->assertFalse($r['top_up_effective']);
+        $this->assertSame(1, $r['counts']['attempted']);
+    }
+
     public function test_lists_are_sorted_byte_stably(): void
     {
         $accepted = [
