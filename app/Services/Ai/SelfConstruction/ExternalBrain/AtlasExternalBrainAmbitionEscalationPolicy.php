@@ -84,8 +84,11 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
         $allAttempted   = array_diff(self::LADDER, $attempted) === [];
         $allHaveEvidence = count($withEvidence) === count(self::LADDER);
 
+        // AC2: exhaustion_dossier — always present; proves every mode's evidence status.
+        $dossier = $this->buildDossier($attempted, $evidenceMap);
+
         if ($next === null && $allAttempted && $allHaveEvidence) {
-            return $this->envelope(self::MODE_HONEST_EXHAUSTED, 'all_escalation_modes_attempted_with_evidence', [], $withEvidence, true);
+            return $this->envelope(self::MODE_HONEST_EXHAUSTED, 'all_escalation_modes_attempted_with_evidence', [], $withEvidence, true, $dossier);
         }
 
         // If all modes are attempted but not all carry evidence, re-run the first mode lacking evidence.
@@ -104,11 +107,11 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
 
         $remaining = array_values(array_filter(self::LADDER, static fn (string $m): bool => ! in_array($m, $attempted, true) && $m !== $next));
 
-        return $this->envelope($next, $this->rationale($next), $remaining, $withEvidence, false);
+        return $this->envelope($next, $this->rationale($next), $remaining, $withEvidence, false, $dossier);
     }
 
-    /** @param list<string> $remaining @param list<string> $withEvidence */
-    private function envelope(string $next, string $rationale, array $remaining, array $withEvidence, bool $exhausted): array
+    /** @param list<string> $remaining @param list<string> $withEvidence @param list<array<string,mixed>> $dossier */
+    private function envelope(string $next, string $rationale, array $remaining, array $withEvidence, bool $exhausted, array $dossier): array
     {
         return [
             'schema'              => self::SCHEMA,
@@ -117,7 +120,30 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
             'modes_remaining'     => $remaining,
             'modes_with_evidence' => $withEvidence,
             'honest_exhausted'    => $exhausted,
+            'exhaustion_dossier'  => $dossier,
         ];
+    }
+
+    /**
+     * Build a per-mode dossier listing attempted status, evidence list, and a deterministic evidence hash.
+     *
+     * @param  list<string>                $attempted
+     * @param  array<string,list<string>>  $evidenceMap
+     * @return list<array<string,mixed>>
+     */
+    private function buildDossier(array $attempted, array $evidenceMap): array
+    {
+        $dossier = [];
+        foreach (self::LADDER as $mode) {
+            $refs    = is_array($evidenceMap[$mode] ?? null) ? array_values($evidenceMap[$mode]) : [];
+            $dossier[] = [
+                'mode'           => $mode,
+                'attempted'      => in_array($mode, $attempted, true),
+                'evidence'       => $refs,
+                'evidence_hash'  => hash('sha256', (string) json_encode($refs)),
+            ];
+        }
+        return $dossier;
     }
 
     private function rationale(string $mode): string

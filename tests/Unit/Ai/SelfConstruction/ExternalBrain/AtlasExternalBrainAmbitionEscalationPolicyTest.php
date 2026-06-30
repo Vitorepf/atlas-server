@@ -141,6 +141,124 @@ final class AtlasExternalBrainAmbitionEscalationPolicyTest extends TestCase
         $this->assertFalse($r['honest_exhausted'], 'no evidence recorded → must not be honest_exhausted');
     }
 
+    // ---------- AC1: attempted-without-artifact keeps escalating ----------
+
+    public function test_attempted_mode_without_evidence_is_escalated_again(): void
+    {
+        // All 6 in attempted_modes but none have evidence → re-runs first mode (contract_mismatch).
+        $all = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $r = $this->policy->decide(['attempted_modes' => $all, 'evidence_by_mode' => []]);
+        $this->assertFalse($r['honest_exhausted']);
+        $this->assertSame(AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH, $r['next_mode']);
+    }
+
+    public function test_partial_evidence_keeps_escalating_on_missing_mode(): void
+    {
+        // 5 of 6 have evidence; runtime_health has none → re-runs runtime_health.
+        $all = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceByMode = [];
+        foreach ($all as $m) {
+            if ($m !== AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH) {
+                $evidenceByMode[$m] = ['ref:'.$m];
+            }
+        }
+        $r = $this->policy->decide(['attempted_modes' => $all, 'evidence_by_mode' => $evidenceByMode]);
+        $this->assertFalse($r['honest_exhausted']);
+        $this->assertSame(AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH, $r['next_mode']);
+    }
+
+    // ---------- AC2: exhaustion_dossier ----------
+
+    public function test_exhaustion_dossier_present_in_every_response(): void
+    {
+        $r = $this->policy->decide([]);
+        $this->assertArrayHasKey('exhaustion_dossier', $r);
+        $this->assertIsArray($r['exhaustion_dossier']);
+        $this->assertCount(6, $r['exhaustion_dossier']); // one entry per ladder mode
+    }
+
+    public function test_exhaustion_dossier_has_required_keys_per_mode(): void
+    {
+        $r = $this->policy->decide([]);
+        foreach ($r['exhaustion_dossier'] as $entry) {
+            $this->assertArrayHasKey('mode', $entry);
+            $this->assertArrayHasKey('attempted', $entry);
+            $this->assertArrayHasKey('evidence', $entry);
+            $this->assertArrayHasKey('evidence_hash', $entry);
+        }
+    }
+
+    public function test_exhaustion_dossier_reflects_attempted_flag(): void
+    {
+        $r = $this->policy->decide([
+            'attempted_modes' => [AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH],
+        ]);
+        $byMode = array_column($r['exhaustion_dossier'], null, 'mode');
+        $this->assertTrue($byMode[AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH]['attempted']);
+        $this->assertFalse($byMode[AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN]['attempted']);
+    }
+
+    public function test_exhaustion_dossier_evidence_hash_is_deterministic(): void
+    {
+        $state = [
+            'attempted_modes'  => [AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH],
+            'evidence_by_mode' => [AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH => ['ref:abc']],
+        ];
+        $a = $this->policy->decide($state);
+        $b = $this->policy->decide($state);
+        $hashA = array_column($a['exhaustion_dossier'], 'evidence_hash', 'mode');
+        $hashB = array_column($b['exhaustion_dossier'], 'evidence_hash', 'mode');
+        $this->assertSame($hashA, $hashB);
+    }
+
+    public function test_exhaustion_dossier_hash_differs_for_different_evidence(): void
+    {
+        $mode = AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH;
+        $r1   = $this->policy->decide(['evidence_by_mode' => [$mode => ['ref:one']]]);
+        $r2   = $this->policy->decide(['evidence_by_mode' => [$mode => ['ref:two']]]);
+        $h1   = array_column($r1['exhaustion_dossier'], 'evidence_hash', 'mode')[$mode];
+        $h2   = array_column($r2['exhaustion_dossier'], 'evidence_hash', 'mode')[$mode];
+        $this->assertNotSame($h1, $h2);
+    }
+
+    public function test_exhaustion_dossier_present_on_honest_exhausted_response(): void
+    {
+        $all = [
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CONTRACT_MISMATCH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CROSS_DOMAIN_PATTERN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RESEARCH_BACKED_DESIGN,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_RUNTIME_HEALTH,
+            AtlasExternalBrainAmbitionEscalationPolicy::MODE_CERTIFICATION_GAP,
+        ];
+        $evidenceByMode = [];
+        foreach ($all as $m) {
+            $evidenceByMode[$m] = ['proof:'.$m];
+        }
+        $r = $this->policy->decide(['attempted_modes' => $all, 'evidence_by_mode' => $evidenceByMode]);
+        $this->assertTrue($r['honest_exhausted']);
+        $this->assertCount(6, $r['exhaustion_dossier']);
+        foreach ($r['exhaustion_dossier'] as $entry) {
+            $this->assertTrue($entry['attempted']);
+            $this->assertNotEmpty($entry['evidence']);
+            $this->assertNotEmpty($entry['evidence_hash']);
+        }
+    }
+
     public function test_schema_is_correct(): void
     {
         $r = $this->policy->decide([]);
