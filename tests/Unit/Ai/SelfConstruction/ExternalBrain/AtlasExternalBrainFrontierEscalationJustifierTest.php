@@ -195,4 +195,103 @@ final class AtlasExternalBrainFrontierEscalationJustifierTest extends TestCase
         $b = $this->justifier()->justify($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC4: output includes threshold evidence, escalation reason, fallback route ──
+
+    public function test_output_has_decision_threshold_evidence_escalation_reason_and_fallback_route(): void
+    {
+        $r = $this->justifier()->justify([]);
+
+        foreach (['decision', 'threshold_evidence', 'escalation_reason', 'fallback_route', 'provider_specific_dependency'] as $key) {
+            $this->assertArrayHasKey($key, $r, "missing key: {$key}");
+        }
+        $this->assertFalse($r['provider_specific_dependency']);
+    }
+
+    public function test_decision_is_frontier_required_when_escalation_and_cost_justified(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score' => 0.9,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units' => 1.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_FRONTIER_REQUIRED, $r['decision']);
+        $this->assertNull($r['fallback_route']);
+    }
+
+    public function test_decision_is_use_scaffolded_standard_model_for_routine_work(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score' => 0.5,
+            'evidence_strength' => 0.5,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_USE_SCAFFOLDED_STANDARD_MODEL, $r['decision']);
+        $this->assertNotNull($r['fallback_route']);
+    }
+
+    public function test_decision_falls_back_when_escalation_present_but_cost_unjustified(): void
+    {
+        $r = $this->justifier()->justify([
+            'ambiguity_score' => 0.9,
+            'estimated_frontier_cost_units' => 50.0,
+            'estimated_small_cost_units' => 1.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_USE_SCAFFOLDED_STANDARD_MODEL, $r['decision']);
+    }
+
+    // ── expected_lift / architectural_leverage_score escalation factors ──────
+
+    public function test_high_expected_lift_triggers_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'expected_lift' => 0.9,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units' => 1.0,
+        ]);
+
+        $this->assertContains('high_expected_lift', $r['escalation_reasons']);
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_FRONTIER_REQUIRED, $r['decision']);
+    }
+
+    public function test_high_architectural_leverage_triggers_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'architectural_leverage_score' => 0.9,
+            'estimated_frontier_cost_units' => 2.0,
+            'estimated_small_cost_units' => 1.0,
+        ]);
+
+        $this->assertContains('high_architectural_leverage', $r['escalation_reasons']);
+        $this->assertSame(AtlasExternalBrainFrontierEscalationJustifier::DECISION_FRONTIER_REQUIRED, $r['decision']);
+    }
+
+    public function test_low_expected_lift_and_leverage_do_not_trigger_escalation(): void
+    {
+        $r = $this->justifier()->justify([
+            'expected_lift' => 0.1,
+            'architectural_leverage_score' => 0.1,
+        ]);
+
+        $this->assertNotContains('high_expected_lift', $r['escalation_reasons']);
+        $this->assertNotContains('high_architectural_leverage', $r['escalation_reasons']);
+    }
+
+    public function test_threshold_evidence_lists_all_five_factors(): void
+    {
+        $r = $this->justifier()->justify([]);
+        $factors = array_column($r['threshold_evidence'], 'factor');
+
+        foreach (['ambiguity_score', 'blast_radius', 'expected_lift', 'architectural_leverage_score', 'is_conflicting_evidence'] as $factor) {
+            $this->assertContains($factor, $factors);
+        }
+    }
+
+    public function test_escalation_reason_is_none_string_when_no_escalation(): void
+    {
+        $r = $this->justifier()->justify([]);
+        $this->assertSame('none', $r['escalation_reason']);
+    }
 }

@@ -38,6 +38,11 @@ final class AtlasExternalBrainFrontierEscalationJustifier
     private const EVIDENCE_THRESHOLD  = 0.70;
     private const LOW_AMBIGUITY       = 0.35;
     private const MAX_COST_RATIO      = 5.0;
+    private const EXPECTED_LIFT_THRESHOLD = 0.60;
+    private const ARCHITECTURAL_LEVERAGE_THRESHOLD = 0.60;
+
+    public const DECISION_FRONTIER_REQUIRED = 'frontier_required';
+    public const DECISION_USE_SCAFFOLDED_STANDARD_MODEL = 'use_scaffolded_standard_model';
 
     private const KNOWN_TYPES = ['known', 'routine', 'deterministic', 'extraction', 'validation'];
 
@@ -54,6 +59,8 @@ final class AtlasExternalBrainFrontierEscalationJustifier
         $taskClass         = strtolower(trim((string) ($facts['task_classification']            ?? '')));
         $frontierCostUnits = max(0.0, (float) ($facts['estimated_frontier_cost_units'] ?? 1.0));
         $smallCostUnits    = max(0.0, (float) ($facts['estimated_small_cost_units']    ?? 1.0));
+        $expectedLift      = max(0.0, min(1.0, (float) ($facts['expected_lift']                   ?? 0.0)));
+        $architecturalLeverage = max(0.0, min(1.0, (float) ($facts['architectural_leverage_score'] ?? 0.0)));
 
         // AC2: escalation reasons.
         $escalationReasons = [];
@@ -65,6 +72,12 @@ final class AtlasExternalBrainFrontierEscalationJustifier
         }
         if ($conflicting) {
             $escalationReasons[] = 'conflicting_evidence_requires_synthesis';
+        }
+        if ($expectedLift >= self::EXPECTED_LIFT_THRESHOLD) {
+            $escalationReasons[] = 'high_expected_lift';
+        }
+        if ($architecturalLeverage >= self::ARCHITECTURAL_LEVERAGE_THRESHOLD) {
+            $escalationReasons[] = 'high_architectural_leverage';
         }
 
         // AC3: small-model sufficiency reasons.
@@ -103,6 +116,20 @@ final class AtlasExternalBrainFrontierEscalationJustifier
         // Confidence.
         $confidence = $this->confidence(! empty($escalationReasons), $isSmallSufficient, $costJustified);
 
+        // AC2/AC3/AC4: canonical decision vocabulary + threshold evidence + fallback route.
+        // frontier_required only when escalation triggers AND cost is justified — never on
+        // escalation triggers alone, so a cost-unjustified escalation correctly falls back.
+        $decision = ($tier === 'frontier_model') ? self::DECISION_FRONTIER_REQUIRED : self::DECISION_USE_SCAFFOLDED_STANDARD_MODEL;
+        $fallbackRoute = $decision === self::DECISION_FRONTIER_REQUIRED ? null : $tier;
+
+        $thresholdEvidence = [
+            ['factor' => 'ambiguity_score', 'value' => $ambiguity, 'threshold' => self::AMBIGUITY_THRESHOLD, 'crossed' => $ambiguity >= self::AMBIGUITY_THRESHOLD],
+            ['factor' => 'blast_radius', 'value' => $blastRadius, 'threshold' => self::BLAST_THRESHOLD, 'crossed' => $blastRadius >= self::BLAST_THRESHOLD],
+            ['factor' => 'expected_lift', 'value' => $expectedLift, 'threshold' => self::EXPECTED_LIFT_THRESHOLD, 'crossed' => $expectedLift >= self::EXPECTED_LIFT_THRESHOLD],
+            ['factor' => 'architectural_leverage_score', 'value' => $architecturalLeverage, 'threshold' => self::ARCHITECTURAL_LEVERAGE_THRESHOLD, 'crossed' => $architecturalLeverage >= self::ARCHITECTURAL_LEVERAGE_THRESHOLD],
+            ['factor' => 'is_conflicting_evidence', 'value' => $conflicting, 'threshold' => true, 'crossed' => $conflicting],
+        ];
+
         return [
             'schema_version'                  => self::SCHEMA,
             'recommended_tier'                => $tier,
@@ -114,6 +141,11 @@ final class AtlasExternalBrainFrontierEscalationJustifier
                 'explanation' => $costExplanation,
             ],
             'confidence'                      => $confidence,
+            'decision'                        => $decision,
+            'threshold_evidence'              => $thresholdEvidence,
+            'escalation_reason'               => $escalationReasons === [] ? 'none' : implode('; ', $escalationReasons),
+            'fallback_route'                  => $fallbackRoute,
+            'provider_specific_dependency'    => false,
         ];
     }
 
