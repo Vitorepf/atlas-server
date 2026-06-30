@@ -182,6 +182,19 @@ final class AtlasTaskServingContractTest extends TestCase
         $this->assertStringContainsString('"reindexed_from_disk": true', $out, 'the disk self-heal fired');
     }
 
+    public function test_served_task_carries_real_risk_level_not_unspecified(): void
+    {
+        $orch = $this->orchestrator();
+        $packet = array_merge($this->input('risk-med'), ['risk_level' => 'medium']);
+        $enqueued = $orch->prepareAndEnqueue(['task_packet' => $packet]);
+        $this->assertSame('prepared_and_enqueued', $enqueued['event']);
+
+        $serving = new AtlasTaskServingService($orch);
+        $served = $serving->next('risk-client');
+        $this->assertSame('served', $served['status']);
+        $this->assertSame('medium', $served['task']['risk_level'], 'projectTask must read risk_classification.risk_level, not the flat key');
+    }
+
     public function test_waiting_on_dependencies_exits_success_not_failure(): void
     {
         $orch = $this->orchestrator();
