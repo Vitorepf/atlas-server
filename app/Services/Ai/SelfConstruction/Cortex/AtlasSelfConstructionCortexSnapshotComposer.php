@@ -55,16 +55,36 @@ final class AtlasSelfConstructionCortexSnapshotComposer
         $status = $blockers === [] ? self::STATUS_READY : self::STATUS_BLOCKED;
         sort($blockers, SORT_STRING);
 
+        // Extract stale/missing sources from the freshness section for originator decisions.
+        $staleSources   = [];
+        $missingSources = [];
+        if (is_array($snapshot['freshness'] ?? null)) {
+            foreach ((array) ($snapshot['freshness']['rows'] ?? []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $sourceId  = (string) ($row['source_id'] ?? '');
+                $readiness = (string) ($row['readiness'] ?? '');
+                if ($readiness === 'stale') {
+                    $staleSources[] = $sourceId;
+                } elseif ($readiness === 'missing') {
+                    $missingSources[] = $sourceId;
+                }
+            }
+        }
+
         $canonical = $snapshot;
         ksort($canonical);
         $hash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return [
-            'schema' => self::SCHEMA,
-            'status' => $status,
-            'blockers' => $blockers,
-            'snapshot' => $snapshot,
-            'snapshot_hash' => $hash,
+            'schema'          => self::SCHEMA,
+            'status'          => $status,
+            'blockers'        => $blockers,
+            'snapshot'        => $snapshot,
+            'snapshot_hash'   => $hash,
+            'stale_sources'   => $staleSources,
+            'missing_sources' => $missingSources,
         ];
     }
 }

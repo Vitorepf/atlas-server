@@ -73,4 +73,66 @@ final class AtlasSelfConstructionCortexSnapshotComposerTest extends TestCase
             $this->assertStringNotContainsString('"'.$forbidden.'"', $json);
         }
     }
+
+    // ---------- freshness-awareness: fresh / stale / missing ----------
+
+    private function sectionsWithFreshness(array $rows, bool $allFresh): array
+    {
+        $sections = $this->completeSections();
+        $sections['freshness'] = ['all_fresh' => $allFresh, 'rows' => $rows];
+
+        return $sections;
+    }
+
+    public function test_fresh_sources_yield_empty_stale_and_missing_lists(): void
+    {
+        $rows = [
+            ['source_id' => 'docs', 'readiness' => 'fresh', 'reason' => 'within_window'],
+            ['source_id' => 'code', 'readiness' => 'fresh', 'reason' => 'within_window'],
+        ];
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->sectionsWithFreshness($rows, true));
+
+        $this->assertSame(AtlasSelfConstructionCortexSnapshotComposer::STATUS_READY, $r['status']);
+        $this->assertSame([], $r['stale_sources'],   'no stale sources when all are fresh');
+        $this->assertSame([], $r['missing_sources'], 'no missing sources when all are fresh');
+    }
+
+    public function test_stale_source_marking_surfaces_in_stale_sources_field(): void
+    {
+        $rows = [
+            ['source_id' => 'docs',         'readiness' => 'fresh', 'reason' => 'within_window'],
+            ['source_id' => 'code_index',   'readiness' => 'stale', 'reason' => 'age_90001s_exceeds_window_86400s'],
+            ['source_id' => 'memory_index', 'readiness' => 'stale', 'reason' => 'age_172800s_exceeds_window_86400s'],
+        ];
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->sectionsWithFreshness($rows, false));
+
+        $this->assertContains('code_index',   $r['stale_sources']);
+        $this->assertContains('memory_index', $r['stale_sources']);
+        $this->assertNotContains('docs',      $r['stale_sources']);
+        $this->assertSame([], $r['missing_sources']);
+    }
+
+    public function test_missing_source_marking_surfaces_in_missing_sources_field(): void
+    {
+        $rows = [
+            ['source_id' => 'docs',      'readiness' => 'fresh',   'reason' => 'within_window'],
+            ['source_id' => 'kb_index',  'readiness' => 'missing', 'reason' => 'no_last_unix'],
+        ];
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->sectionsWithFreshness($rows, false));
+
+        $this->assertContains('kb_index', $r['missing_sources']);
+        $this->assertNotContains('docs',  $r['missing_sources']);
+        $this->assertSame([], $r['stale_sources']);
+    }
+
+    public function test_snapshot_is_bounded_to_required_sections_only(): void
+    {
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->completeSections());
+
+        $snapshotKeys = array_keys($r['snapshot']);
+        sort($snapshotKeys);
+        $expected = AtlasSelfConstructionCortexSnapshotComposer::REQUIRED_SECTIONS;
+        sort($expected);
+        $this->assertSame($expected, $snapshotKeys, 'snapshot must contain exactly the required sections');
+    }
 }
