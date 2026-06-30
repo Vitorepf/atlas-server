@@ -42,6 +42,15 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             $organsById[(string) $organ['organ_id']] = $organ;
         }
 
+        // Dependency-aware wave per organ: 1 for organs with no in-batch prerequisite, N+1 for an
+        // organ whose deepest in-batch dependency chain is N. A depends_on entry pointing outside
+        // this batch (no matching organ_id) is informational only and never bumps the wave.
+        $waveMemo = [];
+        $dependencyWaves = [];
+        foreach (array_keys($organsById) as $organId) {
+            $dependencyWaves[$organId] = $this->dependencyWave($organId, $organsById, $waveMemo);
+        }
+
         $drafts = [];
         $withheld = [];
         $drafted = [];  // dedup: organ_id → true once a draft is emitted
@@ -61,7 +70,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
                 $withheld[] = ['organ_id' => $organId, 'reason' => $withReason];
                 continue;
             }
-            $draft = $this->makeDraft($organId, $organ, 'missing', [], $wave);
+            $draft = $this->makeDraft($organId, $organ, 'missing', [], $wave, $dependencyWaves[$organId] ?? 1);
             if ($draft === null) {
                 $withheld[] = ['organ_id' => $organId, 'reason' => 'safe_targets_unavailable'];
                 continue;
@@ -87,7 +96,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
                 $withheld[] = ['organ_id' => $organId, 'reason' => $withReason];
                 continue;
             }
-            $draft = $this->makeDraft($organId, $organ, 'thin', $missingClasses, $wave);
+            $draft = $this->makeDraft($organId, $organ, 'thin', $missingClasses, $wave, $dependencyWaves[$organId] ?? 1);
             if ($draft === null) {
                 $withheld[] = ['organ_id' => $organId, 'reason' => 'safe_targets_unavailable'];
                 continue;
@@ -137,11 +146,45 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
     }
 
     /**
+     * Deepest in-batch dependency chain length for $organId, 1-indexed (no in-batch prerequisite ⇒ 1).
+     * A depends_on entry pointing outside $organsById is informational only and ignored here.
+     *
+     * @param  array<string,array<string,mixed>>  $organsById
+     * @param  array<string,int>  $memo
+     * @param  array<string,true>  $visiting  cycle guard — a cycle resolves to wave 1 for its members
+     */
+    private function dependencyWave(string $organId, array $organsById, array &$memo, array $visiting = []): int
+    {
+        if (isset($memo[$organId])) {
+            return $memo[$organId];
+        }
+        if (isset($visiting[$organId])) {
+            return 1;
+        }
+        $visiting[$organId] = true;
+
+        $organ = $organsById[$organId] ?? null;
+        $deps = $organ !== null ? array_values(array_map('strval', (array) ($organ['depends_on'] ?? []))) : [];
+
+        $maxDepWave = 0;
+        foreach ($deps as $dep) {
+            if (isset($organsById[$dep])) {
+                $maxDepWave = max($maxDepWave, $this->dependencyWave($dep, $organsById, $memo, $visiting));
+            }
+        }
+
+        $wave = $maxDepWave + 1;
+        $memo[$organId] = $wave;
+
+        return $wave;
+    }
+
+    /**
      * @param  array<string,mixed>  $organ
      * @param  list<string>  $missingClasses
      * @return array<string,mixed>|null  null ⇒ safe_targets unavailable, draft withheld
      */
-    private function makeDraft(string $organId, array $organ, string $coverageKind, array $missingClasses, string $wave): array|null
+    private function makeDraft(string $organId, array $organ, string $coverageKind, array $missingClasses, string $wave, int $dependencyWave = 1): array|null
     {
         $safeTargets = is_array($organ['safe_targets'] ?? null) ? $organ['safe_targets'] : [];
         $impl = (string) ($safeTargets['implementation'] ?? '');
@@ -194,6 +237,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             'required_proof'     => $requiredProof,
             'priority'           => ['value' => $priorityValue, 'reason' => $priorityReason],
             'wave'               => $wave,
+            'dependency_wave'    => $dependencyWave,
             'tags'               => $tags,
             'rationale'          => sprintf(
                 'task graph coverage gap (%s) on organ %s; missing evidence classes: %s',

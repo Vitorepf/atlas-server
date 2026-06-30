@@ -276,4 +276,95 @@ class AtlasSelfConstructionMissingOrganTaskPlannerTest extends TestCase
         $withheldReasons = array_column($verdict['withheld_gaps'], 'reason');
         self::assertContains('already_drafted', $withheldReasons);
     }
+
+    // ── dependency-aware waves ──────────────────────────────────────────────────
+
+    public function test_organ_with_no_in_batch_dependency_gets_dependency_wave_one(): void
+    {
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $this->organs(),
+        );
+
+        self::assertSame(1, $verdict['drafts'][0]['dependency_wave']);
+    }
+
+    public function test_organ_depending_on_another_drafted_organ_gets_a_later_wave(): void
+    {
+        $organs = $this->organs();
+        // verification_court depends on cortex — both are in this batch.
+        $organs[1]['depends_on'] = ['cortex'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex', 'verification_court']],
+            $organs,
+        );
+
+        $byId = array_column($verdict['drafts'], null, 'task_packet_id');
+        $cortexWave = $byId['coverage-cortex-missing-v1']['dependency_wave'];
+        $vcWave = $byId['coverage-verification_court-missing-v1']['dependency_wave'];
+
+        self::assertSame(1, $cortexWave);
+        self::assertGreaterThan($cortexWave, $vcWave, 'a downstream organ must land in a later wave than its in-batch prerequisite');
+    }
+
+    public function test_depends_on_an_organ_outside_the_batch_does_not_bump_wave(): void
+    {
+        $organs = $this->organs();
+        // 'organ_metadata' is not in this batch — purely informational, must not affect wave.
+        $organs[0]['depends_on'] = ['organ_metadata'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $organs,
+        );
+
+        self::assertSame(1, $verdict['drafts'][0]['dependency_wave']);
+    }
+
+    public function test_three_level_dependency_chain_produces_three_distinct_waves(): void
+    {
+        $organs = $this->organs();
+        // cortex (wave1) <- verification_court (wave2) <- unsafe_no_targets has no safe_targets, so
+        // build a 3rd organ instead with safe_targets depending on verification_court.
+        $organs[] = [
+            'organ_id' => 'chain_tail',
+            'purpose' => 'Depends on verification_court, which depends on cortex.',
+            'safe_targets' => [
+                'implementation' => 'app/Services/Ai/SelfConstruction/ChainTail/ChainTailService.php',
+                'test' => 'tests/Unit/Ai/SelfConstruction/ChainTail/ChainTailServiceTest.php',
+            ],
+            'depends_on' => ['verification_court'],
+        ];
+        $organs[1]['depends_on'] = ['cortex'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex', 'verification_court', 'chain_tail']],
+            $organs,
+        );
+
+        $byId = array_column($verdict['drafts'], null, 'task_packet_id');
+        $w1 = $byId['coverage-cortex-missing-v1']['dependency_wave'];
+        $w2 = $byId['coverage-verification_court-missing-v1']['dependency_wave'];
+        $w3 = $byId['coverage-chain_tail-missing-v1']['dependency_wave'];
+
+        self::assertSame(1, $w1);
+        self::assertSame(2, $w2);
+        self::assertSame(3, $w3);
+    }
+
+    public function test_dependency_wave_is_deterministic(): void
+    {
+        $organs = $this->organs();
+        $organs[1]['depends_on'] = ['cortex'];
+
+        $planner = new AtlasSelfConstructionMissingOrganTaskPlanner();
+        $a = $planner->plan(['missing_organs' => ['cortex', 'verification_court']], $organs);
+        $b = $planner->plan(['missing_organs' => ['cortex', 'verification_court']], $organs);
+
+        self::assertSame(
+            array_column($a['drafts'], 'dependency_wave'),
+            array_column($b['drafts'], 'dependency_wave'),
+        );
+    }
 }
