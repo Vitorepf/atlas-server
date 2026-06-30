@@ -79,4 +79,55 @@ final class AtlasStrategyCouncilLeverageRankerWorkerContinuityTest extends TestC
         $this->assertSame('continuity-real-lever', $result['ranked'][0]['candidate_id']);
         $this->assertSame([], $result['rejected']);
     }
+
+    // ── worker-floor veto (AC) ───────────────────────────────────────────────
+
+    public function test_low_worker_floor_ranks_queue_feed_or_repair_above_higher_leverage_candidate(): void
+    {
+        $result = $this->ranker()->rank([
+            $this->candidate('long-horizon', ['autonomy_unlock' => 10, 'capability_gap' => 10]),
+            $this->candidate('queue-feed', ['is_queue_feed_or_repair' => true]),
+        ], ['claimable_per_active_worker' => 1.5]);
+
+        $ids = array_column($result['ranked'], 'candidate_id');
+        $this->assertSame(['queue-feed', 'long-horizon'], $ids);
+
+        $winner = $result['ranked'][0];
+        $this->assertSame(1, $winner['factors']['worker_floor_veto']);
+        $this->assertContains('worker_floor_veto=1', $winner['reasons']);
+        $this->assertSame('worker_floor_veto=1_beats_0', $winner['dominance_trace']);
+    }
+
+    public function test_healthy_worker_floor_preserves_existing_leverage_ranking(): void
+    {
+        $result = $this->ranker()->rank([
+            $this->candidate('long-horizon', ['autonomy_unlock' => 10, 'capability_gap' => 10]),
+            $this->candidate('queue-feed', ['is_queue_feed_or_repair' => true]),
+        ], ['claimable_per_active_worker' => 10.0]);
+
+        $ids = array_column($result['ranked'], 'candidate_id');
+        $this->assertSame(['long-horizon', 'queue-feed'], $ids);
+    }
+
+    public function test_queue_feed_flag_without_low_worker_floor_does_not_veto(): void
+    {
+        $result = $this->ranker()->rank([
+            $this->candidate('long-horizon', ['autonomy_unlock' => 10, 'capability_gap' => 10]),
+            $this->candidate('queue-feed', ['is_queue_feed_or_repair' => true]),
+        ]);
+
+        $ids = array_column($result['ranked'], 'candidate_id');
+        $this->assertSame(['long-horizon', 'queue-feed'], $ids);
+    }
+
+    public function test_low_worker_floor_without_queue_feed_flag_does_not_veto(): void
+    {
+        $result = $this->ranker()->rank([
+            $this->candidate('long-horizon', ['autonomy_unlock' => 10, 'capability_gap' => 10]),
+            $this->candidate('other'),
+        ], ['claimable_per_active_worker' => 1.5]);
+
+        $ids = array_column($result['ranked'], 'candidate_id');
+        $this->assertSame(['long-horizon', 'other'], $ids);
+    }
 }

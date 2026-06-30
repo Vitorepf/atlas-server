@@ -38,14 +38,23 @@ final class AtlasStrategyCouncilLeverageRanker
 
     public const PROXY_ONLY_KINDS = ['novelty', 'task_count', 'line_churn', 'green_self_report'];
 
+    /** claimable_per_active_worker at/below this is a worker-floor breach. */
+    public const WORKER_FLOOR_THRESHOLD = 2.0;
+
     /**
      * @param  list<array<string,mixed>>  $candidates
+     * @param  array{claimable_per_active_worker?: float|null}  $context
      * @return array<string,mixed>
      */
-    public function rank(array $candidates): array
+    public function rank(array $candidates, array $context = []): array
     {
         $accepted = [];
         $rejected = [];
+
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $context) && $context['claimable_per_active_worker'] !== null
+            ? (float) $context['claimable_per_active_worker']
+            : null;
+        $lowWorkerFloor = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::WORKER_FLOOR_THRESHOLD;
 
         foreach ($candidates as $c) {
             if (! is_array($c)) {
@@ -92,11 +101,14 @@ final class AtlasStrategyCouncilLeverageRanker
             $campaignCount = (int) ($c['campaign_count'] ?? 0);
             $unlockFamilyCount = (int) ($c['unlock_family_count'] ?? 0);
             $crossCampaignCompounding = ($campaignCount >= 2 && $unlockFamilyCount >= 2) ? 1 : 0;
+            $queueFeedOrRepair = (bool) ($c['is_queue_feed_or_repair'] ?? false);
+            $workerFloorVeto = ($lowWorkerFloor && $queueFeedOrRepair) ? 1 : 0;
 
             $accepted[] = [
                 'candidate_id' => $id,
                 'factors' => [
                     'organ' => (string) ($c['organ'] ?? ''),
+                    'worker_floor_veto' => $workerFloorVeto,
                     'cross_campaign_compounding' => $crossCampaignCompounding,
                     'worker_continuity_delta' => (int) ($c['worker_continuity_delta'] ?? 0),
                     'campaign_count' => $campaignCount,
@@ -116,7 +128,8 @@ final class AtlasStrategyCouncilLeverageRanker
         }
 
         usort($accepted, function (array $a, array $b): int {
-            return $b['factors']['cross_campaign_compounding'] <=> $a['factors']['cross_campaign_compounding']
+            return $b['factors']['worker_floor_veto'] <=> $a['factors']['worker_floor_veto']
+                ?: $b['factors']['cross_campaign_compounding'] <=> $a['factors']['cross_campaign_compounding']
                 ?: $b['factors']['worker_continuity_delta'] <=> $a['factors']['worker_continuity_delta']
                 ?: $b['factors']['autonomy_unlock'] <=> $a['factors']['autonomy_unlock']
                 ?: $b['factors']['unblocks_count'] <=> $a['factors']['unblocks_count']
@@ -132,6 +145,7 @@ final class AtlasStrategyCouncilLeverageRanker
 
         foreach ($accepted as $i => $row) {
             $accepted[$i]['reasons'] = [
+                'worker_floor_veto='.$row['factors']['worker_floor_veto'],
                 'cross_campaign_compounding='.$row['factors']['cross_campaign_compounding'],
                 'worker_continuity_delta='.$row['factors']['worker_continuity_delta'],
                 'campaign_count='.$row['factors']['campaign_count'],
@@ -169,7 +183,7 @@ final class AtlasStrategyCouncilLeverageRanker
     private function dominanceTrace(array $w, array $n): string
     {
         // DESC comparisons (higher is better)
-        $descFactors = ['cross_campaign_compounding', 'worker_continuity_delta', 'autonomy_unlock', 'unblocks_count', 'capability_gap',
+        $descFactors = ['worker_floor_veto', 'cross_campaign_compounding', 'worker_continuity_delta', 'autonomy_unlock', 'unblocks_count', 'capability_gap',
                         'user_impact', 'waste_reduction', 'risk_reduction', 'evidence_refs_count'];
         foreach ($descFactors as $f) {
             $wv = (int) ($w[$f] ?? 0);
