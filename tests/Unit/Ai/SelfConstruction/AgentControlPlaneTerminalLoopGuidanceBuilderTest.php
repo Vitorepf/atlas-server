@@ -219,6 +219,30 @@ final class AgentControlPlaneTerminalLoopGuidanceBuilderTest extends TestCase
         $this->assertStringContainsString('--queue-tag=terminal-loop-foo', $cmds['inspect_active_leases']);
     }
 
+    public function test_operator_commands_inspect_queue_uses_canonical_homebrew_php_path(): void
+    {
+        $cmds = $this->builder->terminalLoopOperatorCommands(
+            'hermes-1', 'TP', 'L', 'c', 'r', 'x', 'b', 1, 5, [], [],
+        );
+
+        $this->assertStringStartsWith(
+            AgentControlPlaneTerminalLoopGuidanceBuilder::PHP_BIN.' artisan',
+            $cmds['inspect_queue'],
+        );
+    }
+
+    public function test_operator_commands_inspect_active_leases_uses_canonical_homebrew_php_path(): void
+    {
+        $cmds = $this->builder->terminalLoopOperatorCommands(
+            'hermes-1', 'TP', 'L', 'c', 'r', 'x', 'b', 1, 5, [], [],
+        );
+
+        $this->assertStringStartsWith(
+            AgentControlPlaneTerminalLoopGuidanceBuilder::PHP_BIN.' artisan',
+            $cmds['inspect_active_leases'],
+        );
+    }
+
     public function test_operator_commands_emits_six_operator_loop_contract_lines(): void
     {
         $cmds = $this->builder->terminalLoopOperatorCommands(
@@ -342,6 +366,23 @@ final class AgentControlPlaneTerminalLoopGuidanceBuilderTest extends TestCase
         );
 
         $this->assertSame('preview_iteration_plan_ready', $rb['status']);
+    }
+
+    public function test_iteration_runbook_contains_runnable_proof_commands_with_homebrew_php(): void
+    {
+        $op = $this->builder->terminalLoopOperatorCommands('muscle-1', 'TP', 'L', 'c', 'r', 'x', 'b', 1, 5, [], []);
+        $ck = $this->builder->terminalLoopResumptionCheckpoint('ready_for_worker', 'muscle-1', 'TP', 'L', 'claimed', true, $op, [], false);
+
+        $rb = $this->builder->terminalLoopIterationRunbook('ready_for_worker', 'muscle-1', 'TP', 'L', true, false, $op, $ck);
+
+        $this->assertArrayHasKey('runnable_proof_commands', $rb);
+        $proofs = $rb['runnable_proof_commands'];
+        $this->assertArrayHasKey('task_health', $proofs);
+        $this->assertArrayHasKey('queued_targets', $proofs);
+        $this->assertArrayHasKey('malformed_sweep', $proofs);
+        $this->assertStringContainsString(AgentControlPlaneTerminalLoopGuidanceBuilder::PHP_BIN, $proofs['task_health']);
+        $this->assertStringContainsString(AgentControlPlaneTerminalLoopGuidanceBuilder::PHP_BIN, $proofs['queued_targets']);
+        $this->assertStringContainsString(AgentControlPlaneTerminalLoopGuidanceBuilder::PHP_BIN, $proofs['malformed_sweep']);
     }
 
     public function test_iteration_runbook_emits_stable_hash(): void

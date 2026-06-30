@@ -37,6 +37,8 @@ use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTe
  */
 class AgentControlPlaneTerminalLoopGuidanceBuilder
 {
+    public const PHP_BIN = '/opt/homebrew/bin/php';
+
     public function __construct(
         private readonly ?AgentControlPlaneTerminalWorkerCommandFormatter $commandFormatter = null,
     ) {}
@@ -71,8 +73,8 @@ class AgentControlPlaneTerminalLoopGuidanceBuilder
             'complete_current_dry_run' => $completionCommand,
             'recover_or_resume_current_packet' => $recoveryCommand,
             'next_after_completion' => $bootstrapCommand,
-            'inspect_queue' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-queue-status --json',
-            'inspect_active_leases' => 'php artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.$this->commandFormatter()->queueTagArgs($queueTags).' --json',
+            'inspect_queue' => self::PHP_BIN.' artisan atlas:ai:self-construction --agent-control-plane-task-queue-status --json',
+            'inspect_active_leases' => self::PHP_BIN.' artisan atlas:ai:self-construction --agent-control-plane-task-lease-recovery-status --actor='.$actor.$this->commandFormatter()->queueTagArgs($queueTags).' --json',
             'completion_evidence_template_path' => '/path/to/completion-evidence.json',
             'long_running_loop_contract' => [
                 'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_long_running_loop_contract.v1',
@@ -277,6 +279,11 @@ class AgentControlPlaneTerminalLoopGuidanceBuilder
                 'inspect_queue' => (string) data_get($terminalLoopOperatorCommands, 'inspect_queue', ''),
                 'inspect_active_leases' => (string) data_get($terminalLoopOperatorCommands, 'inspect_active_leases', ''),
                 'recover_or_resume_current_packet' => $recoverCommand,
+            ],
+            'runnable_proof_commands' => [
+                'task_health' => self::PHP_BIN.' artisan atlas:task next --client="'.$actor.'" --json',
+                'queued_targets' => self::PHP_BIN.' artisan atlas:ai:self-construction --agent-control-plane-task-queue-status --json',
+                'malformed_sweep' => self::PHP_BIN.' artisan atlas:task repair-blocked --json',
             ],
             'stop_conditions' => (array) data_get($terminalLoopOperatorCommands, 'long_running_loop_contract.stop_conditions', []),
             'resumption_checkpoint_hash' => (string) data_get($terminalLoopResumptionCheckpoint, 'resumption_checkpoint_hash', ''),
