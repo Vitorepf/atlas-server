@@ -40,6 +40,12 @@ final class AtlasSelfConstructionQueueContinuityForecaster
 
     private const DEFAULT_BATCH_SIZE = 10;
 
+    public const CONTINUITY_REPLENISH_BEFORE_EMPTY = 'replenish_before_empty';
+
+    public const CONTINUITY_STABLE = 'stable_continuity';
+
+    private const DEFAULT_SAFETY_WINDOW_HOURS = 2.0;
+
     /**
      * @param  array<string,mixed>  $snapshot  claimable_depth, servable_depth, blocked_count,
      *                                          throughput_per_hour, throughput_data_age_seconds,
@@ -59,9 +65,16 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         $missing = $throughput <= 0.0;
 
         if ($stale || $missing) {
+            $activeWorkerCount = max(0, (int) ($snapshot['active_worker_count'] ?? 0));
+            $claimablePerActiveWorker = isset($snapshot['claimable_per_active_worker'])
+                ? (float) $snapshot['claimable_per_active_worker']
+                : null;
+            $nearWorkerFloor = $activeWorkerCount > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= 2.0;
+
             return $this->failClosed(
                 $stale ? 'throughput_data_stale' : 'throughput_data_missing',
                 $claimable, $servable, $blocked,
+                $nearWorkerFloor, $activeWorkerCount, $claimablePerActiveWorker,
             );
         }
 
@@ -80,6 +93,18 @@ final class AtlasSelfConstructionQueueContinuityForecaster
             $recommendedBatch = max($recommendedBatch, $workerFloorGap);
         }
 
+        // Predicts time-to-no-claimable from active leases actually draining the claimable pool
+        // (recent completed_dry_run velocity), independent of the servable-depth/throughput forecast
+        // above — a queue can look fine on hours_until_dry while still about to run dry per-worker.
+        $activeLeases = max(0, (int) ($snapshot['active_leases'] ?? 0));
+        $completedDryRunPerHourPerLease = max(0.0, (float) ($snapshot['completed_dry_run_per_hour_per_lease'] ?? 0.0));
+        $safetyWindowHours = (float) ($snapshot['safety_window_hours'] ?? self::DEFAULT_SAFETY_WINDOW_HOURS);
+        $drainRatePerHour = $activeLeases * $completedDryRunPerHourPerLease;
+        $timeToNoClaimableHours = $drainRatePerHour > 0.0 ? $claimable / $drainRatePerHour : null;
+        $continuityStatus = ($timeToNoClaimableHours !== null && $timeToNoClaimableHours < $safetyWindowHours)
+            ? self::CONTINUITY_REPLENISH_BEFORE_EMPTY
+            : self::CONTINUITY_STABLE;
+
         return [
             'schema_version' => self::SCHEMA,
             'hours_until_dry' => round($hoursUntilDry, 2),
@@ -95,6 +120,8 @@ final class AtlasSelfConstructionQueueContinuityForecaster
             ],
             'worker_floor' => $workerFloor,
             'worker_floor_gap' => $workerFloorGap,
+            'time_to_no_claimable_hours' => $timeToNoClaimableHours !== null ? round($timeToNoClaimableHours, 2) : null,
+            'continuity_status' => $continuityStatus,
         ];
     }
 
@@ -121,14 +148,32 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         return ($order[$current] ?? 0) >= ($order[$atLeast] ?? 0) ? $current : $atLeast;
     }
 
-    private function failClosed(string $reason, int $claimable, int $servable, int $blocked): array
-    {
+    private function failClosed(
+        string $reason,
+        int $claimable,
+        int $servable,
+        int $blocked,
+        bool $nearWorkerFloor = false,
+        int $activeWorkerCount = 0,
+        ?float $claimablePerActiveWorker = null,
+    ): array {
+        $riskLevel = self::RISK_CRITICAL;
+        $continuityStatus = self::CONTINUITY_STABLE;
+        $recommendedBatch = self::DEFAULT_BATCH_SIZE;
+
+        if ($nearWorkerFloor) {
+            $riskLevel = $claimablePerActiveWorker <= 0.0 ? self::RISK_CRITICAL : self::RISK_HIGH;
+            $continuityStatus = self::CONTINUITY_REPLENISH_BEFORE_EMPTY;
+            $gap = max(0, (int) ceil(($activeWorkerCount * 2) - ($claimablePerActiveWorker * $activeWorkerCount)));
+            $recommendedBatch = max(self::DEFAULT_BATCH_SIZE, $gap);
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'hours_until_dry' => 0.0,
             'replenish_by' => null,
-            'risk_level' => self::RISK_CRITICAL,
-            'recommended_originator_batch_size' => self::DEFAULT_BATCH_SIZE,
+            'risk_level' => $riskLevel,
+            'recommended_originator_batch_size' => $recommendedBatch,
             'fail_closed' => true,
             'fail_closed_reason' => $reason,
             'discounted_capacity' => [
@@ -136,6 +181,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 'servable' => $servable,
                 'blocked' => $blocked,
             ],
+            'continuity_status' => $continuityStatus,
         ];
     }
 }

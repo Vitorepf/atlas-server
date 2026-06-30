@@ -92,4 +92,37 @@ class AtlasSelfConstructionQueueContinuityForecasterWorkerFloorTest extends Test
         $this->assertTrue($result['fail_closed']);
         $this->assertSame('throughput_data_missing', $result['fail_closed_reason']);
     }
+
+    public function test_missing_throughput_with_claimable_per_active_worker_at_floor_recommends_replenish_before_empty(): void
+    {
+        $result = $this->forecaster()->forecast([
+            'servable_depth' => 9,
+            'claimable_depth' => 9,
+            'active_worker_count' => 6,
+            'claimable_per_active_worker' => 2.0,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_REPLENISH_BEFORE_EMPTY, $result['continuity_status']);
+        $this->assertContains($result['risk_level'], [
+            AtlasSelfConstructionQueueContinuityForecaster::RISK_HIGH,
+            AtlasSelfConstructionQueueContinuityForecaster::RISK_CRITICAL,
+        ]);
+        $this->assertGreaterThan(0, $result['recommended_originator_batch_size']);
+    }
+
+    public function test_stale_throughput_with_no_active_workers_preserves_fail_closed_behavior(): void
+    {
+        $result = $this->forecaster()->forecast([
+            'servable_depth' => 9,
+            'claimable_depth' => 9,
+            'throughput_data_age_seconds' => 999999,
+            'active_worker_count' => 0,
+        ]);
+
+        $this->assertTrue($result['fail_closed']);
+        $this->assertSame('throughput_data_stale', $result['fail_closed_reason']);
+        $this->assertSame(AtlasSelfConstructionQueueContinuityForecaster::RISK_CRITICAL, $result['risk_level']);
+        $this->assertSame(AtlasSelfConstructionQueueContinuityForecaster::CONTINUITY_STABLE, $result['continuity_status']);
+        $this->assertSame(10, $result['recommended_originator_batch_size']);
+    }
 }
