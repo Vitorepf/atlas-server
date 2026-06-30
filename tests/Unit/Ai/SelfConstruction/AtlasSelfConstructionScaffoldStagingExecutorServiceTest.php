@@ -146,4 +146,53 @@ class AtlasSelfConstructionScaffoldStagingExecutorServiceTest extends TestCase
         $this->svc->stage($p['proposal_id'], $p['proposal_hash']);
         $this->assertCount(2, $this->svc->listReceipts());
     }
+
+    public function test_validate_plan_blocks_non_dry_run(): void
+    {
+        $result = AtlasSelfConstructionScaffoldStagingExecutorService::validatePlan([
+            'dry_run' => false,
+            'rollback_hint' => 'revert_staged_dir',
+            'target_paths' => ['storage/atlas/staged/foo.php'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionScaffoldStagingExecutorService::PLAN_BLOCKED, $result['verdict']);
+        $this->assertContains('non_dry_run_rejected', $result['blockers']);
+    }
+
+    public function test_validate_plan_blocks_missing_rollback_hint(): void
+    {
+        $result = AtlasSelfConstructionScaffoldStagingExecutorService::validatePlan([
+            'dry_run' => true,
+            'rollback_hint' => '',
+            'target_paths' => ['storage/atlas/staged/foo.php'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionScaffoldStagingExecutorService::PLAN_BLOCKED, $result['verdict']);
+        $this->assertContains('rollback_hint_missing', $result['blockers']);
+    }
+
+    public function test_validate_plan_blocks_production_path_mutation(): void
+    {
+        $result = AtlasSelfConstructionScaffoldStagingExecutorService::validatePlan([
+            'dry_run' => true,
+            'rollback_hint' => 'revert_staged_dir',
+            'target_paths' => ['app/Services/Foo.php'],
+        ]);
+        $this->assertSame(AtlasSelfConstructionScaffoldStagingExecutorService::PLAN_BLOCKED, $result['verdict']);
+        $this->assertTrue(count(array_filter($result['blockers'], fn ($b) => str_starts_with($b, 'production_path_mutation:'))) > 0);
+    }
+
+    public function test_validate_plan_emits_stable_artifact_hash_for_valid_plan(): void
+    {
+        $plan = [
+            'dry_run' => true,
+            'rollback_hint' => 'revert_staged_dir',
+            'target_paths' => ['storage/atlas/staged/foo.php'],
+        ];
+        $a = AtlasSelfConstructionScaffoldStagingExecutorService::validatePlan($plan);
+        $b = AtlasSelfConstructionScaffoldStagingExecutorService::validatePlan($plan);
+
+        $this->assertSame(AtlasSelfConstructionScaffoldStagingExecutorService::PLAN_VALID, $a['verdict']);
+        $this->assertSame(64, strlen($a['staged_artifact_hash']));
+        $this->assertTrue(ctype_xdigit($a['staged_artifact_hash']));
+        $this->assertSame($a['staged_artifact_hash'], $b['staged_artifact_hash']);
+    }
 }

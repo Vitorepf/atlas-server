@@ -41,6 +41,12 @@ final class AtlasSelfConstructionScaffoldStagingExecutorService
 
     public const STATUS_REJECTED_KERNEL_BLOCK = 'rejected_kernel_block';
 
+    public const PLAN_VALID = 'plan_valid';
+
+    public const PLAN_BLOCKED = 'plan_blocked';
+
+    private const PRODUCTION_PATH_PREFIXES = ['app/', 'config/', 'routes/', 'database/', 'bootstrap/'];
+
     private ?string $stagingRootOverride = null;
 
     private ?string $receiptsLogOverride = null;
@@ -191,6 +197,45 @@ final class AtlasSelfConstructionScaffoldStagingExecutorService
         $this->appendJsonl($this->receiptsLogPath(), $receipt);
 
         return $receipt;
+    }
+
+    /**
+     * Validate a staging plan without touching the filesystem.
+     * Returns PLAN_VALID + stable staged_artifact_hash, or PLAN_BLOCKED + blockers.
+     *
+     * @param  array<string,mixed>  $plan  {dry_run:bool, rollback_hint:string, target_paths:string[]}
+     * @return array<string,mixed>
+     */
+    public static function validatePlan(array $plan): array
+    {
+        $blockers = [];
+
+        if (! (bool) ($plan['dry_run'] ?? false)) {
+            $blockers[] = 'non_dry_run_rejected';
+        }
+
+        if ((string) ($plan['rollback_hint'] ?? '') === '') {
+            $blockers[] = 'rollback_hint_missing';
+        }
+
+        $paths = is_array($plan['target_paths'] ?? null) ? $plan['target_paths'] : [];
+        foreach ($paths as $path) {
+            foreach (self::PRODUCTION_PATH_PREFIXES as $prefix) {
+                if (str_starts_with((string) $path, $prefix)) {
+                    $blockers[] = 'production_path_mutation:'.$path;
+                    break;
+                }
+            }
+        }
+
+        if ($blockers !== []) {
+            return ['verdict' => self::PLAN_BLOCKED, 'blockers' => $blockers, 'staged_artifact_hash' => ''];
+        }
+
+        $canonicalInput = ['dry_run' => true, 'rollback_hint' => $plan['rollback_hint'], 'target_paths' => $paths];
+        $hash = hash('sha256', (string) json_encode($canonicalInput, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return ['verdict' => self::PLAN_VALID, 'blockers' => [], 'staged_artifact_hash' => $hash];
     }
 
     /**
