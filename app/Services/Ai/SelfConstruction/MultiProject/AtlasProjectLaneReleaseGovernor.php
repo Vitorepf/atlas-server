@@ -103,10 +103,24 @@ final class AtlasProjectLaneReleaseGovernor
             }
         }
 
+        // autonomy_readiness must be 'ready' before merge is granted.
+        $autonomy = is_array($facts['autonomy_readiness_facts'] ?? null) ? $facts['autonomy_readiness_facts'] : [];
+        if ((string) ($autonomy['status'] ?? '') !== 'ready') {
+            $reasons[] = 'autonomy_readiness_not_ready';
+        }
+
+        // Forbidden finality: operator/human/provider approval can NEVER substitute for server-side verification.
+        $finality = is_array($facts['finality_facts'] ?? null) ? $facts['finality_facts'] : [];
+        foreach (['operator_approved', 'human_approved', 'claude_code_approved', 'codex_approved', 'cursor_approved', 'provider_approved'] as $forbidden) {
+            if (! empty($finality[$forbidden])) {
+                $reasons[] = 'finality_provider_forbidden:'.$forbidden;
+            }
+        }
+
         sort($reasons, SORT_STRING);
 
         if ($reasons !== []) {
-            return $this->envelope(self::DECISION_HOLD, $projectId, $laneNs, $reasons, ['await_missing_facts']);
+            return $this->envelope(self::DECISION_HOLD, $projectId, $laneNs, $reasons, ['await_missing_facts', 'rerun_verification']);
         }
 
         return $this->envelope(self::DECISION_MERGE, $projectId, $laneNs, [], ['perform_lane_merge', 'append_release_decision_ledger']);
