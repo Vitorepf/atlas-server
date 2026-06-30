@@ -147,4 +147,74 @@ final class AtlasSelfConstructionCortexSnapshotComposerTest extends TestCase
         sort($expected);
         $this->assertSame($expected, $snapshotKeys, 'snapshot must contain exactly the required sections');
     }
+
+    // ── domain_map ────────────────────────────────────────────────────────────
+
+    private function domainMap(): array
+    {
+        return [
+            'organs' => [
+                ['name' => 'cortex', 'maturity' => 'alpha', 'risk_gaps' => ['stale_context'], 'owner_lane' => 'cognition', 'next_leverage_gap' => 'expand_risk_lens'],
+            ],
+        ];
+    }
+
+    public function test_domain_map_included_in_snapshot_when_provided(): void
+    {
+        $sections = $this->completeSections();
+        $sections['domain_map'] = $this->domainMap();
+
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($sections);
+
+        $this->assertSame(AtlasSelfConstructionCortexSnapshotComposer::STATUS_READY, $r['status']);
+        $this->assertArrayHasKey('domain_map', $r['snapshot']);
+        $this->assertSame($this->domainMap(), $r['snapshot']['domain_map']);
+    }
+
+    public function test_domain_map_affects_snapshot_hash_deterministically(): void
+    {
+        $c = new AtlasSelfConstructionCortexSnapshotComposer;
+        $without = $c->compose($this->completeSections())['snapshot_hash'];
+
+        $sections = $this->completeSections();
+        $sections['domain_map'] = $this->domainMap();
+        $with = $c->compose($sections)['snapshot_hash'];
+
+        $this->assertNotSame($without, $with, 'domain_map must change the hash');
+        $this->assertSame($with, $c->compose($sections)['snapshot_hash'], 'hash must be deterministic');
+    }
+
+    public function test_missing_domain_map_surfaces_as_optional_warning_not_blocker(): void
+    {
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->completeSections());
+
+        $this->assertSame(AtlasSelfConstructionCortexSnapshotComposer::STATUS_READY, $r['status']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertContains('optional_domain_map_missing', $r['warnings']);
+    }
+
+    public function test_domain_map_organ_fields_preserved_in_snapshot(): void
+    {
+        $sections = $this->completeSections();
+        $sections['domain_map'] = [
+            'organs' => [
+                [
+                    'name' => 'merge_governor',
+                    'maturity' => 'stable',
+                    'risk_gaps' => ['unsafe_merge_posture'],
+                    'owner_lane' => 'governance',
+                    'next_leverage_gap' => 'add_rollback_path',
+                ],
+            ],
+        ];
+
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($sections);
+
+        $organ = $r['snapshot']['domain_map']['organs'][0];
+        $this->assertSame('merge_governor', $organ['name']);
+        $this->assertSame('stable', $organ['maturity']);
+        $this->assertSame(['unsafe_merge_posture'], $organ['risk_gaps']);
+        $this->assertSame('governance', $organ['owner_lane']);
+        $this->assertSame('add_rollback_path', $organ['next_leverage_gap']);
+    }
 }

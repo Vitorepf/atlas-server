@@ -82,6 +82,14 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             $queueSummary['dry']     = isset($qs['dry']) ? (bool) $qs['dry'] : null;
         }
 
+        // Optional domain_map: included in snapshot+hash when provided; surfaced as warning when absent.
+        $warnings = [];
+        if (isset($sections['domain_map']) && is_array($sections['domain_map'])) {
+            $snapshot['domain_map'] = $sections['domain_map'];
+        } else {
+            $warnings[] = 'optional_domain_map_missing';
+        }
+
         $canonical = $snapshot;
         ksort($canonical);
         $hash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -90,6 +98,7 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             'schema'          => self::SCHEMA,
             'status'          => $status,
             'blockers'        => $blockers,
+            'warnings'        => $warnings,
             'snapshot'        => $snapshot,
             'snapshot_hash'   => $hash,
             'stale_sources'   => $staleSources,
