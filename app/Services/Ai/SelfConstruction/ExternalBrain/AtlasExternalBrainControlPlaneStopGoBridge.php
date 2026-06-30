@@ -59,6 +59,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         return [
             'schema'           => self::SCHEMA,
             'stop_go_decision' => $decision,
+            'stop_go_signal'   => $this->stopGoSignal($decision),
             'reasons'          => array_values($reasons),
             'next_action'      => $this->nextAction($decision),
             'provider_free'    => true,
@@ -139,15 +140,27 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         return [self::DECISION_PAUSE, ['no_expansion_signal_detected']];
     }
 
+    private function stopGoSignal(string $decision): string
+    {
+        return match ($decision) {
+            self::DECISION_SELF_HEAL_QUEUE,
+            self::DECISION_RUN_CONSOLIDATION    => 'stop',
+            self::DECISION_DRAIN_EXISTING_QUEUE => 'watch',
+            self::DECISION_ESCALATE_AMBITION,
+            self::DECISION_CREATE_MORE_TASKS    => 'go',
+            default                             => 'hold',
+        };
+    }
+
     private function nextAction(string $decision): string
     {
         return match ($decision) {
-            self::DECISION_SELF_HEAL_QUEUE      => 'repair_malformed_packets_and_restore_queue_health',
-            self::DECISION_RUN_CONSOLIDATION    => 'run_organ_sprawl_reduction_and_quality_recovery',
-            self::DECISION_DRAIN_EXISTING_QUEUE => 'assign_workers_to_drain_existing_queue_before_originating',
-            self::DECISION_ESCALATE_AMBITION    => 'fill_maturity_gaps_with_higher_leverage_tasks',
-            self::DECISION_CREATE_MORE_TASKS    => 'originate_next_batch_from_comprehension',
-            default                             => 'observe_and_wait_for_next_signal',
+            self::DECISION_SELF_HEAL_QUEUE      => 'self_heal_queue_before_creating',
+            self::DECISION_RUN_CONSOLIDATION    => 'consolidate_existing_tasks',
+            self::DECISION_DRAIN_EXISTING_QUEUE => 'consolidate_existing_tasks',
+            self::DECISION_ESCALATE_AMBITION,
+            self::DECISION_CREATE_MORE_TASKS    => 'create_high_leverage_batch',
+            default                             => 'observe_and_wait',
         };
     }
 }
