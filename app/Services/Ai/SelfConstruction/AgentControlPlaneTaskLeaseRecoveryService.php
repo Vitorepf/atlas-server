@@ -41,6 +41,8 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
     public const RECOVERABILITY_CLAIMABLE = 'claimable_ready';
 
+    public const RECOVERABILITY_BLOCKED_NON_RECOVERABLE = 'blocked_non_recoverable';
+
     public const RECOVERABILITY_OTHER = 'other_state';
 
     public const RECEIPT_TASK_LEASE_RECOVERY_EXECUTED = 'task_lease_recovery_executed';
@@ -50,6 +52,8 @@ final class AgentControlPlaneTaskLeaseRecoveryService
     public const RECEIPT_RELEASED_TASK_REQUEUED = 'released_task_requeued';
 
     public const RECEIPT_RELEASED_TASK_REQUEUE_SKIPPED = 'released_task_requeue_skipped';
+
+    private const ROOT_CAUSE_SUMMARY_EXAMPLE_LIMIT = 5;
 
     public function __construct(
         private readonly ?AgentControlPlaneTaskPacketQueueRepository $queue = null,
@@ -489,6 +493,10 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
         $taskPacketId = trim((string) ($options['packet'] ?? ''));
         $queueTags = $this->queueTags($options);
+        $missingRecordIds = [];
+        if ($taskPacketId !== '' && $queueRepo->get($taskPacketId) === null) {
+            $missingRecordIds[] = $taskPacketId;
+        }
         $records = $taskPacketId !== ''
             ? array_filter([$queueRepo->get($taskPacketId)], fn ($r): bool => $r !== null)
             : array_merge(
@@ -507,6 +515,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
         $now = CarbonImmutable::now()->getTimestamp();
         $classifications = [];
+        $examplesByClassification = [];
         $totals = [
             self::RECOVERABILITY_RECOVERABLE_EXPIRED => 0,
             self::RECOVERABILITY_RECOVERABLE_ORPHAN => 0,
@@ -514,6 +523,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             self::RECOVERABILITY_ACTIVE_LEASE => 0,
             self::RECOVERABILITY_TERMINAL => 0,
             self::RECOVERABILITY_CLAIMABLE => 0,
+            self::RECOVERABILITY_BLOCKED_NON_RECOVERABLE => 0,
             self::RECOVERABILITY_OTHER => 0,
         ];
 
@@ -534,6 +544,7 @@ final class AgentControlPlaneTaskLeaseRecoveryService
 
             $classification = match (true) {
                 in_array($status, ['completed_dry_run', 'cancelled'], true) => self::RECOVERABILITY_TERMINAL,
+                $status === 'blocked' => self::RECOVERABILITY_BLOCKED_NON_RECOVERABLE,
                 $status === 'claimable' => self::RECOVERABILITY_CLAIMABLE,
                 $status === 'released' && $this->releasedTaskCanBeRequeued($releaseReason) => self::RECOVERABILITY_RECOVERABLE_RELEASED,
                 $status === 'claimed' && $lease !== null && $leaseStatus === AgentControlPlaneClaimLeaseRepository::LEASE_STATUS_ACTIVE && ! $leaseExpired => self::RECOVERABILITY_ACTIVE_LEASE,
@@ -542,6 +553,10 @@ final class AgentControlPlaneTaskLeaseRecoveryService
                 default => self::RECOVERABILITY_OTHER,
             };
             $totals[$classification] = ($totals[$classification] ?? 0) + 1;
+            $examplesByClassification[$classification] ??= [];
+            if (count($examplesByClassification[$classification]) < self::ROOT_CAUSE_SUMMARY_EXAMPLE_LIMIT) {
+                $examplesByClassification[$classification][] = $id;
+            }
 
             $classifications[] = [
                 'task_packet_id' => $id,
@@ -568,7 +583,55 @@ final class AgentControlPlaneTaskLeaseRecoveryService
             'recoverable_count' => $totals[self::RECOVERABILITY_RECOVERABLE_EXPIRED] + $totals[self::RECOVERABILITY_RECOVERABLE_ORPHAN] + $totals[self::RECOVERABILITY_RECOVERABLE_RELEASED],
             'totals_by_classification' => $totals,
             'classifications' => $classifications,
+            'root_cause_summary' => $this->buildRootCauseSummary($totals, $examplesByClassification, $missingRecordIds),
         ]);
+    }
+
+    /**
+     * Bucket recoverability totals into the operator-facing root-cause
+     * categories so reaping loops can tell *why* a packet needs attention
+     * instead of just whether it does.
+     *
+     * @param  array<string, int>  $totals
+     * @param  array<string, list<string>>  $examplesByClassification
+     * @param  list<string>  $missingRecordIds
+     * @return array<string, array{count: int, examples: list<string>}>
+     */
+    private function buildRootCauseSummary(array $totals, array $examplesByClassification, array $missingRecordIds): array
+    {
+        $staleClaimedCount = ($totals[self::RECOVERABILITY_RECOVERABLE_EXPIRED] ?? 0)
+            + ($totals[self::RECOVERABILITY_RECOVERABLE_ORPHAN] ?? 0);
+        $staleClaimedExamples = array_slice(array_merge(
+            $examplesByClassification[self::RECOVERABILITY_RECOVERABLE_EXPIRED] ?? [],
+            $examplesByClassification[self::RECOVERABILITY_RECOVERABLE_ORPHAN] ?? [],
+        ), 0, self::ROOT_CAUSE_SUMMARY_EXAMPLE_LIMIT);
+
+        return [
+            'stale_claimed_leases' => [
+                'count' => $staleClaimedCount,
+                'examples' => $staleClaimedExamples,
+            ],
+            'released_returned_to_claimable' => [
+                'count' => $totals[self::RECOVERABILITY_RECOVERABLE_RELEASED] ?? 0,
+                'examples' => $examplesByClassification[self::RECOVERABILITY_RECOVERABLE_RELEASED] ?? [],
+            ],
+            'blocked_non_recoverable' => [
+                'count' => $totals[self::RECOVERABILITY_BLOCKED_NON_RECOVERABLE] ?? 0,
+                'examples' => $examplesByClassification[self::RECOVERABILITY_BLOCKED_NON_RECOVERABLE] ?? [],
+            ],
+            'terminal' => [
+                'count' => $totals[self::RECOVERABILITY_TERMINAL] ?? 0,
+                'examples' => $examplesByClassification[self::RECOVERABILITY_TERMINAL] ?? [],
+            ],
+            'missing_records' => [
+                'count' => count($missingRecordIds),
+                'examples' => array_slice($missingRecordIds, 0, self::ROOT_CAUSE_SUMMARY_EXAMPLE_LIMIT),
+            ],
+            'transition_failures' => [
+                'count' => 0,
+                'examples' => [],
+            ],
+        ];
     }
 
     /**
