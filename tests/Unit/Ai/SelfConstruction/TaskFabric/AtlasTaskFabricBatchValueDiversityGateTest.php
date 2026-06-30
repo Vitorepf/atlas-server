@@ -141,6 +141,58 @@ final class AtlasTaskFabricBatchValueDiversityGateTest extends TestCase
         $this->assertSame(AtlasTaskFabricBatchValueDiversityGate::SCHEMA, $r['schema_version']);
     }
 
+    // ── AC2/AC3: replenish_soon worker-floor batches ───────────────────────────
+
+    public function test_replenish_soon_batch_of_five_specs_across_two_dimensions_passes(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Top up worker claimable queue for lane alpha', ['Lane alpha claimable restored']),
+            $this->spec('Verify gate proof chain for lane beta', ['Lane beta proof verified']),
+            $this->spec('Drain queue backlog jam for lane gamma', ['Lane gamma backlog drained']),
+            $this->spec('Learn from capture insight for lane delta', ['Lane delta insight captured']),
+            $this->spec('Harden guard resilient check for lane epsilon', ['Lane epsilon guard hardened']),
+        ], ['batch_purpose' => 'replenish_soon']);
+
+        $this->assertTrue($r['passed']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertGreaterThanOrEqual(2, $r['diversity_facts']['distinct_dimension_count']);
+        $this->assertSame('replenish_soon', $r['diversity_facts']['batch_purpose']);
+    }
+
+    public function test_worker_floor_boilerplate_batch_sharing_template_is_blocked(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Top up worker claimable queue for lane 1', ['Lane claimable restored']),
+            $this->spec('Top up worker claimable queue for lane 2', ['Lane claimable restored']),
+            $this->spec('Top up worker claimable queue for lane 3', ['Lane claimable restored']),
+        ], ['batch_purpose' => 'replenish_soon']);
+
+        $this->assertFalse($r['passed']);
+        $this->assertContains('template_farm_concentration', $r['blockers']);
+        $this->assertNotEmpty($r['repair_hints']);
+    }
+
+    public function test_non_boilerplate_batch_is_never_checked_for_template_farm(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Fix queue jam in replenisher', ['Queue drains without error']),
+            $this->spec('Verify gate proof chain end to end', ['Test passes green']),
+        ]);
+
+        $this->assertArrayNotHasKey('template_farm_concentration', $r['diversity_facts']);
+    }
+
+    public function test_mixed_batch_with_some_non_boilerplate_specs_skips_template_farm_check(): void
+    {
+        $r = (new AtlasTaskFabricBatchValueDiversityGate)->evaluate([
+            $this->spec('Top up worker claimable queue for lane 1', ['Lane claimable restored']),
+            $this->spec('Top up worker claimable queue for lane 2', ['Lane claimable restored']),
+            $this->spec('Build and ship a new memory capture pipeline', ['Pipeline ships green']),
+        ]);
+
+        $this->assertArrayNotHasKey('template_farm_concentration', $r['diversity_facts']);
+    }
+
     public function test_gate_source_has_no_side_effects(): void
     {
         $src = (string) file_get_contents(__DIR__ . '/../../../../../app/Services/Ai/SelfConstruction/TaskFabric/AtlasTaskFabricBatchValueDiversityGate.php');

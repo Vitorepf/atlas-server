@@ -12,6 +12,17 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  *   - acceptance_shape_concentration       : >50% specs share the same acceptance-criteria shape
  *   - one_file_concentration               : >50% specs touch only one file
  *   - insufficient_dimension_diversity     : fewer than MIN_DISTINCT_DIMENSIONS value dimensions
+ *   - template_farm_concentration          : ALL specs look like worker-floor top-up boilerplate
+ *                                            (mention worker/claimable + top-up/replenish) AND
+ *                                            >50% share the same TEMPLATE fingerprint (objective
+ *                                            with numeric ids/counters stripped) — catches a batch
+ *                                            that looks superficially varied (different counters)
+ *                                            but is actually homogeneous padding.
+ *
+ * options.batch_purpose (e.g. 'replenish_soon') is informational only: a smaller emergency
+ * top-up batch is allowed through on the SAME rules as any other batch — the dimension-diversity
+ * check (>=2 distinct value dimensions) is what decides whether it is real, varied work or
+ * homogeneous padding; there is no separate minimum-size rule to relax.
  *
  * NO process execution, NO filesystem, NO providers.
  * Output is DETERMINISTIC given the same input.
@@ -56,7 +67,8 @@ final class AtlasTaskFabricBatchValueDiversityGate
 
         $blockers     = [];
         $repairHints  = [];
-        $diversityFacts = ['total' => $total];
+        $batchPurpose = trim((string) ($options['batch_purpose'] ?? ''));
+        $diversityFacts = ['total' => $total, 'batch_purpose' => $batchPurpose];
 
         // Objective fingerprint concentration.
         $fingerprints  = array_map(fn (array $s): string => $this->objectiveFingerprint((string) ($s['objective'] ?? '')), $specs);
@@ -103,6 +115,31 @@ final class AtlasTaskFabricBatchValueDiversityGate
             $repairHints[] = 'Batch covers fewer than ' . self::MIN_DISTINCT_DIMENSIONS . ' distinct value dimensions (' . implode(', ', $distinctDimensions) . '). Add specs from other dimensions.';
         }
 
+        // Template-farm concentration: a batch that LOOKS varied (different counters/ids in the
+        // objective) but is actually worker-floor top-up boilerplate repeated with the numbers
+        // swapped out. Only evaluated when EVERY spec in the batch matches the worker-floor
+        // boilerplate marker — a mixed batch is never penalized for containing some top-up specs.
+        $boilerplateFlags = array_map(
+            fn (array $s): bool => $this->isWorkerFloorBoilerplate((string) ($s['objective'] ?? '')),
+            $specs,
+        );
+        if (! in_array(false, $boilerplateFlags, true)) {
+            $templateFingerprints = array_map(
+                fn (array $s): string => $this->templateFingerprint((string) ($s['objective'] ?? '')),
+                $specs,
+            );
+            $tfpCounts = array_count_values($templateFingerprints);
+            arsort($tfpCounts);
+            $topTfp = (string) array_key_first($tfpCounts);
+            $topTfpCount = $tfpCounts[$topTfp] ?? 0;
+            $templateConcentration = $topTfpCount / $total;
+            $diversityFacts['template_farm_concentration'] = round($templateConcentration, 3);
+            if ($templateConcentration > self::CONCENTRATION_THRESHOLD) {
+                $blockers[]    = 'template_farm_concentration';
+                $repairHints[] = "Batch is worker-floor top-up boilerplate sharing the same structural template once ids/counters are stripped ({$topTfpCount}/{$total}). Vary the underlying task content, not just ids or counters.";
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'passed'         => $blockers === [],
@@ -133,6 +170,35 @@ final class AtlasTaskFabricBatchValueDiversityGate
         }
 
         return implode('|', $parts);
+    }
+
+    /**
+     * True when the objective mentions worker-floor top-up language — the kind of text our own
+     * worker-feed-risk auto-replenishment emits — so the template-farm check only ever evaluates
+     * batches that are actually emergency top-up candidates.
+     */
+    private function isWorkerFloorBoilerplate(string $objective): bool
+    {
+        $lower = strtolower($objective);
+        $mentionsWorkerOrClaimable = str_contains($lower, 'worker') || str_contains($lower, 'claimable');
+        $mentionsTopUp = str_contains($lower, 'top up') || str_contains($lower, 'top-up')
+            || str_contains($lower, 'topup') || str_contains($lower, 'replenish');
+
+        return $mentionsWorkerOrClaimable && $mentionsTopUp;
+    }
+
+    /**
+     * Structural template of an objective with numeric ids/counters stripped, so "top up worker 1"
+     * and "top up worker 2" collapse to the same template even though their raw text — and their
+     * 4-word objective_fingerprint — differ.
+     */
+    private function templateFingerprint(string $objective): string
+    {
+        $normalized = strtolower((string) preg_replace('/[^a-z0-9 ]/i', ' ', $objective));
+        $normalized = (string) preg_replace('/\b[0-9]+\b/', '', $normalized);
+        $words = array_values(array_filter(explode(' ', $normalized)));
+
+        return implode(' ', $words);
     }
 
     private function classifyDimension(string $objective): string
