@@ -95,6 +95,21 @@ final class AtlasProjectLaneAutonomyReadiness
             foreach ((array) ($rec['blockers'] ?? []) as $r) {
                 $blockers[] = 'receipt:'.(string) $r;
             }
+            $nextActions[] = 'reissue_lane_receipt';
+        }
+
+        // ROLLBACK GATE — failure is BLOCKING (must be able to roll back before merge).
+        $rb = (array) ($organFacts['rollback'] ?? []);
+        if (! (bool) ($rb['conformant'] ?? false)) {
+            $blockers[] = 'rollback_failed';
+            $nextActions[] = 'rerun_rollback_gate';
+        }
+
+        // RUNTIME SOAK — failure is BLOCKING (long-run invariants must be proved before merge).
+        $soak = (array) ($organFacts['runtime_soak'] ?? []);
+        if (! (bool) ($soak['passed'] ?? false)) {
+            $blockers[] = 'runtime_soak_failed';
+            $nextActions[] = 'rerun_verification_commands';
         }
 
         // FRESHNESS — stale observation is a HOLD (refreshable), not a BLOCK.

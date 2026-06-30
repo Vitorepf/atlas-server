@@ -18,6 +18,8 @@ final class AtlasProjectLaneAutonomyReadinessTest extends TestCase
             'verification_court' => ['passed' => true],
             'release_governor' => ['passed' => true],
             'receipt_policy' => ['passed' => true],
+            'rollback' => ['conformant' => true],
+            'runtime_soak' => ['passed' => true],
             'knowledge_sync' => ['ready' => true],
         ];
     }
@@ -114,5 +116,61 @@ final class AtlasProjectLaneAutonomyReadinessTest extends TestCase
         $svc = new AtlasProjectLaneAutonomyReadiness;
         $organs = $this->happyOrgans();
         $this->assertSame(json_encode($svc->compose('p', $organs)), json_encode($svc->compose('p', $organs)));
+    }
+
+    public function test_runtime_soak_failure_blocks(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['runtime_soak'] = ['passed' => false];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_BLOCKED, $verdict['state']);
+        $this->assertContains('runtime_soak_failed', $verdict['blockers']);
+    }
+
+    public function test_rollback_failure_blocks(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['rollback'] = ['conformant' => false];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_BLOCKED, $verdict['state']);
+        $this->assertContains('rollback_failed', $verdict['blockers']);
+    }
+
+    public function test_knowledge_sync_not_ready_is_hold(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['knowledge_sync'] = ['ready' => false];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_HOLD, $verdict['state']);
+        $this->assertContains('knowledge_sync_not_ready', $verdict['holds']);
+        $this->assertContains('run_atlas_engineering_knowledge_sync', $verdict['next_atlas_actions']);
+    }
+
+    public function test_receipt_policy_failure_blocks(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['receipt_policy'] = ['passed' => false, 'blockers' => ['missing_hash']];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_BLOCKED, $verdict['state']);
+        $this->assertContains('receipt_policy_failed', $verdict['blockers']);
+        $this->assertContains('receipt:missing_hash', $verdict['blockers']);
+    }
+
+    public function test_next_atlas_actions_are_deduplicated(): void
+    {
+        // runtime_soak failure and verification_court failure both emit 'rerun_verification_commands'.
+        $organs = $this->happyOrgans();
+        $organs['runtime_soak'] = ['passed' => false];
+        $organs['verification_court'] = ['passed' => false];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $actions = $verdict['next_atlas_actions'];
+        $this->assertSame($actions, array_values(array_unique($actions)), 'next_atlas_actions must be deduplicated');
+        $this->assertContains('rerun_verification_commands', $actions);
+        $this->assertCount(1, array_filter($actions, static fn ($a) => $a === 'rerun_verification_commands'));
     }
 }
