@@ -299,4 +299,110 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
             $this->assertSame([], $entry['missing_refs'], "Unexpected missing_refs for {$entry['dimension']}");
         }
     }
+
+    // ── new AC: evidence_age_hours staleness + finality_risk_score + next_certification_action ──
+
+    public function test_output_includes_new_canonical_keys(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+
+        foreach (['finality_risk_score', 'next_certification_action'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_stale_evidence_blocks_final_95_candidate_even_when_all_dims_pass(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['live_cycle_evidence']['evidence_age_hours'] = 200;
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+        $this->assertContains('live_cycle_evidence', array_column($result['blockers'], 'dimension'));
+    }
+
+    public function test_fresh_evidence_age_does_not_block_final_95_candidate(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['live_cycle_evidence']['evidence_age_hours'] = 1;
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+    }
+
+    public function test_evidence_dossier_exposes_evidence_age_hours_and_stale_flag(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['live_cycle_evidence']['evidence_age_hours'] = 200;
+
+        $result = $this->gate()->certify($evidence);
+        $byDim  = array_column($result['evidence_dossier'], null, 'dimension');
+
+        $this->assertSame(200.0, $byDim['live_cycle_evidence']['evidence_age_hours']);
+        $this->assertTrue($byDim['live_cycle_evidence']['stale']);
+        $this->assertFalse($byDim['anti_goodhart_pass']['stale']);
+    }
+
+    public function test_final_95_candidate_impossible_from_authored_spec_only_evidence(): void
+    {
+        // "authored spec" = boolean flags flipped true with zero supporting refs and stale-by-default age.
+        $evidence = [
+            'live_cycle_evidence'    => ['cycle_count' => 1, 'resolved_task_count' => 1],
+            'anti_goodhart'          => ['verdict' => 'pass'],
+            'self_improvement_cycle' => ['has_output' => true, 'recommendation_count' => 1],
+            'muscle_learning'        => ['outcome_count' => 1, 'success_rate' => 0.5],
+            'property_gated_path'    => ['ready' => true, 'blocking_gates' => []],
+            'doc_proposal'           => ['drafted' => true, 'certification_blocked' => false],
+            'autonomy'               => ['human_dependency_in_loop' => false, 'provider_dependency_in_steady_state' => false],
+        ];
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+    }
+
+    public function test_human_or_provider_dependency_in_steady_state_keeps_final_95_unreachable(): void
+    {
+        $evidence = array_merge($this->fullEvidence(), [
+            'autonomy' => ['human_dependency_in_loop' => true, 'provider_dependency_in_steady_state' => true, 'evidence_refs' => ['autonomy_assessment_ref']],
+        ]);
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertNotSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+    }
+
+    public function test_next_certification_action_is_none_when_certified(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+
+        $this->assertStringStartsWith('none', $result['next_certification_action']);
+    }
+
+    public function test_next_certification_action_names_a_blocker_when_not_certified(): void
+    {
+        $result = $this->gate()->certify([]);
+
+        $this->assertNotSame('', $result['next_certification_action']);
+        $this->assertStringStartsWith('resolve', $result['next_certification_action']);
+    }
+
+    public function test_finality_risk_score_is_zero_when_fully_certified(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+
+        $this->assertSame(0.0, $result['finality_risk_score']);
+    }
+
+    public function test_finality_risk_score_is_higher_with_more_blockers(): void
+    {
+        $fewBlockers  = $this->gate()->certify(array_merge($this->fullEvidence(), [
+            'live_cycle_evidence' => ['cycle_count' => 0, 'resolved_task_count' => 0],
+        ]));
+        $manyBlockers = $this->gate()->certify([]);
+
+        $this->assertGreaterThan($fewBlockers['finality_risk_score'], $manyBlockers['finality_risk_score']);
+    }
 }

@@ -40,6 +40,9 @@ final class AtlasExternalBrainFinalCertificationGate
 
     private const NEAR_FINAL_THRESHOLD = 5; // of 7 required dimensions
 
+    /** Evidence older than this is stale and cannot support final_95_candidate. */
+    private const MAX_EVIDENCE_AGE_HOURS = 72.0;
+
     /** Minimum evidence refs required per dimension to reach final_95_candidate. */
     private const REQUIRED_REFS = [
         'live_cycle_evidence'           => ['cycle_run_receipt'],
@@ -73,7 +76,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $resolvedCount = (int) ($evidence['live_cycle_evidence']['resolved_task_count'] ?? 0);
         $liveCyclePass = $cycleCount >= 1 && $resolvedCount >= 1;
         $results['live_cycle_evidence'] = $liveCyclePass;
-        $dossier[] = $this->dossierEntry('live_cycle_evidence', $liveCyclePass, $evidence['live_cycle_evidence']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('live_cycle_evidence', $liveCyclePass, $evidence['live_cycle_evidence']['evidence_refs'] ?? [], $evidence['live_cycle_evidence']['evidence_age_hours'] ?? null);
         if (! $liveCyclePass) {
             $blockers[] = [
                 'dimension' => 'live_cycle_evidence',
@@ -86,7 +89,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $auditVerdict = (string) ($evidence['anti_goodhart']['verdict'] ?? 'unknown');
         $auditPass    = $auditVerdict === 'pass';
         $results['anti_goodhart_pass'] = $auditPass;
-        $dossier[] = $this->dossierEntry('anti_goodhart_pass', $auditPass, $evidence['anti_goodhart']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('anti_goodhart_pass', $auditPass, $evidence['anti_goodhart']['evidence_refs'] ?? [], $evidence['anti_goodhart']['evidence_age_hours'] ?? null);
         if (! $auditPass) {
             $blockers[] = [
                 'dimension' => 'anti_goodhart_pass',
@@ -100,7 +103,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $recommendationCount = (int) ($evidence['self_improvement_cycle']['recommendation_count'] ?? 0);
         $selfImprovementPass = $hasOutput && $recommendationCount >= 1;
         $results['self_improvement_cycle_output'] = $selfImprovementPass;
-        $dossier[] = $this->dossierEntry('self_improvement_cycle_output', $selfImprovementPass, $evidence['self_improvement_cycle']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('self_improvement_cycle_output', $selfImprovementPass, $evidence['self_improvement_cycle']['evidence_refs'] ?? [], $evidence['self_improvement_cycle']['evidence_age_hours'] ?? null);
         if (! $selfImprovementPass) {
             $blockers[] = [
                 'dimension' => 'self_improvement_cycle_output',
@@ -114,7 +117,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $successRate  = (float) ($evidence['muscle_learning']['success_rate'] ?? 0.0);
         $musclePass   = $outcomeCount >= 1 && $successRate > 0.0;
         $results['muscle_outcome_learning'] = $musclePass;
-        $dossier[] = $this->dossierEntry('muscle_outcome_learning', $musclePass, $evidence['muscle_learning']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('muscle_outcome_learning', $musclePass, $evidence['muscle_learning']['evidence_refs'] ?? [], $evidence['muscle_learning']['evidence_age_hours'] ?? null);
         if (! $musclePass) {
             $blockers[] = [
                 'dimension' => 'muscle_outcome_learning',
@@ -128,7 +131,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $blockingGates     = (array) ($evidence['property_gated_path']['blocking_gates'] ?? []);
         $propertyGatedPass = $pgReady && $blockingGates === [];
         $results['property_gated_path'] = $propertyGatedPass;
-        $dossier[] = $this->dossierEntry('property_gated_path', $propertyGatedPass, $evidence['property_gated_path']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('property_gated_path', $propertyGatedPass, $evidence['property_gated_path']['evidence_refs'] ?? [], $evidence['property_gated_path']['evidence_age_hours'] ?? null);
         if (! $propertyGatedPass) {
             $gateList = $blockingGates !== [] ? implode(', ', $blockingGates) : 'ready=false';
             $blockers[] = [
@@ -143,7 +146,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $docCertBlocked = (bool) ($evidence['doc_proposal']['certification_blocked'] ?? true);
         $docPass        = $docDrafted && ! $docCertBlocked;
         $results['doc_proposal_readiness'] = $docPass;
-        $dossier[] = $this->dossierEntry('doc_proposal_readiness', $docPass, $evidence['doc_proposal']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('doc_proposal_readiness', $docPass, $evidence['doc_proposal']['evidence_refs'] ?? [], $evidence['doc_proposal']['evidence_age_hours'] ?? null);
         if (! $docPass) {
             $reason = ! $docDrafted ? 'proposals not drafted' : 'doc certification is blocked';
             $blockers[] = [
@@ -158,7 +161,7 @@ final class AtlasExternalBrainFinalCertificationGate
         $providerDep  = (bool) ($evidence['autonomy']['provider_dependency_in_steady_state'] ?? true);
         $autonomyPass = ! $humanDep && ! $providerDep;
         $results['autonomy_steady_state'] = $autonomyPass;
-        $dossier[] = $this->dossierEntry('autonomy_steady_state', $autonomyPass, $evidence['autonomy']['evidence_refs'] ?? []);
+        $dossier[] = $this->dossierEntry('autonomy_steady_state', $autonomyPass, $evidence['autonomy']['evidence_refs'] ?? [], $evidence['autonomy']['evidence_age_hours'] ?? null);
         if (! $autonomyPass) {
             $deps = [];
             if ($humanDep) {
@@ -183,20 +186,39 @@ final class AtlasExternalBrainFinalCertificationGate
             fn(array $e): bool => $e['passed'] && $e['missing_refs'] !== [],
         ));
 
+        // Stale evidence blocks final_95_candidate even when booleans pass.
+        $staleDimensions = array_values(array_map(
+            fn(array $e): string => $e['dimension'],
+            array_filter($dossier, fn(array $e): bool => $e['stale']),
+        ));
+        $hasStaleEvidence = $staleDimensions !== [];
+
+        foreach ($staleDimensions as $staleDimension) {
+            $blockers[] = [
+                'dimension' => $staleDimension,
+                'reason'    => 'evidence_age_hours exceeds '.self::MAX_EVIDENCE_AGE_HOURS.'h freshness floor: evidence is stale',
+                'action'    => 'Re-run the evidence-producing step and refresh evidence_age_hours before re-certifying',
+            ];
+        }
+
+        $verdict = $this->computeVerdict($passedCount, $requiredCount, $hasMissingRefs || $hasStaleEvidence);
+
         return [
-            'schema'            => self::SCHEMA,
-            'verdict'           => $this->computeVerdict($passedCount, $requiredCount, $hasMissingRefs),
-            'passed_count'      => $passedCount,
-            'required_count'    => $requiredCount,
-            'blockers'          => $blockers,
-            'dimension_results' => $results,
-            'evidence_dossier'  => $dossier,
+            'schema'                    => self::SCHEMA,
+            'verdict'                   => $verdict,
+            'passed_count'              => $passedCount,
+            'required_count'            => $requiredCount,
+            'blockers'                  => $blockers,
+            'dimension_results'         => $results,
+            'evidence_dossier'          => $dossier,
+            'finality_risk_score'       => $this->finalityRiskScore($passedCount, $requiredCount, count($blockers)),
+            'next_certification_action' => $this->nextCertificationAction($verdict, $blockers),
         ];
     }
 
-    private function computeVerdict(int $passed, int $required, bool $hasMissingRefs = false): string
+    private function computeVerdict(int $passed, int $required, bool $hasMissingRefsOrStaleEvidence = false): string
     {
-        if ($passed === $required && ! $hasMissingRefs) {
+        if ($passed === $required && ! $hasMissingRefsOrStaleEvidence) {
             return self::VERDICT_FINAL_95;
         }
         if ($passed >= self::NEAR_FINAL_THRESHOLD) {
@@ -206,17 +228,47 @@ final class AtlasExternalBrainFinalCertificationGate
         return self::VERDICT_BELOW_FINAL;
     }
 
-    /** @return array{dimension:string, passed:bool, evidence_refs:list<string>, missing_refs:list<string>} */
-    private function dossierEntry(string $dimension, bool $passed, array $providedRefs): array
+    private function finalityRiskScore(int $passed, int $required, int $blockerCount): float
+    {
+        if ($required === 0) {
+            return 1.0;
+        }
+
+        $unproven = max(0, $required - $passed) + $blockerCount;
+
+        return round(min(1.0, $unproven / ($required * 2)), 4);
+    }
+
+    /** @param  list<array{dimension:string, reason:string, action:string}>  $blockers */
+    private function nextCertificationAction(string $verdict, array $blockers): string
+    {
+        if ($verdict === self::VERDICT_FINAL_95) {
+            return 'none: final_95_candidate reached with current, fresh, directly-referenced evidence';
+        }
+
+        $firstBlocker = $blockers[0] ?? null;
+
+        return $firstBlocker !== null
+            ? "resolve {$firstBlocker['dimension']}: {$firstBlocker['action']}"
+            : 'resolve remaining blockers before re-certifying';
+    }
+
+    /** @return array{dimension:string, passed:bool, evidence_refs:list<string>, missing_refs:list<string>, evidence_age_hours:float|null, stale:bool} */
+    private function dossierEntry(string $dimension, bool $passed, array $providedRefs, int|float|string|null $evidenceAgeHours = null): array
     {
         $required    = self::REQUIRED_REFS[$dimension] ?? [];
         $missingRefs = array_values(array_diff($required, $providedRefs));
 
+        $ageHours = $evidenceAgeHours !== null ? (float) $evidenceAgeHours : null;
+        $stale    = $ageHours !== null && $ageHours > self::MAX_EVIDENCE_AGE_HOURS;
+
         return [
-            'dimension'    => $dimension,
-            'passed'       => $passed,
-            'evidence_refs' => array_values($providedRefs),
-            'missing_refs'  => $missingRefs,
+            'dimension'           => $dimension,
+            'passed'              => $passed,
+            'evidence_refs'       => array_values($providedRefs),
+            'missing_refs'        => $missingRefs,
+            'evidence_age_hours'  => $ageHours,
+            'stale'               => $stale,
         ];
     }
 }
