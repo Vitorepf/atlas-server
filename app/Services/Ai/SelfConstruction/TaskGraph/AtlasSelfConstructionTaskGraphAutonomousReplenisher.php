@@ -118,6 +118,135 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
     }
 
     /**
+     * Convert final-brain coverage gaps into ordered packet drafts.
+     *
+     * Each gap: { lane: string, depends_on_lanes?: list<string>, category?: string }
+     * Returns no_op=true (empty packet_drafts) when $gaps is empty.
+     * wave_order is computed via topological level (Kahn's BFS); lanes outside this
+     * gap set are ignored in depends_on to avoid dangling references.
+     *
+     * @param  list<array<string,mixed>>  $gaps
+     * @return array<string,mixed>
+     */
+    public function replenishFromGaps(array $gaps): array
+    {
+        if ($gaps === []) {
+            return [
+                'schema'         => self::SCHEMA,
+                'no_op'          => true,
+                'packet_drafts'  => [],
+            ];
+        }
+
+        // Build lane → packet_id map.
+        $laneToId = [];
+        foreach ($gaps as $gap) {
+            $lane = (string) ($gap['lane'] ?? '');
+            if ($lane === '') {
+                continue;
+            }
+            $laneToId[$lane] = 'final-brain-gap-'.$lane;
+        }
+
+        // Compute in-degree and adjacency for Kahn's BFS (within this gap set only).
+        $inDegree  = array_fill_keys(array_keys($laneToId), 0);
+        $dependsMap = [];  // lane → list<lane> of its predecessors in this set
+        foreach ($gaps as $gap) {
+            $lane = (string) ($gap['lane'] ?? '');
+            if (! isset($laneToId[$lane])) {
+                continue;
+            }
+            $deps = is_array($gap['depends_on_lanes'] ?? null) ? $gap['depends_on_lanes'] : [];
+            $localDeps = [];
+            foreach ($deps as $dep) {
+                $dep = (string) $dep;
+                if (isset($laneToId[$dep])) {
+                    $localDeps[] = $dep;
+                    $inDegree[$lane]++;
+                }
+            }
+            $dependsMap[$lane] = $localDeps;
+        }
+
+        // BFS to assign wave levels (1-based).
+        $queue = [];
+        foreach ($inDegree as $lane => $deg) {
+            if ($deg === 0) {
+                $queue[] = $lane;
+            }
+        }
+        $waveLevel = [];
+        $successors = array_fill_keys(array_keys($laneToId), []);
+        foreach ($dependsMap as $lane => $preds) {
+            foreach ($preds as $pred) {
+                $successors[$pred][] = $lane;
+            }
+        }
+        $head = 0;
+        while ($head < count($queue)) {
+            $lane = $queue[$head++];
+            $level = $waveLevel[$lane] ?? 1;
+            foreach ($successors[$lane] as $successor) {
+                $inDegree[$successor]--;
+                $newLevel = max($waveLevel[$successor] ?? 1, $level + 1);
+                $waveLevel[$successor] = $newLevel;
+                if ($inDegree[$successor] === 0) {
+                    $queue[] = $successor;
+                }
+            }
+            if (! isset($waveLevel[$lane])) {
+                $waveLevel[$lane] = 1;
+            }
+        }
+
+        // Build packet drafts in wave order.
+        $byLane = [];
+        foreach ($gaps as $gap) {
+            $lane = (string) ($gap['lane'] ?? '');
+            if (isset($laneToId[$lane])) {
+                $byLane[$lane] = $gap;
+            }
+        }
+
+        $drafts = [];
+        foreach ($byLane as $lane => $gap) {
+            $packetId   = $laneToId[$lane];
+            $waveOrder  = $waveLevel[$lane] ?? 1;
+            $localDeps  = $dependsMap[$lane] ?? [];
+            $dependsOn  = array_values(array_map(fn (string $d): string => $laneToId[$d], $localDeps));
+            $category   = (string) ($gap['category'] ?? 'final_brain');
+
+            $drafts[] = [
+                'task_packet_id'     => $packetId,
+                'lane'               => $lane,
+                'wave_order'         => $waveOrder,
+                'wave'               => 'final-brain-w'.$waveOrder,
+                'depends_on'         => $dependsOn,
+                'objective'          => 'Implement missing final-brain lane: '.$lane.' ('.$category.')',
+                'allowed_files'      => [
+                    'app/Services/Ai/SelfConstruction/'.ucfirst($lane).'/AtlasSelfConstruction'.ucfirst($lane).'Service.php',
+                    'tests/Unit/Ai/SelfConstruction/'.ucfirst($lane).'/AtlasSelfConstruction'.ucfirst($lane).'ServiceTest.php',
+                ],
+                'acceptance_criteria' => [
+                    'Lane '.$lane.' passes all required capability checks.',
+                    'No provider/git/worker calls in service source.',
+                ],
+                'tags'               => ['self_construction', 'final_brain', $lane],
+                'priority'           => 5,
+            ];
+        }
+
+        usort($drafts, static fn (array $a, array $b): int =>
+            $a['wave_order'] <=> $b['wave_order'] ?: strcmp($a['lane'], $b['lane']));
+
+        return [
+            'schema'        => self::SCHEMA,
+            'no_op'         => false,
+            'packet_drafts' => $drafts,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $plan
      * @param  list<array<string,mixed>>  $enqueueResults
      */
