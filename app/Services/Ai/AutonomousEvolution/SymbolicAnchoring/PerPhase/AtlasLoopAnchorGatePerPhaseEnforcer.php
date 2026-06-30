@@ -63,7 +63,7 @@ final class AtlasLoopAnchorGatePerPhaseEnforcer
             return EnforcementVerdict::refuse(EnforcementVerdict::REASON_DENSITY_BELOW_FLOOR, $density, $required, $missingKinds);
         }
         if (count($distinct) < $profile->distinctAnchorFloor) {
-            return EnforcementVerdict::refuse(EnforcementVerdict::REASON_DENSITY_BELOW_FLOOR, $density, $required, $missingKinds);
+            return EnforcementVerdict::refuse(EnforcementVerdict::REASON_DISTINCT_BELOW_FLOOR, $density, $required, $missingKinds);
         }
         if ($missingKinds !== []) {
             return EnforcementVerdict::refuse(EnforcementVerdict::REASON_MISSING_ANCHOR_KINDS, $density, $required, $missingKinds);

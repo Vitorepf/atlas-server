@@ -10,6 +10,8 @@ final readonly class EnforcementVerdict
 
     public const REASON_DENSITY_BELOW_FLOOR = 'anchor_density_below_floor';
 
+    public const REASON_DISTINCT_BELOW_FLOOR = 'distinct_anchor_below_floor';
+
     public const REASON_MISSING_ANCHOR_KINDS = 'missing_required_anchor_kinds';
 
     public const REASON_DISABLED = 'per_phase_anchor_gate_disabled';

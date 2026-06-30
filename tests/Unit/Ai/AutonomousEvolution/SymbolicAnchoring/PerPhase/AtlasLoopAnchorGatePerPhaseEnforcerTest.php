@@ -62,6 +62,28 @@ class AtlasLoopAnchorGatePerPhaseEnforcerTest extends TestCase
         self::assertSame(EnforcementVerdict::REASON_DISABLED, $verdict->reasonCode);
     }
 
+    public function test_density_passes_but_distinct_below_floor_uses_distinct_reason_not_density(): void
+    {
+        // Profile: density floor=0.1 (easy to pass), distinctAnchorFloor=3 (hard to reach with one name)
+        $registry = new AtlasLoopAnchorGatePerPhaseRegistry([
+            'decide' => ['anchored_symbols_per_kchar' => 0.1, 'distinct_anchor_floor' => 3, 'must_anchor_kinds' => []],
+        ], enabled: true);
+        $enforcer = new AtlasLoopAnchorGatePerPhaseEnforcer($registry, enabled: true);
+
+        // 5 anchors all named 'SameName' → density=5/1=5 >> 0.1 (passes), but distinct=1 < 3 (fails floor)
+        $payload = [
+            'text' => 'x', // 1 kchar
+            'anchors' => array_fill(0, 5, ['kind' => 'class', 'name' => 'SameName']),
+        ];
+        $verdict = $enforcer->enforce('decide', $payload);
+
+        self::assertFalse($verdict->allow);
+        self::assertSame(EnforcementVerdict::REASON_DISTINCT_BELOW_FLOOR, $verdict->reasonCode,
+            'a density-passing distinct-floor failure must use the distinct reason code, not the density reason code');
+        self::assertNotSame(EnforcementVerdict::REASON_DENSITY_BELOW_FLOOR, $verdict->reasonCode,
+            'density was above floor — the reason must not claim density_below_floor');
+    }
+
     public function test_refuses_with_missing_required_anchor_kinds(): void
     {
         $registry = new AtlasLoopAnchorGatePerPhaseRegistry([
