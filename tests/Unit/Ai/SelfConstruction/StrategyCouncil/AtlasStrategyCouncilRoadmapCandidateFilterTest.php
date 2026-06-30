@@ -72,6 +72,29 @@ final class AtlasStrategyCouncilRoadmapCandidateFilterTest extends TestCase
         $this->assertSame('dropped:outside_scope:external', $r['dropped'][0]['drop_reason']);
     }
 
+    public function test_high_leverage_candidate_with_autonomy_impact_metadata_is_accepted(): void
+    {
+        $c = $this->candidate('high-lev', [
+            'leverage_score' => 9.2,
+            'autonomy_impact' => 'high',
+            'implementability' => 'achievable',
+            'evidence_path' => 'docs/high-lev.md',
+        ]);
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([$c]);
+        $this->assertCount(1, $r['kept']);
+        $this->assertSame('high-lev', $r['kept'][0]['candidate_id']);
+        $this->assertSame(9.2, $r['kept'][0]['leverage_score']);
+    }
+
+    public function test_ranked_drop_reason_resolved_takes_precedence_over_proxy_kind(): void
+    {
+        // resolved=true AND kind=proxy → must get dropped:resolved, not dropped:proxy_only
+        $c = $this->candidate('dual-fail', ['resolved' => true, 'kind' => 'cyclomatic_shrink']);
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([$c]);
+        $this->assertCount(1, $r['dropped']);
+        $this->assertSame('dropped:resolved', $r['dropped'][0]['drop_reason']);
+    }
+
     public function test_kept_and_dropped_lists_are_deterministically_sorted(): void
     {
         $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
