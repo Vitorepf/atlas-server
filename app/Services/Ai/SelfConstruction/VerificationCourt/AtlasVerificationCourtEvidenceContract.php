@@ -35,15 +35,19 @@ final class AtlasVerificationCourtEvidenceContract
 
     /**
      * @param  array<string,mixed>  $evidence
+     * @param  array{task_packet_id?:string, allowed_files_hash?:string, command_hash?:string}  $expected
+     *         Binding context for replay-protection checks. When a key is present its value must match.
      * @return array{schema:string, accepted:bool, verified:null, blockers:list<string>, allegation_summary:array<string,mixed>}
      */
-    public function evaluate(array $evidence): array
+    public function evaluate(array $evidence, array $expected = []): array
     {
         $blockers = [];
 
         $taskId = (string) ($evidence['task_packet_id'] ?? '');
         if ($taskId === '') {
             $blockers[] = 'missing_task_packet_id';
+        } elseif (isset($expected['task_packet_id']) && $taskId !== (string) $expected['task_packet_id']) {
+            $blockers[] = 'task_packet_id_mismatch';
         }
         $leaseId = (string) ($evidence['lease_id'] ?? '');
         if ($leaseId === '') {
@@ -77,6 +81,22 @@ final class AtlasVerificationCourtEvidenceContract
         if ($evHash === '') {
             $blockers[] = 'missing_evidence_hash';
         }
+
+        $receiptHash = (string) ($evidence['receipt_hash'] ?? '');
+        if ($receiptHash === '') {
+            $blockers[] = 'receipt_hash_missing';
+        }
+
+        $allowedFilesHash = (string) ($evidence['allowed_files_hash'] ?? '');
+        if (isset($expected['allowed_files_hash']) && $allowedFilesHash !== (string) $expected['allowed_files_hash']) {
+            $blockers[] = 'allowed_files_hash_mismatch';
+        }
+
+        $commandHash = (string) ($evidence['command_hash'] ?? '');
+        if (isset($expected['command_hash']) && $commandHash !== (string) $expected['command_hash']) {
+            $blockers[] = 'command_hash_mismatch';
+        }
+
         $scopeDevs = is_array($evidence['scope_deviations'] ?? null) ? array_values($evidence['scope_deviations']) : [];
         foreach ($scopeDevs as $dev) {
             if (! is_array($dev) || empty($dev['acknowledged'])) {

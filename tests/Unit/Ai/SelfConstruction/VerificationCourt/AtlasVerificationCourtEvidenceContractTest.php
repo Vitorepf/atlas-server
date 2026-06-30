@@ -25,9 +25,21 @@ final class AtlasVerificationCourtEvidenceContractTest extends TestCase
             'commands_run' => [['name' => 'phpunit', 'exit_code' => 0]],
             'tests_or_gates_result' => ['passed' => true, 'gate' => 'phpunit'],
             'evidence_hash' => 'evh-1',
+            'receipt_hash' => 'rh-abc',
+            'allowed_files_hash' => 'afh-xyz',
+            'command_hash' => 'ch-def',
             'scope_deviations' => [],
             'residual_risks' => [],
             'runtime_owner' => AtlasVerificationCourtEvidenceContract::RUNTIME_OWNER_NATIVE,
+        ];
+    }
+
+    private function validExpected(): array
+    {
+        return [
+            'task_packet_id' => 'pkt-1',
+            'allowed_files_hash' => 'afh-xyz',
+            'command_hash' => 'ch-def',
         ];
     }
 
@@ -78,6 +90,50 @@ final class AtlasVerificationCourtEvidenceContractTest extends TestCase
         $e['commands_run'] = [['exit_code' => 0]]; // no 'name'
         $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
         $this->assertContains('empty_command_proof', $r['blockers']);
+    }
+
+    public function test_exact_matching_evidence_with_expected_binding_is_accepted(): void
+    {
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $this->validExpected());
+        $this->assertTrue($r['accepted']);
+        $this->assertNull($r['verified']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_task_packet_id_mismatch_blocks_acceptance(): void
+    {
+        $expected = $this->validExpected();
+        $expected['task_packet_id'] = 'pkt-OTHER';
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $expected);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('task_packet_id_mismatch', $r['blockers']);
+    }
+
+    public function test_allowed_files_hash_mismatch_blocks_acceptance(): void
+    {
+        $expected = $this->validExpected();
+        $expected['allowed_files_hash'] = 'afh-WRONG';
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $expected);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('allowed_files_hash_mismatch', $r['blockers']);
+    }
+
+    public function test_command_hash_mismatch_blocks_acceptance(): void
+    {
+        $expected = $this->validExpected();
+        $expected['command_hash'] = 'ch-WRONG';
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $expected);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('command_hash_mismatch', $r['blockers']);
+    }
+
+    public function test_missing_receipt_hash_blocks_acceptance(): void
+    {
+        $e = $this->validEvidence();
+        unset($e['receipt_hash']);
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e, $this->validExpected());
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('receipt_hash_missing', $r['blockers']);
     }
 
     public function test_blockers_are_deterministically_sorted(): void
