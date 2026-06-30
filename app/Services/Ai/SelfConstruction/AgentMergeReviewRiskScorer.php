@@ -15,6 +15,13 @@ final class AgentMergeReviewRiskScorer
 
     public const RISK_BANDS = ['low', 'medium', 'high', 'critical'];
 
+    public const DECISION_APPROVE = 'approve';
+    public const DECISION_REQUIRE_REPROOF = 'require_reproof';
+    public const DECISION_REJECT_MERGE = 'reject_merge';
+
+    private const WEAK_EVIDENCE_FLOOR = 0.60;
+    private const HARD_ROLLBACK_FLOOR = 0.70;
+
     public const NON_EXECUTION_GUARANTEES = [
         'agent_merge_review_risk_scorer_does_not_apply_patch',
         'agent_merge_review_risk_scorer_does_not_modify_real_files',
@@ -61,6 +68,34 @@ final class AgentMergeReviewRiskScorer
         $factors[] = $this->factor('failing_artifacts', (int) ($artifactStats['failing_count'] ?? 0) * 2, (int) ($artifactStats['failing_count'] ?? 0));
         $factors[] = $this->factor('artifacts_missing', isset($artifactStats['artifact_count']) && (int) $artifactStats['artifact_count'] === 0 ? 1 : 0, isset($artifactStats['artifact_count']) && (int) $artifactStats['artifact_count'] === 0 ? 1 : 0);
 
+        // Evidence quality, test coverage and rollback difficulty.
+        $evidenceQuality = max(0.0, min(1.0, (float) data_get($packet, 'packet.evidence_quality', 1.0)));
+        $hasWeakEvidence = $evidenceQuality < self::WEAK_EVIDENCE_FLOOR;
+        // Test-coverage signal is opt-in: only evaluated when the caller explicitly
+        // reports test_files_touched_count, so packets without that stat are never
+        // penalized for an absence of information.
+        $testCoverageReported = isset($stats['test_files_touched_count']) || data_get($packet, 'packet.test_files_touched_count') !== null;
+        $implementationFilesTouched = (int) data_get($packet, 'packet.implementation_files_touched', max(0, $fileCount - (int) ($stats['test_files_touched_count'] ?? 0)));
+        $testFilesTouched = (int) ($stats['test_files_touched_count'] ?? data_get($packet, 'packet.test_files_touched_count', 0));
+        $hasMissingTests = $testCoverageReported && $implementationFilesTouched > 0 && $testFilesTouched === 0;
+        $rollbackDifficulty = max(0.0, min(1.0, (float) data_get($packet, 'packet.rollback_difficulty', 0.0)));
+        $isHardToRollback = $rollbackDifficulty >= self::HARD_ROLLBACK_FLOOR;
+
+        // Only added to the fixed grid when triggered, so untouched packets keep the original factor count.
+        if ($hasWeakEvidence) {
+            $factors[] = $this->factor('weak_evidence', 3, 1);
+        }
+        if ($hasMissingTests) {
+            $factors[] = $this->factor('missing_tests', 3, 1);
+        }
+        if ($isHardToRollback) {
+            $factors[] = $this->factor('rollback_difficulty', 2, 1);
+        }
+
+        // Scope drift: out-of-scope/cross-axis/unsafe paths signal the commit drifted beyond its allowed scope.
+        $scopeDriftCount = $outOfScopeCount + $crossAxisCount + $unsafePathCount;
+        $hasScopeDrift = $scopeDriftCount > 0;
+
         foreach ($factors as $factor) {
             $score += (int) $factor['weight'];
         }
@@ -85,6 +120,18 @@ final class AgentMergeReviewRiskScorer
         }
         $blockers = array_values(array_unique($blockers));
 
+        $hasBlockers = $blockers !== [];
+        $decision = match (true) {
+            $hasBlockers || $band === 'critical' => self::DECISION_REJECT_MERGE,
+            $band === 'high' || $hasWeakEvidence || $hasMissingTests || $isHardToRollback || $hasScopeDrift => self::DECISION_REQUIRE_REPROOF,
+            default => self::DECISION_APPROVE,
+        };
+        $requiredNextCheck = match ($decision) {
+            self::DECISION_REJECT_MERGE => 'do_not_merge_resolve_blockers_or_critical_risk_first',
+            self::DECISION_REQUIRE_REPROOF => 'rerun_full_test_and_evidence_proof_before_admitting_merge',
+            default => 'none_safe_to_merge',
+        };
+
         $envelope = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $band === 'critical' ? 'agent_merge_review_risk_critical' : 'agent_merge_review_risk_scored',
@@ -94,6 +141,10 @@ final class AgentMergeReviewRiskScorer
             'completion_claim_allowed' => false,
             'dispatch_allowed' => false,
             'ledger_write_allowed' => false,
+            'decision' => $decision,
+            'risk_score' => $score,
+            'risk_factors' => $factors,
+            'required_next_check' => $requiredNextCheck,
             'risk' => [
                 'overall_score' => $score,
                 'overall_band' => $band,

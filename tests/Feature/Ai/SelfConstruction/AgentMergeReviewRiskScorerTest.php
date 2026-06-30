@@ -250,4 +250,72 @@ final class AgentMergeReviewRiskScorerTest extends TestCase
 
         return -1;
     }
+
+    // ── decision / risk_score / risk_factors / required_next_check ───────────
+
+    public function test_clean_low_risk_packet_is_approved(): void
+    {
+        $svc = new AgentMergeReviewRiskScorer;
+        $packet = $this->packetWithFiles([['path' => 'app/X.php', 'change_kind' => 'modified', 'lines_added' => 3, 'lines_deleted' => 2]]);
+        $result = $svc->score($packet, $this->cleanScope($packet));
+
+        $this->assertSame(AgentMergeReviewRiskScorer::DECISION_APPROVE, $result['decision']);
+        $this->assertSame('none_safe_to_merge', $result['required_next_check']);
+        $this->assertSame($result['risk']['overall_score'], $result['risk_score']);
+        $this->assertSame($result['risk']['factors'], $result['risk_factors']);
+    }
+
+    public function test_blocker_present_rejects_merge(): void
+    {
+        $svc = new AgentMergeReviewRiskScorer;
+        $packet = $this->packetWithFiles([['path' => 'app/X.php', 'change_kind' => 'modified', 'lines_added' => 1]]);
+        $scope = ['verification' => ['forbidden_violation_count' => 1]];
+        $result = $svc->score($packet, $scope);
+
+        $this->assertSame(AgentMergeReviewRiskScorer::DECISION_REJECT_MERGE, $result['decision']);
+        $this->assertSame('do_not_merge_resolve_blockers_or_critical_risk_first', $result['required_next_check']);
+    }
+
+    public function test_weak_evidence_requires_reproof(): void
+    {
+        $svc = new AgentMergeReviewRiskScorer;
+        $packet = $this->packetWithFiles([['path' => 'app/X.php', 'change_kind' => 'modified', 'lines_added' => 1]]);
+        $packet['packet']['evidence_quality'] = 0.2;
+        $result = $svc->score($packet, $this->cleanScope($packet));
+
+        $this->assertSame(AgentMergeReviewRiskScorer::DECISION_REQUIRE_REPROOF, $result['decision']);
+        $this->assertContains('weak_evidence', array_column($result['risk_factors'], 'name'));
+    }
+
+    public function test_missing_tests_when_explicitly_reported_requires_reproof(): void
+    {
+        $svc = new AgentMergeReviewRiskScorer;
+        $packet = $this->packetWithFiles([['path' => 'app/X.php', 'change_kind' => 'modified', 'lines_added' => 1]]);
+        $packet['packet']['file_stats']['test_files_touched_count'] = 0;
+        $result = $svc->score($packet, $this->cleanScope($packet));
+
+        $this->assertSame(AgentMergeReviewRiskScorer::DECISION_REQUIRE_REPROOF, $result['decision']);
+        $this->assertContains('missing_tests', array_column($result['risk_factors'], 'name'));
+    }
+
+    public function test_hard_rollback_requires_reproof(): void
+    {
+        $svc = new AgentMergeReviewRiskScorer;
+        $packet = $this->packetWithFiles([['path' => 'app/X.php', 'change_kind' => 'modified', 'lines_added' => 1]]);
+        $packet['packet']['rollback_difficulty'] = 0.9;
+        $result = $svc->score($packet, $this->cleanScope($packet));
+
+        $this->assertSame(AgentMergeReviewRiskScorer::DECISION_REQUIRE_REPROOF, $result['decision']);
+        $this->assertContains('rollback_difficulty', array_column($result['risk_factors'], 'name'));
+    }
+
+    public function test_scope_drift_rejects_merge_via_blocker(): void
+    {
+        $svc = new AgentMergeReviewRiskScorer;
+        $packet = $this->packetWithFiles([['path' => 'app/X.php', 'change_kind' => 'modified', 'lines_added' => 1]]);
+        $scope = ['verification' => ['out_of_scope_count' => 1]];
+        $result = $svc->score($packet, $scope);
+
+        $this->assertSame(AgentMergeReviewRiskScorer::DECISION_REJECT_MERGE, $result['decision']);
+    }
 }
