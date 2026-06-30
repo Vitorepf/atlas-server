@@ -86,13 +86,22 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
         $queueStaleByAge     = $claimableAgeDays >= $ageSatThreshold;
         $lowThroughput       = $serveRate < $lowServeRateFloor;
 
+        // Saturation status reflects the queue's underlying health condition, independent of decision.
+        $saturationStatus = match (true) {
+            $poisonPressure  => 'poisoned',
+            $queueStaleByAge => 'stale',
+            $queueSaturated  => 'saturated',
+            $musclesStarved  => 'starved',
+            default          => 'healthy',
+        };
+
         // AC3: poison/malformed pressure → self-heal before anything else
         if ($poisonPressure) {
             return $this->result(
                 self::DECISION_SELF_HEAL_BEFORE_MORE_VOLUME,
                 "poison_packet_count={$poisonPacketCount}, malformed_packet_rate={$malformedPacketRate}; queue integrity compromised",
                 'self_heal_queue_integrity_before_adding_volume',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -101,7 +110,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_ALLOW_ENQUEUE_EXCEPTION,
                 "queue saturated (depth={$claimableDepth}) but task has exceptional value: value_density={$valueDensity}, dependency_unlock_score={$dependencyUnlock}",
                 'enqueue_this_task_then_reassess',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -111,7 +120,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_PAUSE_CREATION_AND_CONSOLIDATE,
                 "claimable_age_days={$claimableAgeDays} ≥ threshold={$ageSatThreshold} and serve_rate={$serveRate} < floor={$lowServeRateFloor}; tasks pile up faster than consumed",
                 'pause_creation_and_consolidate_existing_queue',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -120,7 +129,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_CONSOLIDATE_OR_AUDIT,
                 "claimable_depth={$claimableDepth} ≥ threshold={$saturationThreshold} and value_density={$valueDensity} below exception floor={$exceptionFloor}; block low-value enqueue",
                 'run_audit_or_evidence_backfill_next_cycle',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -129,7 +138,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_UNBLOCK_FIRST,
                 "servable_now={$servableNow} < floor={$burnRateFloor} but recoverable_backlog={$recoverableBacklog} tasks can be freed",
                 'unblock_blocked_tasks_before_originating_new_work',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -138,7 +147,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_ORIGINATE_MORE,
                 "servable_now={$servableNow} < floor={$burnRateFloor} and recoverable_backlog=0; muscles genuinely starved",
                 'originate_fresh_tasks_to_refill_worker_pipeline',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -148,7 +157,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_CONTINUE_CREATION,
                 "queue fresh (age={$claimableAgeDays}d < {$ageSatThreshold}d), serve_rate={$serveRate} healthy, value_density={$valueDensity} ≥ floor={$creationFloor}",
                 'continue_creation_at_current_cadence',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
             );
         }
 
@@ -156,7 +165,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
             self::DECISION_MONITOR,
             "claimable_depth={$claimableDepth} and servable_now={$servableNow} are both healthy; no intervention needed",
             'continue_normal_origination_cadence',
-            $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+            $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
         );
     }
 
@@ -168,6 +177,7 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
         int $servableNow,
         float $valueDensity,
         int $dependencyUnlockScore,
+        string $saturationStatus,
     ): array {
         return [
             'schema'                  => self::SCHEMA,
@@ -175,11 +185,13 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
             'reason'                  => $reason,
             'decision_reason'         => $reason,
             'next_cycle_hint'         => $nextCycleHint,
+            'next_action'             => $nextCycleHint,
             'claimable_depth'         => $claimableDepth,
             'queue_depth'             => $claimableDepth,
             'servable_now'            => $servableNow,
             'value_density'           => $valueDensity,
             'dependency_unlock_score' => $dependencyUnlockScore,
+            'saturation_status'       => $saturationStatus,
         ];
     }
 }

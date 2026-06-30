@@ -33,11 +33,62 @@ final class AtlasExternalBrainQueueSaturationStopPolicyTest extends TestCase
     {
         $result = $this->policy->evaluate($this->healthy());
 
-        foreach (['schema', 'decision', 'reason', 'next_cycle_hint', 'claimable_depth', 'servable_now',
-                  'queue_depth', 'value_density', 'dependency_unlock_score', 'decision_reason'] as $k) {
+        foreach (['schema', 'decision', 'reason', 'next_action', 'next_cycle_hint', 'claimable_depth', 'servable_now',
+                  'queue_depth', 'value_density', 'dependency_unlock_score', 'decision_reason', 'saturation_status'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainQueueSaturationStopPolicy::SCHEMA, $result['schema']);
+    }
+
+    // ── saturation_status + next_action / value-density consolidate proof ────
+
+    public function test_saturated_low_value_density_chooses_consolidate_or_audit_with_saturated_status(): void
+    {
+        $result = $this->policy->evaluate($this->healthy());
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationStopPolicy::DECISION_CONSOLIDATE_OR_AUDIT, $result['decision']);
+        $this->assertSame('saturated', $result['saturation_status']);
+        $this->assertSame($result['next_cycle_hint'], $result['next_action']);
+    }
+
+    public function test_stale_low_throughput_low_value_chooses_pause_creation_and_consolidate_with_stale_status(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'claimable_depth'    => 10,
+            'servable_now'       => 10,
+            'claimable_age_days' => 20,
+            'serve_rate'         => 0.10,
+            'value_density'      => 0.20,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationStopPolicy::DECISION_PAUSE_CREATION_AND_CONSOLIDATE, $result['decision']);
+        $this->assertSame('stale', $result['saturation_status']);
+    }
+
+    // ── poison/malformed pressure pre-empts every other rule ──────────────────
+
+    public function test_poison_packet_count_chooses_self_heal_before_any_create_or_exception_rule(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'value_density'           => 0.95,            // would otherwise be an exceptional-value exception
+            'dependency_unlock_score' => 5,
+            'poison_packet_count'     => 2,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationStopPolicy::DECISION_SELF_HEAL_BEFORE_MORE_VOLUME, $result['decision']);
+        $this->assertSame('poisoned', $result['saturation_status']);
+    }
+
+    public function test_malformed_packet_rate_chooses_self_heal_before_any_create_or_exception_rule(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'value_density'           => 0.95,
+            'dependency_unlock_score' => 5,
+            'malformed_packet_rate'   => 0.10,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationStopPolicy::DECISION_SELF_HEAL_BEFORE_MORE_VOLUME, $result['decision']);
+        $this->assertSame('poisoned', $result['saturation_status']);
     }
 
     // ── AC1: healthy deep queue → consolidate_or_audit ────────────────────────
