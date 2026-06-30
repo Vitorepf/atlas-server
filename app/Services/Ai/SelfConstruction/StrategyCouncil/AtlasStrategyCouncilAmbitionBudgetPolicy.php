@@ -42,6 +42,8 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
 
     public const LEVEL_BOLD = 'bold';
 
+    public const QUALITY_FLOOR_THRESHOLD = 7;
+
     /**
      * @param  array{
      *     leverage_rank?:string,
@@ -108,6 +110,51 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
         }
 
         return $this->envelope(self::LEVEL_NARROW, ['narrow:propose_or_observe_mode']);
+    }
+
+    /**
+     * Allocate total_budget_units across bugfix/capability/refactor/expansion lanes.
+     *
+     * Rules (evaluated in order):
+     *  1. bugfix_critical=true → all budget to bugfix, others 0 (emergency override)
+     *  2. quality_score < QUALITY_FLOOR_THRESHOLD → expansion refused; remaining split evenly
+     *  3. otherwise → balanced even split across all 4 lanes
+     *
+     * @param  array{total_budget_units?:int, quality_score?:int, bugfix_critical?:bool}  $facts
+     * @return array{lanes:array<string,int>, quality_floor_met:bool, reasons:list<string>}
+     */
+    public function allocate(array $facts): array
+    {
+        $total = (int) ($facts['total_budget_units'] ?? 0);
+        $qualityScore = (int) ($facts['quality_score'] ?? 10);
+        $bugfixCritical = (bool) ($facts['bugfix_critical'] ?? false);
+        $qualityFloorMet = $qualityScore >= self::QUALITY_FLOOR_THRESHOLD;
+
+        if ($bugfixCritical) {
+            return [
+                'lanes' => ['bugfix' => $total, 'capability' => 0, 'refactor' => 0, 'expansion' => 0],
+                'quality_floor_met' => $qualityFloorMet,
+                'reasons' => ['bugfix_emergency:all_budget_to_bugfix'],
+            ];
+        }
+
+        if (! $qualityFloorMet) {
+            $perLane = (int) ($total / 3);
+
+            return [
+                'lanes' => ['bugfix' => $perLane, 'capability' => $perLane, 'refactor' => $perLane, 'expansion' => 0],
+                'quality_floor_met' => false,
+                'reasons' => ['quality_floor:expansion_refused'],
+            ];
+        }
+
+        $perLane = (int) ($total / 4);
+
+        return [
+            'lanes' => ['bugfix' => $perLane, 'capability' => $perLane, 'refactor' => $perLane, 'expansion' => $perLane],
+            'quality_floor_met' => true,
+            'reasons' => ['balanced:even_distribution'],
+        ];
     }
 
     /**
