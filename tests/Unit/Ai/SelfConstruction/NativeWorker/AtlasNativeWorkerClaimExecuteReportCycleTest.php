@@ -124,6 +124,25 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         self::assertContains('allowed_files_empty', $reasons);
     }
 
+    public function test_denied_command_blocks_success_outcome(): void
+    {
+        $reportPayload = null;
+        $verdict = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => function (array $payload) use (&$reportPayload): void {
+                $reportPayload = $payload;
+            },
+            'verification' => ['passed' => true],
+            'command_plan' => [
+                ['name' => 'not-in-allowlist', 'command' => 'echo hi'],
+            ],
+        ]);
+
+        self::assertNotNull($reportPayload);
+        self::assertNotSame('success', $reportPayload['outcome'], 'a denied command must not produce a success outcome');
+    }
+
     public function test_cycle_hash_is_deterministic_for_identical_dry_run(): void
     {
         $cycle = new AtlasNativeWorkerClaimExecuteReportCycle();

@@ -179,9 +179,10 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                     'files_changed' => is_array($materialization['files'] ?? null)
                         ? array_values(array_map(static fn ($f): string => (string) ($f['path'] ?? ''), (array) $materialization['files']))
                         : [],
-                    'commands_run' => is_array($commandResult['commands'] ?? null)
-                        ? (array) $commandResult['commands']
-                        : [],
+                    'commands_run' => array_map(
+                        static fn (array $r): string => (string) ($r['name'] ?? ''),
+                        is_array($commandResult['results'] ?? null) ? (array) $commandResult['results'] : [],
+                    ),
                     'tests_or_gates_result' => [
                         'passed' => (bool) ($verification['passed'] ?? false),
                     ],
@@ -194,8 +195,17 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
 
         // 7. OUTCOME MAPPER
         $outcomeMapper = $this->outcomeMapper ?? new AtlasNativeWorkerOutcomeMapper();
+        $commandResults = is_array($commandResult['results'] ?? null) ? (array) $commandResult['results'] : [];
+        $commandStatuses = array_map(static fn (array $r): string => (string) ($r['status'] ?? ''), $commandResults);
+        $worstStatus = 'green';
+        foreach ($commandStatuses as $s) {
+            if ($s !== '' && $s !== 'green' && $s !== 'ok') {
+                $worstStatus = $s;
+                break;
+            }
+        }
         $execution = [
-            'command_status' => (string) ($commandResult['status'] ?? ''),
+            'command_status' => $worstStatus,
             'patch_status' => is_array($materialization) ? (string) ($materialization['status'] ?? 'green') : 'green',
             'results' => [],
             'evidence_refs' => array_values((array) ($normalized['required_evidence'] ?? [])),
