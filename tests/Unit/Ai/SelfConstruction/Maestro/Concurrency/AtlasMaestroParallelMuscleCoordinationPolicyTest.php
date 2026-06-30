@@ -157,6 +157,61 @@ final class AtlasMaestroParallelMuscleCoordinationPolicyTest extends TestCase
         $this->assertContains('workers_demonstrate_quality', $result['add_worker_reasons']);
     }
 
+    // ── AC3: poison pressure throttles even when queue is deep ───────────────
+
+    public function test_high_poison_pressure_triggers_throttle(): void
+    {
+        $result = $this->policy->recommend($this->clean([
+            'poison_pressure' => 0.50, // > 0.20 threshold
+            'servable_count'  => 8,
+        ]));
+
+        $this->assertContains('poison_pressure_elevated', $result['throttle_reasons']);
+        $this->assertLessThan(8, $result['recommended_parallelism']);
+    }
+
+    // ── AC4: target_change deterministic relative to active_leases, spawn_allowed gate ──
+
+    public function test_target_change_is_difference_between_recommended_and_active_leases(): void
+    {
+        $result = $this->policy->recommend($this->clean(['active_leases' => 2, 'servable_count' => 4]));
+
+        $this->assertSame($result['recommended_parallelism'] - 2, $result['target_change']);
+    }
+
+    public function test_spawn_allowed_true_when_target_change_positive(): void
+    {
+        $result = $this->policy->recommend($this->clean(['active_leases' => 1, 'servable_count' => 6]));
+
+        $this->assertGreaterThan(0, $result['target_change']);
+        $this->assertTrue($result['spawn_allowed']);
+    }
+
+    public function test_spawn_allowed_false_when_target_change_not_positive(): void
+    {
+        $result = $this->policy->recommend($this->clean([
+            'give_back_rate' => 0.90,
+            'active_leases'  => 5,
+            'servable_count' => 5,
+        ]));
+
+        $this->assertLessThanOrEqual(0, $result['target_change']);
+        $this->assertFalse($result['spawn_allowed']);
+    }
+
+    public function test_recommended_parallelism_never_recommends_zero(): void
+    {
+        $result = $this->policy->recommend($this->clean([
+            'give_back_rate'        => 1.0,
+            'lock_contention'       => 1.0,
+            'poison_pressure'       => 1.0,
+            'worker_quality_scores' => [0.0],
+            'servable_count'        => 1,
+        ]));
+
+        $this->assertGreaterThanOrEqual(1, $result['recommended_parallelism']);
+    }
+
     // ── Edge cases ───────────────────────────────────────────────────────────
 
     public function test_empty_signals_returns_valid_result(): void
