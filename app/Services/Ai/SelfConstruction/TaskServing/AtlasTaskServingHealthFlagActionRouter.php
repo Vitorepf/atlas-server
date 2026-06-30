@@ -60,7 +60,18 @@ final class AtlasTaskServingHealthFlagActionRouter
         $leaseLeak = (bool) ($flags['lease_leak_detected'] ?? false) || ! $leasesMatchClaimed;
         $queuePressure = (string) ($snapshot['queue_pressure'] ?? '');
         $replenishRecommendation = (string) ($snapshot['replenish_recommendation'] ?? '');
-        $workerFloorPressure = $queuePressure === 'high' || $replenishRecommendation === 'replenish_soon';
+        $forecast = is_array($snapshot['worker_drain_forecast'] ?? null) ? $snapshot['worker_drain_forecast'] : [];
+        $forecastReplenishRecommendation = (string) ($forecast['replenish_recommendation'] ?? '');
+        $activeLeases = (int) ($snapshot['active_leases'] ?? ($forecast['active_leases'] ?? 0));
+        $claimablePerActiveWorker = isset($forecast['claimable_per_active_worker'])
+            ? (float) $forecast['claimable_per_active_worker']
+            : (isset($snapshot['claimable_per_active_worker']) ? (float) $snapshot['claimable_per_active_worker'] : null);
+        $nearWorkerFloor = $activeLeases > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= 2.0;
+        $workerFloorPressure = $queuePressure === 'high'
+            || $replenishRecommendation === 'replenish_soon'
+            || $forecastReplenishRecommendation === 'replenish_soon'
+            || $nearWorkerFloor;
+        $effectiveReplenishRecommendation = $replenishRecommendation !== '' ? $replenishRecommendation : $forecastReplenishRecommendation;
 
         // Candidate actions in deterministic priority order — first true wins as primary.
         // Lease leak, recoverable backlog, and malformed sweep keep precedence over worker-floor
@@ -92,7 +103,7 @@ final class AtlasTaskServingHealthFlagActionRouter
             'schema' => self::SCHEMA,
             'primary_action' => $primaryAction,
             'secondary_actions' => $secondaryActions,
-            'human_readable_reason' => $this->reason($primaryAction, $dryQueue, $servingJammed, $recoverableTotal, $malformedRisk, $leaseLeak, $servableNow, $queuePressure, $replenishRecommendation),
+            'human_readable_reason' => $this->reason($primaryAction, $dryQueue, $servingJammed, $recoverableTotal, $malformedRisk, $leaseLeak, $servableNow, $queuePressure, $effectiveReplenishRecommendation, $nearWorkerFloor || $forecastReplenishRecommendation === 'replenish_soon', $activeLeases, $claimablePerActiveWorker),
         ];
     }
 
@@ -106,6 +117,9 @@ final class AtlasTaskServingHealthFlagActionRouter
         int $servableNow,
         string $queuePressure,
         string $replenishRecommendation,
+        bool $nearWorkerFloor,
+        int $activeLeases,
+        ?float $claimablePerActiveWorker,
     ): string {
         return match ($primaryAction) {
             self::ACTION_REPLENISH_OR_REPAIR => $dryQueue
@@ -114,11 +128,17 @@ final class AtlasTaskServingHealthFlagActionRouter
             self::ACTION_REAP_LEASES => sprintf('recoverable backlog of %d lease(s) — reap before claiming more', $recoverableTotal),
             self::ACTION_SWEEP_MALFORMED => 'malformed-packet risk detected — sweep before workers claim poisoned packets',
             self::ACTION_INSPECT_LEASE_PARITY => sprintf('lease count mismatch with servable_now=%d — harmless pressure, inspect parity, do not panic-replenish', $servableNow),
-            self::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION => sprintf(
-                'queue_pressure=%s, replenish_recommendation=%s — top up the queue before workers starve',
-                $queuePressure !== '' ? $queuePressure : 'unknown',
-                $replenishRecommendation !== '' ? $replenishRecommendation : 'unknown',
-            ),
+            self::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION => $nearWorkerFloor
+                ? sprintf(
+                    'worker_floor: active_leases=%d, claimable_per_active_worker=%s <= 2 — top up the queue before active muscles starve',
+                    $activeLeases,
+                    $claimablePerActiveWorker !== null ? (string) $claimablePerActiveWorker : 'unknown',
+                )
+                : sprintf(
+                    'queue_pressure=%s, replenish_recommendation=%s — top up the queue before workers starve',
+                    $queuePressure !== '' ? $queuePressure : 'unknown',
+                    $replenishRecommendation !== '' ? $replenishRecommendation : 'unknown',
+                ),
             default => 'queue is clean and servable — continue normal work',
         };
     }

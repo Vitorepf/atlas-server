@@ -87,4 +87,46 @@ final class AtlasTaskServingHealthFlagActionRouterWorkerFloorTest extends TestCa
 
         $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
     }
+
+    public function test_nested_forecast_replenish_soon_with_dry_queue_false_routes_to_top_up(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'active_leases' => 4,
+            'worker_drain_forecast' => ['replenish_recommendation' => 'replenish_soon'],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION, $r['primary_action']);
+        $this->assertStringContainsString('worker_floor', $r['human_readable_reason']);
+    }
+
+    public function test_claimable_per_active_worker_at_or_below_two_with_active_leases_routes_to_top_up(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'active_leases' => 5,
+            'worker_drain_forecast' => ['claimable_per_active_worker' => 2.0],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION, $r['primary_action']);
+        $this->assertStringContainsString('worker_floor', $r['human_readable_reason']);
+    }
+
+    public function test_no_active_leases_with_comfortable_buffer_continues_work(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'active_leases' => 0,
+            'worker_drain_forecast' => ['claimable_per_active_worker' => 1.0],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
+    }
+
+    public function test_active_leases_with_comfortable_claimable_buffer_continues_work(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'active_leases' => 5,
+            'worker_drain_forecast' => ['claimable_per_active_worker' => 5.0],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
+    }
 }
