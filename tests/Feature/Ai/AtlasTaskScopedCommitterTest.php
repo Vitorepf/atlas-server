@@ -75,6 +75,20 @@ final class AtlasTaskScopedCommitterTest extends TestCase
         $this->assertSame('seed', trim($this->git(['log', '-1', '--pretty=%s'])['out']));
     }
 
+    public function test_commits_file_with_non_ascii_path(): void
+    {
+        // ó = U+00F3 (UTF-8: \xc3\xb3). git quotes/octal-escapes this in non--z porcelain,
+        // causing git add to fail with the old trim-quotes parser.
+        $filename = 'app/relat'."\xc3\xb3".'rio.php'; // relatório.php
+
+        $this->writeFile($filename, "<?php // non-ASCII path\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope([$filename], 'task-nc', 'client-nc', 'non-ascii commit');
+
+        $this->assertTrue($res['committed'], 'file with non-ASCII path must commit; reason: '.(string)($res['reason'] ?? 'none'));
+        $this->assertContains($filename, $res['files_committed']);
+    }
+
     public function test_nothing_to_commit_in_scope_is_an_honest_noop(): void
     {
         $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(['app/A/Unchanged.php'], 'task-n', 'client-n');

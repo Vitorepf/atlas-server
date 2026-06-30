@@ -67,7 +67,7 @@ final class AtlasTaskScopedCommitter
             // those. Empty ⇒ the AI made no edits ⇒ honest no-op (keep the lease).
             // `-uall` lists each untracked FILE (not a collapsed parent dir), so a brand-new file in a brand-new
             // directory is committed as the exact file path, never the whole dir.
-            $status = $this->git($repo, array_merge(['status', '--porcelain', '--untracked-files=all', '--'], $files));
+            $status = $this->git($repo, array_merge(['status', '--porcelain', '-z', '--untracked-files=all', '--'], $files));
             $changed = $this->changedPaths((string) $status['out']);
             if ($changed === []) {
                 return $this->result(false, 'nothing_to_commit_in_scope', taskPacketId: $taskPacketId);
@@ -156,24 +156,31 @@ final class AtlasTaskScopedCommitter
     }
 
     /**
-     * Parse `git status --porcelain` (scoped by pathspec) into the list of changed file paths. Handles
-     * untracked (`??`), added/modified/deleted, and rename (` -> `, keep the new path).
+     * Parse `git status --porcelain -z` (NUL-terminated, raw paths) into the list of changed file paths.
+     * With -z, git never quotes/octal-escapes paths, so space and non-ASCII filenames are safe.
+     * Rename format: `XY new_path\0old_path\0` — we keep the new path and skip the old.
      *
      * @return list<string>
      */
     private function changedPaths(string $porcelain): array
     {
         $out = [];
-        foreach (preg_split('/\r?\n/', $porcelain) ?: [] as $line) {
-            if (strlen($line) < 4) {
+        $entries = explode("\0", $porcelain);
+        $skipNext = false;
+        foreach ($entries as $entry) {
+            if ($skipNext) {
+                $skipNext = false;
                 continue;
             }
-            $path = trim(substr($line, 3));
-            if (str_contains($path, ' -> ')) {
-                $parts = explode(' -> ', $path);
-                $path = (string) end($parts);
+            if (strlen($entry) < 3) {
+                continue;
             }
-            $path = trim($path, "\"");
+            $xy = substr($entry, 0, 2);
+            $path = substr($entry, 3);
+            // Rename/copy: the next NUL-terminated entry is the old name; skip it.
+            if (str_contains($xy, 'R') || str_contains($xy, 'C')) {
+                $skipNext = true;
+            }
             if ($path !== '') {
                 $out[$path] = true;
             }
