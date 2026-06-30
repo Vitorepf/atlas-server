@@ -66,6 +66,9 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
         $unsafeBlocker = false;
         $refreshableHold = false;
 
+        $requireBinding = (bool) ($facts['require_source_binding'] ?? false);
+        $expectedWorkspace = $requireBinding ? (string) ($facts['workspace_id'] ?? '') : '';
+
         $registry = $this->registry->describe();
         foreach ($registry['required_sources'] as $source) {
             if (! (bool) $source['blocking']) {
@@ -78,6 +81,20 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             $sourcesObserved[$sourceId] = $status;
 
             if ($status === self::SOURCE_STATUS_PASS) {
+                // When binding is required, validate that the source row is fully bound.
+                if ($requireBinding && $sourceRow !== null) {
+                    $bindingIssues = $this->checkSourceBinding($sourceId, $sourceRow, $expectedWorkspace);
+                    foreach ($bindingIssues as $bindIssue) {
+                        $sourceBlockers[] = [
+                            'source_id' => $sourceId,
+                            'kind' => $bindIssue,
+                            'status' => $status,
+                            'refreshable' => $refreshable,
+                            'note' => '',
+                        ];
+                        $unsafeBlocker = true;
+                    }
+                }
                 continue;
             }
 
@@ -206,5 +223,45 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
         }
 
         return $blockers;
+    }
+
+    /**
+     * @param  array<string,mixed>  $sourceRow
+     * @return list<string>
+     */
+    /**
+     * Returns issue-kind strings (without source_id — the flat assembly appends it).
+     *
+     * @param  array<string,mixed>  $sourceRow
+     * @return list<string>
+     */
+    private function checkSourceBinding(string $sourceId, array $sourceRow, string $expectedWorkspace): array
+    {
+        $issues = [];
+
+        if (trim((string) ($sourceRow['source_id'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_source_id';
+        }
+
+        if (trim((string) ($sourceRow['evidence_kind'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_evidence_kind';
+        }
+
+        if ((int) ($sourceRow['generated_at_unix'] ?? 0) <= 0) {
+            $issues[] = 'source_binding_missing_generated_at_unix';
+        }
+
+        if ($expectedWorkspace !== '') {
+            $rowWorkspace = (string) ($sourceRow['workspace_id'] ?? '');
+            if ($rowWorkspace !== $expectedWorkspace) {
+                $issues[] = 'source_binding_workspace_mismatch:'.$rowWorkspace.'!='.$expectedWorkspace;
+            }
+        }
+
+        if (trim((string) ($sourceRow['receipt_hash'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_receipt_hash';
+        }
+
+        return $issues;
     }
 }
