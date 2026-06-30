@@ -116,6 +116,60 @@ final class AtlasLoopResourceGate
         }
     }
 
+    /**
+     * READ-ONLY pressure digest combining disk, workspace count, and stale candidates into one backpressure report.
+     * Never removes directories or DB rows. Fail-open when tmpRoot is missing (PHP_INT_MAX free_mb, 0 counts).
+     *
+     * @return array{admit:bool, pressure_state:string, reasons:list<string>, free_mb:int,
+     *               live_workspaces:int, stale_workspace_candidates:int, recommended_reap_actions:list<string>}
+     */
+    public function pressureDigest(string $tmpRoot, int $minFreeMb, int $maxLiveWorkspaces, int $staleSecs = 3600): array
+    {
+        $freeBytes = @disk_free_space($tmpRoot);
+        $freeMb = $freeBytes === false ? PHP_INT_MAX : (int) floor($freeBytes / (1024 * 1024));
+
+        if (! is_dir($tmpRoot)) {
+            return [
+                'admit' => true,
+                'pressure_state' => 'ok',
+                'reasons' => [],
+                'free_mb' => PHP_INT_MAX,
+                'live_workspaces' => 0,
+                'stale_workspace_candidates' => 0,
+                'recommended_reap_actions' => [],
+            ];
+        }
+
+        $live = $this->countLiveWorkspaces($tmpRoot);
+        $stale = $this->countStaleWorkspaceCandidates($tmpRoot, $staleSecs);
+
+        $reasons = [];
+        if ($freeMb < max(0, $minFreeMb)) {
+            $reasons[] = 'disk_floor';
+        }
+        if ($maxLiveWorkspaces > 0 && $live >= $maxLiveWorkspaces) {
+            $reasons[] = 'workspace_cap';
+        }
+
+        $admit = $reasons === [];
+        $reapActions = $stale > 0 ? ['sweep_orphans'] : [];
+        $pressureState = match (true) {
+            ! $admit => 'critical',
+            $stale > 0 => 'warn',
+            default => 'ok',
+        };
+
+        return [
+            'admit' => $admit,
+            'pressure_state' => $pressureState,
+            'reasons' => $reasons,
+            'free_mb' => $freeMb,
+            'live_workspaces' => $live,
+            'stale_workspace_candidates' => $stale,
+            'recommended_reap_actions' => $reapActions,
+        ];
+    }
+
     /** rm -rf every loop workspace older than the TTL — reaps the crash-orphaned copies. */
     public function sweepOrphans(string $tmpRoot, int $olderThanSeconds): int
     {
@@ -145,6 +199,20 @@ final class AtlasLoopResourceGate
     public function countLiveWorkspaces(string $tmpRoot): int
     {
         return count($this->loopWorkspaceDirs($tmpRoot));
+    }
+
+    private function countStaleWorkspaceCandidates(string $tmpRoot, int $olderThanSeconds): int
+    {
+        $cutoff = time() - max(0, $olderThanSeconds);
+        $count = 0;
+        foreach ($this->loopWorkspaceDirs($tmpRoot) as $dir) {
+            $mtime = @filemtime($dir);
+            if ($mtime !== false && $mtime <= $cutoff) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**

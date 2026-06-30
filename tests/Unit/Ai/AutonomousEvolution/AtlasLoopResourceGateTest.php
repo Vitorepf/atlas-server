@@ -147,6 +147,60 @@ final class AtlasLoopResourceGateTest extends TestCase
         $this->assertSame(1, DB::table('atlas_engineering_code_symbols')->where('workspace_id', 'atlas-loop-scn-null-created')->count());
     }
 
+    public function test_pressure_digest_returns_all_required_keys(): void
+    {
+        $tmpRoot = $this->makeTempDir('atlas-loop-resource-gate-');
+        $digest = (new AtlasLoopResourceGate())->pressureDigest($tmpRoot, 0, 0);
+
+        foreach (['admit', 'pressure_state', 'reasons', 'free_mb', 'live_workspaces', 'stale_workspace_candidates', 'recommended_reap_actions'] as $key) {
+            $this->assertArrayHasKey($key, $digest, "pressureDigest must return key: {$key}");
+        }
+        $this->assertIsBool($digest['admit']);
+        $this->assertIsString($digest['pressure_state']);
+        $this->assertIsArray($digest['reasons']);
+        $this->assertIsArray($digest['recommended_reap_actions']);
+    }
+
+    public function test_pressure_digest_missing_tmp_root_is_fail_open(): void
+    {
+        $missing = $this->makeTempDir('atlas-loop-resource-gate-').'/nonexistent';
+        $digest = (new AtlasLoopResourceGate())->pressureDigest($missing, 9999999, 1);
+
+        $this->assertTrue($digest['admit'], 'missing root must be fail-open (never block)');
+        $this->assertSame(PHP_INT_MAX, $digest['free_mb']);
+        $this->assertSame(0, $digest['live_workspaces']);
+        $this->assertSame(0, $digest['stale_workspace_candidates']);
+        $this->assertSame('ok', $digest['pressure_state']);
+    }
+
+    public function test_pressure_digest_disk_floor_breach_sets_critical_and_reasons(): void
+    {
+        $tmpRoot = $this->makeTempDir('atlas-loop-resource-gate-');
+        $requiredFreeMb = ((int) floor(((int) disk_free_space($tmpRoot)) / (1024 * 1024))) + 1;
+
+        $digest = (new AtlasLoopResourceGate())->pressureDigest($tmpRoot, $requiredFreeMb, 0);
+
+        $this->assertFalse($digest['admit']);
+        $this->assertSame('critical', $digest['pressure_state']);
+        $this->assertContains('disk_floor', $digest['reasons']);
+    }
+
+    public function test_pressure_digest_stale_workspaces_produce_warn_and_sweep_action(): void
+    {
+        $tmpRoot = $this->makeTempDir('atlas-loop-resource-gate-');
+        $stale = $tmpRoot.'/atlas-loop-task-stale';
+        mkdir($stale, 0o755, true);
+        touch($stale, time() - 7200);
+
+        $digest = (new AtlasLoopResourceGate())->pressureDigest($tmpRoot, 0, 0, 3600);
+
+        $this->assertTrue($digest['admit']);
+        $this->assertSame('warn', $digest['pressure_state']);
+        $this->assertSame(1, $digest['stale_workspace_candidates']);
+        $this->assertContains('sweep_orphans', $digest['recommended_reap_actions']);
+        $this->assertDirectoryExists($stale, 'pressureDigest must be read-only — stale dir must still exist');
+    }
+
     private function makeTempDir(string $prefix): string
     {
         $path = sys_get_temp_dir().'/'.$prefix.bin2hex(random_bytes(4));
