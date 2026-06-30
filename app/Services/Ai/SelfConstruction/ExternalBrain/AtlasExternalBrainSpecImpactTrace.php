@@ -89,6 +89,31 @@ final class AtlasExternalBrainSpecImpactTrace
 
         $unverifiableReasons = $this->computeUnverifiableReasons($evidenceRefs, $capDelta, $downstreamUnlocks, $riskReduction, $evidenceAfterCommit, $falsificationSignal, $acceptance, $cosmeticOnly, $metricOnly);
 
+        $simplification = trim((string) ($input['simplification'] ?? ''));
+        $autonomyGain   = trim((string) ($input['autonomy_gain'] ?? ''));
+
+        // AC2/AC3: a strategic claim must trace to AT LEAST ONE concrete impact path.
+        // Zero paths = ungrounded "strategic" framing with nothing concrete behind it.
+        $impactPath = [];
+        if ($downstreamUnlocks !== []) {
+            $impactPath[] = 'unlocks';
+        }
+        if ($riskReduction !== '') {
+            $impactPath[] = 'risk_reduction';
+        }
+        if ($simplification !== '') {
+            $impactPath[] = 'simplification';
+        }
+        if ($autonomyGain !== '') {
+            $impactPath[] = 'autonomy_gain';
+        }
+        $insufficientEvidence = $impactPath === [];
+
+        // Confidence: how many of the 4 impact paths are grounded, scaled by leverage_score.
+        $confidence = $insufficientEvidence
+            ? 0.0
+            : round((count($impactPath) / 4) * max(0.25, $leverageScore > 0 ? min(1.0, $leverageScore) : 1.0), 4);
+
         return [
             'schema'                => self::SCHEMA,
             'task_id'               => $taskId,
@@ -104,6 +129,12 @@ final class AtlasExternalBrainSpecImpactTrace
             'risk_reduction'        => $riskReduction,
             'evidence_after_commit' => $evidenceAfterCommit,
             'falsification_signal'  => $falsificationSignal,
+            'simplification'        => $simplification,
+            'autonomy_gain'         => $autonomyGain,
+            'impact_path'           => $impactPath,
+            'confidence'            => $confidence,
+            'missing_evidence'      => $unverifiableReasons,
+            'insufficient_evidence' => $insufficientEvidence,
         ];
     }
 

@@ -195,6 +195,70 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
         }
     }
 
+    // ── impact_path / confidence / missing_evidence (AC2/AC3/AC4) ────────────
+
+    public function test_output_has_impact_path_confidence_and_missing_evidence(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        foreach (['impact_path', 'confidence', 'missing_evidence', 'insufficient_evidence'] as $key) {
+            $this->assertArrayHasKey($key, $result, "trace output missing key: $key");
+        }
+    }
+
+    public function test_impact_path_includes_unlocks_and_risk_reduction_from_full_input(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        $this->assertContains('unlocks', $result['impact_path']);
+        $this->assertContains('risk_reduction', $result['impact_path']);
+    }
+
+    public function test_simplification_only_spec_yields_impact_path(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'downstream_unlocks' => [],
+            'risk_reduction' => '',
+            'simplification' => 'Removes the duplicated scope-resolution branch.',
+        ]));
+
+        $this->assertSame(['simplification'], $result['impact_path']);
+        $this->assertFalse($result['insufficient_evidence']);
+        $this->assertGreaterThan(0.0, $result['confidence']);
+    }
+
+    public function test_autonomy_gain_only_spec_yields_impact_path(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'downstream_unlocks' => [],
+            'risk_reduction' => '',
+            'autonomy_gain' => 'Removes the human handoff step from the give_back loop.',
+        ]));
+
+        $this->assertSame(['autonomy_gain'], $result['impact_path']);
+        $this->assertFalse($result['insufficient_evidence']);
+    }
+
+    public function test_no_concrete_impact_path_marks_insufficient_evidence(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput([
+            'downstream_unlocks' => [],
+            'risk_reduction' => '',
+        ]));
+
+        $this->assertSame([], $result['impact_path']);
+        $this->assertTrue($result['insufficient_evidence']);
+        $this->assertSame(0.0, $result['confidence']);
+    }
+
+    public function test_missing_evidence_mirrors_unverifiable_reasons(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['capability_delta' => '']));
+
+        $this->assertSame($result['unverifiable_reasons'], $result['missing_evidence']);
+        $this->assertContains('no_capability_delta', $result['missing_evidence']);
+    }
+
     public function test_downstream_unlocks_passed_through_in_output(): void
     {
         $result = $this->tracer()->trace($this->fullInput());
