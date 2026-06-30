@@ -83,6 +83,36 @@ class AtlasSelfConstructionAutonomyDegradationPolicyTest extends TestCase
         self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::REASON_COST_OR_RISK_BREACH, $verdict['reason']);
     }
 
+    public function test_receipt_observed_facts_mirrors_input_signals(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide([
+            'missing_evidence_detected' => true,
+            'repeated_poison_packet_count' => 1,
+        ]);
+
+        $this->assertArrayHasKey('observed_facts', $verdict);
+        $this->assertArrayHasKey('schema_version', $verdict);
+        $this->assertTrue($verdict['observed_facts']['missing_evidence_detected']);
+        $this->assertSame(1, $verdict['observed_facts']['repeated_poison_packet_count']);
+        $this->assertFalse($verdict['observed_facts']['false_green_detected']);
+        $this->assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::SCHEMA, $verdict['schema_version']);
+    }
+
+    public function test_bounded_cooldown_rollback_failure_dominates_all_concurrent_signals(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide([
+            'rollback_failure_detected' => true,
+            'false_green_detected' => true,
+            'queue_jam_detected' => true,
+            'missing_evidence_detected' => true,
+            'cost_or_risk_breach_detected' => true,
+            'repeated_poison_packet_count' => 99,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_PAUSE, $verdict['action']);
+        $this->assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::REASON_ROLLBACK_FAILURE, $verdict['reason']);
+    }
+
     public function test_policy_never_widens_scope_or_relaxes_gates_under_any_signal(): void
     {
         $signals = [
