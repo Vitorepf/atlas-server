@@ -104,6 +104,50 @@ class TerminalLoopHealthDigestCommandComposerTest extends TestCase
         self::assertStringContainsString('--cycles=2', $cmds['multi_agent_certification']);
     }
 
+    public function test_commands_use_homebrew_php_path(): void
+    {
+        $cmds = $this->composer()->commands('alice', 5, 10, []);
+        foreach ($cmds as $key => $cmd) {
+            self::assertStringStartsWith(TerminalLoopHealthDigestCommandComposer::PHP_BIN, $cmd, "Command $key must start with PHP_BIN");
+        }
+    }
+
+    public function test_inspect_queue_command_contains_queue_status_flag(): void
+    {
+        $cmds = $this->composer()->commands('alice', 5, 10, []);
+        self::assertStringContainsString('--agent-control-plane-task-packet-queue-status', $cmds['inspect_queue']);
+    }
+
+    public function test_sweep_malformed_command_is_present_and_targets_malformed_packets(): void
+    {
+        $cmds = $this->composer()->commands('alice', 5, 10, []);
+        self::assertArrayHasKey('sweep_malformed', $cmds);
+        self::assertStringContainsString('malformed-packet-sweep', $cmds['sweep_malformed']);
+    }
+
+    public function test_queued_targets_command_is_present_with_queue_tag_support(): void
+    {
+        $noTag = $this->composer()->commands('alice', 5, 10, []);
+        $withTag = $this->composer()->commands('alice', 5, 10, ['my-tag']);
+
+        self::assertArrayHasKey('queued_targets', $noTag);
+        self::assertStringContainsString('queued-targets', $noTag['queued_targets']);
+        self::assertStringContainsString('--queue-tag=my-tag', $withTag['queued_targets']);
+    }
+
+    public function test_bounded_output_has_exactly_expected_command_keys(): void
+    {
+        $cmds = $this->composer()->commands('alice', 5, 10, []);
+        $keys = array_keys($cmds);
+        sort($keys);
+        self::assertSame([
+            'execute_bootstrap', 'inspect_leases', 'inspect_or_recover_leases',
+            'inspect_queue', 'multi_agent_certification', 'preview_bootstrap',
+            'queued_targets', 'replenish_tasks', 'sweep_malformed',
+            'terminal_loop_health_digest', 'worker_task_eligibility_certification',
+        ], $keys);
+    }
+
     public function test_commands_all_include_json(): void
     {
         $cmds = $this->composer()->commands('alice', 5, 10, []);
