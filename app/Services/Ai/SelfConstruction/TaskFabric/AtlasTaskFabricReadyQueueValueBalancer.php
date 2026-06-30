@@ -33,6 +33,8 @@ final class AtlasTaskFabricReadyQueueValueBalancer
 
     private const MAX_POISON_RATIO     = 0.3;
 
+    private const DEFAULT_MINIMUM_READY_PER_WORKER = 1;
+
     private const CANONICAL_DIMENSIONS = [
         'queue_health', 'learning', 'verification', 'simplification',
         'implementation', 'hardening', 'monitoring', 'research',
@@ -46,6 +48,7 @@ final class AtlasTaskFabricReadyQueueValueBalancer
     {
         $groups      = is_array($facts['task_groups'] ?? null) ? $facts['task_groups'] : [];
         $workerCount = max(1, (int) ($facts['worker_count'] ?? 1));
+        $minimumReadyPerWorker = max(0, (int) ($facts['minimum_ready_per_worker'] ?? self::DEFAULT_MINIMUM_READY_PER_WORKER));
 
         $totalTasks  = 0;
         $poisonSum   = 0.0;
@@ -72,8 +75,10 @@ final class AtlasTaskFabricReadyQueueValueBalancer
         $deepQueue          = $totalTasks >= self::DEEP_QUEUE_THRESHOLD;
         $diverse            = $distinctDimensions >= self::MIN_DIMENSIONS;
         $missingDims        = array_values(array_diff(self::CANONICAL_DIMENSIONS, array_keys($presentDims)));
+        $workerFloor        = $workerCount * $minimumReadyPerWorker;
+        $belowWorkerFloor   = $totalTasks < $workerFloor;
 
-        [$recommendation, $reason] = $this->decide($poisonRatio, $deepQueue, $diverse, $totalTasks);
+        [$recommendation, $reason] = $this->decide($poisonRatio, $deepQueue, $diverse, $totalTasks, $belowWorkerFloor);
 
         $targetDimensions = ($recommendation === 'originate_targeted') ? array_slice($missingDims, 0, 3) : [];
 
@@ -91,6 +96,8 @@ final class AtlasTaskFabricReadyQueueValueBalancer
                 'deep_queue'         => $deepQueue,
                 'diverse'            => $diverse,
                 'missing_dimensions' => $missingDims,
+                'worker_floor'       => $workerFloor,
+                'below_worker_floor' => $belowWorkerFloor,
             ],
         ];
     }
@@ -98,14 +105,21 @@ final class AtlasTaskFabricReadyQueueValueBalancer
     /**
      * @return array{string, string}
      */
-    private function decide(float $poisonRatio, bool $deepQueue, bool $diverse, int $totalTasks): array
+    private function decide(float $poisonRatio, bool $deepQueue, bool $diverse, int $totalTasks, bool $belowWorkerFloor): array
     {
         // 1. High poison ratio blocks progress regardless of depth.
         if ($poisonRatio > self::MAX_POISON_RATIO) {
             return ['stop_or_consolidate', 'high_poison_ratio_blocks_progress'];
         }
 
-        // 2. Deep and diverse: already good enough — don't add more.
+        // 2. Deep and diverse, but below the worker floor: dimension diversity does not
+        // matter if there aren't enough ready tasks to keep every worker fed — workers
+        // would drain to no_claimable_task. Originate before consolidating.
+        if ($deepQueue && $diverse && $belowWorkerFloor) {
+            return ['originate_more', 'worker_floor'];
+        }
+
+        // 3. Deep and diverse: already good enough — don't add more.
         if ($deepQueue && $diverse) {
             return ['stop_or_consolidate', 'queue_deep_and_diverse'];
         }
