@@ -36,6 +36,33 @@ final class AtlasNativeWorkerPoolSupervisor
     ];
 
     /**
+     * Deterministic capacity recommendation from a worker snapshot.
+     * No shell, no provider, no human approval — facts in, recommendation out.
+     *
+     * @param  array{active_workers:int, stale_workers:int, queue_depth:int, max_worker_budget:int}  $snapshot
+     * @return array{recommendation:'spawn'|'hold'|'drain', reason:string}
+     */
+    public function capacityPlan(array $snapshot): array
+    {
+        $active = max(0, (int) ($snapshot['active_workers'] ?? 0));
+        $stale = max(0, (int) ($snapshot['stale_workers'] ?? 0));
+        $queueDepth = max(0, (int) ($snapshot['queue_depth'] ?? 0));
+        $maxBudget = max(1, (int) ($snapshot['max_worker_budget'] ?? 1));
+
+        if ($active > $maxBudget) {
+            return ['recommendation' => 'drain', 'reason' => 'active_exceeds_budget'];
+        }
+        if ($queueDepth > $active && $active < $maxBudget) {
+            return ['recommendation' => 'spawn', 'reason' => 'queue_pressure_and_budget_available'];
+        }
+
+        return [
+            'recommendation' => 'hold',
+            'reason' => $stale > 0 ? 'hold_stale_workers_present' : 'hold_capacity_sufficient',
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */

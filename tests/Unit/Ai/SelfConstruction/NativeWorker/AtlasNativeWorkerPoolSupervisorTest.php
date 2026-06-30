@@ -86,6 +86,48 @@ final class AtlasNativeWorkerPoolSupervisorTest extends TestCase
         $this->assertSame('safety_halt', $out['stop_reason']);
     }
 
+    public function test_spawn_recommended_when_queue_exceeds_active_and_budget_available(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 2,
+            'stale_workers' => 0,
+            'queue_depth' => 10,
+            'max_worker_budget' => 5,
+        ]);
+
+        $this->assertSame('spawn', $plan['recommendation']);
+        $this->assertSame('queue_pressure_and_budget_available', $plan['reason']);
+    }
+
+    public function test_drain_recommended_when_active_workers_exceed_budget(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 8,
+            'stale_workers' => 1,
+            'queue_depth' => 3,
+            'max_worker_budget' => 4,
+        ]);
+
+        $this->assertSame('drain', $plan['recommendation']);
+        $this->assertSame('active_exceeds_budget', $plan['reason']);
+    }
+
+    public function test_hold_recommended_when_stale_heartbeat_present_and_queue_covered(): void
+    {
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+        $plan = $sup->capacityPlan([
+            'active_workers' => 3,
+            'stale_workers' => 2,
+            'queue_depth' => 2,  // queue_depth <= active_workers → no spawn pressure
+            'max_worker_budget' => 5,
+        ]);
+
+        $this->assertSame('hold', $plan['recommendation']);
+        $this->assertSame('hold_stale_workers_present', $plan['reason']);
+    }
+
     public function test_refused_action_kinds_surface_in_blocked_actions(): void
     {
         $sup = new AtlasNativeWorkerPoolSupervisor;
