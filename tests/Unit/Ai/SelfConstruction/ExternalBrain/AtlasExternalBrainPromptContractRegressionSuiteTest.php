@@ -126,4 +126,41 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC1: detected_strengths + quota_farm_risk boolean ─────────────────────
+
+    public function test_output_has_detected_strengths_and_quota_farm_risk_keys(): void
+    {
+        $r = $this->suite()->validate('');
+
+        $this->assertArrayHasKey('detected_strengths', $r);
+        $this->assertArrayHasKey('quota_farm_risk', $r);
+        $this->assertIsBool($r['quota_farm_risk']);
+    }
+
+    public function test_complete_prompt_has_no_quota_farm_risk_and_all_strengths_detected(): void
+    {
+        $r = $this->suite()->validate($this->validPrompt());
+
+        $this->assertFalse($r['quota_farm_risk']);
+        $this->assertCount(7, $r['detected_strengths']);
+        $this->assertContains('has_persistence_contract', $r['detected_strengths']);
+        $this->assertContains('no_quota_farm_risk', $r['detected_strengths']);
+    }
+
+    public function test_quota_farm_risk_true_for_raw_count_without_mitigation(): void
+    {
+        $prompt = 'Keep running until the target is reached; do not stop early. '
+            .'Maximize the task count as much as possible. Generate as many proposals as possible.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertTrue($r['quota_farm_risk']);
+    }
+
+    public function test_empty_prompt_only_passes_the_quota_farm_check(): void
+    {
+        $r = $this->suite()->validate('');
+        $this->assertSame(['no_quota_farm_risk'], $r['detected_strengths']);
+    }
 }

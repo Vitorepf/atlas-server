@@ -64,18 +64,20 @@ final class AtlasExternalBrainPromptContractRegressionSuite
     private const QUOTA_FARM_PATCH_NOTE = 'Raw-count language rewards quota-farming. Require value, diversity, or evidence alongside any count target.';
 
     /**
-     * @return array{schema:string, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string>}
+     * @return array{schema:string, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string>, detected_strengths:list<string>, quota_farm_risk:bool}
      */
     public function validate(string $prompt): array
     {
         $failedClauses = [];
         $patchNotes = [];
+        $detectedStrengths = [];
         $totalChecks = count(self::REQUIRED_CLAUSES) + 1; // +1 for the quota-farm defect check
         $passedChecks = 0;
 
         foreach (self::REQUIRED_CLAUSES as $key => [$pattern, $note]) {
             if (preg_match($pattern, $prompt) === 1) {
                 $passedChecks++;
+                $detectedStrengths[] = 'has_'.$key;
             } else {
                 $failedClauses[] = 'missing_'.$key;
                 $patchNotes[] = $note;
@@ -89,6 +91,7 @@ final class AtlasExternalBrainPromptContractRegressionSuite
             $patchNotes[] = self::QUOTA_FARM_PATCH_NOTE;
         } else {
             $passedChecks++;
+            $detectedStrengths[] = 'no_quota_farm_risk';
         }
 
         return [
@@ -97,6 +100,8 @@ final class AtlasExternalBrainPromptContractRegressionSuite
             'score' => $totalChecks > 0 ? round($passedChecks / $totalChecks, 4) : 0.0,
             'failed_clauses' => $failedClauses,
             'required_patch_notes' => $patchNotes,
+            'detected_strengths' => $detectedStrengths,
+            'quota_farm_risk' => $hasQuotaFarmRisk,
         ];
     }
 }
