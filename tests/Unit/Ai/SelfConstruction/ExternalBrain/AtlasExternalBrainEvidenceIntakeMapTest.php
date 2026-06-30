@@ -329,6 +329,48 @@ final class AtlasExternalBrainEvidenceIntakeMapTest extends TestCase
         $this->assertNotNull($r['staleness_reason'], 'staleness reason must still be visible');
     }
 
+    // ── decision_influences ────────────────────────────────────────────────────
+
+    public function test_validate_returns_decision_influences_for_valid_stream(): void
+    {
+        $r = $this->map->validate('queue_health', [
+            'depth' => 12, 'stall_count' => 2, 'oldest_queued_at_unix' => 1751290000,
+        ]);
+
+        $this->assertArrayHasKey('decision_influences', $r);
+        $this->assertContains('origination_rate', $r['decision_influences']);
+    }
+
+    public function test_validate_returns_empty_decision_influences_for_rejected_stream(): void
+    {
+        $r = $this->map->validate('chat_memory', ['anything' => 'goes']);
+
+        $this->assertSame([], $r['decision_influences']);
+    }
+
+    public function test_chat_memory_cannot_be_promoted_by_adding_extra_fields(): void
+    {
+        $r = $this->map->validate('chat_memory', [
+            'depth' => 12, 'stall_count' => 2, 'oldest_queued_at_unix' => 1751290000,
+            'task_packet_id' => 'tp-1', 'outcome' => 'success', 'worker_id' => 'w1', 'reported_at_unix' => 1751290000,
+        ]);
+
+        $this->assertFalse($r['valid']);
+        $this->assertTrue($r['rejected']);
+        $this->assertFalse($r['usable_for_origination']);
+    }
+
+    public function test_raw_provider_prompt_cannot_be_promoted_by_adding_extra_fields(): void
+    {
+        $r = $this->map->validate('raw_provider_prompt', [
+            'depth' => 12, 'stall_count' => 2, 'oldest_queued_at_unix' => 1751290000,
+        ]);
+
+        $this->assertFalse($r['valid']);
+        $this->assertTrue($r['rejected']);
+        $this->assertFalse($r['usable_for_origination']);
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function findStream(string $id): array

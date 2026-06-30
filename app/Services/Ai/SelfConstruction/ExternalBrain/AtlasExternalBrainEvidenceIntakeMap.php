@@ -87,7 +87,7 @@ final class AtlasExternalBrainEvidenceIntakeMap
             return [
                 'valid' => false, 'stream_id' => $streamId, 'missing_fields' => [],
                 'rejected' => true, 'freshness_status' => 'unknown', 'trust_tier' => 'rejected',
-                'usable_for_origination' => false, 'staleness_reason' => null,
+                'usable_for_origination' => false, 'staleness_reason' => null, 'decision_influences' => [],
             ];
         }
 
@@ -96,7 +96,7 @@ final class AtlasExternalBrainEvidenceIntakeMap
             return [
                 'valid' => false, 'stream_id' => $streamId, 'missing_fields' => [],
                 'rejected' => false, 'freshness_status' => 'unknown', 'trust_tier' => 'unknown',
-                'usable_for_origination' => false, 'staleness_reason' => null,
+                'usable_for_origination' => false, 'staleness_reason' => null, 'decision_influences' => [],
             ];
         }
 
@@ -123,6 +123,7 @@ final class AtlasExternalBrainEvidenceIntakeMap
             'trust_tier'             => $trustTier,
             'usable_for_origination' => $usableForOrigination,
             'staleness_reason'       => $stalenessReason,
+            'decision_influences'    => $stream['influences'],
         ];
     }
 
