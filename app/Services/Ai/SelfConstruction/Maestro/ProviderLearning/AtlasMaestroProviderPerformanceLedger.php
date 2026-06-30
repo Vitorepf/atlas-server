@@ -19,6 +19,9 @@ final class AtlasMaestroProviderPerformanceLedger
     public const OUTCOME_SUCCESS = 'success';
     public const OUTCOME_GIVE_BACK = 'give_back';
 
+    /** Atlas-native execution: zero provider cost, tracked as first-class provider. */
+    public const ATLAS_NATIVE = 'atlas_native';
+
     private static ?string $rootOverride = null;
 
     public static function setRootForTesting(?string $root): void
@@ -38,12 +41,15 @@ final class AtlasMaestroProviderPerformanceLedger
                 'duration_ms_count' => 0,
                 'last_outcome_at' => 0,
             ];
+            $knownOutcome = false;
             if ($outcome === self::OUTCOME_SUCCESS) {
                 $row['success_count']++;
+                $knownOutcome = true;
             } elseif ($outcome === self::OUTCOME_GIVE_BACK) {
                 $row['give_back_count']++;
+                $knownOutcome = true;
             }
-            if ($durationMs >= 0) {
+            if ($knownOutcome && $durationMs >= 0) {
                 $row['duration_ms_sum'] += $durationMs;
                 $row['duration_ms_count']++;
             }

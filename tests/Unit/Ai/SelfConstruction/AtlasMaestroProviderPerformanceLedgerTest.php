@@ -70,6 +70,37 @@ final class AtlasMaestroProviderPerformanceLedgerTest extends TestCase
         $this->assertSame([], $ledger->factsForClass('does_not_exist'));
     }
 
+    public function test_atlas_native_is_first_class_provider_with_zero_cost_duration(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome(AtlasMaestroProviderPerformanceLedger::ATLAS_NATIVE, 'refactor', AtlasMaestroProviderPerformanceLedger::OUTCOME_SUCCESS, 0, 1700000000);
+        $ledger->recordOutcome(AtlasMaestroProviderPerformanceLedger::ATLAS_NATIVE, 'refactor', AtlasMaestroProviderPerformanceLedger::OUTCOME_SUCCESS, 0, 1700000010);
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertArrayHasKey('atlas_native', $facts, 'atlas_native must appear explicitly in facts');
+        $this->assertSame(2, $facts['atlas_native']['success_count']);
+        $this->assertSame(0, $facts['atlas_native']['give_back_count']);
+        $this->assertSame(0, $facts['atlas_native']['avg_duration_ms'], 'zero-cost path must report avg_duration_ms=0');
+    }
+
+    public function test_unknown_outcome_and_negative_duration_do_not_contaminate_aggregates(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        // Unknown outcome: must not increment success_count or give_back_count.
+        $ledger->recordOutcome('codex', 'refactor', 'unknown_outcome', 5000, 1700000000);
+        // Negative duration: must not contribute to avg_duration_ms.
+        $ledger->recordOutcome('codex', 'refactor', AtlasMaestroProviderPerformanceLedger::OUTCOME_SUCCESS, -100, 1700000010);
+        // Valid record: the only one that counts.
+        $ledger->recordOutcome('codex', 'refactor', AtlasMaestroProviderPerformanceLedger::OUTCOME_SUCCESS, 1000, 1700000020);
+
+        $facts = $ledger->factsForClass('refactor');
+        // Both OUTCOME_SUCCESS calls count (negative duration is an invalid timing, not an invalid outcome).
+        $this->assertSame(2, $facts['codex']['success_count']);
+        $this->assertSame(0, $facts['codex']['give_back_count']);
+        // Only the valid 1000ms duration is summed; unknown-outcome's 5000ms and negative -100ms are excluded.
+        $this->assertSame(1000, $facts['codex']['avg_duration_ms'], 'invalid durations must not contaminate avg');
+    }
+
     public function test_persists_three_providers_two_classes_round_trips_identically(): void
     {
         $a = new AtlasMaestroProviderPerformanceLedger();
