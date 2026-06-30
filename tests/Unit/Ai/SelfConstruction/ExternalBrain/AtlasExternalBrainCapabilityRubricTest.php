@@ -38,6 +38,75 @@ final class AtlasExternalBrainCapabilityRubricTest extends TestCase
         $this->assertEqualsWithDelta(1.0, $totalWeight, 0.0001, 'dimension weights must sum to 1.0');
     }
 
+    public function test_dimension_breakdown_has_required_fields_for_every_dimension(): void
+    {
+        $names = array_column($this->rubric->dimensions(), 'name');
+        $scores = array_fill_keys($names, 0.5);
+        $r = $this->rubric->evaluate($scores);
+
+        $this->assertCount(count($names), $r['dimension_breakdown']);
+        foreach ($r['dimension_breakdown'] as $entry) {
+            foreach (['name', 'weight', 'score', 'weighted_contribution', 'finality_floor_met', 'missing_evidence_hint'] as $k) {
+                $this->assertArrayHasKey($k, $entry);
+            }
+        }
+    }
+
+    public function test_missing_evidence_hint_empty_when_floor_met_and_present_when_not(): void
+    {
+        $names = array_column($this->rubric->dimensions(), 'name');
+        $scores = array_fill_keys($names, 0.9);
+        $scores['research_pattern_expansion'] = 0.1;
+        $r = $this->rubric->evaluate($scores);
+
+        $weak = current(array_filter($r['dimension_breakdown'], fn ($d) => $d['name'] === 'research_pattern_expansion'));
+        $strong = current(array_filter($r['dimension_breakdown'], fn ($d) => $d['name'] === 'strategic_origination'));
+
+        $this->assertNotEmpty($weak['missing_evidence_hint']);
+        $this->assertSame('', $strong['missing_evidence_hint']);
+    }
+
+    public function test_not_final_includes_next_gap_to_95_and_improvement_path_excluding_floor_met_dimensions(): void
+    {
+        $names = array_column($this->rubric->dimensions(), 'name');
+        $scores = array_fill_keys($names, 0.9);
+        $scores['research_pattern_expansion'] = 0.1;
+        $scores['final_certification'] = 0.2;
+        $r = $this->rubric->evaluate($scores);
+
+        $this->assertFalse($r['final']);
+        $this->assertArrayHasKey('next_gap_to_95', $r);
+        $this->assertGreaterThan(0.0, $r['next_gap_to_95']);
+        $this->assertArrayHasKey('recommended_improvement_path', $r);
+        $this->assertNotContains('strategic_origination', $r['recommended_improvement_path']);
+        $this->assertContains('research_pattern_expansion', $r['recommended_improvement_path']);
+        $this->assertContains('final_certification', $r['recommended_improvement_path']);
+    }
+
+    public function test_gate_triggered_includes_gate_cap_reason_and_finality_blockers(): void
+    {
+        $names = array_column($this->rubric->dimensions(), 'name');
+        $scores = array_fill_keys($names, 1.0);
+        $r = $this->rubric->evaluate($scores, ['unverified_claims']);
+
+        $this->assertFalse($r['final']);
+        $this->assertArrayHasKey('gate_cap_reason', $r);
+        $this->assertStringContainsString('unverified_claims', $r['gate_cap_reason']);
+        $this->assertContains('unverified_claims', $r['finality_blockers']);
+        $this->assertArrayHasKey('dimension_breakdown', $r);
+        $this->assertNotEmpty($r['dimension_breakdown']);
+    }
+
+    public function test_raw_task_counts_are_not_accepted_as_dimension_evidence(): void
+    {
+        // Passing a raw count-shaped key (not a known dimension name) contributes nothing —
+        // the rubric only reads known dimension names, never accepts arbitrary count fields.
+        $r = $this->rubric->evaluate(['task_count' => 9999, 'queue_depth' => 500]);
+
+        $this->assertSame(0.0, $r['weighted_score']);
+        $this->assertFalse($r['final']);
+    }
+
     public function test_hard_fail_gates_include_the_three_anti_goodhart_gates(): void
     {
         $gates = array_column($this->rubric->hardFailGates(), 'gate');

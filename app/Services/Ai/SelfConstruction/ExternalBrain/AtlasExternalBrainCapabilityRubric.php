@@ -112,25 +112,44 @@ final class AtlasExternalBrainCapabilityRubric
         $knownGates = array_column($this->hardFailGates(), 'gate');
         $active = array_values(array_intersect($triggeredGates, $knownGates));
 
-        if ($active !== []) {
-            return [
-                'schema' => self::SCHEMA,
-                'band' => [0.0, 0.69],
-                'weighted_score' => 0.0,
-                'final' => false,
-                'triggered_gates' => $active,
-            ];
-        }
-
-        $weightedSum    = 0.0;
-        $weakDimensions = [];
+        // AC1: per-dimension weighted breakdown is always computed, gate-capped or not —
+        // raw task counts are never accepted; callers must already have converted to scores.
+        $weightedSum     = 0.0;
+        $weakDimensions  = [];
+        $dimensionBreakdown = [];
         foreach ($this->dimensions() as $dim) {
             $score = (float) ($dimensionScores[$dim['name']] ?? 0.0);
             $score = max(0.0, min(1.0, $score));
+            $weightedContribution = round($score * (float) $dim['weight'], 4);
             $weightedSum += $score * (float) $dim['weight'];
-            if ($score < self::FINALITY_FLOOR) {
+            $floorMet = $score >= self::FINALITY_FLOOR;
+            if (! $floorMet) {
                 $weakDimensions[] = $dim['name'];
             }
+
+            $dimensionBreakdown[] = [
+                'name'                  => $dim['name'],
+                'weight'                => $dim['weight'],
+                'score'                 => $score,
+                'weighted_contribution' => $weightedContribution,
+                'finality_floor_met'    => $floorMet,
+                'missing_evidence_hint' => $floorMet ? '' : "provide_verified_evidence_for_{$dim['name']}_above_floor_".self::FINALITY_FLOOR,
+            ];
+        }
+
+        if ($active !== []) {
+            return [
+                'schema'              => self::SCHEMA,
+                'band'                => [0.0, 0.69],
+                'weighted_score'      => 0.0,
+                'final'               => false,
+                'triggered_gates'     => $active,
+                'dimension_breakdown' => $dimensionBreakdown,
+                'gate_cap_reason'     => 'hard_fail_gate_triggered:'.implode(',', $active),
+                'finality_blockers'   => $active,
+                'next_gap_to_95'      => round(self::FINAL_THRESHOLD, 4),
+                'recommended_improvement_path' => [],
+            ];
         }
 
         $band = [
@@ -138,13 +157,34 @@ final class AtlasExternalBrainCapabilityRubric
             round(min(1.0, $weightedSum + 0.025), 4),
         ];
 
-        return [
-            'schema'           => self::SCHEMA,
-            'band'             => $band,
-            'weighted_score'   => round($weightedSum, 4),
-            'weak_dimensions'  => $weakDimensions,
-            'final'            => $weightedSum >= self::FINAL_THRESHOLD && $weakDimensions === [],
-            'triggered_gates'  => [],
+        $final = $weightedSum >= self::FINAL_THRESHOLD && $weakDimensions === [];
+
+        $result = [
+            'schema'              => self::SCHEMA,
+            'band'                => $band,
+            'weighted_score'      => round($weightedSum, 4),
+            'weak_dimensions'     => $weakDimensions,
+            'final'               => $final,
+            'triggered_gates'     => [],
+            'dimension_breakdown' => $dimensionBreakdown,
         ];
+
+        if (! $final) {
+            // AC2: gap to the 95% target and the smallest evidence-backed path to close it —
+            // only weak dimensions (already above the floor are excluded).
+            $weakBreakdown = array_values(array_filter($dimensionBreakdown, static fn (array $d): bool => ! $d['finality_floor_met']));
+            usort($weakBreakdown, static function (array $a, array $b): int {
+                $gapA = round((1.0 - $a['score']) * $a['weight'], 6);
+                $gapB = round((1.0 - $b['score']) * $b['weight'], 6);
+                return $gapB <=> $gapA ?: strcmp($a['name'], $b['name']);
+            });
+
+            $result['next_gap_to_95'] = round(self::FINAL_THRESHOLD - $weightedSum, 4);
+            $result['recommended_improvement_path'] = array_column($weakBreakdown, 'name');
+            $result['gate_cap_reason'] = '';
+            $result['finality_blockers'] = $weakDimensions;
+        }
+
+        return $result;
     }
 }
