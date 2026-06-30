@@ -307,4 +307,83 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartDispatchReceiptUseExe
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── deriveLearningSignal() ───────────────────────────────────────────────
+
+    public function test_derives_strong_fit_signal_from_verified_success_receipt(): void
+    {
+        $executor = app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $result = $executor->deriveLearningSignal([
+            'outcome_class' => 'success',
+            'proof_status' => 'verified',
+            'success' => true,
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertNull($result['rejection_reason']);
+        $this->assertSame('strong_fit', $result['learning_signal']['worker_fit_signal']);
+        $this->assertNull($result['learning_signal']['failure_reason']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_rejects_receipt_only_success_without_proof_status_or_outcome_class(): void
+    {
+        $executor = app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $result = $executor->deriveLearningSignal(['success' => true]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('receipt_only_success_without_proof_status_or_outcome_class', $result['rejection_reason']);
+        $this->assertNull($result['learning_signal']);
+    }
+
+    public function test_rejects_unrecognized_outcome_class(): void
+    {
+        $executor = app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $result = $executor->deriveLearningSignal([
+            'outcome_class' => 'bogus',
+            'proof_status' => 'verified',
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('unrecognized_outcome_class', $result['rejection_reason']);
+    }
+
+    public function test_rejects_success_flag_contradicting_outcome_class(): void
+    {
+        $executor = app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $result = $executor->deriveLearningSignal([
+            'outcome_class' => 'failure',
+            'proof_status' => 'verified',
+            'success' => true,
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('success_flag_contradicts_outcome_class', $result['rejection_reason']);
+    }
+
+    public function test_failure_outcome_carries_failure_reason_in_signal(): void
+    {
+        $executor = app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $result = $executor->deriveLearningSignal([
+            'outcome_class' => 'failure',
+            'proof_status' => 'red_test',
+            'failure_reason' => 'assertion_failed',
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertSame('weak_fit', $result['learning_signal']['worker_fit_signal']);
+        $this->assertSame('assertion_failed', $result['learning_signal']['failure_reason']);
+    }
+
+    public function test_give_back_outcome_is_weak_fit(): void
+    {
+        $executor = app(AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor::class);
+        $result = $executor->deriveLearningSignal([
+            'outcome_class' => 'give_back',
+            'proof_status' => 'not_applicable',
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertSame('weak_fit', $result['learning_signal']['worker_fit_signal']);
+    }
 }

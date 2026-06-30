@@ -14,6 +14,65 @@ class AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor
         private readonly AgentDispatchExecutorReceiptUseWriter $receiptUseWriter,
     ) {}
 
+    private const VALID_OUTCOME_CLASSES = ['success', 'failure', 'give_back', 'partial'];
+
+    /**
+     * Pure, provider-free extraction of a worker-learning signal from a
+     * dispatch receipt. A receipt declaring "success" with no proof_status
+     * or outcome_class is rejected as untrustworthy — receipts must carry
+     * real evidence, not just a status string, before they can teach the
+     * runtime registry or Task Fabric anything.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    public function deriveLearningSignal(array $receipt): array
+    {
+        $outcomeClass = (string) ($receipt['outcome_class'] ?? '');
+        $proofStatus = (string) ($receipt['proof_status'] ?? '');
+        $failureReason = $receipt['failure_reason'] ?? null;
+        $declaredSuccess = (bool) ($receipt['success'] ?? false);
+
+        $rejected = false;
+        $rejectionReason = null;
+
+        if ($outcomeClass === '' || $proofStatus === '') {
+            $rejected = true;
+            $rejectionReason = 'receipt_only_success_without_proof_status_or_outcome_class';
+        } elseif (! in_array($outcomeClass, self::VALID_OUTCOME_CLASSES, true)) {
+            $rejected = true;
+            $rejectionReason = 'unrecognized_outcome_class';
+        } elseif ($outcomeClass !== 'success' && $declaredSuccess) {
+            $rejected = true;
+            $rejectionReason = 'success_flag_contradicts_outcome_class';
+        }
+
+        $workerFitSignal = match (true) {
+            $rejected => 'unknown',
+            $outcomeClass === 'success' && $proofStatus === 'verified' => 'strong_fit',
+            $outcomeClass === 'success' => 'tentative_fit',
+            in_array($outcomeClass, ['failure', 'give_back'], true) => 'weak_fit',
+            default => 'mixed_fit',
+        };
+
+        $learningSignal = $rejected ? null : [
+            'outcome_class' => $outcomeClass,
+            'proof_status' => $proofStatus,
+            'worker_fit_signal' => $workerFitSignal,
+            'failure_reason' => $outcomeClass === 'success' ? null : ($failureReason !== null ? (string) $failureReason : null),
+        ];
+
+        return [
+            'accepted' => ! $rejected,
+            'rejection_reason' => $rejectionReason,
+            'learning_signal' => $learningSignal,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
