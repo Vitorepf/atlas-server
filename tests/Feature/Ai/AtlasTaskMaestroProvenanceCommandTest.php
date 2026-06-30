@@ -141,6 +141,39 @@ final class AtlasTaskMaestroProvenanceCommandTest extends TestCase
         $this->assertSame([2, 3, 4], array_map(static fn (array $r): int => (int) $r['sequence_no'], $rows));
     }
 
+    public function test_trace_json_without_packet_refuses_with_json_envelope(): void
+    {
+        // Regression: trace --json without --packet must emit JSON, not raw error text.
+        $exit = Artisan::call('atlas:task:maestro:provenance', ['action' => 'trace', '--json' => true]);
+
+        $this->assertSame(2, $exit);
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertIsArray($payload, 'output must be valid JSON on refusal with --json');
+        $this->assertSame('refused', $payload['status']);
+        $this->assertNotEmpty($payload['reason']);
+    }
+
+    public function test_verify_json_without_packet_or_receipt_refuses_with_json_envelope(): void
+    {
+        // Regression: verify --json without --packet/--receipt must emit JSON.
+        $exit = Artisan::call('atlas:task:maestro:provenance', ['action' => 'verify', '--json' => true]);
+
+        $this->assertSame(2, $exit);
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertIsArray($payload, 'output must be valid JSON on refusal with --json');
+        $this->assertSame('refused', $payload['status']);
+        $this->assertNotEmpty($payload['reason']);
+    }
+
+    public function test_trace_without_json_flag_prints_human_readable_error(): void
+    {
+        // Preserve: without --json, refusal stays as plain text (not JSON).
+        $exit = Artisan::call('atlas:task:maestro:provenance', ['action' => 'trace']);
+
+        $this->assertSame(2, $exit);
+        $this->assertNull(json_decode(trim(Artisan::output())));
+    }
+
     public function test_history_global_tail_truncates_to_limit(): void
     {
         for ($i = 0; $i < 4; $i++) {

@@ -175,7 +175,11 @@ final class AtlasTaskMaestroProvenanceCommand extends Command
 
     private function errExit(string $msg): int
     {
-        $this->error($msg);
+        if ($this->option('json')) {
+            $this->line((string) json_encode(['status' => 'refused', 'reason' => $msg], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        } else {
+            $this->error($msg);
+        }
 
         return 2;
     }
