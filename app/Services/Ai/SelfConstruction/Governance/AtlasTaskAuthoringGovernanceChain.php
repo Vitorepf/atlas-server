@@ -66,7 +66,7 @@ final class AtlasTaskAuthoringGovernanceChain
     {
         $mode = $this->mode();
         if ($mode === self::MODE_OFF) {
-            return $this->envelope($mode, [], null, [], 'skipped', '');
+            return $this->envelope($mode, [], null, [], 'skipped', '', $this->emptyArena($candidates, 'skipped'));
         }
 
         try {
@@ -89,9 +89,11 @@ final class AtlasTaskAuthoringGovernanceChain
                 $recorded = $this->record($ranked, $top, $budgetVerdict);
             }
 
-            return $this->envelope($mode, $ranked, $top, $contract, $recorded, '');
+            $arena = $this->buildArena($candidates, $top, $ranked);
+
+            return $this->envelope($mode, $ranked, $top, $contract, $recorded, '', $arena);
         } catch (Throwable $e) {
-            return $this->envelope($mode, [], null, [], 'failed_open', $e->getMessage());
+            return $this->envelope($mode, [], null, [], 'failed_open', $e->getMessage(), $this->emptyArena($candidates, 'failed_open'));
         }
     }
 
@@ -202,11 +204,13 @@ final class AtlasTaskAuthoringGovernanceChain
      * @param  array<int,array<string,mixed>>  $ranked
      * @param  array<string,mixed>|null  $top
      * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $arena
      * @return array<string,mixed>
      */
-    private function envelope(string $mode, array $ranked, ?array $top, array $contract, string $recorded, string $error): array
+    private function envelope(string $mode, array $ranked, ?array $top, array $contract, string $recorded, string $error, array $arena = []): array
     {
         return [
+            'arena' => $arena,
             'contract' => $contract,
             'error' => $error,
             'mode' => $mode,
@@ -215,5 +219,93 @@ final class AtlasTaskAuthoringGovernanceChain
             'schema' => self::SCHEMA,
             'top' => $top,
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @param  array<string,mixed>|null  $top
+     * @param  array<int,array<string,mixed>>  $ranked
+     * @return array<string,mixed>
+     */
+    private function buildArena(array $candidates, ?array $top, array $ranked): array
+    {
+        $selectedId = $top !== null
+            ? (string) ($top['candidate_id'] ?? hash('sha256', (string) json_encode($top)))
+            : null;
+
+        $accepted = is_array($ranked['accepted'] ?? null) ? array_values($ranked['accepted']) : array_values($ranked);
+        $rejected = is_array($ranked['rejected'] ?? null) ? array_values($ranked['rejected']) : [];
+
+        $rejectedIds = [];
+        foreach ($rejected as $r) {
+            $rid = is_array($r) ? (string) ($r['candidate_id'] ?? '') : '';
+            if ($rid !== '') {
+                $rejectedIds[] = $rid;
+            }
+        }
+        foreach ($accepted as $r) {
+            $rid = is_array($r) ? (string) ($r['candidate_id'] ?? '') : '';
+            if ($rid !== '' && $rid !== $selectedId) {
+                $rejectedIds[] = $rid;
+            }
+        }
+
+        return [
+            'candidates_considered' => count($candidates),
+            'diversity_score' => $this->computeDiversityScore($candidates),
+            'rejected_candidate_ids' => array_values(array_unique($rejectedIds)),
+            'selected_candidate_id' => $selectedId,
+            'selection_reason' => $selectedId !== null ? 'top_of_leverage_rank_accepted_set' : 'no_candidates_accepted',
+            'template_farm_warning' => $this->detectTemplateFarm($candidates),
+        ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array<string,mixed>
+     */
+    private function emptyArena(array $candidates, string $reason): array
+    {
+        return [
+            'candidates_considered' => count($candidates),
+            'diversity_score' => 0.0,
+            'rejected_candidate_ids' => [],
+            'selected_candidate_id' => null,
+            'selection_reason' => $reason,
+            'template_farm_warning' => false,
+        ];
+    }
+
+    /** @param  array<int,array<string,mixed>>  $candidates */
+    private function computeDiversityScore(array $candidates): float
+    {
+        $n = count($candidates);
+        if ($n <= 1) {
+            return 1.0;
+        }
+        $scopes = array_map(static fn (array $c): string => (string) ($c['owner_scope'] ?? ''), $candidates);
+        return round(count(array_unique($scopes)) / $n, 2);
+    }
+
+    /** @param  array<int,array<string,mixed>>  $candidates */
+    private function detectTemplateFarm(array $candidates): bool
+    {
+        if (count($candidates) <= 1) {
+            return false;
+        }
+        $scopes = array_map(static fn (array $c): string => (string) ($c['owner_scope'] ?? ''), $candidates);
+        if (count(array_unique($scopes)) === 1 && $scopes[0] !== '') {
+            return true;
+        }
+        $titles = array_map(static fn (array $c): string => (string) preg_replace('/[0-9\s]+/', '', strtolower($c['title'] ?? '')), $candidates);
+        if (count(array_unique($titles)) === 1 && $titles[0] !== '') {
+            return true;
+        }
+        $templates = array_map(static fn (array $c): string => (string) ($c['template'] ?? ''), $candidates);
+        if ($templates[0] !== '' && count(array_unique($templates)) === 1) {
+            return true;
+        }
+
+        return false;
     }
 }

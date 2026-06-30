@@ -128,6 +128,69 @@ final class AtlasTaskAuthoringGovernanceChainTest extends TestCase
      * since the chain is final). This "explicit accepted contract verdict" proves the command correctly
      * surfaces a meaningful governance pass when given a properly wired chain.
      */
+    public function test_govern_returns_arena_section_with_all_required_keys(): void
+    {
+        $chain = new AtlasTaskAuthoringGovernanceChain(
+            modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_OBSERVE,
+        );
+
+        $envelope = $chain->govern($this->defaultCandidates());
+        $this->assertArrayHasKey('arena', $envelope);
+        $arena = $envelope['arena'];
+        foreach (['candidates_considered', 'selected_candidate_id', 'rejected_candidate_ids', 'selection_reason', 'diversity_score', 'template_farm_warning'] as $key) {
+            $this->assertArrayHasKey($key, $arena, "arena must have key: {$key}");
+        }
+        $this->assertSame(1, $arena['candidates_considered']);
+        $this->assertNotNull($arena['selected_candidate_id'], 'selected_candidate_id must be set for an accepted candidate');
+        $this->assertSame([], $arena['rejected_candidate_ids']);
+    }
+
+    public function test_multiple_accepted_candidates_fills_rejected_ids_deterministically(): void
+    {
+        $candidates = [
+            ['candidate_id' => 'A', 'title' => 'alpha', 'owner_scope' => 'scope-a', 'leverage_rank' => 'high', 'capability_gap' => [], 'invariants' => []],
+            ['candidate_id' => 'B', 'title' => 'beta',  'owner_scope' => 'scope-b', 'leverage_rank' => 'high', 'capability_gap' => [], 'invariants' => []],
+        ];
+        $chain = new AtlasTaskAuthoringGovernanceChain(
+            modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_OBSERVE,
+        );
+
+        $envelope = $chain->govern($candidates);
+        $arena = $envelope['arena'];
+
+        $this->assertSame(2, $arena['candidates_considered']);
+        $this->assertNotNull($arena['selected_candidate_id'], 'selected must be deterministic');
+        $this->assertNotEmpty($arena['selection_reason']);
+    }
+
+    public function test_homogeneous_candidate_set_sets_template_farm_warning(): void
+    {
+        $candidates = [
+            ['candidate_id' => 'X1', 'title' => 'task alpha 1', 'owner_scope' => 'same-scope', 'leverage_rank' => 'medium', 'capability_gap' => [], 'invariants' => []],
+            ['candidate_id' => 'X2', 'title' => 'task alpha 2', 'owner_scope' => 'same-scope', 'leverage_rank' => 'medium', 'capability_gap' => [], 'invariants' => []],
+            ['candidate_id' => 'X3', 'title' => 'task alpha 3', 'owner_scope' => 'same-scope', 'leverage_rank' => 'medium', 'capability_gap' => [], 'invariants' => []],
+        ];
+        $chain = new AtlasTaskAuthoringGovernanceChain(
+            modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_OBSERVE,
+        );
+
+        $envelope = $chain->govern($candidates);
+        $this->assertTrue($envelope['arena']['template_farm_warning'], 'homogeneous owner_scope must trigger template_farm_warning');
+    }
+
+    public function test_off_mode_arena_is_skipped_and_does_not_block(): void
+    {
+        $chain = new AtlasTaskAuthoringGovernanceChain(
+            modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_OFF,
+        );
+        $envelope = $chain->govern($this->defaultCandidates());
+
+        $this->assertSame(AtlasTaskAuthoringGovernanceChain::MODE_OFF, $envelope['mode']);
+        $this->assertSame('skipped', $envelope['recorded']);
+        $this->assertArrayHasKey('arena', $envelope);
+        $this->assertSame('skipped', $envelope['arena']['selection_reason']);
+    }
+
     public function test_cli_exits_0_with_non_empty_top_and_explicit_accepted_contract_verdict(): void
     {
         $explicitEnvelope = [
