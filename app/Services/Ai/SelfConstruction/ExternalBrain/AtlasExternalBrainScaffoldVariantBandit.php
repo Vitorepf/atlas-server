@@ -49,27 +49,53 @@ final class AtlasExternalBrainScaffoldVariantBandit
 
     private const MAX_AVG_COST = 10.0;
 
+    /** Context-dependent weight profiles: high_risk favors proven safety, low_risk favors cost/value. */
+    private const WEIGHT_PROFILES = [
+        'high_risk' => ['success' => 0.45, 'heldout' => 0.30, 'value' => 0.05, 'green' => 0.10, 'give_back' => 0.08, 'cost' => 0.02],
+        'low_risk'  => ['success' => 0.25, 'heldout' => 0.10, 'value' => 0.25, 'green' => 0.10, 'give_back' => 0.10, 'cost' => 0.20],
+        'default'   => ['success' => 0.40, 'heldout' => 0.20, 'value' => 0.15, 'green' => 0.10, 'give_back' => 0.10, 'cost' => 0.05],
+    ];
+
     /**
-     * @param  array<string,mixed>  $input  model_tier, task_class, variant_outcomes
+     * @param  array<string,mixed>  $input  model_tier, task_class, task_family, risk_level, variant_outcomes
      * @return array<string,mixed>
      */
     public function select(array $input): array
     {
-        $modelTier = (string) ($input['model_tier'] ?? '');
-        $taskClass = (string) ($input['task_class'] ?? '');
-        $variants  = is_array($input['variant_outcomes'] ?? null) ? $input['variant_outcomes'] : [];
+        $modelTier  = (string) ($input['model_tier'] ?? '');
+        $taskClass  = (string) ($input['task_class'] ?? '');
+        $taskFamily = (string) ($input['task_family'] ?? '');
+        $riskLevel  = strtolower((string) ($input['risk_level'] ?? 'medium'));
+        $variants   = is_array($input['variant_outcomes'] ?? null) ? $input['variant_outcomes'] : [];
+
+        $profileName = match ($riskLevel) {
+            'high' => 'high_risk',
+            'low'  => 'low_risk',
+            default => 'default',
+        };
+        $weights = self::WEIGHT_PROFILES[$profileName];
+        $routingContext = [
+            'model_tier'     => $modelTier,
+            'task_class'     => $taskClass,
+            'task_family'    => $taskFamily,
+            'risk_level'     => $riskLevel,
+            'weight_profile' => $profileName,
+        ];
+        $selectionReasons = ["weight_profile:{$profileName} (risk_level={$riskLevel})"];
 
         if ($variants === []) {
             return [
                 'schema_version'       => self::SCHEMA,
                 'model_tier'           => $modelTier,
                 'task_class'           => $taskClass,
+                'routing_context'      => $routingContext,
                 'selected_variant'     => null,
                 'exploration_variants' => [],
                 'confidence'           => 'low',
                 'evidence_counts'      => [],
                 'rejected_variants'    => [],
                 'quarantined_variants' => [],
+                'selection_reasons'    => $selectionReasons,
             ];
         }
 
@@ -86,10 +112,11 @@ final class AtlasExternalBrainScaffoldVariantBandit
             $proxyLeakRate = (float) ($v['proxy_leak_rate'] ?? 0.0);
             if ($proxyLeakRate > self::PROXY_LEAK_CEILING && $runs >= self::MIN_EVIDENCE) {
                 $quarantinedVariants[] = $id;
+                $selectionReasons[] = "quarantined:{$id} proxy_leak_rate={$proxyLeakRate} exceeds ceiling ".self::PROXY_LEAK_CEILING;
                 continue;
             }
 
-            $score        = $this->ucb($v, $runs);
+            $score        = $this->ucb($v, $runs, $weights);
             $scored[$id]  = [
                 'variant_id' => $id,
                 'runs'       => $runs,
@@ -103,12 +130,14 @@ final class AtlasExternalBrainScaffoldVariantBandit
                 'schema_version'       => self::SCHEMA,
                 'model_tier'           => $modelTier,
                 'task_class'           => $taskClass,
+                'routing_context'      => $routingContext,
                 'selected_variant'     => null,
                 'exploration_variants' => [],
                 'confidence'           => 'low',
                 'evidence_counts'      => $evidenceCounts,
                 'rejected_variants'    => [],
                 'quarantined_variants' => $quarantinedVariants,
+                'selection_reasons'    => $selectionReasons,
             ];
         }
 
@@ -140,21 +169,28 @@ final class AtlasExternalBrainScaffoldVariantBandit
             $confidence = 'low';
         }
 
+        $selectionReasons[] = "selected:{$selected} ucb={$scored[$selected]['ucb']} confidence={$confidence}";
+
         return [
             'schema_version'       => self::SCHEMA,
             'model_tier'           => $modelTier,
             'task_class'           => $taskClass,
+            'routing_context'      => $routingContext,
             'selected_variant'     => $selected,
             'exploration_variants' => $explorationVariants,
             'confidence'           => $confidence,
             'evidence_counts'      => $evidenceCounts,
             'rejected_variants'    => $rejectedVariants,
             'quarantined_variants' => $quarantinedVariants,
+            'selection_reasons'    => $selectionReasons,
         ];
     }
 
-    /** @param array<string,mixed> $v */
-    private function ucb(array $v, int $runs): array
+    /**
+     * @param  array<string,mixed>  $v
+     * @param  array<string,float>  $weights
+     */
+    private function ucb(array $v, int $runs, array $weights): array
     {
         if ($runs === 0) {
             $bonus = self::EXPLORATION_FACTOR * 2.0;
@@ -170,12 +206,12 @@ final class AtlasExternalBrainScaffoldVariantBandit
         $costScore       = 1.0 - min(1.0, $avgCost / self::MAX_AVG_COST);
 
         $weighted = round(
-            $successRate     * 0.40
-            + $heldoutPassRate * 0.20
-            + $valueNorm       * 0.15
-            + $greenCommitRate * 0.10
-            + (1.0 - $giveBackRate) * 0.10
-            + $costScore       * 0.05,
+            $successRate     * $weights['success']
+            + $heldoutPassRate * $weights['heldout']
+            + $valueNorm       * $weights['value']
+            + $greenCommitRate * $weights['green']
+            + (1.0 - $giveBackRate) * $weights['give_back']
+            + $costScore       * $weights['cost'],
             4,
         );
 

@@ -275,4 +275,76 @@ final class AtlasExternalBrainScaffoldVariantBanditTest extends TestCase
 
         $this->assertArrayHasKey('quarantined_variants', $r);
     }
+
+    // ── contextual routing (AC2 + AC3) ────────────────────────────────────────
+
+    public function test_select_returns_routing_context_and_selection_reasons(): void
+    {
+        $r = $this->select([$this->variant('v1', 10, 8, 0, 8.0)]);
+
+        $this->assertArrayHasKey('routing_context', $r);
+        $this->assertArrayHasKey('selection_reasons', $r);
+        $this->assertNotEmpty($r['selection_reasons']);
+        foreach (['model_tier', 'task_class', 'task_family', 'risk_level', 'weight_profile'] as $key) {
+            $this->assertArrayHasKey($key, $r['routing_context']);
+        }
+    }
+
+    private function contextualVariants(): array
+    {
+        // 'safe': proven (high success/heldout) but slow/expensive and lower raw value.
+        $safe = $this->variant('safe', 10, 10, 0, 2.0, 0.95, 0.0, 9.0, 0.5);
+        // 'cheap': less proven but cheap and high raw value.
+        $cheap = $this->variant('cheap', 10, 6, 0, 9.0, 0.5, 0.0, 1.0, 0.5);
+
+        return [$safe, $cheap];
+    }
+
+    public function test_high_risk_bugfix_and_low_risk_refactor_select_different_variants_for_same_data(): void
+    {
+        $variants = $this->contextualVariants();
+
+        $highRiskResult = $this->svc()->select([
+            'model_tier' => 'small', 'task_class' => 'bugfix', 'risk_level' => 'high',
+            'variant_outcomes' => $variants,
+        ]);
+        $lowRiskResult = $this->svc()->select([
+            'model_tier' => 'mid', 'task_class' => 'refactor', 'risk_level' => 'low',
+            'variant_outcomes' => $variants,
+        ]);
+
+        $this->assertSame('safe', $highRiskResult['selected_variant'], 'high-risk context must favor proven safety');
+        $this->assertSame('cheap', $lowRiskResult['selected_variant'], 'low-risk context must favor cost/value');
+        $this->assertNotSame($highRiskResult['selected_variant'], $lowRiskResult['selected_variant']);
+        $this->assertSame('high_risk', $highRiskResult['routing_context']['weight_profile']);
+        $this->assertSame('low_risk', $lowRiskResult['routing_context']['weight_profile']);
+    }
+
+    public function test_proxy_leak_quarantine_overrides_high_ucb_score_in_contextual_routing(): void
+    {
+        $r = $this->svc()->select([
+            'model_tier' => 'small', 'task_class' => 'bugfix', 'risk_level' => 'high',
+            'variant_outcomes' => [
+                $this->variant('leaky', 10, 10, 0, 10.0, 1.0, 0.80), // would dominate on UCB
+                $this->variant('clean', 10, 6, 1, 7.0, 0.7, 0.0),
+            ],
+        ]);
+
+        $this->assertSame('clean', $r['selected_variant']);
+        $this->assertContains('leaky', $r['quarantined_variants']);
+    }
+
+    public function test_under_sampled_safe_variant_remains_in_exploration_under_contextual_routing(): void
+    {
+        $r = $this->svc()->select([
+            'model_tier' => 'small', 'task_class' => 'bugfix', 'risk_level' => 'high',
+            'variant_outcomes' => [
+                $this->variant('well_tested', 10, 10, 0, 8.0, 0.95, 0.0),
+                $this->variant('barely_tested', 1, 0, 1, 1.0, 0.1, 0.0),
+            ],
+        ]);
+
+        $this->assertSame('well_tested', $r['selected_variant']);
+        $this->assertContains('barely_tested', $r['exploration_variants']);
+    }
 }
