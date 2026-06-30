@@ -133,4 +133,81 @@ final class AtlasProjectLaneQueueNamespacePolicyTest extends TestCase
         $this->expectExceptionMessageMatches('/malformed namespaced task_id/');
         $p->namespacedTaskId($noColon, $facts);
     }
+
+    // ── new isolation facts: lane_id / prefixes / collision_risk_verdict ─────
+
+    public function test_derive_includes_all_five_isolation_fact_keys(): void
+    {
+        $facts = (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts());
+
+        foreach (['lane_id', 'queue_prefix', 'task_id_prefix', 'storage_key_prefix', 'collision_risk_verdict'] as $key) {
+            $this->assertArrayHasKey($key, $facts, "Missing isolation fact: {$key}");
+            $this->assertNotEmpty($facts[$key], "Isolation fact '{$key}' must not be empty");
+        }
+    }
+
+    public function test_lane_id_does_not_carry_the_lane_dot_prefix(): void
+    {
+        $facts = (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts('myproject'));
+        // lane_id = project_id.repoHash.branch (no "lane." prefix)
+        $this->assertStringStartsWith('myproject.', $facts['lane_id']);
+        $this->assertStringNotContainsString('lane.', $facts['lane_id']);
+    }
+
+    public function test_task_id_prefix_appended_to_bare_task_matches_namespaced_task_id(): void
+    {
+        $p     = new AtlasProjectLaneQueueNamespacePolicy;
+        $facts = $p->derive($this->manifestFacts());
+
+        $this->assertSame($facts['task_id_prefix'].'PACKET-7', $p->namespacedTaskId('PACKET-7', $facts));
+    }
+
+    public function test_storage_key_prefix_starts_with_store_and_namespace(): void
+    {
+        $facts = (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts());
+        $this->assertStringStartsWith('store.'.$facts['namespace'].'.', $facts['storage_key_prefix']);
+    }
+
+    public function test_collision_risk_verdict_is_safe_for_standard_project(): void
+    {
+        $facts = (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts('demo', '/Users/me/proj', 'main'));
+        $this->assertSame('safe', $facts['collision_risk_verdict']);
+    }
+
+    public function test_collision_risk_verdict_is_collision_risk_for_very_short_project_id(): void
+    {
+        $facts = (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts('ab', '/abs/path', 'main'));
+        $this->assertSame('collision_risk', $facts['collision_risk_verdict']);
+    }
+
+    // ── detectNamespaceCollision ──────────────────────────────────────────────
+
+    public function test_detect_collision_safe_for_two_different_lanes(): void
+    {
+        $p      = new AtlasProjectLaneQueueNamespacePolicy;
+        $factsA = $p->derive($this->manifestFacts('project-alpha', '/abs/alpha', 'main'));
+        $factsB = $p->derive($this->manifestFacts('project-beta',  '/abs/beta',  'main'));
+
+        $result = $p->detectNamespaceCollision($factsA, $factsB);
+        $this->assertFalse($result['collision']);
+        $this->assertSame('safe', $result['reason']);
+    }
+
+    public function test_detect_collision_detected_for_identical_namespace(): void
+    {
+        $p      = new AtlasProjectLaneQueueNamespacePolicy;
+        $facts  = $p->derive($this->manifestFacts());
+
+        $result = $p->detectNamespaceCollision($facts, $facts);
+        $this->assertTrue($result['collision']);
+        $this->assertSame('identical_namespace', $result['reason']);
+    }
+
+    public function test_detect_collision_missing_namespace_is_collision(): void
+    {
+        $p      = new AtlasProjectLaneQueueNamespacePolicy;
+        $result = $p->detectNamespaceCollision([], ['namespace' => 'lane.x.abc.main']);
+        $this->assertTrue($result['collision']);
+        $this->assertSame('missing_namespace', $result['reason']);
+    }
 }

@@ -65,20 +65,57 @@ final class AtlasProjectLaneQueueNamespacePolicy
             throw new RuntimeException('queue namespace policy: mainline_branch sanitizes to empty namespace segment: '.$mainlineRaw);
         }
         $namespace = self::NAMESPACE_PREFIX.$projectId.'.'.$repoHash.'.'.$branchSafe;
-        $queueKey = 'queue.'.$namespace;
+        $queueKey  = 'queue.'.$namespace;
+
+        // collision_risk_verdict: 'safe' when project_id is sufficiently unique (≥3 chars) AND
+        // namespace is long enough to avoid accidental overlap; 'collision_risk' otherwise.
+        $collisionRiskVerdict = (strlen($projectId) >= 3 && strlen($namespace) >= 20)
+            ? 'safe'
+            : 'collision_risk';
 
         return [
-            'schema' => self::SCHEMA,
-            'project_id' => $projectId,
-            'namespace' => $namespace,
-            'queue_key' => $queueKey,
-            'tags' => [
+            'schema'                 => self::SCHEMA,
+            'project_id'             => $projectId,
+            'lane_id'                => $projectId.'.'.$repoHash.'.'.$branchSafe,
+            'namespace'              => $namespace,
+            'queue_prefix'           => $queueKey.'.',
+            'task_id_prefix'         => $namespace.':',
+            'storage_key_prefix'     => 'store.'.$namespace.'.',
+            'queue_key'              => $queueKey,
+            'collision_risk_verdict' => $collisionRiskVerdict,
+            'tags'                   => [
                 'lane:'.$projectId,
                 'repo_root_sha8:'.$repoHash,
                 'mainline:'.$branchSafe,
             ],
-            'execution_topology' => self::EXECUTION_TOPOLOGY,
+            'execution_topology'     => self::EXECUTION_TOPOLOGY,
         ];
+    }
+
+    /**
+     * Detects whether two derived namespace-fact envelopes would produce overlapping identifiers.
+     * Returns ['collision' => true/false, 'reason' => string].
+     *
+     * @param  array<string,mixed>  $factsA  from derive()
+     * @param  array<string,mixed>  $factsB  from derive()
+     * @return array{collision:bool, reason:string}
+     */
+    public function detectNamespaceCollision(array $factsA, array $factsB): array
+    {
+        $nsA = (string) ($factsA['namespace'] ?? '');
+        $nsB = (string) ($factsB['namespace'] ?? '');
+
+        if ($nsA === '' || $nsB === '') {
+            return ['collision' => true, 'reason' => 'missing_namespace'];
+        }
+        if ($nsA === $nsB) {
+            return ['collision' => true, 'reason' => 'identical_namespace'];
+        }
+        if (str_starts_with($nsA, $nsB.'.') || str_starts_with($nsB, $nsA.'.')) {
+            return ['collision' => true, 'reason' => 'prefix_overlap'];
+        }
+
+        return ['collision' => false, 'reason' => 'safe'];
     }
 
     /**
