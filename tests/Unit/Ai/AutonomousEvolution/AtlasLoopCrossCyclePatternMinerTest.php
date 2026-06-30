@@ -40,6 +40,17 @@ final class AtlasLoopCrossCyclePatternMinerTest extends TestCase
         );
     }
 
+    public function test_mine_payload_includes_cycle_ids_from_episode_ids(): void
+    {
+        $payload = (new AtlasLoopCrossCyclePatternMiner($this->episodes(), 3))->mine();
+
+        $this->assertArrayHasKey('cycle_ids', $payload, 'mine() must emit cycle_ids');
+        $this->assertContains('ep-1', $payload['cycle_ids']);
+        $this->assertContains('ep-2', $payload['cycle_ids']);
+        $this->assertContains('ep-3', $payload['cycle_ids']);
+        $this->assertCount(3, $payload['cycle_ids']);
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

@@ -69,9 +69,13 @@ final class AtlasLoopCrossCyclePatternMiner
             ];
         }
 
+        $cycleIds = array_values(array_keys($episodeTokens));
+        sort($cycleIds, SORT_STRING);
+
         return [
             'patterns' => $patterns,
             'window' => $this->window,
+            'cycle_ids' => $cycleIds,
         ];
     }
 
