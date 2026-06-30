@@ -33,12 +33,19 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     public const CAUSE_COMPLEXITY            = 'implementation_complexity';
     public const CAUSE_WORKER_CAPABILITY_GAP = 'worker_capability_gap';
     public const CAUSE_QUEUE_CONTENTION      = 'queue_contention';
-    public const CAUSE_GOOD_EXECUTION        = 'good_execution';
-    public const CAUSE_UNKNOWN               = 'unknown';
+    public const CAUSE_GOOD_EXECUTION           = 'good_execution';
+    public const CAUSE_ROUTING_FAMILY_MISMATCH = 'routing_family_mismatch';
+    public const CAUSE_UNKNOWN                 = 'unknown';
 
-    private const SPEC_QUALITY_THRESHOLD   = 0.4;
-    private const EVIDENCE_WEAK_THRESHOLD  = 0.4;
-    private const WORKER_QUALITY_THRESHOLD = 0.5;
+    public const ROUTING_SIGNAL_POSITIVE = 'positive';
+    public const ROUTING_SIGNAL_NEGATIVE = 'negative';
+    public const ROUTING_SIGNAL_NEUTRAL  = 'neutral';
+
+    private const SPEC_QUALITY_THRESHOLD       = 0.4;
+    private const EVIDENCE_WEAK_THRESHOLD      = 0.4;
+    private const WORKER_QUALITY_THRESHOLD     = 0.5;
+    private const DEFAULT_GIVE_BACK_THRESHOLD  = 2;
+    private const DEFAULT_SUCCESS_THRESHOLD    = 2;
 
     /**
      * @param  array{
@@ -61,10 +68,14 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
         $evidenceSt   = (float) ($spec['evidence_strength']       ?? 1.0);
         $complexity   = (string) ($spec['complexity']             ?? 'low');
 
-        $workerQuality  = (float) ($worker['quality_score']     ?? 1.0);
-        $taskClass      = (string) ($worker['task_class']        ?? '');
-        $avoidClasses   = (array)  ($worker['avoid_task_classes'] ?? []);
-        $bestClasses    = (array)  ($worker['best_task_classes']  ?? []);
+        $workerQuality      = (float) ($worker['quality_score']        ?? 1.0);
+        $taskClass          = (string) ($worker['task_class']           ?? '');
+        $avoidClasses       = (array)  ($worker['avoid_task_classes']   ?? []);
+        $bestClasses        = (array)  ($worker['best_task_classes']    ?? []);
+        $repeatedGiveBack   = (int)   ($worker['repeated_give_back_count'] ?? 0);
+        $repeatedSuccess    = (int)   ($worker['repeated_success_count']   ?? 0);
+        $giveBackThreshold  = (int)   ($worker['give_back_threshold']      ?? self::DEFAULT_GIVE_BACK_THRESHOLD);
+        $successThreshold   = (int)   ($worker['success_threshold']        ?? self::DEFAULT_SUCCESS_THRESHOLD);
 
         $contention   = (string) ($queue['contention_level'] ?? 'low');
 
@@ -75,9 +86,13 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
         $isSuccess   = $result === 'success';
         $isGiveBack  = $result === 'give_back';
         $isFailedGate = $result === 'failed_gate';
-        $poorSpec    = $specQuality < self::SPEC_QUALITY_THRESHOLD || ! $hasAC;
-        $workerMismatch = $taskClass !== '' && in_array($taskClass, $avoidClasses, true);
-        $weakEvidence   = $evidenceSt < self::EVIDENCE_WEAK_THRESHOLD || ! $hadEvidence;
+        $poorSpec            = $specQuality < self::SPEC_QUALITY_THRESHOLD || ! $hasAC;
+        $workerMismatch      = $taskClass !== '' && in_array($taskClass, $avoidClasses, true);
+        $weakEvidence        = $evidenceSt < self::EVIDENCE_WEAK_THRESHOLD || ! $hadEvidence;
+        $routingFamilyMismatch = $isGiveBack
+            && ! $workerMismatch
+            && $workerQuality >= self::WORKER_QUALITY_THRESHOLD
+            && $repeatedGiveBack >= $giveBackThreshold;
 
         $contributing = [];
 
@@ -102,6 +117,13 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
             if ($isGiveBack) {
                 $contributing[] = 'outcome:give_back';
             }
+        }
+        // 2.5. AC1: routing family mismatch — capable worker repeatedly gives back wrong task family
+        elseif ($routingFamilyMismatch) {
+            $primaryCause = self::CAUSE_ROUTING_FAMILY_MISMATCH;
+            $contributing[] = 'capable_worker_repeated_give_back';
+            $contributing[] = 'repeated_give_back_count:'.$repeatedGiveBack;
+            $contributing[] = 'worker_quality:'.$workerQuality;
         }
         // 3. Shallow evidence on success
         elseif ($isSuccess && ($shallowSuccess || $weakEvidence)) {
@@ -139,11 +161,22 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
                 $contributing[] = 'worker_best_class_matched';
             }
             $contributing[] = 'evidence_strength:'.$evidenceSt;
+            // AC2: positive routing signal when worker repeatedly succeeds on this task family.
+            if ($repeatedSuccess >= $successThreshold) {
+                $contributing[] = 'repeated_success_count:'.$repeatedSuccess;
+            }
         }
         else {
             $primaryCause = self::CAUSE_UNKNOWN;
             $contributing[] = 'outcome:'.$result;
         }
+
+        // AC1/AC2: routing_signal — negative for mismatch causes, positive for good execution.
+        $routingSignal = match(true) {
+            in_array($primaryCause, [self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_WORKER_MISMATCH], true) => self::ROUTING_SIGNAL_NEGATIVE,
+            $primaryCause === self::CAUSE_GOOD_EXECUTION => self::ROUTING_SIGNAL_POSITIVE,
+            default => self::ROUTING_SIGNAL_NEUTRAL,
+        };
 
         $confidence  = $this->computeConfidence($primaryCause, $poorSpec, $workerMismatch, $isSuccess);
         $adjustment  = $this->recommendedAdjustment($primaryCause);
@@ -154,6 +187,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
             'primary_cause'                   => $primaryCause,
             'contributing_causes'             => $contributing,
             'confidence'                      => $confidence,
+            'routing_signal'                  => $routingSignal,
             'recommended_originator_adjustment' => $adjustment,
             'attribution_id'                  => $attributionId,
         ];
@@ -161,8 +195,7 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 
     private function computeConfidence(string $primaryCause, bool $poorSpec, bool $workerMismatch, bool $isSuccess): string
     {
-        // High confidence: unambiguous single signal
-        if (in_array($primaryCause, [self::CAUSE_POOR_SPEC, self::CAUSE_WORKER_MISMATCH, self::CAUSE_GOOD_EXECUTION], true)) {
+        if (in_array($primaryCause, [self::CAUSE_POOR_SPEC, self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_GOOD_EXECUTION], true)) {
             return 'high';
         }
         if ($primaryCause === self::CAUSE_UNKNOWN) {
@@ -175,14 +208,15 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     private function recommendedAdjustment(string $primaryCause): string
     {
         return match ($primaryCause) {
-            self::CAUSE_POOR_SPEC             => 'improve_spec_quality',
-            self::CAUSE_WORKER_MISMATCH       => 'route_to_better_worker',
-            self::CAUSE_SHALLOW_EVIDENCE      => 'strengthen_evidence_requirement',
-            self::CAUSE_COMPLEXITY            => 'split_into_smaller_tasks',
-            self::CAUSE_WORKER_CAPABILITY_GAP => 'route_to_better_worker',
-            self::CAUSE_QUEUE_CONTENTION      => 'reduce_contention',
-            self::CAUSE_GOOD_EXECUTION        => 'continue_current_approach',
-            default                           => 'investigate',
+            self::CAUSE_POOR_SPEC               => 'improve_spec_quality',
+            self::CAUSE_WORKER_MISMATCH         => 'route_to_better_worker',
+            self::CAUSE_ROUTING_FAMILY_MISMATCH => 'reassign_to_better_task_family',
+            self::CAUSE_SHALLOW_EVIDENCE        => 'strengthen_evidence_requirement',
+            self::CAUSE_COMPLEXITY              => 'split_into_smaller_tasks',
+            self::CAUSE_WORKER_CAPABILITY_GAP   => 'route_to_better_worker',
+            self::CAUSE_QUEUE_CONTENTION        => 'reduce_contention',
+            self::CAUSE_GOOD_EXECUTION          => 'continue_current_approach',
+            default                             => 'investigate',
         };
     }
 }

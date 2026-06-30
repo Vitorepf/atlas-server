@@ -173,4 +173,87 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
 
         $this->assertSame($a['attribution_id'], $b['attribution_id']);
     }
+
+    // ── AC1: routing_family_mismatch ─────────────────────────────────────────
+
+    public function test_routing_family_mismatch_when_capable_worker_repeatedly_gives_back(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker'  => ['quality_score' => 0.9, 'avoid_task_classes' => [], 'task_class' => 'refactor', 'repeated_give_back_count' => 3],
+            'outcome' => ['result' => 'give_back', 'had_evidence' => true, 'shallow_success' => false],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_ROUTING_FAMILY_MISMATCH, $r['primary_cause']);
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ROUTING_SIGNAL_NEGATIVE, $r['routing_signal']);
+        $this->assertSame('reassign_to_better_task_family', $r['recommended_originator_adjustment']);
+        $this->assertContains('repeated_give_back_count:3', $r['contributing_causes']);
+    }
+
+    public function test_routing_family_mismatch_not_triggered_below_threshold(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker'  => ['quality_score' => 0.9, 'avoid_task_classes' => [], 'task_class' => 'refactor', 'repeated_give_back_count' => 1],
+            'outcome' => ['result' => 'give_back', 'had_evidence' => true, 'shallow_success' => false],
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_ROUTING_FAMILY_MISMATCH, $r['primary_cause']);
+    }
+
+    public function test_routing_family_mismatch_not_triggered_for_low_quality_worker(): void
+    {
+        // Low-quality worker giving back → worker_capability_gap, not routing_family_mismatch.
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker'  => ['quality_score' => 0.3, 'avoid_task_classes' => [], 'task_class' => 'refactor', 'repeated_give_back_count' => 5],
+            'outcome' => ['result' => 'give_back', 'had_evidence' => true, 'shallow_success' => false],
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_ROUTING_FAMILY_MISMATCH, $r['primary_cause']);
+    }
+
+    public function test_custom_give_back_threshold_honored(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker'  => ['quality_score' => 0.9, 'avoid_task_classes' => [], 'task_class' => 'refactor',
+                          'repeated_give_back_count' => 1, 'give_back_threshold' => 1],
+            'outcome' => ['result' => 'give_back', 'had_evidence' => true, 'shallow_success' => false],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_ROUTING_FAMILY_MISMATCH, $r['primary_cause']);
+    }
+
+    // ── AC2: routing_signal positive for good execution ──────────────────────
+
+    public function test_routing_signal_positive_for_good_execution(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution());
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ROUTING_SIGNAL_POSITIVE, $r['routing_signal']);
+    }
+
+    public function test_routing_signal_positive_with_repeated_success(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker' => ['quality_score' => 0.9, 'task_class' => 'new_service', 'repeated_success_count' => 5],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ROUTING_SIGNAL_POSITIVE, $r['routing_signal']);
+        $this->assertContains('repeated_success_count:5', $r['contributing_causes']);
+    }
+
+    public function test_routing_signal_neutral_for_non_routing_cause(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.1, 'has_acceptance_criteria' => false],
+            'outcome' => ['result' => 'give_back'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ROUTING_SIGNAL_NEUTRAL, $r['routing_signal']);
+    }
+
+    public function test_routing_signal_always_present_in_output(): void
+    {
+        $r = $this->attributor->attribute([]);
+
+        $this->assertArrayHasKey('routing_signal', $r);
+    }
 }
