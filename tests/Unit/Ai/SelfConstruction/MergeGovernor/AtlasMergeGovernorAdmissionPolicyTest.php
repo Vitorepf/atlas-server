@@ -98,4 +98,50 @@ final class AtlasMergeGovernorAdmissionPolicyTest extends TestCase
         $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
         $this->assertContains('verification_court_project_mismatch:OTHER!=demo', $r['blockers']);
     }
+
+    public function test_missing_risk_level_yields_risk_level_missing_blocker(): void
+    {
+        $f = $this->baseFacts();
+        $f['risk_classification'] = ['risk_level' => '', 'reasons' => []];
+        $r = (new AtlasMergeGovernorAdmissionPolicy)->decide($f);
+        $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
+        $this->assertContains('risk_level_missing', $r['blockers']);
+    }
+
+    public function test_absent_risk_classification_yields_risk_level_missing_blocker(): void
+    {
+        $f = $this->baseFacts();
+        unset($f['risk_classification']);
+        $r = (new AtlasMergeGovernorAdmissionPolicy)->decide($f);
+        $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
+        $this->assertContains('risk_level_missing', $r['blockers']);
+    }
+
+    public function test_unknown_risk_level_yields_risk_level_unknown_blocker(): void
+    {
+        $f = $this->baseFacts();
+        $f['risk_classification'] = ['risk_level' => 'catastrophic', 'reasons' => []];
+        $r = (new AtlasMergeGovernorAdmissionPolicy)->decide($f);
+        $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
+        $this->assertContains('risk_level_unknown:catastrophic', $r['blockers']);
+        $this->assertNotContains('risk_level_outside_release_window:catastrophic', $r['blockers']);
+    }
+
+    public function test_missing_allowed_risk_levels_yields_blocked_not_implicit_admission(): void
+    {
+        $f = $this->baseFacts();
+        unset($f['release_window_policy']['allowed_risk_levels']);
+        $r = (new AtlasMergeGovernorAdmissionPolicy)->decide($f);
+        $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
+        $this->assertContains('release_window_allowed_risk_levels_missing', $r['blockers']);
+    }
+
+    public function test_empty_allowed_risk_levels_yields_blocked_not_implicit_admission(): void
+    {
+        $f = $this->baseFacts();
+        $f['release_window_policy']['allowed_risk_levels'] = [];
+        $r = (new AtlasMergeGovernorAdmissionPolicy)->decide($f);
+        $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
+        $this->assertContains('release_window_allowed_risk_levels_missing', $r['blockers']);
+    }
 }

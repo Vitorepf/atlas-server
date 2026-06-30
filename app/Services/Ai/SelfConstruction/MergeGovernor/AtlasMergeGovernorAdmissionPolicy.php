@@ -60,16 +60,31 @@ final class AtlasMergeGovernorAdmissionPolicy
         $evidenceHash = (string) ($court['evidence_hash'] ?? '');
         $missingRerun = is_array($court['missing_rerun'] ?? null) ? array_map('strval', $court['missing_rerun']) : [];
         $courtProj = (string) ($court['project_id'] ?? $projectId);
-        $allowedRiskLevels = is_array($window['allowed_risk_levels'] ?? null) ? array_map('strval', $window['allowed_risk_levels']) : ['low', 'medium'];
+        $rawAllowed = $window['allowed_risk_levels'] ?? null;
+        $allowedRiskLevels = is_array($rawAllowed) && $rawAllowed !== [] ? array_map('strval', $rawAllowed) : [];
+
+        $knownRiskLevels = [
+            AtlasMergeGovernorRiskClassifier::RISK_LOW,
+            AtlasMergeGovernorRiskClassifier::RISK_MEDIUM,
+            AtlasMergeGovernorRiskClassifier::RISK_HIGH,
+            AtlasMergeGovernorRiskClassifier::RISK_BLOCKED,
+        ];
 
         $blockers = [];
 
         // BLOCKED branch — hard refusals.
-        if ($riskLevel === AtlasMergeGovernorRiskClassifier::RISK_BLOCKED) {
+        if ($riskLevel === '') {
+            $blockers[] = 'risk_level_missing';
+        } elseif (! in_array($riskLevel, $knownRiskLevels, true)) {
+            $blockers[] = 'risk_level_unknown:'.$riskLevel;
+        } elseif ($riskLevel === AtlasMergeGovernorRiskClassifier::RISK_BLOCKED) {
             $blockers[] = 'risk_blocked';
             foreach ((array) ($risk['reasons'] ?? []) as $r) {
                 $blockers[] = 'risk:'.(string) $r;
             }
+        }
+        if ($allowedRiskLevels === []) {
+            $blockers[] = 'release_window_allowed_risk_levels_missing';
         }
         if ($projectId !== '' && $courtProj !== '' && $courtProj !== $projectId) {
             $blockers[] = 'verification_court_project_mismatch:'.$courtProj.'!='.$projectId;
@@ -77,7 +92,7 @@ final class AtlasMergeGovernorAdmissionPolicy
         if ($riskLevel === AtlasMergeGovernorRiskClassifier::RISK_HIGH && ! $rollbackConformant) {
             $blockers[] = 'high_risk_requires_conformant_rollback';
         }
-        if ($riskLevel !== '' && ! in_array($riskLevel, $allowedRiskLevels, true) && $riskLevel !== AtlasMergeGovernorRiskClassifier::RISK_BLOCKED) {
+        if ($riskLevel !== '' && in_array($riskLevel, $knownRiskLevels, true) && ! in_array($riskLevel, $allowedRiskLevels, true) && $riskLevel !== AtlasMergeGovernorRiskClassifier::RISK_BLOCKED) {
             $blockers[] = 'risk_level_outside_release_window:'.$riskLevel;
         }
 
