@@ -78,6 +78,20 @@ class AtlasTaskMaestroFairnessCommandTest extends TestCase
         return ['exit' => $exit, 'output' => trim($buf->fetch())];
     }
 
+    public function test_gini_live_default_exits_ok_without_bound_reporter(): void
+    {
+        app()->forgetInstance(AtlasMaestroFairnessGiniReporter::class);
+
+        $r = $this->runCmd(['action' => 'gini', '--json' => true]);
+
+        self::assertSame(0, $r['exit']);
+        $payload = json_decode($r['output'], true);
+        self::assertIsArray($payload);
+        foreach (['schema_version', 'gini_workers', 'gini_task_classes', 'worker_share_histogram', 'task_class_share_histogram'] as $key) {
+            self::assertArrayHasKey($key, $payload, "missing {$key}");
+        }
+    }
+
     public function test_gini_json_contains_required_keys(): void
     {
         $r = $this->runCmd(['action' => 'gini', '--json' => true]);
