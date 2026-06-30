@@ -55,7 +55,8 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             $claim          = (string) ($item['claim']          ?? '');
             $ambiguityScore = max(0.0, min(1.0, (float) ($item['ambiguity_score'] ?? 0.0)));
 
-            $actionType = $this->resolveActionType($item, $ambiguityScore);
+            $actionType    = $this->resolveActionType($item, $ambiguityScore);
+            $enqueueBlocking = $this->isUnresolved($actionType, $ambiguityScore, $item);
 
             $action = [
                 'item_id'     => $itemId,
@@ -63,10 +64,15 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
                 'claim'       => $claim,
             ];
 
-            $action = array_merge($action, $this->actionDetail($actionType, $item));
+            $detail = $this->actionDetail($actionType, $item);
+            $action = array_merge($action, $detail, [
+                'local_command_or_gate' => $detail['check_command'] ?? 'operator_or_frontier_review_gate',
+                'expected_evidence'     => $this->expectedEvidence($actionType),
+                'enqueue_blocking'      => $enqueueBlocking,
+            ]);
             $resolutionActions[] = $action;
 
-            if ($this->isUnresolved($actionType, $ambiguityScore, $item)) {
+            if ($enqueueBlocking) {
                 $unresolvedItems[] = [
                     'item_id'         => $itemId,
                     'claim'           => $claim,
@@ -139,6 +145,18 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
         }
 
         return false;
+    }
+
+    private function expectedEvidence(string $actionType): string
+    {
+        return match ($actionType) {
+            self::ACTION_LOCAL_GREP          => 'grep_match_or_confirmed_absence',
+            self::ACTION_TARGET_EXISTENCE    => 'file_existence_confirmed_or_refuted',
+            self::ACTION_QUEUE_COLLISION     => 'duplicate_check_result',
+            self::ACTION_EVIDENCE_REPLAY     => 'replayed_evidence_payload',
+            self::ACTION_CAPABILITY_CLAIM    => 'capability_grep_result',
+            self::ACTION_EXPLICIT_ESCALATION => 'frontier_or_operator_decision',
+        };
     }
 
     /** @return array<string,mixed> */

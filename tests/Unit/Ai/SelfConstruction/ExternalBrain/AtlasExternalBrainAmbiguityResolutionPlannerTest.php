@@ -289,4 +289,44 @@ final class AtlasExternalBrainAmbiguityResolutionPlannerTest extends TestCase
             $result['resolution_actions'][0]['action_type'],
         );
     }
+
+    // ── local_command_or_gate / expected_evidence / enqueue_blocking ──────────
+
+    public function test_resolution_action_includes_local_command_or_gate_and_expected_evidence(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['target_path' => 'app/Foo.php'])));
+
+        $action = $result['resolution_actions'][0];
+        $this->assertArrayHasKey('local_command_or_gate', $action);
+        $this->assertArrayHasKey('expected_evidence', $action);
+        $this->assertArrayHasKey('enqueue_blocking', $action);
+        $this->assertSame($action['check_command'], $action['local_command_or_gate']);
+        $this->assertNotEmpty($action['expected_evidence']);
+    }
+
+    public function test_explicit_escalation_has_a_gate_value_even_with_null_check_command(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['grep_pattern' => null, 'ambiguity_score' => 0.9])));
+
+        $action = $result['resolution_actions'][0];
+        $this->assertSame(AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_EXPLICIT_ESCALATION, $action['action_type']);
+        $this->assertNull($action['check_command']);
+        $this->assertNotEmpty($action['local_command_or_gate']);
+        $this->assertTrue($action['enqueue_blocking']);
+    }
+
+    public function test_resolved_local_check_has_enqueue_blocking_false(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['target_path' => 'app/Foo.php'])));
+
+        $this->assertFalse($result['resolution_actions'][0]['enqueue_blocking']);
+    }
+
+    public function test_unresolved_item_via_enqueue_blocking_keeps_task_creation_disallowed(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['grep_pattern' => null, 'ambiguity_score' => 0.9])));
+
+        $this->assertTrue($result['resolution_actions'][0]['enqueue_blocking']);
+        $this->assertFalse($result['task_creation_allowed']);
+    }
 }
