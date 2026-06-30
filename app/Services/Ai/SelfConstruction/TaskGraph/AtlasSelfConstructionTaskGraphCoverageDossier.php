@@ -122,6 +122,38 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
     }
 
     /**
+     * Rank the highest-leverage coverage gaps from a dossier envelope for autonomous task creation.
+     *
+     * PRIORITY ORDER (highest first):
+     *   1. blocked_organs    — must unblock before work can flow
+     *   2. missing_organs    — no implementation: biggest compounding deficit
+     *   3. thin_organs       — implementation exists but test coverage is absent or thin
+     *   4. stale_organs      — implementation + tests exist but evidence is outdated
+     *
+     * Returns a facts-only list of ranked gap records; no scalar score.
+     *
+     * @param  array<string,mixed>  $dossier  Output of {@see self::export}
+     * @return list<array{organ_id:string, gap_kind:string, priority_rank:int}>
+     */
+    public function rankedNextGaps(array $dossier): array
+    {
+        $gaps = [];
+        $rank = 1;
+        foreach ([
+            'blocked_organs' => 'blocked',
+            'missing_organs' => 'missing_implementation',
+            'thin_organs'    => 'missing_tests',
+            'stale_organs'   => 'stale_evidence',
+        ] as $field => $kind) {
+            foreach (array_values((array) ($dossier[$field] ?? [])) as $organId) {
+                $gaps[] = ['organ_id' => (string) $organId, 'gap_kind' => $kind, 'priority_rank' => $rank++];
+            }
+        }
+
+        return $gaps;
+    }
+
+    /**
      * @param  array<string,mixed>  $organSummary
      * @param  array<string,mixed>  $draftSummary
      * @param  list<string>  $blockers

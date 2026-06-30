@@ -105,4 +105,86 @@ class AtlasSelfConstructionTaskGraphCoverageDossierTest extends TestCase
             ],
         ];
     }
+
+    // ---------- thin / stale organ coverage ----------
+
+    public function test_thin_organs_reflected_in_organ_summary(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['thin_organs'] = ['maestro'];
+        $facts['coverage']['organ_coverage']['maestro'] = 'thin';
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+
+        self::assertSame(AtlasSelfConstructionTaskGraphCoverageDossier::STATUS_HOLD, $dossier['status']);
+        self::assertSame(1, $dossier['organ_summary']['thin_count']);
+        self::assertContains('maestro', $dossier['thin_organs']);
+    }
+
+    public function test_stale_organs_reflected_in_organ_summary(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['stale_organs'] = ['task_fabric'];
+        $facts['coverage']['organ_coverage']['task_fabric'] = 'stale';
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+
+        self::assertSame(AtlasSelfConstructionTaskGraphCoverageDossier::STATUS_HOLD, $dossier['status']);
+        self::assertSame(1, $dossier['organ_summary']['stale_count']);
+        self::assertContains('task_fabric', $dossier['stale_organs']);
+    }
+
+    // ---------- rankedNextGaps ----------
+
+    public function test_ranked_next_gaps_empty_for_ready_dossier(): void
+    {
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($this->readyFacts());
+        $gaps = (new AtlasSelfConstructionTaskGraphCoverageDossier)->rankedNextGaps($dossier);
+
+        self::assertSame([], $gaps);
+    }
+
+    public function test_ranked_next_gaps_priority_order_blocked_then_missing_then_thin_then_stale(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['blocked_organs'] = ['merge_governor'];
+        $facts['coverage']['missing_organs'] = ['worker_swarm'];
+        $facts['coverage']['thin_organs']    = ['maestro'];
+        $facts['coverage']['stale_organs']   = ['task_fabric'];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+        $gaps    = (new AtlasSelfConstructionTaskGraphCoverageDossier)->rankedNextGaps($dossier);
+
+        self::assertCount(4, $gaps);
+        self::assertSame('blocked',            $gaps[0]['gap_kind']);
+        self::assertSame('merge_governor',     $gaps[0]['organ_id']);
+        self::assertSame('missing_implementation', $gaps[1]['gap_kind']);
+        self::assertSame('worker_swarm',       $gaps[1]['organ_id']);
+        self::assertSame('missing_tests',      $gaps[2]['gap_kind']);
+        self::assertSame('maestro',            $gaps[2]['organ_id']);
+        self::assertSame('stale_evidence',     $gaps[3]['gap_kind']);
+        self::assertSame('task_fabric',        $gaps[3]['organ_id']);
+        // priority_rank is monotonically increasing
+        self::assertSame(1, $gaps[0]['priority_rank']);
+        self::assertSame(2, $gaps[1]['priority_rank']);
+    }
+
+    public function test_ranked_next_gaps_multiple_missing_organs_ordered_by_insertion(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['missing_organs'] = ['verification_court', 'knowledge_sync', 'rollback'];
+
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts);
+        $gaps    = (new AtlasSelfConstructionTaskGraphCoverageDossier)->rankedNextGaps($dossier);
+
+        self::assertCount(3, $gaps);
+        self::assertSame(['verification_court', 'knowledge_sync', 'rollback'], array_column($gaps, 'organ_id'));
+        foreach ($gaps as $g) {
+            self::assertSame('missing_implementation', $g['gap_kind']);
+        }
+    }
 }
