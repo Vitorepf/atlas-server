@@ -10,19 +10,15 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * runnable acceptance criteria, and an unblock rationale.
  *
  * Rejection hierarchy (first match wins):
- *   vague_diagnostic              — missing concrete_failing_gate AND/OR missing
- *                                   target path AND/OR missing runnable proof
- *   forbidden_self_target         — target is flagged forbidden and no unblock_plan
- *   manual_operator_steady_state  — requires manual operator action in steady state
- *                                   (unless is_bootstrap_only = true)
+ *   vague_diagnostic                   — missing gate / target / runnable proof
+ *   test_only_target_without_impl_file — target resolves to a test file with no impl
+ *   forbidden_self_target              — target is flagged forbidden and no unblock_plan
+ *   manual_operator_steady_state       — requires manual operator action in steady state
+ *                                        (unless is_bootstrap_only = true)
  *
- * Promotion requires:
- *   1. gate_name (concrete failing gate)
- *   2. target_path OR component (concrete target)
- *   3. runnable_proof_command (runnable command)
- *
- * AC4: output always includes repair_specs, rejected_diagnostics, allowed_files,
- *      acceptance_criteria, and unblock_reason.
+ * Grouping: promoted diagnostics that share the same resolved impl target_path are
+ * merged into one bounded macro repair spec with deduped allowed_files (impl + test)
+ * and gate-specific runnable acceptance criteria.
  *
  * Pure: no I/O, no side effects.
  */
@@ -30,9 +26,10 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
 {
     public const SCHEMA = 'atlas.external_brain.regression_repair_task_synthesizer.v1';
 
-    public const REJECTION_VAGUE              = 'vague_diagnostic';
-    public const REJECTION_FORBIDDEN_TARGET   = 'forbidden_self_target_without_unblock_plan';
-    public const REJECTION_MANUAL_OPERATOR    = 'manual_operator_required_steady_state';
+    public const REJECTION_VAGUE            = 'vague_diagnostic';
+    public const REJECTION_TEST_ONLY        = 'test_only_target_without_impl_file';
+    public const REJECTION_FORBIDDEN_TARGET = 'forbidden_self_target_without_unblock_plan';
+    public const REJECTION_MANUAL_OPERATOR  = 'manual_operator_required_steady_state';
 
     /**
      * @param  array{diagnostics?: list<array<string,mixed>>}  $input
@@ -42,7 +39,7 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
     {
         $diagnostics = (array) ($input['diagnostics'] ?? []);
 
-        $repairSpecs         = [];
+        $promoted            = [];
         $rejectedDiagnostics = [];
 
         foreach ($diagnostics as $idx => $diag) {
@@ -58,7 +55,19 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
                 continue;
             }
 
-            $repairSpecs[] = $this->buildRepairSpec($diagId, $diag);
+            $promoted[] = [$diagId, $diag];
+        }
+
+        // Group by resolved impl target — related diagnostics share a target
+        $groups = [];
+        foreach ($promoted as [$diagId, $diag]) {
+            $implTarget          = $this->resolveTarget($diag);
+            $groups[$implTarget][] = [$diagId, $diag];
+        }
+
+        $repairSpecs = [];
+        foreach ($groups as $implTarget => $groupDiags) {
+            $repairSpecs[] = $this->buildGroupRepairSpec($implTarget, $groupDiags);
         }
 
         $allAllowedFiles       = [];
@@ -91,27 +100,32 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
 
     private function rejectionReason(array $diag): ?string
     {
-        // 1. Vague: missing any of the three required signals
-        $gateName     = trim((string) ($diag['gate_name'] ?? ''));
-        $targetPath   = trim((string) ($diag['target_path'] ?? ''));
-        $component    = trim((string) ($diag['component']   ?? ''));
+        $gateName        = trim((string) ($diag['gate_name']              ?? ''));
+        $targetPath      = trim((string) ($diag['target_path']            ?? ''));
+        $component       = trim((string) ($diag['component']              ?? ''));
         $effectiveTarget = $targetPath !== '' ? $targetPath : $component;
-        $proofCommand = trim((string) ($diag['runnable_proof_command'] ?? ''));
+        $proofCommand    = trim((string) ($diag['runnable_proof_command'] ?? ''));
 
+        // 1. Vague — missing required signals
         if ($gateName === '' || $effectiveTarget === '' || $proofCommand === '') {
             return self::REJECTION_VAGUE;
         }
 
-        // 2. Forbidden self-target without unblock plan
+        // 2. Test-only target (no impl file)
+        if ($this->isTestPath($effectiveTarget)) {
+            return self::REJECTION_TEST_ONLY;
+        }
+
+        // 3. Forbidden self-target without unblock plan
         $forbiddenTarget = (bool) ($diag['forbidden_self_target'] ?? false);
-        $unblockPlan     = trim((string) ($diag['unblock_plan'] ?? ''));
+        $unblockPlan     = trim((string) ($diag['unblock_plan']    ?? ''));
         if ($forbiddenTarget && $unblockPlan === '') {
             return self::REJECTION_FORBIDDEN_TARGET;
         }
 
-        // 3. Manual operator required in steady state
+        // 4. Manual operator required in steady state
         $requiresManual  = (bool) ($diag['requires_manual_operator_action'] ?? false);
-        $isBootstrapOnly = (bool) ($diag['is_bootstrap_only'] ?? false);
+        $isBootstrapOnly = (bool) ($diag['is_bootstrap_only']               ?? false);
         if ($requiresManual && ! $isBootstrapOnly) {
             return self::REJECTION_MANUAL_OPERATOR;
         }
@@ -119,50 +133,93 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
         return null;
     }
 
-    /** @return array<string,mixed> */
-    private function buildRepairSpec(string $diagId, array $diag): array
+    /**
+     * @param list<array{string, array<string,mixed>}> $groupDiags
+     * @return array<string,mixed>
+     */
+    private function buildGroupRepairSpec(string $implTarget, array $groupDiags): array
     {
-        $gateName     = trim((string) $diag['gate_name']);
-        $rawTarget    = trim((string) ($diag['target_path'] ?? ''));
-        $targetPath   = $rawTarget !== '' ? $rawTarget : trim((string) ($diag['component'] ?? ''));
-        $proofCommand = trim((string) $diag['runnable_proof_command']);
-        $failingReason = trim((string) ($diag['failing_reason'] ?? "gate {$gateName} failed on {$targetPath}"));
+        $allowedFiles  = $this->deriveAllowedFiles($implTarget);
+        $acceptance    = [];
+        $gateNames     = [];
+        $diagIds       = [];
+        $unblockReason = null;
 
-        $allowedFiles = $this->deriveAllowedFiles($targetPath);
+        foreach ($groupDiags as [$diagId, $diag]) {
+            $diagIds[]  = $diagId;
+            $gateName   = trim((string) $diag['gate_name']);
+            $gateNames[] = $gateName;
+            $proofCmd   = trim((string) $diag['runnable_proof_command']);
+            $failReason = trim((string) ($diag['failing_reason'] ?? "gate {$gateName} failed on {$implTarget}"));
+            $plan       = trim((string) ($diag['unblock_plan']   ?? ''));
 
-        $acceptance = [
-            "Runnable: {$proofCommand} must exit 0 after repair.",
-            "Gate {$gateName} must pass for target {$targetPath}.",
-        ];
+            $c1 = "Runnable: {$proofCmd} must exit 0 after repair.";
+            $c2 = "Gate {$gateName} must pass for target {$implTarget}.";
 
-        $unblockPlan = trim((string) ($diag['unblock_plan'] ?? ''));
+            if (! in_array($c1, $acceptance, true)) {
+                $acceptance[] = $c1;
+            }
+            if (! in_array($c2, $acceptance, true)) {
+                $acceptance[] = $c2;
+            }
+
+            if ($unblockReason === null) {
+                $unblockReason = $plan !== '' ? $plan : "Fix {$gateName} regression on {$implTarget}: {$failReason}";
+            }
+        }
+
+        $uniqueGates = array_unique($gateNames);
+        $macroGate   = count($uniqueGates) === 1
+            ? $uniqueGates[0]
+            : 'macro_repair['.implode(',', $uniqueGates).']';
 
         return [
-            'diagnostic_id'       => $diagId,
-            'gate_name'           => $gateName,
-            'target_path'         => $targetPath,
+            'diagnostic_id'       => count($diagIds) === 1 ? $diagIds[0] : implode(',', $diagIds),
+            'gate_name'           => $macroGate,
+            'target_path'         => $implTarget,
             'allowed_files'       => $allowedFiles,
             'acceptance_criteria' => $acceptance,
-            'unblock_reason'      => $unblockPlan !== ''
-                ? $unblockPlan
-                : "Fix {$gateName} regression on {$targetPath}: {$failingReason}",
+            'unblock_reason'      => $unblockReason,
         ];
     }
 
-    /** @return list<string> */
+    private function resolveTarget(array $diag): string
+    {
+        $targetPath = trim((string) ($diag['target_path'] ?? ''));
+        return $targetPath !== '' ? $targetPath : trim((string) ($diag['component'] ?? ''));
+    }
+
+    /** @return list<string> impl file + derived test file */
     private function deriveAllowedFiles(string $targetPath): array
     {
         if ($targetPath === '') {
             return [];
         }
 
-        // If target already looks like a file path, use it directly
-        if (str_contains($targetPath, '.php') || str_contains($targetPath, '/')) {
-            return [$targetPath];
+        // Component name (no slashes or .php) → derive conventional paths
+        if (! str_contains($targetPath, '.php') && ! str_contains($targetPath, '/')) {
+            $base = preg_replace('/[^A-Za-z0-9]/', '', $targetPath) ?? $targetPath;
+            return ["app/Services/{$base}.php", "tests/Unit/Services/{$base}Test.php"];
         }
 
-        // Component name → guess conventional paths
-        $base = preg_replace('/[^A-Za-z0-9]/', '', $targetPath) ?? $targetPath;
-        return ["app/Services/{$base}.php"];
+        $testPath = $this->deriveTestPath($targetPath);
+
+        return $testPath !== $targetPath
+            ? [$targetPath, $testPath]
+            : [$targetPath];
+    }
+
+    private function deriveTestPath(string $implPath): string
+    {
+        $test = preg_replace('/^app\//', 'tests/Unit/', $implPath) ?? $implPath;
+        $test = preg_replace('/\.php$/', 'Test.php', $test) ?? $test;
+        return $test;
+    }
+
+    private function isTestPath(string $path): bool
+    {
+        return str_starts_with($path, 'tests/')
+            || str_ends_with($path, 'Test.php')
+            || str_ends_with($path, 'Spec.php');
     }
 }

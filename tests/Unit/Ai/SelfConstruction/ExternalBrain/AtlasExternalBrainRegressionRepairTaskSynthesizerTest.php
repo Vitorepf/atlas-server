@@ -210,4 +210,111 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizerTest extends TestCa
         $this->assertCount(1, $result['repair_specs']);
         $this->assertSame('AtlasSpecQualityGate', $result['repair_specs'][0]['target_path']);
     }
+
+    // ── AC2: impl + test files in allowed_files ───────────────────────────────
+
+    public function test_allowed_files_includes_impl_and_derived_test_file(): void
+    {
+        $diag = $this->good(['target_path' => 'app/Services/Ai/ExternalBrain/AtlasFoo.php']);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $files = $result['repair_specs'][0]['allowed_files'];
+        $this->assertContains('app/Services/Ai/ExternalBrain/AtlasFoo.php', $files);
+        $this->assertContains('tests/Unit/Services/Ai/ExternalBrain/AtlasFooTest.php', $files);
+    }
+
+    // ── AC2: test-only target is rejected ────────────────────────────────────
+
+    public function test_test_file_as_target_is_rejected(): void
+    {
+        $diag = $this->good(['target_path' => 'tests/Unit/SomeTest.php']);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $this->assertCount(0, $result['repair_specs']);
+        $this->assertSame(
+            AtlasExternalBrainRegressionRepairTaskSynthesizer::REJECTION_TEST_ONLY,
+            $result['rejected_diagnostics'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_target_ending_in_test_php_is_rejected(): void
+    {
+        $diag = $this->good(['target_path' => 'app/Tests/AtlasFooTest.php']);
+
+        $result = $this->synthesizer->synthesize($this->input($diag));
+
+        $this->assertSame(
+            AtlasExternalBrainRegressionRepairTaskSynthesizer::REJECTION_TEST_ONLY,
+            $result['rejected_diagnostics'][0]['rejection_reason'],
+        );
+    }
+
+    // ── AC3: grouping diagnostics by shared impl target ───────────────────────
+
+    public function test_two_diagnostics_sharing_target_are_grouped_into_one_spec(): void
+    {
+        $sharedTarget = 'app/Services/Ai/ExternalBrain/AtlasShared.php';
+        $d1 = $this->good([
+            'diagnostic_id'          => 'diag-a',
+            'gate_name'              => 'gate_alpha',
+            'target_path'            => $sharedTarget,
+            'runnable_proof_command' => './vendor/bin/phpunit tests/Unit/AlphaTest.php',
+        ]);
+        $d2 = $this->good([
+            'diagnostic_id'          => 'diag-b',
+            'gate_name'              => 'gate_beta',
+            'target_path'            => $sharedTarget,
+            'runnable_proof_command' => './vendor/bin/phpunit tests/Unit/BetaTest.php',
+        ]);
+
+        $result = $this->synthesizer->synthesize($this->input($d1, $d2));
+
+        $this->assertCount(1, $result['repair_specs']);
+    }
+
+    public function test_macro_spec_has_deduped_impl_file(): void
+    {
+        $sharedTarget = 'app/Services/Ai/ExternalBrain/AtlasShared.php';
+        $d1 = $this->good(['diagnostic_id' => 'a', 'target_path' => $sharedTarget]);
+        $d2 = $this->good(['diagnostic_id' => 'b', 'target_path' => $sharedTarget]);
+
+        $result = $this->synthesizer->synthesize($this->input($d1, $d2));
+
+        $implCount = count(array_filter(
+            $result['repair_specs'][0]['allowed_files'],
+            static fn (string $f): bool => $f === $sharedTarget,
+        ));
+        $this->assertSame(1, $implCount);
+    }
+
+    public function test_macro_spec_acceptance_contains_gate_criteria_for_each_diagnostic(): void
+    {
+        $sharedTarget = 'app/Services/Ai/ExternalBrain/AtlasShared.php';
+        $d1 = $this->good([
+            'diagnostic_id' => 'a', 'gate_name' => 'gate_alpha', 'target_path' => $sharedTarget,
+            'runnable_proof_command' => './vendor/bin/phpunit tests/AlphaTest.php',
+        ]);
+        $d2 = $this->good([
+            'diagnostic_id' => 'b', 'gate_name' => 'gate_beta', 'target_path' => $sharedTarget,
+            'runnable_proof_command' => './vendor/bin/phpunit tests/BetaTest.php',
+        ]);
+
+        $result = $this->synthesizer->synthesize($this->input($d1, $d2));
+
+        $acText = implode(' ', $result['repair_specs'][0]['acceptance_criteria']);
+        $this->assertStringContainsString('gate_alpha', $acText);
+        $this->assertStringContainsString('gate_beta', $acText);
+    }
+
+    public function test_different_targets_produce_separate_specs(): void
+    {
+        $d1 = $this->good(['diagnostic_id' => 'a', 'target_path' => 'app/Services/Foo.php']);
+        $d2 = $this->good(['diagnostic_id' => 'b', 'target_path' => 'app/Services/Bar.php']);
+
+        $result = $this->synthesizer->synthesize($this->input($d1, $d2));
+
+        $this->assertCount(2, $result['repair_specs']);
+    }
 }
