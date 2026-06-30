@@ -40,6 +40,77 @@ final class AtlasMaestroDrainContinuitySloCompiler
 
     private const DRAIN_ETA_AT_RISK_HOURS = 24.0;
 
+    public const VERDICT_SUFFICIENT_DEPTH = 'sufficient_depth';
+    public const VERDICT_WATCH = 'watch';
+    public const VERDICT_REPLENISH_SOON = 'replenish_soon';
+    public const VERDICT_TELEMETRY_BLIND = 'telemetry_blind';
+
+    /** claimable_per_active_worker at/below this is a worker-floor breach. */
+    private const PROJECTION_WORKER_FLOOR_THRESHOLD = 2.0;
+
+    /** claimable_per_active_worker at/above this is comfortably sufficient. */
+    private const PROJECTION_SUFFICIENT_DEPTH_THRESHOLD = 5.0;
+
+    public const REASON_WORKER_FLOOR = 'worker_floor';
+
+    /**
+     * Consumes Maestro projection facts (claimable_per_active_worker, active_workers,
+     * telemetry_confidence) and compiles a single, actionable SLO verdict — without adding
+     * a new policy layer. Priority: telemetry trust comes first (a number you can't trust
+     * is worse than no number), then the worker floor, then comfortable depth, else watch.
+     *
+     * @param  array{claimable_per_active_worker?: float, active_workers?: int, telemetry_confidence?: string|float}  $projectionFacts
+     * @return array{schema_version:string, verdict:string, reason:?string, claimable_per_active_worker:?float, active_workers:int}
+     */
+    public function compileFromProjection(array $projectionFacts): array
+    {
+        $activeWorkers = max(0, (int) ($projectionFacts['active_workers'] ?? 0));
+        $telemetryConfidence = $projectionFacts['telemetry_confidence'] ?? null;
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $projectionFacts) && $projectionFacts['claimable_per_active_worker'] !== null
+            ? (float) $projectionFacts['claimable_per_active_worker']
+            : null;
+
+        $isTelemetryBlind = $activeWorkers > 0 && (string) $telemetryConfidence === 'blind';
+
+        if ($isTelemetryBlind) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_TELEMETRY_BLIND,
+                'reason' => 'telemetry_confidence_blind_with_active_workers',
+                'claimable_per_active_worker' => $claimablePerActiveWorker,
+                'active_workers' => $activeWorkers,
+            ];
+        }
+
+        if ($claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::PROJECTION_WORKER_FLOOR_THRESHOLD) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_REPLENISH_SOON,
+                'reason' => self::REASON_WORKER_FLOOR,
+                'claimable_per_active_worker' => $claimablePerActiveWorker,
+                'active_workers' => $activeWorkers,
+            ];
+        }
+
+        if ($claimablePerActiveWorker !== null && $claimablePerActiveWorker >= self::PROJECTION_SUFFICIENT_DEPTH_THRESHOLD) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_SUFFICIENT_DEPTH,
+                'reason' => null,
+                'claimable_per_active_worker' => $claimablePerActiveWorker,
+                'active_workers' => $activeWorkers,
+            ];
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'verdict' => self::VERDICT_WATCH,
+            'reason' => null,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'active_workers' => $activeWorkers,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
