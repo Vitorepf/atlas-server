@@ -37,6 +37,73 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
         $this->assertArrayHasKey('respec_candidates', $r);
         $this->assertArrayHasKey('keep_tasks',        $r);
         $this->assertArrayHasKey('monitor_summary',   $r);
+        $this->assertArrayHasKey('per_task',          $r);
+        $this->assertArrayHasKey('batch_decay_summary', $r);
+    }
+
+    public function test_per_task_entry_has_required_fields(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [$this->task()]]);
+        $entry = $r['per_task'][0];
+
+        foreach (['task_id', 'value_status', 'decay_score', 'reasons', 'recommended_action'] as $k) {
+            $this->assertArrayHasKey($k, $entry);
+        }
+        $this->assertSame('fresh', $entry['value_status']);
+        $this->assertSame('retain', $entry['recommended_action']);
+        $this->assertSame(0.0, $entry['decay_score']);
+    }
+
+    // ── AC3: stale evidence + repeated give_back → refresh or consolidate, never retain ──
+
+    public function test_stale_evidence_with_repeated_give_back_recommends_refresh_not_retain(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['stale_evidence_age' => 20, 'give_back_count' => 3]),
+        ]]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertContains($rec['recommendation'], ['refresh', 'consolidate']);
+        $this->assertNotSame('keep', $rec['recommendation']);
+        $this->assertSame('refresh', $r['per_task'][0]['recommended_action']);
+    }
+
+    public function test_stale_evidence_repeated_give_back_and_low_muscle_success_recommends_consolidate(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['stale_evidence_age' => 20, 'give_back_count' => 4, 'muscle_success_rate' => 0.1]),
+        ]]);
+
+        $this->assertSame('consolidate', $r['recommendations'][0]['recommendation']);
+        $this->assertSame('consolidate', $r['per_task'][0]['recommended_action']);
+        $this->assertSame('decaying', $r['per_task'][0]['value_status']);
+    }
+
+    // ── AC4: superseded target / duplicate family saturation → retire, isolated per-task ──
+
+    public function test_superseded_target_recommends_retire_without_affecting_unrelated_fresh_task(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['id' => 'superseded', 'superseded_target' => true]),
+            $this->task(['id' => 'fresh_high_value', 'current_value_score' => 0.9]),
+        ]]);
+
+        $this->assertContains('superseded', $r['retire_candidates']);
+        $this->assertContains('fresh_high_value', $r['keep_tasks']);
+        $fresh = array_values(array_filter($r['per_task'], fn ($t) => $t['task_id'] === 'fresh_high_value'))[0];
+        $this->assertSame('fresh', $fresh['value_status']);
+    }
+
+    public function test_duplicate_family_saturation_recommends_retire_without_affecting_unrelated_fresh_task(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task(['id' => 'dup', 'duplicate_family_count' => 6]),
+            $this->task(['id' => 'unrelated']),
+        ]]);
+
+        $this->assertContains('dup', $r['retire_candidates']);
+        $this->assertContains('unrelated', $r['keep_tasks']);
+        $this->assertSame('retire', $r['per_task'][0]['recommended_action']);
     }
 
     // ── AC2: no direct cancellation — only recommendations ────────────────────

@@ -27,7 +27,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   landscape_drift, no_value_proof).
  *
  * AC4 outputs: recommendations, retire_candidates, respec_candidates, keep_tasks,
- *   monitor_summary.
+ *   monitor_summary, per_task, batch_decay_summary.
+ *
+ * Muscle-outcome decay signals (NEW):
+ *   - superseded_target / duplicate_family_saturation → retire (highest priority after load-bearing).
+ *   - stale_evidence + repeated_give_back → refresh (or consolidate when muscle_success_rate is also low),
+ *     never retain.
+ *   per_task entries surface value_status (fresh|stale|decaying|expired), decay_score [0..1],
+ *   reasons (the decay_signals), and recommended_action (retain|refresh|consolidate|retire).
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -40,6 +47,9 @@ final class AtlasExternalBrainValueDecayMonitor
     private const DEFAULT_MIN_BLOCKING_KEEP  = 3;
     private const VALUE_WORTHY_THRESHOLD     = 0.6;
     private const PREREQ_DRIFT_HIGH          = 0.5;
+    private const GIVE_BACK_THRESHOLD        = 3;
+    private const DUPLICATE_FAMILY_THRESHOLD = 5;
+    private const LOW_SUCCESS_THRESHOLD      = 0.3;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -56,6 +66,8 @@ final class AtlasExternalBrainValueDecayMonitor
         $retireCandidates  = [];
         $respecCandidates  = [];
         $keepTasks         = [];
+        $perTask           = [];
+        $actionCounts      = ['retain' => 0, 'refresh' => 0, 'consolidate' => 0, 'retire' => 0];
 
         foreach ($rawTasks as $raw) {
             $id                   = (string) ($raw['id']                       ?? '');
@@ -69,6 +81,10 @@ final class AtlasExternalBrainValueDecayMonitor
             $prerequisiteDrift    = max(0.0, min(1.0, (float) ($raw['prerequisite_drift'] ?? 0.0)));
             $blockedDependency    = (bool)   ($raw['blocked_dependency']            ?? false);
             $currentValueScore    = max(0.0, min(1.0, (float) ($raw['current_value_score'] ?? 0.0)));
+            $supersededTarget     = (bool)   ($raw['superseded_target']             ?? false);
+            $duplicateFamilyCount = max(0,   (int)   ($raw['duplicate_family_count'] ?? 0));
+            $giveBackCount        = max(0,   (int)   ($raw['give_back_count']       ?? 0));
+            $muscleSuccessRate    = isset($raw['muscle_success_rate']) ? max(0.0, min(1.0, (float) $raw['muscle_success_rate'])) : null;
 
             // Collect active decay signals.
             $decaySignals = [];
@@ -96,12 +112,26 @@ final class AtlasExternalBrainValueDecayMonitor
             if ($prerequisiteDrift > self::PREREQ_DRIFT_HIGH) {
                 $decaySignals[] = 'prerequisite_drift_high';
             }
+            if ($supersededTarget) {
+                $decaySignals[] = 'superseded_target';
+            }
+            if ($duplicateFamilyCount >= self::DUPLICATE_FAMILY_THRESHOLD) {
+                $decaySignals[] = 'duplicate_family_saturation';
+            }
+            if ($giveBackCount >= self::GIVE_BACK_THRESHOLD) {
+                $decaySignals[] = 'repeated_give_back';
+            }
+            if ($muscleSuccessRate !== null && $muscleSuccessRate < self::LOW_SUCCESS_THRESHOLD) {
+                $decaySignals[] = 'low_muscle_success';
+            }
 
             // AC2: recommendation (never cancel, only recommend).
             [$rec, $reason] = $this->recommend(
                 $ageDays, $maxAge, $prerequisitesChanged, $landscapeShifted,
                 $hasValueProof, $blockingCount, $minBlockingKeep,
                 $currentValueScore, $changedAllowedFiles, $blockedDependency,
+                $supersededTarget, $duplicateFamilyCount, $staleEvidenceAge, $staleAge,
+                $giveBackCount, $muscleSuccessRate,
             );
 
             $recommendations[] = [
@@ -111,11 +141,36 @@ final class AtlasExternalBrainValueDecayMonitor
                 'reason'       => $reason,
             ];
 
+            // 'respec', 'refresh' and 'consolidate' are all "needs change" buckets.
             match ($rec) {
                 'retire' => $retireCandidates[] = $id,
-                'respec' => $respecCandidates[] = $id,
-                default  => $keepTasks[]        = $id,
+                'keep'   => $keepTasks[]        = $id,
+                default  => $respecCandidates[] = $id,
             };
+
+            $recommendedAction = match ($rec) {
+                'retire'      => 'retire',
+                'refresh'     => 'refresh',
+                'consolidate' => 'consolidate',
+                'respec'      => 'refresh',
+                default       => 'retain',
+            };
+            $actionCounts[$recommendedAction]++;
+
+            $valueStatus = match (true) {
+                $rec === 'retire'           => 'expired',
+                in_array($rec, ['respec', 'refresh', 'consolidate'], true) => 'decaying',
+                $decaySignals !== []        => 'stale',
+                default                     => 'fresh',
+            };
+
+            $perTask[] = [
+                'task_id'            => $id,
+                'value_status'       => $valueStatus,
+                'decay_score'        => round(min(1.0, count($decaySignals) * 0.15), 2),
+                'reasons'            => $decaySignals,
+                'recommended_action' => $recommendedAction,
+            ];
         }
 
         return [
@@ -130,6 +185,8 @@ final class AtlasExternalBrainValueDecayMonitor
                 'respec' => count($respecCandidates),
                 'keep'   => count($keepTasks),
             ],
+            'per_task'             => $perTask,
+            'batch_decay_summary'  => array_merge(['total' => count($rawTasks)], $actionCounts),
         ];
     }
 
@@ -140,15 +197,41 @@ final class AtlasExternalBrainValueDecayMonitor
         float $currentValueScore = 0.0,
         bool  $changedAllowedFiles = false,
         bool  $blockedDependency = false,
+        bool  $supersededTarget = false,
+        int   $duplicateFamilyCount = 0,
+        int   $staleEvidenceAge = 0,
+        int   $staleAge = self::DEFAULT_STALE_AGE,
+        int   $giveBackCount = 0,
+        ?float $muscleSuccessRate = null,
     ): array {
         // Priority 1: load-bearing tasks always kept.
         if ($blockingCount >= $minBlockingKeep) {
             return ['keep', 'high_blocking_count_load_bearing'];
         }
 
+        // Priority 1.5: superseded target or duplicate-family saturation — retire,
+        // isolated per task and never affects unrelated fresh/high-value tasks.
+        if ($supersededTarget) {
+            return ['retire', 'superseded_target'];
+        }
+        if ($duplicateFamilyCount >= self::DUPLICATE_FAMILY_THRESHOLD) {
+            return ['retire', 'duplicate_family_saturation'];
+        }
+
         // Priority 2: age-decayed with no value proof.
         if ($ageDays > $maxAge && ! $hasValueProof) {
             return ['retire', 'age_decay_no_value_proof'];
+        }
+
+        // Priority 2.5: stale evidence + repeated give_back — needs refresh or
+        // consolidate, never a bare retain. Consolidate when muscle success is
+        // also low (the family itself is underperforming); refresh otherwise.
+        if ($staleEvidenceAge > $staleAge && $giveBackCount >= self::GIVE_BACK_THRESHOLD) {
+            if ($muscleSuccessRate !== null && $muscleSuccessRate < self::LOW_SUCCESS_THRESHOLD) {
+                return ['consolidate', 'stale_evidence_repeated_give_back_low_muscle_success'];
+            }
+
+            return ['refresh', 'stale_evidence_repeated_give_back'];
         }
 
         // Priority 3a (AC2): both context signals + no proof BUT still valuable → respec, not retire.
