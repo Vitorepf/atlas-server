@@ -137,22 +137,28 @@ final class AtlasSelfConstructionNextActionSelector
         if ((int) ($workQueue['tasks_pending_workers'] ?? 0) > 0) {
             return $this->envelope(self::ACTION_SCHEDULE_WORKERS, ['tasks_pending_workers'], $scopeGate);
         }
+        // 8.4. WORKER-SAFETY STARVATION FLOOR — when servable_now falls below the
+        // floor, replenishing the backlog takes priority over scheduling the
+        // few workers still claimable, since scheduling alone would starve the
+        // queue again immediately after this cycle.
+        $backlog = (int) ($workQueue['backlog_acceptance_items'] ?? 0);
+        $servableNow = (int) ($workQueue['servable_now'] ?? 0);
+        $servabilityFloor = (int) ($workQueue['servability_floor'] ?? 0);
+        $belowStarvationFloor = $servabilityFloor > 0 && $servableNow < $servabilityFloor;
+        if ($belowStarvationFloor && $backlog > 0) {
+            return $this->envelope(self::ACTION_CREATE_TASK_PACKETS, [
+                'starvation:servable_now_'.$servableNow.'_below_floor_'.$servabilityFloor,
+            ], $scopeGate);
+        }
+
         // 8.5. IDLE WORKERS with claimable tasks — schedule before inventing new work.
         $idleWorkers = (int) ($workQueue['idle_workers'] ?? 0);
         $claimableDepth = (int) ($workQueue['claimable_depth'] ?? 0);
         if ($idleWorkers > 0 && $claimableDepth > 0) {
             return $this->envelope(self::ACTION_SCHEDULE_WORKERS, ['idle_workers_with_claimable_tasks'], $scopeGate);
         }
-        $backlog = (int) ($workQueue['backlog_acceptance_items'] ?? 0);
         if ($backlog > 0) {
-            $reasons = ['backlog_acceptance_items_present'];
-            $servableNow = (int) ($workQueue['servable_now'] ?? 0);
-            $servabilityFloor = (int) ($workQueue['servability_floor'] ?? 0);
-            if ($servabilityFloor > 0 && $servableNow < $servabilityFloor) {
-                $reasons[] = 'starvation:servable_now_'.$servableNow.'_below_floor_'.$servabilityFloor;
-            }
-
-            return $this->envelope(self::ACTION_CREATE_TASK_PACKETS, $reasons, $scopeGate);
+            return $this->envelope(self::ACTION_CREATE_TASK_PACKETS, ['backlog_acceptance_items_present'], $scopeGate);
         }
 
         return $this->envelope(self::ACTION_HOLD_POSITION, ['queue_idle'], $scopeGate);
