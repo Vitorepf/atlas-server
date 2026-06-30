@@ -96,9 +96,19 @@ final class AtlasExternalBrainBreakthroughPlanner
         if ($honestExhausted) {
             foreach (self::SECOND_PASS_STRATEGIES as $strategy) {
                 $result = $secondPassResults[$strategy['strategy_id']] ?? null;
-                if ($result === null
-                    || (empty($result['evidence']) && empty($result['denial_reason']))
-                ) {
+                if ($result === null) {
+                    $honestExhausted = false;
+                    break;
+                }
+                $evidence     = (array) ($result['evidence'] ?? []);
+                $denialReason = trim((string) ($result['denial_reason'] ?? ''));
+                // AC4: proxy evidence (queue counts, test counts, template volume) never satisfies
+                // the second-pass evidence requirement — only real verified signals count.
+                $realEvidence = array_filter(
+                    $evidence,
+                    static fn (string $e): bool => ! self::isProxyEvidence($e),
+                );
+                if ($realEvidence === [] && $denialReason === '') {
                     $honestExhausted = false;
                     break;
                 }
@@ -170,6 +180,23 @@ final class AtlasExternalBrainBreakthroughPlanner
             AtlasExternalBrainAmbitionEscalationPolicy::MODE_ARCHITECTURE_SIMPLIFICATION => 'high',
             default => 'medium',
         };
+    }
+
+    /**
+     * AC4: Returns true when an evidence string is a forbidden proxy
+     * (queue task counts, test counts, template volume — these never prove a real breakthrough).
+     */
+    private static function isProxyEvidence(string $evidence): bool
+    {
+        $lower = strtolower($evidence);
+
+        foreach (['queue_task_count', 'test_count', 'template_volume', 'task_count'] as $proxy) {
+            if (str_contains($lower, $proxy)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<string> */
