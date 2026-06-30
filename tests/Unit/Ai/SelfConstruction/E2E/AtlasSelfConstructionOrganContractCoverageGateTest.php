@@ -17,7 +17,9 @@ final class AtlasSelfConstructionOrganContractCoverageGateTest extends TestCase
                 'task_packet' => 'pkt-'.$organ,
                 'implementation_surface' => 'app/Services/Ai/SelfConstruction/'.$organ.'.php',
                 'test_evidence_requirement' => 'phpunit:'.$organ,
+                'replenishment_contract' => 'replenish:'.$organ,
                 'runtime_owner' => 'atlas_native',
+                'runtime_integration_owner' => 'atlas_native',
             ];
         }
 
@@ -81,6 +83,56 @@ final class AtlasSelfConstructionOrganContractCoverageGateTest extends TestCase
             $this->assertStringNotContainsString('score', strtolower((string) $key));
             $this->assertStringNotContainsString('rank', strtolower((string) $key));
         }
+    }
+
+    public function test_duplicate_implementation_surface_is_flagged(): void
+    {
+        $registry = $this->fullCoverageRegistry();
+        // Two organs share the same implementation_surface.
+        $sharedSurface = 'app/Services/Ai/SelfConstruction/SharedModule.php';
+        $registry['cortex']['implementation_surface'] = $sharedSurface;
+        $registry['strategy']['implementation_surface'] = $sharedSurface;
+
+        $verdict = (new AtlasSelfConstructionOrganContractCoverageGate)->evaluate($registry);
+
+        $this->assertFalse($verdict['fully_covered']);
+        $this->assertCount(1, $verdict['duplicate_surfaces']);
+        $this->assertStringContainsString($sharedSurface, $verdict['duplicate_surfaces'][0]);
+        $this->assertStringContainsString('cortex', $verdict['duplicate_surfaces'][0]);
+        $this->assertStringContainsString('strategy', $verdict['duplicate_surfaces'][0]);
+    }
+
+    public function test_missing_replenishment_contract_goes_to_missing_receipt(): void
+    {
+        $registry = $this->fullCoverageRegistry();
+        unset($registry['maestro']['replenishment_contract']);
+
+        $verdict = (new AtlasSelfConstructionOrganContractCoverageGate)->evaluate($registry);
+
+        $this->assertFalse($verdict['fully_covered']);
+        $this->assertContains('maestro:replenishment_contract', $verdict['missing_receipt']);
+    }
+
+    public function test_missing_runtime_integration_owner_is_autonomy_regression(): void
+    {
+        $registry = $this->fullCoverageRegistry();
+        unset($registry['knowledge_sync']['runtime_integration_owner']);
+
+        $verdict = (new AtlasSelfConstructionOrganContractCoverageGate)->evaluate($registry);
+
+        $this->assertFalse($verdict['fully_covered']);
+        $this->assertContains('knowledge_sync:runtime_integration_owner_missing', $verdict['autonomy_regression']);
+    }
+
+    public function test_human_runtime_integration_owner_is_provider_regression(): void
+    {
+        $registry = $this->fullCoverageRegistry();
+        $registry['verification_court']['runtime_integration_owner'] = 'human';
+
+        $verdict = (new AtlasSelfConstructionOrganContractCoverageGate)->evaluate($registry);
+
+        $this->assertFalse($verdict['fully_covered']);
+        $this->assertContains('verification_court:runtime_integration_owner_regression:human', $verdict['autonomy_regression']);
     }
 
     public function test_evaluation_is_deterministic_byte_identical(): void
