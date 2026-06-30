@@ -215,7 +215,7 @@ final class AgentRuntimeEvidenceJournalRepository
             'by_type' => $byType,
             'by_task_packet' => $byTask,
             'by_agent' => $byAgent,
-            'latest_journal_entry_hash' => (string) data_get($records[count($records) - 1] ?? [], 'journal_entry_hash', ''),
+            'latest_journal_entry_hash' => (string) data_get($records[0] ?? [], 'journal_entry_hash', ''),
             'runtime_safety' => $this->runtimeFlagsWithAllFalse(),
         ];
         $summary['journal_summary_hash'] = $this->stableHash($summary);

@@ -110,6 +110,31 @@ final class AgentRuntimeEvidenceJournalTest extends TestCase
         }
     }
 
+    public function test_summary_latest_hash_is_newest_not_oldest_entry(): void
+    {
+        $repo = new AgentRuntimeEvidenceJournalRepository;
+
+        $first  = $repo->append($this->entry(['task_packet_id' => 'task-first',  'evidence_type' => 'scope_lock']));
+        $second = $repo->append($this->entry(['task_packet_id' => 'task-second', 'evidence_type' => 'validation_result']));
+
+        $summary = $repo->summary();
+
+        // The journal index is newest-first (array_unshift), so index 0 = $second (newest).
+        // Before the fix, latest_journal_entry_hash read $records[count-1] = $first (oldest) — wrong.
+        $this->assertSame(
+            $second['journal_entry_hash'],
+            $summary['latest_journal_entry_hash'],
+            'latest_journal_entry_hash must be the newest (last-appended) entry, not the oldest',
+        );
+        $this->assertNotSame(
+            $first['journal_entry_hash'],
+            $summary['latest_journal_entry_hash'],
+            'latest_journal_entry_hash must NOT be the first (oldest) entry',
+        );
+        // The journal_summary_hash must embed the corrected latest hash.
+        $this->assertNotEmpty($summary['journal_summary_hash']);
+    }
+
     /** @return array<string, mixed> */
     private function entry(array $override = []): array
     {
