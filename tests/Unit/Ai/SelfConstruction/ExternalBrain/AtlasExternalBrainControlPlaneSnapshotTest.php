@@ -209,4 +209,117 @@ final class AtlasExternalBrainControlPlaneSnapshotTest extends TestCase
         $this->assertSame('pass', $dims['audit_verdict']);
         $this->assertFalse($dims['stalled_yield']);
     }
+
+    // --- domain_map tests ---
+
+    public function test_snapshot_includes_domain_map_key(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+
+        $this->assertArrayHasKey('domain_map', $result);
+        $this->assertIsArray($result['domain_map']);
+    }
+
+    public function test_no_domain_facts_produces_empty_domain_map(): void
+    {
+        $result = $this->snap()->snapshot($this->healthyInputs());
+
+        $this->assertSame([], $result['domain_map']);
+    }
+
+    public function test_fully_populated_domain_fact_preserved_verbatim(): void
+    {
+        $inputs = array_merge($this->healthyInputs(), [
+            'domain_facts' => [[
+                'area'          => 'ACOS',
+                'maturity'      => 'emerging',
+                'risk'          => 'medium',
+                'owner_signal'  => 'degraded',
+                'current_gap'   => 'failing tests in ACOS pipeline',
+                'next_lever'    => 'wire LeverageScorer into SelfImprovementCycle',
+                'evidence_refs' => ['doc:engineering-kb/acos.md', 'scan:orphan-2026-06-30'],
+            ]],
+        ]);
+
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertCount(1, $result['domain_map']);
+        $area = $result['domain_map'][0];
+        $this->assertSame('ACOS',             $area['area']);
+        $this->assertSame('emerging',         $area['maturity']);
+        $this->assertSame('medium',           $area['risk']);
+        $this->assertSame('degraded',         $area['owner_signal']);
+        $this->assertSame('failing tests in ACOS pipeline',          $area['current_gap']);
+        $this->assertSame('wire LeverageScorer into SelfImprovementCycle', $area['next_lever']);
+        $this->assertContains('doc:engineering-kb/acos.md', $area['evidence_refs']);
+    }
+
+    public function test_missing_optional_fields_produce_explicit_sentinels(): void
+    {
+        $inputs = array_merge($this->healthyInputs(), [
+            'domain_facts' => [[
+                'area' => 'EvolutionLoop',
+                // maturity, risk, owner_signal, current_gap, next_lever, evidence_refs all absent
+            ]],
+        ]);
+
+        $result = $this->snap()->snapshot($inputs);
+
+        $area = $result['domain_map'][0];
+        $this->assertSame('unknown', $area['maturity'],     'missing maturity must be unknown');
+        $this->assertSame('unknown', $area['risk'],         'missing risk must be unknown');
+        $this->assertSame('missing', $area['owner_signal'], 'missing owner_signal must be missing');
+        $this->assertSame('missing', $area['current_gap'],  'missing current_gap must be missing');
+        $this->assertSame('missing', $area['next_lever'],   'missing next_lever must be missing');
+        $this->assertSame([],        $area['evidence_refs'], 'missing evidence_refs must be []');
+    }
+
+    public function test_blank_evidence_refs_are_filtered_out(): void
+    {
+        $inputs = array_merge($this->healthyInputs(), [
+            'domain_facts' => [[
+                'area'          => 'AAEOS',
+                'evidence_refs' => ['valid-ref', '', '  ', 'another-ref'],
+            ]],
+        ]);
+
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertSame(['valid-ref', 'another-ref'], $result['domain_map'][0]['evidence_refs']);
+    }
+
+    public function test_entry_with_missing_area_is_skipped(): void
+    {
+        $inputs = array_merge($this->healthyInputs(), [
+            'domain_facts' => [
+                ['maturity' => 'emerging'],  // no area key → skip
+                ['area' => '', 'maturity' => 'advanced'],  // empty area → skip
+                ['area' => 'Forge', 'maturity' => 'functional'],  // valid
+            ],
+        ]);
+
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertCount(1, $result['domain_map']);
+        $this->assertSame('Forge', $result['domain_map'][0]['area']);
+    }
+
+    public function test_multiple_domain_areas_all_present(): void
+    {
+        $inputs = array_merge($this->healthyInputs(), [
+            'domain_facts' => [
+                ['area' => 'ACOS',          'maturity' => 'emerging',   'risk' => 'high'],
+                ['area' => 'EvolutionLoop', 'maturity' => 'functional', 'risk' => 'medium'],
+                ['area' => 'Forge',         'maturity' => 'advanced',   'risk' => 'low'],
+            ],
+        ]);
+
+        $result = $this->snap()->snapshot($inputs);
+
+        $this->assertCount(3, $result['domain_map']);
+        $areas = array_column($result['domain_map'], 'area');
+        $this->assertContains('ACOS',          $areas);
+        $this->assertContains('EvolutionLoop', $areas);
+        $this->assertContains('Forge',         $areas);
+    }
 }

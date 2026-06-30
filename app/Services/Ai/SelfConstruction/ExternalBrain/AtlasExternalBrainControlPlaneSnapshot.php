@@ -124,6 +124,7 @@ final class AtlasExternalBrainControlPlaneSnapshot
                 'ledger_present' => array_key_exists('ledger_summary', $inputs) && $inputs['ledger_summary'] !== null,
                 'stalled_yield'  => ! empty($inputs['stalled_yield']),
             ],
+            'domain_map'                => $this->buildDomainMap((array) ($inputs['domain_facts'] ?? [])),
         ];
     }
 
@@ -175,6 +176,51 @@ final class AtlasExternalBrainControlPlaneSnapshot
         $order   = self::BAND_ORDER[$band] ?? 0;
 
         return $byOrder[max(0, $order - 1)];
+    }
+
+    /**
+     * Build a compact domain map from supplied domain_facts.
+     *
+     * Each fact entry may have:
+     *   area           string   (required)
+     *   maturity       string   (optional → 'unknown')
+     *   risk           string   (optional → 'unknown')
+     *   owner_signal   string   (optional → 'missing')
+     *   current_gap    string   (optional → 'missing')
+     *   next_lever     string   (optional → 'missing')
+     *   evidence_refs  string[] (optional → [])
+     *
+     * Fact-only: no LLM call, no inference, no optimistic filling.
+     * Missing evidence produces explicit sentinel values so the brain can see what needs attention.
+     *
+     * @param  list<array<string,mixed>>  $domainFacts
+     * @return list<array<string,mixed>>
+     */
+    private function buildDomainMap(array $domainFacts): array
+    {
+        $map = [];
+
+        foreach ($domainFacts as $fact) {
+            $area = trim((string) ($fact['area'] ?? ''));
+            if ($area === '') {
+                continue;
+            }
+
+            $map[] = [
+                'area'         => $area,
+                'maturity'     => trim((string) ($fact['maturity']    ?? '')) ?: 'unknown',
+                'risk'         => trim((string) ($fact['risk']        ?? '')) ?: 'unknown',
+                'owner_signal' => trim((string) ($fact['owner_signal'] ?? '')) ?: 'missing',
+                'current_gap'  => trim((string) ($fact['current_gap'] ?? '')) ?: 'missing',
+                'next_lever'   => trim((string) ($fact['next_lever']  ?? '')) ?: 'missing',
+                'evidence_refs' => array_values(array_filter(
+                    array_map('trim', (array) ($fact['evidence_refs'] ?? [])),
+                    static fn (string $r): bool => $r !== '',
+                )),
+            ];
+        }
+
+        return $map;
     }
 
     /**
