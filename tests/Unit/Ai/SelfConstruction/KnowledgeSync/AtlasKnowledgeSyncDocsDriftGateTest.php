@@ -98,4 +98,63 @@ final class AtlasKnowledgeSyncDocsDriftGateTest extends TestCase
         // anti-Goodhart: no score key in envelope.
         $this->assertArrayNotHasKey('score', $r);
     }
+
+    public function test_docs_changed_without_docs_health_required_fails_closed(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['code-intelligence-index']),
+            'changed_docs' => ['docs/engineering-knowledge-base/some-doc.md'],
+            'now_unix' => time(),
+        ]);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('docs_changed_but_docs_health_check_not_required', $r['blockers']);
+        $this->assertContains('docs_changed_but_knowledge_sync_not_required', $r['blockers']);
+    }
+
+    public function test_docs_changed_without_sync_required_fails_closed(): void
+    {
+        $now = time();
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts(['docs-health-check']),
+            'changed_docs' => ['droid-wiki/systems/evolution-loop/index.md'],
+            'docs_health' => ['ok' => true, 'observed_at_unix' => $now - 60],
+            'now_unix' => $now,
+        ]);
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('docs_changed_but_knowledge_sync_not_required', $r['blockers']);
+        $this->assertArrayNotHasKey('score', $r);
+    }
+
+    public function test_non_canonical_path_in_changed_docs_does_not_fail_closed(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts([]),
+            'changed_docs' => ['app/Console/Commands/SomeCommand.php'],
+            'now_unix' => time(),
+        ]);
+        $this->assertTrue($r['conformant']);
+    }
+
+    public function test_empty_changed_docs_bypass_without_docs_artifacts(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts([]),
+            'changed_docs' => [],
+            'now_unix' => time(),
+        ]);
+        $this->assertTrue($r['conformant']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_blockers_sorted_deterministically(): void
+    {
+        $r = (new AtlasKnowledgeSyncDocsDriftGate)->evaluate([
+            'required_artifacts' => $this->requiredArtifacts([]),
+            'changed_docs' => ['docs/some-doc.md'],
+            'now_unix' => time(),
+        ]);
+        $sorted = $r['blockers'];
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $r['blockers'], 'blockers must be sorted deterministically');
+    }
 }

@@ -46,6 +46,18 @@ final class AtlasKnowledgeSyncDocsDriftGate
         $blockers = [];
         $debt = [];
 
+        // Fail closed: canonical docs changed but required artifacts don't ask for docs evidence.
+        $hasDocChanges = array_filter(
+            (array) ($facts['changed_docs'] ?? []),
+            static fn (mixed $p): bool => is_string($p) && self::isCanonicalDocPath($p)
+        ) !== [];
+        if ($hasDocChanges && ! $needsDocsHealth) {
+            $blockers[] = 'docs_changed_but_docs_health_check_not_required';
+        }
+        if ($hasDocChanges && ! $needsSync) {
+            $blockers[] = 'docs_changed_but_knowledge_sync_not_required';
+        }
+
         if ($needsDocsHealth) {
             $dh = is_array($facts['docs_health'] ?? null) ? $facts['docs_health'] : null;
             if ($dh === null) {
@@ -90,5 +102,10 @@ final class AtlasKnowledgeSyncDocsDriftGate
             'blockers' => $blockers,
             'debt_facts' => $debt,
         ];
+    }
+
+    private static function isCanonicalDocPath(string $path): bool
+    {
+        return str_contains($path, 'docs/') || str_contains($path, 'droid-wiki/');
     }
 }
