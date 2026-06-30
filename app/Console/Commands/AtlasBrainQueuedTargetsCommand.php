@@ -29,6 +29,17 @@ final class AtlasBrainQueuedTargetsCommand extends Command
 
     private const LIVE_STATUSES = ['queued', 'claimable', 'claimed', 'lease_expired', 'released', 'blocked'];
 
+    /**
+     * Atlas Task/Brain CLI surface lives outside the configured service roots but is still part of the
+     * autonomous scope — adding them here prevents the brain from re-proposing command files that already
+     * have a live packet in the queue.
+     */
+    public const SCOPE_SUPPORT_ROOTS = [
+        'app/Console/Commands/Atlas',
+        'tests/Feature/Ai/Atlas',
+        'tests/Unit/Ai/Atlas',
+    ];
+
     public function handle(): int
     {
         $scopeDef = app(AtlasBrainScopeRegistry::class)->resolve((string) $this->option('scope'));
@@ -36,8 +47,9 @@ final class AtlasBrainQueuedTargetsCommand extends Command
         $roots = array_values((array) ($scopeDef['roots'] ?? []));
 
         $targetPackets = $this->liveTargetPackets();
-        $targets = self::scopedTargets(array_keys($targetPackets), $roots);
-        $collisions = self::collisionsIn($targetPackets, $roots);
+        $effectiveRoots = self::effectiveRoots($roots);
+        $targets = self::scopedTargets(array_keys($targetPackets), $effectiveRoots);
+        $collisions = self::collisionsIn($targetPackets, $effectiveRoots);
 
         $payload = [
             'scope' => $slug,
@@ -124,6 +136,23 @@ final class AtlasBrainQueuedTargetsCommand extends Command
         }
 
         return $collisions;
+    }
+
+    /**
+     * Merge SCOPE_SUPPORT_ROOTS into the configured roots so the Atlas CLI surface (commands + their tests)
+     * is always visible to the queued-targets guard, even when the scope roots only cover service subdirectories.
+     * When roots is empty the caller wants ALL targets, so support roots are irrelevant — leave it empty.
+     *
+     * @param  list<string>  $roots
+     * @return list<string>
+     */
+    public static function effectiveRoots(array $roots): array
+    {
+        if ($roots === []) {
+            return [];
+        }
+
+        return array_values(array_unique([...$roots, ...self::SCOPE_SUPPORT_ROOTS]));
     }
 
     /**

@@ -64,6 +64,30 @@ final class AtlasBrainQueuedTargetsCommandTest extends TestCase
         self::assertSame([], $collisions);
     }
 
+    public function test_command_files_are_in_scope_even_when_service_roots_exclude_console_commands(): void
+    {
+        // Regression: scope roots = service dirs only, but AtlasTask*/AtlasBrain* commands and their tests
+        // are part of the autonomous surface — effectiveRoots() appends SCOPE_SUPPORT_ROOTS so they stay visible.
+        $serviceRoots = ['app/Services/Ai/AutonomousEvolution', 'app/Services/Ai/SelfConstruction'];
+        $effectiveRoots = AtlasBrainQueuedTargetsCommand::effectiveRoots($serviceRoots);
+
+        $targets = AtlasBrainQueuedTargetsCommand::scopedTargets([
+            'app/Console/Commands/AtlasTaskMaestroMultiProviderCommand.php', // CLI surface — must be kept
+            'tests/Feature/Ai/AtlasTaskMaestroMultiProviderCommandTest.php', // its test — must be kept
+            'app/Http/Controllers/SomeController.php',                        // unrelated — must be dropped
+        ], $effectiveRoots);
+
+        self::assertContains('app/Console/Commands/AtlasTaskMaestroMultiProviderCommand.php', $targets);
+        self::assertContains('tests/Feature/Ai/AtlasTaskMaestroMultiProviderCommandTest.php', $targets);
+        self::assertNotContains('app/Http/Controllers/SomeController.php', $targets);
+    }
+
+    public function test_effective_roots_is_identity_when_roots_empty(): void
+    {
+        // empty roots = "all targets" mode — support roots must NOT be injected (they'd constrain the all-targets case)
+        self::assertSame([], AtlasBrainQueuedTargetsCommand::effectiveRoots([]));
+    }
+
     public function test_collision_respects_scope_roots(): void
     {
         $collisions = AtlasBrainQueuedTargetsCommand::collisionsIn([
