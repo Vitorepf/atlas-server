@@ -142,6 +142,54 @@ class AgentCodexRealInvokerStartExecutionGate
     }
 
     /**
+     * Validate an observable start receipt against the task lease and allowed
+     * scope BEFORE accepting that a real process start happened. Pure/read-only:
+     * never mutates run state, never writes the ledger. A start with no receipt,
+     * a lease mismatch, or a command outside the allowed scope is never accepted.
+     *
+     * @param  array{
+     *   task_id?: string, lease_id?: string, worker_id?: string, allowed_scope?: list<string>,
+     *   receipt?: array{task_id?: string, lease_id?: string, worker_id?: string, scope?: list<string>},
+     * }  $input
+     * @return array{accepted_start:bool, rejection_reason:?string, receipt_digest:?string}
+     */
+    public function acceptStartReceipt(array $input): array
+    {
+        $taskId = (string) ($input['task_id'] ?? '');
+        $leaseId = (string) ($input['lease_id'] ?? '');
+        $workerId = (string) ($input['worker_id'] ?? '');
+        $allowedScope = (array) ($input['allowed_scope'] ?? []);
+        $receipt = is_array($input['receipt'] ?? null) ? $input['receipt'] : null;
+
+        if ($taskId === '' || $leaseId === '' || $workerId === '') {
+            return ['accepted_start' => false, 'rejection_reason' => 'missing_task_lease_or_worker_id', 'receipt_digest' => null];
+        }
+
+        if ($receipt === null) {
+            return ['accepted_start' => false, 'rejection_reason' => 'missing_receipt', 'receipt_digest' => null];
+        }
+
+        $receiptDigest = hash('sha256', (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        if ((string) ($receipt['task_id'] ?? '') !== $taskId) {
+            return ['accepted_start' => false, 'rejection_reason' => 'receipt_task_id_mismatch', 'receipt_digest' => $receiptDigest];
+        }
+        if ((string) ($receipt['lease_id'] ?? '') !== $leaseId) {
+            return ['accepted_start' => false, 'rejection_reason' => 'mismatched_lease', 'receipt_digest' => $receiptDigest];
+        }
+        if ((string) ($receipt['worker_id'] ?? '') !== $workerId) {
+            return ['accepted_start' => false, 'rejection_reason' => 'receipt_worker_id_mismatch', 'receipt_digest' => $receiptDigest];
+        }
+
+        $receiptScope = (array) ($receipt['scope'] ?? []);
+        if ($receiptScope === [] || array_diff($receiptScope, $allowedScope) !== []) {
+            return ['accepted_start' => false, 'rejection_reason' => 'unscoped_command', 'receipt_digest' => $receiptDigest];
+        }
+
+        return ['accepted_start' => true, 'rejection_reason' => null, 'receipt_digest' => $receiptDigest];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

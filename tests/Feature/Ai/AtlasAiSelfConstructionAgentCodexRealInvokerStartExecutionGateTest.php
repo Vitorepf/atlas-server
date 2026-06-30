@@ -254,4 +254,100 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerStartExecutionGateTest extends
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── acceptStartReceipt() ─────────────────────────────────────────────────
+
+    private function receiptInput(array $overrides = []): array
+    {
+        return array_merge([
+            'task_id' => 't-1',
+            'lease_id' => 'l-1',
+            'worker_id' => 'w-1',
+            'allowed_scope' => ['app/Foo.php', 'app/Bar.php'],
+            'receipt' => [
+                'task_id' => 't-1',
+                'lease_id' => 'l-1',
+                'worker_id' => 'w-1',
+                'scope' => ['app/Foo.php'],
+            ],
+        ], $overrides);
+    }
+
+    public function test_accepts_start_with_matching_receipt_in_scope(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $result = $gate->acceptStartReceipt($this->receiptInput());
+
+        $this->assertTrue($result['accepted_start']);
+        $this->assertNull($result['rejection_reason']);
+        $this->assertNotEmpty($result['receipt_digest']);
+    }
+
+    public function test_rejects_missing_receipt(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $result = $gate->acceptStartReceipt($this->receiptInput(['receipt' => null]));
+
+        $this->assertFalse($result['accepted_start']);
+        $this->assertSame('missing_receipt', $result['rejection_reason']);
+        $this->assertNull($result['receipt_digest']);
+    }
+
+    public function test_rejects_mismatched_lease(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $input = $this->receiptInput();
+        $input['receipt']['lease_id'] = 'l-WRONG';
+
+        $result = $gate->acceptStartReceipt($input);
+
+        $this->assertFalse($result['accepted_start']);
+        $this->assertSame('mismatched_lease', $result['rejection_reason']);
+        $this->assertNotEmpty($result['receipt_digest']);
+    }
+
+    public function test_rejects_unscoped_command(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $input = $this->receiptInput();
+        $input['receipt']['scope'] = ['app/NotAllowed.php'];
+
+        $result = $gate->acceptStartReceipt($input);
+
+        $this->assertFalse($result['accepted_start']);
+        $this->assertSame('unscoped_command', $result['rejection_reason']);
+    }
+
+    public function test_rejects_worker_id_mismatch(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $input = $this->receiptInput();
+        $input['receipt']['worker_id'] = 'w-WRONG';
+
+        $result = $gate->acceptStartReceipt($input);
+
+        $this->assertFalse($result['accepted_start']);
+        $this->assertSame('receipt_worker_id_mismatch', $result['rejection_reason']);
+    }
+
+    public function test_rejects_task_id_mismatch(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $input = $this->receiptInput();
+        $input['receipt']['task_id'] = 't-WRONG';
+
+        $result = $gate->acceptStartReceipt($input);
+
+        $this->assertFalse($result['accepted_start']);
+        $this->assertSame('receipt_task_id_mismatch', $result['rejection_reason']);
+    }
+
+    public function test_receipt_digest_is_deterministic_for_same_receipt(): void
+    {
+        $gate = app(AgentCodexRealInvokerStartExecutionGate::class);
+        $a = $gate->acceptStartReceipt($this->receiptInput());
+        $b = $gate->acceptStartReceipt($this->receiptInput());
+
+        $this->assertSame($a['receipt_digest'], $b['receipt_digest']);
+    }
 }
