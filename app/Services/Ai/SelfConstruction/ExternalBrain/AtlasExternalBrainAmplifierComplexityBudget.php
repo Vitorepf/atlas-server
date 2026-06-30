@@ -41,6 +41,13 @@ final class AtlasExternalBrainAmplifierComplexityBudget
 
     private const VALID_TYPES = ['scaffold', 'gate', 'judge', 'telemetry'];
 
+    /** Base per-component complexity budget before lift adjustment (arbitrary units). */
+    private const BASE_COMPLEXITY_LIMIT = 10.0;
+
+    private const WEIGHT_PROMPT_LENGTH   = 1 / 200.0;
+    private const WEIGHT_DEPENDENCY      = 1.0;
+    private const WEIGHT_MAINTENANCE     = 2.0;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -65,9 +72,13 @@ final class AtlasExternalBrainAmplifierComplexityBudget
             $usage      = max(0.0, min(1.0, (float) ($raw['usage_score']    ?? 0.0)));
             $sloMet     = (bool) ($raw['slo_met']         ?? true);
             $valueProof = (bool) ($raw['has_value_proof'] ?? false);
+            $promptLength    = max(0, (int) ($raw['prompt_length']    ?? 0));
+            $dependencyCount = max(0, (int) ($raw['dependency_count'] ?? 0));
+            $maintenanceCost = max(0.0, (float) ($raw['maintenance_cost'] ?? 0.0));
+            $measuredLift    = max(0.0, (float) ($raw['measured_lift']    ?? 0.0));
 
             $countByType[$type]++;
-            $components[] = compact('id', 'type', 'usage', 'sloMet', 'valueProof');
+            $components[] = compact('id', 'type', 'usage', 'sloMet', 'valueProof', 'promptLength', 'dependencyCount', 'maintenanceCost', 'measuredLift');
         }
 
         // AC2: detect over-budget dimensions.
@@ -85,9 +96,40 @@ final class AtlasExternalBrainAmplifierComplexityBudget
         // AC3: per-component recommendations.
         $simplifications = [];
         $preserved       = [];
+        $componentEvaluations = [];
+        $anyOverComplexityBudget = false;
 
         foreach ($components as $c) {
             [$rec, $reason] = $this->recommend($c['usage'], $c['sloMet'], $c['valueProof']);
+
+            $complexityScore  = $this->complexityScore($c['promptLength'], $c['dependencyCount'], $c['maintenanceCost']);
+            $liftAdjustedLimit = $this->liftAdjustedLimit($c['measuredLift']);
+            $overComplexityBudget = $complexityScore > $liftAdjustedLimit;
+
+            if ($overComplexityBudget) {
+                $anyOverComplexityBudget = true;
+                // AC2/AC3: complexity exceeding the lift-adjusted limit always blocks/retires,
+                // regardless of how good usage_score/slo_met otherwise look.
+                $rec    = 'retire';
+                $reason = 'complexity_exceeds_lift_adjusted_limit';
+            }
+
+            $overBudgetReason = $overComplexityBudget
+                ? $this->overBudgetReasons($c['promptLength'], $c['dependencyCount'], $c['maintenanceCost'], $c['measuredLift'])
+                : [];
+
+            $componentEvaluations[] = [
+                'id'                    => $c['id'],
+                'type'                  => $c['type'],
+                'complexity_score'      => round($complexityScore, 4),
+                'lift_adjusted_limit'   => round($liftAdjustedLimit, 4),
+                'budget_status'         => $overComplexityBudget ? 'over_budget' : 'within_budget',
+                'over_budget_reason'    => $overBudgetReason,
+                'simplification_hint'   => $overComplexityBudget
+                    ? $this->simplificationHint($c['promptLength'], $c['dependencyCount'], $c['maintenanceCost'])
+                    : null,
+            ];
+
             if ($rec === 'keep') {
                 $preserved[] = $c['id'];
             } else {
@@ -106,7 +148,56 @@ final class AtlasExternalBrainAmplifierComplexityBudget
             'over_budget_dimensions'     => $overBudget,
             'recommended_simplifications' => $simplifications,
             'preserved_items'            => $preserved,
+            'budget_status'              => (empty($overBudget) && ! $anyOverComplexityBudget) ? 'within_budget' : 'over_budget',
+            'component_budget_evaluations' => $componentEvaluations,
         ];
+    }
+
+    private function complexityScore(int $promptLength, int $dependencyCount, float $maintenanceCost): float
+    {
+        return ($promptLength * self::WEIGHT_PROMPT_LENGTH)
+            + ($dependencyCount * self::WEIGHT_DEPENDENCY)
+            + ($maintenanceCost * self::WEIGHT_MAINTENANCE);
+    }
+
+    private function liftAdjustedLimit(float $measuredLift): float
+    {
+        return self::BASE_COMPLEXITY_LIMIT * (1.0 + $measuredLift);
+    }
+
+    /** @return list<string> */
+    private function overBudgetReasons(int $promptLength, int $dependencyCount, float $maintenanceCost, float $measuredLift): array
+    {
+        $reasons = [];
+        if ($promptLength > 1000) {
+            $reasons[] = 'high_prompt_length';
+        }
+        if ($dependencyCount > 3) {
+            $reasons[] = 'high_dependency_count';
+        }
+        if ($maintenanceCost > 2.0) {
+            $reasons[] = 'high_maintenance_cost';
+        }
+        if ($measuredLift < 0.2) {
+            $reasons[] = 'low_measured_lift';
+        }
+
+        return $reasons !== [] ? $reasons : ['complexity_exceeds_lift_adjusted_limit'];
+    }
+
+    private function simplificationHint(int $promptLength, int $dependencyCount, float $maintenanceCost): string
+    {
+        if ($promptLength > 1000) {
+            return 'shorten the scaffold prompt before its next revision';
+        }
+        if ($dependencyCount > 3) {
+            return 'reduce the number of dependencies this scaffold pulls in';
+        }
+        if ($maintenanceCost > 2.0) {
+            return 'simplify or automate the maintenance burden of this scaffold';
+        }
+
+        return 'reduce overall complexity until it fits within the lift-adjusted budget';
     }
 
     private function resolveLimits(array $raw): array

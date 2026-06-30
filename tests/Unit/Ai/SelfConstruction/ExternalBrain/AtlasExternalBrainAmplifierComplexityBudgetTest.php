@@ -185,4 +185,53 @@ final class AtlasExternalBrainAmplifierComplexityBudgetTest extends TestCase
         $b = $this->budget()->evaluate($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── complexity scoring / lift-adjusted budget (AC1-AC4) ─────────────────────
+
+    public function test_low_complexity_high_usage_stays_within_budget_and_kept(): void
+    {
+        $result = $this->budget()->evaluate(['components' => [
+            $this->comp(['prompt_length' => 100, 'dependency_count' => 1, 'maintenance_cost' => 0.5, 'measured_lift' => 0.5]),
+        ]]);
+
+        $this->assertSame('within_budget', $result['budget_status']);
+        $this->assertSame('within_budget', $result['component_budget_evaluations'][0]['budget_status']);
+        $this->assertContains('c1', $result['preserved_items']);
+    }
+
+    public function test_high_complexity_low_lift_exceeds_budget_and_is_retired(): void
+    {
+        $result = $this->budget()->evaluate(['components' => [
+            $this->comp(['usage_score' => 0.9, 'prompt_length' => 5000, 'dependency_count' => 10, 'maintenance_cost' => 5.0, 'measured_lift' => 0.0]),
+        ]]);
+
+        $this->assertSame('over_budget', $result['budget_status']);
+        $this->assertSame('over_budget', $result['component_budget_evaluations'][0]['budget_status']);
+        $this->assertNotEmpty($result['component_budget_evaluations'][0]['over_budget_reason']);
+        $this->assertNotNull($result['component_budget_evaluations'][0]['simplification_hint']);
+        $this->assertSame('retire', $result['recommended_simplifications'][0]['recommendation']);
+        $this->assertSame('complexity_exceeds_lift_adjusted_limit', $result['recommended_simplifications'][0]['reason']);
+        $this->assertNotContains('c1', $result['preserved_items']);
+    }
+
+    public function test_high_lift_raises_the_complexity_ceiling(): void
+    {
+        // Same complexity inputs, but high measured_lift raises the lift-adjusted limit
+        // enough to stay within budget — lift must be able to justify complexity.
+        $result = $this->budget()->evaluate(['components' => [
+            $this->comp(['usage_score' => 0.9, 'prompt_length' => 1500, 'dependency_count' => 2, 'maintenance_cost' => 1.0, 'measured_lift' => 5.0]),
+        ]]);
+
+        $this->assertSame('within_budget', $result['component_budget_evaluations'][0]['budget_status']);
+    }
+
+    public function test_over_budget_reason_blank_when_within_budget(): void
+    {
+        $result = $this->budget()->evaluate(['components' => [
+            $this->comp(['prompt_length' => 0, 'dependency_count' => 0, 'maintenance_cost' => 0, 'measured_lift' => 0]),
+        ]]);
+
+        $this->assertSame([], $result['component_budget_evaluations'][0]['over_budget_reason']);
+        $this->assertNull($result['component_budget_evaluations'][0]['simplification_hint']);
+    }
 }
