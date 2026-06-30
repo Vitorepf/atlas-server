@@ -197,4 +197,121 @@ final class AtlasExternalBrainStrategicThesisForgeTest extends TestCase
         $this->assertSame([], $r['theses']);
         $this->assertSame([], $r['rejected']);
     }
+
+    // ── AC1: task_chain on accepted thesis ────────────────────────────────────
+
+    public function test_accepted_thesis_has_task_chain_key(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+        $this->assertArrayHasKey('task_chain', $r['theses'][0]);
+    }
+
+    public function test_task_chain_has_steps_array(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+        $chain = $r['theses'][0]['task_chain'];
+        $this->assertArrayHasKey('steps', $chain);
+        $this->assertIsArray($chain['steps']);
+        $this->assertNotEmpty($chain['steps']);
+    }
+
+    public function test_each_task_chain_step_has_required_fields(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+        foreach ($r['theses'][0]['task_chain']['steps'] as $step) {
+            $this->assertArrayHasKey('order', $step);
+            $this->assertArrayHasKey('shape', $step);
+            $this->assertArrayHasKey('description', $step);
+            $this->assertArrayHasKey('prerequisite_signals', $step);
+            $this->assertArrayHasKey('expected_leverage_delta', $step);
+            $this->assertArrayHasKey('proof_required', $step);
+            $this->assertIsInt($step['order']);
+            $this->assertIsArray($step['prerequisite_signals']);
+            $this->assertIsString($step['expected_leverage_delta']);
+            $this->assertIsString($step['proof_required']);
+        }
+    }
+
+    public function test_task_chain_steps_are_ordered_sequentially(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+        $steps = $r['theses'][0]['task_chain']['steps'];
+        foreach ($steps as $i => $step) {
+            $this->assertSame($i + 1, $step['order']);
+        }
+    }
+
+    public function test_implement_capability_step_has_high_leverage_and_prerequisite_signals(): void
+    {
+        $r = $this->forge->forge([$this->validCluster()]);
+        $implStep = null;
+        foreach ($r['theses'][0]['task_chain']['steps'] as $step) {
+            if ($step['shape'] === 'implement_capability') {
+                $implStep = $step;
+                break;
+            }
+        }
+        $this->assertNotNull($implStep, 'implement_capability step must exist');
+        $this->assertSame('high', $implStep['expected_leverage_delta']);
+        $this->assertNotEmpty($implStep['prerequisite_signals']);
+        $this->assertNotEmpty($implStep['proof_required']);
+    }
+
+    // ── AC2: rejection when task_shapes incoherent ────────────────────────────
+
+    public function test_rejects_cluster_when_task_shapes_lack_implementation_step(): void
+    {
+        $r = $this->forge->forge([$this->validCluster([
+            'task_shapes' => [
+                ['shape' => 'verify_acceptance', 'description' => 'Run tests to verify'],
+                ['shape' => 'wire_to_consumers', 'description' => 'Wire to consumers'],
+            ],
+        ])]);
+
+        $this->assertSame([], $r['theses']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertStringContainsString('task_shapes_incoherent', $r['rejected'][0]['reason']);
+        $this->assertStringContainsString('missing_implementation_step', $r['rejected'][0]['reason']);
+    }
+
+    public function test_rejects_cluster_when_task_shapes_lack_verification_step(): void
+    {
+        $r = $this->forge->forge([$this->validCluster([
+            'task_shapes' => [
+                ['shape' => 'implement_capability', 'description' => 'Implement the service'],
+                ['shape' => 'wire_to_consumers',   'description' => 'Wire to consumers'],
+            ],
+        ])]);
+
+        $this->assertSame([], $r['theses']);
+        $this->assertCount(1, $r['rejected']);
+        $this->assertStringContainsString('task_shapes_incoherent', $r['rejected'][0]['reason']);
+        $this->assertStringContainsString('missing_verification_step', $r['rejected'][0]['reason']);
+    }
+
+    public function test_accepts_cluster_with_coherent_custom_task_shapes(): void
+    {
+        $r = $this->forge->forge([$this->validCluster([
+            'task_shapes' => [
+                ['shape' => 'implement_capability', 'description' => 'Implement the service'],
+                ['shape' => 'verify_acceptance',    'description' => 'Write tests'],
+            ],
+        ])]);
+
+        $this->assertCount(1, $r['theses']);
+        $this->assertSame([], $r['rejected']);
+        $this->assertCount(2, $r['theses'][0]['task_chain']['steps']);
+    }
+
+    public function test_ac2_rejected_reason_identifies_which_step_is_missing(): void
+    {
+        // Test-only shapes → missing impl
+        $r = $this->forge->forge([$this->validCluster([
+            'task_shapes' => [
+                ['shape' => 'add_tests', 'description' => 'Write tests'],
+            ],
+        ])]);
+
+        $this->assertStringContainsString('missing_implementation_step', $r['rejected'][0]['reason']);
+    }
 }

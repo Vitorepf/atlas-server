@@ -41,6 +41,25 @@ final class AtlasExternalBrainStrategicThesisForge
 
     public const RISK_HIGH   = 'high';
 
+    private const IMPL_SHAPES   = ['implement_capability', 'implement', 'add_implementation', 'implement_service'];
+    private const VERIFY_SHAPES = ['verify_acceptance', 'add_tests', 'verify', 'test_acceptance', 'write_tests'];
+
+    private const PREREQUISITE_SIGNALS = [
+        'implement_capability' => ['acceptance_path_defined', 'capability_delta_stated'],
+        'verify_acceptance'    => ['implement_capability_done'],
+        'wire_to_consumers'    => ['verify_acceptance_done'],
+    ];
+    private const EXPECTED_LEVERAGE = [
+        'implement_capability' => 'high',
+        'verify_acceptance'    => 'medium',
+        'wire_to_consumers'    => 'high',
+    ];
+    private const PROOF_REQUIRED = [
+        'implement_capability' => 'implementation_file_committed_and_tests_pass',
+        'verify_acceptance'    => 'automated_test_or_gate_green',
+        'wire_to_consumers'    => 'consumer_exercising_new_capability_in_ci',
+    ];
+
     /**
      * @param  list<array{
      *   cluster_id:string, theme:string, capability_delta:string, acceptance_path:string,
@@ -81,6 +100,18 @@ final class AtlasExternalBrainStrategicThesisForge
             $urgency = strtolower(trim((string) ($cluster['urgency'] ?? 'medium')));
             $risk = $this->normaliseRisk((string) ($cluster['risk'] ?? ''), $urgency);
 
+            // Use caller-supplied task_shapes if provided; otherwise auto-generate.
+            $taskShapes = is_array($cluster['task_shapes'] ?? null)
+                ? array_values($cluster['task_shapes'])
+                : $this->taskShapes($theme, $capabilityDelta);
+
+            // AC2: reject if task_shapes cannot form a coherent implementation-plus-test chain.
+            $coherence = $this->checkTaskChainCoherence($taskShapes);
+            if (! $coherence['coherent']) {
+                $rejected[] = ['cluster_id' => $clusterId, 'reason' => 'task_shapes_incoherent:'.$coherence['reason']];
+                continue;
+            }
+
             $theses[] = [
                 'thesis_id' => 'thesis:'.$clusterId,
                 'cluster_id' => $clusterId,
@@ -91,7 +122,8 @@ final class AtlasExternalBrainStrategicThesisForge
                 'acceptance_path' => $acceptancePath,
                 'evidence_demand' => $this->evidenceDemand($acceptancePath, $opportunities),
                 'risk' => $risk,
-                'task_shapes' => $this->taskShapes($theme, $capabilityDelta),
+                'task_shapes' => $taskShapes,
+                'task_chain'  => $this->buildTaskChain($taskShapes),
             ];
         }
 
@@ -173,6 +205,43 @@ final class AtlasExternalBrainStrategicThesisForge
         }
 
         return $demand;
+    }
+
+    /** @return array{coherent:bool, reason:string} */
+    private function checkTaskChainCoherence(array $shapes): array
+    {
+        $shapeNames = array_map(static fn (array $s): string => strtolower((string) ($s['shape'] ?? '')), $shapes);
+
+        $hasImpl   = array_filter($shapeNames, static fn (string $n): bool => in_array($n, self::IMPL_SHAPES, true)) !== [];
+        $hasVerify = array_filter($shapeNames, static fn (string $n): bool => in_array($n, self::VERIFY_SHAPES, true)) !== [];
+
+        if (! $hasImpl) {
+            return ['coherent' => false, 'reason' => 'missing_implementation_step'];
+        }
+        if (! $hasVerify) {
+            return ['coherent' => false, 'reason' => 'missing_verification_step'];
+        }
+
+        return ['coherent' => true, 'reason' => ''];
+    }
+
+    /** @return array{steps:list<array<string,mixed>>} */
+    private function buildTaskChain(array $shapes): array
+    {
+        $steps = [];
+        foreach ($shapes as $i => $shape) {
+            $name   = (string) ($shape['shape'] ?? "step_{$i}");
+            $steps[] = [
+                'order'                   => $i + 1,
+                'shape'                   => $name,
+                'description'             => (string) ($shape['description'] ?? ''),
+                'prerequisite_signals'    => self::PREREQUISITE_SIGNALS[$name] ?? ["step_{$i}_done"],
+                'expected_leverage_delta' => self::EXPECTED_LEVERAGE[$name] ?? 'medium',
+                'proof_required'          => self::PROOF_REQUIRED[$name]   ?? 'output_observable_in_code_or_runtime',
+            ];
+        }
+
+        return ['steps' => $steps];
     }
 
     /** @return list<array{shape:string, description:string}> */
