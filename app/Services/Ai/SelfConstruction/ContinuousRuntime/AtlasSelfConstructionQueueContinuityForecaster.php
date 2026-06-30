@@ -68,12 +68,23 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         $hoursUntilDry = $servable / $throughput;
         $replenishBy = $hoursUntilDry - ($replenishLatencySec / 3600.0);
         $recommendedBatch = max(1, (int) ceil($throughput * self::BUFFER_HOURS));
+        $riskLevel = $this->risk($hoursUntilDry);
+
+        $activeWorkerCount = max(0, (int) ($snapshot['active_worker_count'] ?? 0));
+        $minimumClaimablePerWorker = max(0, (int) ($snapshot['minimum_claimable_per_worker'] ?? 0));
+        $workerFloor = $activeWorkerCount * $minimumClaimablePerWorker;
+        $workerFloorGap = max(0, $workerFloor - $servable);
+
+        if ($workerFloorGap > 0) {
+            $riskLevel = $this->escalateRisk($riskLevel, self::RISK_HIGH);
+            $recommendedBatch = max($recommendedBatch, $workerFloorGap);
+        }
 
         return [
             'schema_version' => self::SCHEMA,
             'hours_until_dry' => round($hoursUntilDry, 2),
             'replenish_by' => round($replenishBy, 2),
-            'risk_level' => $this->risk($hoursUntilDry),
+            'risk_level' => $riskLevel,
             'recommended_originator_batch_size' => $recommendedBatch,
             'fail_closed' => false,
             'fail_closed_reason' => null,
@@ -82,6 +93,8 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 'servable' => $servable,
                 'blocked' => $blocked,
             ],
+            'worker_floor' => $workerFloor,
+            'worker_floor_gap' => $workerFloorGap,
         ];
     }
 
@@ -98,6 +111,14 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         }
 
         return self::RISK_LOW;
+    }
+
+    /** Never downgrades risk — only raises it to at least $atLeast. */
+    private function escalateRisk(string $current, string $atLeast): string
+    {
+        $order = [self::RISK_LOW => 0, self::RISK_MEDIUM => 1, self::RISK_HIGH => 2, self::RISK_CRITICAL => 3];
+
+        return ($order[$current] ?? 0) >= ($order[$atLeast] ?? 0) ? $current : $atLeast;
     }
 
     private function failClosed(string $reason, int $claimable, int $servable, int $blocked): array
