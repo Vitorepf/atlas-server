@@ -283,6 +283,21 @@ final class AtlasSelfConstructionPromotionPlanService
         string $note,
     ): array {
         $at = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $contract = null;
+        if ($status === self::STATUS_READY) {
+            $contract = [
+                'copy_plan' => array_map(static fn (array $f): array => [
+                    'staged_path' => $f['staged_path'],
+                    'target_path' => $f['target_path'],
+                    'staged_hash' => $f['staged_hash'] ?? null,
+                ], $files),
+                'allowed_targets' => array_values(array_filter(array_column($files, 'target_path'))),
+                'verification_commands' => ['/opt/homebrew/bin/php artisan test'],
+                'rollback_plan' => ['mode' => 'revert_commit'],
+                'required_evidence' => ['tests_or_gates_result', 'implementation_notes', 'copy_receipts'],
+            ];
+        }
+
         $envelope = [
             'schema_version' => self::PLAN_SCHEMA,
             'planned_at' => $at,
@@ -295,6 +310,7 @@ final class AtlasSelfConstructionPromotionPlanService
             'files' => $files,
             'dry_run_only' => true,
             'source_tree_writes_authorized' => false,
+            'atlas_native_execution_contract' => $contract,
         ];
         $envelope['plan_hash'] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::PLAN_SCHEMA,
