@@ -89,6 +89,68 @@ final class AtlasMaestroWorkloadConsumptionRateReporterTest extends TestCase
         $this->assertGreaterThan(0.0, $fleetRow['tasks_per_hour']);
     }
 
+    public function test_give_back_and_failed_appear_as_separate_buckets_and_not_as_completed(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'worker-a', 'event' => 'give_back', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'give_back', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'failed', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'worker-a', 'event' => 'completed_dry_run', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $row = $report['rows'][0];
+        $this->assertSame(1, $row['completed_count'], 'give_back/failed must not inflate completed');
+        $this->assertSame(2, $row['give_back_count']);
+        $this->assertSame(1, $row['failed_count']);
+        $this->assertSame(1.0, $row['tasks_per_hour'], 'rate based on completed only');
+
+        $fleet = $report['rows'][1];
+        $this->assertSame('fleet', $fleet['client_id']);
+        $this->assertSame(2, $fleet['give_back_count']);
+        $this->assertSame(1, $fleet['failed_count']);
+    }
+
+    public function test_tasks_per_hour_reported_by_task_family(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'w', 'event' => 'completed_dry_run', 'task_class' => 'refactor', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'completed_dry_run', 'task_class' => 'refactor', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'completed_dry_run', 'task_class' => 'docs', 'recorded_at' => $now->subMinutes(5)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $byFamily = array_column($report['family_rows'], null, 'task_family');
+        $this->assertArrayHasKey('refactor', $byFamily);
+        $this->assertArrayHasKey('docs', $byFamily);
+        $this->assertSame(2, $byFamily['refactor']['completed_count']);
+        $this->assertSame(1, $byFamily['docs']['completed_count']);
+        $this->assertSame(2.0, $byFamily['refactor']['tasks_per_hour']);
+        $this->assertSame(1.0, $byFamily['docs']['tasks_per_hour']);
+    }
+
+    public function test_active_claimed_does_not_increment_completed_count(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-30T08:00:00Z');
+        $events = [
+            ['client_id' => 'w', 'event' => 'claimed', 'recorded_at' => $now->subMinutes(2)->toIso8601String()],
+            ['client_id' => 'w', 'event' => 'claimed', 'recorded_at' => $now->subMinutes(1)->toIso8601String()],
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        $row = $report['rows'][0];
+        $this->assertSame(0, $row['completed_count']);
+        $this->assertSame(0, $row['give_back_count']);
+        $this->assertSame(0, $row['failed_count']);
+        $this->assertSame(2, $row['started_count']);
+        $this->assertSame(0.0, $row['tasks_per_hour']);
+    }
+
     /**
      * @return array{events:list<array<string,string>>}
      */
