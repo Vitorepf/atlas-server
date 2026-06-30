@@ -304,10 +304,23 @@ class AppServiceProvider extends ServiceProvider
             },
         );
 
-        // Maestro worker-fleet probe — needs a callable lease-source. Default to an empty iterable so any
-        // consumer (CLI / FairnessAuditor) can boot even when the lease envelope has nothing to report yet.
+        // Maestro worker-fleet probe — reads live active leases from the task-serving lease repository
+        // and maps them to the shape the probe expects (client_id, opened_at, released_at).
+        // Active leases always have released_at=null (in-flight); completed leases are not surfaced here
+        // since they are reaped on claim and no longer appear in activeLeases().
         $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
-            return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(static fn (): iterable => []);
+            return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(
+                static function (): iterable {
+                    $leaseRepo = new \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
+                    foreach ($leaseRepo->activeLeases() as $lease) {
+                        yield [
+                            'client_id' => (string) ($lease['agent_id'] ?? ''),
+                            'opened_at' => (int) ($lease['acquired_at_unix'] ?? 0),
+                            'released_at' => null,
+                        ];
+                    }
+                }
+            );
         });
 
         // Anti-Goodhart refusal panel — 3-voter adversarial panel consumed by AtlasLoopAntiGoodhartUnifiedRefusal::evaluate().

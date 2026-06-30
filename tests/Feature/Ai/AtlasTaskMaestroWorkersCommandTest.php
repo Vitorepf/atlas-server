@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Console\Commands\AtlasTaskMaestroWorkersCommand;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerCheckpointLedger;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFairnessAuditor;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 final class AtlasTaskMaestroWorkersCommandTest extends TestCase
@@ -91,6 +93,58 @@ final class AtlasTaskMaestroWorkersCommandTest extends TestCase
         $this->assertSame(AtlasTaskMaestroWorkersCommand::EXIT_OK, $exit, $out);
         $decoded = json_decode(trim($out), true);
         $this->assertSame('pkt-1', $decoded['alpha']['task_packet_id']);
+    }
+
+    public function test_probe_with_live_lease_repo_produces_nonzero_worker_and_in_flight_counts(): void
+    {
+        Storage::fake('local');
+
+        // Write a minimal active lease directly to the faked disk so activeLeases() returns it.
+        $prefix = AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX;
+        $leaseId = 'lease_test_live_probe_01';
+        $lease = [
+            'lease_id' => $leaseId,
+            'agent_id' => 'live-probe-client',
+            'task_packet_id' => 'live-probe-task',
+            'lease_status' => 'active',
+            'acquired_at_unix' => time() - 30,
+            'acquired_at' => date('c', time() - 30),
+            'expires_at_unix' => time() + 1800,
+            'released_at' => null,
+            'receipts' => [],
+            'history' => [],
+        ];
+        Storage::disk('local')->put($prefix.'/'.$leaseId.'.json', (string) json_encode($lease));
+        Storage::disk('local')->put($prefix.'/registry.json', (string) json_encode([
+            'entries' => [[
+                'lease_id' => $leaseId,
+                'agent_id' => 'live-probe-client',
+                'task_packet_id' => 'live-probe-task',
+                'lease_status' => 'active',
+                'expires_at_unix' => time() + 1800,
+            ]],
+        ]));
+
+        // Bind real probe that reads from the live lease repo.
+        $leaseRepo = new AgentControlPlaneClaimLeaseRepository;
+        $probe = new AtlasMaestroWorkerFleetProbe(static function () use ($leaseRepo): iterable {
+            foreach ($leaseRepo->activeLeases() as $l) {
+                yield [
+                    'client_id' => (string) ($l['agent_id'] ?? ''),
+                    'opened_at' => (int) ($l['acquired_at_unix'] ?? 0),
+                    'released_at' => null,
+                ];
+            }
+        });
+        $this->app->instance(AtlasMaestroWorkerFleetProbe::class, $probe);
+        $this->app->instance(AtlasMaestroWorkerFairnessAuditor::class, new AtlasMaestroWorkerFairnessAuditor($probe));
+
+        [$exit, $out] = $this->runCmd(['action' => 'probe', '--json' => true]);
+        $this->assertSame(AtlasTaskMaestroWorkersCommand::EXIT_OK, $exit, $out);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertGreaterThan(0, $decoded['workers'], 'active leases must produce nonzero worker count');
+        $this->assertGreaterThan(0, $decoded['total_in_flight'], 'active leases must produce nonzero in_flight count');
     }
 
     public function test_every_action_triggers_zero_queue_mutations(): void
