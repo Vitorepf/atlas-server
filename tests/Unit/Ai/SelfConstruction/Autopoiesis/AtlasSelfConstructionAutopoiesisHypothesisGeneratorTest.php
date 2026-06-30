@@ -118,4 +118,97 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGeneratorTest extends Test
         $this->assertSame('a_organ', $verdict['hypotheses'][0]['target_organ']);
         $this->assertSame('z_organ', $verdict['hypotheses'][1]['target_organ']);
     }
+
+    // ── ambition_second_pass ──────────────────────────────────────────────────
+
+    public function test_low_yield_with_evidence_and_gaps_emits_ambition_second_pass(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'low_yield'                => true,
+            'exhausted_surface_evidence' => ['receipt:exhausted-1', 'receipt:exhausted-2'],
+            'gaps'                     => [['organ' => 'cortex', 'capability_gap' => 'deep_reasoning']],
+        ]);
+
+        $origins = array_column($verdict['hypotheses'], 'origin');
+        $this->assertContains('ambition_second_pass', $origins);
+    }
+
+    public function test_ambition_hypothesis_has_all_required_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'low_yield'                => true,
+            'exhausted_surface_evidence' => ['receipt:exhausted-1'],
+            'gaps'                     => [['organ' => 'maestro', 'capability_gap' => 'multi_step_planning']],
+        ]);
+
+        $ambition = array_values(array_filter($verdict['hypotheses'], fn ($h) => $h['origin'] === 'ambition_second_pass'));
+        $this->assertCount(1, $ambition);
+        $h = $ambition[0];
+
+        foreach (['target_organ', 'class', 'expected_leverage', 'safety_boundary', 'required_evidence', 'supporting_refs'] as $key) {
+            $this->assertArrayHasKey($key, $h, "ambition hypothesis missing key: $key");
+        }
+        $this->assertSame('maestro', $h['target_organ']);
+        $this->assertStringContainsString('ambition_second_pass', $h['class']);
+        $this->assertIsArray($h['expected_leverage']);
+        $this->assertIsArray($h['required_evidence']);
+        $this->assertIsArray($h['supporting_refs']);
+        $this->assertContains('receipt:exhausted-1', $h['supporting_refs']);
+    }
+
+    public function test_ambition_expected_leverage_is_fact_vector_not_scalar(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'low_yield'                => true,
+            'exhausted_surface_evidence' => ['ref:1'],
+            'gaps'                     => [['organ' => 'worker_swarm', 'capability_gap' => 'parallel_execution']],
+        ]);
+
+        $h = array_values(array_filter($verdict['hypotheses'], fn ($h) => $h['origin'] === 'ambition_second_pass'))[0];
+        $this->assertIsArray($h['expected_leverage'], 'expected_leverage must be a fact vector');
+        foreach (array_keys($h['expected_leverage']) as $k) {
+            $this->assertStringNotContainsString('score', (string) $k);
+        }
+    }
+
+    public function test_low_yield_without_evidence_refs_is_rejected_as_proxy_only(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'low_yield'                => true,
+            'exhausted_surface_evidence' => [],   // no real refs
+            'gaps'                     => [['organ' => 'cortex', 'capability_gap' => 'recall']],
+        ]);
+
+        $ambition = array_filter($verdict['hypotheses'], fn ($h) => $h['origin'] === 'ambition_second_pass');
+        $this->assertSame([], array_values($ambition), 'no ambition hypotheses without evidence');
+        $reasons = array_column($verdict['rejected'], 'reason');
+        $this->assertNotEmpty(array_filter($reasons, fn ($r) => str_contains($r, 'proxy_only_seed')));
+    }
+
+    public function test_low_yield_with_evidence_but_no_gaps_emits_no_ambition_hypotheses(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'low_yield'                => true,
+            'exhausted_surface_evidence' => ['ref:1'],
+            // no gaps
+        ]);
+
+        $ambition = array_filter($verdict['hypotheses'], fn ($h) => $h['origin'] === 'ambition_second_pass');
+        $this->assertSame([], array_values($ambition));
+        $this->assertSame([], $verdict['rejected']);
+    }
+
+    public function test_ambition_second_pass_coexists_with_failure_hypotheses(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisHypothesisGenerator)->generate([
+            'low_yield'                => true,
+            'exhausted_surface_evidence' => ['ref:exhausted'],
+            'gaps'                     => [['organ' => 'cortex', 'capability_gap' => 'recall']],
+            'failures'                 => [['organ' => 'verification_court', 'class' => 'flaky', 'evidence_refs' => ['r1']]],
+        ]);
+
+        $origins = array_column($verdict['hypotheses'], 'origin');
+        $this->assertContains('failure',             $origins);
+        $this->assertContains('ambition_second_pass', $origins);
+    }
 }

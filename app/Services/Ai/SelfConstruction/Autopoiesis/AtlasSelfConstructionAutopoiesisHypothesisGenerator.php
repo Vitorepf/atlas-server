@@ -92,6 +92,31 @@ final class AtlasSelfConstructionAutopoiesisHypothesisGenerator
             ];
         }
 
+        // Ambition second-pass: exhausted reactive surface + real evidence + gaps → higher-order hypotheses.
+        if ((bool) ($facts['low_yield'] ?? false)) {
+            $exhaustedEvidence = array_values(array_filter((array) ($facts['exhausted_surface_evidence'] ?? []), 'is_string'));
+            if ($exhaustedEvidence === []) {
+                $rejected[] = ['reason' => 'proxy_only_seed:low_yield_without_evidence'];
+            } else {
+                foreach ((array) ($facts['gaps'] ?? []) as $gap) {
+                    $organ = (string) ((array) $gap)['organ'] ?? '';
+                    $capabilityGap = (string) ((array) $gap)['capability_gap'] ?? '';
+                    if ($organ === '' || $capabilityGap === '') {
+                        continue;
+                    }
+                    $hypotheses[] = [
+                        'origin'            => 'ambition_second_pass',
+                        'target_organ'      => $organ,
+                        'class'             => 'ambition_second_pass:'.$capabilityGap,
+                        'expected_leverage' => ['capability_lift' => 2, 'autonomy_unlock' => 2],
+                        'safety_boundary'   => 'validate_against_exhausted_surface_before_promoting',
+                        'required_evidence' => ['exhausted_surface_confirmed', 'capability_gap_target_identified', 'ambition_test_green'],
+                        'supporting_refs'   => $exhaustedEvidence,
+                    ];
+                }
+            }
+        }
+
         // Deduplicate by (target_organ, class) — keep first occurrence.
         $seen = [];
         $deduped = [];
