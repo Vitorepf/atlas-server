@@ -166,8 +166,33 @@ final class AtlasExternalBrainResearchDigestGrounder
             'atlas_area'              => trim((string) ($idea['atlas_area']              ?? '')),
             'target_capability'       => trim((string) ($idea['target_capability']       ?? trim((string) ($idea['atlas_capability_gap'] ?? '')))),
             'implementation_boundary' => trim((string) ($idea['implementation_boundary'] ?? '')),
-            'evidence_strength'       => $this->computeEvidenceStrength($localSymbols, $evidencePath, $ownerFiles, $implStrategy),
+            'evidence_strength'       => $evidenceStrength = $this->computeEvidenceStrength($localSymbols, $evidencePath, $ownerFiles, $implStrategy),
+            'trust_tier'              => $this->trustTier($evidenceStrength),
+            'adaptation_notes'        => $this->adaptationNotes($idea),
         ];
+    }
+
+    private function trustTier(float $evidenceStrength): string
+    {
+        return match (true) {
+            $evidenceStrength >= 0.80 => 'high',
+            $evidenceStrength >= 0.50 => 'medium',
+            default                   => 'low',
+        };
+    }
+
+    private function adaptationNotes(array $idea): string
+    {
+        $notes = trim((string) ($idea['adaptation_notes'] ?? ''));
+        if ($notes !== '') {
+            return $notes;
+        }
+
+        $source = trim((string) ($idea['research_source'] ?? ''));
+
+        return $source !== ''
+            ? "Adapted from research source: {$source}; verify local symbol/file mapping still holds before implementation."
+            : 'No external research source declared; treat local-symbol mapping as already verified.';
     }
 
     /** @param list<string> $localSymbols @param list<string> $ownerFiles */

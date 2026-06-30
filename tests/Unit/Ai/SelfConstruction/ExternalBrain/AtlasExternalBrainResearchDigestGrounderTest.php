@@ -88,6 +88,41 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         }
     }
 
+    // ── AC2: trust_tier + adaptation_notes ────────────────────────────────────
+
+    public function test_promoted_candidate_has_trust_tier_and_adaptation_notes(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good()));
+        $c = $result['task_candidates'][0];
+
+        $this->assertArrayHasKey('trust_tier', $c);
+        $this->assertArrayHasKey('adaptation_notes', $c);
+        $this->assertContains($c['trust_tier'], ['high', 'medium', 'low']);
+        $this->assertIsString($c['adaptation_notes']);
+        $this->assertNotEmpty($c['adaptation_notes']);
+    }
+
+    public function test_trust_tier_high_for_full_evidence(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good([
+            'local_symbols'           => ['AtlasFoo'],
+            'owner_files'             => ['app/Services/Ai/Foo.php'],
+            'runnable_evidence_path'  => '/opt/homebrew/bin/php artisan test --filter=FooTest',
+            'implementation_strategy' => 'extend AtlasFoo with new method',
+        ])));
+
+        $this->assertSame('high', $result['task_candidates'][0]['trust_tier']);
+    }
+
+    public function test_adaptation_notes_reflects_research_source_when_provided(): void
+    {
+        $result = $this->grounder->ground($this->input($this->good([
+            'research_source' => 'arXiv:2603.15031',
+        ])));
+
+        $this->assertStringContainsString('arXiv:2603.15031', $result['task_candidates'][0]['adaptation_notes']);
+    }
+
     public function test_grounded_symbols_mirrors_local_symbols(): void
     {
         $result = $this->grounder->ground($this->input($this->good()));
@@ -171,44 +206,45 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         );
     }
 
-    // ── AC1 reject: missing_local_symbol ─────────────────────────────────────
+    // ── AC3 hold: missing local symbols (soft hold, not a hard rejection) ────
 
-    public function test_rejects_idea_with_no_local_symbols(): void
+    public function test_holds_idea_with_no_local_symbols(): void
     {
         $result = $this->grounder->ground($this->input($this->good(['local_symbols' => []])));
 
         $this->assertSame(0, $result['promoted_count']);
+        $this->assertSame([], $result['rejected']);
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_MISSING_LOCAL_SYMBOL,
-            $result['rejected'][0]['rejection_reason'],
+            AtlasExternalBrainResearchDigestGrounder::HOLD_MISSING_ATLAS_FIT,
+            $result['held_for_research'][0]['hold_reason'],
         );
     }
 
-    // ── AC1 reject: missing_allowed_files_candidate (unchanged) ──────────────
+    // ── AC3 hold: missing allowed_files_candidate ─────────────────────────────
 
-    public function test_rejects_idea_with_no_allowed_files_candidate(): void
+    public function test_holds_idea_with_no_allowed_files_candidate(): void
     {
         $result = $this->grounder->ground($this->input($this->good([
             'allowed_files_candidate' => [],
         ])));
 
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_MISSING_ALLOWED_FILES_CANDIDATE,
-            $result['rejected'][0]['rejection_reason'],
+            AtlasExternalBrainResearchDigestGrounder::HOLD_MISSING_ALLOWED_FILES,
+            $result['held_for_research'][0]['hold_reason'],
         );
     }
 
-    // ── AC1 reject: no_runnable_gate ─────────────────────────────────────────
+    // ── AC3 hold: no_runnable_gate ─────────────────────────────────────────────
 
-    public function test_rejects_idea_with_prose_only_evidence(): void
+    public function test_holds_idea_with_prose_only_evidence(): void
     {
         $result = $this->grounder->ground($this->input($this->good([
             'runnable_evidence_path' => 'prose description only',
         ])));
 
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_NO_RUNNABLE_GATE,
-            $result['rejected'][0]['rejection_reason'],
+            AtlasExternalBrainResearchDigestGrounder::HOLD_MISSING_RUNNABLE_GATE,
+            $result['held_for_research'][0]['hold_reason'],
         );
     }
 
@@ -230,9 +266,9 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         $this->assertSame(1, $result['promoted_count']);
     }
 
-    // ── AC1 reject: no_owner_file ─────────────────────────────────────────────
+    // ── AC3 hold: no_owner_file ───────────────────────────────────────────────
 
-    public function test_rejects_when_no_owner_files_and_has_local_owner_false(): void
+    public function test_holds_when_no_owner_files_and_has_local_owner_false(): void
     {
         $result = $this->grounder->ground($this->input($this->good([
             'has_local_owner' => false,
@@ -240,8 +276,8 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         ])));
 
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_NO_OWNER_FILE,
-            $result['rejected'][0]['rejection_reason'],
+            AtlasExternalBrainResearchDigestGrounder::HOLD_MISSING_OWNER,
+            $result['held_for_research'][0]['hold_reason'],
         );
     }
 
@@ -304,7 +340,7 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
 
     // ── Rejection hierarchy ───────────────────────────────────────────────────
 
-    public function test_missing_local_symbol_beats_missing_allowed_files_and_provider_dep(): void
+    public function test_provider_dependency_hard_reject_beats_missing_local_symbol_soft_hold(): void
     {
         $result = $this->grounder->ground($this->input($this->good([
             'local_symbols'             => [],
@@ -312,13 +348,14 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
             'provider_steady_state_dep' => true,
         ])));
 
+        $this->assertSame([], $result['held_for_research']);
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_MISSING_LOCAL_SYMBOL,
+            AtlasExternalBrainResearchDigestGrounder::REJECTION_PROVIDER_DEPENDENCY,
             $result['rejected'][0]['rejection_reason'],
         );
     }
 
-    public function test_missing_allowed_files_beats_no_runnable_gate(): void
+    public function test_missing_allowed_files_hold_beats_no_runnable_gate_hold(): void
     {
         $result = $this->grounder->ground($this->input($this->good([
             'allowed_files_candidate' => [],
@@ -326,8 +363,8 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         ])));
 
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_MISSING_ALLOWED_FILES_CANDIDATE,
-            $result['rejected'][0]['rejection_reason'],
+            AtlasExternalBrainResearchDigestGrounder::HOLD_MISSING_ALLOWED_FILES,
+            $result['held_for_research'][0]['hold_reason'],
         );
     }
 
@@ -348,11 +385,20 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
 
     public function test_rejected_entry_includes_original_idea(): void
     {
-        $idea   = $this->good(['local_symbols' => []]);
+        $idea   = $this->good(['forbidden_scope' => true]);
         $result = $this->grounder->ground($this->input($idea));
 
         $this->assertArrayHasKey('idea', $result['rejected'][0]);
         $this->assertSame($idea, $result['rejected'][0]['idea']);
+    }
+
+    public function test_held_entry_includes_original_idea(): void
+    {
+        $idea   = $this->good(['local_symbols' => []]);
+        $result = $this->grounder->ground($this->input($idea));
+
+        $this->assertArrayHasKey('idea', $result['held_for_research'][0]);
+        $this->assertSame($idea, $result['held_for_research'][0]['idea']);
     }
 
     // ── AC3: runnable proof examples ──────────────────────────────────────────
@@ -449,7 +495,7 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         );
     }
 
-    public function test_no_runnable_gate_example_rejected(): void
+    public function test_no_runnable_gate_example_held(): void
     {
         $result = $this->grounder->ground($this->input([
             'idea_id'                 => 'no-test-proof',
@@ -464,14 +510,14 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
 
         $this->assertSame(0, $result['promoted_count']);
         $this->assertSame(
-            AtlasExternalBrainResearchDigestGrounder::REJECTION_NO_RUNNABLE_GATE,
-            $result['rejected'][0]['rejection_reason'],
+            AtlasExternalBrainResearchDigestGrounder::HOLD_MISSING_RUNNABLE_GATE,
+            $result['held_for_research'][0]['hold_reason'],
         );
     }
 
     // ── Mixed batch ───────────────────────────────────────────────────────────
 
-    public function test_mixed_batch_separates_promoted_and_rejected(): void
+    public function test_mixed_batch_separates_promoted_held_and_rejected(): void
     {
         $result = $this->grounder->ground($this->input(
             $this->good(['idea_id' => 'ok-1']),
@@ -481,7 +527,8 @@ final class AtlasExternalBrainResearchDigestGrounderTest extends TestCase
         ));
 
         $this->assertSame(2, $result['promoted_count']);
-        $this->assertSame(2, $result['rejected_count']);
+        $this->assertSame(1, $result['rejected_count']);
+        $this->assertCount(1, $result['held_for_research']);
     }
 
     // ── Empty batch ───────────────────────────────────────────────────────────
