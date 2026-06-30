@@ -85,4 +85,56 @@ final class AtlasLoopTelemetryStarvationDetectorTest extends TestCase
             'payload' => ['scope' => 'loop'],
         ];
     }
+
+    public function test_worker_floor_starvation_detected_when_claimable_per_active_worker_at_floor(): void
+    {
+        $result = (new AtlasLoopTelemetryStarvationDetector)->evaluateWorkerFloor([
+            'servable_now' => 1,
+            'active_leases' => 3,
+            'claimable_per_active_worker' => 2,
+            'no_claimable_task_outcome_count' => 0,
+        ]);
+
+        $this->assertSame('worker_floor_starvation', $result['recommendation']);
+        $this->assertTrue($result['worker_floor_breached']);
+        $this->assertSame(2, $result['evidence']['claimable_per_active_worker']);
+    }
+
+    public function test_worker_floor_starvation_detected_from_recent_no_claimable_task_outcome(): void
+    {
+        $result = (new AtlasLoopTelemetryStarvationDetector)->evaluateWorkerFloor([
+            'servable_now' => 5,
+            'active_leases' => 4,
+            'claimable_per_active_worker' => 10,
+            'no_claimable_task_outcome_count' => 2,
+        ]);
+
+        $this->assertSame('worker_floor_starvation', $result['recommendation']);
+        $this->assertTrue($result['worker_floor_breached']);
+    }
+
+    public function test_idle_system_with_no_active_workers_and_no_recent_outcomes_is_healthy_idle(): void
+    {
+        $result = (new AtlasLoopTelemetryStarvationDetector)->evaluateWorkerFloor([
+            'servable_now' => 0,
+            'active_leases' => 0,
+            'no_claimable_task_outcome_count' => 0,
+        ]);
+
+        $this->assertSame('healthy_idle', $result['recommendation']);
+        $this->assertFalse($result['worker_floor_breached']);
+    }
+
+    public function test_comfortable_buffer_with_active_workers_and_no_recent_outcomes_is_healthy(): void
+    {
+        $result = (new AtlasLoopTelemetryStarvationDetector)->evaluateWorkerFloor([
+            'servable_now' => 20,
+            'active_leases' => 3,
+            'claimable_per_active_worker' => 10,
+            'no_claimable_task_outcome_count' => 0,
+        ]);
+
+        $this->assertSame('healthy', $result['recommendation']);
+        $this->assertFalse($result['worker_floor_breached']);
+    }
 }

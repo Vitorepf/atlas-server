@@ -9,6 +9,68 @@ use DateTimeImmutable;
 
 final class AtlasLoopTelemetryStarvationDetector
 {
+    private const WORKER_FLOOR_RATIO = 2.0;
+
+    /**
+     * Worker-floor starvation recommendation: detects queue starvation BEFORE
+     * workers actually hit no_claimable_task, by reading servable_now,
+     * active_leases, claimable_per_active_worker and recent no_claimable_task
+     * outcome facts directly — distinct from detect()'s claim/serve telemetry
+     * pairing, which only sees starvation after it has already happened.
+     *
+     * recommendation:
+     *   - 'worker_floor_starvation' — active workers exist AND
+     *     (claimable_per_active_worker at/below the floor OR a recent
+     *     no_claimable_task outcome was observed).
+     *   - 'healthy_idle' — no active workers and no recent no_claimable_task
+     *     outcomes; nothing to feed, nothing starving.
+     *   - 'healthy' — active workers with a comfortable claimable buffer and
+     *     no recent starvation outcomes.
+     *
+     * @param  array<string,mixed>  $facts  { servable_now?: int, active_leases?: int,
+     *   claimable_per_active_worker?: float, no_claimable_task_outcome_count?: int }
+     * @return array{recommendation:string, worker_floor_breached:bool, evidence:array<string,mixed>}
+     */
+    public function evaluateWorkerFloor(array $facts): array
+    {
+        $servableNow = max(0, (int) ($facts['servable_now'] ?? 0));
+        $activeLeases = max(0, (int) ($facts['active_leases'] ?? 0));
+        $claimablePerActiveWorker = $facts['claimable_per_active_worker'] ?? null;
+        $noClaimableTaskOutcomeCount = max(0, (int) ($facts['no_claimable_task_outcome_count'] ?? 0));
+
+        $belowFloor = $claimablePerActiveWorker !== null && (float) $claimablePerActiveWorker <= self::WORKER_FLOOR_RATIO;
+        $hasRecentStarvationOutcome = $noClaimableTaskOutcomeCount > 0;
+
+        $evidence = [
+            'servable_now' => $servableNow,
+            'active_leases' => $activeLeases,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'no_claimable_task_outcome_count' => $noClaimableTaskOutcomeCount,
+        ];
+
+        if ($activeLeases > 0 && ($belowFloor || $hasRecentStarvationOutcome)) {
+            return [
+                'recommendation' => 'worker_floor_starvation',
+                'worker_floor_breached' => true,
+                'evidence' => $evidence,
+            ];
+        }
+
+        if ($activeLeases === 0 && ! $hasRecentStarvationOutcome) {
+            return [
+                'recommendation' => 'healthy_idle',
+                'worker_floor_breached' => false,
+                'evidence' => $evidence,
+            ];
+        }
+
+        return [
+            'recommendation' => 'healthy',
+            'worker_floor_breached' => false,
+            'evidence' => $evidence,
+        ];
+    }
+
     /**
      * @param  list<array<string, mixed>>  $facts
      * @return array{
