@@ -101,16 +101,75 @@ class AtlasSelfConstructionCodeIndexReadinessBridgeTest extends TestCase
         self::assertContains('investigate_code_intelligence_pipeline', $verdict['repair_actions']);
     }
 
+    public function test_blocked_when_workspace_id_is_missing(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['workspace_id']);
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('workspace_id_missing', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_index_workspace_does_not_match_workspace_id(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['code_status']['index_workspace_id'] = 'different-workspace';
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('index_workspace_mismatch', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_indexed_at_unix_is_missing(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['code_status']['indexed_at_unix']);
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('indexed_at_missing', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_changed_code_hash_not_represented_in_index(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['changed_code_hash'] = 'new-unindexed-hash';
+        $facts['code_status']['last_changed_code_hash'] = 'old-hash';
+
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($facts);
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_BLOCKED, $verdict['status']);
+        self::assertContains('changed_code_hash_not_represented', $verdict['blockers']);
+    }
+
+    public function test_ready_when_workspace_and_changed_code_hash_facts_match(): void
+    {
+        $verdict = (new AtlasSelfConstructionCodeIndexReadinessBridge)->verify($this->readyFacts());
+
+        self::assertSame(AtlasSelfConstructionCodeIndexReadinessBridge::STATUS_READY, $verdict['status']);
+        self::assertTrue($verdict['passed']);
+        self::assertSame([], $verdict['blockers']);
+    }
+
     /**
      * @return array<string,mixed>
      */
     private function readyFacts(): array
     {
         return [
+            'workspace_id' => 'ws-atlas-server',
+            'changed_code_hash' => 'deadbeef',
             'code_status' => [
                 'status' => 'ready',
                 'indexed_symbols' => 8700,
                 'is_stale' => false,
+                'index_workspace_id' => 'ws-atlas-server',
+                'indexed_at_unix' => 1751287200,
+                'last_changed_code_hash' => 'deadbeef',
             ],
             'readiness' => [
                 'status' => 'ready',

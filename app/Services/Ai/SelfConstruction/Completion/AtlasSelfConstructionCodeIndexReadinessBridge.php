@@ -85,7 +85,30 @@ final class AtlasSelfConstructionCodeIndexReadinessBridge
             $repairs[] = 'investigate_code_intelligence_pipeline';
         }
 
-        // 4. Readiness must be ready/watch and have no blocking findings.
+        // 4. Workspace binding facts — workspace_id, index_workspace_id, indexed_at_unix, changed_code_hash.
+        $workspaceId = (string) ($facts['workspace_id'] ?? '');
+        $indexWorkspaceId = (string) ($facts['code_status']['index_workspace_id'] ?? '');
+        $indexedAtUnix = $facts['code_status']['indexed_at_unix'] ?? null;
+        $changedCodeHash = (string) ($facts['changed_code_hash'] ?? '');
+        $lastChangedCodeHash = (string) ($facts['code_status']['last_changed_code_hash'] ?? '');
+
+        if ($workspaceId === '') {
+            $blockers[] = 'workspace_id_missing';
+            $repairs[] = 'supply_workspace_id_fact';
+        } elseif ($indexWorkspaceId !== '' && $indexWorkspaceId !== $workspaceId) {
+            $blockers[] = 'index_workspace_mismatch';
+            $repairs[] = 'reindex_for_correct_workspace';
+        }
+        if ($indexedAtUnix === null || $indexedAtUnix === '') {
+            $blockers[] = 'indexed_at_missing';
+            $repairs[] = 'supply_indexed_at_unix_fact';
+        }
+        if ($changedCodeHash !== '' && $lastChangedCodeHash !== $changedCodeHash) {
+            $blockers[] = 'changed_code_hash_not_represented';
+            $repairs[] = 'rerun_engineering_knowledge_index_code_prune';
+        }
+
+        // 5. Readiness must be ready/watch and have no blocking findings.
         if ($readinessStatus !== '' && ! in_array($readinessStatus, ['ready', 'watch'], true)) {
             $blockers[] = 'readiness_not_ready:'.$readinessStatus;
         }
