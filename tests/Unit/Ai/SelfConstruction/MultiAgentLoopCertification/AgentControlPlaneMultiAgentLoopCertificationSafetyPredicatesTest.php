@@ -65,6 +65,46 @@ class AgentControlPlaneMultiAgentLoopCertificationSafetyPredicatesTest extends T
         self::assertSame(0, AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::writeSetCollisionCount([]));
     }
 
+    public function test_write_set_collision_count_normalizes_backslashes(): void
+    {
+        self::assertSame(1, AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::writeSetCollisionCount([
+            ['path\\file.php'],
+            ['path/file.php'],
+        ]));
+    }
+
+    public function test_write_set_collision_count_normalizes_leading_slash(): void
+    {
+        self::assertSame(1, AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::writeSetCollisionCount([
+            ['/file.php'],
+            ['file.php'],
+        ]));
+    }
+
+    public function test_write_set_collision_count_normalizes_dot_slash_prefix(): void
+    {
+        self::assertSame(1, AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::writeSetCollisionCount([
+            ['./file.php'],
+            ['file.php'],
+        ]));
+    }
+
+    public function test_write_set_collision_count_normalizes_duplicate_slashes(): void
+    {
+        self::assertSame(1, AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::writeSetCollisionCount([
+            ['path//file.php'],
+            ['path/file.php'],
+        ]));
+    }
+
+    public function test_write_set_collision_count_normalizes_whitespace(): void
+    {
+        self::assertSame(1, AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates::writeSetCollisionCount([
+            ['  file.php  '],
+            ['file.php'],
+        ]));
+    }
+
     // ---- terminalBootstrapRuntimeSafety ----
 
     public function test_terminal_bootstrap_runtime_safety_all_false(): void

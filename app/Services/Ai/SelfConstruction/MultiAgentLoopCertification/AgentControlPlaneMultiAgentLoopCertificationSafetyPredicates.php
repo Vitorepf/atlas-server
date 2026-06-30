@@ -42,7 +42,10 @@ final class AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates
         $collisions = 0;
         $seen = [];
         foreach ($writeSets as $writeSet) {
-            $normalized = array_values(array_filter(array_map('strval', $writeSet)));
+            $normalized = array_values(array_unique(array_filter(
+                array_map(static fn (mixed $p): string => self::normalizePath((string) $p), $writeSet),
+                static fn (string $s): bool => $s !== ''
+            )));
             if (array_intersect($seen, $normalized) !== []) {
                 $collisions++;
             }
@@ -50,6 +53,18 @@ final class AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates
         }
 
         return $collisions;
+    }
+
+    private static function normalizePath(string $path): string
+    {
+        $p = str_replace('\\', '/', trim($path));
+        $p = (string) preg_replace('#/+#', '/', $p);
+        $p = ltrim($p, '/');
+        if (str_starts_with($p, './')) {
+            $p = substr($p, 2);
+        }
+
+        return rtrim($p, '/');
     }
 
     /**
