@@ -190,6 +190,7 @@ final class AtlasExternalBrainOutcomeLearner
         $giveBackRisk        = [];
         $poisonFamilyHints   = [];
         $nextWaveAdjustments = [];
+        $nextBatchBudget     = [];
 
         foreach ($familyStats as $tf => $stats) {
             $successRate  = $stats['total'] > 0 ? round($stats['delivered'] / $stats['total'], 3) : 0.0;
@@ -233,6 +234,27 @@ final class AtlasExternalBrainOutcomeLearner
                     ? "family_success_rate={$successRate}: increase next-wave allocation"
                     : "family_success_rate={$successRate}: reduce next-wave allocation",
             ];
+
+            // AC1: next_batch_budget per family.
+            // AC2: any proxy task in the family → proxy-heavy → max_count capped at 1.
+            $isProxyHeavy = $stats['proxy'] > 0;
+            $maxCount     = $isProxyHeavy ? 1 : max(1, min(5, (int) round($successRate * 5)));
+            $minEvidenceFloor = match ($riskLevel) {
+                'high'  => 0.80,
+                'medium' => 0.60,
+                default  => 0.40,
+            };
+            $riskCap = match ($riskLevel) {
+                'high'  => 0.30,
+                'medium' => 0.50,
+                default  => 0.70,
+            };
+            $nextBatchBudget[] = [
+                'task_family'        => $tf,
+                'max_count'          => $maxCount,
+                'min_evidence_floor' => $minEvidenceFloor,
+                'risk_cap'           => $riskCap,
+            ];
         }
 
         // ── Build worker_fit_hints ──
@@ -265,6 +287,7 @@ final class AtlasExternalBrainOutcomeLearner
             'poison_family_hints'   => $poisonFamilyHints,
             'worker_fit_hints'      => $workerFitHints,
             'next_wave_adjustments' => $nextWaveAdjustments,
+            'next_batch_budget'     => $nextBatchBudget,
         ];
     }
 

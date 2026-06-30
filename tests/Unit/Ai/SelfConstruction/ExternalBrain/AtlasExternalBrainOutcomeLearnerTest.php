@@ -431,6 +431,111 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
         $this->assertNotEmpty($r['worker_fit_hints']);
     }
 
+    // ── next_batch_budget (AC1 + AC2) ────────────────────────────────────────
+
+    public function test_next_batch_budget_present_in_output(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture'],
+        ]);
+
+        $this->assertArrayHasKey('next_batch_budget', $r);
+        $this->assertIsArray($r['next_batch_budget']);
+        $this->assertNotEmpty($r['next_batch_budget']);
+    }
+
+    public function test_next_batch_budget_has_required_fields(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture'],
+        ]);
+
+        $entry = $r['next_batch_budget'][0];
+        $this->assertArrayHasKey('task_family', $entry);
+        $this->assertArrayHasKey('max_count', $entry);
+        $this->assertArrayHasKey('min_evidence_floor', $entry);
+        $this->assertArrayHasKey('risk_cap', $entry);
+    }
+
+    public function test_next_batch_budget_empty_when_no_task_family(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered'],
+        ]);
+
+        $this->assertSame([], $r['next_batch_budget']);
+    }
+
+    public function test_next_batch_budget_max_count_at_least_one_for_good_family(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+        ]);
+
+        $entry = $this->findByKey($r['next_batch_budget'], 'task_family', 'evolution');
+        $this->assertGreaterThanOrEqual(1, $entry['max_count']);
+    }
+
+    /** AC2: any proxy task in the family → max_count capped at 1. */
+    public function test_next_batch_budget_max_count_capped_at_one_for_proxy_heavy_family(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'proxy',     'task_family' => 'evolution'],
+        ]);
+
+        $entry = $this->findByKey($r['next_batch_budget'], 'task_family', 'evolution');
+        $this->assertSame(1, $entry['max_count'], 'proxy-heavy family must be capped at max_count=1');
+    }
+
+    /** AC2: many completions never increase budget for a proxy-heavy family. */
+    public function test_next_batch_budget_many_deliveries_do_not_increase_proxy_heavy_max_count(): void
+    {
+        $outcomes = [];
+        for ($i = 0; $i < 10; $i++) {
+            $outcomes[] = ['task_packet_id' => "t{$i}", 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'bulk'];
+        }
+        $outcomes[] = ['task_packet_id' => 't10', 'pattern_family' => 'pf', 'outcome' => 'proxy', 'task_family' => 'bulk'];
+
+        $r = $this->learner->learn($outcomes);
+
+        $entry = $this->findByKey($r['next_batch_budget'], 'task_family', 'bulk');
+        $this->assertSame(1, $entry['max_count'], '10 deliveries + 1 proxy must still yield max_count=1');
+    }
+
+    public function test_next_batch_budget_min_evidence_floor_higher_for_risky_family(): void
+    {
+        $rGood = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'good'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'good'],
+        ]);
+        $rRisky = $this->learner->learn([
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'risky'],
+            ['task_packet_id' => 't4', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'risky'],
+        ]);
+
+        $floorGood  = $this->findByKey($rGood['next_batch_budget'],  'task_family', 'good')['min_evidence_floor'];
+        $floorRisky = $this->findByKey($rRisky['next_batch_budget'], 'task_family', 'risky')['min_evidence_floor'];
+        $this->assertGreaterThan($floorGood, $floorRisky, 'risky family must have a higher min_evidence_floor');
+    }
+
+    public function test_next_batch_budget_risk_cap_lower_for_risky_family(): void
+    {
+        $rGood = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'good'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'good'],
+        ]);
+        $rRisky = $this->learner->learn([
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'risky'],
+            ['task_packet_id' => 't4', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'risky'],
+        ]);
+
+        $capGood  = $this->findByKey($rGood['next_batch_budget'],  'task_family', 'good')['risk_cap'];
+        $capRisky = $this->findByKey($rRisky['next_batch_budget'], 'task_family', 'risky')['risk_cap'];
+        $this->assertGreaterThan($capRisky, $capGood, 'risky family must have a lower risk_cap');
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private function findByKey(array $list, string $key, string $value): array
