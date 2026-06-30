@@ -285,6 +285,108 @@ final class AtlasExternalBrainAdversarialSpecReviewBoardTest extends TestCase
         }
     }
 
+    // ── AC1: collision_safety fails when file already live in queue ───────────
+
+    public function test_collision_safety_fails_when_allowed_file_is_already_live(): void
+    {
+        $liveFile = 'app/Services/Ai/SelfConstruction/AtlasContractDriftDetector.php';
+        $r = $this->board->review($this->strongSpec([
+            'live_queued_targets' => [$liveFile],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_COLLISION_SAFETY);
+        $this->assertFalse($lens['passed']);
+        $liveReasons = array_filter($lens['reasons'], fn ($r) => str_contains($r, 'already_live_in_queue'));
+        $this->assertNotEmpty($liveReasons);
+        $this->assertFalse($r['approved']);
+    }
+
+    public function test_collision_safety_passes_when_no_file_is_live(): void
+    {
+        $r = $this->board->review($this->strongSpec([
+            'live_queued_targets' => ['app/Services/Ai/SelfConstruction/SomeOtherService.php'],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_COLLISION_SAFETY);
+        $this->assertTrue($lens['passed']);
+    }
+
+    public function test_collision_safety_passes_when_live_queued_targets_absent(): void
+    {
+        $r = $this->board->review($this->strongSpec());
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_COLLISION_SAFETY);
+        $this->assertTrue($lens['passed']);
+    }
+
+    public function test_collision_safety_reports_all_colliding_files(): void
+    {
+        $r = $this->board->review($this->strongSpec([
+            'live_queued_targets' => [
+                'app/Services/Ai/SelfConstruction/AtlasContractDriftDetector.php',
+                'tests/Unit/Ai/SelfConstruction/AtlasContractDriftDetectorTest.php',
+            ],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_COLLISION_SAFETY);
+        $liveReasons = array_filter($lens['reasons'], fn ($r) => str_contains($r, 'already_live_in_queue'));
+        $this->assertCount(2, $liveReasons);
+    }
+
+    // ── AC2: leverage fails when runnable criteria lack target/outcome ─────────
+
+    public function test_leverage_fails_when_runnable_criteria_lack_capability_outcome(): void
+    {
+        // criteria with --filter= but no capability words, no class name mention
+        $r = $this->board->review($this->strongSpec([
+            'acceptance_criteria' => [
+                'php artisan test --filter=AtlasFooTest',
+                'php artisan test --filter=AtlasFooBarTest',
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AtlasFoo.php',
+                'tests/Unit/Ai/SelfConstruction/AtlasFooTest.php',
+            ],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_LEVERAGE);
+        $this->assertFalse($lens['passed']);
+        $liveReasons = array_filter($lens['reasons'], fn ($r) => str_contains($r, 'runnable_criteria'));
+        $this->assertNotEmpty($liveReasons);
+    }
+
+    public function test_leverage_passes_when_runnable_criteria_include_capability_statement(): void
+    {
+        $r = $this->board->review($this->strongSpec([
+            'acceptance_criteria' => [
+                'AtlasFoo::detect() returns drift entries when interfaces diverge',
+                'php artisan test --filter=AtlasFooTest',
+            ],
+            'allowed_files' => [
+                'app/Services/Ai/SelfConstruction/AtlasFoo.php',
+                'tests/Unit/Ai/SelfConstruction/AtlasFooTest.php',
+            ],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_LEVERAGE);
+        $capabilityReasons = array_filter($lens['reasons'], fn ($r) => str_contains($r, 'runnable_criteria'));
+        $this->assertEmpty($capabilityReasons);
+    }
+
+    public function test_leverage_passes_when_criteria_have_no_filter_at_all(): void
+    {
+        // No --filter= → AC2 check never fires regardless of content
+        $r = $this->board->review($this->strongSpec([
+            'acceptance_criteria' => [
+                'AtlasFoo::detect() returns drift entries when interfaces diverge',
+            ],
+        ]));
+
+        $lens = $this->findLens($r, AtlasExternalBrainAdversarialSpecReviewBoard::LENS_LEVERAGE);
+        $capabilityReasons = array_filter($lens['reasons'], fn ($r) => str_contains($r, 'runnable_criteria'));
+        $this->assertEmpty($capabilityReasons);
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function findLens(array $result, string $lensName): array

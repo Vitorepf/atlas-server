@@ -62,12 +62,13 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         $allowedFiles = is_array($spec['allowed_files'] ?? null) ? array_values($spec['allowed_files']) : [];
         $criteria = is_array($spec['acceptance_criteria'] ?? null) ? $spec['acceptance_criteria'] : [];
         $evidence = is_array($spec['required_evidence'] ?? null) ? $spec['required_evidence'] : [];
+        $liveQueuedTargets = is_array($spec['live_queued_targets'] ?? null) ? array_values($spec['live_queued_targets']) : [];
 
         $lenses = [
             $this->implementability($allowedFiles, $criteria, $evidence),
-            $this->leverage($objective, $criteria),
+            $this->leverage($objective, $criteria, $allowedFiles),
             $this->antiProxy($objective, $allowedFiles, $criteria),
-            $this->collisionSafety($allowedFiles),
+            $this->collisionSafety($allowedFiles, $liveQueuedTargets),
             $this->steadyStateAutonomy($objective, $criteria),
         ];
 
@@ -114,8 +115,8 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         return $this->lens(self::LENS_IMPLEMENTABILITY, $reasons, $hints);
     }
 
-    /** @param list<string> $criteria */
-    private function leverage(string $objective, array $criteria): array
+    /** @param list<string> $criteria @param list<string> $allowedFiles */
+    private function leverage(string $objective, array $criteria, array $allowedFiles = []): array
     {
         $reasons = [];
         $hints = [];
@@ -158,6 +159,41 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         if ($criteria !== [] && ! $hasMeasurable) {
             $reasons[] = 'acceptance_criteria_lack_measurable_outcome';
             $hints[] = 'add_a_runnable_test_or_runtime_gate_to_acceptance_criteria';
+        }
+
+        // AC2: runnable criteria (containing --filter=) must mention implementation target or capability outcome.
+        $implTargets = [];
+        foreach ($allowedFiles as $f) {
+            if (! str_ends_with((string) $f, 'Test.php')) {
+                $implTargets[] = pathinfo(basename((string) $f), PATHINFO_FILENAME);
+            }
+        }
+        $capabilityWords = ['return', 'assert', 'prove', 'detect', 'emit', 'output', 'exits', 'expect', 'when', 'yield'];
+        $hasFilterCriterion  = false;
+        $hasCapabilityOrTarget = false;
+        foreach ($criteria as $c) {
+            $cl = strtolower((string) $c);
+            if (str_contains($cl, '--filter=')) {
+                $hasFilterCriterion = true;
+            }
+            foreach ($capabilityWords as $word) {
+                if (str_contains($cl, $word)) {
+                    $hasCapabilityOrTarget = true;
+                    break;
+                }
+            }
+            // Strip --filter=... so target names inside the filter value don't count.
+            $criterionBody = (string) preg_replace('/--filter=\S+/', '', (string) $c);
+            foreach ($implTargets as $target) {
+                if (str_contains($criterionBody, $target)) {
+                    $hasCapabilityOrTarget = true;
+                    break;
+                }
+            }
+        }
+        if ($hasFilterCriterion && ! $hasCapabilityOrTarget) {
+            $reasons[] = 'runnable_criteria_lack_implementation_target_or_capability_outcome';
+            $hints[] = 'runnable_test_criteria_must_name_the_service_class_or_describe_what_it_proves';
         }
 
         return $this->lens(self::LENS_LEVERAGE, $reasons, $hints);
@@ -203,8 +239,8 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         return $this->lens(self::LENS_ANTI_PROXY, $reasons, $hints);
     }
 
-    /** @param list<string> $allowedFiles */
-    private function collisionSafety(array $allowedFiles): array
+    /** @param list<string> $allowedFiles @param list<string> $liveQueuedTargets */
+    private function collisionSafety(array $allowedFiles, array $liveQueuedTargets = []): array
     {
         $reasons = [];
         $hints = [];
@@ -231,6 +267,14 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
                     $hints[] = 'check_active_claims_before_queuing_tasks_touching_'.str_replace('.', '_', $hot);
                     break;
                 }
+            }
+        }
+
+        // AC1: fail if any allowed_files path is already live in the queue.
+        foreach ($allowedFiles as $f) {
+            if (in_array((string) $f, $liveQueuedTargets, true)) {
+                $reasons[] = 'file_already_live_in_queue:'.(string) $f;
+                $hints[] = 'wait_for_active_task_claiming_this_file_to_complete_before_queuing';
             }
         }
 
