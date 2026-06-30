@@ -105,4 +105,13 @@ final class AtlasTaskWorkerPromptTest extends TestCase
 
         $this->assertStringContainsString('--commit --json', $out, 'the resolve command must carry --json for machine-readable output');
     }
+
+    public function test_quality_boost_marks_existence_checks_as_non_fatal_discovery(): void
+    {
+        Artisan::call('atlas:task:worker-prompt', ['--client' => 'codex-7']);
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('|| true', $out, 'the prompt must instruct non-fatal existence checks');
+        $this->assertStringContainsString('non-fatal discovery', $out, 'a missing test/class must read as a starting point, not a failure');
+    }
 }

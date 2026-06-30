@@ -70,7 +70,7 @@ THE LOOP:
    `{$php} artisan atlas:task report --client="{$client}" --task="<task_packet_id>" --lease="<lease_id>" --outcome=give_back --json`
 
 QUALITY BOOST:
-- Before editing, grep the named class/symbol/capability across `app/` and `tests/`. If it already exists, or the acceptance is already true, give_back as duplicate/no-op. Do not create a second copy just to close a task.
+- Before editing, grep the named class/symbol (`rg ... || true` — no-match is non-fatal discovery, not failure; a missing test/class is the starting point to build). If it already exists, give_back as duplicate/no-op.
 - Read every allowed_file plus direct callers before patching. Fix the shared root cause once with the smallest diff. No new deps, broad refactors, formatting churn, or architecture for later.
 - Preserve other workers' WIP. If acceptance needs a file outside allowed_files, give_back naming that exact file instead of hacking around scope.
 
