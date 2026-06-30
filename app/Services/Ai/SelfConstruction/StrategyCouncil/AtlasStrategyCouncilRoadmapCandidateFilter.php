@@ -13,11 +13,14 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  *     duplicate_key, resolved?:bool, kind?:string }
  *
  * DROP REASONS:
- *   - dropped:resolved              — resolved===true
- *   - dropped:missing_evidence_path — evidence_path empty
- *   - dropped:duplicate:<key>       — same duplicate_key already kept (first-wins)
- *   - dropped:proxy_only            — kind matches /cosmetic|proxy|whitespace|comment|cyclomatic/i
- *   - dropped:outside_scope:<owner> — owner_scope ∉ admitted_owner_scopes
+ *   - dropped:resolved                — resolved===true
+ *   - dropped:quarantined             — quarantined===true
+ *   - dropped:blocked_by_dead_prereq  — blocked_by_dead_prereq===true
+ *   - dropped:poison_signature        — poison_signature===true
+ *   - dropped:missing_evidence_path   — evidence_path empty
+ *   - dropped:duplicate:<key>         — same duplicate_key already kept (first-wins)
+ *   - dropped:proxy_only              — kind matches /cosmetic|proxy|whitespace|comment|cyclomatic/i
+ *   - dropped:outside_scope:<owner>   — owner_scope ∉ admitted_owner_scopes
  *
  * OUTPUT:
  *   { schema, kept:list<candidate>, dropped:list<{candidate_id, drop_reason}> }
@@ -53,6 +56,21 @@ final class AtlasStrategyCouncilRoadmapCandidateFilter
             }
             if ((bool) ($c['resolved'] ?? false)) {
                 $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:resolved'];
+
+                continue;
+            }
+            if ((bool) ($c['quarantined'] ?? false)) {
+                $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:quarantined'];
+
+                continue;
+            }
+            if ((bool) ($c['blocked_by_dead_prereq'] ?? false)) {
+                $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:blocked_by_dead_prereq'];
+
+                continue;
+            }
+            if ((bool) ($c['poison_signature'] ?? false)) {
+                $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:poison_signature'];
 
                 continue;
             }

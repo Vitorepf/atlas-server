@@ -105,4 +105,73 @@ final class AtlasStrategyCouncilRoadmapCandidateFilterTest extends TestCase
         $this->assertSame(['alpha', 'zeta'], array_column($r['kept'], 'candidate_id'));
         $this->assertSame(['mu'], array_column($r['dropped'], 'candidate_id'));
     }
+
+    // ── quarantine / dead-prereq / poison ─────────────────────────────────────
+
+    public function test_quarantined_candidate_is_dropped(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('q1', ['quarantined' => true]),
+        ]);
+        $this->assertSame([], $r['kept']);
+        $this->assertSame('dropped:quarantined', $r['dropped'][0]['drop_reason']);
+    }
+
+    public function test_blocked_by_dead_prereq_candidate_is_dropped(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('d1', ['blocked_by_dead_prereq' => true]),
+        ]);
+        $this->assertSame('dropped:blocked_by_dead_prereq', $r['dropped'][0]['drop_reason']);
+    }
+
+    public function test_poison_signature_candidate_is_dropped(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('p1', ['poison_signature' => true]),
+        ]);
+        $this->assertSame('dropped:poison_signature', $r['dropped'][0]['drop_reason']);
+    }
+
+    public function test_resolved_beats_quarantined_in_drop_reason(): void
+    {
+        // resolved is checked first — quarantined on the same candidate must not shadow it.
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('dual', ['resolved' => true, 'quarantined' => true]),
+        ]);
+        $this->assertSame('dropped:resolved', $r['dropped'][0]['drop_reason']);
+    }
+
+    public function test_candidate_with_live_status_claimable_and_evidence_is_kept(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('live-1', ['live_status' => 'claimable']),
+        ]);
+        $this->assertCount(1, $r['kept']);
+        $this->assertSame('live-1', $r['kept'][0]['candidate_id']);
+    }
+
+    public function test_candidate_with_live_status_not_queued_and_evidence_is_kept(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('live-2', ['live_status' => 'not_queued']),
+        ], ['atlas-native']);
+        $this->assertCount(1, $r['kept']);
+        $this->assertSame('live-2', $r['kept'][0]['candidate_id']);
+    }
+
+    public function test_new_drop_reasons_are_deterministically_sorted_with_existing(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('zz-poison',   ['poison_signature' => true]),
+            $this->candidate('aa-quarantine', ['quarantined' => true]),
+            $this->candidate('mm-dead',     ['blocked_by_dead_prereq' => true]),
+            $this->candidate('kept-ok'),
+        ]);
+        $this->assertSame(['kept-ok'], array_column($r['kept'], 'candidate_id'));
+        $this->assertSame(
+            ['aa-quarantine', 'mm-dead', 'zz-poison'],
+            array_column($r['dropped'], 'candidate_id'),
+        );
+    }
 }
