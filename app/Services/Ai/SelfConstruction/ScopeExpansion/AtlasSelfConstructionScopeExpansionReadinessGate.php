@@ -74,6 +74,9 @@ final class AtlasSelfConstructionScopeExpansionReadinessGate
         $holdReasons = [];
         $this->freshnessSignal($facts, 'docs_health', $blockers, $holdReasons, $warnings);
         $this->freshnessSignal($facts, 'code_intelligence_ready', $blockers, $holdReasons, $warnings);
+        $this->freshnessSignal($facts, 'knowledge_sync_current', $blockers, $holdReasons, $warnings);
+        $this->freshnessSignal($facts, 'test_suite_green', $blockers, $holdReasons, $warnings);
+        $this->freshnessSignal($facts, 'worker_capacity_available', $blockers, $holdReasons, $warnings);
 
         $status = self::STATUS_READY;
         if ($blockers !== []) {
