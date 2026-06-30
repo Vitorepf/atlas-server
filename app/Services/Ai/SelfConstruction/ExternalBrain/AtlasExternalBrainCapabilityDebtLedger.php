@@ -83,19 +83,29 @@ final class AtlasExternalBrainCapabilityDebtLedger
         $unresolvedCount = count(array_filter($entries, static fn (array $e): bool => $e['status'] === 'unresolved'));
         $resolvedCount = count($entries) - $unresolvedCount;
 
+        // AC4: next_batch_focus = top unresolved entry (entries already sorted desc).
+        $nextBatchFocus = null;
+        foreach ($entries as $e) {
+            if ($e['status'] === 'unresolved') {
+                $nextBatchFocus = $e;
+                break;
+            }
+        }
+
         $dimensionSummary = [];
         foreach ($entries as $e) {
             $dimensionSummary[$e['capability_dimension']] = $e['status'];
         }
 
         return [
-            'schema_version' => self::SCHEMA,
-            'ledger_entries' => $entries,
-            'unresolved_count' => $unresolvedCount,
-            'resolved_count' => $resolvedCount,
-            'maturity_blocked' => $unresolvedCount > 0,
+            'schema_version'     => self::SCHEMA,
+            'ledger_entries'     => $entries,
+            'unresolved_count'   => $unresolvedCount,
+            'resolved_count'     => $resolvedCount,
+            'maturity_blocked'   => $unresolvedCount > 0,
+            'next_batch_focus'   => $nextBatchFocus,
             'duplicate_rejected' => $duplicateRejected,
-            'dimension_summary' => $dimensionSummary,
+            'dimension_summary'  => $dimensionSummary,
         ];
     }
 }

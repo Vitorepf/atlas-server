@@ -184,4 +184,77 @@ final class AtlasExternalBrainCapabilityDebtLedgerTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainCapabilityDebtLedger::SCHEMA, $r['schema_version']);
     }
+
+    // ── AC4: next_batch_focus ──────────────────────────────────────────────────
+
+    public function test_next_batch_focus_key_always_present(): void
+    {
+        $r = $this->svc()->assess([]);
+
+        $this->assertArrayHasKey('next_batch_focus', $r);
+    }
+
+    public function test_next_batch_focus_null_when_no_debts(): void
+    {
+        $r = $this->svc()->assess([]);
+
+        $this->assertNull($r['next_batch_focus']);
+    }
+
+    public function test_next_batch_focus_null_when_all_resolved(): void
+    {
+        $r = $this->assess([
+            $this->debt('d1', 'weak_scoring', status: 'resolved', evidence: 'gate 9.1'),
+        ]);
+
+        $this->assertNull($r['next_batch_focus']);
+    }
+
+    public function test_next_batch_focus_is_highest_priority_unresolved(): void
+    {
+        $r = $this->assess([
+            $this->debt('low',  'weak_scoring',            leverage: 2, risk: 2),  // score=4
+            $this->debt('high', 'missing_evidence_intake', leverage: 9, risk: 9),  // score=81
+        ]);
+
+        $this->assertSame('high', $r['next_batch_focus']['debt_id']);
+        $this->assertSame(81, $r['next_batch_focus']['priority_score']);
+    }
+
+    public function test_next_batch_focus_skips_resolved_entries(): void
+    {
+        $r = $this->assess([
+            $this->debt('resolved', 'weak_scoring',            leverage: 9, risk: 9, status: 'resolved', evidence: 'ok'),
+            $this->debt('open',     'missing_evidence_intake', leverage: 3, risk: 3),  // score=9
+        ]);
+
+        // resolved has higher score but must be skipped; open is next_batch_focus
+        $this->assertSame('open', $r['next_batch_focus']['debt_id']);
+    }
+
+    public function test_next_batch_focus_contains_entry_fields(): void
+    {
+        $r = $this->assess([$this->debt('d1', 'stale_task_family', leverage: 5, risk: 6)]);
+
+        $focus = $r['next_batch_focus'];
+        $this->assertSame('d1', $focus['debt_id']);
+        $this->assertSame('stale_task_family', $focus['capability_dimension']);
+        $this->assertSame(30, $focus['priority_score']); // 5*6
+        $this->assertSame('unresolved', $focus['status']);
+    }
+
+    // ── AC3: all five dimensions accepted ─────────────────────────────────────
+
+    public function test_all_five_dimensions_recorded(): void
+    {
+        $dims = AtlasExternalBrainCapabilityDebtLedger::DIMENSIONS;
+        $debts = array_map(fn (string $d, int $i) => $this->debt("d{$i}", $d), $dims, range(1, count($dims)));
+
+        $r = $this->assess($debts);
+
+        $this->assertCount(5, $r['ledger_entries']);
+        foreach ($dims as $dim) {
+            $this->assertArrayHasKey($dim, $r['dimension_summary']);
+        }
+    }
 }
