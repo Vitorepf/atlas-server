@@ -320,4 +320,115 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
 
         $this->assertArrayNotHasKey('rejected_proxy_summary', $verdict['rejected'][0]);
     }
+
+    // ── cross-campaign compounding ─────────────────────────────────────────────
+
+    public function test_cross_campaign_compounding_ranks_above_otherwise_similar_one_off(): void
+    {
+        // Both candidates have the same autonomy_unlock/capability_gap/user_impact.
+        // The compounding one has campaign_count>=2 and unlock_family_count>=2.
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'       => 'one-off',
+                'autonomy_unlock'    => 5,
+                'capability_gap'     => 5,
+            ]),
+            $this->candidate([
+                'candidate_id'       => 'compounding',
+                'autonomy_unlock'    => 5,
+                'capability_gap'     => 5,
+                'campaign_count'     => 3,
+                'unlock_family_count'=> 2,
+            ]),
+        ]);
+
+        $this->assertSame('compounding', $verdict['ranked'][0]['candidate_id'],
+            'candidate with cross-campaign compounding must outrank an otherwise identical one-off');
+        $this->assertSame('one-off', $verdict['ranked'][1]['candidate_id']);
+    }
+
+    public function test_reasons_include_campaign_count_and_unlock_family_count(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'campaign_count'      => 4,
+                'unlock_family_count' => 3,
+            ]),
+        ]);
+
+        $reasons = $verdict['ranked'][0]['reasons'];
+        $this->assertContains('campaign_count=4', $reasons);
+        $this->assertContains('unlock_family_count=3', $reasons);
+        $this->assertContains('cross_campaign_compounding=1', $reasons);
+    }
+
+    public function test_dominance_trace_names_cross_campaign_compounding_when_differentiating(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'       => 'compound',
+                'campaign_count'     => 2,
+                'unlock_family_count'=> 2,
+            ]),
+            $this->candidate([
+                'candidate_id' => 'one-off',
+            ]),
+        ]);
+
+        $trace = $verdict['ranked'][0]['dominance_trace'];
+        $this->assertStringContainsString('cross_campaign_compounding', $trace);
+    }
+
+    public function test_below_threshold_campaign_count_does_not_trigger_compounding(): void
+    {
+        // campaign_count=1 — below threshold of 2 — must not get compounding boost.
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'        => 'almost',
+                'campaign_count'      => 1,
+                'unlock_family_count' => 5,
+                'autonomy_unlock'     => 1,
+            ]),
+            $this->candidate([
+                'candidate_id'    => 'strong',
+                'autonomy_unlock' => 9,
+            ]),
+        ]);
+
+        $this->assertSame('strong', $verdict['ranked'][0]['candidate_id'],
+            'campaign_count=1 must not trigger compounding; autonomy_unlock=9 still wins');
+        $this->assertSame(0, $verdict['ranked'][0]['factors']['cross_campaign_compounding']);
+    }
+
+    public function test_high_task_count_proxy_still_rejected_even_with_campaign_count(): void
+    {
+        // proxy_signals=[task_count] + no real levers → reject, regardless of campaign_count
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'       => 'proxy-compounding',
+                'proxy_signals'      => ['task_count'],
+                'capability_gap'     => 0,
+                'user_impact'        => 0,
+                'autonomy_unlock'    => 0,
+                'campaign_count'     => 5,
+                'unlock_family_count'=> 5,
+            ]),
+        ]);
+
+        $this->assertSame([], $verdict['ranked']);
+        $this->assertCount(1, $verdict['rejected']);
+        $this->assertStringContainsString('proxy_signals_only', $verdict['rejected'][0]['reasons'][0]);
+    }
+
+    public function test_compounding_factors_have_no_composite_score_key(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['campaign_count' => 3, 'unlock_family_count' => 3]),
+        ]);
+
+        foreach ($verdict['ranked'][0]['factors'] as $key => $_) {
+            $this->assertStringNotContainsString('composite', (string) $key);
+            $this->assertStringNotContainsString('total_score', (string) $key);
+        }
+    }
 }

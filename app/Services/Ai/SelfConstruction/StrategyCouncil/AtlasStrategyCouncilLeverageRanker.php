@@ -88,10 +88,17 @@ final class AtlasStrategyCouncilLeverageRanker
                 continue;
             }
 
+            $campaignCount = (int) ($c['campaign_count'] ?? 0);
+            $unlockFamilyCount = (int) ($c['unlock_family_count'] ?? 0);
+            $crossCampaignCompounding = ($campaignCount >= 2 && $unlockFamilyCount >= 2) ? 1 : 0;
+
             $accepted[] = [
                 'candidate_id' => $id,
                 'factors' => [
                     'organ' => (string) ($c['organ'] ?? ''),
+                    'cross_campaign_compounding' => $crossCampaignCompounding,
+                    'campaign_count' => $campaignCount,
+                    'unlock_family_count' => $unlockFamilyCount,
                     'capability_gap' => (int) ($c['capability_gap'] ?? 0),
                     'user_impact' => (int) ($c['user_impact'] ?? 0),
                     'autonomy_unlock' => (int) ($c['autonomy_unlock'] ?? 0),
@@ -107,7 +114,8 @@ final class AtlasStrategyCouncilLeverageRanker
         }
 
         usort($accepted, function (array $a, array $b): int {
-            return $b['factors']['autonomy_unlock'] <=> $a['factors']['autonomy_unlock']
+            return $b['factors']['cross_campaign_compounding'] <=> $a['factors']['cross_campaign_compounding']
+                ?: $b['factors']['autonomy_unlock'] <=> $a['factors']['autonomy_unlock']
                 ?: $b['factors']['unblocks_count'] <=> $a['factors']['unblocks_count']
                 ?: $b['factors']['capability_gap'] <=> $a['factors']['capability_gap']
                 ?: $b['factors']['user_impact'] <=> $a['factors']['user_impact']
@@ -120,6 +128,9 @@ final class AtlasStrategyCouncilLeverageRanker
 
         foreach ($accepted as $i => $row) {
             $accepted[$i]['reasons'] = [
+                'cross_campaign_compounding='.$row['factors']['cross_campaign_compounding'],
+                'campaign_count='.$row['factors']['campaign_count'],
+                'unlock_family_count='.$row['factors']['unlock_family_count'],
                 'autonomy_unlock='.$row['factors']['autonomy_unlock'],
                 'unblocks_count='.$row['factors']['unblocks_count'],
                 'capability_gap='.$row['factors']['capability_gap'],
@@ -153,7 +164,7 @@ final class AtlasStrategyCouncilLeverageRanker
     private function dominanceTrace(array $w, array $n): string
     {
         // DESC comparisons (higher is better)
-        $descFactors = ['autonomy_unlock', 'unblocks_count', 'capability_gap',
+        $descFactors = ['cross_campaign_compounding', 'autonomy_unlock', 'unblocks_count', 'capability_gap',
                         'user_impact', 'waste_reduction', 'risk_reduction'];
         foreach ($descFactors as $f) {
             $wv = (int) ($w[$f] ?? 0);
