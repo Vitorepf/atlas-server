@@ -418,4 +418,36 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
         // Backward compat: no value-proof flag → exhausted still reachable.
         $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
     }
+
+    // ── AC3: proxy-volume rejection ───────────────────────────────────────────
+
+    public function test_high_raw_candidate_volume_alone_does_not_force_exhausted_without_value_proof(): void
+    {
+        // 100 raw candidates, all duplicate/low-yield (proxy template padding), zero value_proof.
+        $candidates = array_fill(0, 100, $this->duplicate());
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'require_value_proof_evidence' => true,
+            'min_value_proof_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_UNDER_EVIDENCED, $r['verdict']);
+    }
+
+    public function test_small_volume_with_real_value_proof_can_still_reach_exhausted(): void
+    {
+        $candidates = array_merge(
+            array_fill(0, 3, $this->duplicate(['value_proof' => true])),
+            [$this->candidate(['yield' => 0.05])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, [
+            'mode_passes' => $this->allModePasses(),
+            'require_value_proof_evidence' => true,
+            'min_value_proof_count' => 1,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
+    }
 }
