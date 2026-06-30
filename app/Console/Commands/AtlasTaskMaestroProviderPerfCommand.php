@@ -35,14 +35,14 @@ final class AtlasTaskMaestroProviderPerfCommand extends Command
     public function handle(
         AtlasMaestroProviderPerformanceLedger $ledger,
         AtlasMaestroProviderRecommendationEngine $engine,
-        AtlasMaestroProviderRecommendationReceiptLedger $receipts,
     ): int {
         $action = (string) $this->argument('action');
 
         return match ($action) {
-            'inspect' => $this->inspect($ledger),
-            'recommend' => $this->recommend($engine, $receipts),
-            default => $this->failWith('unknown_action:'.$action.' (expected one of inspect|recommend)'),
+            'inspect'   => $this->inspect($ledger),
+            // ponytail: lazy-resolve receipts only when recommend runs — inspect must stay receipt-free
+            'recommend' => $this->recommend($engine, app(AtlasMaestroProviderRecommendationReceiptLedger::class)),
+            default     => $this->failWith('unknown_action:'.$action.' (expected one of inspect|recommend)'),
         };
     }
 

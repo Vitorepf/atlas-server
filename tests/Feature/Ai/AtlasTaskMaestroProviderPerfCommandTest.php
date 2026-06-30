@@ -112,6 +112,19 @@ class AtlasTaskMaestroProviderPerfCommandTest extends TestCase
         self::assertFileDoesNotExist($this->receiptPath);
     }
 
+    public function test_inspect_exits_zero_without_receipt_ledger_in_container(): void
+    {
+        // Regression: inspect must work even when the receipt ledger is NOT bound in the container.
+        // Before the fix, handle() injected it eagerly and crashed here.
+        app()->forgetInstance(AtlasMaestroProviderRecommendationReceiptLedger::class);
+
+        $r = $this->runCmd(['action' => 'inspect', '--json' => true]);
+
+        self::assertSame(0, $r['exit']);
+        $decoded = json_decode($r['output'], true);
+        self::assertIsArray($decoded, 'inspect must emit valid JSON without a receipt-ledger binding');
+    }
+
     public function test_command_source_does_not_touch_provider_manager_router_or_auto_merge(): void
     {
         $src = (string) file_get_contents(base_path('app/Console/Commands/AtlasTaskMaestroProviderPerfCommand.php'));
