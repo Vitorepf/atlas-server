@@ -253,4 +253,92 @@ final class AtlasAiSelfConstructionAgentControlPlaneCertificationFuzzHarnessTest
 
         return (string) data_get($payload, 'control_plane.persistent_runtime.next_required_slice');
     }
+
+    // ── runTaskPacketInvariantFuzz(): task packet / dispatch invariant fuzzing ──
+
+    public function test_task_packet_invariant_fuzz_has_required_keys(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+
+        foreach (['invariant_cases', 'failing_cases', 'all_invariants_held', 'status'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_all_four_invariant_classes_plus_control_are_covered(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+        $names = array_column($result['invariant_cases'], 'invariant_name');
+
+        foreach (AgentControlPlaneCertificationFuzzHarness::TASK_PACKET_INVARIANTS as $invariant) {
+            $this->assertContains($invariant, $names);
+        }
+        $this->assertContains('valid_control', $names);
+    }
+
+    public function test_malformed_allowed_files_resolves_to_repair_or_reject(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+        $case = $this->caseFor($result, 'malformed_allowed_files');
+
+        $this->assertContains($case['decision'], ['repair', 'reject']);
+        $this->assertTrue($case['passed']);
+        $this->assertSame('AtlasTaskServingPacketQualityGate', $case['suggested_gate']);
+    }
+
+    public function test_contradictory_acceptance_resolves_to_repair_or_reject(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+        $case = $this->caseFor($result, 'contradictory_acceptance');
+
+        $this->assertContains($case['decision'], ['repair', 'reject']);
+        $this->assertTrue($case['passed']);
+    }
+
+    public function test_stale_evidence_resolves_to_repair_or_reject(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+        $case = $this->caseFor($result, 'stale_evidence');
+
+        $this->assertContains($case['decision'], ['repair', 'reject']);
+        $this->assertTrue($case['passed']);
+    }
+
+    public function test_impossible_worker_requirements_resolves_to_repair_or_reject(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+        $case = $this->caseFor($result, 'impossible_worker_requirements');
+
+        $this->assertContains($case['decision'], ['repair', 'reject']);
+        $this->assertTrue($case['passed']);
+    }
+
+    public function test_valid_control_packet_is_accepted(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+        $case = $this->caseFor($result, 'valid_control');
+
+        $this->assertSame('accept', $case['decision']);
+        $this->assertTrue($case['passed']);
+        $this->assertNull($case['failing_case']);
+    }
+
+    public function test_all_invariants_held_when_every_case_passes(): void
+    {
+        $result = $this->newService()->runTaskPacketInvariantFuzz();
+
+        $this->assertTrue($result['all_invariants_held']);
+        $this->assertSame('passed', $result['status']);
+        $this->assertSame([], $result['failing_cases']);
+    }
+
+    private function caseFor(array $result, string $invariantName): array
+    {
+        foreach ($result['invariant_cases'] as $case) {
+            if ($case['invariant_name'] === $invariantName) {
+                return $case;
+            }
+        }
+        $this->fail("No invariant case found for '{$invariantName}'.");
+    }
 }

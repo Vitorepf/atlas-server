@@ -44,11 +44,221 @@ final class AgentControlPlaneCertificationFuzzHarness
         'corrupt_not_yet_runtime_capable',
     ];
 
+    public const TASK_PACKET_INVARIANTS = [
+        'malformed_allowed_files',
+        'contradictory_acceptance',
+        'stale_evidence',
+        'impossible_worker_requirements',
+    ];
+
+    private const STALE_EVIDENCE_CEILING_SECONDS = 86400;
+
+    private const NEGATION_MARKERS = ['must not', 'never', 'cannot', 'should not'];
+
+    /** Which gate is responsible for catching each fuzzed task-packet invariant. */
+    private const SUGGESTED_GATE_BY_INVARIANT = [
+        'malformed_allowed_files' => 'AtlasTaskServingPacketQualityGate',
+        'contradictory_acceptance' => 'AtlasExternalBrainSpecRegressionHarness',
+        'stale_evidence' => 'AgentControlPlaneChainIntegrityAuditService',
+        'impossible_worker_requirements' => 'AgentDispatchPlannerEligibilityEvaluator',
+    ];
+
     public function __construct(
         private readonly AgentControlPlaneChainIntegrityAuditService $audit,
         private readonly AgentControlPlaneDeterministicChainReplayService $replay,
         private readonly AgentControlPlaneReplayDiffService $diff,
     ) {}
+
+    /**
+     * Fuzzes task packet / dispatch invariants: malformed allowed_files,
+     * contradictory acceptance criteria, stale evidence, and impossible
+     * worker requirement combinations. Each invalid case must resolve to
+     * reject or repair; a clean control packet must resolve to accept.
+     *
+     * Read-only and deterministic: never mutates a real task packet.
+     *
+     * @param  array<string, mixed>  $options
+     * @return array<string, mixed>
+     */
+    public function runTaskPacketInvariantFuzz(array $options = []): array
+    {
+        $cases = [
+            $this->taskPacketCase('malformed_allowed_files', $this->malformedAllowedFilesPacket()),
+            $this->taskPacketCase('contradictory_acceptance', $this->contradictoryAcceptancePacket()),
+            $this->taskPacketCase('stale_evidence', $this->staleEvidencePacket()),
+            $this->taskPacketCase('impossible_worker_requirements', $this->impossibleWorkerRequirementsPacket()),
+            $this->taskPacketCase('valid_control', $this->validControlPacket()),
+        ];
+
+        $failingCases = array_values(array_filter($cases, static fn (array $c): bool => ! $c['passed']));
+        $allPassed = $failingCases === [];
+
+        $payload = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'status' => $allPassed ? 'passed' : 'failed',
+            'read_only' => true,
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'ledger_write_allowed' => false,
+            'invariant_cases' => $cases,
+            'failing_cases' => $failingCases,
+            'all_invariants_held' => $allPassed,
+        ];
+
+        return $payload;
+    }
+
+    /** @return array<string, mixed> */
+    private function taskPacketCase(string $invariantName, array $packet): array
+    {
+        $decision = $this->evaluateTaskPacketInvariant($invariantName, $packet);
+        $expectedDecision = $invariantName === 'valid_control' ? 'accept' : ['reject', 'repair'];
+        $passed = is_array($expectedDecision)
+            ? in_array($decision, $expectedDecision, true)
+            : $decision === $expectedDecision;
+
+        return [
+            'invariant_name' => $invariantName,
+            'failing_case' => $passed ? null : $packet,
+            'suggested_gate' => self::SUGGESTED_GATE_BY_INVARIANT[$invariantName] ?? null,
+            'decision' => $decision,
+            'passed' => $passed,
+        ];
+    }
+
+    /**
+     * Pure deterministic invariant check for one synthetic task packet.
+     *
+     * @param  array<string, mixed>  $packet
+     */
+    private function evaluateTaskPacketInvariant(string $invariantName, array $packet): string
+    {
+        $allowedFiles = (array) ($packet['allowed_files'] ?? []);
+        $hasMalformedAllowedFiles = $allowedFiles === [] || array_reduce(
+            $allowedFiles,
+            static fn (bool $carry, mixed $file): bool => $carry || ! is_string($file) || trim((string) $file) === '',
+            false,
+        );
+        if ($hasMalformedAllowedFiles) {
+            return 'repair';
+        }
+
+        $acceptanceCriteria = (array) ($packet['acceptance_criteria'] ?? []);
+        if ($this->hasContradictoryAcceptance($acceptanceCriteria)) {
+            return 'reject';
+        }
+
+        $evidenceAgeSeconds = (int) ($packet['evidence_age_seconds'] ?? 0);
+        if ($evidenceAgeSeconds > self::STALE_EVIDENCE_CEILING_SECONDS) {
+            return 'reject';
+        }
+
+        $dryRunOnly = (bool) ($packet['dry_run_only'] ?? false);
+        $requiresLiveProvider = (bool) ($packet['requires_live_provider'] ?? false);
+        if ($dryRunOnly && $requiresLiveProvider) {
+            return 'reject';
+        }
+
+        return 'accept';
+    }
+
+    /** @param  list<mixed>  $criteria */
+    private function hasContradictoryAcceptance(array $criteria): bool
+    {
+        $count = count($criteria);
+        for ($i = 0; $i < $count; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                $a = strtolower((string) $criteria[$i]);
+                $b = strtolower((string) $criteria[$j]);
+                $aNegated = $this->hasNegationMarker($a);
+                $bNegated = $this->hasNegationMarker($b);
+                if ($aNegated === $bNegated) {
+                    continue;
+                }
+                $kwA = $this->wordsOf($a);
+                $kwB = $this->wordsOf($b);
+                $overlap = $kwA === [] || $kwB === [] ? 0.0 : count(array_intersect($kwA, $kwB)) / count(array_unique(array_merge($kwA, $kwB)));
+                if ($overlap >= 0.5) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function hasNegationMarker(string $text): bool
+    {
+        foreach (self::NEGATION_MARKERS as $marker) {
+            if (str_contains($text, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @return list<string> */
+    private function wordsOf(string $text): array
+    {
+        $words = preg_split('/\s+/', preg_replace('/[^a-z0-9\s]/', ' ', $text) ?? '') ?: [];
+
+        return array_values(array_filter($words, static fn (string $w): bool => strlen($w) >= 4));
+    }
+
+    /** @return array<string, mixed> */
+    private function malformedAllowedFilesPacket(): array
+    {
+        $packet = $this->validControlPacket();
+        $packet['allowed_files'] = [];
+
+        return $packet;
+    }
+
+    /** @return array<string, mixed> */
+    private function contradictoryAcceptancePacket(): array
+    {
+        $packet = $this->validControlPacket();
+        $packet['acceptance_criteria'] = [
+            'the response must always include cached data',
+            'the response must never include cached data',
+        ];
+
+        return $packet;
+    }
+
+    /** @return array<string, mixed> */
+    private function staleEvidencePacket(): array
+    {
+        $packet = $this->validControlPacket();
+        $packet['evidence_age_seconds'] = self::STALE_EVIDENCE_CEILING_SECONDS * 10;
+
+        return $packet;
+    }
+
+    /** @return array<string, mixed> */
+    private function impossibleWorkerRequirementsPacket(): array
+    {
+        $packet = $this->validControlPacket();
+        $packet['dry_run_only'] = true;
+        $packet['requires_live_provider'] = true;
+
+        return $packet;
+    }
+
+    /** @return array<string, mixed> */
+    private function validControlPacket(): array
+    {
+        return [
+            'task_packet_id' => 'fuzz-control-packet',
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['./vendor/bin/phpunit exits 0'],
+            'evidence_age_seconds' => 60,
+            'dry_run_only' => false,
+            'requires_live_provider' => false,
+        ];
+    }
 
     /**
      * @param  array<string, mixed>  $options
