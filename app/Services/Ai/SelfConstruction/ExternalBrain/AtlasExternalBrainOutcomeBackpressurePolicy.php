@@ -154,6 +154,64 @@ final class AtlasExternalBrainOutcomeBackpressurePolicy
 
     private const STARVATION_OUTCOMES = ['no_claimable_task', 'no_self_sufficient_task'];
 
+    public const ESCALATION_REPLENISH_OR_REPAIR = 'replenish_or_repair';
+    public const ESCALATION_WAIT_OBSERVE = 'wait_observe';
+
+    private const DEFAULT_CLAIMABLE_PER_WORKER_FLOOR = 2.0;
+
+    /**
+     * Worker starvation is a FIRST-CLASS escalation input — fresh evidence (a recent
+     * no_claimable_task/no_self_sufficient_task outcome, or claimable_per_active_worker at/below
+     * the floor) forces replenish_or_repair REGARDLESS of how good historical success metrics
+     * look. A high historical success_rate must never mask an active starvation incident; stale
+     * success can't certify that workers are fed right now.
+     *
+     * @param  array<string,mixed>  $facts
+     *         recent_outcomes             : list<array{outcome:string}>
+     *         claimable_per_active_worker : float
+     *         claimable_per_worker_floor  : float  optional override (default 2.0)
+     *         historical_success_rate     : float  0..1, informational only — never overrides starvation
+     * @return array<string,mixed>
+     */
+    public function evaluateWorkerStarvationEscalation(array $facts): array
+    {
+        $recentOutcomes = is_array($facts['recent_outcomes'] ?? null) ? $facts['recent_outcomes'] : [];
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $facts)
+            ? (float) $facts['claimable_per_active_worker']
+            : null;
+        $floor = (float) ($facts['claimable_per_worker_floor'] ?? self::DEFAULT_CLAIMABLE_PER_WORKER_FLOOR);
+
+        $freshStarvationOutcome = false;
+        foreach ($recentOutcomes as $entry) {
+            $outcome = is_array($entry) ? (string) ($entry['outcome'] ?? '') : (string) $entry;
+            if (in_array($outcome, self::STARVATION_OUTCOMES, true)) {
+                $freshStarvationOutcome = true;
+                break;
+            }
+        }
+
+        $belowWorkerFloor = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $floor;
+        $starvationEvidenceFresh = $freshStarvationOutcome || $belowWorkerFloor;
+
+        if ($starvationEvidenceFresh) {
+            return [
+                'schema' => self::SCHEMA,
+                'decision' => self::ESCALATION_REPLENISH_OR_REPAIR,
+                'reason' => 'worker_starvation_evidence_fresh',
+                'fresh_starvation_outcome' => $freshStarvationOutcome,
+                'below_worker_floor' => $belowWorkerFloor,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'decision' => self::ESCALATION_WAIT_OBSERVE,
+            'reason' => 'worker_floor_healthy_no_fresh_starvation_evidence',
+            'fresh_starvation_outcome' => false,
+            'below_worker_floor' => false,
+        ];
+    }
+
     /**
      * Repeated no_claimable_task / no_self_sufficient_task outcomes are queue-starvation feedback,
      * NOT a neutral "nothing to do" signal — they mean the originator must generate MORE work, so

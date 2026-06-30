@@ -71,4 +71,40 @@ final class AtlasExternalBrainOutcomeBackpressurePolicyWorkerStarvationTest exte
 
         $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::PRESSURE_NEUTRAL, $result['pressure']);
     }
+
+    // ── evaluateWorkerStarvationEscalation() ─────────────────────────────────
+
+    public function test_fresh_starvation_outcome_forces_replenish_or_repair_despite_good_historical_success(): void
+    {
+        $result = $this->policy()->evaluateWorkerStarvationEscalation([
+            'recent_outcomes' => [['outcome' => 'no_claimable_task']],
+            'claimable_per_active_worker' => 10.0,
+            'historical_success_rate' => 0.95,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::ESCALATION_REPLENISH_OR_REPAIR, $result['decision']);
+        $this->assertTrue($result['fresh_starvation_outcome']);
+    }
+
+    public function test_claimable_per_active_worker_at_or_below_floor_forces_replenish_or_repair(): void
+    {
+        $result = $this->policy()->evaluateWorkerStarvationEscalation([
+            'recent_outcomes' => [],
+            'claimable_per_active_worker' => 2.0,
+            'historical_success_rate' => 0.95,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::ESCALATION_REPLENISH_OR_REPAIR, $result['decision']);
+        $this->assertTrue($result['below_worker_floor']);
+    }
+
+    public function test_healthy_worker_floor_with_no_starvation_evidence_stays_wait_observe(): void
+    {
+        $result = $this->policy()->evaluateWorkerStarvationEscalation([
+            'recent_outcomes' => [['outcome' => 'success']],
+            'claimable_per_active_worker' => 10.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainOutcomeBackpressurePolicy::ESCALATION_WAIT_OBSERVE, $result['decision']);
+    }
 }
