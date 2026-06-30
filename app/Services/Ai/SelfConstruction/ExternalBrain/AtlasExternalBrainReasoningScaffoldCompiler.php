@@ -32,9 +32,18 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
     public const SCHEMA = 'atlas.external_brain.reasoning_scaffold_compiler.v1';
 
     private const SECTIONS = [
+        // AC1 guardrail: read live queue state BEFORE generating candidates.
+        [
+            'section_id'         => 'queue_state_read',
+            'order'              => 1,
+            'required'           => true,
+            'prompt_template'    => 'Read the current task queue: count of pending, in-progress, give-back, and done tasks. Record queue depth and any blocked or zombie entries. This snapshot governs every downstream decision — do NOT generate ideas until it is complete.',
+            'required_artifacts' => ['queue_snapshot'],
+            'stop_conditions'    => ['queue_unavailable'],
+        ],
         [
             'section_id'       => 'evidence_intake',
-            'order'            => 1,
+            'order'            => 2,
             'required'         => true,
             'prompt_template'  => 'Load all available evidence: context pack, give-back logs, compounding ledger, frontier state. List every evidence item with its freshness timestamp. Do NOT generate ideas yet.',
             'required_artifacts' => ['evidence_list'],
@@ -42,7 +51,7 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
         ],
         [
             'section_id'       => 'explored_surfaces',
-            'order'            => 2,
+            'order'            => 3,
             'required'         => true,
             'prompt_template'  => 'Map which modules, services, and architectural surfaces you examined during evidence intake. For each surface, note: last-touched date, known gaps, and whether it was covered in the last N origination cycles.',
             'required_artifacts' => ['surface_map'],
@@ -50,7 +59,7 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
         ],
         [
             'section_id'       => 'candidate_tasks',
-            'order'            => 3,
+            'order'            => 4,
             'required'         => true,
             'prompt_template'  => 'Generate candidate origination tasks strictly derived from evidence and unexplored surfaces. Each candidate must name: target file, expected value, estimated worker-minutes, and the evidence item that motivates it.',
             'required_artifacts' => ['candidate_list'],
@@ -58,31 +67,58 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
         ],
         [
             'section_id'       => 'anti_duplication_proof',
-            'order'            => 4,
+            'order'            => 5,
             'required'         => true,
             'prompt_template'  => 'For each candidate, prove it is not already in the task queue or done-set. Cross-reference against the task registry. Remove any candidate that matches an existing task or recently completed work.',
             'required_artifacts' => ['dedup_proof'],
             'stop_conditions'  => ['all_candidates_are_duplicates'],
         ],
+        // AC1 guardrail: semantic similarity check after exact dedup.
+        [
+            'section_id'         => 'semantic_dedup',
+            'order'              => 6,
+            'required'           => true,
+            'prompt_template'    => 'For each surviving candidate, check semantic similarity against recent tasks and the current queue. A candidate is a semantic duplicate if its observable outcome would be indistinguishable from an existing task. Discard semantic duplicates.',
+            'required_artifacts' => ['semantic_dedup_report'],
+            'stop_conditions'    => ['all_candidates_semantically_duplicate'],
+        ],
         [
             'section_id'       => 'adversarial_critique',
-            'order'            => 5,
+            'order'            => 7,
             'required'         => true,
             'prompt_template'  => 'Challenge every surviving candidate: Is this proxy work? Does it evolve the scope exponentially or is it cleanup? Could a worker complete it within allowed_files without operator help? Kill every candidate that fails any gate.',
             'required_artifacts' => ['critique_report'],
             'stop_conditions'  => ['all_candidates_critiqued_out'],
         ],
+        // AC1 guardrail: implementability check after critique.
+        [
+            'section_id'         => 'implementability_check',
+            'order'              => 8,
+            'required'           => true,
+            'prompt_template'    => 'For each candidate, verify a worker can implement it without operator input: allowed_files must be specified, acceptance criteria must be testable by automated tests, and no external service or human approval may be required. Discard any candidate that fails.',
+            'required_artifacts' => ['implementability_report'],
+            'stop_conditions'    => ['all_candidates_unimplementable'],
+        ],
         [
             'section_id'       => 'leverage_ranking',
-            'order'            => 6,
+            'order'            => 9,
             'required'         => true,
             'prompt_template'  => 'Rank surviving candidates by leverage score = (expected_value × compounding_multiplier) / estimated_worker_minutes. List scores explicitly. Highest score first.',
             'required_artifacts' => ['ranked_candidates'],
             'stop_conditions'  => [],
         ],
+        // AC1 guardrail: explicit impact ranking before final selection.
+        [
+            'section_id'         => 'impact_ranking',
+            'order'              => 10,
+            'required'           => true,
+            'prompt_template'    => 'Re-rank the top-N candidates by projected autonomous impact: how much will this task improve Atlas\'s own capability to originate, execute, or certify work? Highest-impact task first. This ranking governs final selection.',
+            'required_artifacts' => ['impact_ranked_list'],
+            'stop_conditions'    => [],
+        ],
         [
             'section_id'       => 'final_batch_selection',
-            'order'            => 7,
+            'order'            => 11,
             'required'         => true,
             'prompt_template'  => 'Select the top-N candidates from the ranked list that fit within the worker fleet capacity. Return their task specifications. No new candidates may be introduced at this stage.',
             'required_artifacts' => ['final_batch'],
@@ -114,6 +150,13 @@ final class AtlasExternalBrainReasoningScaffoldCompiler
 
         if ($allowDirectFinal) {
             return $this->rejected('direct_final_answer_not_allowed');
+        }
+
+        // AC2: fail closed when any required section is skipped.
+        foreach (self::SECTIONS as $section) {
+            if ($section['required'] && in_array($section['section_id'], $skipSections, true)) {
+                return $this->rejected('must_not_skip_required_section:' . $section['section_id']);
+            }
         }
 
         // Build sections (honoring skip_sections for non-required-by-rule sections).

@@ -48,8 +48,11 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
         $result = $this->compiler()->compile([]);
 
         $expectedOrder = [
+            'queue_state_read',
             'evidence_intake', 'explored_surfaces', 'candidate_tasks',
-            'anti_duplication_proof', 'adversarial_critique', 'leverage_ranking',
+            'anti_duplication_proof', 'semantic_dedup',
+            'adversarial_critique', 'implementability_check',
+            'leverage_ranking', 'impact_ranking',
             'final_batch_selection',
         ];
 
@@ -181,6 +184,101 @@ final class AtlasExternalBrainReasoningScaffoldCompilerTest extends TestCase
         $finalPos    = array_search('final_batch_selection', $ids, true);
 
         $this->assertLessThan($finalPos, $critiquePos);
+    }
+
+    // ── AC1: new required guardrail sections ─────────────────────────────────
+
+    public function test_queue_state_read_is_first_section(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $this->assertSame('queue_state_read', $result['scaffold_sections'][0]['section_id']);
+    }
+
+    public function test_queue_state_read_has_required_artifact(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $this->assertSame(['queue_snapshot'], $result['required_artifacts']['queue_state_read']);
+    }
+
+    public function test_semantic_dedup_comes_after_anti_duplication_proof(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+        $exactDedup  = array_search('anti_duplication_proof', $ids, true);
+        $semanticDup = array_search('semantic_dedup', $ids, true);
+        $this->assertLessThan($semanticDup, $exactDedup);
+    }
+
+    public function test_semantic_dedup_has_required_artifact(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $this->assertSame(['semantic_dedup_report'], $result['required_artifacts']['semantic_dedup']);
+    }
+
+    public function test_implementability_check_comes_after_adversarial_critique(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+        $critiquePos = array_search('adversarial_critique', $ids, true);
+        $implPos     = array_search('implementability_check', $ids, true);
+        $this->assertLessThan($implPos, $critiquePos);
+    }
+
+    public function test_implementability_check_has_required_artifact(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $this->assertSame(['implementability_report'], $result['required_artifacts']['implementability_check']);
+    }
+
+    public function test_impact_ranking_comes_before_final_batch_selection(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $ids = array_column($result['scaffold_sections'], 'section_id');
+        $impactPos = array_search('impact_ranking', $ids, true);
+        $finalPos  = array_search('final_batch_selection', $ids, true);
+        $this->assertLessThan($finalPos, $impactPos);
+    }
+
+    public function test_impact_ranking_has_required_artifact(): void
+    {
+        $result = $this->compiler()->compile([]);
+        $this->assertSame(['impact_ranked_list'], $result['required_artifacts']['impact_ranking']);
+    }
+
+    // ── AC2: fail closed when required section skipped ────────────────────────
+
+    public function test_reject_when_queue_state_read_skipped(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['queue_state_read']]);
+        $this->assertFalse($result['is_valid']);
+        $this->assertStringStartsWith('must_not_skip_required_section', $result['rejection_reason']);
+    }
+
+    public function test_reject_when_semantic_dedup_skipped(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['semantic_dedup']]);
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('must_not_skip_required_section:semantic_dedup', $result['rejection_reason']);
+    }
+
+    public function test_reject_when_implementability_check_skipped(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['implementability_check']]);
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('must_not_skip_required_section:implementability_check', $result['rejection_reason']);
+    }
+
+    public function test_reject_when_impact_ranking_skipped(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['impact_ranking']]);
+        $this->assertFalse($result['is_valid']);
+        $this->assertSame('must_not_skip_required_section:impact_ranking', $result['rejection_reason']);
+    }
+
+    public function test_rejected_required_section_has_empty_scaffold(): void
+    {
+        $result = $this->compiler()->compile(['skip_sections' => ['semantic_dedup']]);
+        $this->assertSame([], $result['scaffold_sections']);
     }
 
     // ── determinism ──────────────────────────────────────────────────────────
