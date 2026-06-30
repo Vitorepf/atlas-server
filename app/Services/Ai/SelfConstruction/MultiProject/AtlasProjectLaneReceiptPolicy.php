@@ -42,16 +42,23 @@ final class AtlasProjectLaneReceiptPolicy
         self::EVENT_LEARNING_RECORDED,
     ];
 
+    /** Source ref prefixes that expose provider internals — must never appear in provider-safe envelopes. */
+    private const UNSAFE_PREFIXES = ['prompt:', 'provider:', 'private:', 'trace:'];
+
     /**
      * @param  array{
      *     project_id:string,
      *     lane_namespace:string,
      *     event_type:string,
      *     evidence_hash:string,
+     *     provider_safe_source_refs?:list<string>,
      *     source_hashes?:list<string>,
+     *     previous_envelope_hash?:string,
+     *     lane_epoch?:int,
+     *     event_sequence?:int,
      *     created_at:string
      * }  $facts
-     * @return array{schema:string, project_id:string, lane_namespace:string, event_type:string, evidence_hash:string, source_hashes:list<string>, created_at:string, envelope_hash:string}
+     * @return array<string,mixed>
      */
     public function build(array $facts): array
     {
@@ -59,11 +66,16 @@ final class AtlasProjectLaneReceiptPolicy
         $laneNs = trim((string) ($facts['lane_namespace'] ?? ''));
         $eventType = trim((string) ($facts['event_type'] ?? ''));
         $evidenceHash = trim((string) ($facts['evidence_hash'] ?? ''));
-        $sourceHashes = is_array($facts['source_hashes'] ?? null)
-            ? array_values(array_unique(array_filter(array_map('strval', $facts['source_hashes']), static fn (string $s): bool => $s !== '')))
-            : [];
-        sort($sourceHashes, SORT_STRING);
+        $previousEnvelopeHash = trim((string) ($facts['previous_envelope_hash'] ?? 'genesis'));
+        $laneEpoch = (int) ($facts['lane_epoch'] ?? 0);
+        $eventSequence = (int) ($facts['event_sequence'] ?? 0);
         $createdAt = trim((string) ($facts['created_at'] ?? ''));
+
+        // Accept provider_safe_source_refs (preferred) or legacy source_hashes.
+        $rawRefs = is_array($facts['provider_safe_source_refs'] ?? null)
+            ? $facts['provider_safe_source_refs']
+            : (is_array($facts['source_hashes'] ?? null) ? $facts['source_hashes'] : []);
+        $sourceRefs = array_values(array_unique(array_filter(array_map('strval', $rawRefs), static fn (string $s): bool => $s !== '')));
 
         if ($projectId === '') {
             throw new RuntimeException('lane receipt: empty project_id');
@@ -81,13 +93,26 @@ final class AtlasProjectLaneReceiptPolicy
             throw new RuntimeException('lane receipt: empty created_at');
         }
 
+        // Reject raw prompt/provider/private traces.
+        foreach ($sourceRefs as $ref) {
+            foreach (self::UNSAFE_PREFIXES as $prefix) {
+                if (str_starts_with($ref, $prefix)) {
+                    throw new RuntimeException('lane receipt: provider-unsafe source_ref rejected: '.$ref);
+                }
+            }
+        }
+        sort($sourceRefs, SORT_STRING);
+
         $envelope = [
             'schema' => self::SCHEMA,
             'project_id' => $projectId,
             'lane_namespace' => $laneNs,
             'event_type' => $eventType,
             'evidence_hash' => $evidenceHash,
-            'source_hashes' => $sourceHashes,
+            'provider_safe_source_refs' => $sourceRefs,
+            'previous_envelope_hash' => $previousEnvelopeHash,
+            'lane_epoch' => $laneEpoch,
+            'event_sequence' => $eventSequence,
             'created_at' => $createdAt,
         ];
         $canonical = $envelope;
