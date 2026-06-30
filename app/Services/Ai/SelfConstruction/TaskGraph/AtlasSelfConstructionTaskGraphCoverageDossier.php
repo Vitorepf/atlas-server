@@ -106,6 +106,7 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
             'blocked_organs' => $blockedOrgans,
             'draft_summary' => $draftSummary,
             'blockers' => $blockers,
+            'final_95_gap_report' => $this->buildFinal95GapReport($blockedOrgans, $missingOrgans, $thinOrgans, $staleOrgans),
             'proof_summary' => sprintf(
                 'status=%s organs=%d covered=%d missing=%d thin=%d stale=%d blocked=%d drafts=%d withheld=%d',
                 $status,
@@ -151,6 +152,46 @@ final class AtlasSelfConstructionTaskGraphCoverageDossier
         }
 
         return $gaps;
+    }
+
+    /**
+     * @param  list<string>  $blockedOrgans
+     * @param  list<string>  $missingOrgans
+     * @param  list<string>  $thinOrgans
+     * @param  list<string>  $staleOrgans
+     * @return list<array{organ_id:string, gap_kind:string, proof_required:string, next_task_family:string}>
+     */
+    private function buildFinal95GapReport(
+        array $blockedOrgans,
+        array $missingOrgans,
+        array $thinOrgans,
+        array $staleOrgans,
+    ): array {
+        static $meta = [
+            'blocked'                => ['proof_required' => 'unblock_receipt_and_test_green',            'next_task_family' => 'coverage_unblock'],
+            'missing_implementation' => ['proof_required' => 'implementation_present_and_test_green',     'next_task_family' => 'coverage_implementation'],
+            'missing_tests'          => ['proof_required' => 'test_suite_minimum_3_assertions_and_green', 'next_task_family' => 'coverage_test_authoring'],
+            'stale_evidence'         => ['proof_required' => 'fresh_evidence_and_index_updated',          'next_task_family' => 'coverage_evidence_refresh'],
+        ];
+
+        $rows = [];
+        foreach ([
+            'blocked'                => $blockedOrgans,
+            'missing_implementation' => $missingOrgans,
+            'missing_tests'          => $thinOrgans,
+            'stale_evidence'         => $staleOrgans,
+        ] as $kind => $organs) {
+            foreach (array_values($organs) as $organId) {
+                $rows[] = [
+                    'organ_id'         => (string) $organId,
+                    'gap_kind'         => $kind,
+                    'proof_required'   => $meta[$kind]['proof_required'],
+                    'next_task_family' => $meta[$kind]['next_task_family'],
+                ];
+            }
+        }
+
+        return $rows;
     }
 
     /**

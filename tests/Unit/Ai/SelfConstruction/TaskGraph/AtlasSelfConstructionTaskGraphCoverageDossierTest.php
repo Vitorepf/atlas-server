@@ -212,4 +212,81 @@ class AtlasSelfConstructionTaskGraphCoverageDossierTest extends TestCase
             self::assertSame('missing_implementation', $g['gap_kind']);
         }
     }
+
+    // ---------- final_95_gap_report ----------
+
+    public function test_output_has_final_95_gap_report_key(): void
+    {
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($this->readyFacts());
+
+        self::assertArrayHasKey('final_95_gap_report', $dossier);
+        self::assertIsArray($dossier['final_95_gap_report']);
+    }
+
+    public function test_final_95_gap_report_empty_when_ready(): void
+    {
+        $dossier = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($this->readyFacts());
+
+        self::assertSame([], $dossier['final_95_gap_report']);
+    }
+
+    public function test_final_95_gap_report_blocked_ranks_first(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['blocked_organs'] = ['merge_governor'];
+        $facts['coverage']['missing_organs'] = ['worker_swarm'];
+        $facts['coverage']['thin_organs']    = ['maestro'];
+        $facts['coverage']['stale_organs']   = ['task_fabric'];
+
+        $report = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts)['final_95_gap_report'];
+
+        self::assertCount(4, $report);
+        self::assertSame('blocked',                $report[0]['gap_kind']);
+        self::assertSame('merge_governor',         $report[0]['organ_id']);
+        self::assertSame('missing_implementation', $report[1]['gap_kind']);
+        self::assertSame('missing_tests',          $report[2]['gap_kind']);
+        self::assertSame('stale_evidence',         $report[3]['gap_kind']);
+    }
+
+    public function test_final_95_gap_report_row_has_all_required_fields(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['missing_organs'] = ['verification_court'];
+
+        $report = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts)['final_95_gap_report'];
+
+        self::assertCount(1, $report);
+        foreach (['organ_id', 'gap_kind', 'proof_required', 'next_task_family'] as $key) {
+            self::assertArrayHasKey($key, $report[0]);
+        }
+        self::assertSame('verification_court',                      $report[0]['organ_id']);
+        self::assertSame('missing_implementation',                  $report[0]['gap_kind']);
+        self::assertSame('implementation_present_and_test_green',   $report[0]['proof_required']);
+        self::assertSame('coverage_implementation',                  $report[0]['next_task_family']);
+    }
+
+    public function test_final_95_gap_report_proof_required_per_kind(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['coverage']['passed'] = false;
+        $facts['coverage']['blocked_organs'] = ['b'];
+        $facts['coverage']['missing_organs'] = ['m'];
+        $facts['coverage']['thin_organs']    = ['t'];
+        $facts['coverage']['stale_organs']   = ['s'];
+
+        $report = (new AtlasSelfConstructionTaskGraphCoverageDossier)->export($facts)['final_95_gap_report'];
+        $byKind = array_column($report, null, 'gap_kind');
+
+        self::assertSame('unblock_receipt_and_test_green',              $byKind['blocked']['proof_required']);
+        self::assertSame('implementation_present_and_test_green',       $byKind['missing_implementation']['proof_required']);
+        self::assertSame('test_suite_minimum_3_assertions_and_green',   $byKind['missing_tests']['proof_required']);
+        self::assertSame('fresh_evidence_and_index_updated',            $byKind['stale_evidence']['proof_required']);
+
+        self::assertSame('coverage_unblock',         $byKind['blocked']['next_task_family']);
+        self::assertSame('coverage_implementation',  $byKind['missing_implementation']['next_task_family']);
+        self::assertSame('coverage_test_authoring',  $byKind['missing_tests']['next_task_family']);
+        self::assertSame('coverage_evidence_refresh', $byKind['stale_evidence']['next_task_family']);
+    }
 }
