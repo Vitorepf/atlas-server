@@ -283,4 +283,96 @@ final class AtlasExternalBrainGracefulDegradationPolicyTest extends TestCase
         $conditions = implode(' ', $result['recovery_conditions']);
         $this->assertStringContainsString('frontier', $conditions);
     }
+
+    // ── low_confidence / high_ambiguity / low_budget fallback triggers ─────────
+
+    public function test_low_confidence_steps_full_mode_down_to_degraded(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['frontier_model'], 'low_confidence' => true]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::MODE_DEGRADED, $result['mode']);
+    }
+
+    public function test_high_ambiguity_steps_full_mode_down_to_degraded(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['frontier_model'], 'high_ambiguity' => true]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::MODE_DEGRADED, $result['mode']);
+    }
+
+    public function test_low_budget_steps_full_mode_down_to_degraded(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['frontier_model'], 'low_budget' => true]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::MODE_DEGRADED, $result['mode']);
+    }
+
+    public function test_low_confidence_compounds_with_tier_degradation(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['scaffolded_small_model'], 'low_confidence' => true]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::MODE_MINIMAL, $result['mode']);
+    }
+
+    public function test_low_confidence_never_steps_below_safe_hold(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => [], 'low_confidence' => true]);
+
+        $this->assertSame(AtlasExternalBrainGracefulDegradationPolicy::MODE_SAFE_HOLD, $result['mode']);
+    }
+
+    public function test_fallback_trigger_reduces_ambition_cap_not_just_label(): void
+    {
+        $baseline = $this->policy->apply(['available_tiers' => ['frontier_model']]);
+        $degraded = $this->policy->apply(['available_tiers' => ['frontier_model'], 'high_ambiguity' => true]);
+
+        $this->assertGreaterThan($degraded['ambition_cap'], $baseline['ambition_cap']);
+        $this->assertNotEmpty($degraded['required_extra_checks']);
+    }
+
+    // ── fallback_mode / blocked_capabilities / required_extra_checks output ────
+
+    public function test_fallback_mode_aliases_mode(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['scaffolded_small_model']]);
+
+        $this->assertSame($result['mode'], $result['fallback_mode']);
+    }
+
+    public function test_blocked_capabilities_aliases_forbidden_task_classes(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['scaffolded_small_model']]);
+
+        $this->assertSame($result['forbidden_task_classes'], $result['blocked_capabilities']);
+    }
+
+    public function test_required_extra_checks_empty_in_full_mode(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['frontier_model']]);
+
+        $this->assertSame([], $result['required_extra_checks']);
+    }
+
+    public function test_required_extra_checks_present_in_degraded_mode(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['scaffolded_small_model']]);
+
+        $this->assertContains('grep_proof', $result['required_extra_checks']);
+        $this->assertContains('critique_quorum_2', $result['required_extra_checks']);
+    }
+
+    public function test_required_extra_checks_escalate_in_minimal_mode(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => ['small_model']]);
+
+        $this->assertContains('critique_quorum_3', $result['required_extra_checks']);
+        $this->assertContains('canonical_doc_read', $result['required_extra_checks']);
+    }
+
+    public function test_required_extra_checks_for_safe_hold_requires_operator_approval(): void
+    {
+        $result = $this->policy->apply(['available_tiers' => []]);
+
+        $this->assertSame(['operator_approval_required'], $result['required_extra_checks']);
+    }
 }

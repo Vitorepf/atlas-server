@@ -65,11 +65,24 @@ final class AtlasExternalBrainGracefulDegradationPolicy
         self::MODE_SAFE_HOLD => 0,
     ];
 
+    /** @var array<string, list<string>> mode => normalized required_extra_checks identifiers. */
+    private const REQUIRED_EXTRA_CHECKS = [
+        self::MODE_FULL      => [],
+        self::MODE_DEGRADED  => ['grep_proof', 'duplicate_check', 'runnable_acceptance_criterion', 'critique_quorum_2'],
+        self::MODE_MINIMAL   => ['grep_proof', 'duplicate_check', 'runnable_acceptance_criterion', 'critique_quorum_3', 'canonical_doc_read'],
+        self::MODE_SAFE_HOLD => ['operator_approval_required'],
+    ];
+
+    private const MODE_ORDER = [self::MODE_FULL, self::MODE_DEGRADED, self::MODE_MINIMAL, self::MODE_SAFE_HOLD];
+
     /**
      * @param  array{
      *   available_tiers?: list<string>,
      *   frontier_available?: bool,
      *   current_batch_size?: int,
+     *   low_confidence?: bool,
+     *   high_ambiguity?: bool,
+     *   low_budget?: bool,
      * }  $input
      * @return array{schema:string, mode:string, ambition_cap:float, required_scaffold_strictness:string, forbidden_task_classes:list<string>, fallback_batch_constraints:list<string>}
      */
@@ -78,6 +91,9 @@ final class AtlasExternalBrainGracefulDegradationPolicy
         $availableTiers      = (array) ($input['available_tiers']   ?? []);
         $frontierExplicit    = $input['frontier_available']          ?? null;
         $currentBatchSize    = max(1, (int) ($input['current_batch_size'] ?? 5));
+        $lowConfidence       = (bool) ($input['low_confidence'] ?? false);
+        $highAmbiguity       = (bool) ($input['high_ambiguity'] ?? false);
+        $lowBudget           = (bool) ($input['low_budget'] ?? false);
 
         $hasFrontier   = $frontierExplicit !== null
             ? (bool) $frontierExplicit
@@ -87,16 +103,35 @@ final class AtlasExternalBrainGracefulDegradationPolicy
 
         $mode = $this->resolveMode($hasFrontier, $hasScaffolded, $hasSmall);
 
+        // AC2: low confidence, high ambiguity, or low budget never pretend model quality is
+        // unchanged — they step the mode DOWN by one rung (never up), same as a tier outage would.
+        if ($lowConfidence || $highAmbiguity || $lowBudget) {
+            $mode = $this->stepDown($mode);
+        }
+
         return [
             'schema'                      => self::SCHEMA,
             'mode'                        => $mode,
+            'fallback_mode'               => $mode,
             'ambition_cap'                => self::AMBITION_CAPS[$mode],
             'strictness'                  => $this->strictness($mode),
             'required_scaffold_strictness' => $this->strictness($mode), // backward-compat alias
             'forbidden_task_classes'      => $this->forbiddenClasses($mode),
+            'blocked_capabilities'        => $this->forbiddenClasses($mode),
+            'required_extra_checks'       => self::REQUIRED_EXTRA_CHECKS[$mode],
             'fallback_batch_constraints'  => $this->batchConstraints($mode, $currentBatchSize),
             'recovery_conditions'         => $this->recoveryConditions($mode),
         ];
+    }
+
+    private function stepDown(string $mode): string
+    {
+        $index = array_search($mode, self::MODE_ORDER, true);
+        if ($index === false || $index === count(self::MODE_ORDER) - 1) {
+            return $mode;
+        }
+
+        return self::MODE_ORDER[$index + 1];
     }
 
     private function resolveMode(bool $hasFrontier, bool $hasScaffolded, bool $hasSmall): string
