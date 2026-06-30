@@ -29,6 +29,17 @@ final class AtlasTaskFabricRoadmapGapMiner
 {
     public const SCHEMA = 'atlas.taskfabric.roadmap_gap_candidate.v1';
 
+    /** Organ priority weights for leverage scoring (higher = more impactful). */
+    public const ORGAN_PRIORITY = [
+        'Task Fabric'        => 10,
+        'Maestro'            => 9,
+        'Worker Swarm'       => 8,
+        'Verification Court' => 7,
+        'Merge Governor'     => 6,
+        'Learning Transfer'  => 5,
+        'Multi Project'      => 4,
+    ];
+
     public const SUPPORTED_ORGANS = [
         'Task Fabric',
         'Maestro',
@@ -195,6 +206,108 @@ final class AtlasTaskFabricRoadmapGapMiner
             $laneA = (string) ($a['lane'] ?? '');
             $laneB = (string) ($b['lane'] ?? '');
             return strcmp($laneA, $laneB) ?: strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability']);
+        });
+
+        return $candidates;
+    }
+
+    /**
+     * Mine gaps from roadmap rows, exclude blocked families and live-target duplicates, then rank by
+     * implementability leverage so the originator always sees the highest-impact work first.
+     *
+     * Leverage score = ORGAN_PRIORITY[organ] + min(count(suggested_files), 5)
+     * Output sorted: leverage_score DESC, organ ASC, capability ASC.
+     *
+     * Additional filter vs mine():
+     *   - row['family'] present AND in $blockedFamilies → skipped (cannot be implemented now)
+     *   - organ:capability key in $liveTargets → deduplicated
+     *
+     * @param  list<array<string,mixed>>  $rows
+     * @param  list<string>  $blockedFamilies  Task-family names that are currently blocked
+     * @param  list<string>  $liveTargets      Existing "organ:capability" keys to deduplicate against
+     * @return list<array<string,mixed>>  Candidates with added `leverage_score` key
+     */
+    public function mineRanked(array $rows, array $blockedFamilies = [], array $liveTargets = []): array
+    {
+        $blockedSet = array_flip($blockedFamilies);
+        $liveSet    = array_flip($liveTargets);
+        $candidates = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ((bool) ($row['resolved'] ?? false)) {
+                continue;
+            }
+            $kind = (string) ($row['kind'] ?? '');
+            if ($kind !== '' && preg_match(self::COSMETIC_KIND_REGEX, $kind)) {
+                continue;
+            }
+            $evidence = trim((string) ($row['evidence_path'] ?? ''));
+            if ($evidence === '') {
+                continue;
+            }
+            $organ = trim((string) ($row['organ'] ?? ''));
+            if (! in_array($organ, self::SUPPORTED_ORGANS, true)) {
+                continue;
+            }
+            $capability = trim((string) ($row['capability'] ?? ''));
+            if ($capability === '') {
+                continue;
+            }
+            $family = trim((string) ($row['family'] ?? ''));
+            if ($family !== '' && isset($blockedSet[$family])) {
+                continue;
+            }
+            $liveKey = $organ.':'.$capability;
+            if (isset($liveSet[$liveKey])) {
+                continue;
+            }
+
+            $current = trim((string) ($row['current_state'] ?? ''));
+            $target  = trim((string) ($row['target_state'] ?? ''));
+            $gap     = sprintf(
+                'CURRENT: %s | TARGET: %s',
+                $current === '' ? '(unspecified)' : $current,
+                $target === '' ? '(unspecified)' : $target,
+            );
+            $files = is_array($row['suggested_files'] ?? null)
+                ? array_values(array_map('strval', $row['suggested_files']))
+                : [];
+
+            $leverageScore = (self::ORGAN_PRIORITY[$organ] ?? 0) + min(count($files), 5);
+
+            $lane = trim((string) ($row['lane'] ?? ''));
+            $tags = ['organ:'.$organ, 'capability:'.$capability];
+            if ($lane !== '' && in_array($lane, self::FINAL_BRAIN_LANES, true)) {
+                $tags[] = 'lane:'.$lane;
+            }
+
+            $candidate = [
+                'schema_version'  => self::SCHEMA,
+                'organ'           => $organ,
+                'capability'      => $capability,
+                'capability_gap'  => $gap,
+                'evidence_path'   => $evidence,
+                'suggested_files' => $files,
+                'owner_scope'     => 'atlas-native',
+                'leverage_score'  => $leverageScore,
+                'tags'            => $tags,
+            ];
+            if ($lane !== '') {
+                $candidate['lane'] = $lane;
+            }
+
+            $candidates[] = $candidate;
+        }
+
+        usort($candidates, static function (array $a, array $b): int {
+            if ($b['leverage_score'] !== $a['leverage_score']) {
+                return $b['leverage_score'] - $a['leverage_score'];
+            }
+
+            return strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability']);
         });
 
         return $candidates;

@@ -165,4 +165,96 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
             'self-recovery:Maestro:z_cap',
         ], $keys);
     }
+
+    // ---------- mineRanked — ranked real gaps, blocked-family, dedup, proxy rejection ----------
+
+    public function test_mine_ranked_output_has_leverage_score(): void
+    {
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$this->row('Task Fabric', 'dependency_ladder')]);
+        $this->assertCount(1, $out);
+        $this->assertArrayHasKey('leverage_score', $out[0]);
+        $this->assertIsInt($out[0]['leverage_score']);
+        $this->assertGreaterThan(0, $out[0]['leverage_score']);
+    }
+
+    public function test_mine_ranked_sorts_by_leverage_score_descending(): void
+    {
+        // Task Fabric priority=10, 1 file  → score 11
+        // Multi Project priority=4, 3 files → score 7
+        $rows = [
+            $this->row('Multi Project', 'isolation_sentinel', ['suggested_files' => ['a.php', 'b.php', 'c.php']]),
+            $this->row('Task Fabric', 'dependency_ladder', ['suggested_files' => ['x.php']]),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows);
+
+        $this->assertCount(2, $out);
+        $this->assertSame('Task Fabric', $out[0]['organ']);
+        $this->assertGreaterThan($out[1]['leverage_score'], $out[0]['leverage_score']);
+    }
+
+    public function test_mine_ranked_tie_broken_by_organ_then_capability(): void
+    {
+        // Both Maestro with 0 files → same score; sort by capability ASC
+        $rows = [
+            $this->row('Maestro', 'z_cap', ['suggested_files' => []]),
+            $this->row('Maestro', 'a_cap', ['suggested_files' => []]),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows);
+
+        $this->assertSame('a_cap', $out[0]['capability']);
+        $this->assertSame('z_cap', $out[1]['capability']);
+    }
+
+    public function test_mine_ranked_skips_blocked_family(): void
+    {
+        $rows = [
+            $this->row('Task Fabric', 'dep_ladder', ['family' => 'fabric-alpha']),
+            $this->row('Maestro', 'tier_routing'),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows, ['fabric-alpha']);
+
+        $this->assertCount(1, $out);
+        $this->assertSame('Maestro', $out[0]['organ']);
+    }
+
+    public function test_mine_ranked_passes_through_row_with_no_family_field(): void
+    {
+        $row = $this->row('Maestro', 'fleet_probe'); // no 'family' key
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row], ['fabric-alpha']);
+
+        $this->assertCount(1, $out, 'row without a family field must not be blocked');
+    }
+
+    public function test_mine_ranked_deduplicates_live_targets(): void
+    {
+        $rows = [
+            $this->row('Task Fabric', 'dep_ladder'),
+            $this->row('Maestro', 'tier_routing'),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked($rows, [], ['Task Fabric:dep_ladder']);
+
+        $this->assertCount(1, $out);
+        $this->assertSame('Maestro', $out[0]['organ']);
+    }
+
+    public function test_mine_ranked_rejects_proxy_gaps(): void
+    {
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([
+            $this->row('Task Fabric', 'cyclomatic_shrink', ['kind' => 'proxy']),
+            $this->row('Worker Swarm', 'comment_polish', ['kind' => 'cosmetic']),
+        ]);
+
+        $this->assertSame([], $out);
+    }
+
+    public function test_mine_ranked_caps_file_bonus_at_five(): void
+    {
+        // 10 files → bonus capped at 5; Task Fabric priority=10 → max score = 15
+        $row = $this->row('Task Fabric', 'dep_ladder', [
+            'suggested_files' => ['a.php', 'b.php', 'c.php', 'd.php', 'e.php', 'f.php', 'g.php', 'h.php', 'i.php', 'j.php'],
+        ]);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+
+        $this->assertSame(15, $out[0]['leverage_score']);
+    }
 }
