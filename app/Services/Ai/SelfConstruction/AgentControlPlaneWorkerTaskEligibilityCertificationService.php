@@ -88,6 +88,15 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
         $claimableRows = array_map(fn (array $record): array => $this->recordSummary($record), $claimableRecords);
         $activeWorkerRows = array_map(fn (array $record): array => $this->recordSummary($record), $activeWorkerRecords);
         $operatorHandoffRows = (array) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.operator_handoff_tasks', []);
+
+        $activeWorkerCount = (int) ($options['active_worker_count'] ?? count($activeWorkerRecords));
+        $minimumClaimablePerWorker = max(1, (int) ($options['minimum_claimable_per_worker'] ?? 1));
+        $claimablePerActiveWorker = $activeWorkerCount > 0
+            ? count($claimableRecords) / $activeWorkerCount
+            : (float) count($claimableRecords);
+        $workerFeedFloorRequired = $activeWorkerCount * $minimumClaimablePerWorker;
+        $workerFeedFloorBreached = $activeWorkerCount > 0 && count($claimableRecords) < $workerFeedFloorRequired;
+
         $checks = [
             'claimable_tasks_are_worker_executable' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_not_worker_executable'),
             'claimable_tasks_do_not_require_operator_handoff' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_requires_operator_handoff'),
@@ -95,6 +104,7 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'claimable_task_runtime_flags_false' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_runtime_flag_true'),
             'operator_only_completion_blockers_surface_as_handoff' => $missingOperatorHandoffs === [],
             'auto_replenishment_did_not_create_tasks_during_certification' => (int) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.generated_task_count', 0) === 0,
+            'worker_feed_floor_breach' => ! $workerFeedFloorBreached,
         ];
         $failedCheckIds = array_keys(array_filter($checks, static fn (bool $passed): bool => ! $passed));
 
@@ -119,6 +129,11 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'worker_candidate_statuses' => self::WORKER_CANDIDATE_STATUSES,
             'claimable_task_count' => count($claimableRecords),
             'active_worker_task_count' => count($activeWorkerRecords),
+            'active_worker_count' => $activeWorkerCount,
+            'minimum_claimable_per_worker' => $minimumClaimablePerWorker,
+            'claimable_per_active_worker' => round($claimablePerActiveWorker, 4),
+            'worker_feed_floor_required' => $workerFeedFloorRequired,
+            'worker_feed_floor_breached' => $workerFeedFloorBreached,
             'active_worker_tasks' => $activeWorkerRows,
             'violation_summary_by_code' => $violationSummaryByCode,
             'worker_candidate_summary' => [
