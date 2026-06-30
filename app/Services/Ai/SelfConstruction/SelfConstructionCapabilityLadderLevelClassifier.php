@@ -74,6 +74,15 @@ final class SelfConstructionCapabilityLadderLevelClassifier
 
         $label = self::LEVEL_LABELS[$level];
 
+        $missingPrerequisites = [];
+        $nextLeverageSignal = null;
+        if ($brokenAt !== null) {
+            $nextLeverageSignal = self::PREREQUISITE_SIGNALS[$brokenAt - 1] ?? null;
+            for ($i = $brokenAt - 1; $i < count(self::PREREQUISITE_SIGNALS); $i++) {
+                $missingPrerequisites[] = self::PREREQUISITE_SIGNALS[$i];
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'level' => $level,
@@ -81,6 +90,9 @@ final class SelfConstructionCapabilityLadderLevelClassifier
             'achieved_prerequisites' => $achievedPrerequisites,
             'broken_at' => $brokenAt,
             'is_anti_confusion_safe' => $this->labelMatchesLevel($level, $label),
+            'missing_prerequisites' => $missingPrerequisites,
+            'next_leverage_signal' => $nextLeverageSignal,
+            'finality_gap' => $level < 8,
         ];
     }
 

@@ -210,4 +210,52 @@ final class SelfConstructionCapabilityLadderLevelClassifierTest extends TestCase
         $this->assertSame('scaffolded', $first['label']);
         $this->assertSame(4, $first['broken_at']);
     }
+
+    public function testMissingPrerequisitesAndNextLeverageSignalDerivedFromBrokenAt(): void
+    {
+        $result = $this->classifier->classify([
+            'has_canonical_doc' => true,
+            'has_spec' => true,
+            'has_scaffold' => false,
+        ]);
+
+        // broken_at=3 → next_leverage_signal=has_scaffold, missing from index 2 onward
+        $this->assertSame('has_scaffold', $result['next_leverage_signal']);
+        $this->assertSame([
+            'has_scaffold',
+            'manual_command_passes',
+            'agent_executable_with_receipt',
+            'repeated_safe_runs',
+            'learning_proposals_safe',
+            'strategic_selection_proven',
+        ], $result['missing_prerequisites']);
+        $this->assertTrue($result['finality_gap']);
+    }
+
+    public function testFullLadderLevel8HasNoMissingPrerequisitesAndNoFinalityGap(): void
+    {
+        $result = $this->classifier->classify([
+            'has_canonical_doc' => true,
+            'has_spec' => true,
+            'has_scaffold' => true,
+            'manual_command_passes' => true,
+            'agent_executable_with_receipt' => true,
+            'repeated_safe_runs' => true,
+            'learning_proposals_safe' => true,
+            'strategic_selection_proven' => true,
+        ]);
+
+        $this->assertSame([], $result['missing_prerequisites']);
+        $this->assertNull($result['next_leverage_signal']);
+        $this->assertFalse($result['finality_gap']);
+    }
+
+    public function testFinalityGapTrueForAllLevelsBelowEight(): void
+    {
+        $result = $this->classifier->classify(['has_canonical_doc' => true]);
+        $this->assertTrue($result['finality_gap']);
+
+        $result = $this->classifier->classify([]);
+        $this->assertTrue($result['finality_gap']);
+    }
 }
