@@ -19,6 +19,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   bounded_risk                    — risk_level is 'low' or 'medium' (critical tasks need operator gate).
  *   clear_give_back_path            — required_evidence non-empty (worker knows how to prove done/give_back).
  *   give_back_escape_hatch          — spec tells the worker when to give_back (give_back_condition | give_back_on_blocked | max_attempts).
+ *   worker_capability_fit           — when worker_capabilities is supplied, at least one entry must support task_family/risk_level/model_tier.
  *
  * FAILURE CATEGORIES (mutually exclusive, first match wins):
  *   already_implemented    — duplicate flag set on task OR target files already in implemented set.
@@ -83,6 +84,9 @@ final class AtlasExternalBrainMuscleReadinessContract
         $isDuplicate      = (bool) ($spec['duplicate'] ?? false);
         $implementedFiles = is_array($spec['implemented_files'] ?? null) ? array_flip(array_map('strval', $spec['implemented_files'])) : [];
         $activeClaims     = is_array($spec['active_claims'] ?? null) ? $spec['active_claims'] : [];
+        $taskFamily       = (string) ($spec['task_family'] ?? '');
+        $modelTier        = (string) ($spec['model_tier'] ?? '');
+        $workerCapabilities = is_array($spec['worker_capabilities'] ?? null) ? $spec['worker_capabilities'] : [];
 
         $checks = [
             $this->checkScopedFiles($allowedFiles),
@@ -96,6 +100,7 @@ final class AtlasExternalBrainMuscleReadinessContract
             $this->checkBoundedRisk($riskLevel, $objective),
             $this->checkClearGiveBackPath($evidence),
             $this->checkGiveBackEscapeHatch($spec),
+            $this->checkWorkerCapabilityFit($taskFamily, $riskLevel, $modelTier, $workerCapabilities),
         ];
 
         $ready = array_reduce($checks, static fn (bool $carry, array $c): bool => $carry && $c['passed'], true);
@@ -414,6 +419,39 @@ final class AtlasExternalBrainMuscleReadinessContract
     }
 
     /**
+     * When worker_capabilities is supplied, at least one capability entry must support
+     * the task's task_family, risk_level, and model_tier. Empty list = no constraint, passes.
+     *
+     * @param list<array<string, mixed>> $workerCapabilities
+     */
+    private function checkWorkerCapabilityFit(string $taskFamily, string $riskLevel, string $modelTier, array $workerCapabilities): array
+    {
+        if ($workerCapabilities === []) {
+            return $this->build('worker_capability_fit', [], []);
+        }
+
+        foreach ($workerCapabilities as $cap) {
+            $families = is_array($cap['task_families'] ?? null) ? $cap['task_families'] : [];
+            $risks    = is_array($cap['risk_levels'] ?? null) ? $cap['risk_levels'] : [];
+            $tiers    = is_array($cap['model_tiers'] ?? null) ? $cap['model_tiers'] : [];
+
+            $familyOk = $taskFamily === '' || in_array($taskFamily, $families, true);
+            $riskOk   = $riskLevel === '' || in_array($riskLevel, $risks, true);
+            $tierOk   = $modelTier === '' || in_array($modelTier, $tiers, true);
+
+            if ($familyOk && $riskOk && $tierOk) {
+                return $this->build('worker_capability_fit', [], []);
+            }
+        }
+
+        return $this->build(
+            'worker_capability_fit',
+            ['no_worker_capability_matches_task_family_risk_level_model_tier'],
+            ['route_to_a_worker_capability_that_supports_the_task_family_risk_level_and_model_tier'],
+        );
+    }
+
+    /**
      * @param array<string, bool> $implementedFiles
      * @param list<array<string, mixed>> $checks
      */
@@ -473,6 +511,7 @@ final class AtlasExternalBrainMuscleReadinessContract
             'bounded_risk'                   => 'operator_gate_required',
             'clear_give_back_path'           => 'missing_evidence',
             'give_back_escape_hatch'         => 'no_escape_hatch',
+            'worker_capability_fit'          => 'no_matching_worker_capability',
         ];
 
         foreach ($checks as $check) {
@@ -496,6 +535,7 @@ final class AtlasExternalBrainMuscleReadinessContract
             'concrete_symbol_presence'       => 0.15,
             'give_back_escape_hatch'         => 0.10,
             'enough_context'                 => 0.10,
+            'worker_capability_fit'          => 0.20,
         ];
 
         $score = 0.0;

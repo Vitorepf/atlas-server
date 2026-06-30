@@ -75,11 +75,11 @@ final class AtlasExternalBrainMuscleReadinessContractTest extends TestCase
             'scoped_files', 'no_test_only_packet', 'implementation_plus_test_scope',
             'no_collision', 'runnable_proof', 'enough_context', 'concrete_symbol_presence',
             'acceptance_contradiction_risk', 'bounded_risk', 'clear_give_back_path',
-            'give_back_escape_hatch',
+            'give_back_escape_hatch', 'worker_capability_fit',
         ] as $expected) {
             $this->assertContains($expected, $names);
         }
-        $this->assertCount(11, $r['checks']);
+        $this->assertCount(12, $r['checks']);
     }
 
     public function test_output_always_has_required_keys(): void
@@ -493,6 +493,45 @@ final class AtlasExternalBrainMuscleReadinessContractTest extends TestCase
             'max_attempts'         => 3,
         ]));
         $this->assertTrue($this->findCheck($r, 'give_back_escape_hatch')['passed']);
+    }
+
+    // ── worker_capability_fit check ───────────────────────────────────────────
+
+    public function test_passes_worker_capability_fit_when_no_capabilities_supplied(): void
+    {
+        $r = $this->contract->check($this->readySpec());
+        $this->assertTrue($this->findCheck($r, 'worker_capability_fit')['passed']);
+    }
+
+    public function test_fails_worker_capability_fit_when_no_capability_matches_task_family_risk_or_tier(): void
+    {
+        $r = $this->contract->check($this->readySpec([
+            'task_family'         => 'drift_detection',
+            'model_tier'          => 'heavy',
+            'worker_capabilities' => [
+                ['task_families' => ['copywriting'], 'risk_levels' => ['low'], 'model_tiers' => ['light']],
+            ],
+        ]));
+
+        $check = $this->findCheck($r, 'worker_capability_fit');
+        $this->assertFalse($check['passed']);
+        $this->assertStringContainsString('no_worker_capability_matches', $check['reason']);
+        $this->assertFalse($r['ready']);
+    }
+
+    public function test_passes_worker_capability_fit_when_a_capability_matches(): void
+    {
+        $r = $this->contract->check($this->readySpec([
+            'task_family'         => 'drift_detection',
+            'model_tier'          => 'heavy',
+            'worker_capabilities' => [
+                ['task_families' => ['copywriting'], 'risk_levels' => ['low'], 'model_tiers' => ['light']],
+                ['task_families' => ['drift_detection'], 'risk_levels' => ['low'], 'model_tiers' => ['heavy']],
+            ],
+        ]));
+
+        $this->assertTrue($this->findCheck($r, 'worker_capability_fit')['passed']);
+        $this->assertTrue($r['ready']);
     }
 
     // ── failure category classification ───────────────────────────────────────
