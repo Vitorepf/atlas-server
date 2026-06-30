@@ -61,7 +61,8 @@ final class AtlasSelfConstructionNextFrontierSelector
                     : 'unresolved blocker '.$blockerId.' even without capability lift — remove to unblock',
                 'owner_organ' => $organ,
                 'required_gates' => ['verification_court', 'merge_governor'],
-                'expected_evidence' => ['blocker_removed_test_green', 'no_regression_test_green'],
+                'required_evidence' => ['blocker_removed_test_green', 'no_regression_test_green'],
+                'next_packet_lane' => 'self_construction_blocker_removal',
                 'priority_class' => 1,
             ];
         }
@@ -72,7 +73,8 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'rationale' => 'canonical organ '.$organ.' has no coverage row',
                 'owner_organ' => $organ,
                 'required_gates' => ['organ_contract_gate'],
-                'expected_evidence' => ['organ_implementation_surface_present', 'organ_test_evidence_requirement_present'],
+                'required_evidence' => ['organ_implementation_surface_present', 'organ_test_evidence_requirement_present'],
+                'next_packet_lane' => 'self_construction_coverage',
                 'priority_class' => 2,
             ];
         }
@@ -89,7 +91,8 @@ final class AtlasSelfConstructionNextFrontierSelector
                 'rationale' => 'lesson class '.$class.' repeated '.((int) $g['repeat_count']).' times — consolidate into packet template',
                 'owner_organ' => 'learning_transfer',
                 'required_gates' => ['lesson_candidate_gate'],
-                'expected_evidence' => ['packet_template_update_lesson_tag'],
+                'required_evidence' => ['packet_template_update_lesson_tag'],
+                'next_packet_lane' => 'self_construction_lesson_consolidation',
                 'priority_class' => 3,
             ];
         }

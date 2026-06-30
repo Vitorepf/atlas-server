@@ -82,6 +82,29 @@ final class AtlasSelfConstructionNextFrontierSelectorTest extends TestCase
         $this->assertSame($sorted, $priorities, 'priority_class must be non-decreasing across the frontier');
     }
 
+    public function test_each_frontier_row_has_rationale_required_evidence_and_next_packet_lane(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
+            ['deltas' => ['capability_coverage' => 2]],
+            [['organ' => 'verif', 'blocker_id' => 'b1']],
+            ['cortex'],
+            [['class' => 'scope_gap', 'repeat_count' => 2]],
+        );
+
+        foreach ($verdict['frontier'] as $row) {
+            $this->assertNotEmpty($row['rationale'], 'rationale must be non-empty');
+            $this->assertIsArray($row['required_evidence']);
+            $this->assertNotEmpty($row['required_evidence'], 'required_evidence must be non-empty');
+            $this->assertIsString($row['next_packet_lane']);
+            $this->assertNotEmpty($row['next_packet_lane'], 'next_packet_lane must be non-empty');
+        }
+
+        $byKind = array_column($verdict['frontier'], 'next_packet_lane', 'kind');
+        $this->assertSame('self_construction_blocker_removal', $byKind[AtlasSelfConstructionNextFrontierSelector::KIND_BLOCKER_REMOVAL]);
+        $this->assertSame('self_construction_coverage', $byKind[AtlasSelfConstructionNextFrontierSelector::KIND_COVERAGE_COMPLETION]);
+        $this->assertSame('self_construction_lesson_consolidation', $byKind[AtlasSelfConstructionNextFrontierSelector::KIND_LESSON_CONSOLIDATION]);
+    }
+
     public function test_selector_never_creates_executable_packets(): void
     {
         $verdict = (new AtlasSelfConstructionNextFrontierSelector)->select(
