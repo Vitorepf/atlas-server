@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\NormalizesToStringList;
+
 /**
  * PART 2 · the SWARM PROOF — the conflict-free X-RAY (the judging instrument the operator's loop demands).
  *
@@ -33,7 +35,7 @@ final class AtlasTaskSwarmProofService
     public const SCHEMA = 'atlas.task_serving.swarm_proof.v1';
 
     /** Envelope statuses that are HONEST for a `next` call (empty/all-doomed queue is honest; an error is not). */
-    public const HONEST_NEXT_STATUSES = ['served', 'no_claimable_task', 'no_self_sufficient_task'];
+    public const HONEST_NEXT_STATUSES = ['served', 'no_claimable_task', 'no_self_sufficient_task', 'waiting_on_dependencies'];
 
     /**
      * Judge a multi-round, multi-client run. Pure: same observations ⇒ byte-identical verdict.
@@ -51,6 +53,7 @@ final class AtlasTaskSwarmProofService
         $totalObservations = 0;
         $totalServed = 0;
         $totalNoClaimable = 0;
+        $totalWaitingOnDependencies = 0;
         $servedDistinctSum = 0;
 
         foreach ($rounds as $roundIndex => $round) {
@@ -75,6 +78,12 @@ final class AtlasTaskSwarmProofService
                         'status' => $status,
                         'reason' => $exit !== 0 ? 'nonzero_exit' : 'dishonest_status',
                     ];
+
+                    continue;
+                }
+
+                if ($status === 'waiting_on_dependencies') {
+                    $totalWaitingOnDependencies++;
 
                     continue;
                 }
@@ -147,6 +156,7 @@ final class AtlasTaskSwarmProofService
                 'observations' => $totalObservations,
                 'served' => $totalServed,
                 'no_claimable_task' => $totalNoClaimable,
+                'waiting_on_dependencies' => $totalWaitingOnDependencies,
                 'served_distinct_across_rounds' => $servedDistinctSum,
             ],
         ];
