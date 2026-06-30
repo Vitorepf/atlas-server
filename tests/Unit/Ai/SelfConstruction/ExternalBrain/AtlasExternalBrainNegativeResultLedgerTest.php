@@ -269,4 +269,165 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
         $l->purgeExpired(5000);
         $this->assertSame(1, $l->list()['count']);
     }
+
+    // ── recordOutcome: negative-result learning ────────────────────────────────
+
+    private function validOutcome(array $overrides = []): array
+    {
+        return array_merge([
+            'family' => 'external_brain',
+            'target' => 'app/Services/Foo/Bar.php',
+            'root_cause' => 'contradictory_acceptance',
+            'avoid_pattern' => 'do not re-propose wiring tasks against this target without spec clarification',
+        ], $overrides);
+    }
+
+    public function test_record_outcome_accepts_valid_entry(): void
+    {
+        $l = $this->ledger();
+        $result = $l->recordOutcome($this->validOutcome());
+
+        $this->assertSame(AtlasExternalBrainNegativeResultLedger::SCHEMA, $result['schema']);
+        $this->assertTrue($result['accepted']);
+        $this->assertSame('external_brain', $result['entry']['family']);
+        $this->assertSame('app/Services/Foo/Bar.php', $result['entry']['target']);
+        $this->assertSame('contradictory_acceptance', $result['entry']['root_cause']);
+        $this->assertArrayHasKey('avoid_pattern', $result['entry']);
+        $this->assertArrayHasKey('retry_after_condition', $result['entry']);
+    }
+
+    public function test_record_outcome_rejects_missing_family(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome(['family' => '']));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('family_missing', $result['rejection_reason']);
+    }
+
+    public function test_record_outcome_rejects_missing_target(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome(['target' => '']));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('target_missing', $result['rejection_reason']);
+    }
+
+    public function test_record_outcome_rejects_missing_root_cause(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome(['root_cause' => '']));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('root_cause_missing', $result['rejection_reason']);
+    }
+
+    public function test_record_outcome_rejects_missing_avoid_pattern(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome(['avoid_pattern' => '']));
+        $this->assertFalse($result['accepted']);
+        $this->assertSame('avoid_pattern_missing', $result['rejection_reason']);
+    }
+
+    public function test_permanent_root_causes_classify_as_permanent(): void
+    {
+        foreach (['poison', 'contradictory_acceptance', 'capability_already_exists', 'forbidden_target'] as $cause) {
+            $result = $this->ledger()->recordOutcome($this->validOutcome(['root_cause' => $cause, 'target' => "t-{$cause}"]));
+            $this->assertSame('permanent', $result['entry']['permanence'], "{$cause} should be permanent");
+        }
+    }
+
+    public function test_temporary_root_causes_classify_as_temporary(): void
+    {
+        foreach (['missing_dependency', 'stale_context'] as $cause) {
+            $result = $this->ledger()->recordOutcome($this->validOutcome(['root_cause' => $cause, 'target' => "t-{$cause}"]));
+            $this->assertSame('temporary', $result['entry']['permanence'], "{$cause} should be temporary");
+        }
+    }
+
+    public function test_unknown_root_cause_defaults_to_temporary(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome(['root_cause' => 'unclear_spec']));
+        $this->assertSame('temporary', $result['entry']['permanence']);
+    }
+
+    public function test_explicit_permanence_overrides_root_cause_default(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome(['root_cause' => 'stale_context', 'permanence' => 'permanent']));
+        $this->assertSame('permanent', $result['entry']['permanence']);
+    }
+
+    public function test_retry_after_condition_is_stored(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome([
+            'root_cause' => 'missing_dependency',
+            'retry_after_condition' => 'dependency_published',
+        ]));
+        $this->assertSame('dependency_published', $result['entry']['retry_after_condition']);
+    }
+
+    public function test_should_avoid_task_true_for_recorded_pair(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome());
+
+        $result = $l->shouldAvoidTask('external_brain', 'app/Services/Foo/Bar.php');
+        $this->assertTrue($result['avoid']);
+        $this->assertNotNull($result['rule']);
+    }
+
+    public function test_should_avoid_task_false_for_unrelated_target(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome());
+
+        $result = $l->shouldAvoidTask('external_brain', 'app/Services/Unrelated/Baz.php');
+        $this->assertFalse($result['avoid']);
+        $this->assertNull($result['rule']);
+
+        // Unrelated family/target combo is never blocked by another family's avoid rule.
+        $other = $l->shouldAvoidTask('other_family', 'app/Services/Foo/Bar.php');
+        $this->assertFalse($other['avoid']);
+    }
+
+    public function test_summarize_avoid_rules_returns_all_recorded_rules(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['target' => 'a.php']));
+        $l->recordOutcome($this->validOutcome(['target' => 'b.php']));
+
+        $result = $l->summarizeAvoidRules();
+        $this->assertSame(2, $result['count']);
+    }
+
+    public function test_summarize_avoid_rules_filters_by_family(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['family' => 'external_brain', 'target' => 'a.php']));
+        $l->recordOutcome($this->validOutcome(['family' => 'self_construction', 'target' => 'b.php']));
+
+        $result = $l->summarizeAvoidRules(['family' => 'external_brain']);
+        $this->assertSame(1, $result['count']);
+        $this->assertSame('external_brain', $result['rules'][0]['family']);
+    }
+
+    public function test_summarize_avoid_rules_filters_by_permanence(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'poison', 'target' => 'a.php']));
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'stale_context', 'target' => 'b.php']));
+
+        $permanent = $l->summarizeAvoidRules(['permanence' => 'permanent']);
+        $this->assertSame(1, $permanent['count']);
+        $this->assertSame('poison', $permanent['rules'][0]['root_cause']);
+
+        $temporary = $l->summarizeAvoidRules(['permanence' => 'temporary']);
+        $this->assertSame(1, $temporary['count']);
+    }
+
+    public function test_second_record_outcome_replaces_first_for_same_family_target(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'stale_context']));
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'poison']));
+
+        $result = $l->summarizeAvoidRules();
+        $this->assertSame(1, $result['count']);
+        $this->assertSame('poison', $result['rules'][0]['root_cause']);
+    }
 }

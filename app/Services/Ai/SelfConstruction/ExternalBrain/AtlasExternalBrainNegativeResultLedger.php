@@ -66,6 +66,23 @@ final class AtlasExternalBrainNegativeResultLedger
     /** @var array<string,array<string,mixed>> keyed by dedup key */
     private array $entries = [];
 
+    /** @var array<string,array<string,mixed>> keyed by family||target */
+    private array $outcomeEntries = [];
+
+    /** Root causes that can never be fixed by retrying the same target — permanent avoid. */
+    private const PERMANENT_ROOT_CAUSES = [
+        'poison',
+        'contradictory_acceptance',
+        'capability_already_exists',
+        'forbidden_target',
+    ];
+
+    /** Root causes that are situational and may clear on their own — temporary avoid. */
+    private const TEMPORARY_ROOT_CAUSES = [
+        'missing_dependency',
+        'stale_context',
+    ];
+
     /**
      * Record a negative finding.  Replaces any prior entry with the same (surface, method) pair.
      *
@@ -221,5 +238,109 @@ final class AtlasExternalBrainNegativeResultLedger
     private function dedupKey(string $surface, string $method): string
     {
         return $surface.'||'.$method;
+    }
+
+    /**
+     * Records a rejected spec, give_back, poisoned packet, or low-yield
+     * search as reusable avoid-pattern learning. Replaces any prior entry
+     * for the same (family, target) pair.
+     *
+     * permanence is derived from root_cause when not explicitly supplied:
+     *   PERMANENT_ROOT_CAUSES (poison, contradictory_acceptance,
+     *     capability_already_exists, forbidden_target) -> permanent
+     *   TEMPORARY_ROOT_CAUSES (missing_dependency, stale_context) -> temporary
+     *   anything else -> temporary (assume retryable unless proven otherwise)
+     *
+     * @param  array<string,mixed>  $entry  { family, target, root_cause,
+     *   avoid_pattern, retry_after_condition?, permanence? }
+     * @return array<string,mixed>
+     */
+    public function recordOutcome(array $entry): array
+    {
+        $family = trim((string) ($entry['family'] ?? ''));
+        $target = trim((string) ($entry['target'] ?? ''));
+        $rootCause = trim((string) ($entry['root_cause'] ?? ''));
+        $avoidPattern = trim((string) ($entry['avoid_pattern'] ?? ''));
+
+        if ($family === '') {
+            return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'family_missing'];
+        }
+        if ($target === '') {
+            return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'target_missing'];
+        }
+        if ($rootCause === '') {
+            return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'root_cause_missing'];
+        }
+        if ($avoidPattern === '') {
+            return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'avoid_pattern_missing'];
+        }
+
+        $permanence = trim((string) ($entry['permanence'] ?? ''));
+        if ($permanence !== 'permanent' && $permanence !== 'temporary') {
+            $permanence = in_array($rootCause, self::PERMANENT_ROOT_CAUSES, true) ? 'permanent' : 'temporary';
+        }
+
+        $stored = [
+            'family' => $family,
+            'target' => $target,
+            'root_cause' => $rootCause,
+            'avoid_pattern' => $avoidPattern,
+            'retry_after_condition' => (string) ($entry['retry_after_condition'] ?? ''),
+            'permanence' => $permanence,
+        ];
+
+        $this->outcomeEntries[$this->outcomeKey($family, $target)] = $stored;
+
+        return ['schema' => self::SCHEMA, 'accepted' => true, 'entry' => $stored];
+    }
+
+    /**
+     * Checks whether a specific (family, target) pair has a recorded avoid
+     * rule. Never blocks unrelated families/targets — only an exact match
+     * triggers avoid=true.
+     *
+     * @return array<string,mixed>
+     */
+    public function shouldAvoidTask(string $family, string $target): array
+    {
+        $key = $this->outcomeKey($family, $target);
+        if (! isset($this->outcomeEntries[$key])) {
+            return ['schema' => self::SCHEMA, 'avoid' => false, 'rule' => null];
+        }
+
+        return ['schema' => self::SCHEMA, 'avoid' => true, 'rule' => $this->outcomeEntries[$key]];
+    }
+
+    /**
+     * Summarizes recorded avoid rules for future Task Fabric admission,
+     * optionally filtered by family and/or permanence.
+     *
+     * @param  array<string,mixed>  $options  { family?: string, permanence?: string }
+     * @return array<string,mixed>
+     */
+    public function summarizeAvoidRules(array $options = []): array
+    {
+        $filterFamily = isset($options['family']) ? trim((string) $options['family']) : null;
+        $filterPermanence = isset($options['permanence']) ? trim((string) $options['permanence']) : null;
+
+        $rules = array_values($this->outcomeEntries);
+
+        if ($filterFamily !== null && $filterFamily !== '') {
+            $rules = array_values(array_filter($rules, fn (array $r): bool => $r['family'] === $filterFamily));
+        }
+        if ($filterPermanence !== null && $filterPermanence !== '') {
+            $rules = array_values(array_filter($rules, fn (array $r): bool => $r['permanence'] === $filterPermanence));
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'rules' => $rules,
+            'count' => count($rules),
+        ];
+    }
+
+    private function outcomeKey(string $family, string $target): string
+    {
+        return $family.'||'.$target;
     }
 }
