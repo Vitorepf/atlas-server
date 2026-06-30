@@ -37,6 +37,7 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
     public function apply(array $preflight, array $proposal): array
     {
         $blockers = [];
+        $needsMoreEvidence = false;
 
         if ((string) ($preflight['decision'] ?? '') !== 'allow') {
             $blockers[] = 'preflight_not_allow:'.(string) ($preflight['decision'] ?? 'unknown');
@@ -45,7 +46,7 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
         $files = array_values((array) ($proposal['files'] ?? []));
 
         if ($blockers !== []) {
-            return $this->envelope([], $blockers);
+            return $this->envelope([], $blockers, false, false);
         }
 
         $applied = [];
@@ -61,6 +62,7 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
             $contents = (string) ($file['contents'] ?? '');
             $mode = (string) ($file['mode'] ?? 'create');
             $expectedPreimage = (string) ($file['expected_preimage_hash'] ?? '');
+            $patchArtifactHash = (string) ($file['patch_artifact_hash'] ?? '');
 
             if ($path === '' || str_contains($path, '..')) {
                 $blockers[] = 'path_traversal_or_empty:'.$path;
@@ -79,14 +81,27 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
                 continue;
             }
 
+            if ($patchArtifactHash === '') {
+                $blockers[] = 'missing_patch_artifact_hash:'.$path;
+                $needsMoreEvidence = true;
+
+                continue;
+            }
+
             if ($mode === 'modify') {
+                if ($expectedPreimage === '') {
+                    $blockers[] = 'missing_rollback_preimage:'.$path;
+                    $needsMoreEvidence = true;
+
+                    continue;
+                }
                 if (! is_file($absolutePath)) {
                     $blockers[] = 'modify_target_missing:'.$path;
 
                     continue;
                 }
                 $currentHash = hash_file(self::HASH_ALGO, $absolutePath);
-                if ($expectedPreimage !== '' && $currentHash !== $expectedPreimage) {
+                if ($currentHash !== $expectedPreimage) {
                     $blockers[] = 'preimage_drift:'.$path;
 
                     continue;
@@ -116,7 +131,9 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
             $applied[] = ['path' => $path, 'mode' => $mode, 'bytes_written' => (int) $bytes];
         }
 
-        return $this->envelope($applied, $blockers);
+        $rollbackRequired = array_filter($applied, static fn (array $a): bool => $a['mode'] === 'modify') !== [];
+
+        return $this->envelope($applied, $blockers, $rollbackRequired, $needsMoreEvidence);
     }
 
     /**
@@ -124,13 +141,21 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
      * @param  list<string>  $blockers
      * @return array<string,mixed>
      */
-    private function envelope(array $applied, array $blockers): array
+    private function envelope(array $applied, array $blockers, bool $rollbackRequired, bool $needsMoreEvidence): array
     {
+        $evidenceHash = hash(
+            self::HASH_ALGO,
+            (string) json_encode(array_column($applied, 'path'), JSON_UNESCAPED_SLASHES),
+        );
+
         return [
             'schema_version' => self::SCHEMA,
-            'applied' => $applied,
+            'applied_files' => $applied,
             'refused' => $blockers !== [],
             'blockers' => array_values($blockers),
+            'evidence_hash' => $evidenceHash,
+            'rollback_required' => $rollbackRequired,
+            'needs_more_evidence' => $needsMoreEvidence,
         ];
     }
 }

@@ -50,12 +50,12 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunnerTest extends TestCa
             ['decision' => 'allow'],
             [
                 'allowed_files' => ['app/Foo.php'],
-                'files' => [['path' => 'app/Foo.php', 'contents' => "hello\n", 'mode' => 'create']],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "hello\n", 'mode' => 'create', 'patch_artifact_hash' => 'abc123']],
             ],
         );
 
         $this->assertFalse($verdict['refused']);
-        $this->assertSame('app/Foo.php', $verdict['applied'][0]['path']);
+        $this->assertSame('app/Foo.php', $verdict['applied_files'][0]['path']);
         $this->assertSame("hello\n", file_get_contents($this->root.'/app/Foo.php'));
     }
 
@@ -70,7 +70,7 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunnerTest extends TestCa
             ['decision' => 'allow'],
             [
                 'allowed_files' => ['app/Foo.php'],
-                'files' => [['path' => 'app/Foo.php', 'contents' => "new\n", 'mode' => 'modify', 'expected_preimage_hash' => $expected]],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "new\n", 'mode' => 'modify', 'expected_preimage_hash' => $expected, 'patch_artifact_hash' => 'def456']],
             ],
         );
 
@@ -88,7 +88,7 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunnerTest extends TestCa
             ['decision' => 'allow'],
             [
                 'allowed_files' => ['app/Foo.php'],
-                'files' => [['path' => 'app/Foo.php', 'contents' => "next\n", 'mode' => 'modify', 'expected_preimage_hash' => 'wrong_hash']],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "next\n", 'mode' => 'modify', 'expected_preimage_hash' => 'wrong_hash', 'patch_artifact_hash' => 'xyz']],
             ],
         );
 
@@ -137,6 +137,69 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunnerTest extends TestCa
 
         $this->assertTrue($verdict['refused']);
         $this->assertContains('preflight_not_allow:reject', $verdict['blockers']);
+    }
+
+    public function test_missing_patch_artifact_hash_produces_needs_more_evidence(): void
+    {
+        $runner = new AtlasSelfConstructionNativeScopedPatchApplyRunner($this->root);
+        $verdict = $runner->apply(
+            ['decision' => 'allow'],
+            [
+                'allowed_files' => ['app/Foo.php'],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "x\n", 'mode' => 'create']],
+            ],
+        );
+
+        $this->assertTrue($verdict['refused']);
+        $this->assertTrue($verdict['needs_more_evidence']);
+        $this->assertContains('missing_patch_artifact_hash:app/Foo.php', $verdict['blockers']);
+    }
+
+    public function test_missing_rollback_preimage_on_modify_produces_needs_more_evidence(): void
+    {
+        @mkdir($this->root.'/app', 0o755, true);
+        file_put_contents($this->root.'/app/Foo.php', "old\n");
+
+        $runner = new AtlasSelfConstructionNativeScopedPatchApplyRunner($this->root);
+        $verdict = $runner->apply(
+            ['decision' => 'allow'],
+            [
+                'allowed_files' => ['app/Foo.php'],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "new\n", 'mode' => 'modify', 'patch_artifact_hash' => 'abc']],
+            ],
+        );
+
+        $this->assertTrue($verdict['refused']);
+        $this->assertTrue($verdict['needs_more_evidence']);
+        $this->assertContains('missing_rollback_preimage:app/Foo.php', $verdict['blockers']);
+    }
+
+    public function test_allowed_patch_returns_deterministic_evidence_hash_and_rollback_required(): void
+    {
+        $runner = new AtlasSelfConstructionNativeScopedPatchApplyRunner($this->root);
+        $v1 = $runner->apply(
+            ['decision' => 'allow'],
+            [
+                'allowed_files' => ['app/Foo.php'],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "x\n", 'mode' => 'create', 'patch_artifact_hash' => 'abc']],
+            ],
+        );
+
+        // Wipe and re-apply for determinism check.
+        @unlink($this->root.'/app/Foo.php');
+        $v2 = $runner->apply(
+            ['decision' => 'allow'],
+            [
+                'allowed_files' => ['app/Foo.php'],
+                'files' => [['path' => 'app/Foo.php', 'contents' => "x\n", 'mode' => 'create', 'patch_artifact_hash' => 'abc']],
+            ],
+        );
+
+        $this->assertFalse($v1['refused']);
+        $this->assertSame(64, strlen($v1['evidence_hash']));
+        $this->assertSame($v1['evidence_hash'], $v2['evidence_hash']);
+        $this->assertFalse($v1['rollback_required'], 'create mode must not set rollback_required');
+        $this->assertFalse($v1['needs_more_evidence']);
     }
 
     public function test_runner_does_not_call_git_or_provider(): void
