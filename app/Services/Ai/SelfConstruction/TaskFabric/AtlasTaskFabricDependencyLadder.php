@@ -39,12 +39,17 @@ final class AtlasTaskFabricDependencyLadder
                 continue;
             }
             $id = (string) $p['id'];
+            // prerequisite_evidence: null = not declared (skip check); [] = declared but empty (surface blocker)
+            $prereqEvidence = array_key_exists('prerequisite_evidence', $p)
+                ? array_values(array_map('strval', (array) $p['prerequisite_evidence']))
+                : null;
             $byId[$id] = [
                 'id' => $id,
                 'produces' => array_values(array_map('strval', (array) ($p['produces'] ?? []))),
                 'consumes' => array_values(array_map('strval', (array) ($p['consumes'] ?? []))),
                 'allowed_files' => array_values(array_map('strval', (array) ($p['allowed_files'] ?? []))),
                 'risk_class' => (string) ($p['risk_class'] ?? ''),
+                'prerequisite_evidence' => $prereqEvidence,
             ];
             foreach ($byId[$id]['produces'] as $sym) {
                 $producesIndex[$sym][] = $id;
@@ -54,7 +59,7 @@ final class AtlasTaskFabricDependencyLadder
         $blockers = [];
         $dependsOn = [];
 
-        // Build depends_on edges; flag missing producers.
+        // Build depends_on edges; flag missing producers; check prerequisite evidence.
         foreach ($byId as $id => $row) {
             $dependsOn[$id] = [];
             foreach ($row['consumes'] as $sym) {
@@ -64,8 +69,15 @@ final class AtlasTaskFabricDependencyLadder
                     continue;
                 }
                 foreach ($producesIndex[$sym] as $producerId) {
-                    if ($producerId !== $id && ! in_array($producerId, $dependsOn[$id], true)) {
-                        $dependsOn[$id][] = $producerId;
+                    if ($producerId !== $id) {
+                        // If producer explicitly declares prerequisite_evidence but left it empty, surface blocker.
+                        $producerEvidence = $byId[$producerId]['prerequisite_evidence'] ?? null;
+                        if ($producerEvidence !== null && $producerEvidence === []) {
+                            $blockers[] = 'missing_prerequisite_evidence:'.$sym;
+                        }
+                        if (! in_array($producerId, $dependsOn[$id], true)) {
+                            $dependsOn[$id][] = $producerId;
+                        }
                     }
                 }
             }
@@ -75,6 +87,7 @@ final class AtlasTaskFabricDependencyLadder
         // Topological sort into waves (Kahn-style). Detect cycles.
         $remaining = $byId;
         $waves = [];
+        $conflictReasons = [];
         while ($remaining !== []) {
             $thisWave = [];
             foreach ($remaining as $id => $row) {
@@ -100,10 +113,19 @@ final class AtlasTaskFabricDependencyLadder
             sort($thisWave, SORT_STRING);
             // Within-wave allowed_files conflict detection.
             $seen = [];
+            $waveIndex = count($waves);
             foreach ($thisWave as $id) {
                 foreach ($byId[$id]['allowed_files'] as $f) {
                     if (isset($seen[$f]) && $seen[$f] !== $id) {
                         $blockers[] = 'allowed_files_conflict:'.$f;
+                        $conflictPair = [$seen[$f], $id];
+                        sort($conflictPair, SORT_STRING);
+                        $conflictReasons[] = [
+                            'reason_code' => 'file_collision',
+                            'file'        => $f,
+                            'packet_ids'  => $conflictPair,
+                            'wave_index'  => $waveIndex,
+                        ];
                     }
                     $seen[$f] = $id;
                 }
@@ -120,6 +142,11 @@ final class AtlasTaskFabricDependencyLadder
         // Sort depends_on keys for stable output.
         ksort($dependsOn);
 
-        return ['waves' => $waves, 'depends_on' => $dependsOn, 'blockers' => $blockers];
+        return [
+            'waves'           => $waves,
+            'depends_on'      => $dependsOn,
+            'blockers'        => $blockers,
+            'conflict_reasons' => $conflictReasons,
+        ];
     }
 }

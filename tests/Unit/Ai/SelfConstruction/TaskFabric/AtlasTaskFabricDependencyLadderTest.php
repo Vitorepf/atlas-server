@@ -76,6 +76,62 @@ final class AtlasTaskFabricDependencyLadderTest extends TestCase
         $this->assertContains('allowed_files_conflict:app/Shared.php', $r['blockers']);
     }
 
+    // ── prerequisite_evidence checks ─────────────────────────────────────────
+
+    public function test_producer_with_empty_prerequisite_evidence_surfaces_blocker(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'prod', 'produces' => ['Widget'], 'allowed_files' => ['app/Widget.php'], 'prerequisite_evidence' => []],
+            ['id' => 'cons', 'consumes' => ['Widget'], 'allowed_files' => ['app/Consumer.php']],
+        ]);
+        $this->assertContains('missing_prerequisite_evidence:Widget', $r['blockers']);
+    }
+
+    public function test_producer_with_prerequisite_evidence_does_not_surface_blocker(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'prod', 'produces' => ['Widget'], 'allowed_files' => ['app/Widget.php'], 'prerequisite_evidence' => ['tests_or_gates_result']],
+            ['id' => 'cons', 'consumes' => ['Widget'], 'allowed_files' => ['app/Consumer.php']],
+        ]);
+        $this->assertNotContains('missing_prerequisite_evidence:Widget', $r['blockers']);
+    }
+
+    public function test_producer_without_prerequisite_evidence_field_does_not_surface_blocker(): void
+    {
+        // Field absent (not declared) means we don't check — backward compat.
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'prod', 'produces' => ['Widget'], 'allowed_files' => ['app/Widget.php']],
+            ['id' => 'cons', 'consumes' => ['Widget'], 'allowed_files' => ['app/Consumer.php']],
+        ]);
+        $this->assertNotContains('missing_prerequisite_evidence:Widget', $r['blockers']);
+    }
+
+    // ── conflict_reasons ──────────────────────────────────────────────────────
+
+    public function test_conflict_reasons_empty_when_no_file_conflicts(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'A', 'allowed_files' => ['app/A.php']],
+            ['id' => 'B', 'allowed_files' => ['app/B.php']],
+        ]);
+        $this->assertSame([], $r['conflict_reasons']);
+    }
+
+    public function test_conflict_reasons_contains_packet_ids_and_reason_code_for_file_collision(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'x', 'allowed_files' => ['app/Shared.php']],
+            ['id' => 'y', 'allowed_files' => ['app/Shared.php']],
+        ]);
+        $this->assertCount(1, $r['conflict_reasons']);
+        $cr = $r['conflict_reasons'][0];
+        $this->assertSame('file_collision', $cr['reason_code']);
+        $this->assertSame('app/Shared.php', $cr['file']);
+        // packet_ids are sorted deterministically
+        $this->assertSame(['x', 'y'], $cr['packet_ids']);
+        $this->assertSame(0, $cr['wave_index']);
+    }
+
     public function test_determinism_two_calls_same_input_identical_output(): void
     {
         $input = [
