@@ -60,7 +60,15 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGate
         $readOnly = (bool) ($experiment['read_only'] ?? false);
         $reversible = (bool) ($experiment['reversible'] ?? false);
         $rollback = is_array($experiment['rollback_plan'] ?? null) ? $experiment['rollback_plan'] : [];
-        $evidenceRefs = array_values((array) ($experiment['evidence_refs'] ?? []));
+        $evidenceRefs = array_values(array_unique(array_filter(
+            array_map('trim', (array) ($experiment['evidence_refs'] ?? [])),
+            fn ($s) => $s !== '',
+        )));
+
+        // Claiming both modes is ambiguous — block before either path can take precedence.
+        if ($readOnly && $reversible) {
+            return $this->envelope(self::ACTION_BLOCK, ['ambiguous_mode'], self::CLASS_REJECTED);
+        }
 
         if ($readOnly) {
             return $this->envelope(self::ACTION_ALLOW, [], self::CLASS_READ_ONLY);

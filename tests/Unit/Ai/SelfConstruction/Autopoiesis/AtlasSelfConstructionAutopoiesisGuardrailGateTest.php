@@ -86,4 +86,39 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGateTest extends TestCase
         $this->assertFalse($verdict['accepted']);
         $this->assertContains('experiment_neither_read_only_nor_reversible', $verdict['blockers']);
     }
+
+    public function test_both_read_only_and_reversible_blocks_with_ambiguous_mode(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'read_only' => true,
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1'],
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('ambiguous_mode', $verdict['blockers']);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_REJECTED, $verdict['allowed_class']);
+    }
+
+    public function test_whitespace_only_evidence_refs_are_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['  ', "\t", ''],
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_missing_evidence_refs', $verdict['blockers']);
+    }
+
+    public function test_duplicate_evidence_refs_are_normalized_and_accepted(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1', 'receipt:r1', '  receipt:r2  '],
+        ]);
+        $this->assertTrue($verdict['accepted']);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_REVERSIBLE, $verdict['allowed_class']);
+    }
 }
