@@ -9,7 +9,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * spec quality, worker fit, queue state, evidence strength, and complexity signals.
  *
  * PRIMARY CAUSE hierarchy (first match wins):
+ *   scope_failure           — spec.forbidden_files_detected OR spec.missing_allowed_files
  *   poor_spec_quality       — spec quality_score < 0.4 OR missing acceptance_criteria
+ *   poisoned_acceptance     — spec.contradictory_acceptance AND outcome=give_back
+ *   ambiguous_contract      — outcome.contradictory_evidence
  *   worker_mismatch         — spec is adequate BUT task_class is in worker avoid_task_classes
  *   shallow_evidence        — outcome=success but evidence is shallow or evidence_strength < 0.4
  *   implementation_complexity — high complexity AND give_back or failed_gate outcome
@@ -27,7 +30,10 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 {
     public const SCHEMA = 'atlas.external_brain.task_outcome_causal_attributor.v1';
 
+    public const CAUSE_SCOPE_FAILURE          = 'scope_failure';
     public const CAUSE_POOR_SPEC             = 'poor_spec_quality';
+    public const CAUSE_POISONED_ACCEPTANCE   = 'poisoned_acceptance';
+    public const CAUSE_AMBIGUOUS_CONTRACT    = 'ambiguous_contract';
     public const CAUSE_WORKER_MISMATCH       = 'worker_mismatch';
     public const CAUSE_SHALLOW_EVIDENCE      = 'shallow_evidence';
     public const CAUSE_COMPLEXITY            = 'implementation_complexity';
@@ -63,10 +69,13 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
         $queue  = is_array($input['queue']   ?? null) ? $input['queue']   : [];
         $outcomeMap = is_array($input['outcome'] ?? null) ? $input['outcome'] : [];
 
-        $specQuality  = (float) ($spec['quality_score']           ?? 1.0);
-        $hasAC        = (bool)  ($spec['has_acceptance_criteria'] ?? true);
-        $evidenceSt   = (float) ($spec['evidence_strength']       ?? 1.0);
-        $complexity   = (string) ($spec['complexity']             ?? 'low');
+        $specQuality             = (float) ($spec['quality_score']           ?? 1.0);
+        $hasAC                   = (bool)  ($spec['has_acceptance_criteria'] ?? true);
+        $evidenceSt              = (float) ($spec['evidence_strength']       ?? 1.0);
+        $complexity              = (string) ($spec['complexity']             ?? 'low');
+        $forbiddenFilesDetected  = (bool)  ($spec['forbidden_files_detected'] ?? false);
+        $missingAllowedFiles     = (bool)  ($spec['missing_allowed_files']    ?? false);
+        $contradictoryAcceptance = (bool)  ($spec['contradictory_acceptance'] ?? false);
 
         $workerQuality      = (float) ($worker['quality_score']        ?? 1.0);
         $taskClass          = (string) ($worker['task_class']           ?? '');
@@ -79,9 +88,10 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 
         $contention   = (string) ($queue['contention_level'] ?? 'low');
 
-        $result        = (string) ($outcomeMap['result']         ?? 'success');
-        $hadEvidence   = (bool)   ($outcomeMap['had_evidence']   ?? true);
-        $shallowSuccess = (bool)  ($outcomeMap['shallow_success'] ?? false);
+        $result               = (string) ($outcomeMap['result']                ?? 'success');
+        $hadEvidence          = (bool)   ($outcomeMap['had_evidence']          ?? true);
+        $shallowSuccess       = (bool)   ($outcomeMap['shallow_success']       ?? false);
+        $contradictoryEvidence = (bool)  ($outcomeMap['contradictory_evidence'] ?? false);
 
         $isSuccess   = $result === 'success';
         $isGiveBack  = $result === 'give_back';
@@ -98,8 +108,18 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 
         // ── Primary cause hierarchy ───────────────────────────────────────────
 
+        // 0. Scope failure — forbidden or missing files; actionable originator fix
+        if ($forbiddenFilesDetected || $missingAllowedFiles) {
+            $primaryCause = self::CAUSE_SCOPE_FAILURE;
+            if ($forbiddenFilesDetected) {
+                $contributing[] = 'forbidden_files_detected:true';
+            }
+            if ($missingAllowedFiles) {
+                $contributing[] = 'missing_allowed_files:true';
+            }
+        }
         // 1. Poor spec — checked first; overrides everything except mismatch when spec is actually good
-        if ($poorSpec) {
+        elseif ($poorSpec) {
             $primaryCause = self::CAUSE_POOR_SPEC;
             $contributing[] = 'spec_quality:'.$specQuality;
             if (! $hasAC) {
@@ -109,7 +129,19 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
                 $contributing[] = 'outcome:give_back';
             }
         }
-        // 2. Worker mismatch — spec is adequate but wrong worker for this task class
+        // 2a. Poisoned acceptance — contradictory AC produced give_back
+        elseif ($contradictoryAcceptance && $isGiveBack) {
+            $primaryCause = self::CAUSE_POISONED_ACCEPTANCE;
+            $contributing[] = 'contradictory_acceptance:true';
+            $contributing[] = 'outcome:give_back';
+        }
+        // 2b. Ambiguous contract — contradictory evidence regardless of outcome
+        elseif ($contradictoryEvidence) {
+            $primaryCause = self::CAUSE_AMBIGUOUS_CONTRACT;
+            $contributing[] = 'contradictory_evidence:true';
+            $contributing[] = 'outcome:'.$result;
+        }
+        // 3. Worker mismatch — spec is adequate but wrong worker for this task class
         elseif ($workerMismatch) {
             $primaryCause = self::CAUSE_WORKER_MISMATCH;
             $contributing[] = 'task_class:'.$taskClass;
@@ -195,8 +227,11 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
 
     private function computeConfidence(string $primaryCause, bool $poorSpec, bool $workerMismatch, bool $isSuccess): string
     {
-        if (in_array($primaryCause, [self::CAUSE_POOR_SPEC, self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_GOOD_EXECUTION], true)) {
+        if (in_array($primaryCause, [self::CAUSE_SCOPE_FAILURE, self::CAUSE_POOR_SPEC, self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_GOOD_EXECUTION], true)) {
             return 'high';
+        }
+        if (in_array($primaryCause, [self::CAUSE_POISONED_ACCEPTANCE, self::CAUSE_AMBIGUOUS_CONTRACT], true)) {
+            return 'medium';
         }
         if ($primaryCause === self::CAUSE_UNKNOWN) {
             return 'low';
@@ -208,7 +243,10 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     private function recommendedAdjustment(string $primaryCause): string
     {
         return match ($primaryCause) {
+            self::CAUSE_SCOPE_FAILURE           => 'fix_scope_in_originator',
             self::CAUSE_POOR_SPEC               => 'improve_spec_quality',
+            self::CAUSE_POISONED_ACCEPTANCE     => 'resolve_contradictory_acceptance',
+            self::CAUSE_AMBIGUOUS_CONTRACT      => 'clarify_acceptance_criteria',
             self::CAUSE_WORKER_MISMATCH         => 'route_to_better_worker',
             self::CAUSE_ROUTING_FAMILY_MISMATCH => 'reassign_to_better_task_family',
             self::CAUSE_SHALLOW_EVIDENCE        => 'strengthen_evidence_requirement',
