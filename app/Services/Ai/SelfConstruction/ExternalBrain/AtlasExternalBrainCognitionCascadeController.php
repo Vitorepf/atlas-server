@@ -70,6 +70,118 @@ final class AtlasExternalBrainCognitionCascadeController
         'no_retirable_patterns_in_scope',
     ];
 
+    public const CASCADE_STAGE_READ_STATE = 'read_state';
+    public const CASCADE_STAGE_UNDERSTAND = 'understand';
+    public const CASCADE_STAGE_PROPOSE    = 'propose';
+    public const CASCADE_STAGE_CRITIQUE   = 'critique';
+    public const CASCADE_STAGE_REPAIR     = 'repair';
+    public const CASCADE_STAGE_ADMIT      = 'admit';
+    public const CASCADE_STAGE_FEEDBACK   = 'feedback';
+
+    private const CASCADE_STAGES = [
+        self::CASCADE_STAGE_READ_STATE,
+        self::CASCADE_STAGE_UNDERSTAND,
+        self::CASCADE_STAGE_PROPOSE,
+        self::CASCADE_STAGE_CRITIQUE,
+        self::CASCADE_STAGE_REPAIR,
+        self::CASCADE_STAGE_ADMIT,
+        self::CASCADE_STAGE_FEEDBACK,
+    ];
+
+    public const STAGE_STATUS_COMPLETED = 'completed';
+    public const STAGE_STATUS_SKIPPED   = 'skipped';
+    public const STAGE_STATUS_BLOCKED   = 'blocked';
+    public const STAGE_STATUS_PENDING   = 'pending';
+
+    /**
+     * Builds the deterministic high-impact task-origination cascade plan:
+     * read_state → understand → propose → critique → repair → admit → feedback.
+     *
+     * Fails closed: a high-impact task that skips critique, or a task
+     * requiring evidence repair that skips repair, is blocked at that stage
+     * and every later stage is reported pending — admission never proceeds
+     * past a skipped safety stage.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cascadePlan(array $input): array
+    {
+        $isHighImpact = (bool) ($input['is_high_impact'] ?? false);
+        $repairRequired = (bool) ($input['repair_required'] ?? false);
+
+        $done = [
+            self::CASCADE_STAGE_READ_STATE => (bool) ($input['state_read_done'] ?? false),
+            self::CASCADE_STAGE_UNDERSTAND => (bool) ($input['understanding_done'] ?? false),
+            self::CASCADE_STAGE_PROPOSE => (bool) ($input['candidates_proposed'] ?? false),
+            self::CASCADE_STAGE_CRITIQUE => (bool) ($input['critique_done'] ?? false),
+            self::CASCADE_STAGE_REPAIR => (bool) ($input['repair_done'] ?? false),
+        ];
+
+        // Fail-closed: a high-impact task MUST run critique; evidence repair
+        // MUST run when required. Neither stage may be silently skipped.
+        $stageRequired = [
+            self::CASCADE_STAGE_READ_STATE => true,
+            self::CASCADE_STAGE_UNDERSTAND => true,
+            self::CASCADE_STAGE_PROPOSE => true,
+            self::CASCADE_STAGE_CRITIQUE => $isHighImpact,
+            self::CASCADE_STAGE_REPAIR => $repairRequired,
+            self::CASCADE_STAGE_ADMIT => true,
+            self::CASCADE_STAGE_FEEDBACK => true,
+        ];
+
+        $stageStatus = [];
+        $blockedStage = null;
+        $canProceed = true;
+
+        foreach (self::CASCADE_STAGES as $stage) {
+            if (! $canProceed) {
+                $stageStatus[$stage] = self::STAGE_STATUS_PENDING;
+                continue;
+            }
+
+            if (in_array($stage, [self::CASCADE_STAGE_ADMIT, self::CASCADE_STAGE_FEEDBACK], true)) {
+                $stageStatus[$stage] = self::STAGE_STATUS_COMPLETED;
+                continue;
+            }
+
+            $required = $stageRequired[$stage] ?? true;
+            $isDone = $done[$stage] ?? false;
+
+            if (! $required) {
+                $stageStatus[$stage] = self::STAGE_STATUS_SKIPPED;
+                continue;
+            }
+
+            if ($isDone) {
+                $stageStatus[$stage] = self::STAGE_STATUS_COMPLETED;
+                continue;
+            }
+
+            $stageStatus[$stage] = self::STAGE_STATUS_BLOCKED;
+            $blockedStage = $stage;
+            $canProceed = false;
+        }
+
+        $nextRequiredAction = match ($blockedStage) {
+            self::CASCADE_STAGE_READ_STATE => 'read current evidence and queue state before proceeding',
+            self::CASCADE_STAGE_UNDERSTAND => 'build domain understanding of the scope before proposing candidates',
+            self::CASCADE_STAGE_PROPOSE => 'generate candidate tasks before critique',
+            self::CASCADE_STAGE_CRITIQUE => 'run critique on this high-impact task before any admission decision',
+            self::CASCADE_STAGE_REPAIR => 'repair the missing/invalid evidence before admission',
+            default => null,
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'cascade_stages' => self::CASCADE_STAGES,
+            'stage_status' => $stageStatus,
+            'blocked_stage' => $blockedStage,
+            'next_required_action' => $nextRequiredAction,
+            'admitted' => $blockedStage === null,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

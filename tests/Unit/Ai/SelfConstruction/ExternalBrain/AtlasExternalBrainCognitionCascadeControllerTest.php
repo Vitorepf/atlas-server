@@ -409,4 +409,122 @@ final class AtlasExternalBrainCognitionCascadeControllerTest extends TestCase
 
         $this->assertSame($this->controller()->control($input), $this->controller()->control($input));
     }
+
+    // ── cascadePlan(): explicit 7-stage origination cascade ───────────────────
+
+    private function fullyDone(array $overrides = []): array
+    {
+        return array_merge([
+            'is_high_impact' => true,
+            'state_read_done' => true,
+            'understanding_done' => true,
+            'candidates_proposed' => true,
+            'critique_done' => true,
+            'repair_required' => false,
+            'repair_done' => false,
+        ], $overrides);
+    }
+
+    public function test_cascade_plan_has_required_keys(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone());
+
+        foreach (['cascade_stages', 'stage_status', 'blocked_stage', 'next_required_action', 'admitted'] as $k) {
+            $this->assertArrayHasKey($k, $result);
+        }
+    }
+
+    public function test_cascade_plan_lists_all_seven_stages_in_order(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone());
+
+        $this->assertSame([
+            'read_state', 'understand', 'propose', 'critique', 'repair', 'admit', 'feedback',
+        ], $result['cascade_stages']);
+    }
+
+    public function test_fully_completed_high_impact_task_is_admitted(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone());
+
+        $this->assertTrue($result['admitted']);
+        $this->assertNull($result['blocked_stage']);
+        $this->assertSame('completed', $result['stage_status']['critique']);
+        $this->assertSame('completed', $result['stage_status']['feedback']);
+    }
+
+    public function test_high_impact_task_skipping_critique_fails_closed(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone(['critique_done' => false]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertSame('critique', $result['blocked_stage']);
+        $this->assertSame('blocked', $result['stage_status']['critique']);
+        $this->assertSame('pending', $result['stage_status']['repair']);
+        $this->assertSame('pending', $result['stage_status']['admit']);
+        $this->assertSame('pending', $result['stage_status']['feedback']);
+        $this->assertNotNull($result['next_required_action']);
+    }
+
+    public function test_low_impact_task_does_not_require_critique(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone([
+            'is_high_impact' => false,
+            'critique_done' => false,
+        ]));
+
+        $this->assertSame('skipped', $result['stage_status']['critique']);
+        $this->assertTrue($result['admitted']);
+    }
+
+    public function test_required_repair_skipped_fails_closed(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone([
+            'repair_required' => true,
+            'repair_done' => false,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertSame('repair', $result['blocked_stage']);
+        $this->assertSame('blocked', $result['stage_status']['repair']);
+        $this->assertSame('pending', $result['stage_status']['admit']);
+    }
+
+    public function test_repair_completed_when_required_admits_task(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone([
+            'repair_required' => true,
+            'repair_done' => true,
+        ]));
+
+        $this->assertTrue($result['admitted']);
+        $this->assertSame('completed', $result['stage_status']['repair']);
+    }
+
+    public function test_repair_not_required_is_skipped(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone(['repair_required' => false]));
+
+        $this->assertSame('skipped', $result['stage_status']['repair']);
+    }
+
+    public function test_earlier_stage_blocked_stops_at_first_failure(): void
+    {
+        $result = $this->controller()->cascadePlan($this->fullyDone([
+            'understanding_done' => false,
+            'candidates_proposed' => false,
+            'critique_done' => false,
+        ]));
+
+        $this->assertSame('understand', $result['blocked_stage']);
+        $this->assertSame('pending', $result['stage_status']['propose']);
+        $this->assertSame('pending', $result['stage_status']['critique']);
+    }
+
+    public function test_cascade_plan_is_deterministic(): void
+    {
+        $input = $this->fullyDone();
+
+        $this->assertSame($this->controller()->cascadePlan($input), $this->controller()->cascadePlan($input));
+    }
 }
