@@ -160,4 +160,97 @@ final class AtlasExternalBrainCrossProjectEvolutionProfileTest extends TestCase
 
         $this->assertSame('acme-payments', $p->projectId());
     }
+
+    // ── proof_gates, maturity_risk, lane_boundaries ───────────────────────────
+
+    public function test_atlas_profile_exposes_non_empty_proof_gates(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+
+        $this->assertNotEmpty($p->proofGates());
+        $this->assertContains('phpunit_green', $p->proofGates());
+    }
+
+    public function test_atlas_profile_has_low_maturity_risk(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+        $risk = $p->maturityRisk();
+
+        $this->assertSame('low', $risk['level']);
+        $this->assertNotEmpty($risk['factors']);
+    }
+
+    public function test_atlas_profile_lane_boundaries_cover_all_task_lanes(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+        $boundaries = $p->laneBoundaries();
+
+        foreach ($p->taskLanes() as $lane) {
+            $this->assertArrayHasKey($lane, $boundaries, "lane_boundaries must include lane '$lane'");
+            $this->assertNotEmpty($boundaries[$lane]['allowed_scope_prefixes']);
+            $this->assertNotEmpty($boundaries[$lane]['proof_gate']);
+        }
+    }
+
+    public function test_project_profile_lane_boundaries_derived_from_allowed_targets(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('my-service', [
+            'task_lanes' => ['feature', 'bug-fix'],
+            'allowed_targets' => ['src/'],
+            'source_of_truth_docs' => ['docs/'],
+        ]);
+        $boundaries = $p->laneBoundaries();
+
+        $this->assertArrayHasKey('feature', $boundaries);
+        $this->assertContains('src/', $boundaries['feature']['allowed_scope_prefixes']);
+        $this->assertArrayHasKey('bug-fix', $boundaries);
+    }
+
+    public function test_project_profile_has_high_maturity_risk_by_default(): void
+    {
+        $p = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('external-app');
+
+        $this->assertSame('high', $p->maturityRisk()['level']);
+    }
+
+    // ── isDistinctProjectFrom (collapse guard) ────────────────────────────────
+
+    public function test_atlas_and_project_profiles_are_distinct(): void
+    {
+        $atlas = AtlasExternalBrainCrossProjectEvolutionProfile::forAtlas();
+        $other = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('other-service');
+
+        $this->assertTrue($atlas->isDistinctProjectFrom($other));
+        $this->assertTrue($other->isDistinctProjectFrom($atlas));
+    }
+
+    public function test_two_identical_project_ids_with_same_roots_and_gates_are_not_distinct(): void
+    {
+        $a = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('svc', [
+            'allowed_targets' => ['src/'],
+            'source_of_truth_docs' => ['docs/'],
+            'proof_gates' => ['tests_green'],
+        ]);
+        $b = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('svc', [
+            'allowed_targets' => ['src/'],
+            'source_of_truth_docs' => ['docs/'],
+            'proof_gates' => ['tests_green'],
+        ]);
+
+        $this->assertFalse($a->isDistinctProjectFrom($b));
+    }
+
+    public function test_same_project_id_but_different_allowed_roots_are_distinct(): void
+    {
+        $a = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('svc', [
+            'allowed_targets' => ['src/'],
+            'source_of_truth_docs' => ['docs/'],
+        ]);
+        $b = AtlasExternalBrainCrossProjectEvolutionProfile::forProject('svc', [
+            'allowed_targets' => ['lib/'],
+            'source_of_truth_docs' => ['docs/'],
+        ]);
+
+        $this->assertTrue($a->isDistinctProjectFrom($b));
+    }
 }
