@@ -7,10 +7,12 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 use App\Models\AtlasLoopTask;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicy;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopProviderEffortPolicyDriverDecorator;
+use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignProviderHealthRecorder;
 use App\Services\Ai\AutonomousEvolution\Campaign\AtlasLoopCampaignSupervisor;
 use App\Services\Ai\AutonomousEvolution\LoopExecutionDriver;
 use ReflectionClass;
 use ReflectionMethod;
+use ReflectionProperty;
 use Tests\TestCase;
 
 final class AtlasLoopProviderEffortPolicyTest extends TestCase
@@ -79,6 +81,14 @@ final class AtlasLoopProviderEffortPolicyTest extends TestCase
         $task->payload = ['objective_kind' => 'architect_phase', 'provider_tier' => 'strong'];
         $task->attempts = 0;
         $supervisor = (new ReflectionClass(AtlasLoopCampaignSupervisor::class))->newInstanceWithoutConstructor();
+        $recorder = new AtlasLoopCampaignProviderHealthRecorder(
+            fn (): ?AtlasLoopProviderEffortPolicy => new AtlasLoopProviderEffortPolicy,
+            fn () => null,
+            fn () => null,
+        );
+        $prop = new ReflectionProperty(AtlasLoopCampaignSupervisor::class, 'providerHealthRecorder');
+        $prop->setAccessible(true);
+        $prop->setValue($supervisor, $recorder);
         $method = new ReflectionMethod(AtlasLoopCampaignSupervisor::class, 'applyProviderEffort');
         $method->setAccessible(true);
 
