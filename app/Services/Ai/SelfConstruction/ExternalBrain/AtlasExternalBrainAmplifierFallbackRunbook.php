@@ -40,6 +40,18 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
     public const TRIGGER_BENCHMARK_MISS           = 'benchmark_miss';
     public const TRIGGER_PROXY_LEAKAGE            = 'proxy_leakage';
     public const TRIGGER_REPEATED_REPAIR_FAILURE  = 'repeated_repair_failure';
+    public const TRIGGER_HIGH_IMPACT_AMBIGUOUS_INSUFFICIENT_EVIDENCE = 'high_impact_ambiguous_insufficient_evidence';
+
+    public const MODE_NON_FRONTIER_FALLBACK = 'non_frontier_fallback';
+    public const MODE_FRONTIER_DIRECT       = 'frontier_direct';
+
+    public const REQUIRED_CHECKS = [
+        'reduce_scope',
+        'require_replay',
+        'require_dedup',
+        'critique_output',
+        'escalate_on_ambiguity',
+    ];
 
     private const REPAIR_EXHAUSTION_THRESHOLD = 3;
 
@@ -54,22 +66,53 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
         $proxyCheckResults = (array) ($input['proxy_check_results'] ?? []);
         $benchmarkResults  = (array) ($input['benchmark_results']   ?? []);
         $repairHistory     = (array) ($input['repair_loop_history'] ?? []);
+        $modelTier         = (string) ($input['model_tier']         ?? 'small');
+        $candidateTaskFamilies = (array) ($input['candidate_task_families'] ?? []);
 
         $proxyLeakage    = $this->hasProxyLeakage($proxyCheckResults);
         $benchmarkPassed = $this->allBenchmarksPassed($benchmarkResults);
         $repairExhausted = $this->isRepairExhausted($repairHistory);
 
-        $triggers = $this->collectTriggers($proxyLeakage, $benchmarkPassed, $repairExhausted);
+        [$blockedTaskFamilies, $hasBlockedHighImpact] = $this->evaluateTaskFamilies($candidateTaskFamilies);
+
+        $triggers = $this->collectTriggers($proxyLeakage, $benchmarkPassed, $repairExhausted, $hasBlockedHighImpact);
 
         return [
             'schema'                 => self::SCHEMA,
+            'mode'                   => $modelTier === 'frontier' ? self::MODE_FRONTIER_DIRECT : self::MODE_NON_FRONTIER_FALLBACK,
+            'required_checks'        => self::REQUIRED_CHECKS,
             'runbook_steps'          => $this->buildSteps($contextAssembly, $exemplarReplays, $proxyCheckResults, $repairHistory),
             'escalation_recommended' => $triggers !== [],
             'escalation_triggers'    => $triggers,
+            'escalation_trigger'     => $triggers[0] ?? null,
             'proxy_leakage_detected' => $proxyLeakage,
             'benchmark_passed'       => $benchmarkPassed,
             'repair_exhausted'       => $repairExhausted,
+            'blocked_task_families'  => $blockedTaskFamilies,
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $candidateTaskFamilies
+     * @return array{0: list<string>, 1: bool}
+     */
+    private function evaluateTaskFamilies(array $candidateTaskFamilies): array
+    {
+        $blocked = [];
+        foreach ($candidateTaskFamilies as $candidate) {
+            if (! is_array($candidate) || ! isset($candidate['family'])) {
+                continue;
+            }
+            $impact = (string) ($candidate['impact'] ?? 'low');
+            $ambiguous = (bool) ($candidate['ambiguous'] ?? false);
+            $fallbackEvidenceSufficient = (bool) ($candidate['fallback_evidence_sufficient'] ?? true);
+
+            if ($impact === 'high' && $ambiguous && ! $fallbackEvidenceSufficient) {
+                $blocked[] = (string) $candidate['family'];
+            }
+        }
+
+        return [$blocked, $blocked !== []];
     }
 
     /** @return list<string> */
@@ -153,7 +196,7 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
     }
 
     /** @return list<string> */
-    private function collectTriggers(bool $proxyLeakage, bool $benchmarkPassed, bool $repairExhausted): array
+    private function collectTriggers(bool $proxyLeakage, bool $benchmarkPassed, bool $repairExhausted, bool $hasBlockedHighImpact): array
     {
         $triggers = [];
 
@@ -165,6 +208,9 @@ final class AtlasExternalBrainAmplifierFallbackRunbook
         }
         if ($repairExhausted) {
             $triggers[] = self::TRIGGER_REPEATED_REPAIR_FAILURE;
+        }
+        if ($hasBlockedHighImpact) {
+            $triggers[] = self::TRIGGER_HIGH_IMPACT_AMBIGUOUS_INSUFFICIENT_EVIDENCE;
         }
 
         return $triggers;

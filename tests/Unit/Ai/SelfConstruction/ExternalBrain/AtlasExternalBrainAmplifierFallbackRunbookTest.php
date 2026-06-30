@@ -258,4 +258,96 @@ final class AtlasExternalBrainAmplifierFallbackRunbookTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── mode / required_checks / blocked_task_families / escalation_trigger ───
+
+    public function test_small_model_tier_uses_non_frontier_fallback_mode(): void
+    {
+        $result = $this->runbook->compile($this->baseInput(['model_tier' => 'small']));
+
+        $this->assertSame(AtlasExternalBrainAmplifierFallbackRunbook::MODE_NON_FRONTIER_FALLBACK, $result['mode']);
+    }
+
+    public function test_frontier_model_tier_uses_frontier_direct_mode(): void
+    {
+        $result = $this->runbook->compile($this->baseInput(['model_tier' => 'frontier']));
+
+        $this->assertSame(AtlasExternalBrainAmplifierFallbackRunbook::MODE_FRONTIER_DIRECT, $result['mode']);
+    }
+
+    public function test_required_checks_includes_all_five_named_safe_steps(): void
+    {
+        $result = $this->runbook->compile($this->baseInput());
+
+        $this->assertSame([
+            'reduce_scope',
+            'require_replay',
+            'require_dedup',
+            'critique_output',
+            'escalate_on_ambiguity',
+        ], $result['required_checks']);
+    }
+
+    public function test_high_impact_ambiguous_insufficient_evidence_blocks_the_task_family(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'candidate_task_families' => [[
+                'family' => 'risky_family',
+                'impact' => 'high',
+                'ambiguous' => true,
+                'fallback_evidence_sufficient' => false,
+            ]],
+        ]));
+
+        $this->assertContains('risky_family', $result['blocked_task_families']);
+        $this->assertTrue($result['escalation_recommended']);
+        $this->assertContains(
+            AtlasExternalBrainAmplifierFallbackRunbook::TRIGGER_HIGH_IMPACT_AMBIGUOUS_INSUFFICIENT_EVIDENCE,
+            $result['escalation_triggers'],
+        );
+    }
+
+    public function test_high_impact_ambiguous_with_sufficient_evidence_is_not_blocked(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'candidate_task_families' => [[
+                'family' => 'well_evidenced_family',
+                'impact' => 'high',
+                'ambiguous' => true,
+                'fallback_evidence_sufficient' => true,
+            ]],
+        ]));
+
+        $this->assertSame([], $result['blocked_task_families']);
+    }
+
+    public function test_low_impact_ambiguous_insufficient_evidence_is_not_blocked(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'candidate_task_families' => [[
+                'family' => 'low_impact_family',
+                'impact' => 'low',
+                'ambiguous' => true,
+                'fallback_evidence_sufficient' => false,
+            ]],
+        ]));
+
+        $this->assertSame([], $result['blocked_task_families']);
+    }
+
+    public function test_escalation_trigger_is_first_of_escalation_triggers(): void
+    {
+        $result = $this->runbook->compile($this->baseInput([
+            'benchmark_results' => [$this->failingBench()],
+        ]));
+
+        $this->assertSame($result['escalation_triggers'][0], $result['escalation_trigger']);
+    }
+
+    public function test_escalation_trigger_is_null_when_no_escalation(): void
+    {
+        $result = $this->runbook->compile($this->baseInput());
+
+        $this->assertNull($result['escalation_trigger']);
+    }
 }
