@@ -146,6 +146,64 @@ class AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate
         private readonly AgentCodexRealInvokerActualProcessStartRehearsalExecutor $rehearsalExecutor,
     ) {}
 
+    private const DEFAULT_MAX_REHEARSAL_AGE_MINUTES = 30;
+
+    /**
+     * Pure, provider-free decision on whether observed process-start
+     * rehearsal evidence is trustworthy enough to certify live muscle
+     * execution. Requires evidence tied to task_id, lease_id and worker_id,
+     * rejects self-declared-only evidence, mismatched identifiers, and
+     * stale rehearsals. Never starts a process; only judges evidence.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function evaluateObservedStartRehearsal(array $facts): array
+    {
+        $taskId = (string) ($facts['task_id'] ?? '');
+        $leaseId = (string) ($facts['lease_id'] ?? '');
+        $workerId = (string) ($facts['worker_id'] ?? '');
+
+        $rehearsal = (array) ($facts['rehearsal_evidence'] ?? []);
+        $observed = (bool) ($rehearsal['observed'] ?? false);
+        $selfDeclared = (bool) ($rehearsal['self_declared'] ?? false);
+        $evidenceTaskId = (string) ($rehearsal['task_id'] ?? '');
+        $evidenceLeaseId = (string) ($rehearsal['lease_id'] ?? '');
+        $evidenceWorkerId = (string) ($rehearsal['worker_id'] ?? '');
+        $ageMinutes = (int) ($rehearsal['age_minutes'] ?? PHP_INT_MAX);
+        $maxAgeMinutes = (int) ($facts['max_rehearsal_age_minutes'] ?? self::DEFAULT_MAX_REHEARSAL_AGE_MINUTES);
+
+        $rejectionReason = null;
+        $nextRequiredProbe = null;
+
+        if ($taskId === '' || $leaseId === '' || $workerId === '') {
+            $rejectionReason = 'missing_identity_binding';
+            $nextRequiredProbe = 'supply task_id, lease_id and worker_id to bind the rehearsal request';
+        } elseif ($rehearsal === [] || ! $observed) {
+            $rejectionReason = 'rehearsal_evidence_missing';
+            $nextRequiredProbe = 'run an observed process-start rehearsal probe and attach its evidence';
+        } elseif ($selfDeclared) {
+            $rejectionReason = 'self_declared_only';
+            $nextRequiredProbe = 'replace self-declared evidence with an externally observed rehearsal probe result';
+        } elseif ($evidenceTaskId !== $taskId || $evidenceLeaseId !== $leaseId || $evidenceWorkerId !== $workerId) {
+            $rejectionReason = 'identity_mismatch';
+            $nextRequiredProbe = 're-run the rehearsal probe bound to the current task_id, lease_id and worker_id';
+        } elseif ($ageMinutes > $maxAgeMinutes) {
+            $rejectionReason = 'stale_rehearsal_evidence';
+            $nextRequiredProbe = 're-run the rehearsal probe; prior evidence exceeded the freshness window';
+        }
+
+        return [
+            'rehearsal_status' => $rejectionReason === null ? 'observed_and_trusted' : 'rejected',
+            'rejection_reason' => $rejectionReason,
+            'next_required_probe' => $nextRequiredProbe,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

@@ -414,4 +414,91 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartActualProcessStartReh
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── evaluateObservedStartRehearsal() ─────────────────────────────────────
+
+    private function identityFacts(array $rehearsalOverrides = [], array $topOverrides = []): array
+    {
+        return array_merge([
+            'task_id' => 'task-1',
+            'lease_id' => 'lease-1',
+            'worker_id' => 'worker-1',
+            'rehearsal_evidence' => array_merge([
+                'observed' => true,
+                'self_declared' => false,
+                'task_id' => 'task-1',
+                'lease_id' => 'lease-1',
+                'worker_id' => 'worker-1',
+                'age_minutes' => 5,
+            ], $rehearsalOverrides),
+        ], $topOverrides);
+    }
+
+    public function test_rehearsal_trusted_when_observed_fresh_and_matching(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal($this->identityFacts());
+
+        $this->assertSame('observed_and_trusted', $result['rehearsal_status']);
+        $this->assertNull($result['rejection_reason']);
+        $this->assertNull($result['next_required_probe']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_rehearsal_rejected_when_identity_binding_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal($this->identityFacts([], ['task_id' => '']));
+
+        $this->assertSame('rejected', $result['rehearsal_status']);
+        $this->assertSame('missing_identity_binding', $result['rejection_reason']);
+        $this->assertNotNull($result['next_required_probe']);
+    }
+
+    public function test_rehearsal_rejected_when_evidence_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal($this->identityFacts([], ['rehearsal_evidence' => []]));
+
+        $this->assertSame('rejected', $result['rehearsal_status']);
+        $this->assertSame('rehearsal_evidence_missing', $result['rejection_reason']);
+    }
+
+    public function test_rehearsal_rejected_when_self_declared_only(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal($this->identityFacts(['self_declared' => true]));
+
+        $this->assertSame('rejected', $result['rehearsal_status']);
+        $this->assertSame('self_declared_only', $result['rejection_reason']);
+    }
+
+    public function test_rehearsal_rejected_when_identity_mismatch(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal($this->identityFacts(['worker_id' => 'worker-2']));
+
+        $this->assertSame('rejected', $result['rehearsal_status']);
+        $this->assertSame('identity_mismatch', $result['rejection_reason']);
+    }
+
+    public function test_rehearsal_rejected_when_stale(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal($this->identityFacts(['age_minutes' => 60]));
+
+        $this->assertSame('rejected', $result['rehearsal_status']);
+        $this->assertSame('stale_rehearsal_evidence', $result['rejection_reason']);
+    }
+
+    public function test_custom_max_rehearsal_age_minutes_is_respected(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartActualProcessStartRehearsalGate::class);
+        $result = $gate->evaluateObservedStartRehearsal(
+            $this->identityFacts(['age_minutes' => 20], ['max_rehearsal_age_minutes' => 10]),
+        );
+
+        $this->assertSame('rejected', $result['rehearsal_status']);
+        $this->assertSame('stale_rehearsal_evidence', $result['rejection_reason']);
+    }
 }
