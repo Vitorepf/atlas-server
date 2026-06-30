@@ -302,6 +302,113 @@ final class AgentValidationGateCatalog
         return hash('sha256', (string) $payload);
     }
 
+    /** @var array<string,array<int,string>> task_family => covering gate ids (must all exist in gates()). */
+    private const FAMILY_GATE_COVERAGE = [
+        'pure_value_object'    => ['php_lint', 'unit_tests', 'focused_tests', 'scope_check', 'evidence_check'],
+        'self_construction_service' => ['php_lint', 'unit_tests', 'focused_tests', 'scope_check', 'evidence_check', 'rollback_plan_check'],
+        'http_controller'       => ['php_lint', 'unit_tests', 'scope_check', 'evidence_check'],
+        'cli_command'           => ['php_lint', 'unit_tests', 'scope_check'],
+        'migration'             => ['php_lint', 'scope_check', 'rollback_plan_check'],
+        'queue_worker'          => ['php_lint', 'unit_tests', 'scope_check'],
+        'docs_or_wiki'          => ['docs_health', 'scope_check'],
+    ];
+
+    /**
+     * @var array<string,array<int,string>> task_family => known blind-spot evidence
+     * kinds NOT covered by any of the 10 gates — what could still slip through green.
+     */
+    private const FAMILY_BLIND_SPOTS = [
+        'pure_value_object'    => [],
+        'self_construction_service' => ['runtime_integration_proof'],
+        'http_controller'       => ['runtime_integration_proof', 'security_review'],
+        'cli_command'           => ['runtime_integration_proof'],
+        'migration'             => ['data_backfill_correctness', 'runtime_integration_proof'],
+        'queue_worker'          => ['runtime_integration_proof', 'concurrency_safety'],
+        'docs_or_wiki'          => ['link_freshness'],
+    ];
+
+    /**
+     * @var array<string,int> blind-spot evidence kind => give_back/fake-green risk weight (higher = worse).
+     */
+    private const BLIND_SPOT_RISK_WEIGHT = [
+        'concurrency_safety'         => 5,
+        'data_backfill_correctness'  => 5,
+        'security_review'            => 4,
+        'runtime_integration_proof'  => 3,
+        'link_freshness'             => 1,
+    ];
+
+    /**
+     * Map every known task family to its covering gates, evidence types, coverage
+     * strength and known blind spots, then rank the riskiest gap and recommend the
+     * concrete gate task that would close it.
+     *
+     * @return array<string, mixed>
+     */
+    public function coverageMap(): array
+    {
+        $gateIds = $this->ids();
+        $families = [];
+        $allGapEntries = [];
+
+        foreach (self::FAMILY_GATE_COVERAGE as $family => $coveringGates) {
+            $coveringGates = array_values(array_intersect($coveringGates, $gateIds));
+            $blindSpots = self::FAMILY_BLIND_SPOTS[$family] ?? [];
+            $coverageStrength = $this->coverageStrength(count($coveringGates), count($blindSpots));
+
+            $families[$family] = [
+                'task_family'        => $family,
+                'covering_gates'     => $coveringGates,
+                'evidence_types'     => array_map(fn (string $id) => $this->get($id)['expected_artifact'] ?? $id, $coveringGates),
+                'coverage_strength'  => $coverageStrength,
+                'blind_spots'        => $blindSpots,
+            ];
+
+            foreach ($blindSpots as $spot) {
+                $allGapEntries[] = [
+                    'task_family' => $family,
+                    'blind_spot'  => $spot,
+                    'risk_weight' => self::BLIND_SPOT_RISK_WEIGHT[$spot] ?? 1,
+                ];
+            }
+        }
+
+        usort($allGapEntries, static function (array $a, array $b): int {
+            $cmp = $b['risk_weight'] <=> $a['risk_weight'];
+
+            return $cmp !== 0 ? $cmp : strcmp($a['task_family'].$a['blind_spot'], $b['task_family'].$b['blind_spot']);
+        });
+
+        $gateGapRank = [];
+        foreach ($allGapEntries as $i => $entry) {
+            $gateGapRank[] = array_merge($entry, ['rank' => $i + 1]);
+        }
+
+        $topGap = $gateGapRank[0] ?? null;
+        $recommendedHint = $topGap === null
+            ? null
+            : sprintf('build a %s validation gate covering %s', $topGap['blind_spot'], $topGap['task_family']);
+
+        return [
+            'schema_version'                  => self::SCHEMA_VERSION,
+            'families'                        => $families,
+            'gate_gap_rank'                   => $gateGapRank,
+            'recommended_gate_task_hint'      => $recommendedHint,
+        ];
+    }
+
+    private function coverageStrength(int $gateCount, int $blindSpotCount): string
+    {
+        if ($blindSpotCount === 0 && $gateCount >= 3) {
+            return 'strong';
+        }
+        if ($gateCount === 0) {
+            return 'weak';
+        }
+
+        return 'partial';
+    }
+
     /** @return array<string, bool> */
     private function runtimeSafety(): array
     {

@@ -325,4 +325,82 @@ final class AgentValidationGateCatalogTest extends TestCase
         }
         $this->assertSame(10, $total);
     }
+
+    // ── coverageMap() ────────────────────────────────────────────────────────
+
+    public function test_coverage_map_has_required_keys(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $map = $catalog->coverageMap();
+
+        foreach (['families', 'gate_gap_rank', 'recommended_gate_task_hint'] as $key) {
+            $this->assertArrayHasKey($key, $map);
+        }
+    }
+
+    public function test_each_family_entry_has_coverage_strength_and_blind_spots(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $map = $catalog->coverageMap();
+
+        foreach ($map['families'] as $entry) {
+            $this->assertArrayHasKey('coverage_strength', $entry);
+            $this->assertArrayHasKey('blind_spots', $entry);
+            $this->assertArrayHasKey('covering_gates', $entry);
+            $this->assertArrayHasKey('evidence_types', $entry);
+        }
+    }
+
+    public function test_covering_gates_only_reference_real_gate_ids(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $map = $catalog->coverageMap();
+        $validIds = $catalog->ids();
+
+        foreach ($map['families'] as $entry) {
+            foreach ($entry['covering_gates'] as $gateId) {
+                $this->assertContains($gateId, $validIds);
+            }
+        }
+    }
+
+    public function test_gate_gap_rank_sorted_by_risk_weight_descending(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $rank = (new AgentValidationGateCatalog)->coverageMap()['gate_gap_rank'];
+
+        $weights = array_column($rank, 'risk_weight');
+        $sorted = $weights;
+        rsort($sorted);
+        $this->assertSame($sorted, $weights);
+
+        foreach ($rank as $i => $entry) {
+            $this->assertSame($i + 1, $entry['rank']);
+        }
+    }
+
+    public function test_recommended_gate_task_hint_references_top_gap(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $map = $catalog->coverageMap();
+        $top = $map['gate_gap_rank'][0];
+
+        $this->assertStringContainsString($top['blind_spot'], $map['recommended_gate_task_hint']);
+        $this->assertStringContainsString($top['task_family'], $map['recommended_gate_task_hint']);
+    }
+
+    public function test_family_with_no_blind_spots_is_strong_coverage(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $map = $catalog->coverageMap();
+
+        $this->assertSame([], $map['families']['pure_value_object']['blind_spots']);
+        $this->assertSame('strong', $map['families']['pure_value_object']['coverage_strength']);
+    }
+
+    public function test_coverage_map_is_deterministic(): void
+    {
+        $catalog = new AgentValidationGateCatalog;
+        $this->assertSame(json_encode($catalog->coverageMap()), json_encode($catalog->coverageMap()));
+    }
 }
