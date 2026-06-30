@@ -17,16 +17,27 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Personalization;
  *   - decide() NEVER mutates queue or filters packets.
  *
  * The caller decides; this is just a sidecar opinion.
+ *
+ * Personalization extensions (via optional $workerContext):
+ *   - skill_scores      : {family => 0.0–1.0} overrides tier signal when present.
+ *   - consecutive_claimed: triggers hogging_risk reason when >= HOGGING_THRESHOLD.
+ *
+ * Anti-starvation: packets with starved_ticks >= STARVATION_THRESHOLD get a floor score.
  */
 final class AtlasMaestroPersonalizedServingPolicy
 {
+    public const STARVATION_THRESHOLD = 5;
+    public const STARVATION_FLOOR = 0.5;
+    public const HOGGING_THRESHOLD = 3;
+
     public function __construct(private readonly AtlasMaestroWorkerPreferenceRegistry $registry) {}
 
     /**
      * @param  array<string,mixed>  $packet
+     * @param  array<string,mixed>  $workerContext  optional runtime context: skill_scores, consecutive_claimed
      * @return array{advisory:true, shape_match:float, reasons:list<string>, client_id:string, packet_id:string}
      */
-    public function decide(string $clientId, array $packet): array
+    public function decide(string $clientId, array $packet, array $workerContext = []): array
     {
         $prefs = $this->registry->inspect($clientId);
         $packetId = (string) ($packet['task_packet_id'] ?? '');
@@ -65,8 +76,13 @@ final class AtlasMaestroPersonalizedServingPolicy
             $reasons[] = sprintf('loc_overshoot:%d>%d', $locBudget, $maxLoc);
         }
 
-        // Tier match bonus.
-        if ($declaredTier !== '' && $declaredTier === (string) $prefs['tier']) {
+        // Skill history (from workerContext) replaces the structural tier signal when available.
+        $taskFamily = (string) ($packet['task_family'] ?? '');
+        $skillScores = (array) ($workerContext['skill_scores'] ?? []);
+        if ($taskFamily !== '' && array_key_exists($taskFamily, $skillScores)) {
+            $tierScore = (float) $skillScores[$taskFamily];
+            $reasons[] = sprintf('skill_history:%s=%.2f', $taskFamily, $tierScore);
+        } elseif ($declaredTier !== '' && $declaredTier === (string) $prefs['tier']) {
             $tierScore = 1.0;
             $reasons[] = 'tier_match:'.$declaredTier;
         } elseif ($declaredTier !== '') {
@@ -77,9 +93,22 @@ final class AtlasMaestroPersonalizedServingPolicy
             $reasons[] = 'no_tier_signal';
         }
 
-        // Weighted blend (file 40% / loc 40% / tier 20%).
+        // Weighted blend (file 40% / loc 40% / tier-or-skill 20%).
         $shapeMatch = ($fileScore * 0.4) + ($locScore * 0.4) + ($tierScore * 0.2);
         $shapeMatch = max(0.0, min(1.0, $shapeMatch));
+
+        // Anti-starvation: tasks skipped too many times get a guaranteed floor score.
+        $starvedTicks = (int) ($packet['starved_ticks'] ?? 0);
+        if ($starvedTicks >= self::STARVATION_THRESHOLD) {
+            $shapeMatch = max($shapeMatch, self::STARVATION_FLOOR);
+            $reasons[] = sprintf('starvation_override:ticks=%d', $starvedTicks);
+        }
+
+        // Anti-hogging: flag workers with excessive consecutive claims.
+        $consecutiveClaimed = (int) ($workerContext['consecutive_claimed'] ?? 0);
+        if ($consecutiveClaimed >= self::HOGGING_THRESHOLD) {
+            $reasons[] = sprintf('hogging_risk:consecutive=%d', $consecutiveClaimed);
+        }
 
         return [
             'advisory' => true,

@@ -68,4 +68,44 @@ class AtlasMaestroPersonalizedServingPolicyTest extends TestCase
         self::assertTrue($verdict['advisory']);
         self::assertGreaterThanOrEqual(0.0, $verdict['shape_match']);
     }
+
+    public function test_worker_with_higher_skill_score_gets_higher_shape_match(): void
+    {
+        $prefs = ['max_files' => 5, 'max_loc' => 500, 'tier' => 'neutral'];
+        $packet = ['task_packet_id' => 'pk-skill', 'allowed_files' => ['a.php'], 'loc_estimate' => 100, 'task_family' => 'code_gen'];
+
+        $highSkill = $this->policy(['w' => $prefs])->decide('w', $packet, ['skill_scores' => ['code_gen' => 0.9]]);
+        $lowSkill = $this->policy(['w' => $prefs])->decide('w', $packet, ['skill_scores' => ['code_gen' => 0.1]]);
+
+        self::assertGreaterThan($lowSkill['shape_match'], $highSkill['shape_match']);
+        self::assertStringContainsString('skill_history:code_gen', implode(',', $highSkill['reasons']));
+    }
+
+    public function test_starvation_override_forces_minimum_score_for_skipped_packet(): void
+    {
+        // Worker that is a terrible fit structurally, but packet has been skipped 10 times.
+        $verdict = $this->policy(['claude' => ['max_files' => 1, 'max_loc' => 1, 'tier' => 'tiny']])
+            ->decide('claude', [
+                'task_packet_id' => 'old-pk',
+                'allowed_files' => range('a', 'z'),
+                'loc_estimate' => 100000,
+                'tier_hint' => 'huge',
+                'starved_ticks' => 10,
+            ]);
+
+        self::assertTrue($verdict['advisory']);
+        self::assertGreaterThanOrEqual(AtlasMaestroPersonalizedServingPolicy::STARVATION_FLOOR, $verdict['shape_match']);
+        self::assertStringContainsString('starvation_override', implode(',', $verdict['reasons']));
+    }
+
+    public function test_hogging_risk_reason_present_when_consecutive_claims_exceed_threshold(): void
+    {
+        $verdict = $this->policy(['claude' => ['max_files' => 5, 'max_loc' => 500, 'tier' => 'neutral']])
+            ->decide('claude', ['task_packet_id' => 'pk-hog'], ['consecutive_claimed' => 5]);
+
+        self::assertTrue($verdict['advisory']);
+        $reasons = implode(',', $verdict['reasons']);
+        self::assertStringContainsString('hogging_risk', $reasons);
+        self::assertStringContainsString('consecutive=5', $reasons);
+    }
 }
