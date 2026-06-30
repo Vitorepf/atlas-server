@@ -1,0 +1,90 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\TaskServing;
+
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskServingHealthFlagActionRouter;
+use PHPUnit\Framework\TestCase;
+
+final class AtlasTaskServingHealthFlagActionRouterWorkerFloorTest extends TestCase
+{
+    private function router(): AtlasTaskServingHealthFlagActionRouter
+    {
+        return new AtlasTaskServingHealthFlagActionRouter;
+    }
+
+    private function snapshot(array $overrides = []): array
+    {
+        return array_merge([
+            'healthy' => true,
+            'servable_now' => 10,
+            'recoverable' => ['total' => 0],
+            'leases_match_claimed' => true,
+            'health_flags' => [
+                'dry_queue' => false,
+                'serving_jammed' => false,
+                'recoverable_backlog' => false,
+                'lease_leak_detected' => false,
+                'malformed_risk' => false,
+            ],
+            'worker_drain_forecast' => ['queue_pressure' => 'low'],
+        ], $overrides);
+    }
+
+    public function test_high_queue_pressure_with_replenish_soon_routes_to_top_up_before_starvation(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'queue_pressure' => 'high',
+            'replenish_recommendation' => 'replenish_soon',
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION, $r['primary_action']);
+    }
+
+    public function test_recoverable_backlog_takes_precedence_over_worker_floor_pressure(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'queue_pressure' => 'high',
+            'replenish_recommendation' => 'replenish_soon',
+            'recoverable' => ['total' => 3],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_REAP_LEASES, $r['primary_action']);
+    }
+
+    public function test_malformed_sweep_takes_precedence_over_worker_floor_pressure(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'queue_pressure' => 'high',
+            'replenish_recommendation' => 'replenish_soon',
+            'health_flags' => [
+                'dry_queue' => false,
+                'serving_jammed' => false,
+                'recoverable_backlog' => false,
+                'lease_leak_detected' => false,
+                'malformed_risk' => true,
+            ],
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_SWEEP_MALFORMED, $r['primary_action']);
+    }
+
+    public function test_lease_leak_takes_precedence_over_worker_floor_pressure(): void
+    {
+        $r = $this->router()->route($this->snapshot([
+            'queue_pressure' => 'high',
+            'replenish_recommendation' => 'replenish_soon',
+            'leases_match_claimed' => false,
+        ]));
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_INSPECT_LEASE_PARITY, $r['primary_action']);
+    }
+
+    public function test_low_pressure_without_replenish_soon_continues_work(): void
+    {
+        $r = $this->router()->route($this->snapshot());
+
+        $this->assertSame(AtlasTaskServingHealthFlagActionRouter::ACTION_CONTINUE_WORK, $r['primary_action']);
+    }
+}

@@ -38,6 +38,8 @@ final class AtlasTaskServingHealthFlagActionRouter
 
     public const ACTION_INSPECT_LEASE_PARITY = 'inspect_lease_parity';
 
+    public const ACTION_TOP_UP_QUEUE_BEFORE_STARVATION = 'top_up_queue_before_starvation';
+
     public const ACTION_CONTINUE_WORK = 'continue_work';
 
     /**
@@ -56,8 +58,13 @@ final class AtlasTaskServingHealthFlagActionRouter
         $recoverableBacklog = (bool) ($flags['recoverable_backlog'] ?? false) || $recoverableTotal > 0;
         $malformedRisk = (bool) ($flags['malformed_risk'] ?? false);
         $leaseLeak = (bool) ($flags['lease_leak_detected'] ?? false) || ! $leasesMatchClaimed;
+        $queuePressure = (string) ($snapshot['queue_pressure'] ?? '');
+        $replenishRecommendation = (string) ($snapshot['replenish_recommendation'] ?? '');
+        $workerFloorPressure = $queuePressure === 'high' || $replenishRecommendation === 'replenish_soon';
 
         // Candidate actions in deterministic priority order — first true wins as primary.
+        // Lease leak, recoverable backlog, and malformed sweep keep precedence over worker-floor
+        // top-up guidance: those describe queue CORRUPTION/leakage, worse than impending starvation.
         $candidates = [
             self::ACTION_REPLENISH_OR_REPAIR => $dryQueue || $servingJammed,
             self::ACTION_REAP_LEASES => $recoverableBacklog,
@@ -65,6 +72,7 @@ final class AtlasTaskServingHealthFlagActionRouter
             // Harmless pressure: a lease-count mismatch while the queue still has servable work is not
             // a true jam — investigate parity, don't panic-replenish.
             self::ACTION_INSPECT_LEASE_PARITY => $leaseLeak && $servableNow > 0,
+            self::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION => $workerFloorPressure,
         ];
 
         $primaryAction = self::ACTION_CONTINUE_WORK;
@@ -84,7 +92,7 @@ final class AtlasTaskServingHealthFlagActionRouter
             'schema' => self::SCHEMA,
             'primary_action' => $primaryAction,
             'secondary_actions' => $secondaryActions,
-            'human_readable_reason' => $this->reason($primaryAction, $dryQueue, $servingJammed, $recoverableTotal, $malformedRisk, $leaseLeak, $servableNow),
+            'human_readable_reason' => $this->reason($primaryAction, $dryQueue, $servingJammed, $recoverableTotal, $malformedRisk, $leaseLeak, $servableNow, $queuePressure, $replenishRecommendation),
         ];
     }
 
@@ -96,6 +104,8 @@ final class AtlasTaskServingHealthFlagActionRouter
         bool $malformedRisk,
         bool $leaseLeak,
         int $servableNow,
+        string $queuePressure,
+        string $replenishRecommendation,
     ): string {
         return match ($primaryAction) {
             self::ACTION_REPLENISH_OR_REPAIR => $dryQueue
@@ -104,6 +114,11 @@ final class AtlasTaskServingHealthFlagActionRouter
             self::ACTION_REAP_LEASES => sprintf('recoverable backlog of %d lease(s) — reap before claiming more', $recoverableTotal),
             self::ACTION_SWEEP_MALFORMED => 'malformed-packet risk detected — sweep before workers claim poisoned packets',
             self::ACTION_INSPECT_LEASE_PARITY => sprintf('lease count mismatch with servable_now=%d — harmless pressure, inspect parity, do not panic-replenish', $servableNow),
+            self::ACTION_TOP_UP_QUEUE_BEFORE_STARVATION => sprintf(
+                'queue_pressure=%s, replenish_recommendation=%s — top up the queue before workers starve',
+                $queuePressure !== '' ? $queuePressure : 'unknown',
+                $replenishRecommendation !== '' ? $replenishRecommendation : 'unknown',
+            ),
             default => 'queue is clean and servable — continue normal work',
         };
     }
