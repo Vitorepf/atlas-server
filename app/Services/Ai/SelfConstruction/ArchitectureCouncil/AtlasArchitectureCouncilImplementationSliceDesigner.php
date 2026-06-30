@@ -81,16 +81,21 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
         $evidence = is_array($gap['evidence_seed'] ?? null) ? array_values(array_map('strval', $gap['evidence_seed'])) : [];
 
         $briefs = [];
+        $missingTestPairs = [];
         foreach ($services as $svc) {
             $svcPath = (string) ($svc['path'] ?? '');
             $base = pathinfo($svcPath, PATHINFO_FILENAME);
             $testPath = $this->matchingTest($base, $tests);
-            $allowed = $testPath === null ? [$svcPath] : [$svcPath, $testPath];
+            if ($testPath === null) {
+                $missingTestPairs[] = $svcPath;
+
+                continue;
+            }
             $briefs[] = [
                 'slice_id' => 'slice:'.$organ.':'.$capability.':'.$base,
                 'target_class' => $base,
-                'test_class' => $testPath === null ? null : pathinfo($testPath, PATHINFO_FILENAME),
-                'allowed_files_hint' => $allowed,
+                'test_class' => pathinfo($testPath, PATHINFO_FILENAME),
+                'allowed_files_hint' => [$svcPath, $testPath],
                 'acceptance_seed' => $acceptance,
                 'evidence_seed' => $evidence,
             ];
@@ -98,7 +103,7 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
 
         usort($briefs, static fn (array $a, array $b): int => strcmp($a['slice_id'], $b['slice_id']));
 
-        return ['schema' => self::SCHEMA, 'slice_briefs' => $briefs];
+        return ['schema' => self::SCHEMA, 'slice_briefs' => $briefs, 'missing_test_pairs' => $missingTestPairs];
     }
 
     /**

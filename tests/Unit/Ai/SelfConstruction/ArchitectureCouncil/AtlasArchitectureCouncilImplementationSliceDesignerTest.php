@@ -98,4 +98,53 @@ final class AtlasArchitectureCouncilImplementationSliceDesignerTest extends Test
         $this->expectExceptionMessageMatches('/lacks any service\/cli file/');
         (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
     }
+
+    public function test_service_without_matching_test_is_surfaced_in_missing_test_pairs(): void
+    {
+        $f = $this->validFacts();
+        $f['capability_gap']['target_files'] = [
+            ['kind' => 'service', 'path' => 'app/Demo/Orphan.php'],
+        ];
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
+
+        $this->assertSame([], $r['slice_briefs'], 'unpaired service must not appear in slice_briefs');
+        $this->assertSame(['app/Demo/Orphan.php'], $r['missing_test_pairs']);
+    }
+
+    public function test_accepted_slice_briefs_include_only_implementation_and_test_paired_files(): void
+    {
+        $f = $this->validFacts();
+        $f['capability_gap']['target_files'] = [
+            ['kind' => 'service', 'path' => 'app/Demo/Compiler.php'],
+            ['kind' => 'service', 'path' => 'app/Demo/Linker.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/CompilerTest.php'],
+            // Linker has no matching test → goes to missing_test_pairs only
+        ];
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
+
+        $this->assertCount(1, $r['slice_briefs']);
+        $brief = $r['slice_briefs'][0];
+        $this->assertNotNull($brief['test_class'], 'every accepted brief must have a paired test_class');
+        $this->assertCount(2, $brief['allowed_files_hint'], 'allowed_files_hint must contain exactly impl + test');
+        $this->assertSame(['app/Demo/Linker.php'], $r['missing_test_pairs']);
+    }
+
+    public function test_slice_briefs_ordering_is_deterministic_by_slice_id(): void
+    {
+        $f = $this->validFacts();
+        $f['capability_gap']['organ'] = 'Fabric';
+        $f['capability_gap']['capability'] = 'build';
+        $f['capability_gap']['target_files'] = [
+            ['kind' => 'service', 'path' => 'app/Demo/Zeta.php'],
+            ['kind' => 'service', 'path' => 'app/Demo/Alpha.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/ZetaTest.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/AlphaTest.php'],
+        ];
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
+
+        $ids = array_column($r['slice_briefs'], 'slice_id');
+        $sorted = $ids;
+        sort($sorted);
+        $this->assertSame($sorted, $ids, 'slice_briefs must be sorted by slice_id');
+    }
 }
