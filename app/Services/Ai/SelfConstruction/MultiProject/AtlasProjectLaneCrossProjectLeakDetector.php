@@ -41,6 +41,23 @@ final class AtlasProjectLaneCrossProjectLeakDetector
         $leaks = [];
         $blockerSet = [];
 
+        // Lane manifest isolation: shared queue_namespace / evidence_ledger_path / memory_scope / code_index_scope
+        foreach (['queue_namespace', 'evidence_ledger_path', 'memory_scope', 'code_index_scope'] as $field) {
+            $seen = [];
+            foreach ($lanesByProjectId as $pid => $lane) {
+                $val = (string) ($lane[$field] ?? '');
+                if ($val === '') {
+                    continue;
+                }
+                if (isset($seen[$val])) {
+                    $leaks[] = $this->leak($field.'_shared', ['field' => $field, 'value' => $val, 'lane_a' => $seen[$val], 'lane_b' => $pid]);
+                    $blockerSet[$field.'_shared'] = true;
+                } else {
+                    $seen[$val] = $pid;
+                }
+            }
+        }
+
         // Packet inspection.
         foreach ($packets as $p) {
             if (! is_array($p)) {

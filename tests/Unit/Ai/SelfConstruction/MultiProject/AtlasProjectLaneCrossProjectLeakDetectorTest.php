@@ -120,6 +120,60 @@ final class AtlasProjectLaneCrossProjectLeakDetectorTest extends TestCase
         $this->assertContains('packet_project_id_mismatch', $r['blockers']);
     }
 
+    public function test_shared_queue_namespace_between_two_lanes_emits_named_leak(): void
+    {
+        $lanes = [
+            'proj-x' => ['project_id' => 'proj-x', 'namespace' => 'ns-x', 'allowed_scope_roots' => ['/x'],
+                         'queue_namespace' => 'shared-queue', 'evidence_ledger_path' => '/x/ledger',
+                         'memory_scope' => 'mem-x', 'code_index_scope' => 'code-x'],
+            'proj-y' => ['project_id' => 'proj-y', 'namespace' => 'ns-y', 'allowed_scope_roots' => ['/y'],
+                         'queue_namespace' => 'shared-queue', 'evidence_ledger_path' => '/y/ledger',
+                         'memory_scope' => 'mem-y', 'code_index_scope' => 'code-y'],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($lanes, []);
+
+        $this->assertFalse($r['passed']);
+        $this->assertContains('queue_namespace_shared', $r['blockers']);
+        $leakKinds = array_column($r['leaks'], 'kind');
+        $this->assertContains('queue_namespace_shared', $leakKinds);
+    }
+
+    public function test_shared_evidence_ledger_and_memory_scope_emit_multiple_leak_facts(): void
+    {
+        $lanes = [
+            'a' => ['project_id' => 'a', 'namespace' => 'ns-a', 'allowed_scope_roots' => ['/a'],
+                    'queue_namespace' => 'q-a', 'evidence_ledger_path' => '/shared/ledger',
+                    'memory_scope' => 'shared-mem', 'code_index_scope' => 'code-a'],
+            'b' => ['project_id' => 'b', 'namespace' => 'ns-b', 'allowed_scope_roots' => ['/b'],
+                    'queue_namespace' => 'q-b', 'evidence_ledger_path' => '/shared/ledger',
+                    'memory_scope' => 'shared-mem', 'code_index_scope' => 'code-b'],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($lanes, []);
+
+        $this->assertContains('evidence_ledger_path_shared', $r['blockers']);
+        $this->assertContains('memory_scope_shared', $r['blockers']);
+    }
+
+    public function test_isolated_lane_manifest_facts_pass_with_no_leaks(): void
+    {
+        $lanes = [
+            'p1' => ['project_id' => 'p1', 'namespace' => 'ns-p1', 'allowed_scope_roots' => ['/p1'],
+                     'queue_namespace' => 'q-p1', 'evidence_ledger_path' => '/p1/ledger',
+                     'memory_scope' => 'mem-p1', 'code_index_scope' => 'code-p1'],
+            'p2' => ['project_id' => 'p2', 'namespace' => 'ns-p2', 'allowed_scope_roots' => ['/p2'],
+                     'queue_namespace' => 'q-p2', 'evidence_ledger_path' => '/p2/ledger',
+                     'memory_scope' => 'mem-p2', 'code_index_scope' => 'code-p2'],
+        ];
+
+        $r = (new AtlasProjectLaneCrossProjectLeakDetector)->detect($lanes, []);
+
+        $this->assertTrue($r['passed']);
+        $this->assertSame([], $r['leaks']);
+        $this->assertSame([], $r['blockers']);
+    }
+
     public function test_leak_samples_are_bounded_at_max_samples(): void
     {
         $packets = [];
