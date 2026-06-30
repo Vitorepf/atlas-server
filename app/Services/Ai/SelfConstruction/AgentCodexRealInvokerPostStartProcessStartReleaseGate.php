@@ -52,6 +52,17 @@ class AgentCodexRealInvokerPostStartProcessStartReleaseGate
             $this->assertProviderExecutionContractReady($observedRun, $metadata, $normalized);
 
             $providerStartRunKey = 'provider-start:'.$normalized['provider_start_attempt_id'];
+
+            $providerRun = AtlasSelfConstructionAgentRun::query()
+                ->where('run_key', $providerStartRunKey)
+                ->lockForUpdate()
+                ->first();
+
+            $health = $this->checkCurrentHealthAtReleasePoint($observedRun, $providerRun);
+
+            if (! $health['healthy']) {
+                return $this->blockedResult($observedRun, $health);
+            }
             $releaseResult = $this->processStartRelease->authorizeCodexProcessStart([
                 'run_key' => $providerStartRunKey,
                 'codex_execution_id' => $normalized['codex_execution_id'],
@@ -246,6 +257,65 @@ class AgentCodexRealInvokerPostStartProcessStartReleaseGate
     }
 
     /**
+     * @return array{healthy: bool, status: string, block_reason: ?string}
+     */
+    private function checkCurrentHealthAtReleasePoint(AtlasSelfConstructionAgentRun $observedRun, ?AtlasSelfConstructionAgentRun $providerRun): array
+    {
+        $now = now();
+
+        if ($observedRun->liveness !== 'alive') {
+            return ['healthy' => false, 'status' => 'degraded', 'block_reason' => 'observed_run_not_alive'];
+        }
+
+        if ($observedRun->lease_expires_at !== null && $now->greaterThan($observedRun->lease_expires_at)) {
+            return ['healthy' => false, 'status' => 'degraded', 'block_reason' => 'observed_run_lease_expired'];
+        }
+
+        if (! $providerRun instanceof AtlasSelfConstructionAgentRun) {
+            return ['healthy' => false, 'status' => 'degraded', 'block_reason' => 'provider_run_not_found'];
+        }
+
+        if ($providerRun->liveness !== 'alive') {
+            return ['healthy' => false, 'status' => 'degraded', 'block_reason' => 'provider_run_not_alive'];
+        }
+
+        if ($providerRun->lease_expires_at !== null && $now->greaterThan($providerRun->lease_expires_at)) {
+            return ['healthy' => false, 'status' => 'degraded', 'block_reason' => 'provider_run_lease_expired'];
+        }
+
+        if ((string) $observedRun->allowed_files_hash === '' || (string) $providerRun->allowed_files_hash === '') {
+            return ['healthy' => false, 'status' => 'degraded', 'block_reason' => 'scope_lock_missing'];
+        }
+
+        return ['healthy' => true, 'status' => 'healthy', 'block_reason' => null];
+    }
+
+    /**
+     * @param  array{healthy: bool, status: string, block_reason: ?string}  $health
+     * @return array<string,mixed>
+     */
+    private function blockedResult(AtlasSelfConstructionAgentRun $run, array $health): array
+    {
+        return [
+            'status' => 'codex_real_invoker_post_start_process_start_release_blocked',
+            'idempotent' => false,
+            'agent_run_id' => (string) $run->id,
+            'run_key' => $run->run_key,
+            'run_status' => $run->status,
+            'release_allowed' => false,
+            'current_health_status' => $health['status'],
+            'block_reason' => $health['block_reason'],
+            'process_start_release_authorized' => false,
+            'actual_process_start_allowed' => false,
+            'token_spend_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'adapter_invocation_allowed' => false,
+            'adapter_execution_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>|null  $releaseResult
      * @return array<string,mixed>
      */
@@ -254,6 +324,9 @@ class AgentCodexRealInvokerPostStartProcessStartReleaseGate
         return [
             'status' => 'codex_real_invoker_post_start_process_start_release_authorized',
             'idempotent' => $idempotent,
+            'release_allowed' => true,
+            'current_health_status' => 'healthy',
+            'block_reason' => null,
             'post_start_process_start_release_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_start_release.post_start_process_start_release_gate_id'),
             'process_start_release_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_start_release.process_start_release_id'),
             'provider_execution_contract_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_process_start_release.provider_execution_contract_gate_id'),

@@ -52,6 +52,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStartReleaseGa
         $this->assertFalse($result['adapter_execution_allowed']);
         $this->assertFalse($result['dispatch_allowed']);
         $this->assertSame('codex_process_start_release_authorized', data_get($result, 'codex_process_start_release_result.status'));
+        $this->assertTrue($result['release_allowed']);
+        $this->assertSame('healthy', $result['current_health_status']);
+        $this->assertNull($result['block_reason']);
 
         $observedRun = AtlasSelfConstructionAgentRun::query()
             ->where('run_key', 'codex-post-start-observed-run-001')
@@ -163,6 +166,43 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStartReleaseGa
 
         app(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
             ->authorizePostStartProcessStartRelease($this->validInput());
+    }
+
+    public function test_post_start_process_start_release_blocks_when_observed_run_lease_expired(): void
+    {
+        $this->createPrerequisites([
+            'observed_run' => ['lease_expires_at' => CarbonImmutable::now()->subMinutes(5)],
+        ]);
+
+        $result = app(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
+            ->authorizePostStartProcessStartRelease($this->validInput());
+
+        $this->assertSame('codex_real_invoker_post_start_process_start_release_blocked', $result['status']);
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame('degraded', $result['current_health_status']);
+        $this->assertSame('observed_run_lease_expired', $result['block_reason']);
+        $this->assertFalse($result['process_start_release_authorized']);
+
+        $observedRun = AtlasSelfConstructionAgentRun::query()
+            ->where('run_key', 'codex-post-start-observed-run-001')
+            ->firstOrFail();
+
+        $this->assertNull(data_get($observedRun->metadata, 'codex_real_invoker_post_start_process_start_release'));
+        $this->assertDatabaseCount('atlas_ledger_events', 0);
+    }
+
+    public function test_post_start_process_start_release_blocks_when_provider_run_not_alive(): void
+    {
+        $this->createPrerequisites([
+            'provider_run' => ['liveness' => 'dead'],
+        ]);
+
+        $result = app(AgentCodexRealInvokerPostStartProcessStartReleaseGate::class)
+            ->authorizePostStartProcessStartRelease($this->validInput());
+
+        $this->assertSame('codex_real_invoker_post_start_process_start_release_blocked', $result['status']);
+        $this->assertFalse($result['release_allowed']);
+        $this->assertSame('provider_run_not_alive', $result['block_reason']);
     }
 
     public function test_post_start_process_start_release_rolls_back_when_ledger_write_fails(): void
