@@ -92,6 +92,45 @@ final class AtlasTaskHiddenPoisonDetectorTest extends TestCase
         $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_PERMANENT_AUTONOMY_DEP, $found);
     }
 
+    public function test_contradictory_acceptance_detected_from_criteria_text_without_quality_facts(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Do the thing.',
+            'acceptance_criteria' => [
+                'The service must produce audit logs on every request.',
+                'The service must not produce audit logs to avoid disk bloat.',
+            ],
+            'quality_facts' => [], // no precomputed contradiction_pairs
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_CONTRADICTORY_ACCEPTANCE, $found);
+        $this->assertFalse($verdict['clean']);
+    }
+
+    public function test_objective_referencing_non_allowed_file_is_flagged_without_removed_targets(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Implement the service and also update config/database.php with the new DSN.',
+            'allowed_files' => ['app/Service.php', 'tests/ServiceTest.php'],
+            'quality_facts' => [], // no removed_targets
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_REMOVED_TARGET, $found);
+        $this->assertFalse($verdict['clean']);
+    }
+
+    public function test_indirect_human_dependency_phrasing_is_flagged(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Run the pipeline; a human review is required before the release.',
+        ]);
+
+        $found = array_column($verdict['found_patterns'], 'pattern_id');
+        $this->assertContains(AtlasTaskHiddenPoisonDetector::PATTERN_PERMANENT_AUTONOMY_DEP, $found);
+    }
+
     public function test_detection_does_not_mutate_input_packet(): void
     {
         $packet = [
