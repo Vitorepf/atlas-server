@@ -16,6 +16,8 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Retry;
  */
 final class AtlasMaestroGiveBackRetryReceiptLedger
 {
+    public const QUARANTINE_THRESHOLD = 3;
+
     private static ?string $rootOverride = null;
 
     public static function setRootForTesting(?string $root): void
@@ -52,7 +54,26 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
             'give_back_evidence_hash' => $giveBackEvidenceHash,
         ]);
 
-        $seq = $this->nextSeq($taskPacketId);
+        // Duplicate suppression — same canonical body → return existing without re-appending.
+        $existing = $this->forTask($taskPacketId);
+        foreach ($existing as $row) {
+            if (($row['receipt_id'] ?? '') === $receiptId) {
+                return new RetryReceipt(
+                    receiptId: $receiptId,
+                    taskPacketId: $taskPacketId,
+                    attemptIndex: (int) ($row['attempt_index'] ?? $attemptIndex),
+                    reshapeFingerprint: (string) ($row['reshape_fingerprint'] ?? $reshapeFingerprint),
+                    originalAllowedFiles: array_values((array) ($row['original_allowed_files'] ?? $originalAllowedFiles)),
+                    reshapedAllowedFiles: array_values((array) ($row['reshaped_allowed_files'] ?? $reshapedAllowedFiles)),
+                    decision: (string) ($row['decision'] ?? $decision),
+                    policyReason: (string) ($row['policy_reason'] ?? $policyReason),
+                    giveBackEvidenceHash: (string) ($row['give_back_evidence_hash'] ?? $giveBackEvidenceHash),
+                    seq: (int) ($row['seq'] ?? 1),
+                );
+            }
+        }
+
+        $seq = count($existing) + 1;
         $receipt = new RetryReceipt(
             receiptId: $receiptId,
             taskPacketId: $taskPacketId,
@@ -75,31 +96,45 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
      */
     public function forTask(string $taskPacketId): array
     {
-        $path = $this->pathFor($taskPacketId);
-        if (! is_file($path)) {
+        return $this->readJsonl($this->pathFor($taskPacketId));
+    }
+
+    /**
+     * Bounded export — returns at most $limit rows from the task ledger.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function export(string $taskPacketId, int $limit = 50): array
+    {
+        return array_slice($this->forTask($taskPacketId), 0, $limit);
+    }
+
+    /**
+     * Aggregate all receipts whose task_packet_id starts with $family followed by '-' or equals it.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forFamily(string $family): array
+    {
+        $root = self::$rootOverride ?? storage_path('atlas/maestro/retry');
+        if (! is_dir($root)) {
             return [];
         }
+        $safeFamily = preg_replace('/[^A-Za-z0-9._-]/', '_', $family) ?? '';
         $rows = [];
-        $fh = @fopen($path, 'rb');
-        if ($fh === false) {
-            return [];
-        }
-        try {
-            while (($line = fgets($fh)) !== false) {
-                $line = rtrim($line, "\n");
-                if ($line === '') {
-                    continue;
-                }
-                $decoded = json_decode($line, true);
-                if (is_array($decoded)) {
-                    $rows[] = $decoded;
-                }
+        foreach ((array) glob($root.'/*.jsonl') as $file) {
+            $base = basename((string) $file, '.jsonl');
+            if ($base === $safeFamily || str_starts_with($base, $safeFamily.'-')) {
+                $rows = array_merge($rows, $this->readJsonl((string) $file));
             }
-        } finally {
-            fclose($fh);
         }
 
         return $rows;
+    }
+
+    public function isQuarantined(string $taskPacketId): bool
+    {
+        return count($this->forTask($taskPacketId)) >= self::QUARANTINE_THRESHOLD;
     }
 
     /**
@@ -118,13 +153,6 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function nextSeq(string $taskPacketId): int
-    {
-        $rows = $this->forTask($taskPacketId);
-
-        return count($rows) + 1;
-    }
-
     private function appendLine(string $taskPacketId, RetryReceipt $receipt): void
     {
         $path = $this->pathFor($taskPacketId);
@@ -134,6 +162,35 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
         }
         $line = (string) json_encode($receipt->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function readJsonl(string $path): array
+    {
+        if (! is_file($path)) {
+            return [];
+        }
+        $fh = @fopen($path, 'rb');
+        if ($fh === false) {
+            return [];
+        }
+        $rows = [];
+        try {
+            while (($line = fgets($fh)) !== false) {
+                $line = rtrim($line, "\n");
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (is_array($decoded)) {
+                    $rows[] = $decoded;
+                }
+            }
+        } finally {
+            fclose($fh);
+        }
+
+        return $rows;
     }
 
     private function pathFor(string $taskPacketId): string

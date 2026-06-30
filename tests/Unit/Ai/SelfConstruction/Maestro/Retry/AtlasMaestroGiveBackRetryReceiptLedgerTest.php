@@ -79,4 +79,50 @@ final class AtlasMaestroGiveBackRetryReceiptLedgerTest extends TestCase
         $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
         $this->assertSame([], $ledger->forTask('pkt-unknown'));
     }
+
+    public function test_family_aggregation_collects_receipts_across_matching_task_ids(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        $ledger->append($this->facts(['task_packet_id' => 'alpha-task-1']));
+        $ledger->append($this->facts(['task_packet_id' => 'alpha-task-2', 'reshape_fingerprint' => 'fp-2']));
+        $ledger->append($this->facts(['task_packet_id' => 'beta-task-1', 'reshape_fingerprint' => 'fp-3']));
+
+        $this->assertCount(2, $ledger->forFamily('alpha'));
+        $this->assertCount(1, $ledger->forFamily('beta'));
+        $this->assertCount(0, $ledger->forFamily('gamma'));
+    }
+
+    public function test_quarantine_threshold_triggers_at_constant_n_receipts(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        $threshold = AtlasMaestroGiveBackRetryReceiptLedger::QUARANTINE_THRESHOLD;
+
+        for ($i = 1; $i < $threshold; $i++) {
+            $ledger->append($this->facts(['attempt_index' => $i, 'reshape_fingerprint' => "fp-{$i}"]));
+            $this->assertFalse($ledger->isQuarantined('pkt-1'));
+        }
+
+        $ledger->append($this->facts(['attempt_index' => $threshold, 'reshape_fingerprint' => 'fp-threshold']));
+        $this->assertTrue($ledger->isQuarantined('pkt-1'));
+    }
+
+    public function test_duplicate_receipt_suppression_prevents_double_row(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        $ledger->append($this->facts());
+        $ledger->append($this->facts()); // identical canonical → same receipt_id
+
+        $this->assertCount(1, $ledger->forTask('pkt-1'));
+    }
+
+    public function test_bounded_export_limits_returned_rows(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        for ($i = 1; $i <= 5; $i++) {
+            $ledger->append($this->facts(['attempt_index' => $i, 'reshape_fingerprint' => "fp-{$i}"]));
+        }
+
+        $this->assertCount(3, $ledger->export('pkt-1', 3));
+        $this->assertCount(5, $ledger->forTask('pkt-1'));
+    }
 }
