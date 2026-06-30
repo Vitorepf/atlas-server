@@ -162,10 +162,11 @@ final class AtlasExternalBrainPortfolioBalancerTest extends TestCase
         // bug_fix count=2 out of 7 = 28.5%, max_allowed=ceil(7×0.5)=4 → no surplus.
         $this->assertSame([], $result['surpluses']);
 
-        // learning_loop is missing → deficit.
+        // learning_loop is missing (high priority) + docs_sync/runtime_continuity filler present
+        // → upgrade marks as unbalanced (not merely deficit).
         $deficitCategories = array_column($result['deficits'], 'category');
         $this->assertContains('learning_loop', $deficitCategories);
-        $this->assertSame('deficit', $result['status']);
+        $this->assertSame('unbalanced', $result['status']);
         $this->assertFalse($result['passed']);
     }
 
@@ -331,5 +332,145 @@ final class AtlasExternalBrainPortfolioBalancerTest extends TestCase
         $this->assertContains('bug_fix',            AtlasExternalBrainPortfolioBalancer::CATEGORIES);
         $this->assertContains('architecture_unlock', AtlasExternalBrainPortfolioBalancer::CATEGORIES);
         $this->assertContains('learning_loop',       AtlasExternalBrainPortfolioBalancer::CATEGORIES);
+    }
+
+    // ── Operator ranking: missing high-priority + low-priority filler ─────────
+
+    public function test_missing_task_quality_repair_with_docs_sync_filler_is_unbalanced(): void
+    {
+        // Has docs_sync (filler) but no task_quality_repair (high-priority)
+        $cats = ['bug_fix', 'architecture_unlock', 'test_gate', 'learning_loop', 'docs_sync', 'runtime_continuity', 'docs_sync'];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $this->assertSame('unbalanced', $result['status']);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('missing_high_priority_coverage', $result['unbalanced_risk_flags']);
+    }
+
+    public function test_missing_learning_loop_with_runtime_continuity_filler_is_unbalanced(): void
+    {
+        $cats = ['bug_fix', 'architecture_unlock', 'test_gate', 'task_quality_repair', 'runtime_continuity', 'docs_sync', 'runtime_continuity'];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $this->assertSame('unbalanced', $result['status']);
+        $this->assertContains('missing_high_priority_coverage', $result['unbalanced_risk_flags']);
+    }
+
+    public function test_replacement_recommendations_emitted_for_missing_high_priority(): void
+    {
+        // task_quality_repair missing, docs_sync present → replace docs_sync with task_quality_repair
+        $cats = ['bug_fix', 'architecture_unlock', 'test_gate', 'learning_loop', 'docs_sync', 'runtime_continuity'];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $this->assertNotEmpty($result['replacement_recommendations']);
+        $withValues = array_column($result['replacement_recommendations'], 'with');
+        $this->assertContains('task_quality_repair', $withValues);
+    }
+
+    public function test_no_replacement_recommendations_when_high_priority_present(): void
+    {
+        $cats = [
+            'bug_fix', 'architecture_unlock', 'test_gate',
+            'runtime_continuity', 'task_quality_repair', 'docs_sync', 'learning_loop',
+        ];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $this->assertSame([], $result['replacement_recommendations']);
+        $this->assertNotContains('missing_high_priority_coverage', $result['unbalanced_risk_flags']);
+    }
+
+    public function test_missing_high_priority_without_filler_does_not_trigger_replacement(): void
+    {
+        // No filler (docs_sync/runtime_continuity) in wave → no replacement_recommendations trigger
+        $cats = ['bug_fix', 'bug_fix', 'architecture_unlock', 'test_gate'];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $this->assertSame([], $result['replacement_recommendations']);
+        $this->assertNotContains('missing_high_priority_coverage', $result['unbalanced_risk_flags']);
+    }
+
+    public function test_balance_reasons_name_missing_high_priority_categories(): void
+    {
+        $cats = ['bug_fix', 'architecture_unlock', 'test_gate', 'docs_sync', 'runtime_continuity'];
+        $result = $this->balancer()->balance($this->candidates($cats));
+
+        $found = false;
+        foreach ($result['balance_reasons'] as $r) {
+            if (str_contains($r, 'missing_high_priority_category:')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'balance_reasons must name missing high-priority categories');
+    }
+
+    // ── Scaffold dominance + consolidation_debt ───────────────────────────────
+
+    public function test_scaffold_dominated_wave_with_high_consolidation_debt_is_unbalanced(): void
+    {
+        // 6 of 7 candidates are new_organ/scaffold subtypes
+        $candidates = [];
+        for ($i = 0; $i < 6; $i++) {
+            $candidates[] = ['label' => "scaffold-{$i}", 'category' => 'architecture_unlock', 'risk_tier' => 'low', 'final_score' => 0.5, 'category_subtype' => 'new_organ'];
+        }
+        $candidates[] = ['label' => 'real-1', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.5];
+
+        $result = $this->balancer()->balance($candidates, ['consolidation_debt' => 0.80]);
+
+        $this->assertSame('unbalanced', $result['status']);
+        $this->assertContains('scaffold_dominance_with_high_consolidation_debt', $result['unbalanced_risk_flags']);
+        $this->assertTrue($result['consolidation_debt_flag']);
+    }
+
+    public function test_scaffold_dominated_wave_with_low_consolidation_debt_is_not_flagged(): void
+    {
+        $candidates = [];
+        for ($i = 0; $i < 6; $i++) {
+            $candidates[] = ['label' => "scaffold-{$i}", 'category' => 'architecture_unlock', 'risk_tier' => 'low', 'final_score' => 0.5, 'category_subtype' => 'scaffold'];
+        }
+        $candidates[] = ['label' => 'real-1', 'category' => 'bug_fix', 'risk_tier' => 'low', 'final_score' => 0.5];
+
+        // consolidation_debt below threshold (0.60)
+        $result = $this->balancer()->balance($candidates, ['consolidation_debt' => 0.30]);
+
+        $this->assertFalse($result['consolidation_debt_flag']);
+        $this->assertNotContains('scaffold_dominance_with_high_consolidation_debt', $result['unbalanced_risk_flags']);
+    }
+
+    public function test_diverse_wave_with_high_consolidation_debt_but_low_scaffold_ratio_not_flagged(): void
+    {
+        // Only 1 of 7 is scaffold → scaffold_ratio = 0.14 ≤ 0.50 threshold
+        $cats = [
+            'bug_fix', 'architecture_unlock', 'test_gate',
+            'runtime_continuity', 'task_quality_repair', 'docs_sync', 'learning_loop',
+        ];
+        $candidates = $this->candidates($cats);
+        $candidates[0]['category_subtype'] = 'new_organ'; // only one scaffold
+
+        $result = $this->balancer()->balance($candidates, ['consolidation_debt' => 0.90]);
+
+        $this->assertNotContains('scaffold_dominance_with_high_consolidation_debt', $result['unbalanced_risk_flags']);
+    }
+
+    // ── New output fields ─────────────────────────────────────────────────────
+
+    public function test_output_includes_replacement_recommendations_and_consolidation_debt_flag(): void
+    {
+        $result = $this->balancer()->balance($this->candidates(['bug_fix']));
+
+        $this->assertArrayHasKey('replacement_recommendations', $result);
+        $this->assertArrayHasKey('consolidation_debt_flag', $result);
+    }
+
+    public function test_priority_ranking_constant_lists_high_priority_first(): void
+    {
+        $ranking = AtlasExternalBrainPortfolioBalancer::PRIORITY_RANKING;
+        $this->assertSame('task_quality_repair', $ranking[0]);
+        $this->assertSame('learning_loop', $ranking[1]);
+        // filler must be at the end
+        $docsSyncIdx        = array_search('docs_sync',         $ranking, true);
+        $runtimeIdx         = array_search('runtime_continuity', $ranking, true);
+        $taskQualityIdx     = array_search('task_quality_repair', $ranking, true);
+        $this->assertGreaterThan($taskQualityIdx, $docsSyncIdx);
+        $this->assertGreaterThan($taskQualityIdx, $runtimeIdx);
     }
 }
