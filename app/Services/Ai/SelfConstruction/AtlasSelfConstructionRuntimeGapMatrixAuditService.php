@@ -119,6 +119,19 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
         $status = $stillOpen === [] && $blockers === [] ? 'passed' : 'blocked';
         $implementationPacketCommandSurface = $this->implementationPacketCommandSurface($gaps);
 
+        // Worker-safe closure classes only — never generate an impossible worker packet for a gap
+        // that can only be closed by an operator-signed receipt or a real-provider smoke run.
+        $workerSafeClasses = [self::CLOSURE_AUTO, self::CLOSURE_SAFE_DRY_RUN];
+        $handoffClasses = [self::CLOSURE_OPERATOR_RECEIPT, self::CLOSURE_REAL_PROVIDER_SMOKE];
+        $workerPacketCandidates = array_values(array_filter(
+            $gaps,
+            static fn (array $g): bool => in_array($g['closure_class'], $workerSafeClasses, true),
+        ));
+        $operatorOrProviderHandoffGaps = array_values(array_filter(
+            $gaps,
+            static fn (array $g): bool => in_array($g['closure_class'], $handoffClasses, true),
+        ));
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -152,6 +165,8 @@ final class AtlasSelfConstructionRuntimeGapMatrixAuditService
             'auto_closeable_locally_count' => count($autoCloseable),
             'closure_class_index' => $byClass,
             'gaps' => $gaps,
+            'worker_packet_candidates' => $workerPacketCandidates,
+            'operator_or_provider_handoff_gaps' => $operatorOrProviderHandoffGaps,
             'implementation_packet_command_surface' => $implementationPacketCommandSurface,
             'blockers' => $blockers,
             'runtime_execution_allowed' => false,
