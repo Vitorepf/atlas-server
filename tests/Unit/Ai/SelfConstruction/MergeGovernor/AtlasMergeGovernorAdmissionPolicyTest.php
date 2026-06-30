@@ -144,4 +144,103 @@ final class AtlasMergeGovernorAdmissionPolicyTest extends TestCase
         $this->assertSame(AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED, $r['decision']);
         $this->assertContains('release_window_allowed_risk_levels_missing', $r['blockers']);
     }
+
+    // ── learning_feedback ─────────────────────────────────────────────────────
+
+    public function test_admitted_has_no_learning_feedback(): void
+    {
+        $r = (new AtlasMergeGovernorAdmissionPolicy)->decide($this->baseFacts());
+        $this->assertArrayNotHasKey('learning_feedback', $r);
+    }
+
+    public function test_learning_feedback_has_all_six_required_keys(): void
+    {
+        $f = $this->baseFacts();
+        $f['verification_court']['server_side_green'] = false;
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        foreach (['blocker_family', 'repair_task_family', 'missing_evidence', 'rollback_need', 'release_window_need', 'should_requeue'] as $key) {
+            $this->assertArrayHasKey($key, $lf);
+        }
+    }
+
+    public function test_rejected_learning_feedback_is_evidence_family_and_requeueable(): void
+    {
+        $f = $this->baseFacts();
+        $f['verification_court']['server_side_green'] = false;
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('evidence', $lf['blocker_family']);
+        $this->assertSame('rerun_verification', $lf['repair_task_family']);
+        $this->assertContains('server_side_green', $lf['missing_evidence']);
+        $this->assertTrue($lf['should_requeue']);
+        $this->assertFalse($lf['release_window_need']);
+    }
+
+    public function test_repair_missing_evidence_hash_yields_evidence_family(): void
+    {
+        $f = $this->baseFacts();
+        $f['verification_court']['evidence_hash'] = '';
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('evidence', $lf['blocker_family']);
+        $this->assertContains('evidence_hash', $lf['missing_evidence']);
+        $this->assertTrue($lf['should_requeue']);
+    }
+
+    public function test_repair_missing_rerun_items_surfaced_in_missing_evidence(): void
+    {
+        $f = $this->baseFacts();
+        $f['verification_court']['missing_rerun'] = ['mutation', 'lint'];
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('evidence', $lf['blocker_family']);
+        $this->assertContains('rerun:mutation', $lf['missing_evidence']);
+        $this->assertContains('rerun:lint', $lf['missing_evidence']);
+    }
+
+    public function test_repair_non_conformant_rollback_yields_rollback_family(): void
+    {
+        $f = $this->baseFacts(AtlasMergeGovernorRiskClassifier::RISK_MEDIUM);
+        $f['rollback_gate'] = ['conformant' => false, 'blockers' => ['no_restore']];
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('rollback', $lf['blocker_family']);
+        $this->assertSame('fix_rollback_plan', $lf['repair_task_family']);
+        $this->assertTrue($lf['rollback_need']);
+        $this->assertTrue($lf['should_requeue']);
+    }
+
+    public function test_blocked_project_mismatch_yields_project_mismatch_family_not_requeueable(): void
+    {
+        $f = $this->baseFacts();
+        $f['verification_court']['project_id'] = 'OTHER';
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('project_mismatch', $lf['blocker_family']);
+        $this->assertSame('realign_project_scope', $lf['repair_task_family']);
+        $this->assertFalse($lf['should_requeue']);
+    }
+
+    public function test_blocked_outside_release_window_yields_release_window_family_requeueable(): void
+    {
+        $f = $this->baseFacts(AtlasMergeGovernorRiskClassifier::RISK_HIGH);
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('release_window', $lf['blocker_family']);
+        $this->assertSame('defer_to_next_window', $lf['repair_task_family']);
+        $this->assertTrue($lf['release_window_need']);
+        $this->assertTrue($lf['should_requeue']);
+    }
+
+    public function test_blocked_risk_level_missing_yields_risk_family_not_requeueable(): void
+    {
+        $f = $this->baseFacts();
+        $f['risk_classification'] = ['risk_level' => '', 'reasons' => []];
+        $lf = (new AtlasMergeGovernorAdmissionPolicy)->decide($f)['learning_feedback'];
+
+        $this->assertSame('risk', $lf['blocker_family']);
+        $this->assertSame('respec_risk_class', $lf['repair_task_family']);
+        $this->assertFalse($lf['should_requeue']);
+    }
 }

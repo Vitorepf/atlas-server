@@ -98,13 +98,19 @@ final class AtlasMergeGovernorAdmissionPolicy
 
         if ($blockers !== []) {
             sort($blockers, SORT_STRING);
+            $result = $this->envelope(self::DECISION_BLOCKED, $blockers, $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+            $result['learning_feedback'] = $this->buildLearningFeedback($blockers, $missingRerun, $evidenceHash, $rollbackConformant, $serverSideGreen);
 
-            return $this->envelope(self::DECISION_BLOCKED, $blockers, $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+            return $result;
         }
 
         // REJECTED branch — verification failed.
         if (! $serverSideGreen) {
-            return $this->envelope(self::DECISION_REJECTED, ['verification_not_server_side_green'], $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+            $rb = ['verification_not_server_side_green'];
+            $result = $this->envelope(self::DECISION_REJECTED, $rb, $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+            $result['learning_feedback'] = $this->buildLearningFeedback($rb, $missingRerun, $evidenceHash, $rollbackConformant, $serverSideGreen);
+
+            return $result;
         }
 
         // REPAIR_REQUIRED branch — verification green but proof incomplete or rollback weak.
@@ -125,12 +131,67 @@ final class AtlasMergeGovernorAdmissionPolicy
         }
         if ($repair !== []) {
             sort($repair, SORT_STRING);
+            $result = $this->envelope(self::DECISION_REPAIR, $repair, $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+            $result['learning_feedback'] = $this->buildLearningFeedback($repair, $missingRerun, $evidenceHash, $rollbackConformant, $serverSideGreen);
 
-            return $this->envelope(self::DECISION_REPAIR, $repair, $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+            return $result;
         }
 
-        // ADMITTED.
+        // ADMITTED — no learning_feedback.
         return $this->envelope(self::DECISION_ADMITTED, [], $riskLevel, $rollbackConformant, $serverSideGreen, $evidenceHash);
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @param  list<string>  $missingRerun
+     * @return array{blocker_family:string, repair_task_family:string, missing_evidence:list<string>, rollback_need:bool, release_window_need:bool, should_requeue:bool}
+     */
+    private function buildLearningFeedback(array $blockers, array $missingRerun, string $evidenceHash, bool $rollbackConformant, bool $serverSideGreen): array
+    {
+        $flat = implode(' ', $blockers);
+
+        // Priority: evidence > rollback > project_mismatch > release_window > risk
+        $family = 'risk';
+        if (str_contains($flat, 'project_mismatch')) {
+            $family = 'project_mismatch';
+        }
+        if (str_contains($flat, 'release_window')) {
+            $family = 'release_window';
+        }
+        if (str_contains($flat, 'rollback')) {
+            $family = 'rollback';
+        }
+        if (str_contains($flat, 'evidence') || str_contains($flat, 'rerun') || str_contains($flat, 'server_side')) {
+            $family = 'evidence';
+        }
+
+        $repairFamily = match ($family) {
+            'evidence'         => 'rerun_verification',
+            'rollback'         => 'fix_rollback_plan',
+            'project_mismatch' => 'realign_project_scope',
+            'release_window'   => 'defer_to_next_window',
+            default            => 'respec_risk_class',
+        };
+
+        $missingEvidence = [];
+        if (! $serverSideGreen) {
+            $missingEvidence[] = 'server_side_green';
+        }
+        if ($evidenceHash === '') {
+            $missingEvidence[] = 'evidence_hash';
+        }
+        foreach ($missingRerun as $gate) {
+            $missingEvidence[] = 'rerun:'.$gate;
+        }
+
+        return [
+            'blocker_family'      => $family,
+            'repair_task_family'  => $repairFamily,
+            'missing_evidence'    => $missingEvidence,
+            'rollback_need'       => ! $rollbackConformant || str_contains($flat, 'rollback'),
+            'release_window_need' => str_contains($flat, 'release_window'),
+            'should_requeue'      => in_array($family, ['evidence', 'rollback', 'release_window'], true),
+        ];
     }
 
     /**
