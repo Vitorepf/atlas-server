@@ -49,6 +49,7 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
     private const DEFAULT_POISON_THRESHOLD          = 0.20;
     private const DEFAULT_QUARANTINE_THRESHOLD      = 0.30;
     private const DEFAULT_DUPLICATE_THRESHOLD       = 0.30;
+    private const DEFAULT_WEAK_GREEN_THRESHOLD      = 0.30;
     private const DEFAULT_SUCCESS_THRESHOLD         = 0.80;
     private const DEFAULT_WORKER_RELY_FLOOR         = 0.70;
     private const DEFAULT_MIN_GIVE_BACK_FLAG        = 2;
@@ -70,6 +71,7 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
         $poisonThresh      = (float) ($facts['poison_threshold']          ?? self::DEFAULT_POISON_THRESHOLD);
         $quarThresh        = (float) ($facts['quarantine_threshold']      ?? self::DEFAULT_QUARANTINE_THRESHOLD);
         $dupThresh         = (float) ($facts['duplicate_threshold']       ?? self::DEFAULT_DUPLICATE_THRESHOLD);
+        $weakGreenThresh   = (float) ($facts['weak_green_threshold']      ?? self::DEFAULT_WEAK_GREEN_THRESHOLD);
         $successThresh     = (float) ($facts['success_threshold']         ?? self::DEFAULT_SUCCESS_THRESHOLD);
         $workerFloor       = (float) ($facts['worker_rely_floor']         ?? self::DEFAULT_WORKER_RELY_FLOOR);
         $minGiveBackFlag   = (int)   ($facts['min_give_back_flag']        ?? self::DEFAULT_MIN_GIVE_BACK_FLAG);
@@ -172,6 +174,9 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
                 $respecFamilies[] = $family;
             } elseif ($duplicateRate >= $dupThresh) {
                 $signal = 'duplicate_prone';
+                $respecFamilies[] = $family;
+            } elseif ($weakGreenRate >= $weakGreenThresh) {
+                $signal = 'weak_green_prone';
                 $respecFamilies[] = $family;
             } elseif ($successRate >= $successThresh) {
                 $signal = 'high_success';
@@ -335,6 +340,8 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrix
             'tier_matrix'                => $tierMatrix,
             'family_worker_fit'          => $familyWorkerFit,
             'family_tier_fit'            => $familyTierFit,
+            'family_worker_matrix'       => $familyWorkerFit,
+            'family_tier_matrix'         => $familyTierFit,
             'routing_recommendations'    => $routingRecommendations,
             'respec_families'            => $respecFamilies,
             'supply_families'            => $supplyFamilies,

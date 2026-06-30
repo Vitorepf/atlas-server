@@ -493,4 +493,80 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
             $this->assertArrayHasKey('preferred_tier',           $rec);
         }
     }
+
+    // ── AC2: canonical family_worker_matrix / family_tier_matrix keys ────────
+
+    public function test_output_has_family_worker_and_family_tier_matrix_keys(): void
+    {
+        $r = $this->matrix()->analyze([]);
+        $this->assertArrayHasKey('family_worker_matrix', $r);
+        $this->assertArrayHasKey('family_tier_matrix',   $r);
+    }
+
+    public function test_family_worker_matrix_mirrors_family_worker_fit(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
+                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
+            ],
+        ]);
+
+        $this->assertSame($r['family_worker_fit'], $r['family_worker_matrix']);
+        $this->assertSame($r['family_tier_fit'],   $r['family_tier_matrix']);
+    }
+
+    // ── AC3: worker preferred for one family, avoided for another ────────────
+
+    public function test_worker_preferred_for_one_family_and_avoided_for_another(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['task_family' => 'add_feature', 'worker_id' => 'w1', 'outcome' => 'success']),
+                $this->row(['task_family' => 'add_feature', 'worker_id' => 'w1', 'outcome' => 'success']),
+                $this->row(['task_family' => 'refactor',    'worker_id' => 'w1', 'outcome' => 'failure']),
+                $this->row(['task_family' => 'refactor',    'worker_id' => 'w1', 'outcome' => 'failure']),
+            ],
+            'routing_prefer_floor' => 0.70,
+            'routing_avoid_ceiling' => 0.40,
+            'routing_min_rows'     => 2,
+        ]);
+
+        $addFeaturePreferred = array_column($r['routing_recommendations']['add_feature']['preferred_workers'], 'worker_id');
+        $refactorAvoided     = array_column($r['routing_recommendations']['refactor']['avoid_workers'], 'worker_id');
+
+        $this->assertContains('w1', $addFeaturePreferred, 'w1 must be preferred for add_feature');
+        $this->assertContains('w1', $refactorAvoided, 'the same w1 must be avoided for refactor');
+    }
+
+    // ── AC4: weak_green_prone families separated from poison/quarantine/duplicate ──
+
+    public function test_weak_green_prone_family_is_separated_and_added_to_respec(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'weak_green']),
+                $this->row(['outcome' => 'weak_green']),
+                $this->row(['outcome' => 'success']),
+            ],
+            'weak_green_threshold' => 0.30,
+        ]);
+
+        $this->assertSame('weak_green_prone', $r['family_matrix']['refactor']['signal']);
+        $this->assertContains('refactor', $r['respec_families']);
+    }
+
+    public function test_poison_prone_outranks_weak_green_prone(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['outcome' => 'poison']),
+                $this->row(['outcome' => 'weak_green']),
+            ],
+            'poison_threshold'     => 0.20,
+            'weak_green_threshold' => 0.20,
+        ]);
+
+        $this->assertSame('poison_prone', $r['family_matrix']['refactor']['signal']);
+    }
 }
