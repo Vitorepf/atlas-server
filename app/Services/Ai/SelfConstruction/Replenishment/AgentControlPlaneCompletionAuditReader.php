@@ -203,6 +203,46 @@ class AgentControlPlaneCompletionAuditReader
         return 'review_and_repair_or_retire_family';
     }
 
+    /** Below this claimable-per-active-worker ratio, the queue is considered draining. */
+    private const DEFAULT_CLAIMABLE_PER_WORKER_THRESHOLD = 3.0;
+
+    /**
+     * Reads recent completed_dry_run velocity against claimable depth and emits a structured
+     * replenishment hint when completions are draining the queue faster than it is being refilled
+     * — i.e. recent completions happened (completed_dry_run_delta > 0) while claimable_per_active_worker
+     * has fallen to/below the threshold. Pure: never claims a packet, never writes anything.
+     *
+     * @param  array<string, mixed>  $facts
+     *         completed_dry_run_count          : int    current completed_dry_run count
+     *         completed_dry_run_count_previous : int    prior completed_dry_run count
+     *         completed_dry_run_delta          : int    optional explicit delta (overrides the above subtraction)
+     *         claimable_per_active_worker       : float current claimable packets per active worker
+     *         claimable_per_active_worker_threshold : float optional override of the drain threshold
+     * @return array<string, mixed>
+     */
+    public function completionVelocityReplenishHint(array $facts): array
+    {
+        $delta = array_key_exists('completed_dry_run_delta', $facts)
+            ? (int) $facts['completed_dry_run_delta']
+            : max(0, (int) ($facts['completed_dry_run_count'] ?? 0) - (int) ($facts['completed_dry_run_count_previous'] ?? 0));
+
+        $claimablePerActiveWorker = (float) ($facts['claimable_per_active_worker'] ?? PHP_INT_MAX);
+        $threshold = (float) ($facts['claimable_per_active_worker_threshold'] ?? self::DEFAULT_CLAIMABLE_PER_WORKER_THRESHOLD);
+
+        $draining = $delta > 0 && $claimablePerActiveWorker <= $threshold;
+
+        if (! $draining) {
+            return ['completion_velocity_replenish' => false];
+        }
+
+        return [
+            'completion_velocity_replenish' => true,
+            'completed_dry_run_delta' => $delta,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'claimable_per_active_worker_threshold' => $threshold,
+        ];
+    }
+
     public function operatorHandoffNextAction(string $criterion): string
     {
         return match ($criterion) {
