@@ -17,13 +17,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   5. otherwise                       → NOT count_as_delivered (important, unexposed, no standalone)
  *
  * INPUT:
- *   organ_id:                string
- *   is_important:            bool   (default false)
- *   control_plane_exposure:  bool   (default false)
- *   readiness_map_exposure:  bool   (default false)
- *   consumer_links:          list<string>  (default []) — informational, used in reason output
- *   standalone_reason:       string  (default '') — explicit justification for standalone delivery
- *   evidence_floor:          string  (default '') — minimum evidence required for standalone
+ *   organ_id:                    string
+ *   is_important:                bool   (default false)
+ *   control_plane_exposure:      bool   (default false)
+ *   readiness_map_exposure:      bool   (default false)
+ *   consumer_links:              list<string>  (default []) — at least one required for standalone
+ *   standalone_reason:           string  (default '') — explicit justification for standalone delivery
+ *   evidence_floor:              string  (default '') — minimum evidence required for standalone
+ *   expiry_or_review_condition:  string  (default '') — deadline or trigger for standalone re-review
  *
  * OUTPUT:
  *   { schema, organ_id, count_as_delivered:bool, exposure_path:string, reasons:list<string> }
@@ -52,9 +53,10 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
         $isImportant          = (bool) ($organ['is_important'] ?? false);
         $controlPlane         = (bool) ($organ['control_plane_exposure'] ?? false);
         $readinessMap         = (bool) ($organ['readiness_map_exposure'] ?? false);
-        $consumerLinks        = array_values(array_map('strval', (array) ($organ['consumer_links'] ?? [])));
-        $standaloneReason     = trim((string) ($organ['standalone_reason'] ?? ''));
-        $evidenceFloor        = trim((string) ($organ['evidence_floor'] ?? ''));
+        $consumerLinks           = array_values(array_filter(array_map('strval', (array) ($organ['consumer_links'] ?? []))));
+        $standaloneReason        = trim((string) ($organ['standalone_reason'] ?? ''));
+        $evidenceFloor           = trim((string) ($organ['evidence_floor'] ?? ''));
+        $expiryOrReviewCondition = trim((string) ($organ['expiry_or_review_condition'] ?? ''));
 
         $reasons = [];
 
@@ -85,10 +87,17 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
             return $this->result($organId, true, self::PATH_READINESS_MAP, $reasons);
         }
 
-        // Rule 4: explicit standalone exception with both fields present.
-        if ($standaloneReason !== '' && $evidenceFloor !== '') {
+        // Rule 4: explicit standalone exception — all 4 fields required (fail-closed).
+        $standaloneComplete = $standaloneReason !== ''
+            && $evidenceFloor !== ''
+            && $consumerLinks !== []
+            && $expiryOrReviewCondition !== '';
+
+        if ($standaloneComplete) {
             $reasons[] = 'standalone_exception_granted:reason='.$standaloneReason;
             $reasons[] = 'evidence_floor='.$evidenceFloor;
+            $reasons[] = 'consumer_links:'.implode(',', $consumerLinks);
+            $reasons[] = 'expiry_or_review_condition='.$expiryOrReviewCondition;
 
             return $this->result($organId, true, self::PATH_STANDALONE, $reasons);
         }
@@ -97,12 +106,24 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
         $reasons[] = 'important_organ_has_no_control_plane_exposure';
         $reasons[] = 'important_organ_has_no_readiness_map_exposure';
 
-        if ($standaloneReason === '' && $evidenceFloor === '') {
-            $reasons[] = 'standalone_exception_missing:standalone_reason_and_evidence_floor_required';
-        } elseif ($standaloneReason === '') {
-            $reasons[] = 'standalone_exception_incomplete:missing_standalone_reason';
+        $anyStandaloneField = $standaloneReason !== '' || $evidenceFloor !== ''
+            || $consumerLinks !== [] || $expiryOrReviewCondition !== '';
+
+        if (! $anyStandaloneField) {
+            $reasons[] = 'standalone_exception_missing:all_four_fields_required';
         } else {
-            $reasons[] = 'standalone_exception_incomplete:missing_evidence_floor';
+            if ($standaloneReason === '') {
+                $reasons[] = 'standalone_exception_incomplete:missing_standalone_reason';
+            }
+            if ($evidenceFloor === '') {
+                $reasons[] = 'standalone_exception_incomplete:missing_evidence_floor';
+            }
+            if ($consumerLinks === []) {
+                $reasons[] = 'standalone_exception_incomplete:missing_consumer_links';
+            }
+            if ($expiryOrReviewCondition === '') {
+                $reasons[] = 'standalone_exception_incomplete:missing_expiry_or_review_condition';
+            }
         }
 
         return $this->result($organId, false, self::PATH_NONE, $reasons);

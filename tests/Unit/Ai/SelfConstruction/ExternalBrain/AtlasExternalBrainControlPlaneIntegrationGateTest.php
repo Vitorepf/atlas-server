@@ -116,15 +116,17 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
 
     // ── rule 4: standalone exception ─────────────────────────────────────────
 
-    public function test_important_unexposed_organ_with_standalone_reason_and_evidence_floor_delivers(): void
+    public function test_complete_standalone_exception_with_all_four_fields_delivers(): void
     {
         $result = $this->gate()->evaluate([
-            'organ_id'               => 'standalone-organ',
-            'is_important'           => true,
-            'control_plane_exposure' => false,
-            'readiness_map_exposure' => false,
-            'standalone_reason'      => 'this organ has no consumer yet but is architecturally sound',
-            'evidence_floor'         => 'at_least_5_green_tests',
+            'organ_id'                    => 'standalone-organ',
+            'is_important'                => true,
+            'control_plane_exposure'      => false,
+            'readiness_map_exposure'      => false,
+            'standalone_reason'           => 'this organ has no consumer yet but is architecturally sound',
+            'evidence_floor'              => 'at_least_5_green_tests',
+            'consumer_links'              => ['AtlasBrainOriginator'],
+            'expiry_or_review_condition'  => 'review_after_2026-09-01_or_when_wired',
         ]);
 
         $this->assertTrue($result['count_as_delivered']);
@@ -195,6 +197,58 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
 
         $reasonStr = implode(' ', $result['reasons']);
         $this->assertStringContainsString('standalone_exception_missing', $reasonStr);
+        $this->assertStringContainsString('all_four_fields_required', $reasonStr);
+    }
+
+    public function test_standalone_missing_consumer_links_does_not_deliver(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'                   => 'half-standalone',
+            'is_important'               => true,
+            'control_plane_exposure'     => false,
+            'readiness_map_exposure'     => false,
+            'standalone_reason'          => 'justified reason',
+            'evidence_floor'             => 'at_least_5_green_tests',
+            'consumer_links'             => [],
+            'expiry_or_review_condition' => 'review_2026-09-01',
+        ]);
+
+        $this->assertFalse($result['count_as_delivered']);
+        $reasonStr = implode(' ', $result['reasons']);
+        $this->assertStringContainsString('missing_consumer_links', $reasonStr);
+    }
+
+    public function test_standalone_missing_expiry_does_not_deliver(): void
+    {
+        $result = $this->gate()->evaluate([
+            'organ_id'                   => 'half-standalone',
+            'is_important'               => true,
+            'control_plane_exposure'     => false,
+            'readiness_map_exposure'     => false,
+            'standalone_reason'          => 'justified reason',
+            'evidence_floor'             => 'at_least_5_green_tests',
+            'consumer_links'             => ['AtlasBrainOriginator'],
+            'expiry_or_review_condition' => '',
+        ]);
+
+        $this->assertFalse($result['count_as_delivered']);
+        $reasonStr = implode(' ', $result['reasons']);
+        $this->assertStringContainsString('missing_expiry_or_review_condition', $reasonStr);
+    }
+
+    public function test_standalone_reasons_list_all_missing_fields(): void
+    {
+        // Provide only standalone_reason; other 3 missing.
+        $result = $this->gate()->evaluate([
+            'organ_id'          => 'partial-standalone',
+            'is_important'      => true,
+            'standalone_reason' => 'some reason',
+        ]);
+
+        $reasonStr = implode(' ', $result['reasons']);
+        $this->assertStringContainsString('missing_evidence_floor', $reasonStr);
+        $this->assertStringContainsString('missing_consumer_links', $reasonStr);
+        $this->assertStringContainsString('missing_expiry_or_review_condition', $reasonStr);
     }
 
     // ── exposure path priority ────────────────────────────────────────────────
