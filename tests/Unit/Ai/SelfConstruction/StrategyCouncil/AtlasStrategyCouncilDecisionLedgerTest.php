@@ -89,4 +89,58 @@ final class AtlasStrategyCouncilDecisionLedgerTest extends TestCase
         $this->assertCount(1, $rows);
         $this->assertSame('cand-A', $rows[0]['selected_candidate_id']);
     }
+
+    public function test_stable_hash_same_input_yields_same_decision_hash(): void
+    {
+        $a = $this->ledger->append($this->payload());
+        $this->assertSame(64, strlen($a['row']['decision_hash']));
+
+        // Re-create ledger with different path to avoid dedup, then check same canonical payload → same hash.
+        $path2 = sys_get_temp_dir().'/atlas_sc_dec2_'.bin2hex(random_bytes(6)).'.jsonl';
+        $ledger2 = new AtlasStrategyCouncilDecisionLedger($path2);
+        $b = $ledger2->append($this->payload());
+        @unlink($path2);
+
+        $this->assertSame($a['row']['decision_hash'], $b['row']['decision_hash']);
+    }
+
+    public function test_by_ambition_level_priority_query(): void
+    {
+        $p1 = $this->payload('A');
+        $p1['ambition_level'] = AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_BOLD;
+        $this->ledger->append($p1);
+
+        $p2 = $this->payload('B');
+        $p2['ambition_level'] = AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_NARROW;
+        $this->ledger->append($p2);
+
+        $bold = $this->ledger->byAmbitionLevel(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_BOLD);
+        $this->assertCount(1, $bold);
+        $this->assertSame('A', $bold[0]['selected_candidate_id']);
+
+        $this->assertCount(0, $this->ledger->byAmbitionLevel(AtlasStrategyCouncilAmbitionBudgetPolicy::LEVEL_STANDARD));
+    }
+
+    public function test_by_refused_candidate_refusal_query(): void
+    {
+        $p = $this->payload('winner');
+        $p['rejected_candidate_ids'] = ['loser-1', 'loser-2'];
+        $this->ledger->append($p);
+
+        $this->assertCount(1, $this->ledger->byRefusedCandidate('loser-1'));
+        $this->assertCount(0, $this->ledger->byRefusedCandidate('winner'));
+    }
+
+    public function test_bounded_export_limits_rows(): void
+    {
+        for ($i = 1; $i <= 5; $i++) {
+            $p = $this->payload("cand-{$i}");
+            $p['decision_id'] = "dec-{$i}";
+            $p['decided_at'] = "2026-06-25T0{$i}:00:00Z";
+            $this->ledger->append($p);
+        }
+
+        $this->assertCount(3, $this->ledger->export(3));
+        $this->assertCount(5, $this->ledger->all());
+    }
 }

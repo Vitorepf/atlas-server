@@ -130,6 +130,39 @@ final class AtlasStrategyCouncilDecisionLedger
         return array_values(array_filter($this->all(), static fn (array $r): bool => (string) ($r['selected_candidate_id'] ?? '') === $candidateId));
     }
 
+    /**
+     * Priority query: filter by ambition level.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function byAmbitionLevel(string $level): array
+    {
+        return array_values(array_filter($this->all(), static fn (array $r): bool => (string) ($r['ambition_level'] ?? '') === $level));
+    }
+
+    /**
+     * Refusal query: rows where $candidateId appears in rejected_candidate_ids.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function byRefusedCandidate(string $candidateId): array
+    {
+        return array_values(array_filter(
+            $this->all(),
+            static fn (array $r): bool => in_array($candidateId, (array) ($r['rejected_candidate_ids'] ?? []), true),
+        ));
+    }
+
+    /**
+     * Bounded export — at most $limit rows, oldest-first.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function export(int $limit = 50): array
+    {
+        return array_slice($this->all(), 0, max(0, $limit));
+    }
+
     private function alreadyRecorded(string $decisionHash): bool
     {
         foreach ($this->all() as $r) {
