@@ -60,6 +60,45 @@ final class AtlasLoopResearchOriginatorTest extends TestCase
         $this->assertNull($this->originator(true)->originate('a clean topic', base_path(), []));
     }
 
+    public function test_task_packet_contract_has_required_fields_and_php_artisan_criteria(): void
+    {
+        $obj = $this->originator(true)->originate('retry budget for provider calls', base_path(), ['app/Svc/X.php', 'tests/Unit/Svc/XTest.php']);
+
+        $this->assertIsArray($obj);
+        $this->assertArrayHasKey('task_packet_contract', $obj);
+        $contract = $obj['task_packet_contract'];
+
+        $this->assertSame(['app/Svc/X.php', 'tests/Unit/Svc/XTest.php'], $contract['allowed_files']);
+        $this->assertSame(['tests_or_gates_result', 'implementation_notes'], $contract['required_evidence']);
+        $this->assertSame('research_to_task', $contract['objective_kind']);
+        $this->assertStringStartsWith('sha256:', $contract['research_provenance_hash']);
+
+        // acceptance_criteria must mention php artisan and RED/failing-test-first proof
+        $criteria = implode(' ', $contract['acceptance_criteria']);
+        $this->assertStringContainsString('/opt/homebrew/bin/php artisan test', $criteria);
+        $this->assertStringContainsStringIgnoringCase('red', $criteria);
+        $this->assertStringContainsString('source_quarantined=true', $criteria, 'anti-hype warning must reference quarantine');
+
+        // Source quarantine still intact on parent result.
+        $this->assertTrue($obj['source_quarantined']);
+        $this->assertTrue($obj['acceptance']['red_required']);
+    }
+
+    public function test_task_packet_contract_provenance_hash_is_deterministic(): void
+    {
+        $o = $this->originator(true);
+        $r1 = $o->originate('idempotency for queue refill', base_path(), ['app/Svc/Y.php']);
+        $r2 = $o->originate('idempotency for queue refill', base_path(), ['app/Svc/Y.php']);
+
+        $this->assertIsArray($r1);
+        $this->assertIsArray($r2);
+        $this->assertSame(
+            $r1['task_packet_contract']['research_provenance_hash'],
+            $r2['task_packet_contract']['research_provenance_hash'],
+            'same topic and note must produce the same provenance hash',
+        );
+    }
+
     public function test_egress_blocked_topic_mints_nothing_even_with_a_backend(): void
     {
         // a topic carrying a REAL repo file path is egress-blocked by the research service (it only blocks

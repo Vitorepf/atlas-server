@@ -68,6 +68,8 @@ final class AtlasLoopResearchOriginator
             return null;
         }
 
+        $provenanceHash = 'sha256:'.hash('sha256', $topic.'|'.$note);
+
         return [
             'objective' => "Improve the target informed by external research on \"{$topic}\". The research note "
                 ."is ADVISORY CONTEXT ONLY — it is NOT proof. You must establish the improvement with your own "
@@ -78,6 +80,18 @@ final class AtlasLoopResearchOriginator
             'acceptance' => [
                 'red_required' => true,
                 'allowed_globs' => array_values($allowedGlobs),
+            ],
+            'task_packet_contract' => [
+                'allowed_files'            => array_values($allowedGlobs),
+                'acceptance_criteria'      => [
+                    'Own RED failing-test-first proof required: write a test that fails BEFORE the change and passes AFTER.',
+                    'Run /opt/homebrew/bin/php artisan test to prove the implementation green.',
+                    'Research note is source_quarantined=true (advisory context only) — do NOT cite it as evidence or proof.',
+                    'Anti-hype: implementation must solve a REAL failing test, not merely echo the research claim.',
+                ],
+                'required_evidence'        => ['tests_or_gates_result', 'implementation_notes'],
+                'objective_kind'           => 'research_to_task',
+                'research_provenance_hash' => $provenanceHash,
             ],
         ];
     }
