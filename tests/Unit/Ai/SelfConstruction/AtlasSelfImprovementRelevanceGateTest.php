@@ -312,6 +312,65 @@ final class AtlasSelfImprovementRelevanceGateTest extends TestCase
         $this->assertSame(0.0, $v['target_match']);
     }
 
+    // ------------------------------------------------------------------
+    // verifyProposal() — proxy-rejection for self-improvement proposals
+    // ------------------------------------------------------------------
+
+    private function concreteProposal(): array
+    {
+        return [
+            'proposal_type' => 'capability_addition',
+            'leverage_evidence' => 'Profiled: 43% of loop cycles exit early because X gate has no short-circuit; adding it reduces p99 by ~300ms measured on prod trace.',
+            'implementation_surface' => ['app/Services/Ai/SelfConstruction/XGate.php'],
+            'verification_path' => '/opt/homebrew/bin/php artisan test --filter=XGateTest',
+            'before_after_outcome_delta' => 'before: 0 short-circuits / cycle; after: early-exit on 43% of cycles',
+        ];
+    }
+
+    public function test_task_count_proposal_is_rejected_as_proxy(): void
+    {
+        $p = $this->concreteProposal();
+        $p['proposal_type'] = 'task_count_optimization';
+        $r = $this->gate()->verifyProposal($p);
+        $this->assertFalse($r['relevant']);
+        $this->assertContains('proxy_proposal_type:task_count_optimization', $r['blockers']);
+    }
+
+    public function test_cosmetic_docs_proposal_is_rejected_as_proxy(): void
+    {
+        $p = $this->concreteProposal();
+        $p['proposal_type'] = 'cosmetic_docs';
+        $r = $this->gate()->verifyProposal($p);
+        $this->assertFalse($r['relevant']);
+        $this->assertContains('proxy_proposal_type:cosmetic_docs', $r['blockers']);
+    }
+
+    public function test_vague_refactor_proposal_is_rejected_as_proxy(): void
+    {
+        $p = $this->concreteProposal();
+        $p['proposal_type'] = 'vague_refactor';
+        $r = $this->gate()->verifyProposal($p);
+        $this->assertFalse($r['relevant']);
+        $this->assertContains('proxy_proposal_type:vague_refactor', $r['blockers']);
+    }
+
+    public function test_proposal_with_all_required_evidence_fields_passes(): void
+    {
+        $r = $this->gate()->verifyProposal($this->concreteProposal());
+        $this->assertTrue($r['relevant']);
+        $this->assertSame('proposal_has_concrete_evidence', $r['reason']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_proposal_missing_leverage_evidence_is_blocked(): void
+    {
+        $p = $this->concreteProposal();
+        unset($p['leverage_evidence']);
+        $r = $this->gate()->verifyProposal($p);
+        $this->assertFalse($r['relevant']);
+        $this->assertContains('leverage_evidence_missing', $r['blockers']);
+    }
+
     /** ~412 lines of an unrelated Hermes Kanban board driver (the real failure's shape). */
     private function kanbanDriverGarbage(): string
     {

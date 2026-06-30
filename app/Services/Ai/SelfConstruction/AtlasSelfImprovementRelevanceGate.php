@@ -157,6 +157,55 @@ final class AtlasSelfImprovementRelevanceGate
     }
 
     // ------------------------------------------------------------------
+    // Proposal relevance gate (proxy-rejection for self-improvement proposals)
+    // ------------------------------------------------------------------
+
+    public const PROXY_PROPOSAL_TYPES = ['task_count_optimization', 'cosmetic_docs', 'vague_refactor'];
+
+    /**
+     * Verify a self-improvement proposal for non-proxy relevance.
+     * Rejects proposals whose type is a known Goodhart proxy (task_count, cosmetic_docs, vague_refactor).
+     * Requires: leverage_evidence, implementation_surface, verification_path, before_after_outcome_delta.
+     *
+     * @param  array<string,mixed>  $proposal
+     * @return array{relevant:bool, reason:string, blockers:list<string>}
+     */
+    public function verifyProposal(array $proposal): array
+    {
+        $blockers = [];
+
+        $type = strtolower(trim((string) ($proposal['proposal_type'] ?? '')));
+        if (in_array($type, self::PROXY_PROPOSAL_TYPES, true)) {
+            $blockers[] = 'proxy_proposal_type:'.$type;
+        }
+
+        if (trim((string) ($proposal['leverage_evidence'] ?? '')) === '') {
+            $blockers[] = 'leverage_evidence_missing';
+        }
+
+        $surface = $proposal['implementation_surface'] ?? null;
+        if ($surface === null || $surface === '' || $surface === []) {
+            $blockers[] = 'implementation_surface_missing';
+        }
+
+        if (trim((string) ($proposal['verification_path'] ?? '')) === '') {
+            $blockers[] = 'verification_path_missing';
+        }
+
+        if (trim((string) ($proposal['before_after_outcome_delta'] ?? '')) === '') {
+            $blockers[] = 'before_after_outcome_delta_missing';
+        }
+
+        sort($blockers, SORT_STRING);
+
+        return [
+            'relevant' => $blockers === [],
+            'reason' => $blockers === [] ? 'proposal_has_concrete_evidence' : 'proposal_rejected',
+            'blockers' => $blockers,
+        ];
+    }
+
+    // ------------------------------------------------------------------
     // target dimension (S3.F1, unchanged behaviour)
     // ------------------------------------------------------------------
 
