@@ -45,6 +45,94 @@ final class AtlasExternalBrainFrontierExhaustionEscalator
     /** Minimum duplicate rate (vs total) to classify as high-duplicate wave. */
     private const HIGH_DUPLICATE_THRESHOLD = 0.5;
 
+    /** Minimum forbidden-wall rate to require an unblock strategy change. */
+    private const FORBIDDEN_WALL_THRESHOLD = 0.3;
+
+    /** Minimum consecutive weak proposals before recommending simplification. */
+    private const WEAK_PROPOSAL_STREAK_THRESHOLD = 3;
+
+    public const STRATEGY_SIMPLIFY              = 'simplify';
+    public const STRATEGY_AUDIT_CODE            = 'audit_code';
+    public const STRATEGY_RESEARCH_EXTERNAL     = 'research_external';
+    public const STRATEGY_UNBLOCK_FORBIDDEN_WALL = 'unblock_forbidden_wall';
+    public const STRATEGY_CONSOLIDATE           = 'consolidate';
+
+    /** @var list<string> */
+    public const CHANGE_STRATEGY_ACTIONS = [
+        self::STRATEGY_SIMPLIFY,
+        self::STRATEGY_AUDIT_CODE,
+        self::STRATEGY_RESEARCH_EXTERNAL,
+        self::STRATEGY_UNBLOCK_FORBIDDEN_WALL,
+        self::STRATEGY_CONSOLIDATE,
+    ];
+
+    /**
+     * Detect frontier exhaustion and recommend a strategy CHANGE — never another
+     * identical-strategy frontier pass. Separate from escalate()'s pass-ladder model.
+     *
+     * @param  list<array<string,mixed>>  $waveHistory
+     * @param  array<string,mixed>  $context  optional: weak_proposal_streak
+     * @return array{schema_version:string, exhaustion_proven:bool, exhaustion_signals:list<string>, recommended_strategy:?string, must_not_repeat_same_strategy:bool}
+     */
+    public function recommendStrategyChange(array $waveHistory, array $context = []): array
+    {
+        $latest = $waveHistory !== [] ? $waveHistory[count($waveHistory) - 1] : [];
+
+        $lowMarginalYield   = $this->isDecliningFindings($waveHistory) && $this->isRisingCost($waveHistory);
+        $risingDuplicateRate = $this->isHighDuplicates($waveHistory);
+        $forbiddenWallRate  = $this->forbiddenWallRate($latest);
+        $forbiddenWallHigh  = $forbiddenWallRate >= self::FORBIDDEN_WALL_THRESHOLD;
+        $weakProposalStreak = max(0, (int) ($context['weak_proposal_streak'] ?? 0));
+        $repeatedWeakProposals = $weakProposalStreak >= self::WEAK_PROPOSAL_STREAK_THRESHOLD;
+
+        $signals = [];
+        if ($lowMarginalYield) {
+            $signals[] = 'low_marginal_yield';
+        }
+        if ($risingDuplicateRate) {
+            $signals[] = 'rising_duplicate_rate';
+        }
+        if ($forbiddenWallHigh) {
+            $signals[] = 'forbidden_wall_rate';
+        }
+        if ($repeatedWeakProposals) {
+            $signals[] = 'repeated_weak_proposals';
+        }
+
+        $exhaustionProven = $signals !== [];
+
+        // Priority: the most actionable, most specific cause wins.
+        $strategy = match (true) {
+            $forbiddenWallHigh        => self::STRATEGY_UNBLOCK_FORBIDDEN_WALL,
+            $repeatedWeakProposals    => self::STRATEGY_SIMPLIFY,
+            $risingDuplicateRate      => self::STRATEGY_CONSOLIDATE,
+            $lowMarginalYield         => self::STRATEGY_AUDIT_CODE,
+            default                   => null,
+        };
+
+        // Exhaustion proven but no specific signal matched a strategy (defensive default):
+        // never fall back to "run the same strategy again" — go external instead.
+        if ($exhaustionProven && $strategy === null) {
+            $strategy = self::STRATEGY_RESEARCH_EXTERNAL;
+        }
+
+        return [
+            'schema_version'                => self::SCHEMA,
+            'exhaustion_proven'             => $exhaustionProven,
+            'exhaustion_signals'            => $signals,
+            'recommended_strategy'          => $strategy,
+            'must_not_repeat_same_strategy' => $exhaustionProven,
+        ];
+    }
+
+    private function forbiddenWallRate(array $wave): float
+    {
+        $hits  = (int) ($wave['forbidden_wall_hits'] ?? 0);
+        $total = (int) ($wave['attempts'] ?? 0);
+
+        return $total > 0 ? $hits / $total : 0.0;
+    }
+
     /**
      * Evaluate wave history and return the next escalation pass.
      *

@@ -210,4 +210,67 @@ final class AtlasExternalBrainFrontierExhaustionEscalatorTest extends TestCase
         // but without declining+rising+dupes all true, stays on bug_hunt
         $this->assertSame('bug_hunt', $r['next_pass']);
     }
+
+    // ── recommendStrategyChange() ───────────────────────────────────────────────
+
+    public function test_no_signals_yields_no_exhaustion(): void
+    {
+        $r = $this->svc()->recommendStrategyChange([$this->thinWave(10, 0, 100)]);
+
+        $this->assertFalse($r['exhaustion_proven']);
+        $this->assertNull($r['recommended_strategy']);
+        $this->assertFalse($r['must_not_repeat_same_strategy']);
+    }
+
+    public function test_forbidden_wall_rate_recommends_unblock(): void
+    {
+        $wave = ['verified_findings' => 5, 'duplicate_findings' => 0, 'token_cost' => 100, 'forbidden_wall_hits' => 4, 'attempts' => 10];
+
+        $r = $this->svc()->recommendStrategyChange([$wave]);
+
+        $this->assertTrue($r['exhaustion_proven']);
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_UNBLOCK_FORBIDDEN_WALL, $r['recommended_strategy']);
+        $this->assertContains('forbidden_wall_rate', $r['exhaustion_signals']);
+    }
+
+    public function test_repeated_weak_proposals_recommends_simplify(): void
+    {
+        $r = $this->svc()->recommendStrategyChange([$this->thinWave(5, 0, 100)], ['weak_proposal_streak' => 3]);
+
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_SIMPLIFY, $r['recommended_strategy']);
+    }
+
+    public function test_rising_duplicate_rate_recommends_consolidate(): void
+    {
+        $r = $this->svc()->recommendStrategyChange([$this->thinWave(3, 10, 100)]);
+
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_CONSOLIDATE, $r['recommended_strategy']);
+    }
+
+    public function test_low_marginal_yield_recommends_audit_code(): void
+    {
+        $r = $this->svc()->recommendStrategyChange([
+            $this->thinWave(10, 0, 100),
+            $this->thinWave(3, 0, 200),
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_AUDIT_CODE, $r['recommended_strategy']);
+    }
+
+    public function test_exhaustion_proven_never_recommends_same_strategy_repeat(): void
+    {
+        $r = $this->svc()->recommendStrategyChange([$this->thinWave(3, 10, 100)]);
+
+        $this->assertTrue($r['must_not_repeat_same_strategy']);
+        $this->assertContains($r['recommended_strategy'], AtlasExternalBrainFrontierExhaustionEscalator::CHANGE_STRATEGY_ACTIONS);
+    }
+
+    public function test_forbidden_wall_takes_precedence_over_other_signals(): void
+    {
+        $wave = ['verified_findings' => 3, 'duplicate_findings' => 10, 'token_cost' => 100, 'forbidden_wall_hits' => 5, 'attempts' => 10];
+
+        $r = $this->svc()->recommendStrategyChange([$wave], ['weak_proposal_streak' => 5]);
+
+        $this->assertSame(AtlasExternalBrainFrontierExhaustionEscalator::STRATEGY_UNBLOCK_FORBIDDEN_WALL, $r['recommended_strategy']);
+    }
 }
