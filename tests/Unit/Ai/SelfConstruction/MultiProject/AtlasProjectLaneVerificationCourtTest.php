@@ -99,6 +99,20 @@ final class AtlasProjectLaneVerificationCourtTest extends TestCase
         $this->assertContains('policy:admission:invalid_project_id', $v['blockers']);
     }
 
+    public function test_blocked_when_policy_allowed_false_with_no_blockers_array(): void
+    {
+        // policy ships allowed=false but no 'blockers' key — the old code emitted nothing, leaving the gate open
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => ['allowed' => false],
+            'evidence_records' => [['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-ok']],
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_BLOCKED, $v['verdict']);
+        $this->assertFalse($v['passed']);
+        $this->assertNotEmpty($v['blockers'], 'a disallowed policy must produce at least one blocker');
+    }
+
     public function test_envelope_carries_canonical_schema_and_no_scalar_score(): void
     {
         $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([

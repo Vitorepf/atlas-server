@@ -54,11 +54,13 @@ final class AtlasProjectLaneVerificationCourt
 
         $policyPassed = (bool) ($policy['allowed'] ?? false);
         if (! $policyPassed) {
-            foreach ((array) ($policy['blockers'] ?? []) as $b) {
+            $policyBlockers = (array) ($policy['blockers'] ?? []);
+            foreach ($policyBlockers as $b) {
                 $blockers[] = 'policy:'.(string) $b;
             }
-            if ($policy === []) {
-                $blockers[] = 'policy:missing';
+            if ($policyBlockers === []) {
+                // always emit a blocker: no enumerated blockers and policy not passed
+                $blockers[] = $policy === [] ? 'policy:missing' : 'policy:not_passed';
             }
         }
 
