@@ -15,10 +15,14 @@ final class AtlasGoalValueRealLeverageContractTest extends TestCase
             AtlasGoalValueRealLeverageContract::DIM_CAPABILITY_LIFT => [
                 'evidence_kind' => 'new_capability_demonstration',
                 'evidence_refs' => ['receipt:abc'],
+                'before_fact' => 'feature absent',
+                'after_fact' => 'feature ships and green',
             ],
             AtlasGoalValueRealLeverageContract::DIM_QUALITY_HARDENING => [
                 'evidence_kind' => 'mutation_kills_added',
                 'evidence_refs' => ['mutop:def'],
+                'before_fact' => '0 mutation kills',
+                'after_fact' => '12 mutation kills',
             ],
         ]);
 
@@ -62,6 +66,8 @@ final class AtlasGoalValueRealLeverageContractTest extends TestCase
             AtlasGoalValueRealLeverageContract::DIM_FAILURE_REMOVAL => [
                 'evidence_kind' => 'red_test_removed',
                 'evidence_refs' => ['test:foo'],
+                'before_fact' => '3 red tests',
+                'after_fact' => '0 red tests',
             ],
             AtlasGoalValueRealLeverageContract::DIM_SIMPLIFICATION => [
                 'evidence_kind' => 'line_churn', // proxy
@@ -99,6 +105,40 @@ final class AtlasGoalValueRealLeverageContractTest extends TestCase
         $this->assertStringContainsString('missing_evidence_refs', $byId[AtlasGoalValueRealLeverageContract::DIM_SPEED_LEVERAGE]['reason']);
     }
 
+    public function test_non_proxy_evidence_without_before_after_is_blocked_as_missing_outcome_delta(): void
+    {
+        $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([
+            AtlasGoalValueRealLeverageContract::DIM_AUTONOMY_LIFT => [
+                'evidence_kind' => 'autonomy_unlock',
+                'evidence_refs' => ['receipt:xyz'],
+                // deliberately omitting before_fact and after_fact
+            ],
+        ]);
+
+        $byId = array_column($verdict['dimensions'], null, 'id');
+        $dim = $byId[AtlasGoalValueRealLeverageContract::DIM_AUTONOMY_LIFT];
+        $this->assertFalse($dim['passed']);
+        $this->assertStringContainsString('missing_outcome_delta', $dim['reason']);
+        $this->assertFalse($verdict['real_leverage']);
+    }
+
+    public function test_real_dimension_passes_when_refs_before_and_after_fact_all_present(): void
+    {
+        $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([
+            AtlasGoalValueRealLeverageContract::DIM_SPEED_LEVERAGE => [
+                'evidence_kind' => 'benchmark_lift',
+                'evidence_refs' => ['bench:run-1'],
+                'before_fact' => 'p95 latency 800ms',
+                'after_fact' => 'p95 latency 120ms',
+            ],
+        ]);
+
+        $byId = array_column($verdict['dimensions'], null, 'id');
+        $this->assertTrue($byId[AtlasGoalValueRealLeverageContract::DIM_SPEED_LEVERAGE]['passed']);
+        $this->assertTrue($verdict['real_leverage']);
+        $this->assertFalse($verdict['proxy_only']);
+    }
+
     public function test_verdict_carries_no_numeric_score_field(): void
     {
         $verdict = (new AtlasGoalValueRealLeverageContract)->evaluate([]);
@@ -113,6 +153,7 @@ final class AtlasGoalValueRealLeverageContractTest extends TestCase
         $input = [
             AtlasGoalValueRealLeverageContract::DIM_CAPABILITY_LIFT => [
                 'evidence_kind' => 'new_capability', 'evidence_refs' => ['r1'],
+                'before_fact' => 'absent', 'after_fact' => 'present',
             ],
         ];
         $this->assertSame(json_encode($svc->evaluate($input)), json_encode($svc->evaluate($input)));

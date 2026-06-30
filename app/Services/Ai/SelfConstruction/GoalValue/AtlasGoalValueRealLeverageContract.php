@@ -110,6 +110,12 @@ final class AtlasGoalValueRealLeverageContract
             return ['id' => $dimId, 'passed' => false, 'reason' => $dimId.':missing_evidence_refs', 'evidence_kind' => $kind];
         }
 
+        $beforeFact = $evidence['before_fact'] ?? null;
+        $afterFact = $evidence['after_fact'] ?? null;
+        if ($beforeFact === null || $beforeFact === '' || $afterFact === null || $afterFact === '') {
+            return ['id' => $dimId, 'passed' => false, 'reason' => $dimId.':missing_outcome_delta', 'evidence_kind' => $kind];
+        }
+
         return ['id' => $dimId, 'passed' => true, 'reason' => $dimId.':accepted', 'evidence_kind' => $kind];
     }
 }
