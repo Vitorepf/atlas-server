@@ -19,6 +19,23 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * AC3 — output also includes oldest_seen_at (min timestamp across all items, or null).
  *
+ * AC5 — per-channel item classification distinguishes runtime proof from
+ * stale docs, old memory and self-declared status. Each channel is
+ * classified as one of:
+ *   missing       — channel has no items
+ *   self_declared — newest item has source_type=self_declared and was not
+ *                   verified_by_runtime=true (a status claim without proof)
+ *   stale         — newest item is older than (now_iso - max_age_seconds)
+ *   fresh         — none of the above
+ * (priority when multiple apply: missing > self_declared > stale > fresh)
+ *
+ * Admission is blocked when any channel listed in critical_channels (default
+ * [commits, worker_reports]) classifies as stale, self_declared or missing.
+ * The output's freshness_status mirrors the worst classification among
+ * critical_channels; blocking_reason names the offending channel and
+ * classification; refresh_hint gives a concrete next step. All three are
+ * null when admission is not blocked.
+ *
  * This class is pure/read-only: no DB queries, no HTTP calls, no git mutations.
  */
 final class AtlasExternalBrainEvidenceFreshnessRuntimeBridge
@@ -26,6 +43,10 @@ final class AtlasExternalBrainEvidenceFreshnessRuntimeBridge
     public const SCHEMA = 'atlas.external_brain.evidence_freshness_runtime_bridge.v1';
 
     public const REQUIRED_FRESH_CHANNELS = 2;
+
+    private const DEFAULT_CRITICAL_CHANNELS = ['commits', 'worker_reports'];
+
+    private const CLASSIFICATION_RANK = ['missing' => 3, 'self_declared' => 2, 'stale' => 1, 'fresh' => 0];
 
     /**
      * @param  array<string,mixed>  $input  commits, worker_reports, evidence_intake,
@@ -86,6 +107,30 @@ final class AtlasExternalBrainEvidenceFreshnessRuntimeBridge
         $newestSeenAt = $this->extremeTimestamp('max', $commits, $workerReports, $evidenceIntake);
         $oldestSeenAt = $this->extremeTimestamp('min', $commits, $workerReports, $evidenceIntake);
 
+        // AC5: per-channel runtime-proof classification + admission blocking.
+        $criticalChannels = is_array($input['critical_channels'] ?? null)
+            ? array_map('strval', $input['critical_channels'])
+            : self::DEFAULT_CRITICAL_CHANNELS;
+
+        $channelClassifications = [];
+        foreach ($channelItems as $name => $items) {
+            $channelClassifications[$name] = $this->classifyChannel($items, $maxAgeSeconds, $nowIso);
+        }
+
+        $worstChannel = null;
+        $worstClassification = 'fresh';
+        foreach ($criticalChannels as $channel) {
+            $classification = $channelClassifications[$channel] ?? 'missing';
+            if (self::CLASSIFICATION_RANK[$classification] > self::CLASSIFICATION_RANK[$worstClassification]) {
+                $worstClassification = $classification;
+                $worstChannel = $channel;
+            }
+        }
+
+        $admissionBlocked = $worstClassification !== 'fresh';
+        $blockingReason = $admissionBlocked ? "critical_evidence_{$worstChannel}_{$worstClassification}" : null;
+        $refreshHint = $admissionBlocked ? $this->refreshHint((string) $worstChannel, $worstClassification) : null;
+
         return [
             'schema_version'            => self::SCHEMA,
             'fresh'                     => $fresh,
@@ -94,7 +139,57 @@ final class AtlasExternalBrainEvidenceFreshnessRuntimeBridge
             'source_counts'             => $sourceCounts,
             'newest_seen_at'            => $newestSeenAt,
             'oldest_seen_at'            => $oldestSeenAt,
+            'channel_classifications'   => $channelClassifications,
+            'freshness_status'          => $worstClassification,
+            'admission_blocked'         => $admissionBlocked,
+            'blocking_reason'           => $blockingReason,
+            'refresh_hint'              => $refreshHint,
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     */
+    private function classifyChannel(array $items, ?int $maxAgeSeconds, ?string $nowIso): string
+    {
+        if ($items === []) {
+            return 'missing';
+        }
+
+        $newest = null;
+        foreach ($items as $item) {
+            $ts = (string) ($item['timestamp'] ?? $item['created_at'] ?? '');
+            $t = $ts === '' ? false : strtotime($ts);
+            if ($t !== false && ($newest === null || $t > $newest['t'])) {
+                $newest = ['t' => $t, 'item' => $item];
+            }
+        }
+
+        if ($newest === null) {
+            return 'missing';
+        }
+
+        $sourceType = (string) ($newest['item']['source_type'] ?? '');
+        $verifiedByRuntime = (bool) ($newest['item']['verified_by_runtime'] ?? false);
+        if ($sourceType === 'self_declared' && ! $verifiedByRuntime) {
+            return 'self_declared';
+        }
+
+        if ($this->isAgeStale($items, $maxAgeSeconds, $nowIso)) {
+            return 'stale';
+        }
+
+        return 'fresh';
+    }
+
+    private function refreshHint(string $channel, string $classification): string
+    {
+        return match ($classification) {
+            'missing' => "collect_runtime_evidence_for_{$channel}",
+            'self_declared' => "verify_{$channel}_with_runtime_confirmation_not_self_report",
+            'stale' => "refresh_{$channel}_with_current_runtime_proof",
+            default => "review_{$channel}",
+        };
     }
 
     /**

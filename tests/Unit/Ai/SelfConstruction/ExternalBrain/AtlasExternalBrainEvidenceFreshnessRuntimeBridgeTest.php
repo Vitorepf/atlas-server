@@ -243,4 +243,102 @@ final class AtlasExternalBrainEvidenceFreshnessRuntimeBridgeTest extends TestCas
 
         $this->assertContains('commits', $r['fresh_channels']);
     }
+
+    // ── AC5: per-channel classification + admission blocking ──────────────────
+
+    public function test_fully_fresh_critical_channels_are_not_blocked(): void
+    {
+        $r = $this->svc()->assess([
+            'commits'         => [$this->item()],
+            'worker_reports'  => [$this->item()],
+            'evidence_intake' => [$this->item()],
+        ]);
+
+        $this->assertSame('fresh', $r['freshness_status']);
+        $this->assertFalse($r['admission_blocked']);
+        $this->assertNull($r['blocking_reason']);
+        $this->assertNull($r['refresh_hint']);
+        $this->assertSame('fresh', $r['channel_classifications']['commits']);
+    }
+
+    public function test_missing_critical_channel_blocks_admission(): void
+    {
+        $r = $this->svc()->assess([
+            'worker_reports' => [$this->item()],
+        ]);
+
+        $this->assertSame('missing', $r['channel_classifications']['commits']);
+        $this->assertSame('missing', $r['freshness_status']);
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertSame('critical_evidence_commits_missing', $r['blocking_reason']);
+        $this->assertSame('collect_runtime_evidence_for_commits', $r['refresh_hint']);
+    }
+
+    public function test_self_declared_without_runtime_verification_blocks_admission(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [['timestamp' => '2026-06-30T10:00:00Z', 'source_type' => 'self_declared', 'verified_by_runtime' => false]],
+            'worker_reports' => [$this->item()],
+        ]);
+
+        $this->assertSame('self_declared', $r['channel_classifications']['commits']);
+        $this->assertSame('self_declared', $r['freshness_status']);
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertSame('critical_evidence_commits_self_declared', $r['blocking_reason']);
+        $this->assertSame('verify_commits_with_runtime_confirmation_not_self_report', $r['refresh_hint']);
+    }
+
+    public function test_self_declared_with_runtime_verification_is_fresh(): void
+    {
+        $r = $this->svc()->assess([
+            'commits' => [['timestamp' => '2026-06-30T10:00:00Z', 'source_type' => 'self_declared', 'verified_by_runtime' => true]],
+            'worker_reports' => [$this->item()],
+        ]);
+
+        $this->assertSame('fresh', $r['channel_classifications']['commits']);
+        $this->assertFalse($r['admission_blocked']);
+    }
+
+    public function test_stale_critical_channel_blocks_admission(): void
+    {
+        $r = $this->svc()->assess([
+            'commits'         => [['timestamp' => '2026-06-01T00:00:00Z']],
+            'worker_reports'  => [$this->item('2026-06-30T10:00:00Z')],
+            'max_age_seconds' => 86400,
+            'now_iso'         => '2026-06-30T10:00:00Z',
+        ]);
+
+        $this->assertSame('stale', $r['channel_classifications']['commits']);
+        $this->assertSame('stale', $r['freshness_status']);
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertSame('critical_evidence_commits_stale', $r['blocking_reason']);
+        $this->assertSame('refresh_commits_with_current_runtime_proof', $r['refresh_hint']);
+    }
+
+    public function test_non_critical_channel_staleness_does_not_block_admission(): void
+    {
+        $r = $this->svc()->assess([
+            'commits'         => [$this->item('2026-06-30T10:00:00Z')],
+            'worker_reports'  => [$this->item('2026-06-30T10:00:00Z')],
+            'evidence_intake' => [['timestamp' => '2020-01-01T00:00:00Z']],
+            'max_age_seconds' => 86400,
+            'now_iso'         => '2026-06-30T10:00:00Z',
+        ]);
+
+        $this->assertSame('stale', $r['channel_classifications']['evidence_intake']);
+        $this->assertFalse($r['admission_blocked']);
+    }
+
+    public function test_custom_critical_channels_can_include_evidence_intake(): void
+    {
+        $r = $this->svc()->assess([
+            'commits'           => [$this->item()],
+            'worker_reports'    => [$this->item()],
+            'critical_channels' => ['evidence_intake'],
+        ]);
+
+        $this->assertSame('missing', $r['channel_classifications']['evidence_intake']);
+        $this->assertTrue($r['admission_blocked']);
+        $this->assertSame('critical_evidence_evidence_intake_missing', $r['blocking_reason']);
+    }
 }
