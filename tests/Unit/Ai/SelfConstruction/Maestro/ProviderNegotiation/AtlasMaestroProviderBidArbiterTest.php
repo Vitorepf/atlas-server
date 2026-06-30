@@ -99,4 +99,41 @@ final class AtlasMaestroProviderBidArbiterTest extends TestCase
         $this->assertStringNotContainsString('AtlasMaestroProviderBidProposer', $src);
         $this->assertStringNotContainsString('declaredCapabilities', $src);
     }
+
+    public function test_stale_performance_bid_loses_to_fresh_bid_on_capability_step(): void
+    {
+        // Stale performance (recent failures) is surfaced as a penalized capabilityScore.
+        $fresh = $this->bid(['providerId' => 'fresh', 'capabilityScore' => 85]);
+        $stale = $this->bid(['providerId' => 'stale', 'capabilityScore' => 55]);
+
+        $verdict = (new AtlasMaestroProviderBidArbiter())->arbitrate(new BidSet([$stale, $fresh]), 'task-stale');
+
+        $this->assertInstanceOf(BidArbitrationVerdict::class, $verdict);
+        $this->assertSame('fresh', $verdict->winnerProviderId);
+        $this->assertSame('capability', $verdict->decisiveCriterion);
+    }
+
+    public function test_risk_tier_mismatch_makes_bid_ineligible_and_only_safe_bid_wins(): void
+    {
+        $safe       = $this->bid(['providerId' => 'safe-provider', 'capabilityScore' => 70]);
+        $riskMismatch = $this->bid(['providerId' => 'risky', 'eligibilityBool' => false, 'ineligibilityReasons' => ['risk_tier_mismatch']]);
+
+        $verdict = (new AtlasMaestroProviderBidArbiter())->arbitrate(new BidSet([$safe, $riskMismatch]), 'task-risk');
+
+        $this->assertInstanceOf(BidArbitrationVerdict::class, $verdict);
+        $this->assertSame('safe-provider', $verdict->winnerProviderId);
+    }
+
+    public function test_deterministic_tiebreak_when_all_ranked_criteria_equal(): void
+    {
+        $a = $this->bid(['providerId' => 'alpha', 'capabilityScore' => 80, 'declaredCostUnits' => 500, 'declaredEtaMs' => 1200]);
+        $b = $this->bid(['providerId' => 'beta',  'capabilityScore' => 80, 'declaredCostUnits' => 500, 'declaredEtaMs' => 1200]);
+
+        $v1 = (new AtlasMaestroProviderBidArbiter())->arbitrate(new BidSet([$a, $b]), 'task-tie');
+        $v2 = (new AtlasMaestroProviderBidArbiter())->arbitrate(new BidSet([$b, $a]), 'task-tie');
+
+        $this->assertInstanceOf(BidArbitrationVerdict::class, $v1);
+        $this->assertSame('tiebreak', $v1->decisiveCriterion);
+        $this->assertSame($v1->winnerProviderId, $v2->winnerProviderId, 'tiebreak winner must be stable regardless of input order');
+    }
 }
