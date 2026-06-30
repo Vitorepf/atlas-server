@@ -119,8 +119,16 @@ final class AtlasLoopAutopoieticBootstrapper
             'scope_id' => $scopeId,
         ];
         $manifest = $this->canonicalize($manifest);
-        $manifestWithoutHash = (string) json_encode($manifest, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $manifestSha = hash('sha256', $manifestWithoutHash);
+        // Seal using the verifier's canonical file-content scheme: sha256({role => sha256(file_bytes)}).
+        // This matches AtlasLoopAutopoieticContractVerifier::recomputeManifestSha() so the hash_equals
+        // check passes on the first real bootstrap attempt.
+        $sealMap = [
+            'cortex'  => hash('sha256', $files[$cortexPath]),
+            'loop'    => hash('sha256', $files[$loopPath]),
+            'maestro' => hash('sha256', $files[$maestroPath]),
+        ];
+        ksort($sealMap);
+        $manifestSha = hash('sha256', (string) json_encode($sealMap, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $manifest['manifest_sha256'] = $manifestSha;
         $manifest = $this->canonicalize($manifest);
         $manifestJson = (string) json_encode($manifest, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -157,6 +165,15 @@ final class AtlasLoopAutopoieticBootstrapper
 
     private function contractStub(string $namespace, string $contract): string
     {
+        // Method signatures must match AtlasLoopAutopoieticContractVerifier::CONTRACTS exactly
+        // so that parseInterface() satisfies the CONTRACT_METHOD_MISSING gate.
+        $method = match ($contract) {
+            'LoopSubstrateContract'        => '    public function nextCandidate(): ?CandidateRef;',
+            'CortexComprehensionContract'  => '    public function comprehend(string $scopeId): ComprehensionReport;',
+            'MaestroOrchestrationContract' => '    public function orchestrate(array $plan): OrchestrationReceipt;',
+            default                        => '',
+        };
+
         return <<<PHP
 <?php
 
@@ -166,6 +183,7 @@ namespace {$namespace};
 
 interface {$contract}
 {
+{$method}
 }
 PHP;
     }

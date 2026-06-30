@@ -6,6 +6,7 @@ namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Autopoiesis\SelfExtension\AtlasLoopAutopoieticBootstrapReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\Autopoiesis\SelfExtension\AtlasLoopAutopoieticBootstrapper;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
@@ -133,6 +134,79 @@ final class AtlasLoopAutopoieticBootstrapCommandTest extends TestCase
         $envelope = json_decode(trim(Artisan::output()), true);
         $this->assertSame('INTENT_REQUIRED', $envelope['exit_reason']);
         $this->assertSame(0, $this->ledgerLineCount());
+    }
+
+    public function test_real_bootstrap_verifier_ok_true_and_receipt_chained_after_hash_scheme_fix(): void
+    {
+        $this->setMaster(true);
+
+        // Use a relative path under storage/ so is_file() resolves from the Laravel project CWD.
+        $root = 'storage/app/atlas/bootstrap-test-'.bin2hex(random_bytes(6));
+        if (! is_dir(base_path($root))) {
+            mkdir(base_path($root), 0775, true);
+        }
+
+        $scope     = 'scope-verifier-ok-'.bin2hex(random_bytes(4));
+        $namespace = 'App\\AtlasBootstrapTestScope';
+        $scopeDesc = [
+            'scope_id'        => $scope,
+            'namespace'       => $namespace,
+            'roots'           => [$root],
+            'operator_intent' => ['rationale' => 'prove verifier_ok=true end-to-end', 'scope_id' => $scope],
+        ];
+
+        // Pre-write stub files so the verifier can read them from disk.
+        /** @var AtlasLoopAutopoieticBootstrapper $bootstrapper */
+        $bootstrapper = $this->app->make(AtlasLoopAutopoieticBootstrapper::class);
+        $bundle       = $bootstrapper->bootstrap($scopeDesc);
+        foreach ($bundle['files'] as $path => $content) {
+            $dir = base_path(dirname($path));
+            if (! is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
+            file_put_contents(base_path($path), $content);
+        }
+
+        try {
+            $before = $this->ledgerLineCount();
+            $exit   = Artisan::call('atlas:loop:autopoiesis:bootstrap', [
+                'scope'       => $scope,
+                '--roots'     => [$root],
+                '--namespace' => $namespace,
+                '--intent'    => 'prove verifier_ok=true end-to-end',
+                '--json'      => true,
+            ]);
+            $envelope = json_decode(trim(Artisan::output()), true);
+
+            $this->assertTrue(
+                (bool) ($envelope['verifier_ok'] ?? false),
+                'verifier_ok must be true after hash-scheme fix — violations: '.json_encode($envelope['violations'] ?? [])
+            );
+            $this->assertSame(0, $exit, 'exit must be 0 when verifier_ok=true');
+            $this->assertNotNull($envelope['receipt_id'], 'receipt must be chained when verifier_ok=true');
+            $this->assertSame($before + 1, $this->ledgerLineCount(), 'exactly one receipt appended');
+            $lastLine = (array) json_decode((string) file($this->ledgerPath)[$before], true);
+            $this->assertSame($envelope['manifest_sha256'], $lastLine['manifest_sha256']);
+            $this->assertSame($envelope['receipt_id'],      $lastLine['receipt_id']);
+        } finally {
+            // Remove all generated files.
+            $this->removeDir(base_path($root));
+        }
+    }
+
+    private function removeDir(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+        foreach (scandir($dir) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+            $path = $dir.'/'.$item;
+            is_dir($path) ? $this->removeDir($path) : @unlink($path);
+        }
+        @rmdir($dir);
     }
 
     public function test_happy_path_end_to_end_appends_exactly_one_receipt_with_matching_manifest_sha(): void
