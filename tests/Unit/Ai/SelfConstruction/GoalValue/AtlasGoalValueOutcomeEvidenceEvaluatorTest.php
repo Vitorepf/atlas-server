@@ -83,6 +83,60 @@ final class AtlasGoalValueOutcomeEvidenceEvaluatorTest extends TestCase
         $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_CAPABILITY_LIFT]['status']);
     }
 
+    public function test_empty_supporting_ref_yields_blocked_not_confirmed_for_all_classes(): void
+    {
+        $ev = new AtlasGoalValueOutcomeEvidenceEvaluator;
+
+        // capability_lift: server_side_green=true but ref=''
+        $r = $ev->evaluate([
+            'receipts' => [['kind' => 'new_capability', 'ref' => 'rec-1']],
+            'verification' => ['server_side_green' => true, 'ref' => ''],
+        ]);
+        $by = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $by[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_CAPABILITY_LIFT]['status'], 'capability_lift: empty verification ref must block');
+
+        // simplification: same shape
+        $r = $ev->evaluate([
+            'receipts' => [['kind' => 'simplification', 'ref' => 'rec-s']],
+            'verification' => ['server_side_green' => true, 'ref' => ''],
+        ]);
+        $by = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $by[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_SIMPLIFICATION]['status'], 'simplification: empty verification ref must block');
+
+        // failure_removal: passing gate but ref=''
+        $r = $ev->evaluate([
+            'receipts' => [['kind' => 'fix_failure', 'ref' => 'rec-f']],
+            'gates' => [['kind' => 'regression_test', 'ref' => '', 'passed' => true]],
+        ]);
+        $by = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $by[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_FAILURE_REMOVAL]['status'], 'failure_removal: empty gate ref must block');
+
+        // reuse: passing gate but ref=''
+        $r = $ev->evaluate([
+            'receipts' => [['kind' => 'reuse_existing', 'ref' => 'rec-r']],
+            'gates' => [['kind' => 'code_index', 'ref' => '', 'passed' => true]],
+        ]);
+        $by = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $by[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_REUSE]['status'], 'reuse: empty gate ref must block');
+
+        // autonomy_lift: learning kind present but ref=''
+        $r = $ev->evaluate([
+            'receipts' => [['kind' => 'autonomy_added', 'ref' => 'rec-a']],
+            'learning' => [['kind' => 'autonomy_lift', 'ref' => '']],
+        ]);
+        $by = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $by[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_AUTONOMY_LIFT]['status'], 'autonomy_lift: empty learning ref must block');
+    }
+
+    public function test_value_facts_are_sorted_deterministically_by_class(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([]);
+        $classes = array_column($r['value_facts'], 'class');
+        $sorted = $classes;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $classes, 'value_facts must be sorted alphabetically by class');
+    }
+
     /**
      * @param  list<array<string,mixed>>  $facts
      * @return array<string,array<string,mixed>>

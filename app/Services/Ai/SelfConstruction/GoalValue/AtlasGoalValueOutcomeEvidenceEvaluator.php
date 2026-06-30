@@ -112,7 +112,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
         if ($receiptRef === null) {
             return ['class' => $class, 'status' => self::STATUS_UNKNOWN, 'reason' => 'no receipt of required kind', 'evidence_refs' => []];
         }
-        if (! $supportingRefOk) {
+        if (! $supportingRefOk || $supportingRef === '') {
             return ['class' => $class, 'status' => self::STATUS_BLOCKED, 'reason' => $blockedReason, 'evidence_refs' => [$receiptRef]];
         }
         $refs = array_values(array_filter([$receiptRef, $supportingRef], static fn (string $r): bool => $r !== ''));
