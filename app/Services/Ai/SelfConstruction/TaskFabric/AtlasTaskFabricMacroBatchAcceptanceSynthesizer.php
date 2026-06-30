@@ -32,11 +32,18 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
     public const GATE_INTEGRATION_EFFECT         = 'batch_integration_effect';
     public const GATE_WORKER_IMPLEMENTABILITY    = 'batch_worker_implementability';
     public const GATE_EVIDENCE_STRENGTH          = 'batch_evidence_strength';
+    public const GATE_OUTCOME_LEARNING           = 'batch_outcome_learning';
+    public const GATE_ANTI_TEMPLATE_FARM         = 'batch_anti_template_farm';
+    public const GATE_ROLLBACK_RESPEC_SAFETY     = 'batch_rollback_respec_safety';
 
     public const REJECTION_VAGUE_ACCEPTANCE      = 'vague_acceptance';
 
+    public const GAP_NARROW_EVIDENCE             = 'narrow_evidence_for_multi_capability_scope';
+
     private const DUPLICATE_OVERLAP_THRESHOLD    = 0.60;
     private const MIN_DIRECTORIES_FOR_LEVERAGE   = 2;
+    private const MULTI_CAPABILITY_DIR_THRESHOLD = 2;
+    private const MIN_EVIDENCE_CHANNELS_MULTI    = 2;
 
     private const RUNNABLE_MARKERS = ['phpunit', 'artisan', 'vendor/bin', 'php ', 'pest', '--filter'];
 
@@ -98,6 +105,26 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
             : 'Batch evidence strength: '.count($noEvidenceTasks).' task(s) have no test_command or acceptance — '.implode(', ', array_slice($noEvidenceTasks, 0, 3)).'.';
         $batchLevelGates[] = self::GATE_EVIDENCE_STRENGTH;
 
+        // ── Gate 6 (conditional): outcome learning — relevant for ≥2 tasks ──────
+        if (count($batch) >= 2) {
+            $synthesized[]    = 'Batch outcome learning: verify that delivery outcomes from this batch update pattern-family priorities before the next origination cycle.';
+            $batchLevelGates[] = self::GATE_OUTCOME_LEARNING;
+        }
+
+        // ── Gate 7 (conditional): anti-template-farm ──────────────────────────
+        $hasTemplateSimilarity = $this->batchHasTemplateSimilarity($batch);
+        if ($hasTemplateSimilarity) {
+            $synthesized[]    = 'Batch anti-template-farm: at least one task carries template_similarity — confirm no task is a near-clone of an existing implementation before commit.';
+            $batchLevelGates[] = self::GATE_ANTI_TEMPLATE_FARM;
+        }
+
+        // ── Gate 8 (conditional): rollback / respec safety ────────────────────
+        $hasRespecOrRollback = $this->batchHasRespecOrRollback($batch);
+        if ($hasRespecOrRollback) {
+            $synthesized[]    = 'Batch rollback/respec safety: at least one task is marked as modifying existing files or requiring rollback — verify that a respec path is documented and that no committed state is lost.';
+            $batchLevelGates[] = self::GATE_ROLLBACK_RESPEC_SAFETY;
+        }
+
         // ── Candidate acceptance filtering ────────────────────────────────────
         $rejectedAcceptance = [];
         foreach ($candidateAcceptance as $candidate) {
@@ -121,6 +148,9 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
             }
             if (empty($task['test_commands']) && empty($task['acceptance_criteria'])) {
                 $missing[] = 'missing_evidence';
+            }
+            if ($this->isMultiCapabilityTask($task) && count((array) ($task['test_commands'] ?? [])) < self::MIN_EVIDENCE_CHANNELS_MULTI) {
+                $missing[] = self::GAP_NARROW_EVIDENCE;
             }
 
             if ($missing !== []) {
@@ -235,6 +265,49 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
         }
 
         return true;
+    }
+
+    private function batchHasTemplateSimilarity(array $batch): bool
+    {
+        foreach ($batch as $task) {
+            if (array_key_exists('template_similarity', $task)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function batchHasRespecOrRollback(array $batch): bool
+    {
+        foreach ($batch as $task) {
+            if ((bool) ($task['modifies_existing_files'] ?? false) || (bool) ($task['rollback_required'] ?? false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isMultiCapabilityTask(array $task): bool
+    {
+        $capCount = (int) ($task['capability_count'] ?? 0);
+        if ($capCount > 1) {
+            return true;
+        }
+        $caps = (array) ($task['capabilities'] ?? []);
+        if (count($caps) > 1) {
+            return true;
+        }
+        $dirs = [];
+        foreach ((array) ($task['allowed_files'] ?? []) as $file) {
+            $parts = explode('/', ltrim((string) $file, '/'));
+            if ($parts[0] !== '') {
+                $dirs[$parts[0]] = true;
+            }
+        }
+
+        return count($dirs) >= self::MULTI_CAPABILITY_DIR_THRESHOLD;
     }
 
     /** @return list<string> */

@@ -211,4 +211,154 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizerTest extends TestCase
 
         $this->assertCount(5, $result['batch_level_gates']);
     }
+
+    // ── AC2: narrow evidence for multi-capability task ────────────────────────
+
+    public function test_multi_capability_task_with_single_test_command_gets_narrow_evidence_gap(): void
+    {
+        // allowed_files span 2 top-level dirs → multi-capability; only 1 test command → narrow evidence
+        $batch = [$this->task([
+            'task_id'       => 'wide',
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'test_commands' => ['./vendor/bin/phpunit tests/Unit/FooTest.php'],
+        ])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $gap = $result['per_task_coverage_gaps'][0] ?? null;
+        $this->assertNotNull($gap, 'Expected a coverage gap for narrow evidence');
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GAP_NARROW_EVIDENCE,
+            $gap['missing_coverage'],
+        );
+    }
+
+    public function test_single_capability_task_does_not_get_narrow_evidence_gap(): void
+    {
+        // allowed_files in ONE top-level dir → single-capability; 1 test command is sufficient
+        $batch = [$this->task([
+            'task_id'       => 'narrow',
+            'allowed_files' => ['app/Services/Foo.php'],
+            'test_commands' => ['./vendor/bin/phpunit tests/Unit/FooTest.php'],
+        ])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $gaps = array_column($result['per_task_coverage_gaps'], 'task_id');
+        $this->assertNotContains('narrow', $gaps, 'Single-capability task should not get narrow evidence gap');
+    }
+
+    public function test_multi_capability_task_with_two_test_commands_no_narrow_gap(): void
+    {
+        $batch = [$this->task([
+            'task_id'       => 'covered',
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'test_commands' => [
+                './vendor/bin/phpunit tests/Unit/FooTest.php',
+                './vendor/bin/phpunit tests/Feature/FooFeatureTest.php',
+            ],
+        ])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        // No gaps at all — two evidence channels satisfy the multi-capability requirement
+        $this->assertSame([], $result['per_task_coverage_gaps']);
+    }
+
+    public function test_capability_count_field_triggers_multi_capability_detection(): void
+    {
+        $batch = [$this->task([
+            'task_id'         => 'multi',
+            'capability_count' => 3,
+            'allowed_files'   => ['app/Services/Foo.php'], // single dir, but count=3
+            'test_commands'   => ['./vendor/bin/phpunit tests/Unit/FooTest.php'],
+        ])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $gap = $result['per_task_coverage_gaps'][0] ?? null;
+        $this->assertNotNull($gap);
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GAP_NARROW_EVIDENCE,
+            $gap['missing_coverage'],
+        );
+    }
+
+    // ── AC3: conditional gates ────────────────────────────────────────────────
+
+    public function test_outcome_learning_gate_emitted_for_multi_task_batch(): void
+    {
+        $result = $this->synth->synthesize($this->input([$this->task(), $this->task()]));
+
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_OUTCOME_LEARNING,
+            $result['batch_level_gates'],
+        );
+    }
+
+    public function test_outcome_learning_gate_not_emitted_for_single_task(): void
+    {
+        $result = $this->synth->synthesize($this->input([$this->task()]));
+
+        $this->assertNotContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_OUTCOME_LEARNING,
+            $result['batch_level_gates'],
+        );
+    }
+
+    public function test_anti_template_farm_gate_emitted_when_template_similarity_present(): void
+    {
+        $batch = [$this->task(['template_similarity' => 0.6])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_ANTI_TEMPLATE_FARM,
+            $result['batch_level_gates'],
+        );
+    }
+
+    public function test_anti_template_farm_gate_not_emitted_without_template_similarity(): void
+    {
+        $result = $this->synth->synthesize($this->input([$this->task()]));
+
+        $this->assertNotContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_ANTI_TEMPLATE_FARM,
+            $result['batch_level_gates'],
+        );
+    }
+
+    public function test_rollback_respec_safety_gate_emitted_when_modifies_existing_files(): void
+    {
+        $batch = [$this->task(['modifies_existing_files' => true])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_ROLLBACK_RESPEC_SAFETY,
+            $result['batch_level_gates'],
+        );
+    }
+
+    public function test_rollback_respec_safety_gate_emitted_when_rollback_required(): void
+    {
+        $batch = [$this->task(['rollback_required' => true])];
+
+        $result = $this->synth->synthesize($this->input($batch));
+
+        $this->assertContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_ROLLBACK_RESPEC_SAFETY,
+            $result['batch_level_gates'],
+        );
+    }
+
+    public function test_rollback_safety_gate_not_emitted_for_standard_task(): void
+    {
+        $result = $this->synth->synthesize($this->input([$this->task()]));
+
+        $this->assertNotContains(
+            AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_ROLLBACK_RESPEC_SAFETY,
+            $result['batch_level_gates'],
+        );
+    }
 }
