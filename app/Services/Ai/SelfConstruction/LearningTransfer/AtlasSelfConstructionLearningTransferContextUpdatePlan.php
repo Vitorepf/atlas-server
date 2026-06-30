@@ -57,12 +57,26 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
         $decision = (string) ($admittedLesson['decision'] ?? '');
         $class = (string) ($admittedLesson['class'] ?? '');
 
+        $evidenceRefs = is_array($admittedLesson['evidence_refs'] ?? null)
+            ? array_values(array_filter(array_map('strval', $admittedLesson['evidence_refs'])))
+            : [];
+        $ttlSeconds = isset($admittedLesson['ttl_seconds']) ? (int) $admittedLesson['ttl_seconds'] : 0;
+
         $blockers = [];
         if ($decision !== 'admit') {
             $blockers[] = 'lesson_not_admitted:'.$decision;
         }
         if ($class === '') {
             $blockers[] = 'lesson_class_missing';
+        }
+        if ((bool) ($admittedLesson['broad_memory_rewrite'] ?? false)) {
+            $blockers[] = 'broad_memory_rewrite_rejected';
+        }
+        if ($evidenceRefs === []) {
+            $blockers[] = 'evidence_refs_missing';
+        }
+        if ($ttlSeconds <= 0) {
+            $blockers[] = 'ttl_seconds_missing';
         }
 
         if ($blockers !== []) {
@@ -74,6 +88,8 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
                 verificationNeeded: [],
                 rolloutClass: self::ROLLOUT_BLOCKED,
                 blockers: $blockers,
+                evidenceRefs: $evidenceRefs,
+                ttlSeconds: $ttlSeconds,
             );
         }
 
@@ -109,6 +125,13 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
             default => [[], '', []],
         };
 
+        $rollbackHint = match ($surface) {
+            self::SURFACE_PACKET_TEMPLATE => 'revert_template_file',
+            self::SURFACE_DOCS => 'revert_doc_file',
+            self::SURFACE_WORKER_PROMPT => 'revert_worker_prompt_file',
+            default => '',
+        };
+
         return $this->envelope(
             lessonClass: $class,
             targetSurface: $surface,
@@ -117,6 +140,9 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
             verificationNeeded: $verification,
             rolloutClass: self::ROLLOUT_BOUNDED,
             blockers: [],
+            evidenceRefs: $evidenceRefs,
+            ttlSeconds: $ttlSeconds,
+            rollbackHint: $rollbackHint,
         );
     }
 
@@ -124,6 +150,7 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
      * @param  list<string>  $targetPaths
      * @param  list<string>  $verificationNeeded
      * @param  list<string>  $blockers
+     * @param  list<string>  $evidenceRefs
      * @return array<string,mixed>
      */
     private function envelope(
@@ -134,6 +161,9 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
         array $verificationNeeded,
         string $rolloutClass,
         array $blockers,
+        array $evidenceRefs = [],
+        int $ttlSeconds = 0,
+        string $rollbackHint = '',
     ): array {
         $body = [
             'schema_version' => self::SCHEMA,
@@ -144,9 +174,17 @@ final class AtlasSelfConstructionLearningTransferContextUpdatePlan
             'verification_needed' => $verificationNeeded,
             'rollout_class' => $rolloutClass,
             'blockers' => $blockers,
+            'evidence_refs' => $evidenceRefs,
+            'ttl_seconds' => $ttlSeconds,
+            'rollback_hint' => $rollbackHint,
         ];
         $body['plan_hash'] = hash('sha256', $this->canonicalJson($body));
         $body['plan_id'] = substr($body['plan_hash'], 0, 16);
+        $body['action_hash'] = hash('sha256', $this->canonicalJson([
+            'lesson_class' => $lessonClass,
+            'target_surface' => $targetSurface,
+            'target_paths' => $targetPaths,
+        ]));
 
         return $body;
     }
