@@ -57,9 +57,51 @@ final class AtlasExternalBrainAreaImpactLedgerTest extends TestCase
             'total_tasks', 'integration_evidence', 'volume_without_evidence',
             'backlog_pressure', 'compound_impact_score', 'impact_rank',
             'maturity_band', 'risk_level', 'owner_signal', 'next_structural_lever',
+            'evidence_age_days', 'evidence_freshness',
         ] as $k) {
             $this->assertArrayHasKey($k, $area, "Missing field: {$k}");
         }
+    }
+
+    // ── evidence freshness / staleness ─────────────────────────────────────────
+
+    public function test_evidence_freshness_unknown_when_no_evidence_age_supplied(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [$this->sample(['area' => 'noage'])]]);
+
+        $this->assertSame('unknown', $result['areas']['noage']['evidence_freshness']);
+        $this->assertNull($result['areas']['noage']['evidence_age_days']);
+    }
+
+    public function test_evidence_freshness_fresh_when_age_within_threshold(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'fresh_area', 'evidence_age_days' => 5]),
+        ]]);
+
+        $this->assertSame('fresh', $result['areas']['fresh_area']['evidence_freshness']);
+        $this->assertSame(5, $result['areas']['fresh_area']['evidence_age_days']);
+    }
+
+    public function test_evidence_freshness_stale_when_age_exceeds_threshold(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'stale_area', 'evidence_age_days' => 45]),
+        ]]);
+
+        $this->assertSame('stale', $result['areas']['stale_area']['evidence_freshness']);
+        $this->assertSame(45, $result['areas']['stale_area']['evidence_age_days']);
+    }
+
+    public function test_evidence_age_takes_the_max_across_samples_in_the_same_area(): void
+    {
+        $result = $this->ledger->aggregate(['samples' => [
+            $this->sample(['area' => 'mixed', 'evidence_age_days' => 5]),
+            $this->sample(['area' => 'mixed', 'evidence_age_days' => 50]),
+        ]]);
+
+        $this->assertSame(50, $result['areas']['mixed']['evidence_age_days']);
+        $this->assertSame('stale', $result['areas']['mixed']['evidence_freshness']);
     }
 
     // ── AC1: per-area aggregation ─────────────────────────────────────────────

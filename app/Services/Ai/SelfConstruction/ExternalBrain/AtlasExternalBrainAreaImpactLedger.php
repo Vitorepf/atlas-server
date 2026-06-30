@@ -61,6 +61,7 @@ final class AtlasExternalBrainAreaImpactLedger
     private const INVEST_CAPABILITY_THRESHOLD       = 3;
     private const SCAFFOLDING_RISK_MIN              = 2;
     private const CONSOLIDATION_MIN                 = 2;
+    private const STALE_EVIDENCE_AGE_DAYS           = 30;
 
     /**
      * @param  array{samples?: list<array<string,mixed>>}  $input
@@ -80,13 +81,14 @@ final class AtlasExternalBrainAreaImpactLedger
 
             if (! isset($buckets[$area])) {
                 $buckets[$area] = [
-                    'capability_gain'      => 0,
-                    'observability_gain'   => 0,
-                    'scaffolding_risk'     => 0,
-                    'consolidation_count'  => 0,
-                    'unknown_count'        => 0,
-                    'total_tasks'          => 0,
-                    'integration_evidence' => false,
+                    'capability_gain'        => 0,
+                    'observability_gain'     => 0,
+                    'scaffolding_risk'       => 0,
+                    'consolidation_count'    => 0,
+                    'unknown_count'          => 0,
+                    'total_tasks'            => 0,
+                    'integration_evidence'   => false,
+                    'max_evidence_age_days'  => null,
                 ];
             }
 
@@ -94,6 +96,13 @@ final class AtlasExternalBrainAreaImpactLedger
 
             if ($integrated) {
                 $buckets[$area]['integration_evidence'] = true;
+            }
+
+            if (isset($sample['evidence_age_days'])) {
+                $age = max(0, (int) $sample['evidence_age_days']);
+                $buckets[$area]['max_evidence_age_days'] = $buckets[$area]['max_evidence_age_days'] === null
+                    ? $age
+                    : max($buckets[$area]['max_evidence_age_days'], $age);
             }
 
             // AC2: only real_capability WITH integration evidence → capability_gain
@@ -136,6 +145,8 @@ final class AtlasExternalBrainAreaImpactLedger
                 'risk_level'              => $this->computeRiskLevel($b),
                 'owner_signal'            => $this->computeOwnerSignal($b),
                 'next_structural_lever'   => $this->computeLever($b, $volumeWithoutEvidence),
+                'evidence_age_days'       => $b['max_evidence_age_days'],
+                'evidence_freshness'      => $this->computeEvidenceFreshness($b['max_evidence_age_days']),
             ];
         }
 
@@ -216,6 +227,15 @@ final class AtlasExternalBrainAreaImpactLedger
         }
 
         return 'low';
+    }
+
+    private function computeEvidenceFreshness(?int $maxEvidenceAgeDays): string
+    {
+        if ($maxEvidenceAgeDays === null) {
+            return 'unknown';
+        }
+
+        return $maxEvidenceAgeDays > self::STALE_EVIDENCE_AGE_DAYS ? 'stale' : 'fresh';
     }
 
     private function computeOwnerSignal(array $b): string
