@@ -95,6 +95,17 @@ final class AtlasTaskCoordinationHealthService
             && ! $flags['serving_jammed']
             && ! $flags['queue_disk_mismatch_detected'];
 
+        // WORKER DRAIN FORECAST — fact-only: can the active muscles drain the queue soon?
+        $claimablePerWorker = $activeLeases > 0 ? (int) floor($servableNow / $activeLeases) : null;
+        $queuePressure = $activeLeases > 0 && $claimablePerWorker !== null && $claimablePerWorker < 3 ? 'high' : ($servableNow < 5 ? 'moderate' : 'low');
+        $replenishRecommendation = match (true) {
+            $activeLeases === 0 => 'no_active_workers',
+            $servableNow === 0 => 'queue_dry_replenish_now',
+            $claimablePerWorker !== null && $claimablePerWorker < 2 => 'replenish_urgently',
+            $claimablePerWorker !== null && $claimablePerWorker < 5 => 'replenish_soon',
+            default => 'sufficient_depth',
+        };
+
         return [
             'schema' => self::SCHEMA,
             'healthy' => $healthy,
@@ -117,6 +128,13 @@ final class AtlasTaskCoordinationHealthService
                 'last_claimable_depth' => $serving['last_claimable_depth'] ?? null,
             ],
             'health_flags' => $flags,
+            'worker_drain_forecast' => [
+                'servable_now' => $servableNow,
+                'active_leases' => $activeLeases,
+                'claimable_per_active_worker' => $claimablePerWorker,
+                'queue_pressure' => $queuePressure,
+                'replenish_recommendation' => $replenishRecommendation,
+            ],
         ];
     }
 

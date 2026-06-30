@@ -58,6 +58,40 @@ final class AtlasTaskCoordinationHealthServiceQueueDiskPropagationTest extends T
         );
     }
 
+    // ── worker_drain_forecast ────────────────────────────────────────────────
+
+    public function test_snapshot_includes_worker_drain_forecast_keys(): void
+    {
+        $snapshot = (new AtlasTaskCoordinationHealthService)->snapshot();
+
+        $this->assertArrayHasKey('worker_drain_forecast', $snapshot);
+        $forecast = $snapshot['worker_drain_forecast'];
+        $this->assertArrayHasKey('servable_now', $forecast);
+        $this->assertArrayHasKey('active_leases', $forecast);
+        $this->assertArrayHasKey('claimable_per_active_worker', $forecast);
+        $this->assertArrayHasKey('queue_pressure', $forecast);
+        $this->assertArrayHasKey('replenish_recommendation', $forecast);
+    }
+
+    public function test_zero_active_leases_yields_null_claimable_per_worker(): void
+    {
+        // No tasks enqueued, no active leases → claimable_per_active_worker = null.
+        $snapshot = (new AtlasTaskCoordinationHealthService)->snapshot();
+
+        $forecast = $snapshot['worker_drain_forecast'];
+        $this->assertSame(0, $forecast['active_leases']);
+        $this->assertNull($forecast['claimable_per_active_worker']);
+    }
+
+    public function test_existing_behavior_preserved_healthy_and_health_flags(): void
+    {
+        $snapshot = (new AtlasTaskCoordinationHealthService)->snapshot();
+
+        $this->assertArrayHasKey('healthy', $snapshot);
+        $this->assertArrayHasKey('health_flags', $snapshot);
+        $this->assertArrayHasKey('queue_status_distribution', $snapshot);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
