@@ -34,6 +34,39 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
         $this->assertSame(['hi', 'lo'], array_column($verdict['ranked'], 'candidate_id'));
     }
 
+    public function test_higher_capability_gap_ranks_before_lower_when_autonomy_ties(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'lo', 'capability_gap' => 1]),
+            $this->candidate(['candidate_id' => 'hi', 'capability_gap' => 9]),
+        ]);
+
+        $this->assertSame('hi', $verdict['ranked'][0]['candidate_id']);
+    }
+
+    public function test_higher_user_impact_ranks_before_lower_when_autonomy_and_capability_gap_tie(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'lo', 'user_impact' => 1, 'capability_gap' => 5]),
+            $this->candidate(['candidate_id' => 'hi', 'user_impact' => 9, 'capability_gap' => 5]),
+        ]);
+
+        $this->assertSame('hi', $verdict['ranked'][0]['candidate_id']);
+    }
+
+    public function test_reasons_include_capability_gap_and_user_impact(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['capability_gap' => 7, 'user_impact' => 4]),
+        ]);
+
+        $reasons = $verdict['ranked'][0]['reasons'];
+        $this->assertContains('capability_gap=7', $reasons, 'capability_gap must be in the reasons vector');
+        $this->assertContains('user_impact=4', $reasons, 'user_impact must be in the reasons vector');
+        $this->assertContains('autonomy_unlock=1', $reasons, 'autonomy_unlock still in reasons');
+        $this->assertContains('waste_reduction=1', $reasons, 'waste_reduction still in reasons');
+    }
+
     public function test_lower_waste_reduction_loses_to_higher_when_autonomy_ties(): void
     {
         $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([

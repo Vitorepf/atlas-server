@@ -20,9 +20,9 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  *   - empty evidence_refs ⇒ rejected (no real-leverage evidence).
  *   - proxy_signals \subset {novelty, task_count, line_churn, green_self_report} and NO real_levers ⇒ rejected.
  *
- * RANKING rules (lex order — higher autonomy_unlock first, then higher waste_reduction, then lower
- * dependency_count, then lower risk, finally candidate_id ASC). Each comparison appears as a reason in
- * the candidate's reasons list, so the operator can read why one beat another.
+ * RANKING rules (lex order — autonomy_unlock DESC, capability_gap DESC, user_impact DESC,
+ * waste_reduction DESC, dependency_count ASC, risk ASC, candidate_id ASC). Each factor appears as a
+ * reason in the candidate's reasons list, so the operator can read why one beat another.
  */
 final class AtlasStrategyCouncilLeverageRanker
 {
@@ -83,6 +83,8 @@ final class AtlasStrategyCouncilLeverageRanker
 
         usort($accepted, function (array $a, array $b): int {
             return $b['factors']['autonomy_unlock'] <=> $a['factors']['autonomy_unlock']
+                ?: $b['factors']['capability_gap'] <=> $a['factors']['capability_gap']
+                ?: $b['factors']['user_impact'] <=> $a['factors']['user_impact']
                 ?: $b['factors']['waste_reduction'] <=> $a['factors']['waste_reduction']
                 ?: $a['factors']['dependency_count'] <=> $b['factors']['dependency_count']
                 ?: $a['factors']['risk'] <=> $b['factors']['risk']
@@ -90,13 +92,15 @@ final class AtlasStrategyCouncilLeverageRanker
         });
 
         foreach ($accepted as $i => $row) {
-            $reasons = [];
-            $reasons[] = 'autonomy_unlock='.$row['factors']['autonomy_unlock'];
-            $reasons[] = 'waste_reduction='.$row['factors']['waste_reduction'];
-            $reasons[] = 'dependency_count='.$row['factors']['dependency_count'];
-            $reasons[] = 'risk='.$row['factors']['risk'];
-            $reasons[] = 'evidence_refs_count='.$row['factors']['evidence_refs_count'];
-            $accepted[$i]['reasons'] = $reasons;
+            $accepted[$i]['reasons'] = [
+                'autonomy_unlock='.$row['factors']['autonomy_unlock'],
+                'capability_gap='.$row['factors']['capability_gap'],
+                'user_impact='.$row['factors']['user_impact'],
+                'waste_reduction='.$row['factors']['waste_reduction'],
+                'dependency_count='.$row['factors']['dependency_count'],
+                'risk='.$row['factors']['risk'],
+                'evidence_refs_count='.$row['factors']['evidence_refs_count'],
+            ];
         }
 
         return [
