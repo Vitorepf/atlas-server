@@ -233,6 +233,25 @@ class AgentControlPlaneReplayDiffService
             ];
         }
 
+        $regressionSeverityMap = [];
+        foreach ($regressions as $regression) {
+            $kind = (string) $regression['kind'];
+            $regressionSeverityMap[$kind] = $this->severityForRegressionKind($kind, $regression);
+        }
+
+        $proofBundleChanged = $beforeProofBundleHash !== $afterProofBundleHash;
+        $otherSummariesChanged = $capabilityChanges['changed']
+            || $cliChanges['changed']
+            || $readinessChanges['changed']
+            || $invokerChanges['changed']
+            || $matrixChanges['changed'];
+
+        if ($regressionSeverityMap === [] && $proofBundleChanged) {
+            $regressionSeverityMap['proof_bundle_hash_drift'] = $otherSummariesChanged ? 'medium' : 'low';
+        }
+
+        $highestRegressionSeverity = $this->highestSeverity(array_values($regressionSeverityMap));
+
         $changed = $beforeDeterministicHash !== $afterDeterministicHash;
 
         $status = match (true) {
@@ -317,6 +336,8 @@ class AgentControlPlaneReplayDiffService
             'regression_count' => count($regressions),
             'improvements' => $improvements,
             'improvement_count' => count($improvements),
+            'regression_severity_map' => $regressionSeverityMap,
+            'highest_regression_severity' => $highestRegressionSeverity,
             'non_execution_guarantees' => [
                 'diff_does_not_start_codex',
                 'diff_does_not_call_codex_cli_or_app',
@@ -345,6 +366,32 @@ class AgentControlPlaneReplayDiffService
         $payload['diff_hash'] = $this->stableHash($this->normalizeForDiffHash($payload));
 
         return $payload;
+    }
+
+    /** @param  array<string, mixed>  $regression */
+    private function severityForRegressionKind(string $kind, array $regression): string
+    {
+        return match ($kind) {
+            'runtime_safety_dropped_from_all_false' => 'critical',
+            'pointer_regression' => 'high',
+            'violation_increase' => ((int) ($regression['delta'] ?? 0)) >= 3 ? 'high' : 'medium',
+            'slice_count_decrease' => 'medium',
+            default => 'medium',
+        };
+    }
+
+    /** @param  array<int, string>  $severities */
+    private function highestSeverity(array $severities): string
+    {
+        $rank = ['none' => 0, 'low' => 1, 'medium' => 2, 'high' => 3, 'critical' => 4];
+        $highest = 'none';
+        foreach ($severities as $severity) {
+            if (($rank[$severity] ?? 0) > ($rank[$highest] ?? 0)) {
+                $highest = $severity;
+            }
+        }
+
+        return $highest;
     }
 
     /**
@@ -532,6 +579,8 @@ class AgentControlPlaneReplayDiffService
             'regression_count' => 0,
             'improvements' => [],
             'improvement_count' => 0,
+            'regression_severity_map' => [],
+            'highest_regression_severity' => 'none',
             'non_execution_guarantees' => [
                 'diff_does_not_start_codex',
                 'diff_does_not_call_codex_cli_or_app',
