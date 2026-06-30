@@ -103,6 +103,19 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunnerTest extends Test
         $this->assertStringContainsString('orchestrator_threw:boom', $r['prepare_blocked'][0]['reason']);
     }
 
+    public function test_malformed_accepted_row_lands_in_skipped_rejected(): void
+    {
+        $accepted = [
+            'not-an-array',
+            ['frontier_id' => 'f-no-packet-key'],
+            ['packet' => ['frontier_id' => 'f-ok']],
+        ];
+        $decision = ['outcome' => AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, 'new_packet_count' => 5];
+        $r = (new AtlasSelfConstructionNativeReplenisherEnqueueRunner)->run($accepted, $decision, $this->fakeOrchestrator([]));
+        $this->assertSame(2, $r['counts']['skipped_rejected']);
+        $this->assertContains('f-ok', $r['enqueued']);
+    }
+
     public function test_lists_are_sorted_byte_stably(): void
     {
         $accepted = [

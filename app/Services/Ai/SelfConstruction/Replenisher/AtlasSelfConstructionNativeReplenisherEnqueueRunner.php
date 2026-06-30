@@ -51,10 +51,11 @@ final class AtlasSelfConstructionNativeReplenisherEnqueueRunner
             if ($attempted >= $limit) {
                 break;
             }
-            if (! is_array($row) || ! isset($row['packet'])) {
+            if (! is_array($row) || ! is_array($row['packet'] ?? null)) {
+                $skippedRejected[] = 'malformed';
                 continue;
             }
-            $packet = is_array($row['packet']) ? $row['packet'] : [];
+            $packet = $row['packet'];
             $id = (string) ($packet['frontier_id'] ?? ($packet['packet_id'] ?? ''));
             try {
                 $result = $orchestrator->prepareAndEnqueue($packet);
