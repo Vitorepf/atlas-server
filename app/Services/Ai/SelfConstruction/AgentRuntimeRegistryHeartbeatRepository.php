@@ -52,6 +52,17 @@ final class AgentRuntimeRegistryHeartbeatRepository
         'unknown',
     ];
 
+    /**
+     * Heartbeat productivity states (AC2/AC3) — distinguishes a worker actually doing work from
+     * one that is merely alive (process up, lease held, heartbeat pinging) with zero real
+     * movement. fake_alive is the state this exists to catch: current_task_count > 0 but neither
+     * progress_marker nor last_outcome_marker advanced since the previous heartbeat.
+     */
+    public const HEARTBEAT_STATE_PRODUCTIVE = 'productive';
+    public const HEARTBEAT_STATE_IDLE = 'idle';
+    public const HEARTBEAT_STATE_STALE = 'stale';
+    public const HEARTBEAT_STATE_FAKE_ALIVE = 'fake_alive';
+
     public function __construct(
         private readonly ?string $disk = null,
     ) {}
@@ -96,6 +107,8 @@ final class AgentRuntimeRegistryHeartbeatRepository
                 'active_lease_ids' => $this->normalizeStringList((array) ($heartbeat['active_lease_ids'] ?? [])),
                 'current_workspace_ids' => $this->normalizeStringList((array) ($heartbeat['current_workspace_ids'] ?? [])),
                 'last_continuation_summary_hash' => (string) ($heartbeat['last_continuation_summary_hash'] ?? ''),
+                'progress_marker' => (string) ($heartbeat['progress_marker'] ?? ''),
+                'last_outcome_marker' => (string) ($heartbeat['last_outcome_marker'] ?? ''),
                 'metadata' => (array) ($heartbeat['metadata'] ?? []),
                 'runtime_execution_allowed' => false,
                 'provider_call_allowed' => false,
@@ -268,7 +281,8 @@ final class AgentRuntimeRegistryHeartbeatRepository
             $referenceTs = time();
         }
 
-        $latest = $this->latest($agentId);
+        $heartbeats = $this->readAgentHeartbeats($agentId);
+        $latest = $heartbeats !== [] ? $heartbeats[count($heartbeats) - 1] : null;
         if ($latest === null) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
@@ -277,6 +291,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
                 'is_stale' => true,
                 'is_fresh' => false,
                 'reason' => 'no_heartbeat',
+                'heartbeat_state' => self::HEARTBEAT_STATE_STALE,
                 'reference_time' => $referenceIso,
                 'ttl_seconds' => $ttl,
                 'runtime_execution_allowed' => false,
@@ -284,6 +299,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
                 'ledger_write_allowed' => false,
             ];
         }
+        $previous = count($heartbeats) >= 2 ? $heartbeats[count($heartbeats) - 2] : null;
 
         $observed = (string) ($latest['observed_at'] ?? '');
         $ts = strtotime($observed);
@@ -297,6 +313,8 @@ final class AgentRuntimeRegistryHeartbeatRepository
             $reason = $stale ? 'older_than_ttl' : 'fresh';
         }
 
+        $heartbeatState = $this->classifyHeartbeatState($stale, $latest, $previous);
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'agent_id' => $agentId,
@@ -304,6 +322,7 @@ final class AgentRuntimeRegistryHeartbeatRepository
             'is_stale' => $stale,
             'is_fresh' => ! $stale,
             'reason' => $reason,
+            'heartbeat_state' => $heartbeatState,
             'age_seconds' => $age,
             'observed_at' => $observed,
             'reference_time' => $referenceIso,
@@ -311,6 +330,8 @@ final class AgentRuntimeRegistryHeartbeatRepository
             'status' => (string) ($latest['status'] ?? 'unknown'),
             'current_task_count' => (int) ($latest['current_task_count'] ?? 0),
             'max_parallel_tasks' => (int) ($latest['max_parallel_tasks'] ?? 0),
+            'progress_marker' => (string) ($latest['progress_marker'] ?? ''),
+            'last_outcome_marker' => (string) ($latest['last_outcome_marker'] ?? ''),
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -318,6 +339,42 @@ final class AgentRuntimeRegistryHeartbeatRepository
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
         ];
+    }
+
+    /**
+     * AC2: classifies a heartbeat as productive, idle, stale or fake_alive — suitable for load
+     * balancing (route work away from fake_alive/idle agents) and operational proof (a worker
+     * claiming progress must show its markers actually moved between heartbeats).
+     *
+     * @param  array<string,mixed>  $latest
+     * @param  array<string,mixed>|null  $previous
+     */
+    private function classifyHeartbeatState(bool $stale, array $latest, ?array $previous): string
+    {
+        if ($stale) {
+            return self::HEARTBEAT_STATE_STALE;
+        }
+
+        $currentTaskCount = (int) ($latest['current_task_count'] ?? 0);
+        if ($currentTaskCount === 0) {
+            return self::HEARTBEAT_STATE_IDLE;
+        }
+
+        // First-ever heartbeat for this agent: no prior marker to compare against, so we cannot
+        // yet prove the claim is fake — give the benefit of the doubt until the next heartbeat.
+        if ($previous === null) {
+            return self::HEARTBEAT_STATE_PRODUCTIVE;
+        }
+
+        $progressMarker = (string) ($latest['progress_marker'] ?? '');
+        $outcomeMarker = (string) ($latest['last_outcome_marker'] ?? '');
+        $prevProgressMarker = (string) ($previous['progress_marker'] ?? '');
+        $prevOutcomeMarker = (string) ($previous['last_outcome_marker'] ?? '');
+
+        $progressMoved = $progressMarker !== '' && $progressMarker !== $prevProgressMarker;
+        $outcomeMoved = $outcomeMarker !== '' && $outcomeMarker !== $prevOutcomeMarker;
+
+        return ($progressMoved || $outcomeMoved) ? self::HEARTBEAT_STATE_PRODUCTIVE : self::HEARTBEAT_STATE_FAKE_ALIVE;
     }
 
     public function isAvailable(): bool

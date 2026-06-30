@@ -291,4 +291,109 @@ final class AgentRuntimeRegistryHeartbeatRepositoryTest extends TestCase
         $this->assertFalse($result['provider_call_allowed']);
         $this->assertFalse($result['ledger_write_allowed']);
     }
+
+    // ── AC1: progress_marker / last_outcome_marker stored ──────────────────────
+
+    public function test_record_stores_progress_marker_and_last_outcome_marker(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $result = $repo->record('agent-a', [
+            'status' => 'busy',
+            'progress_marker' => 'commit:abc123',
+            'last_outcome_marker' => 'task:T100:resolved',
+        ]);
+
+        $this->assertSame('commit:abc123', $result['record']['progress_marker']);
+        $this->assertSame('task:T100:resolved', $result['record']['last_outcome_marker']);
+    }
+
+    public function test_progress_and_outcome_markers_default_to_empty_string(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $result = $repo->record('agent-a', ['status' => 'healthy']);
+
+        $this->assertSame('', $result['record']['progress_marker']);
+        $this->assertSame('', $result['record']['last_outcome_marker']);
+    }
+
+    // ── AC2: heartbeat_state classification — productive/idle/stale/fake_alive ──
+
+    public function test_heartbeat_state_stale_when_no_heartbeat(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $status = $repo->heartbeatStatus('agent-x');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_STALE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_stale_when_ttl_exceeded(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', [
+            'status' => 'busy',
+            'current_task_count' => 1,
+            'observed_at' => CarbonImmutable::now()->subSeconds(3600)->toIso8601String(),
+        ]);
+        $status = $repo->heartbeatStatus('agent-a', ['ttl_seconds' => 60]);
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_STALE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_idle_when_zero_tasks(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', ['status' => 'healthy', 'current_task_count' => 0]);
+        $status = $repo->heartbeatStatus('agent-a');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_IDLE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_productive_on_first_heartbeat_with_active_task(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1]);
+        $status = $repo->heartbeatStatus('agent-a');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_PRODUCTIVE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_productive_when_progress_marker_advances(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1, 'progress_marker' => 'm1']);
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1, 'progress_marker' => 'm2']);
+        $status = $repo->heartbeatStatus('agent-a');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_PRODUCTIVE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_productive_when_outcome_marker_advances(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1, 'last_outcome_marker' => 'o1']);
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1, 'last_outcome_marker' => 'o2']);
+        $status = $repo->heartbeatStatus('agent-a');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_PRODUCTIVE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_fake_alive_when_active_but_markers_unchanged(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1, 'progress_marker' => 'm1', 'last_outcome_marker' => 'o1']);
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1, 'progress_marker' => 'm1', 'last_outcome_marker' => 'o1']);
+        $status = $repo->heartbeatStatus('agent-a');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_FAKE_ALIVE, $status['heartbeat_state']);
+    }
+
+    public function test_heartbeat_state_fake_alive_when_active_with_no_markers_at_all_after_first(): void
+    {
+        $repo = new AgentRuntimeRegistryHeartbeatRepository;
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1]);
+        $repo->record('agent-a', ['status' => 'busy', 'current_task_count' => 1]);
+        $status = $repo->heartbeatStatus('agent-a');
+
+        $this->assertSame(AgentRuntimeRegistryHeartbeatRepository::HEARTBEAT_STATE_FAKE_ALIVE, $status['heartbeat_state']);
+    }
 }
