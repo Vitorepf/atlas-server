@@ -8,6 +8,9 @@ final class AtlasMaestroOutcomePatternMiner
 {
     public const MIN_SUPPORT = 8;
 
+    /** Minimum delivered successes required for a dimension/bucket to qualify as a reusable strategy pattern. */
+    public const MIN_STRATEGY_OCCURRENCES = 5;
+
     private const OUTCOMES = ['delivered', 'give_back', 'rejected', 'stale'];
 
     public function __construct(private readonly AtlasMaestroOutcomeShapeLedger $ledger)
@@ -101,6 +104,46 @@ final class AtlasMaestroOutcomePatternMiner
         });
 
         return $signals;
+    }
+
+    /**
+     * Return reusable strategy patterns — a subset of strategySignals() where delivered successes
+     * are at or above MIN_STRATEGY_OCCURRENCES. One-off successes that merely satisfy
+     * delivery_rate >= 0.5 at minimum total support remain observations only and are excluded.
+     *
+     * Sorted by delivery_rate DESC, then by delivered DESC (most evidence first).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function strategyPatterns(): array
+    {
+        $patterns = [];
+
+        foreach ($this->mine() as $dimension => $buckets) {
+            foreach ($buckets as $bucket => $entry) {
+                if ($entry['delivery_rate'] === null || $entry['delivery_rate'] < 0.5) {
+                    continue;
+                }
+                if ((int) $entry['delivered'] < self::MIN_STRATEGY_OCCURRENCES) {
+                    continue; // one-off success: observation only, not a reusable pattern
+                }
+                $patterns[] = [
+                    'dimension'     => $dimension,
+                    'bucket'        => $bucket,
+                    'delivery_rate' => $entry['delivery_rate'],
+                    'support'       => $entry['total'],
+                    'delivered'     => (int) $entry['delivered'],
+                ];
+            }
+        }
+
+        usort($patterns, static function (array $a, array $b): int {
+            $r = $b['delivery_rate'] <=> $a['delivery_rate'];
+
+            return $r !== 0 ? $r : $b['delivered'] <=> $a['delivered'];
+        });
+
+        return $patterns;
     }
 
     /**

@@ -137,6 +137,73 @@ final class AtlasMaestroOutcomePatternMinerTest extends TestCase
         $this->assertSame([], (new AtlasMaestroOutcomePatternMiner($ledger))->strategySignals());
     }
 
+    public function test_strategy_patterns_requires_minimum_delivered_occurrences(): void
+    {
+        // 8 total, 4 delivered, 4 give_back → rate 0.5 passes signal threshold but delivered (4) < MIN_STRATEGY_OCCURRENCES (5)
+        $schema = AtlasMaestroOutcomeShapeLedger::SCHEMA;
+        for ($i = 0; $i < 8; $i++) {
+            file_put_contents($this->path, json_encode([
+                'schema' => $schema, 'task_packet_id' => 'obs-'.$i,
+                'origin_kind' => 'orphan', 'allowed_files_count' => 2,
+                'scope_in_size' => 2, 'acceptance_criteria_count' => 3,
+                'required_evidence_count' => 1, 'has_tests_path' => true,
+                'wave_bucket' => 'w0', 'file_family' => 'SparseFamily',
+                'task_shape' => 'sparse-shape', 'worker_id' => 'sparse-worker',
+                'proof_command_class' => 'sparse-cmd',
+                'outcome' => $i < 4 ? 'delivered' : 'give_back',
+            ])."\n", FILE_APPEND);
+        }
+
+        $miner   = new AtlasMaestroOutcomePatternMiner(new AtlasMaestroOutcomeShapeLedger($this->path));
+        $signals = $miner->strategySignals();
+        $patterns = $miner->strategyPatterns();
+
+        $signalBuckets  = array_map(fn ($s) => $s['dimension'].'='.$s['bucket'], $signals);
+        $patternBuckets = array_map(fn ($p) => $p['dimension'].'='.$p['bucket'], $patterns);
+
+        $this->assertContains('file_family=SparseFamily', $signalBuckets, 'rate=0.5 qualifies as a signal');
+        $this->assertNotContains('file_family=SparseFamily', $patternBuckets, 'delivered=4 < MIN_STRATEGY_OCCURRENCES must not become a pattern');
+    }
+
+    public function test_one_off_success_remains_observation_not_strategy_pattern(): void
+    {
+        $ledger = new AtlasMaestroOutcomeShapeLedger($this->path);
+        $ledger->record('one-off', $this->shapeFacts(['task_shape' => 'novel-shape']), 'delivered');
+
+        $patterns = (new AtlasMaestroOutcomePatternMiner($ledger))->strategyPatterns();
+
+        $patternBuckets = array_map(fn ($p) => $p['dimension'].'='.$p['bucket'], $patterns);
+        $this->assertNotContains('task_shape=novel-shape', $patternBuckets, 'single success must remain an observation');
+    }
+
+    public function test_strategy_patterns_includes_file_family_task_shape_worker_id_proof_command_class(): void
+    {
+        $schema = AtlasMaestroOutcomeShapeLedger::SCHEMA;
+        for ($i = 0; $i < 8; $i++) {
+            file_put_contents($this->path, json_encode([
+                'schema' => $schema, 'task_packet_id' => 'strong-'.$i,
+                'origin_kind' => 'orphan', 'allowed_files_count' => 2,
+                'scope_in_size' => 2, 'acceptance_criteria_count' => 3,
+                'required_evidence_count' => 1, 'has_tests_path' => true,
+                'wave_bucket' => 'w0', 'file_family' => 'SelfConstruction',
+                'task_shape' => 'feature', 'worker_id' => 'claude-muscle-1',
+                'proof_command_class' => 'artisan-test', 'outcome' => 'delivered',
+            ])."\n", FILE_APPEND);
+        }
+
+        $patterns = (new AtlasMaestroOutcomePatternMiner(new AtlasMaestroOutcomeShapeLedger($this->path)))->strategyPatterns();
+
+        $dims = array_column($patterns, 'dimension');
+        foreach (['file_family', 'task_shape', 'worker_id', 'proof_command_class'] as $dim) {
+            $this->assertContains($dim, $dims, "strategyPatterns() must include dimension {$dim}");
+        }
+        foreach ($patterns as $pattern) {
+            $this->assertArrayHasKey('delivered', $pattern);
+            $this->assertGreaterThanOrEqual(AtlasMaestroOutcomePatternMiner::MIN_STRATEGY_OCCURRENCES, $pattern['delivered']);
+            $this->assertGreaterThanOrEqual(0.5, $pattern['delivery_rate']);
+        }
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>
