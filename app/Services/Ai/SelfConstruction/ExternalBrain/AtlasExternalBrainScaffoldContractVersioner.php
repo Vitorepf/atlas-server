@@ -49,10 +49,15 @@ final class AtlasExternalBrainScaffoldContractVersioner
      */
     public function version(array $facts): array
     {
-        $currentVersion     = (string) ($facts['current_version'] ?? '1.0.0');
-        $currentChecks      = $this->indexChecks(is_array($facts['current_checks']       ?? null) ? $facts['current_checks']       : []);
-        $proposedChecks     = $this->indexChecks(is_array($facts['proposed_checks']      ?? null) ? $facts['proposed_checks']      : []);
+        $currentVersion      = (string) ($facts['current_version'] ?? '1.0.0');
+        $currentChecks       = $this->indexChecks(is_array($facts['current_checks']       ?? null) ? $facts['current_checks']       : []);
+        $proposedChecks      = $this->indexChecks(is_array($facts['proposed_checks']      ?? null) ? $facts['proposed_checks']      : []);
         $explicitRetirements = array_flip(is_array($facts['explicit_retirements'] ?? null) ? $facts['explicit_retirements'] : []);
+        // Migration proof for safety-check retirements (docs, test refs, PR links).
+        // Explicit safety retirement without rollout_evidence → breaking (no migration proof).
+        $rolloutEvidence = is_array($facts['rollout_evidence'] ?? null)
+            ? array_values(array_filter(array_map('strval', $facts['rollout_evidence'])))
+            : [];
 
         $migrationNotes  = [];
         $retiredChecks   = [];
@@ -66,10 +71,16 @@ final class AtlasExternalBrainScaffoldContractVersioner
 
             if ($check['is_safety_check']) {
                 if (array_key_exists($name, $explicitRetirements)) {
-                    // Explicit retirement of a safety check → migration_required.
-                    $retiredChecks[]  = $name;
-                    $migrationNotes[] = "safety check '$name' explicitly retired; update consumers";
-                    $compatLevel      = $this->escalate($compatLevel, self::COMPAT_MIGRATION);
+                    if (empty($rolloutEvidence)) {
+                        // Explicit retirement without migration proof → breaking (AC2).
+                        $migrationNotes[] = "VIOLATION: safety check '$name' explicitly retired without rollout_evidence migration proof; provide docs or test refs";
+                        $compatLevel      = self::COMPAT_BREAKING;
+                    } else {
+                        // Explicit retirement WITH migration proof → migration_required.
+                        $retiredChecks[]  = $name;
+                        $migrationNotes[] = "safety check '$name' explicitly retired with migration proof (" . count($rolloutEvidence) . ' evidence item(s)); update consumers';
+                        $compatLevel      = $this->escalate($compatLevel, self::COMPAT_MIGRATION);
+                    }
                 } else {
                     // AC3: silent safety removal → hard breaking.
                     $migrationNotes[] = "VIOLATION: safety check '$name' silently removed; must be explicitly retired or replaced";

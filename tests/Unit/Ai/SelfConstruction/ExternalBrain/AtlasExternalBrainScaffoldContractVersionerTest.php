@@ -107,17 +107,31 @@ final class AtlasExternalBrainScaffoldContractVersionerTest extends TestCase
         $this->assertStringContainsString('guard', $r['migration_notes'][0]);
     }
 
-    public function test_explicit_safety_retirement_is_migration_required(): void
+    public function test_explicit_safety_retirement_with_migration_proof_is_migration_required(): void
     {
         $r = $this->versioner()->version([
-            'current_version'     => '1.0.0',
-            'current_checks'      => [$this->check('guard', safety: true)],
-            'proposed_checks'     => [],
+            'current_version'      => '1.0.0',
+            'current_checks'       => [$this->check('guard', safety: true)],
+            'proposed_checks'      => [],
             'explicit_retirements' => ['guard'],
+            'rollout_evidence'     => ['migration-guide-v2.md', 'test_guard_replaced_by_new_gate'],
         ]);
         $this->assertSame('migration_required', $r['compatibility']);
         $this->assertContains('guard', $r['retired_checks']);
         $this->assertNotEmpty($r['migration_notes']);
+    }
+
+    public function test_explicit_safety_retirement_without_migration_proof_is_breaking(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version'      => '1.0.0',
+            'current_checks'       => [$this->check('guard', safety: true)],
+            'proposed_checks'      => [],
+            'explicit_retirements' => ['guard'],
+            // no rollout_evidence → breaking
+        ]);
+        $this->assertSame('breaking', $r['compatibility']);
+        $this->assertStringContainsString('VIOLATION', $r['migration_notes'][0]);
     }
 
     public function test_silent_safety_removal_overrides_other_compatible_changes(): void
