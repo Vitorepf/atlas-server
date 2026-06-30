@@ -77,15 +77,15 @@ final class AtlasLoopProviderSwapPolicy
                 if ($degrade >= $kDegrade) {
                     $this->saveState($campaignId, ['current_active' => $fallback, 'degrade_streak' => 0, 'revert_streak' => 0]);
 
-                    return $this->result('swap', $primary, $fallback, $health['reason'], $degrade);
+                    return $this->result('swap', $primary, $fallback, $health['reason'], $degrade, $health);
                 }
                 $this->saveState($campaignId, ['current_active' => $primary, 'degrade_streak' => $degrade, 'revert_streak' => 0]);
 
-                return $this->result('hold', $primary, null, $health['reason'], $degrade);
+                return $this->result('hold', $primary, null, $health['reason'], $degrade, $health);
             }
             $this->saveState($campaignId, ['current_active' => $primary, 'degrade_streak' => 0, 'revert_streak' => 0]);
 
-            return $this->result('hold', $primary, null, 'healthy', 0);
+            return $this->result('hold', $primary, null, 'healthy', 0, $health);
         }
 
         // ON FALLBACK — watch for sustained recovery; revert after K_REVERT consecutive healthy rounds.
@@ -95,16 +95,16 @@ final class AtlasLoopProviderSwapPolicy
             if ($revert >= $kRevert) {
                 $this->saveState($campaignId, ['current_active' => $primary, 'degrade_streak' => 0, 'revert_streak' => 0]);
 
-                return $this->result('revert', $fallback, $primary, 'recovered', $revert);
+                return $this->result('revert', $fallback, $primary, 'recovered', $revert, $health);
             }
             $this->saveState($campaignId, ['current_active' => $fallback, 'degrade_streak' => 0, 'revert_streak' => $revert]);
 
-            return $this->result('hold', $fallback, null, 'healthy', $revert);
+            return $this->result('hold', $fallback, null, 'healthy', $revert, $health);
         }
         // fallback still degraded — stay on it, reset the recovery streak.
         $this->saveState($campaignId, ['current_active' => $fallback, 'degrade_streak' => 0, 'revert_streak' => 0]);
 
-        return $this->result('hold', $fallback, null, $health['reason'], 0);
+        return $this->result('hold', $fallback, null, $health['reason'], 0, $health);
     }
 
     /** The provider the policy currently considers active (primary until a swap is persisted). */
@@ -116,7 +116,7 @@ final class AtlasLoopProviderSwapPolicy
     }
 
     /**
-     * @return array{degraded:bool, reason:string}
+     * @return array{degraded:bool, reason:string, sample_count:int, ok_rate:float, p95_ms:int, breaker_streak:int, evidence_strong:bool, cooldown_active:bool}
      */
     private function health(string $providerKey, int $windowSeconds): array
     {
@@ -127,29 +127,38 @@ final class AtlasLoopProviderSwapPolicy
 
         $snapshot = ($this->probe ?? new AtlasLoopProviderHealthProbe)->snapshot($providerKey, $windowSeconds);
         $samples = (int) ($snapshot['sample_count'] ?? 0);
+        $ok = $samples > 0 ? (int) ($snapshot['ok_count'] ?? 0) : 0;
+        $p95 = (int) ($snapshot['p95_ms'] ?? 0);
+        $okRate = $samples > 0 ? round($ok / $samples, 4) : 0.0;
+        $evidenceStrong = $samples >= $okMinSamples;
+        $cooldownActive = $samples > 0 && ! $evidenceStrong;
+
+        $streak = ($this->breaker ?? new AtlasLoopProviderCircuitBreaker)->streak($providerKey);
+
+        $base = [
+            'sample_count' => $samples,
+            'ok_rate' => $okRate,
+            'p95_ms' => $p95,
+            'breaker_streak' => $streak,
+            'evidence_strong' => $evidenceStrong,
+            'cooldown_active' => $cooldownActive,
+        ];
 
         // No evidence ⇒ not degraded (never swap on an empty window — fail-safe).
         if ($samples > 0) {
-            if ((int) ($snapshot['p95_ms'] ?? 0) > $p95Ceiling) {
-                return ['degraded' => true, 'reason' => 'p95_breach'];
+            if ($p95 > $p95Ceiling) {
+                return array_merge($base, ['degraded' => true, 'reason' => 'p95_breach']);
             }
-            // Require a minimum-sample floor before ok-rate can declare a breach;
-            // a single failed call (0/1) must not evict a healthy provider on noise.
-            if ($samples >= $okMinSamples) {
-                $ok = (int) ($snapshot['ok_count'] ?? 0);
-                if (($ok / $samples) < $okFloor) {
-                    return ['degraded' => true, 'reason' => 'ok_rate_breach'];
-                }
+            if ($evidenceStrong && $okRate < $okFloor) {
+                return array_merge($base, ['degraded' => true, 'reason' => 'ok_rate_breach']);
             }
         }
 
-        // The circuit-breaker streak is a second outage signal (the provider produced nothing repeatedly).
-        $streak = ($this->breaker ?? new AtlasLoopProviderCircuitBreaker)->streak($providerKey);
         if ($streak >= $breakerThreshold) {
-            return ['degraded' => true, 'reason' => 'ok_rate_breach'];
+            return array_merge($base, ['degraded' => true, 'reason' => 'ok_rate_breach']);
         }
 
-        return ['degraded' => false, 'reason' => 'healthy'];
+        return array_merge($base, ['degraded' => false, 'reason' => 'healthy']);
     }
 
     /**
@@ -168,9 +177,10 @@ final class AtlasLoopProviderSwapPolicy
     }
 
     /**
-     * @return array{schema:string, action:string, from_provider:string, to_provider:?string, reason:string, consecutive_rounds:int}
+     * @param  array{sample_count?:int, ok_rate?:float, p95_ms?:int, breaker_streak?:int, evidence_strong?:bool, cooldown_active?:bool}  $healthData
+     * @return array{schema:string, action:string, from_provider:string, to_provider:?string, reason:string, consecutive_rounds:int, evidence:array{sample_count:int, ok_rate:float, p95_ms:int, breaker_streak:int, evidence_strong:bool, cooldown_active:bool}}
      */
-    private function result(string $action, string $from, ?string $to, string $reason, int $consecutive): array
+    private function result(string $action, string $from, ?string $to, string $reason, int $consecutive, array $healthData = []): array
     {
         return [
             'schema' => self::SCHEMA,
@@ -179,6 +189,14 @@ final class AtlasLoopProviderSwapPolicy
             'to_provider' => $to,
             'reason' => $reason,
             'consecutive_rounds' => $consecutive,
+            'evidence' => [
+                'sample_count' => (int) ($healthData['sample_count'] ?? 0),
+                'ok_rate' => (float) ($healthData['ok_rate'] ?? 0.0),
+                'p95_ms' => (int) ($healthData['p95_ms'] ?? 0),
+                'breaker_streak' => (int) ($healthData['breaker_streak'] ?? 0),
+                'evidence_strong' => (bool) ($healthData['evidence_strong'] ?? false),
+                'cooldown_active' => (bool) ($healthData['cooldown_active'] ?? false),
+            ],
         ];
     }
 

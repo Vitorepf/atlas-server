@@ -202,6 +202,66 @@ final class AtlasLoopProviderSwapPolicyTest extends TestCase
         }
     }
 
+    public function test_decision_receipt_includes_evidence_block_with_all_required_fields(): void
+    {
+        $probe = $this->probe();
+        $this->seedSamples($probe, 'codex', ok: true, latencyMs: 500, n: 5);
+
+        $decision = $this->policy($probe)->decide('camp-evidence', 'codex', ['minimax']);
+
+        $this->assertArrayHasKey('evidence', $decision);
+        $ev = $decision['evidence'];
+        foreach (['sample_count', 'ok_rate', 'p95_ms', 'breaker_streak', 'evidence_strong', 'cooldown_active'] as $field) {
+            $this->assertArrayHasKey($field, $ev, "evidence must include field: {$field}");
+        }
+        $this->assertIsInt($ev['sample_count']);
+        $this->assertIsFloat($ev['ok_rate']);
+        $this->assertIsInt($ev['p95_ms']);
+        $this->assertIsInt($ev['breaker_streak']);
+        $this->assertIsBool($ev['evidence_strong']);
+        $this->assertIsBool($ev['cooldown_active']);
+    }
+
+    public function test_empty_window_holds_and_marks_evidence_not_strong(): void
+    {
+        $probe = $this->probe(); // no samples seeded → empty window
+
+        $decision = $this->policy($probe)->decide('camp-empty-ev', 'codex', ['minimax']);
+
+        $this->assertSame('hold', $decision['action'], 'empty window must hold, never swap');
+        $this->assertFalse($decision['evidence']['evidence_strong']);
+        $this->assertSame(0, $decision['evidence']['sample_count']);
+        $this->assertFalse($decision['evidence']['cooldown_active'], 'zero samples is not cooldown, just unknown');
+    }
+
+    public function test_thin_window_marks_cooldown_active_true_and_evidence_strong_false(): void
+    {
+        config(['atlas.loop.provider_swap.ok_rate_min_samples' => 5]);
+        $probe = $this->probe();
+        $this->seedSamples($probe, 'codex', ok: true, latencyMs: 500, n: 3); // 3 < 5 min_samples
+
+        $decision = $this->policy($probe)->decide('camp-thin', 'codex', ['minimax']);
+
+        $this->assertSame('hold', $decision['action'], 'thin evidence must hold');
+        $this->assertFalse($decision['evidence']['evidence_strong']);
+        $this->assertTrue($decision['evidence']['cooldown_active'], '0 < samples < min_samples must mark cooldown_active');
+        $this->assertSame(3, $decision['evidence']['sample_count']);
+    }
+
+    public function test_sufficient_samples_mark_evidence_strong_true(): void
+    {
+        config(['atlas.loop.provider_swap.ok_rate_min_samples' => 5]);
+        $probe = $this->probe();
+        $this->seedSamples($probe, 'codex', ok: true, latencyMs: 500, n: 5); // exactly at floor
+
+        $decision = $this->policy($probe)->decide('camp-strong', 'codex', ['minimax']);
+
+        $this->assertTrue($decision['evidence']['evidence_strong']);
+        $this->assertFalse($decision['evidence']['cooldown_active']);
+        $this->assertSame(5, $decision['evidence']['sample_count']);
+        $this->assertSame(1.0, $decision['evidence']['ok_rate']);
+    }
+
     public function test_supervisor_flag_off_is_byte_identical_no_swap_and_provider_unchanged(): void
     {
         config(['atlas.loop.provider_swap_policy_enabled' => false]);
