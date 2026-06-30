@@ -232,4 +232,99 @@ final class AtlasExternalBrainSpecRegressionHarnessTest extends TestCase
 
         $this->assertNotEmpty($result['evidence']);
     }
+
+    // ── Frozen poison classes (regression freeze) ─────────────────────────────
+
+    public function test_test_only_packet_fails_and_reports_gate(): void
+    {
+        $candidate = $this->spec([
+            'allowed_files' => ['tests/Unit/FooTest.php', 'tests/Unit/BarTest.php'],
+            'implementation_files' => [],
+        ]);
+
+        $result = $this->harness->replay($this->input([$candidate]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_FAIL, $result['verdict']);
+        $match = $result['matched_regressions'][0];
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::CLASS_TEST_ONLY_PACKET, $match['class']);
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::GATE_BY_CLASS[AtlasExternalBrainSpecRegressionHarness::CLASS_TEST_ONLY_PACKET], $match['gate']);
+    }
+
+    public function test_forbidden_implementation_target_fails_and_reports_gate(): void
+    {
+        $candidate = $this->spec(['allowed_files' => ['app/Services/Petreo/Sacred.php']]);
+
+        $result = $this->harness->replay([
+            'candidate_specs' => [$candidate],
+            'forbidden_targets' => ['app/Services/Petreo/Sacred.php'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_FAIL, $result['verdict']);
+        $match = $result['matched_regressions'][0];
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::CLASS_FORBIDDEN_TARGET, $match['class']);
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::GATE_BY_CLASS[AtlasExternalBrainSpecRegressionHarness::CLASS_FORBIDDEN_TARGET], $match['gate']);
+    }
+
+    public function test_contradictory_acceptance_fails_and_reports_gate(): void
+    {
+        $candidate = $this->spec([
+            'acceptance_criteria' => [
+                'the endpoint must always return cached results',
+                'the endpoint must never return cached results',
+            ],
+        ]);
+
+        $result = $this->harness->replay($this->input([$candidate]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_FAIL, $result['verdict']);
+        $match = $result['matched_regressions'][0];
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::CLASS_CONTRADICTORY_ACCEPTANCE, $match['class']);
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::GATE_BY_CLASS[AtlasExternalBrainSpecRegressionHarness::CLASS_CONTRADICTORY_ACCEPTANCE], $match['gate']);
+    }
+
+    public function test_duplicate_target_warns_and_reports_gate(): void
+    {
+        $c1 = $this->spec(['task_id' => 'a', 'objective' => 'first unrelated objective text alpha', 'allowed_files' => ['app/Services/Shared.php']]);
+        $c2 = $this->spec(['task_id' => 'b', 'objective' => 'second unrelated objective text beta', 'allowed_files' => ['app/Services/Shared.php']]);
+
+        $result = $this->harness->replay($this->input([$c1, $c2]));
+
+        $classes = array_column($result['matched_regressions'], 'class');
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_DUPLICATE_TARGET, $classes);
+        $match = $result['matched_regressions'][array_search(AtlasExternalBrainSpecRegressionHarness::CLASS_DUPLICATE_TARGET, $classes, true)];
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::GATE_BY_CLASS[AtlasExternalBrainSpecRegressionHarness::CLASS_DUPLICATE_TARGET], $match['gate']);
+    }
+
+    public function test_template_farm_spec_warns_and_reports_gate(): void
+    {
+        $candidate = $this->spec(['objective' => 'generate boilerplate template scaffold for new module quickly']);
+        $templateEx = $this->example('template_farm', 'generate boilerplate template scaffold for new module quickly');
+
+        $result = $this->harness->replay($this->input([$candidate], [$templateEx]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_WARNING, $result['verdict']);
+        $match = $result['matched_regressions'][0];
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::CLASS_TEMPLATE_FARM, $match['class']);
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::GATE_BY_CLASS[AtlasExternalBrainSpecRegressionHarness::CLASS_TEMPLATE_FARM], $match['gate']);
+    }
+
+    public function test_good_high_value_macro_spec_is_never_blocked_by_any_frozen_poison_class(): void
+    {
+        $macro = $this->spec([
+            'objective'            => 'generate boilerplate template scaffold for new module quickly',
+            'allowed_files'        => ['tests/Unit/FooTest.php'],
+            'acceptance_criteria'  => ['must always pass', 'must never fail'],
+            'implementation_files' => ['app/Services/Foo.php'],
+            'test_files'           => ['tests/Unit/FooTest.php'],
+            'behavior_evidence'    => ['tests pass green: phpunit FooTest exits 0'],
+        ]);
+
+        $result = $this->harness->replay([
+            'candidate_specs' => [$macro],
+            'forbidden_targets' => ['tests/Unit/FooTest.php'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_PASS, $result['verdict']);
+        $this->assertSame([], $result['matched_regressions']);
+    }
 }
