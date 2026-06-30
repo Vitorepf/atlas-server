@@ -133,15 +133,74 @@ final class AtlasExternalBrainImplementabilitySimulator
         return $this->result($id, self::VERDICT_ENQUEUEABLE, []);
     }
 
-    /** @return array{schema:string, verdict:string, reasons:list<string>, candidate_id:string} */
+    /**
+     * @param  list<string>  $reasons
+     * @return array{schema:string, verdict:string, reasons:list<string>, candidate_id:string, repair_hints:list<string>, safe_to_enqueue:bool, required_repair_actions:list<string>}
+     */
     private function result(string $id, string $verdict, array $reasons): array
     {
         return [
-            'schema' => self::SCHEMA,
-            'verdict' => $verdict,
-            'reasons' => array_values($reasons),
-            'candidate_id' => $id,
+            'schema'                   => self::SCHEMA,
+            'verdict'                  => $verdict,
+            'reasons'                  => array_values($reasons),
+            'candidate_id'             => $id,
+            'repair_hints'             => $this->repairHints($verdict, $reasons),
+            'safe_to_enqueue'          => $verdict === self::VERDICT_ENQUEUEABLE,
+            'required_repair_actions'  => $this->requiredRepairActions($verdict, $reasons),
         ];
+    }
+
+    /**
+     * @param  list<string>  $reasons
+     * @return list<string>
+     */
+    private function repairHints(string $verdict, array $reasons): array
+    {
+        return match ($verdict) {
+            self::VERDICT_ENQUEUEABLE => [],
+            self::VERDICT_CONTRADICTORY => array_map(
+                fn (string $r): string => "remove_or_reconcile_contradiction:{$r}",
+                $reasons,
+            ),
+            self::VERDICT_DUPLICATE => ['drop_already_implemented_targets_or_pick_a_new_task'],
+            self::VERDICT_PROPERTY_GATED => array_map(
+                fn (string $r): string => "satisfy_property_gate_before_enqueue:{$r}",
+                $reasons,
+            ),
+            self::VERDICT_COLLISION => array_map(
+                fn (string $r): string => "wait_for_release_or_pick_disjoint_files:{$r}",
+                $reasons,
+            ),
+            self::VERDICT_DEFER => array_map(
+                fn (string $r): string => "wait_for_upstream_to_resolve:{$r}",
+                $reasons,
+            ),
+            self::VERDICT_REPAIR_REQUIRED => array_map(
+                fn (string $r): string => "split_task_or_reduce_fanout:{$r}",
+                $reasons,
+            ),
+            default => [],
+        };
+    }
+
+    /**
+     * @param  list<string>  $reasons
+     * @return list<string>
+     */
+    private function requiredRepairActions(string $verdict, array $reasons): array
+    {
+        return match ($verdict) {
+            self::VERDICT_ENQUEUEABLE => [],
+            self::VERDICT_CONTRADICTORY => ['rewrite_acceptance_criteria_or_scope_to_remove_contradiction'],
+            self::VERDICT_DUPLICATE => ['retarget_candidate_to_an_undelivered_capability'],
+            self::VERDICT_PROPERTY_GATED => ['provide_missing_property_gate_evidence'],
+            self::VERDICT_COLLISION => ['await_active_lease_release_or_narrow_allowed_files'],
+            self::VERDICT_DEFER => ['await_dependency_task_resolution'],
+            self::VERDICT_REPAIR_REQUIRED => count($reasons) > 0
+                ? ['split_into_smaller_independent_tasks', 'reduce_file_or_dependency_fanout']
+                : [],
+            default => [],
+        };
     }
 
     /**

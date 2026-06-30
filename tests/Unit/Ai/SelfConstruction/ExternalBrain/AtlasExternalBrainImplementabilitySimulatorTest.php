@@ -290,4 +290,106 @@ final class AtlasExternalBrainImplementabilitySimulatorTest extends TestCase
         );
         $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_DUPLICATE, $r['verdict']);
     }
+
+    // ── new AC: required output keys ─────────────────────────────────────────
+
+    public function test_output_includes_all_required_keys(): void
+    {
+        $r = $this->sim->simulate($this->candidate());
+
+        foreach (['verdict', 'reasons', 'candidate_id', 'repair_hints', 'safe_to_enqueue', 'required_repair_actions'] as $key) {
+            $this->assertArrayHasKey($key, $r, "missing key: {$key}");
+        }
+    }
+
+    public function test_enqueueable_candidate_is_safe_to_enqueue_with_no_repair_actions(): void
+    {
+        $r = $this->sim->simulate($this->candidate());
+
+        $this->assertTrue($r['safe_to_enqueue']);
+        $this->assertSame([], $r['repair_hints']);
+        $this->assertSame([], $r['required_repair_actions']);
+    }
+
+    public function test_blocked_candidate_is_not_safe_to_enqueue_and_has_repair_hints(): void
+    {
+        $r = $this->sim->simulate($this->candidate([
+            'acceptance_criteria' => ['must return true', 'must not return true'],
+        ]));
+
+        $this->assertFalse($r['safe_to_enqueue']);
+        $this->assertNotEmpty($r['repair_hints']);
+        $this->assertNotEmpty($r['required_repair_actions']);
+    }
+
+    // ── AC3: test-only allowed_files for missing impl returns contradictory unless live queued ──
+
+    public function test_test_only_missing_impl_returns_contradictory_with_repair_hints_when_not_queued(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate([
+                'allowed_files' => ['tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooTest.php'],
+            ]),
+            ['missing_prod_files' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php']],
+        );
+
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_CONTRADICTORY, $r['verdict']);
+        $this->assertFalse($r['safe_to_enqueue']);
+        $this->assertNotEmpty($r['repair_hints']);
+    }
+
+    public function test_test_only_missing_impl_already_live_queued_is_not_contradictory(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate([
+                'allowed_files' => ['tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasFooTest.php'],
+            ]),
+            [
+                'missing_prod_files'  => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+                'live_queued_targets' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php'],
+            ],
+        );
+
+        $this->assertNotSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_CONTRADICTORY, $r['verdict']);
+        $this->assertTrue($r['safe_to_enqueue']);
+    }
+
+    // ── AC4: multi-file collision / high dependency fanout return repair_required with hints ──
+
+    public function test_multi_file_collision_returns_repair_required_with_file_specific_hints(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate(['allowed_files' => [
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php',
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php',
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBaz.php',
+            ]]),
+            ['active_allowed_files' => [
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php',
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php',
+                'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBaz.php',
+            ]],
+        );
+
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_REPAIR_REQUIRED, $r['verdict']);
+        $this->assertFalse($r['safe_to_enqueue']);
+        $this->assertNotEmpty($r['repair_hints']);
+        $this->assertNotEmpty($r['required_repair_actions']);
+        $hintsJoined = implode('|', $r['repair_hints']);
+        $this->assertStringContainsString('AtlasFoo.php', $hintsJoined);
+    }
+
+    public function test_high_dependency_fanout_returns_repair_required_with_task_specific_hints(): void
+    {
+        $r = $this->sim->simulate(
+            $this->candidate(['unblocked_by' => ['t1', 't2', 't3']]),
+            ['pending_task_ids' => ['t1', 't2', 't3']],
+        );
+
+        $this->assertSame(AtlasExternalBrainImplementabilitySimulator::VERDICT_REPAIR_REQUIRED, $r['verdict']);
+        $this->assertFalse($r['safe_to_enqueue']);
+        $this->assertNotEmpty($r['repair_hints']);
+        $hintsJoined = implode('|', $r['repair_hints']);
+        $this->assertStringContainsString('t1', $hintsJoined);
+    }
 }
