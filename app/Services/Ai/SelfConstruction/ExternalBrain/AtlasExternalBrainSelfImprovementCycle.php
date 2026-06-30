@@ -71,24 +71,74 @@ final class AtlasExternalBrainSelfImprovementCycle
         // 6. Learn from previous outcomes
         $learner = $this->learnFromOutcomes($previousOutcomes);
 
+        $nextWaveDecisions = $this->buildNextWaveDecisions($composeResult['emitted'], $auditResult, $learner);
+
         return [
-            'schema'            => self::SCHEMA,
-            'accepted'          => $composeResult['emitted'],
-            'rejected'          => $composeResult['rejected'],
-            'audit'             => $auditResult,
-            'learner_feedback'  => $learner,
-            'portfolio_balance' => [
+            'schema'              => self::SCHEMA,
+            'accepted'            => $composeResult['emitted'],
+            'rejected'            => $composeResult['rejected'],
+            'audit'               => $auditResult,
+            'learner_feedback'    => $learner,
+            'next_wave_decisions' => $nextWaveDecisions,
+            'portfolio_balance'   => [
                 'status'   => $balanceResult['status'],
                 'deficits' => $balanceResult['deficits'],
                 'surpluses' => $balanceResult['surpluses'],
             ],
-            'stats'             => [
+            'stats'               => [
                 'signals_in'      => count($signals),
                 'normalized'      => count($normalized),
                 'scored'          => count($scored),
                 'accepted_count'  => count($composeResult['emitted']),
                 'rejected_count'  => count($composeResult['rejected']),
             ],
+        ];
+    }
+
+    /**
+     * Combine scoring, audit, and learner feedback into concrete per-candidate decisions.
+     *
+     * @return array{accept:list<array<string,string>>,repair_required:list<array<string,string>>,held:list<array<string,string>>}
+     */
+    private function buildNextWaveDecisions(array $accepted, array $auditResult, array $learner): array
+    {
+        $avoidCategories = $learner['avoid_categories'] ?? [];
+        $auditVerdict    = (string) ($auditResult['verdict'] ?? AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS);
+        $auditReason     = implode('; ', array_column($auditResult['findings'] ?? [], 'finding'));
+
+        $accept         = [];
+        $repairRequired = [];
+        $held           = [];
+
+        foreach ($accepted as $candidate) {
+            $id       = (string) ($candidate['task_packet_id'] ?? $candidate['label'] ?? '');
+            $category = (string) ($candidate['category'] ?? 'unknown');
+
+            if (in_array($category, $avoidCategories, true)) {
+                $held[] = [
+                    'task_packet_id' => $id,
+                    'decision'       => 'hold',
+                    'reason'         => 'learner_feedback_avoid_category:'.$category,
+                ];
+            } elseif ($auditVerdict !== AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS) {
+                $repairRequired[] = [
+                    'task_packet_id' => $id,
+                    'decision'       => 'repair_required',
+                    'reason'         => $auditReason !== '' ? $auditReason : $auditVerdict,
+                ];
+            } else {
+                $accept[] = [
+                    'task_packet_id' => $id,
+                    'decision'       => 'accept',
+                    'reason'         => 'passed_all_gates',
+                ];
+            }
+        }
+
+        return [
+            'accept'          => $accept,
+            'repair_required' => $repairRequired,
+            'held'            => $held,
         ];
     }
 

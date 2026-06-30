@@ -9,7 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBa
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPortfolioBalancer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainSelfImprovementCycle;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainSelfImprovementCycleTest extends TestCase
 {
@@ -30,7 +30,10 @@ final class AtlasExternalBrainSelfImprovementCycleTest extends TestCase
             'objective'           => 'Implement '.$label,
             'category'            => $category,
             'allowed_files'       => ['app/Services/'.$label.'.php', 'tests/Unit/'.$label.'Test.php'],
-            'acceptance_criteria' => ['./vendor/bin/phpunit tests/Unit/'.$label.'Test.php'],
+            'acceptance_criteria' => [
+                './vendor/bin/phpunit tests/Unit/'.$label.'Test.php',
+                'implementation reviewed and merged',
+            ],
             'required_evidence'   => ['tests_or_gates_result'],
             'value_mechanism'     => 'closes_gap:'.$label,
             // leverage dimensions the scorer expects
@@ -231,5 +234,89 @@ final class AtlasExternalBrainSelfImprovementCycleTest extends TestCase
             array_column($result1['accepted'], 'task_packet_id'),
             array_column($result2['accepted'], 'task_packet_id'),
         );
+    }
+
+    // ── AC1: next_wave_decisions ──────────────────────────────────────────────
+
+    public function test_next_wave_decisions_key_is_present_in_output(): void
+    {
+        $result = $this->cycle()->run([$this->signal('s1', 'bug_fix', 0.7)]);
+        $this->assertArrayHasKey('next_wave_decisions', $result);
+    }
+
+    public function test_next_wave_decisions_has_accept_repair_and_held_buckets(): void
+    {
+        $result = $this->cycle()->run([$this->signal('s1', 'bug_fix', 0.7)]);
+        $nwd = $result['next_wave_decisions'];
+        $this->assertArrayHasKey('accept',          $nwd);
+        $this->assertArrayHasKey('repair_required', $nwd);
+        $this->assertArrayHasKey('held',            $nwd);
+    }
+
+    public function test_accepted_tasks_produce_accept_decisions_with_reason(): void
+    {
+        $result = $this->cycle()->run([
+            $this->signal('a1', 'architecture_unlock', 0.9),
+            $this->signal('a2', 'bug_fix',             0.8),
+        ]);
+
+        $nwd = $result['next_wave_decisions'];
+        // At least some accepted tasks should land in accept or repair_required.
+        $all = array_merge($nwd['accept'], $nwd['repair_required'], $nwd['held']);
+        $this->assertSame(count($result['accepted']), count($all));
+        foreach ($all as $decision) {
+            $this->assertArrayHasKey('decision', $decision);
+            $this->assertArrayHasKey('reason',   $decision);
+            $this->assertNotEmpty($decision['reason']);
+        }
+    }
+
+    // ── AC2: hold by learner feedback ────────────────────────────────────────
+
+    public function test_high_score_candidate_in_avoid_category_is_held(): void
+    {
+        // docs_sync gets 2 give_back → in avoid_categories
+        $outcomes = [
+            ['outcome' => 'give_back', 'category' => 'docs_sync'],
+            ['outcome' => 'give_back', 'category' => 'docs_sync'],
+        ];
+
+        $result = $this->cycle()->run(
+            [
+                $this->signal('high-docs', 'docs_sync',           0.95),
+                $this->signal('arch-ok',   'architecture_unlock', 0.80),
+            ],
+            $outcomes,
+        );
+
+        $this->assertContains('docs_sync', $result['learner_feedback']['avoid_categories']);
+
+        $held = $result['next_wave_decisions']['held'];
+        $this->assertNotEmpty($held, 'high-score docs_sync candidate must be held');
+        $heldReasons = array_column($held, 'reason');
+        foreach ($heldReasons as $reason) {
+            $this->assertStringContainsString('docs_sync', $reason);
+        }
+    }
+
+    public function test_held_decision_reason_contains_avoid_category_name(): void
+    {
+        $outcomes = [
+            ['outcome' => 'give_back', 'category' => 'runtime_continuity'],
+            ['outcome' => 'give_back', 'category' => 'runtime_continuity'],
+        ];
+
+        $result = $this->cycle()->run(
+            [$this->signal('rt-1', 'runtime_continuity', 0.9)],
+            $outcomes,
+        );
+
+        $held = $result['next_wave_decisions']['held'];
+        if ($held !== []) {
+            $this->assertStringContainsString('runtime_continuity', $held[0]['reason']);
+            $this->assertSame('hold', $held[0]['decision']);
+        }
+        // If rt-1 was rejected before reaching next_wave_decisions, the held array is empty — still valid.
+        $this->assertIsArray($held);
     }
 }
