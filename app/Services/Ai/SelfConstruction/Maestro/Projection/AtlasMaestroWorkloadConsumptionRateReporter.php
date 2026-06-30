@@ -15,9 +15,77 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
 
     private const FAILURE_ALIASES = ['failed', 'failure'];
 
+    public const MODE_DIRECT    = 'direct';
+    public const MODE_ESTIMATED = 'estimated';
+    public const MODE_BLIND     = 'blind';
+
     public function __construct(
         private readonly ?object $queueRepository = null,
     ) {}
+
+    /**
+     * Computes a consumption rate even when direct serve telemetry is absent, by falling back to
+     * queue status transition deltas (completed/claimed counts observed between two snapshots).
+     * Exposes which source backed the number — direct/estimated/blind — so downstream urgency
+     * decisions (e.g. {@see \App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroReplenishUrgencyClassifier})
+     * know how much to trust the rate before acting on it. Pure: no I/O.
+     *
+     * Mode priority:
+     *   direct    — direct serve telemetry is present (direct_rate or a positive direct_event_count)
+     *   estimated — no direct telemetry, but completed_delta or claimed_delta is positive
+     *   blind     — neither source has any signal; rate is reported as 0, never fabricated
+     *
+     * INPUT:
+     *   window_seconds?: int (default 3600)
+     *   direct_rate?: float                — a precomputed direct rate (tasks/hour)
+     *   direct_event_count?: int           — OR a raw direct-event count to convert via the window
+     *   completed_delta?: int              — queue completed-status transition count this window
+     *   claimed_delta?: int                — queue claimed-status transition count this window
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{schema:string, mode:string, consumption_rate_per_hour:float, window_seconds:int, evidence:list<string>}
+     */
+    public function reportWithTransitionFallback(array $input): array
+    {
+        $windowSeconds = max(1, (int) ($input['window_seconds'] ?? 3600));
+
+        $directRate = isset($input['direct_rate']) ? max(0.0, (float) $input['direct_rate']) : null;
+        $directEventCount = isset($input['direct_event_count']) ? max(0, (int) $input['direct_event_count']) : null;
+
+        if ($directRate !== null || ($directEventCount !== null && $directEventCount > 0)) {
+            $rate = $directRate ?? $this->tasksPerHour($directEventCount, $windowSeconds);
+
+            return [
+                'schema' => self::SCHEMA,
+                'mode' => self::MODE_DIRECT,
+                'consumption_rate_per_hour' => $rate,
+                'window_seconds' => $windowSeconds,
+                'evidence' => ['direct_serve_telemetry_present'],
+            ];
+        }
+
+        $completedDelta = max(0, (int) ($input['completed_delta'] ?? 0));
+        $claimedDelta = max(0, (int) ($input['claimed_delta'] ?? 0));
+        $transitionDelta = max($completedDelta, $claimedDelta);
+
+        if ($transitionDelta > 0) {
+            return [
+                'schema' => self::SCHEMA,
+                'mode' => self::MODE_ESTIMATED,
+                'consumption_rate_per_hour' => $this->tasksPerHour($transitionDelta, $windowSeconds),
+                'window_seconds' => $windowSeconds,
+                'evidence' => ['no_direct_serve_telemetry', 'estimated_from_queue_status_transition_deltas:'.$transitionDelta],
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'mode' => self::MODE_BLIND,
+            'consumption_rate_per_hour' => 0.0,
+            'window_seconds' => $windowSeconds,
+            'evidence' => ['no_direct_serve_telemetry', 'no_queue_status_transition_deltas'],
+        ];
+    }
 
     /**
      * @param  array{events?:list<array<string,mixed>>}  $registrySnapshot
