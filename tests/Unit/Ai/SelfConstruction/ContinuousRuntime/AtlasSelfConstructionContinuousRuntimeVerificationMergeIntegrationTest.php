@@ -154,4 +154,129 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegrationTe
             );
         }
     }
+
+    // ── new fields in verification request ───────────────────────────────────
+
+    public function test_verification_request_includes_touched_scopes_runnable_proof_refs_risk_tier_rollback_readiness(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence());
+
+        $this->assertArrayHasKey('touched_scopes', $req);
+        $this->assertArrayHasKey('runnable_proof_refs', $req);
+        $this->assertArrayHasKey('risk_tier', $req);
+        $this->assertArrayHasKey('rollback_readiness', $req);
+    }
+
+    public function test_touched_scopes_derived_from_changed_files(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence([
+                'changed_files' => ['app/Services/Foo.php', 'app/Services/Bar.php', 'tests/FooTest.php'],
+                'allowed_files' => ['app/Services/Foo.php', 'app/Services/Bar.php', 'tests/FooTest.php'],
+            ]));
+
+        $this->assertContains('app/Services', $req['touched_scopes']);
+        $this->assertContains('tests', $req['touched_scopes']);
+        $this->assertCount(2, $req['touched_scopes']); // deduped
+    }
+
+    public function test_risk_tier_low_for_single_change_in_larger_allowed_set(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence([
+                'allowed_files' => ['app/A.php', 'app/B.php', 'app/C.php', 'app/D.php', 'tests/T.php'],
+                'changed_files' => ['app/A.php'],
+            ]));
+
+        $this->assertSame('low', $req['risk_tier']);
+    }
+
+    public function test_risk_tier_high_for_many_changes(): void
+    {
+        $files = ['app/A.php', 'app/B.php', 'app/C.php', 'app/D.php', 'app/E.php', 'app/F.php'];
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence([
+                'allowed_files' => $files,
+                'changed_files' => $files,
+            ]));
+
+        $this->assertSame('high', $req['risk_tier']);
+    }
+
+    public function test_runnable_proof_refs_extracted_from_evidence_refs(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence([
+                'evidence_refs' => ['phpunit:t1', 'receipt:r1', 'artisan:cmd'],
+            ]));
+
+        $this->assertSame(['phpunit:t1', 'artisan:cmd'], $req['runnable_proof_refs']);
+    }
+
+    public function test_runnable_proof_refs_missing_blocks_when_evidence_refs_has_no_runnable_refs(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence([
+                'evidence_refs' => ['receipt:only-non-runnable'],
+            ]));
+
+        $this->assertFalse($req['ready_for_court']);
+        $this->assertContains('runnable_proof_refs_missing', $req['blockers']);
+    }
+
+    public function test_runnable_proof_refs_missing_does_not_fire_when_evidence_refs_already_empty(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence(['evidence_refs' => []]));
+
+        $this->assertNotContains('runnable_proof_refs_missing', $req['blockers']);
+        $this->assertContains('evidence_refs_missing', $req['blockers']);
+    }
+
+    public function test_rollback_readiness_surfaced_from_worker_evidence(): void
+    {
+        $req = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildVerificationRequest($this->evidence(['rollback_readiness' => 'ready']));
+
+        $this->assertSame('ready', $req['rollback_readiness']);
+    }
+
+    // ── new merge decision blockers ───────────────────────────────────────────
+
+    public function test_merge_decision_blocks_on_stale_verification(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(
+                ['passed' => true, 'stale' => true, 'evidence_refs' => ['r1']],
+                ['mode' => 'revert_commit'],
+            );
+
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_BLOCK, $merge['decision']);
+        $this->assertContains('verification_stale', $merge['blockers']);
+    }
+
+    public function test_merge_decision_blocks_on_runnable_proof_missing_in_worker_evidence(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(
+                ['passed' => true, 'evidence_refs' => ['r1'], 'runnable_proof_refs' => []],
+                ['mode' => 'revert_commit'],
+            );
+
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_BLOCK, $merge['decision']);
+        $this->assertContains('runnable_proof_missing_in_worker_evidence', $merge['blockers']);
+    }
+
+    public function test_merge_decision_does_not_block_on_runnable_proof_when_key_absent(): void
+    {
+        $merge = (new AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration)
+            ->buildMergeDecision(
+                ['passed' => true, 'evidence_refs' => ['r1']],
+                ['mode' => 'revert_commit'],
+            );
+
+        $this->assertNotContains('runnable_proof_missing_in_worker_evidence', $merge['blockers']);
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration::DECISION_REQUEST_MERGE, $merge['decision']);
+    }
 }

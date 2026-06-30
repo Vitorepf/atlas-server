@@ -39,9 +39,18 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
         $gates = array_values((array) ($workerEvidence['gate_outputs'] ?? []));
         $evidenceRefs = array_values((array) ($workerEvidence['evidence_refs'] ?? []));
 
+        $touchedScopes    = $this->deriveTouchedScopes($changed);
+        $runnableProofRefs = $this->filterRunnableProofRefs($evidenceRefs);
+        $riskTier         = $this->deriveRiskTier($changed, $allowed);
+        $rollbackReadiness = (string) ($workerEvidence['rollback_readiness'] ?? 'unknown');
+
         $blockers = [];
         if ($evidenceRefs === []) {
             $blockers[] = 'evidence_refs_missing';
+        }
+        // Only fire when evidence exists but none qualify as a runnable proof.
+        if ($evidenceRefs !== [] && $runnableProofRefs === []) {
+            $blockers[] = 'runnable_proof_refs_missing';
         }
         if ($changed === []) {
             $blockers[] = 'changed_files_missing';
@@ -56,15 +65,19 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
         }
 
         return [
-            'schema_version' => self::SCHEMA,
-            'phase' => 'verification_request',
-            'task_packet_id' => $taskId,
-            'allowed_files' => $allowed,
-            'changed_files' => $changed,
-            'gate_outputs' => $gates,
-            'evidence_refs' => $evidenceRefs,
-            'blockers' => array_values($blockers),
-            'ready_for_court' => $blockers === [],
+            'schema_version'    => self::SCHEMA,
+            'phase'             => 'verification_request',
+            'task_packet_id'    => $taskId,
+            'allowed_files'     => $allowed,
+            'changed_files'     => $changed,
+            'gate_outputs'      => $gates,
+            'evidence_refs'     => $evidenceRefs,
+            'touched_scopes'    => $touchedScopes,
+            'runnable_proof_refs' => $runnableProofRefs,
+            'risk_tier'         => $riskTier,
+            'rollback_readiness' => $rollbackReadiness,
+            'blockers'          => array_values($blockers),
+            'ready_for_court'   => $blockers === [],
         ];
     }
 
@@ -77,17 +90,28 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
     {
         $passed = (bool) ($verificationVerdict['passed'] ?? false);
         $falseGreen = (bool) ($verificationVerdict['false_green_risk'] ?? false);
+        $stale = (bool) ($verificationVerdict['stale'] ?? false);
         $evidenceRefs = array_values((array) ($verificationVerdict['evidence_refs'] ?? []));
+        // Only block when the caller explicitly declares runnable_proof_refs (fail-closed on declared absence).
+        $runnableProofRefs = array_key_exists('runnable_proof_refs', $verificationVerdict)
+            ? array_values((array) $verificationVerdict['runnable_proof_refs'])
+            : null;
 
         if (! $passed) {
             return $this->envelope(self::DECISION_REJECT, ['verification_failed']);
         }
         $blockers = [];
+        if ($stale) {
+            $blockers[] = 'verification_stale';
+        }
         if ($falseGreen) {
             $blockers[] = 'false_green_risk_detected';
         }
         if ($evidenceRefs === []) {
             $blockers[] = 'evidence_refs_missing_post_verify';
+        }
+        if ($runnableProofRefs !== null && $runnableProofRefs === []) {
+            $blockers[] = 'runnable_proof_missing_in_worker_evidence';
         }
         if ($rollbackPlan === [] || ! isset($rollbackPlan['mode'])) {
             $blockers[] = 'rollback_plan_missing';
@@ -99,6 +123,49 @@ final class AtlasSelfConstructionContinuousRuntimeVerificationMergeIntegration
         }
 
         return $this->envelope(self::DECISION_REQUEST_MERGE, []);
+    }
+
+    /** @return list<string> */
+    private function deriveTouchedScopes(array $paths): array
+    {
+        $scopes = [];
+        foreach ($paths as $p) {
+            $dir = dirname((string) $p);
+            if ($dir !== '.' && $dir !== '') {
+                $scopes[] = $dir;
+            }
+        }
+
+        return array_values(array_unique($scopes));
+    }
+
+    private function deriveRiskTier(array $changed, array $allowed): string
+    {
+        $count = count($changed);
+        if ($count === 0) {
+            return 'none';
+        }
+        $ratio = $allowed !== [] ? $count / count($allowed) : 1.0;
+        if ($ratio >= 0.8 || $count > 5) {
+            return 'high';
+        }
+        if ($ratio >= 0.4 || $count > 2) {
+            return 'medium';
+        }
+
+        return 'low';
+    }
+
+    /** @return list<string> */
+    private function filterRunnableProofRefs(array $refs): array
+    {
+        return array_values(array_filter(
+            array_map('strval', $refs),
+            static fn (string $r): bool =>
+                str_starts_with($r, 'phpunit:') ||
+                str_starts_with($r, 'artisan:') ||
+                str_starts_with($r, 'tests_or_gates:'),
+        ));
     }
 
     /**
