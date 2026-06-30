@@ -117,6 +117,52 @@ final class AtlasLoopTaskDecompositionAmplifierTest extends TestCase
         $this->assertSame($decompositions[0]['fingerprint'], $portfolio->decompositionFor($task, count($decompositions))['fingerprint']);
     }
 
+    public function test_every_variant_has_graph_ladder_with_required_keys(): void
+    {
+        config()->set('atlas.loop.decomposition_amplifier_enabled', true);
+        config()->set('atlas.loop.decomposition_corpus_enabled', false);
+
+        $variants = (new AtlasLoopTaskDecompositionAmplifier)->amplify($this->packet());
+
+        $this->assertGreaterThanOrEqual(1, count($variants));
+        foreach ($variants as $v) {
+            $this->assertArrayHasKey('graph_ladder', $v);
+            $gl = $v['graph_ladder'];
+            $this->assertArrayHasKey('unlock_edges', $gl);
+            $this->assertArrayHasKey('proof_node_ids', $gl);
+            $this->assertArrayHasKey('risk_notes', $gl);
+            $this->assertArrayHasKey('recommended_for', $gl);
+            $this->assertIsArray($gl['unlock_edges']);
+            $this->assertIsArray($gl['proof_node_ids']);
+            $this->assertNotEmpty($gl['risk_notes']);
+            $this->assertNotEmpty($gl['recommended_for']);
+        }
+    }
+
+    public function test_proof_first_chain_ladder_has_correct_unlock_edge_and_proof_node(): void
+    {
+        config()->set('atlas.loop.decomposition_amplifier_enabled', true);
+        config()->set('atlas.loop.decomposition_corpus_enabled', false);
+
+        $variants = (new AtlasLoopTaskDecompositionAmplifier)->amplify($this->packet());
+        $proofFirst = array_values(array_filter($variants, fn (array $v): bool => $v['shape_key'] === 'proof_first_chain'));
+
+        $this->assertCount(1, $proofFirst, 'proof_first_chain shape must be emitted');
+        $gl = $proofFirst[0]['graph_ladder'];
+
+        // proof → implementation unlock edge.
+        $edges = $gl['unlock_edges'];
+        $proofEdge = array_values(array_filter($edges, fn (array $e): bool => $e['from'] === 'proof' && $e['to'] === 'implementation'));
+        $this->assertCount(1, $proofEdge, 'proof_first_chain must have a proof→implementation unlock edge');
+
+        // 'proof' node must be in proof_node_ids.
+        $this->assertContains('proof', $gl['proof_node_ids']);
+
+        // recommended_for is non-empty string, risk_notes mentions proof/test risk.
+        $this->assertStringContainsStringIgnoringCase('macro', $gl['recommended_for']);
+        $this->assertNotEmpty($gl['risk_notes']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      * @return array<string,mixed>

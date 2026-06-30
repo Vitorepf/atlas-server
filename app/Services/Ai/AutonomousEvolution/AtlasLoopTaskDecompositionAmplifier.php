@@ -182,6 +182,7 @@ final class AtlasLoopTaskDecompositionAmplifier
             ],
             'prior' => ($this->shapePrior ?? new AtlasLoopDecompositionShapePrior)->assess($certified, $total),
             'rank' => 1,
+            'graph_ladder' => $this->graphLadder($shape),
         ];
     }
 
@@ -250,6 +251,63 @@ final class AtlasLoopTaskDecompositionAmplifier
         }
 
         return null;
+    }
+
+    /**
+     * Derive a task graph ladder from the shape's plan nodes — purely structural, no external calls.
+     *
+     * @param  array<string,mixed>  $shape
+     * @return array{unlock_edges:list<array{from:string,to:string}>,proof_node_ids:list<string>,risk_notes:string,recommended_for:string}
+     */
+    private function graphLadder(array $shape): array
+    {
+        $nodes = is_array($shape['plan']['nodes'] ?? null) ? $shape['plan']['nodes'] : [];
+
+        // unlock_edges: one edge per (dep → node) pair from depends_on.
+        $unlockEdges = [];
+        foreach ($nodes as $node) {
+            $nodeId = (string) ($node['id'] ?? '');
+            foreach ((array) ($node['depends_on'] ?? []) as $dep) {
+                $unlockEdges[] = ['from' => (string) $dep, 'to' => $nodeId];
+            }
+        }
+
+        // proof_node_ids: nodes whose id contains 'proof'/'invariant' or whose target_area is under tests/.
+        $proofNodeIds = [];
+        foreach ($nodes as $node) {
+            $id = (string) ($node['id'] ?? '');
+            $area = (string) ($node['target_area'] ?? '');
+            if (str_contains($id, 'proof') || str_contains($id, 'invariant') || str_starts_with($area, 'tests/')) {
+                $proofNodeIds[] = $id;
+            }
+        }
+        $proofNodeIds = array_values(array_unique($proofNodeIds));
+
+        [$riskNotes, $recommendedFor] = match ((string) ($shape['shape_key'] ?? '')) {
+            'proof_first_chain' => [
+                'proof node depends on no prior implementation — risk if the test cannot be authored before production code exists',
+                'macro-tasks with a distinct test file and a clear, authorable acceptance surface',
+            ],
+            'interface_then_impl_then_proof' => [
+                'seam node touches the production file before any test exists — risk of early interface drift if the seam contract is not frozen first',
+                'tasks that benefit from an explicit contract seam before implementation begins',
+            ],
+            'parallel_impl_and_proof_join' => [
+                'implementation and proof nodes run independently — risk of interface mismatch at the final join invariant node',
+                'tasks where implementation and test can be authored in parallel with a well-known join contract',
+            ],
+            default => [
+                'single-node shape — all changes land in one step with no inter-node unlock dependencies',
+                'single-file tasks or tasks where additional decomposition adds no structural value',
+            ],
+        };
+
+        return [
+            'unlock_edges'    => $unlockEdges,
+            'proof_node_ids'  => $proofNodeIds,
+            'risk_notes'      => $riskNotes,
+            'recommended_for' => $recommendedFor,
+        ];
     }
 
     /**
