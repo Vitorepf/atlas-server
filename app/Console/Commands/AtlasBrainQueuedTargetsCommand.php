@@ -58,6 +58,7 @@ final class AtlasBrainQueuedTargetsCommand extends Command
             'targets' => $targets,
             'collision_count' => count($collisions),
             'collisions' => $collisions,
+            'collision_summary' => self::buildCollisionSummary($collisions),
         ];
 
         if ($this->option('json')) {
@@ -115,6 +116,34 @@ final class AtlasBrainQueuedTargetsCommand extends Command
         }
 
         return $map;
+    }
+
+    /**
+     * Convert the raw collision map into actionable collision_summary rows for the JSON output.
+     * Sorted by target for deterministic output. Severity: 'warning' for 2 packets, 'critical' for 3+.
+     * Remediation hint names the lexically-lowest packet id to keep (deterministic, no I/O).
+     *
+     * @param  array<string, list<string>>  $collisions  output of collisionsIn()
+     * @return list<array{target:string, packet_ids:list<string>, severity:string, remediation_hint:string}>
+     */
+    public static function buildCollisionSummary(array $collisions): array
+    {
+        $summary = [];
+        foreach ($collisions as $target => $ids) {
+            $ids = array_values(array_unique($ids));
+            sort($ids, SORT_STRING);
+            $keep = $ids[0];
+            $severity = count($ids) === 2 ? 'warning' : 'critical';
+            $summary[] = [
+                'target' => (string) $target,
+                'packet_ids' => $ids,
+                'severity' => $severity,
+                'remediation_hint' => "give_back or retire all packets except {$keep} before originating on this target",
+            ];
+        }
+        usort($summary, static fn (array $a, array $b): int => strcmp($a['target'], $b['target']));
+
+        return $summary;
     }
 
     /**

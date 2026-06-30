@@ -96,4 +96,49 @@ final class AtlasBrainQueuedTargetsCommandTest extends TestCase
         ], ['app/InScope']);
         self::assertSame(['app/InScope/Foo.php' => ['pkt-a', 'pkt-b']], $collisions);
     }
+
+    public function test_build_collision_summary_two_packets_is_warning_severity(): void
+    {
+        $summary = AtlasBrainQueuedTargetsCommand::buildCollisionSummary([
+            'app/Foo.php' => ['pkt-b', 'pkt-a'],
+        ]);
+        self::assertCount(1, $summary);
+        self::assertSame('app/Foo.php', $summary[0]['target']);
+        self::assertSame(['pkt-a', 'pkt-b'], $summary[0]['packet_ids']); // sorted
+        self::assertSame('warning', $summary[0]['severity']);
+        self::assertStringContainsString('pkt-a', $summary[0]['remediation_hint']); // keep lowest id
+    }
+
+    public function test_build_collision_summary_three_or_more_packets_is_critical_severity(): void
+    {
+        $summary = AtlasBrainQueuedTargetsCommand::buildCollisionSummary([
+            'app/Bar.php' => ['pkt-c', 'pkt-a', 'pkt-b'],
+        ]);
+        self::assertSame('critical', $summary[0]['severity']);
+    }
+
+    public function test_build_collision_summary_is_sorted_by_target(): void
+    {
+        $summary = AtlasBrainQueuedTargetsCommand::buildCollisionSummary([
+            'app/Z.php' => ['pkt-1', 'pkt-2'],
+            'app/A.php' => ['pkt-3', 'pkt-4'],
+        ]);
+        self::assertSame('app/A.php', $summary[0]['target']);
+        self::assertSame('app/Z.php', $summary[1]['target']);
+    }
+
+    public function test_build_collision_summary_deduplicates_packet_ids(): void
+    {
+        // duplicate ids in the collision map must not inflate severity
+        $summary = AtlasBrainQueuedTargetsCommand::buildCollisionSummary([
+            'app/X.php' => ['pkt-a', 'pkt-b', 'pkt-a'],
+        ]);
+        self::assertSame(['pkt-a', 'pkt-b'], $summary[0]['packet_ids']);
+        self::assertSame('warning', $summary[0]['severity']);
+    }
+
+    public function test_build_collision_summary_empty_collisions_returns_empty_list(): void
+    {
+        self::assertSame([], AtlasBrainQueuedTargetsCommand::buildCollisionSummary([]));
+    }
 }
