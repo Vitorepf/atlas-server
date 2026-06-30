@@ -182,4 +182,84 @@ final class AtlasSelfConstructionRuntimeDaemonCommandTest extends TestCase
         $this->assertTrue($p['dry_run']);
         $this->assertFalse($p['safety_stop']);
     }
+
+    public function test_plan_with_brain_stall_verdict_emits_recovery_in_planned_actions(): void
+    {
+        $this->writeFacts($this->readyFacts([
+            'planned_actions'    => [],
+            'unattended_verdict' => [
+                'recovery_needed'  => true,
+                'critical_blocker' => false,
+                'classification'   => 'stale_brain_heartbeat',
+                'severity'         => 'medium',
+                'reasons'          => ['brain_quota_stall_reason_stale_brain_heartbeat'],
+            ],
+        ]));
+
+        Artisan::call('atlas:self-construction:runtime-daemon', ['action' => 'plan', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('ok', $p['status']);
+        $this->assertTrue($p['dry_run']);
+        $plannedKinds = array_column($p['planned_actions'], 'kind');
+        $this->assertContains('atlas_native_brain_recovery', $plannedKinds, 'plan must surface brain recovery action from verdict');
+        $this->assertSame([], $p['applied_actions']);
+    }
+
+    public function test_tick_dry_run_with_brain_stall_shows_recovery_in_planned_not_applied(): void
+    {
+        $this->writeFacts($this->readyFacts([
+            'planned_actions'    => [],
+            'unattended_verdict' => [
+                'recovery_needed'  => true,
+                'critical_blocker' => false,
+                'classification'   => 'zero_active_brain_commands',
+                'severity'         => 'low',
+            ],
+        ]));
+
+        Artisan::call('atlas:self-construction:runtime-daemon', ['action' => 'tick', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertTrue($p['dry_run']);
+        $this->assertContains('atlas_native_brain_recovery', array_column($p['planned_actions'], 'kind'));
+        $this->assertSame([], $p['applied_actions']);
+    }
+
+    public function test_tick_apply_with_brain_stall_fires_recovery_callback_and_refuses_git(): void
+    {
+        $fired = false;
+        app()->bind('atlas.self_construction.runtime_daemon.action_callbacks', function () use (&$fired) {
+            return [
+                'atlas_native_brain_recovery' => function (array $action) use (&$fired): array {
+                    $fired = true;
+
+                    return ['recovered' => true, 'class' => $action['verdict_classification']];
+                },
+                'git' => function (): array { return ['should_never_run' => true]; },
+            ];
+        });
+
+        $this->writeFacts($this->readyFacts([
+            'planned_actions'    => [['kind' => 'git']],
+            'unattended_verdict' => [
+                'recovery_needed'  => true,
+                'critical_blocker' => false,
+                'classification'   => 'stale_brain_heartbeat',
+                'severity'         => 'medium',
+            ],
+        ]));
+
+        Artisan::call('atlas:self-construction:runtime-daemon', ['action' => 'tick', '--facts' => $this->factsPath, '--apply' => true, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        $this->assertTrue($fired, 'atlas_native_brain_recovery callback must fire');
+        $this->assertFalse($p['dry_run']);
+        $appliedKinds  = array_column($p['applied_actions'], 'kind');
+        $withheldKinds = array_column($p['withheld_actions'], 'kind');
+        $this->assertContains('atlas_native_brain_recovery', $appliedKinds);
+        $this->assertNotContains('git', $appliedKinds);
+        $this->assertContains('git', $withheldKinds);
+        $this->assertNotEmpty($p['evidence_obligations']);
+    }
 }
