@@ -136,17 +136,38 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
             default => self::REC_OPERATOR,
         };
 
+        $respecContractDraft = null;
+        if ($recommendation === self::REC_ADD_IMPL && $missingImplCandidate !== null) {
+            $evidenceToPreserve = array_values(array_filter(
+                array_slice($sampleDeficiencies, 0, 10),
+                static fn (string $d): bool => ! preg_match('/missing_impl|missing_file|allowed_files_missing/i', $d)
+            ));
+            $respecContractDraft = [
+                'allowed_files_delta'    => [$missingImplCandidate],
+                'acceptance_repair_hint' => 'Add the missing implementation file to allowed_files and re-scope acceptance criteria to match the newly targeted implementation.',
+                'evidence_to_preserve'   => $evidenceToPreserve,
+            ];
+        }
+
+        $doNotRequeueReason = match ($recommendation) {
+            self::REC_QUARANTINE => 'give_back_count_reached_quarantine_threshold:operator_respec_required_before_any_requeue',
+            self::REC_CANCEL     => 'cli_clobber_or_petreo:task_permanently_blocked:never_requeue',
+            default              => null,
+        };
+
         return [
-            'task_packet_id' => $taskId,
-            'give_back_count' => $totalGiveBacks,
-            'failure_class' => $maxClass,
-            'recommendation' => $recommendation,
-            'evidence' => [
-                'event_count' => count($events),
-                'sample_deficiencies' => array_slice($sampleDeficiencies, 0, 10),
+            'task_packet_id'        => $taskId,
+            'give_back_count'       => $totalGiveBacks,
+            'failure_class'         => $maxClass,
+            'recommendation'        => $recommendation,
+            'evidence'              => [
+                'event_count'            => count($events),
+                'sample_deficiencies'    => array_slice($sampleDeficiencies, 0, 10),
                 'missing_impl_candidate' => $missingImplCandidate,
-                'reasons' => array_values(array_unique($allReasons)),
+                'reasons'                => array_values(array_unique($allReasons)),
             ],
+            'respec_contract_draft' => $respecContractDraft,
+            'do_not_requeue_reason' => $doNotRequeueReason,
         ];
     }
 

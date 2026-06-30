@@ -91,4 +91,99 @@ final class AtlasTaskFabricGiveBackLearningIntegratorTest extends TestCase
         $ids = array_column($r['recommendations'], 'task_packet_id');
         $this->assertSame(['a-pkt', 'm-pkt', 'z-pkt'], $ids);
     }
+
+    // ── respec_contract_draft ─────────────────────────────────────────────────
+
+    public function test_scope_repair_emits_respec_contract_draft_with_allowed_files_delta(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-x', 'reason' => 'scope_repair_attempted', 'blocking_deficiencies' => ['missing_impl_file: app/Demo/Bar.php']],
+        ]);
+
+        $draft = $r['recommendations'][0]['respec_contract_draft'];
+
+        $this->assertNotNull($draft);
+        $this->assertSame(['app/Demo/Bar.php'], $draft['allowed_files_delta']);
+        $this->assertIsString($draft['acceptance_repair_hint']);
+        $this->assertNotEmpty($draft['acceptance_repair_hint']);
+        $this->assertIsArray($draft['evidence_to_preserve']);
+    }
+
+    public function test_respec_contract_draft_evidence_to_preserve_excludes_missing_impl_deficiency(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-y', 'reason' => 'scope_repair', 'blocking_deficiencies' => [
+                'missing_impl_file: app/Svc/Alpha.php',
+                'acceptance_criteria_requires_test_authoring',
+                'required_evidence:tests_or_gates_result',
+            ]],
+        ]);
+
+        $draft = $r['recommendations'][0]['respec_contract_draft'];
+
+        $this->assertNotNull($draft);
+        foreach ($draft['evidence_to_preserve'] as $item) {
+            $this->assertStringNotContainsStringIgnoringCase('missing_impl', $item);
+        }
+        $this->assertContains('acceptance_criteria_requires_test_authoring', $draft['evidence_to_preserve']);
+        $this->assertContains('required_evidence:tests_or_gates_result', $draft['evidence_to_preserve']);
+    }
+
+    public function test_respec_contract_draft_is_null_for_non_scope_repair(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-z', 'reason' => 'acceptance_contradiction', 'blocking_deficiencies' => ['scalar_score_required_but_anti_goodhart_forbids']],
+        ]);
+
+        $this->assertNull($r['recommendations'][0]['respec_contract_draft']);
+    }
+
+    // ── do_not_requeue_reason ─────────────────────────────────────────────────
+
+    public function test_quarantine_emits_do_not_requeue_reason(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-q8', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl'], 'give_back_count' => 8],
+        ]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::REC_QUARANTINE, $rec['recommendation']);
+        $this->assertNotNull($rec['do_not_requeue_reason']);
+        $this->assertStringContainsString('quarantine', $rec['do_not_requeue_reason']);
+        $this->assertNull($rec['respec_contract_draft']);
+    }
+
+    public function test_cli_clobber_emits_do_not_requeue_reason_and_no_respec_draft(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-clob', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber:atlas:task']],
+        ]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::REC_CANCEL, $rec['recommendation']);
+        $this->assertNotNull($rec['do_not_requeue_reason']);
+        $this->assertNull($rec['respec_contract_draft']);
+    }
+
+    public function test_petreo_emits_do_not_requeue_reason_and_no_respec_draft(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-pet', 'reason' => 'petreo_core_violation', 'blocking_deficiencies' => ['petreo_file_touched']],
+        ]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::REC_CANCEL, $rec['recommendation']);
+        $this->assertNotNull($rec['do_not_requeue_reason']);
+        $this->assertStringContainsString('petreo', $rec['do_not_requeue_reason']);
+        $this->assertNull($rec['respec_contract_draft']);
+    }
+
+    public function test_non_blocking_recommendation_has_null_do_not_requeue_reason(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-ok', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl_file: app/X.php']],
+        ]);
+
+        $this->assertNull($r['recommendations'][0]['do_not_requeue_reason']);
+    }
 }
