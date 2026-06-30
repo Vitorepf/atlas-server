@@ -42,6 +42,20 @@ final class AtlasTaskFabricRoadmapGapMiner
     public const COSMETIC_KIND_REGEX = '/cosmetic|proxy|whitespace|comment/i';
 
     /**
+     * Final-brain execution lanes. Each lane scopes a distinct area of autonomous self-improvement.
+     * A row with a `lane` field matching one of these values is tagged with `lane:<value>` in output.
+     */
+    public const FINAL_BRAIN_LANES = [
+        'self-recovery',
+        'lane-governance',
+        'task-repair',
+        'muscle-feedback',
+        'frontier-import',
+        'compounding',
+        'completion-certification',
+    ];
+
+    /**
      * @param  list<array{organ?:string, capability?:string, current_state?:string, target_state?:string, evidence_path?:string, suggested_files?:list<string>, resolved?:bool, kind?:string}>  $rows
      * @return list<array{schema_version:string, organ:string, capability:string, capability_gap:string, evidence_path:string, suggested_files:list<string>, owner_scope:string, tags:list<string>}>
      */
@@ -89,6 +103,98 @@ final class AtlasTaskFabricRoadmapGapMiner
         }
         usort($candidates, static function (array $a, array $b): int {
             return strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability']);
+        });
+
+        return $candidates;
+    }
+
+    /**
+     * Lane-aware mining for the final-brain roadmap. Extends mine() with:
+     *   - Lane tagging: rows with a `lane` field in FINAL_BRAIN_LANES get a `lane:<value>` tag and a
+     *     top-level `lane` key in the output candidate.
+     *   - Deduplication: candidates whose `organ:capability` key already appears in `$liveTargets` are
+     *     silently dropped (no phantom work for packets that already exist).
+     *
+     * Sorted by (lane asc, organ asc, capability asc).
+     *
+     * @param  list<array<string,mixed>>  $rows
+     * @param  list<string>  $liveTargets  Existing packet keys in the form "organ:capability" (or any
+     *                                     string that should suppress duplicate emission).
+     * @return list<array<string,mixed>>
+     */
+    public function mineByLane(array $rows, array $liveTargets = []): array
+    {
+        $liveSet = array_flip($liveTargets);
+        $candidates = [];
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ((bool) ($row['resolved'] ?? false)) {
+                continue;
+            }
+            $kind = (string) ($row['kind'] ?? '');
+            if ($kind !== '' && preg_match(self::COSMETIC_KIND_REGEX, $kind)) {
+                continue;
+            }
+            $evidence = trim((string) ($row['evidence_path'] ?? ''));
+            if ($evidence === '') {
+                continue;
+            }
+            $organ = trim((string) ($row['organ'] ?? ''));
+            if (! in_array($organ, self::SUPPORTED_ORGANS, true)) {
+                continue;
+            }
+            $capability = trim((string) ($row['capability'] ?? ''));
+            if ($capability === '') {
+                continue;
+            }
+
+            // Deduplication: skip if an equivalent packet already exists.
+            $liveKey = $organ.':'.$capability;
+            if (isset($liveSet[$liveKey])) {
+                continue;
+            }
+
+            $current = trim((string) ($row['current_state'] ?? ''));
+            $target  = trim((string) ($row['target_state'] ?? ''));
+            $gap     = sprintf(
+                'CURRENT: %s | TARGET: %s',
+                $current === '' ? '(unspecified)' : $current,
+                $target  === '' ? '(unspecified)' : $target,
+            );
+            $files = is_array($row['suggested_files'] ?? null)
+                ? array_values(array_map('strval', $row['suggested_files']))
+                : [];
+
+            $lane = trim((string) ($row['lane'] ?? ''));
+            $tags = ['organ:'.$organ, 'capability:'.$capability];
+            if ($lane !== '' && in_array($lane, self::FINAL_BRAIN_LANES, true)) {
+                $tags[] = 'lane:'.$lane;
+            }
+
+            $candidate = [
+                'schema_version'  => self::SCHEMA,
+                'organ'           => $organ,
+                'capability'      => $capability,
+                'capability_gap'  => $gap,
+                'evidence_path'   => $evidence,
+                'suggested_files' => $files,
+                'owner_scope'     => 'atlas-native',
+                'tags'            => $tags,
+            ];
+            if ($lane !== '') {
+                $candidate['lane'] = $lane;
+            }
+
+            $candidates[] = $candidate;
+        }
+
+        usort($candidates, static function (array $a, array $b): int {
+            $laneA = (string) ($a['lane'] ?? '');
+            $laneB = (string) ($b['lane'] ?? '');
+            return strcmp($laneA, $laneB) ?: strcmp($a['organ'], $b['organ']) ?: strcmp($a['capability'], $b['capability']);
         });
 
         return $candidates;

@@ -89,4 +89,80 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         $out = (new AtlasTaskFabricRoadmapGapMiner)->mine([$row]);
         $this->assertStringContainsString('(unspecified)', $out[0]['capability_gap']);
     }
+
+    // ---------- mineByLane — lane tagging + deduplication ----------
+
+    public function test_mine_by_lane_emits_lane_tag_for_known_final_brain_lane(): void
+    {
+        $row = $this->row('Task Fabric', 'self_recovery_probe', ['lane' => 'self-recovery']);
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out);
+        $this->assertSame('self-recovery', $out[0]['lane']);
+        $this->assertContains('lane:self-recovery', $out[0]['tags']);
+    }
+
+    public function test_mine_by_lane_emits_all_seven_final_brain_lanes(): void
+    {
+        $miner = new AtlasTaskFabricRoadmapGapMiner;
+        $rows  = [];
+        foreach (AtlasTaskFabricRoadmapGapMiner::FINAL_BRAIN_LANES as $i => $lane) {
+            $rows[] = $this->row('Task Fabric', 'cap_'.$i, ['lane' => $lane]);
+        }
+        $out = $miner->mineByLane($rows);
+
+        $this->assertCount(7, $out, 'all 7 final-brain lanes must produce candidates');
+        $emittedLanes = array_column($out, 'lane');
+        foreach (AtlasTaskFabricRoadmapGapMiner::FINAL_BRAIN_LANES as $lane) {
+            $this->assertContains($lane, $emittedLanes, "lane {$lane} must appear in output");
+        }
+    }
+
+    public function test_mine_by_lane_drops_duplicate_when_live_target_exists(): void
+    {
+        $row = $this->row('Maestro', 'fleet_probe', ['lane' => 'compounding']);
+        $liveTargets = ['Maestro:fleet_probe'];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row], $liveTargets);
+
+        $this->assertSame([], $out, 'candidate matching a live-target key must be deduplicated');
+    }
+
+    public function test_mine_by_lane_emits_non_duplicate_alongside_duplicate(): void
+    {
+        $rows = [
+            $this->row('Maestro', 'fleet_probe',   ['lane' => 'compounding']),
+            $this->row('Maestro', 'tier_routing',  ['lane' => 'compounding']),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane($rows, ['Maestro:fleet_probe']);
+
+        $this->assertCount(1, $out, 'only the non-duplicate must survive');
+        $this->assertSame('tier_routing', $out[0]['capability']);
+    }
+
+    public function test_mine_by_lane_omits_lane_key_when_row_has_no_lane(): void
+    {
+        $row = $this->row('Worker Swarm', 'execution_envelope');
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out);
+        $this->assertArrayNotHasKey('lane', $out[0]);
+        $this->assertEmpty(array_filter($out[0]['tags'], static fn (string $t): bool => str_starts_with($t, 'lane:')));
+    }
+
+    public function test_mine_by_lane_sorted_by_lane_then_organ_then_capability(): void
+    {
+        $rows = [
+            $this->row('Task Fabric',  'b_cap', ['lane' => 'compounding']),
+            $this->row('Task Fabric',  'a_cap', ['lane' => 'compounding']),
+            $this->row('Maestro',      'z_cap', ['lane' => 'self-recovery']),
+        ];
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane($rows);
+
+        $keys = array_map(static fn (array $c): string => ($c['lane'] ?? '').':'.$c['organ'].':'.$c['capability'], $out);
+        $this->assertSame([
+            'compounding:Task Fabric:a_cap',
+            'compounding:Task Fabric:b_cap',
+            'self-recovery:Maestro:z_cap',
+        ], $keys);
+    }
 }
