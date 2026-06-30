@@ -90,6 +90,49 @@ final class AtlasTaskBrainReplenisher
         private readonly ?AtlasLoopGiveBackToReplenisherFeedback $giveBackFeedback = null,
     ) {}
 
+    /** Below this claimable-per-active-worker ratio, workers risk draining to no_claimable_task. */
+    public const WORKER_FEED_FLOOR_THRESHOLD = 2.0;
+
+    public const DECISION_FACT_WORKER_FEED_FLOOR = 'worker_feed_floor';
+
+    public const DECISION_FACT_EXISTING_POLICY = 'existing_policy';
+
+    /**
+     * Pure next-batch decision: claimable-per-worker floor facts override Maestro's
+     * "wait" advice when active workers risk starvation — line-count/comprehension
+     * depth aside, a thin claimable buffer always forces a replenish decision.
+     *
+     * @param  array{
+     *   claimable_per_active_worker?: float,
+     *   existing_policy_should_replenish?: bool,
+     * }  $facts
+     * @return array{should_replenish:bool, decision_facts:list<string>, claimable_per_active_worker:float, worker_feed_floor_breached:bool}
+     */
+    public function nextBatchDecision(array $facts): array
+    {
+        $claimablePerActiveWorker = isset($facts['claimable_per_active_worker'])
+            ? (float) $facts['claimable_per_active_worker']
+            : PHP_FLOAT_MAX;
+        $existingPolicyShouldReplenish = (bool) ($facts['existing_policy_should_replenish'] ?? false);
+
+        $floorBreached = $claimablePerActiveWorker <= self::WORKER_FEED_FLOOR_THRESHOLD;
+
+        $decisionFacts = [];
+        if ($floorBreached) {
+            $decisionFacts[] = self::DECISION_FACT_WORKER_FEED_FLOOR;
+        }
+        if ($existingPolicyShouldReplenish) {
+            $decisionFacts[] = self::DECISION_FACT_EXISTING_POLICY;
+        }
+
+        return [
+            'should_replenish' => $floorBreached || $existingPolicyShouldReplenish,
+            'decision_facts' => $decisionFacts,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+            'worker_feed_floor_breached' => $floorBreached,
+        ];
+    }
+
     /**
      * Top up the serving queue from the comprehension of $scopeRoot until it holds $targetMin claimable tasks
      * (or the scope's real material is exhausted, honestly reported).
