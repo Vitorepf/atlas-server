@@ -104,6 +104,17 @@ final class AtlasSelfConstructionAutonomyModePolicy
             return $this->envelope(self::MODE_EXECUTE_GUARDED, $blockers, $reasons, $facts, $summary);
         }
 
+        // Queue-health guard: dirty serving metrics block execute_continuous without operator/external input.
+        $queueHealthBlockers = $this->extractQueueHealthBlockers($facts);
+        foreach ($queueHealthBlockers as $b) {
+            $blockers[] = $b;
+        }
+        if ($queueHealthBlockers !== [] && $continuousReady) {
+            $reasons[] = 'execute_guarded:queue_health_dirty';
+
+            return $this->envelope(self::MODE_EXECUTE_GUARDED, $blockers, $reasons, $facts, $summary);
+        }
+
         $mode = self::MODE_OBSERVE;
         if (! $hasDependencyBlock && $continuousReady) {
             $mode = self::MODE_EXECUTE_CONTINUOUS;
@@ -119,6 +130,33 @@ final class AtlasSelfConstructionAutonomyModePolicy
         }
 
         return $this->envelope($mode, $blockers, $reasons, $facts, $summary);
+    }
+
+    /**
+     * Returns named blockers for each dirty queue-health condition.
+     * Pure — no I/O, no operator prompt, no external provider.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return list<string>
+     */
+    private function extractQueueHealthBlockers(array $facts): array
+    {
+        $qh = is_array($facts['queue_health'] ?? null) ? $facts['queue_health'] : [];
+        $blockers = [];
+        if ((int) ($qh['malformed_count'] ?? 0) > 0) {
+            $blockers[] = 'queue_health:malformed_count_positive';
+        }
+        if ((int) ($qh['recoverable_total'] ?? 0) > 0) {
+            $blockers[] = 'queue_health:recoverable_lease_backlog';
+        }
+        if ((bool) ($qh['queue_disk_mismatch'] ?? false)) {
+            $blockers[] = 'queue_health:queue_disk_mismatch';
+        }
+        if ((int) ($qh['poison_packets'] ?? 0) > 0) {
+            $blockers[] = 'queue_health:poison_packets_active';
+        }
+
+        return $blockers;
     }
 
     /**

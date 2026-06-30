@@ -230,4 +230,100 @@ final class AtlasSelfConstructionAutonomyModePolicyTest extends TestCase
         );
         $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_OBSERVE, $r['mode']);
     }
+
+    // ── queue-health guard ────────────────────────────────────────────────────
+
+    public function test_malformed_count_positive_blocks_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['queue_health' => ['malformed_count' => 3]])
+        );
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('queue_health:malformed_count_positive', $r['blockers']);
+        $this->assertContains('execute_guarded:queue_health_dirty', $r['reasons']);
+    }
+
+    public function test_recoverable_total_positive_blocks_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['queue_health' => ['recoverable_total' => 1]])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('queue_health:recoverable_lease_backlog', $r['blockers']);
+    }
+
+    public function test_queue_disk_mismatch_blocks_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['queue_health' => ['queue_disk_mismatch' => true]])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('queue_health:queue_disk_mismatch', $r['blockers']);
+    }
+
+    public function test_poison_packets_positive_blocks_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['queue_health' => ['poison_packets' => 2]])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('queue_health:poison_packets_active', $r['blockers']);
+    }
+
+    public function test_all_four_dirty_conditions_all_appear_as_blockers(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), [
+                'queue_health' => [
+                    'malformed_count'    => 1,
+                    'recoverable_total'  => 1,
+                    'queue_disk_mismatch'=> true,
+                    'poison_packets'     => 1,
+                ],
+            ])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('queue_health:malformed_count_positive',  $r['blockers']);
+        $this->assertContains('queue_health:recoverable_lease_backlog', $r['blockers']);
+        $this->assertContains('queue_health:queue_disk_mismatch',       $r['blockers']);
+        $this->assertContains('queue_health:poison_packets_active',     $r['blockers']);
+    }
+
+    public function test_clean_queue_health_preserves_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), [
+                'queue_health' => [
+                    'malformed_count'    => 0,
+                    'recoverable_total'  => 0,
+                    'queue_disk_mismatch'=> false,
+                    'poison_packets'     => 0,
+                ],
+            ])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_absent_queue_health_preserves_execute_continuous(): void
+    {
+        // Existing happy path — no queue_health key at all must still yield continuous.
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($this->allOrgansReady());
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+    }
+
+    public function test_dirty_queue_health_without_continuous_readiness_does_not_affect_mode(): void
+    {
+        // Only basic organs ready (→ propose); dirty queue_health adds blockers but doesn't change mode.
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric'        => $this->organ(true),
+            'maestro'            => $this->organ(true),
+            'verification_court' => $this->organ(true),
+            'merge_governor'     => $this->organ(true),
+            'queue_health'       => ['malformed_count' => 5],
+        ]);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
+        $this->assertContains('queue_health:malformed_count_positive', $r['blockers']);
+    }
 }
