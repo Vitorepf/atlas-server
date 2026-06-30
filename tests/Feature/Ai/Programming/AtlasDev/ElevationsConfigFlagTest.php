@@ -208,6 +208,27 @@ final class ElevationsConfigFlagTest extends TestCase
         $this->assertFalse($config->isOff());
     }
 
+    /**
+     * VAL-M2-008: the E4 (differential / pure-function divergence) elevation
+     * ships a `hard` config default. A runtime read of the REAL config kernel
+     * (no env override, no in-test config mutation) classifies E4 as hard:
+     * ElevationConfig::fromConfig('e4')->isHard() === true. This is the
+     * Feature-level complement to AtlasDevFeatureFlagsTest (which reads the
+     * config source directly with env unset).
+     */
+    public function test_e4_mode_default_is_hard_via_real_config_kernel(): void
+    {
+        // Read the real, unmutated config block for e4 (no config() override).
+        $config = ElevationConfig::fromConfig('e4');
+
+        $this->assertTrue(
+            $config->isHard(),
+            'VAL-M2-008: the real atlas_dev.elevations.e4 config must resolve to hard by default.',
+        );
+        $this->assertFalse($config->isAdvisory(), 'VAL-M2-008: e4 must not be advisory by default.');
+        $this->assertFalse($config->isOff());
+    }
+
     // -- VAL-M0-008 helper: the advisory flag, when appended, forces the
     //    sanctioned downgrade (passed -> needs_review), never green ---------
 

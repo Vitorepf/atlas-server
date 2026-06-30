@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Support\Elevations;
 use PHPUnit\Framework\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Probe\E1HardGateTest;
 use Tests\Unit\Ai\Programming\AtlasDev\Probe\E2HardGateTest;
+use Tests\Unit\Ai\Programming\AtlasDev\Probe\E4HardGateTest;
 
 /**
  * VAL-M2-028: Rollout guard — each elevation's trip condition must be verified
@@ -90,6 +91,22 @@ final class ElevationRolloutGuardTest extends TestCase
         'e2' => [
             'trip' => [E2HardGateTest::class, 'test_e2_hard_trip_produces_failed_when_intent_not_backed_by_behavioral_ac'],
             'clear' => [E2HardGateTest::class, 'test_e2_hard_does_not_false_fail_when_behavioral_ac_backs_intent'],
+        ],
+
+        // m2-e4-hard: E4 (differential / pure-function divergence / shadow-diff)
+        // promoted advisory -> hard. The hard branch already exists in
+        // PipelineRunExecutor (precondition). The trip condition (a
+        // pure-function change diverging on probed inputs despite a green
+        // gate forces STATUS_FAILED -> `failed`, flag retained) and the
+        // does-not-false-fail condition (a behavior-preserving pure refactor
+        // with identical outputs does not trip) are proven on a fixture pair
+        // in E4HardGateTest, which drives a real PipelineRunExecutor with
+        // e4.mode=hard and a scripted ShadowDiffHarness. Registered BEFORE the
+        // config default flipped to hard, per the VAL-M2-028 rollout
+        // discipline.
+        'e4' => [
+            'trip' => [E4HardGateTest::class, 'test_e4_hard_trip_produces_failed_on_pure_function_divergence_despite_green_tests'],
+            'clear' => [E4HardGateTest::class, 'test_e4_hard_does_not_false_fail_on_behavior_preserving_pure_refactor'],
         ],
     ];
 

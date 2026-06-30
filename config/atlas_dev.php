@@ -236,7 +236,20 @@ return [
         ],
 
         // E4: Differential Testing / Shadow-Diff (M5 milestone).
-        'e4' => ['mode' => env('ATLAS_DEV_ELEVATION_E4_MODE', 'advisory')],
+        //   - M2 (m2-e4-hard): promoted advisory -> hard. The trip condition
+        //     (a pure-function change diverging on probed inputs NOT covered
+        //     by unit tests, despite a green gate) was verified on a fixture
+        //     pair (E4HardGateTest: trip -> failed + flag retained; clear ->
+        //     no false-fail on a behavior-preserving pure refactor) BEFORE
+        //     the config default flipped, per the VAL-M2-028 rollout guard.
+        //     A hard E4 trip forces STATUS_FAILED (completion `failed`, NOT
+        //     the advisory `needs_review`) while preserving the
+        //     `shadow_diff_regression` honesty flag for auditability
+        //     (VAL-M2-009). A behavior-preserving pure refactor (identical
+        //     outputs across all probed inputs, diverged=false) does not trip
+        //     (VAL-M2-010). Operators can opt back down to advisory/off via
+        //     ATLAS_DEV_ELEVATION_E4_MODE.
+        'e4' => ['mode' => env('ATLAS_DEV_ELEVATION_E4_MODE', 'hard')],
 
         // E5: Pre-Patch Regression Baseline + Caller-Test Selection (M4 milestone).
         'e5' => ['mode' => env('ATLAS_DEV_ELEVATION_E5_MODE', 'advisory')],

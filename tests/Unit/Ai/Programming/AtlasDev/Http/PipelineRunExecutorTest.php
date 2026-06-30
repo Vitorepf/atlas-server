@@ -49,6 +49,14 @@ final class PipelineRunExecutorTest extends TestCase
     {
         parent::setUp();
 
+        // E4 shadow-diff is off for these fixtures: the cursor/codex tests
+        // git-init a workspace with `app/Foo.php` (a PHP file with a pure
+        // class method), so a hard E4 would invoke the shadow-diff harness on
+        // the method divergence and force STATUS_FAILED independently of the
+        // behavior under test. These tests cover F-03 receipt routing and the
+        // cursor/codex provider branches, not E4. (m2-e4-hard)
+        config()->set('atlas_dev.elevations.e4.mode', 'off');
+
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-exec-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
 
