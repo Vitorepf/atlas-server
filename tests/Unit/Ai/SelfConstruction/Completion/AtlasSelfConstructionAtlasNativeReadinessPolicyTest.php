@@ -79,4 +79,28 @@ final class AtlasSelfConstructionAtlasNativeReadinessPolicyTest extends TestCase
         $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate(['ordinary_capabilities' => $this->allReadyOrdinary()]);
         $this->assertSame(AtlasSelfConstructionAtlasNativeReadinessPolicy::OUTCOME_READY, $r['outcome']);
     }
+
+    public function test_each_continuous_runtime_capability_blocks_readiness_when_missing(): void
+    {
+        $continuousRuntimeCaps = ['replenish_queue', 'supervise_worker_pool', 'keep_context_fresh', 'repair_poison_packet', 'sync_knowledge'];
+        foreach ($continuousRuntimeCaps as $cap) {
+            $ordinary = $this->allReadyOrdinary();
+            unset($ordinary[$cap]);
+            $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate(['ordinary_capabilities' => $ordinary]);
+            $this->assertNotSame(AtlasSelfConstructionAtlasNativeReadinessPolicy::OUTCOME_READY, $r['outcome'], "missing {$cap} should block readiness");
+            $this->assertContains("missing_capability:{$cap}", $r['blockers']);
+        }
+    }
+
+    public function test_ready_with_all_ordinary_and_continuous_runtime_capabilities(): void
+    {
+        $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate([
+            'ordinary_capabilities' => $this->allReadyOrdinary(),
+        ]);
+        $this->assertSame(AtlasSelfConstructionAtlasNativeReadinessPolicy::OUTCOME_READY, $r['outcome']);
+        $this->assertSame([], $r['blockers']);
+        foreach (['replenish_queue', 'supervise_worker_pool', 'keep_context_fresh', 'repair_poison_packet', 'sync_knowledge'] as $cap) {
+            $this->assertContains($cap, $r['owned_by_atlas']);
+        }
+    }
 }

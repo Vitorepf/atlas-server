@@ -52,6 +52,12 @@ final class AtlasSelfConstructionAtlasNativeReadinessPolicy
         'learn_from_receipt',
         'route_to_worker',
         'decide_release',
+        // continuous-runtime capabilities
+        'replenish_queue',
+        'supervise_worker_pool',
+        'keep_context_fresh',
+        'repair_poison_packet',
+        'sync_knowledge',
     ];
 
     /**
