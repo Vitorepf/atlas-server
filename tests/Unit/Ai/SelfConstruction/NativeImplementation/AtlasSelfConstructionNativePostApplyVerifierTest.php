@@ -94,4 +94,55 @@ final class AtlasSelfConstructionNativePostApplyVerifierTest extends TestCase
         $this->assertArrayHasKey('phpunit', $verdict['evidence_hashes']);
         $this->assertArrayHasKey('phpstan', $verdict['evidence_hashes']);
     }
+
+    public function test_changed_file_outside_allowed_scope_yields_rollback(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativePostApplyVerifier)->verify($this->baseFacts([
+            'allowed_files' => ['app/Foo.php'], // tests/FooTest.php not listed
+        ]));
+
+        $this->assertSame('rollback_required', $verdict['verdict']);
+        $this->assertContains('changed_file_outside_scope:tests/FooTest.php', $verdict['blockers']);
+    }
+
+    public function test_forbidden_file_touched_yields_rollback(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativePostApplyVerifier)->verify($this->baseFacts([
+            'forbidden_files' => ['app/Foo.php'],
+        ]));
+
+        $this->assertSame('rollback_required', $verdict['verdict']);
+        $this->assertContains('forbidden_file_touched:app/Foo.php', $verdict['blockers']);
+    }
+
+    public function test_evidence_hash_mismatch_yields_rollback(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativePostApplyVerifier)->verify($this->baseFacts([
+            'expected_evidence_hashes' => ['phpunit' => 'WRONG_HASH'],
+        ]));
+
+        $this->assertSame('rollback_required', $verdict['verdict']);
+        $this->assertContains('evidence_hash_mismatch:phpunit', $verdict['blockers']);
+    }
+
+    public function test_exact_scoped_green_patch_passes(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativePostApplyVerifier)->verify($this->baseFacts([
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'forbidden_files' => ['app/Secret.php'],
+            'expected_evidence_hashes' => ['phpunit' => 'ev_phpunit', 'phpstan' => 'ev_phpstan'],
+        ]));
+
+        $this->assertSame('passed', $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_no_allowed_files_supplied_skips_scope_check(): void
+    {
+        // When allowed_files is absent, the scope guard must not fire — backward compat.
+        $verdict = (new AtlasSelfConstructionNativePostApplyVerifier)->verify($this->baseFacts());
+
+        $this->assertSame('passed', $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+    }
 }

@@ -26,7 +26,10 @@ final class AtlasSelfConstructionNativePostApplyVerifier
     /**
      * @param  array<string,mixed>  $facts {
      *   task_packet_id:string,
+     *   allowed_files?:list<string>,
+     *   forbidden_files?:list<string>,
      *   expected_gates:list<string>,
+     *   expected_evidence_hashes?:array<string,string>,
      *   apply_receipts:list<{path:string, post_hash:string, bytes_written?:int}>,
      *   changed_files:list<{path:string, post_hash:string}>,
      *   gate_results:list<{gate:string, exit_code:int, evidence_hash?:string, stdout_hash?:string}>
@@ -36,7 +39,10 @@ final class AtlasSelfConstructionNativePostApplyVerifier
     public function verify(array $facts): array
     {
         $taskId = (string) ($facts['task_packet_id'] ?? '');
+        $allowedFiles = array_values(array_map('strval', (array) ($facts['allowed_files'] ?? [])));
+        $forbiddenFiles = array_values(array_map('strval', (array) ($facts['forbidden_files'] ?? [])));
         $expected = array_values(array_unique(array_map('strval', (array) ($facts['expected_gates'] ?? []))));
+        $expectedEvidenceHashes = (array) ($facts['expected_evidence_hashes'] ?? []);
         $receipts = array_values((array) ($facts['apply_receipts'] ?? []));
         $changed = array_values((array) ($facts['changed_files'] ?? []));
         $gateResults = array_values((array) ($facts['gate_results'] ?? []));
@@ -67,6 +73,26 @@ final class AtlasSelfConstructionNativePostApplyVerifier
         if ($receiptMap !== $changedMap) {
             $changedFileMismatch = true;
             $blockers[] = 'changed_files_mismatch_apply_receipts';
+        }
+
+        // Scope check: every changed file must be in allowed_files (when supplied).
+        $outsideScope = false;
+        if ($allowedFiles !== []) {
+            foreach (array_keys($changedMap) as $path) {
+                if (! in_array($path, $allowedFiles, true)) {
+                    $outsideScope = true;
+                    $blockers[] = 'changed_file_outside_scope:'.$path;
+                }
+            }
+        }
+
+        // Forbidden files check: none of the forbidden paths may appear in changed_files.
+        $forbiddenTouched = false;
+        foreach ($forbiddenFiles as $forbidden) {
+            if (isset($changedMap[$forbidden])) {
+                $forbiddenTouched = true;
+                $blockers[] = 'forbidden_file_touched:'.$forbidden;
+            }
         }
 
         $gateMap = [];
@@ -105,8 +131,18 @@ final class AtlasSelfConstructionNativePostApplyVerifier
             $evidenceHashes[$gate] = (string) ($row['evidence_hash'] ?? ($row['stdout_hash'] ?? ''));
         }
 
+        // Evidence hash mismatch: caller-supplied expected hashes must match gate output.
+        $evidenceMismatch = false;
+        foreach ($expectedEvidenceHashes as $gate => $want) {
+            $got = $evidenceHashes[$gate] ?? '';
+            if ($got !== (string) $want) {
+                $evidenceMismatch = true;
+                $blockers[] = 'evidence_hash_mismatch:'.$gate;
+            }
+        }
+
         $verdict = self::VERDICT_PASSED;
-        if ($missingGates !== [] || $changedFileMismatch) {
+        if ($missingGates !== [] || $changedFileMismatch || $outsideScope || $forbiddenTouched || $evidenceMismatch) {
             $verdict = self::VERDICT_ROLLBACK;
         } elseif ($failedGates !== []) {
             $verdict = self::VERDICT_FAILED;
