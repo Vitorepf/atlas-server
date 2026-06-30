@@ -81,6 +81,16 @@ final class AtlasLoopCortexTemporalCommand extends Command
         }
         $fqcns = $this->fqcnList();
 
+        $from = trim((string) $this->option('from'));
+        $to = trim((string) $this->option('to'));
+
+        if (in_array($predicate, ['untouched-since', 'added-between'], true) && $from === '') {
+            return $this->emit(['error' => 'invalid_query', 'message' => '--from is required for '.$predicate], 1);
+        }
+        if ($predicate === 'added-between' && $to === '') {
+            return $this->emit(['error' => 'invalid_query', 'message' => '--to is required for added-between'], 1);
+        }
+
         try {
             $rows = match ($predicate) {
                 'touched-within' => $this->query->symbolsTouchedWithin(
@@ -88,7 +98,7 @@ final class AtlasLoopCortexTemporalCommand extends Command
                     $fqcns,
                 ),
                 'untouched-since' => $this->query->symbolsUntouchedSince(
-                    CarbonImmutable::parse((string) $this->option('from')),
+                    CarbonImmutable::parse($from),
                     $fqcns,
                 ),
                 'orphans-older-than' => $this->query->orphansOlderThan(
@@ -96,8 +106,8 @@ final class AtlasLoopCortexTemporalCommand extends Command
                     $fqcns,
                 ),
                 'added-between' => $this->query->symbolsAddedBetween(
-                    CarbonImmutable::parse((string) $this->option('from')),
-                    CarbonImmutable::parse((string) $this->option('to')),
+                    CarbonImmutable::parse($from),
+                    CarbonImmutable::parse($to),
                     $fqcns,
                 ),
             };

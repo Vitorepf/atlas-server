@@ -77,6 +77,18 @@ final class AtlasLoopCortexTemporalCommandTest extends TestCase
         $this->assertSame(1, $exit);
     }
 
+    public function test_untouched_since_without_from_returns_invalid_query_not_now(): void
+    {
+        $exit = Artisan::call('atlas:loop:cortex:temporal', [
+            'action' => 'query',
+            '--predicate' => 'untouched-since',
+            '--json' => true,
+        ]);
+        $this->assertSame(1, $exit);
+        $payload = json_decode(trim(Artisan::output()), true);
+        $this->assertSame('invalid_query', $payload['error']);
+    }
+
     public function test_command_source_contains_no_score_rank_recommendation_or_should_fix_tokens(): void
     {
         $src = (string) file_get_contents(
