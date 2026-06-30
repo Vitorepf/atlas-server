@@ -138,4 +138,110 @@ class AtlasSelfConstructionOsGapAuditTest extends TestCase
             $svc->classifySurface('something_unlisted')
         );
     }
+
+    // ── Runtime promotion readiness index ───────────────────────────────────────
+
+    public function test_readiness_index_with_no_promotions_scores_zero_and_never_releases(): void
+    {
+        $index = $this->service()->runtimePromotionReadinessIndex();
+
+        $this->assertSame(0, $index['readiness_score']);
+        $this->assertFalse($index['releases_claims']);
+        $this->assertNotEmpty($index['missing_proof_list']);
+
+        foreach ($index['claims'] as $claim) {
+            $this->assertFalse($claim['allowed']);
+        }
+    }
+
+    public function test_readiness_index_rises_with_partial_proof_but_still_never_releases(): void
+    {
+        $promotion = $this->validPromotion();
+        unset($promotion['promotion_gate_status']);
+
+        $index = $this->service()->runtimePromotionReadinessIndex([
+            'atlas_self_construction_os_is_complete' => $promotion,
+        ]);
+
+        $this->assertGreaterThan(0, $index['readiness_score']);
+        $this->assertLessThan(100, $index['readiness_score']);
+        $this->assertFalse($index['releases_claims']);
+
+        foreach ($index['claims'] as $claim) {
+            $this->assertFalse($claim['allowed'], 'partial proof must never set allowed=true');
+        }
+    }
+
+    public function test_readiness_index_full_proof_for_all_claims_scores_one_hundred(): void
+    {
+        $promotion = $this->validPromotion();
+        $claimPromotions = [];
+        foreach (AtlasSelfConstructionOsGapAuditService::FORBIDDEN_CLAIMS as $claim) {
+            $claimPromotions[$claim] = $promotion;
+        }
+
+        $index = $this->service()->runtimePromotionReadinessIndex($claimPromotions);
+
+        $this->assertSame(100, $index['readiness_score']);
+        $this->assertSame([], $index['missing_proof_list']);
+        $this->assertFalse($index['releases_claims']);
+    }
+
+    public function test_missing_promotion_artifact_lowers_readiness(): void
+    {
+        $promotion = $this->validPromotion();
+        unset($promotion['signed_promotion_artifact']);
+
+        $index = $this->service()->runtimePromotionReadinessIndex([
+            'self_programming_is_enabled' => $promotion,
+        ]);
+
+        $this->assertContains('self_programming_is_enabled:signed_promotion_artifact', $index['missing_proof_list']);
+    }
+
+    public function test_invalid_replay_diff_lowers_readiness(): void
+    {
+        $promotion = $this->validPromotion();
+        $promotion['replay_diff_status'] = 'regressed';
+
+        $index = $this->service()->runtimePromotionReadinessIndex([
+            'self_programming_is_enabled' => $promotion,
+        ]);
+
+        $this->assertContains('self_programming_is_enabled:replay_diff_status', $index['missing_proof_list']);
+    }
+
+    public function test_missing_promotion_gate_lowers_readiness(): void
+    {
+        $promotion = $this->validPromotion();
+        unset($promotion['promotion_gate_status']);
+
+        $index = $this->service()->runtimePromotionReadinessIndex([
+            'self_programming_is_enabled' => $promotion,
+        ]);
+
+        $this->assertContains('self_programming_is_enabled:promotion_gate_status', $index['missing_proof_list']);
+    }
+
+    public function test_next_proof_target_points_at_not_yet_runtime_capability_when_present(): void
+    {
+        $index = $this->service()->runtimePromotionReadinessIndex();
+
+        $this->assertSame(
+            AtlasSelfConstructionOsGapAuditService::NOT_YET_RUNTIME_CAPABLE[0],
+            $index['next_proof_target'],
+        );
+    }
+
+    public function test_readiness_index_is_deterministic(): void
+    {
+        $svc = $this->service();
+        $promotion = $this->validPromotion();
+        $facts = ['self_programming_is_enabled' => $promotion];
+
+        $this->assertSame(
+            $svc->runtimePromotionReadinessIndex($facts),
+            $svc->runtimePromotionReadinessIndex($facts),
+        );
+    }
 }

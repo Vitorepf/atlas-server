@@ -310,6 +310,77 @@ final class AtlasSelfConstructionOsGapAuditService
         ];
     }
 
+    /**
+     * Runtime promotion readiness index: converts the forbidden-claims proof state and the
+     * not-yet-runtime surfaces into an honest 0-100 readiness score, a missing-proof list, and a
+     * concrete next proof target. PURE — no I/O, no DB, and critically NEVER releases a claim by
+     * itself: a high readiness_score is informational only, `allowed` still comes exclusively
+     * from {@see evaluateClaim()}'s full three-part proof gate.
+     *
+     * readiness_score = average, across all 15 Section 8 claims, of (proof parts present and
+     * valid / 3) — so it drops whenever a signed promotion artifact, replay diff, or promotion
+     * gate proof is missing or invalid for any claim.
+     *
+     * next_proof_target prioritizes a concrete not-yet-runtime capability (Section 4) when one
+     * exists, since that is the most actionable next build target; only when none remain does it
+     * fall back to the first outstanding claim:proof gap.
+     *
+     * @param  array<string, array<string,mixed>>  $claimPromotions
+     * @return array{
+     *   schema_version:string,
+     *   readiness_score:int,
+     *   missing_proof_list:array<int,string>,
+     *   next_proof_target:?string,
+     *   claims:array<int,array{claim:string,proof_completeness:float,allowed:bool}>,
+     *   releases_claims:bool
+     * }
+     */
+    public function runtimePromotionReadinessIndex(array $claimPromotions = []): array
+    {
+        $claims = [];
+        $totalProofRatio = 0.0;
+        $missingProofList = [];
+
+        foreach (self::FORBIDDEN_CLAIMS as $claim) {
+            $result = $this->evaluateClaim($claim, $claimPromotions[$claim] ?? []);
+            $failingParts = count($result['missing_proofs']) + count($result['invalid_proofs']);
+            $proofRatio = max(0.0, (3 - $failingParts) / 3);
+            $totalProofRatio += $proofRatio;
+
+            foreach (array_merge($result['missing_proofs'], $result['invalid_proofs']) as $proofField) {
+                $missingProofList[] = $claim.':'.$proofField;
+            }
+
+            $claims[] = [
+                'claim' => $claim,
+                'proof_completeness' => round($proofRatio, 4),
+                'allowed' => $result['allowed'],
+            ];
+        }
+
+        $readinessScore = self::FORBIDDEN_CLAIMS === []
+            ? 100
+            : (int) round(100 * $totalProofRatio / count(self::FORBIDDEN_CLAIMS));
+
+        $missingProofList = array_values(array_unique($missingProofList));
+        sort($missingProofList, SORT_STRING);
+
+        $nextProofTarget = self::NOT_YET_RUNTIME_CAPABLE !== []
+            ? self::NOT_YET_RUNTIME_CAPABLE[0]
+            : ($missingProofList[0] ?? null);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'readiness_score' => $readinessScore,
+            'missing_proof_list' => $missingProofList,
+            'next_proof_target' => $nextProofTarget,
+            'claims' => $claims,
+            // AC1: the readiness score is informational only — it never releases a claim by
+            // itself; release authority stays exclusively with evaluateClaim()'s proof gate.
+            'releases_claims' => false,
+        ];
+    }
+
     private function isEmpty(mixed $value): bool
     {
         if ($value === null || $value === false) {
