@@ -102,6 +102,38 @@ final class AtlasMaestroTieredRoutingPolicyTest extends TestCase
         $this->assertSame('atlas.maestro.tier_routing.v1', $v['schema']);
     }
 
+    public function test_high_risk_packet_escalated_to_hardest_worker_is_allowed(): void
+    {
+        $this->registry->register('hardest-worker', 'hardest');
+        $hardPacket = [
+            'packet_id' => 'p-hard-esc',
+            'objective' => str_repeat('x', 1500), // >= 1200 → hard
+            'allowed_files' => ['app/A.php'],
+            'acceptance_criteria' => [],
+        ];
+        $v = $this->policy->evaluate('hardest-worker', $hardPacket);
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict']);
+        $this->assertSame('hard', $v['packet_tier']);
+        $this->assertSame('hardest', $v['worker_declared_max_tier']);
+    }
+
+    public function test_evidence_burden_escalation_six_acceptance_criteria_escalates_to_hard_tier(): void
+    {
+        $this->registry->register('easy-worker', 'easy');
+        $heavyBurdenPacket = [
+            'packet_id' => 'p-burden',
+            'objective' => 'do something',
+            'allowed_files' => ['app/A.php'],
+            'acceptance_criteria' => array_fill(0, 6, 'a criterion'), // 6 >= threshold → hard
+        ];
+        $v = $this->policy->evaluate('easy-worker', $heavyBurdenPacket);
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_REFUSE, $v['verdict']);
+        $this->assertSame('hard', $v['packet_tier']);
+        $this->assertContains('acceptance_criteria count >= 6', $v['packet_fact_basis']);
+    }
+
     public function test_hard_packet_to_hard_worker_is_allowed(): void
     {
         $this->registry->register('codex-1', 'hard');
