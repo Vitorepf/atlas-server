@@ -44,6 +44,22 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
     /** @var list<string> */
     private const REQUIRED_EVIDENCE_CLASSES = ['implementation', 'gate', 'receipt', 'cli_or_readiness'];
 
+    /**
+     * Final external-brain organs grouped by lane.
+     * Each lane must have ≥1 organ; an empty lane is an absent lane (coverage_pct = 0.0).
+     *
+     * @var array<string, list<string>>
+     */
+    public const FINAL_BRAIN_LANES = [
+        'recovery'        => ['brain_recovery', 'exception_recovery_organ'],
+        'lane-governor'   => ['brain_lane_governor', 'lane_execution_governor'],
+        'task-fabric'     => ['brain_task_fabric', 'task_origination_organ'],
+        'maestro-feedback'=> ['brain_maestro_feedback', 'maestro_outcome_ingestor'],
+        'frontier'        => ['brain_frontier', 'frontier_scout_organ'],
+        'compounding'     => ['brain_compounding', 'compounding_ledger_organ'],
+        'final-certifier' => ['brain_final_certifier', 'certification_gate_organ'],
+    ];
+
     /** @var list<string> */
     private const NON_SELF_SUFFICIENT_STATUSES = ['cancelled', 'lease_expired', 'blocked'];
 
@@ -164,6 +180,100 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
                 count($stale),
                 count($blocked),
             ),
+        ];
+    }
+
+    /**
+     * Audit final external-brain coverage grouped by lane.
+     *
+     * Each lane gets a deterministic coverage_pct = covered_organs / total_organs_in_lane.
+     * A lane with zero organs defined is absent (coverage_pct=0.0, lane_absent=true) — never a hidden pass.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @param  array<string,list<string>>|null  $lanesOverride  Organ IDs per lane; defaults to FINAL_BRAIN_LANES
+     * @return array<string,mixed>
+     */
+    public function auditByLane(array $records, ?array $lanesOverride = null): array
+    {
+        $lanes = $lanesOverride ?? self::FINAL_BRAIN_LANES;
+        $laneResults = [];
+        $allPassed = true;
+
+        foreach ($lanes as $lane => $organIds) {
+            if ($organIds === []) {
+                $laneResults[$lane] = [
+                    'lane' => $lane,
+                    'organ_ids' => [],
+                    'covered' => [],
+                    'missing' => [],
+                    'thin' => [],
+                    'stale' => [],
+                    'coverage_pct' => 0.0,
+                    'passed' => false,
+                    'lane_absent' => true,
+                ];
+                $allPassed = false;
+
+                continue;
+            }
+
+            $covered = [];
+            $missing = [];
+            $thin = [];
+            $stale = [];
+
+            foreach ($organIds as $organId) {
+                $matched = $this->matchesForOrgan($records, $organId, [$organId]);
+                if ($matched === []) {
+                    $missing[] = $organId;
+
+                    continue;
+                }
+                $selfSufficient = array_values(array_filter($matched, fn (array $r): bool => $this->isSelfSufficient($r)));
+                if ($selfSufficient === []) {
+                    $stale[] = $organId;
+
+                    continue;
+                }
+                $legacyOnly = array_filter($selfSufficient, fn (array $r): bool => $this->isLegacyOnly($r));
+                if (count($legacyOnly) === count($selfSufficient)) {
+                    $stale[] = $organId;
+
+                    continue;
+                }
+                $liveRecords = array_values(array_diff_key($selfSufficient, $legacyOnly));
+                if ($this->missingEvidenceClasses($liveRecords) !== []) {
+                    $thin[] = $organId;
+
+                    continue;
+                }
+                $covered[] = $organId;
+            }
+
+            $total = count($organIds);
+            $coveragePct = $total > 0 ? round(count($covered) / $total, 4) : 0.0;
+            $lanePassed = $missing === [] && $thin === [] && $stale === [];
+            if (! $lanePassed) {
+                $allPassed = false;
+            }
+
+            $laneResults[$lane] = [
+                'lane' => $lane,
+                'organ_ids' => $organIds,
+                'covered' => $covered,
+                'missing' => $missing,
+                'thin' => $thin,
+                'stale' => $stale,
+                'coverage_pct' => $coveragePct,
+                'passed' => $lanePassed,
+                'lane_absent' => false,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'passed' => $allPassed,
+            'lanes' => $laneResults,
         ];
     }
 
