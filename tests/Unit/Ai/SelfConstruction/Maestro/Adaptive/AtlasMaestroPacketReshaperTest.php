@@ -67,6 +67,128 @@ final class AtlasMaestroPacketReshaperTest extends TestCase
         $this->assertSame('passthrough', $result['reshape_receipt']['kind']);
     }
 
+    // -----------------------------------------------------------------------
+    // propose() — poison-pattern → respec proposals
+    // -----------------------------------------------------------------------
+
+    public function test_missing_impl_file_pattern_emits_repair_proposal(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Ai/SelfConstruction/Maestro/Adaptive/Missing.php']]];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $this->assertArrayHasKey('proposals', $result);
+        $this->assertCount(1, $result['proposals']);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('repair', $proposal['action']);
+        $this->assertSame('missing_impl_file_added', $proposal['reason']);
+        $this->assertSame('missing_impl_file', $proposal['pattern']);
+        $this->assertContains(
+            'app/Services/Ai/SelfConstruction/Maestro/Adaptive/Missing.php',
+            $proposal['respec']['allowed_files'],
+        );
+        // Original files are preserved.
+        foreach ($packet['allowed_files'] as $f) {
+            $this->assertContains($f, $proposal['respec']['allowed_files']);
+        }
+    }
+
+    public function test_contradictory_acceptance_pattern_emits_retire_proposal(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'contradictory_acceptance', 'reason' => 'criterion A requires X; criterion B forbids X']];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('retire', $proposal['action']);
+        $this->assertSame('contradictory_acceptance_unrepairable', $proposal['reason']);
+        $this->assertSame('contradictory_acceptance', $proposal['pattern']);
+        $this->assertArrayHasKey('detail', $proposal);
+        $this->assertStringContainsString('X', $proposal['detail']);
+    }
+
+    public function test_missing_impl_file_without_acceptance_retires_never_repairs(): void
+    {
+        $packet = array_merge($this->packetWithAcceptance(), ['acceptance_criteria' => []]);
+        $patterns = [['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php']]];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('retire', $proposal['action']);
+        $this->assertSame('repair_would_leave_no_runnable_acceptance', $proposal['reason']);
+        $this->assertArrayNotHasKey('respec', $proposal);
+    }
+
+    public function test_repair_proposal_always_carries_runnable_acceptance(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Extra.php']]];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $proposal = $result['proposals'][0];
+        $this->assertSame('repair', $proposal['action']);
+        $this->assertNotEmpty($proposal['respec']['acceptance_criteria']);
+        foreach ($proposal['respec']['acceptance_criteria'] as $criterion) {
+            $this->assertNotSame('', trim($criterion));
+        }
+    }
+
+    public function test_multiple_patterns_produce_multiple_proposals(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [
+            ['type' => 'missing_impl_file',       'missing_files' => ['app/A.php']],
+            ['type' => 'contradictory_acceptance', 'reason' => 'conflict'],
+        ];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        $this->assertCount(2, $result['proposals']);
+        $actions = array_column($result['proposals'], 'action');
+        $this->assertContains('repair', $actions);
+        $this->assertContains('retire', $actions);
+    }
+
+    public function test_proposals_include_original_packet_id(): void
+    {
+        $packet = array_merge($this->packetWithAcceptance(), ['task_packet_id' => 'test-packet-123']);
+        $patterns = [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/X.php']],
+            ['type' => 'contradictory_acceptance'],
+        ];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        foreach ($result['proposals'] as $p) {
+            $this->assertSame('test-packet-123', $p['original_packet_id']);
+        }
+    }
+
+    public function test_propose_empty_patterns_returns_empty_proposals(): void
+    {
+        $result = (new AtlasMaestroPacketReshaper)->propose($this->packetWithAcceptance(), []);
+
+        $this->assertSame([], $result['proposals']);
+        $this->assertSame(AtlasMaestroPacketReshaper::SCHEMA, $result['schema']);
+    }
+
+    /** @return array<string,mixed> */
+    private function packetWithAcceptance(): array
+    {
+        return [
+            'task_packet_id'      => 'packet-xyz',
+            'objective'           => 'Implement something.',
+            'allowed_files'       => ['app/Services/Ai/SelfConstruction/Maestro/Adaptive/Svc.php'],
+            'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test --filter=SvcTest'],
+            'required_evidence'   => ['tests_or_gates_result'],
+        ];
+    }
+
     private function miner(): AtlasMaestroGiveBackPatternMiner
     {
         return new AtlasMaestroGiveBackPatternMiner([

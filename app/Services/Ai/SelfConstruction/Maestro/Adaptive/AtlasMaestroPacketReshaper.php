@@ -13,6 +13,91 @@ final class AtlasMaestroPacketReshaper
     }
 
     /**
+     * Convert mined give_back poison patterns into safe respec proposals.
+     *
+     * Supported pattern types:
+     *   missing_impl_file       — adds missing files to allowed_files (repair)
+     *                             OR retires if repair would leave no runnable acceptance
+     *   contradictory_acceptance — always retires; unresolvable by file edits alone
+     *
+     * @param  array<string,mixed>          $packet
+     * @param  list<array<string,mixed>>    $poisonPatterns  [{type, ...}]
+     * @return array{schema:string, proposals:list<array<string,mixed>>}
+     */
+    public function propose(array $packet, array $poisonPatterns): array
+    {
+        $proposals = [];
+        foreach ($poisonPatterns as $pattern) {
+            $proposals[] = match ((string) ($pattern['type'] ?? '')) {
+                'missing_impl_file'        => $this->repairMissingImplFile($packet, $pattern),
+                'contradictory_acceptance' => $this->retireContradictory($packet, $pattern),
+                default                    => $this->retireUnknown($packet, $pattern),
+            };
+        }
+
+        return ['schema' => self::SCHEMA, 'proposals' => $proposals];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function repairMissingImplFile(array $packet, array $pattern): array
+    {
+        $id           = (string) ($packet['task_packet_id'] ?? $packet['label'] ?? '');
+        $missingFiles = array_values(array_filter((array) ($pattern['missing_files'] ?? []), 'is_string'));
+        $currentFiles = array_values(array_filter((array) ($packet['allowed_files'] ?? []), 'is_string'));
+        $repairedFiles = array_values(array_unique(array_merge($currentFiles, $missingFiles)));
+
+        $repairedPacket = $packet;
+        $repairedPacket['allowed_files'] = $repairedFiles;
+
+        // Never emit a repair without at least one non-empty runnable acceptance criterion.
+        $hasAcceptance = array_values(array_filter(
+            (array) ($repairedPacket['acceptance_criteria'] ?? []),
+            static fn (mixed $v): bool => is_string($v) && trim($v) !== '',
+        )) !== [];
+
+        if (! $hasAcceptance) {
+            return [
+                'action'             => 'retire',
+                'reason'             => 'repair_would_leave_no_runnable_acceptance',
+                'pattern'            => 'missing_impl_file',
+                'original_packet_id' => $id,
+            ];
+        }
+
+        return [
+            'action'             => 'repair',
+            'reason'             => 'missing_impl_file_added',
+            'pattern'            => 'missing_impl_file',
+            'original_packet_id' => $id,
+            'added_files'        => $missingFiles,
+            'respec'             => $repairedPacket,
+        ];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function retireContradictory(array $packet, array $pattern): array
+    {
+        return [
+            'action'             => 'retire',
+            'reason'             => 'contradictory_acceptance_unrepairable',
+            'pattern'            => 'contradictory_acceptance',
+            'original_packet_id' => (string) ($packet['task_packet_id'] ?? $packet['label'] ?? ''),
+            'detail'             => (string) ($pattern['reason'] ?? 'acceptance criteria contradict each other'),
+        ];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function retireUnknown(array $packet, array $pattern): array
+    {
+        return [
+            'action'             => 'retire',
+            'reason'             => 'unknown_poison_pattern',
+            'pattern'            => (string) ($pattern['type'] ?? 'unknown'),
+            'original_packet_id' => (string) ($packet['task_packet_id'] ?? $packet['label'] ?? ''),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $packet
      * @return array<string,mixed>
      */
