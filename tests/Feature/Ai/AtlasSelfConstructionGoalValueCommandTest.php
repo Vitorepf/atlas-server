@@ -157,4 +157,15 @@ final class AtlasSelfConstructionGoalValueCommandTest extends TestCase
         $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_USAGE, $exit);
     }
 
+    public function test_missing_facts_with_json_flag_emits_usage_error_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'decide', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionGoalValueCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'output must be valid JSON when --json is set');
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
+
 }

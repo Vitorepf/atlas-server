@@ -141,4 +141,15 @@ final class AtlasSelfConstructionCompletionAutonomyCommandTest extends TestCase
         $this->assertSame([], $decoded['blockers']);
         $this->assertTrue($decoded['passed']);
     }
+
+    public function test_missing_facts_with_json_flag_emits_usage_error_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'verdict', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionCompletionAutonomyCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'output must be valid JSON when --json is set');
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
 }

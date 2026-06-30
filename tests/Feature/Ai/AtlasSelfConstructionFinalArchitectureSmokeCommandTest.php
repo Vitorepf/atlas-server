@@ -146,4 +146,15 @@ final class AtlasSelfConstructionFinalArchitectureSmokeCommandTest extends TestC
             $this->assertStringNotContainsString($forbidden, $src, "CLI source must NOT contain {$forbidden}");
         }
     }
+
+    public function test_missing_facts_with_json_flag_emits_usage_error_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'smoke', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionFinalArchitectureSmokeCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'output must be valid JSON when --json is set');
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
 }

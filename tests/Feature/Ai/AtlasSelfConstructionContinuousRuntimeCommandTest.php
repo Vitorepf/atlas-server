@@ -176,6 +176,18 @@ class AtlasSelfConstructionContinuousRuntimeCommandTest extends TestCase
         return $decoded;
     }
 
+    public function test_missing_facts_with_json_flag_emits_usage_error_envelope(): void
+    {
+        $exit = Artisan::call('atlas:self-construction:continuous-runtime', ['action' => 'cycle', '--json' => true]);
+        $out = trim(Artisan::output());
+
+        self::assertSame(AtlasSelfConstructionContinuousRuntimeCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode($out, true);
+        self::assertIsArray($decoded, 'output must be valid JSON when --json is set');
+        self::assertSame('usage_error', $decoded['status']);
+        self::assertNotEmpty($decoded['reason']);
+    }
+
     /**
      * @param  array<string,mixed>  $payload
      */
