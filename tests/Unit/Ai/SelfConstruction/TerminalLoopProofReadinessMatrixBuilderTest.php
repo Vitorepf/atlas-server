@@ -95,6 +95,31 @@ class TerminalLoopProofReadinessMatrixBuilderTest extends TestCase
         self::assertCount(11, $failed);
     }
 
+    public function test_operational_readiness_matrix_first_failed_row_is_first_in_order(): void
+    {
+        $matrix = TerminalLoopProofReadinessMatrixBuilder::operationalReadinessMatrix([], []);
+
+        self::assertSame('auto_replenishment_claim_and_one_shot_packet', $matrix['first_failed_row']);
+    }
+
+    public function test_operational_readiness_matrix_missing_evidence_rows_listed(): void
+    {
+        $matrix = TerminalLoopProofReadinessMatrixBuilder::operationalReadinessMatrix([], []);
+
+        self::assertCount(11, $matrix['missing_evidence_rows']);
+        self::assertContains('auto_replenishment_claim_and_one_shot_packet', $matrix['missing_evidence_rows']);
+    }
+
+    public function test_operational_readiness_matrix_next_repair_focus_derived_from_first_failure(): void
+    {
+        $matrix = TerminalLoopProofReadinessMatrixBuilder::operationalReadinessMatrix([], []);
+
+        self::assertSame(
+            'auto_replenishment_claim_and_one_shot_packet:missing_invariants',
+            $matrix['next_repair_focus'],
+        );
+    }
+
     public function test_operational_readiness_matrix_with_some_invariants(): void
     {
         $invariants = [

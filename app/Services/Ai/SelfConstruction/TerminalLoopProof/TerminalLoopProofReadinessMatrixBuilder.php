@@ -139,6 +139,21 @@ final class TerminalLoopProofReadinessMatrixBuilder
             ),
         ];
         $failedRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['passed'] ?? false)));
+        $firstFailed = $failedRows[0] ?? null;
+        $firstFailedId = $firstFailed !== null ? (string) $firstFailed['id'] : '';
+        $missingEvidenceRows = array_values(array_map(
+            static fn (array $row): string => (string) $row['id'],
+            array_filter($failedRows, static fn (array $row): bool => ($row['evidence_hashes'] ?? []) === []),
+        ));
+        $nextRepairFocus = '';
+        if ($firstFailed !== null) {
+            $nextRepairFocus = $firstFailedId;
+            if (($firstFailed['missing_invariants'] ?? []) !== []) {
+                $nextRepairFocus .= ':missing_invariants';
+            } elseif (in_array($firstFailedId, $missingEvidenceRows, true)) {
+                $nextRepairFocus .= ':missing_evidence_hashes';
+            }
+        }
 
         return [
             'schema_version' => 'atlas.self_construction.agent_control_plane_terminal_loop_operational_readiness_matrix.v1',
@@ -148,6 +163,9 @@ final class TerminalLoopProofReadinessMatrixBuilder
             'all_true' => $failedRows === [],
             'rows' => $rows,
             'failed_rows' => array_map(static fn (array $row): string => (string) $row['id'], $failedRows),
+            'first_failed_row' => $firstFailedId,
+            'missing_evidence_rows' => $missingEvidenceRows,
+            'next_repair_focus' => $nextRepairFocus,
         ];
     }
 
