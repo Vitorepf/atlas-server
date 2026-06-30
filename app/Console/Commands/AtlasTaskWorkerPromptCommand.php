@@ -59,7 +59,7 @@ THE LOOP:
    - `served` → read task.objective, allowed_files, acceptance_criteria, required_evidence, lease_id, task_packet_id.
    - `no_claimable_task` / `no_self_sufficient_task` → {$onEmpty}
    - `waiting_on_dependencies` → wait 30s, retry. Do NOT stop, do NOT invent work.
-   - `disabled` → run `{$php} artisan atlas:task:serving on`, then retry.
+   - `disabled` → the serving system is suspended; give_back any held task and STOP. Contact the operator — do NOT attempt to re-enable via CLI.
 2. IMPLEMENT the objective, editing ONLY allowed_files. Build the COMPLETE unit (implementation + the declared tests) — however many of those files it takes. File count is irrelevant; correctness is everything.
 3. PROVE: run the tests/gates from acceptance_criteria/required_evidence (`{$php} artisan test <path>`). Iterate until GREEN. Never resolve a red task.
 4. RESOLVE — Atlas commits exactly your allowed_files as YOUR commit:
@@ -76,13 +76,13 @@ QUALITY BOOST:
 
 NEVER STOP:
 - A hard or failing task is NOT a reason to stop. Fix it, or give_back with a reason, and move to the next.
-- If `atlas:task` ITSELF errors repeatedly (the serving SYSTEM is broken, not one task), you are authorized to diagnose and fix the minimal cause in the code, commit ONLY the exact files you changed with `git commit -- <those files>` (NEVER `git add -A`), and resume. Then keep going.
+- If `atlas:task` ITSELF errors repeatedly (the serving SYSTEM is broken, not one task), give_back any held lease with reason "serving-system-broken" and STOP. Do NOT attempt git repairs or code changes. The operator must diagnose and unblock the jam.
 
 REPORT CADENCE: after every 3 resolved tasks, print ONE line — "done N this session | last: <task_packet_id> | next: <pull status>". Nothing more.
 
 HARD RULES (shared `main` — breaking these corrupts other workers):
 - Edit ONLY allowed_files. Another worker owns the rest of the tree right now.
-- NEVER `git add -A` / reset / checkout / stash / pull / push. `--commit` commits your scope safely. The only raw git allowed is the narrow `git commit -- <exact files>` self-heal in step NEVER-STOP.
+- NEVER `git add -A` / reset / checkout / stash / pull / push. `--commit` commits your scope safely. No manual git commits — the report `--commit` flag is the ONLY allowed commit path.
 - One task at a time: resolve or give_back before pulling the next. Never pull twice without finishing.
 
 Start now: run step 1. Keep going until the operator stops you.

@@ -62,4 +62,29 @@ final class AtlasTaskWorkerPromptTest extends TestCase
         $this->assertGreaterThanOrEqual(3924, mb_strlen($prompt));
         $this->assertLessThan(4000, mb_strlen($prompt));
     }
+
+    public function test_prompt_contains_no_raw_git_commit_command(): void
+    {
+        Artisan::call('atlas:task:worker-prompt', ['--client' => 'codex-7']);
+        $out = Artisan::output();
+
+        $this->assertStringNotContainsString('`git commit', $out, 'no backtick-quoted git commit instruction — Atlas commits via --commit flag only');
+    }
+
+    public function test_prompt_contains_no_atlas_task_serving_on_instruction(): void
+    {
+        Artisan::call('atlas:task:worker-prompt', ['--client' => 'codex-7']);
+        $out = Artisan::output();
+
+        $this->assertStringNotContainsString('atlas:task:serving on', $out, 'disabled state must not instruct worker to re-enable the serving system');
+    }
+
+    public function test_disabled_state_instructs_give_back_and_stop_not_re_enable(): void
+    {
+        Artisan::call('atlas:task:worker-prompt', ['--client' => 'codex-7']);
+        $out = Artisan::output();
+
+        $this->assertStringContainsString('give_back', $out, 'disabled path must reference give_back');
+        $this->assertStringContainsString('STOP', $out, 'disabled path must tell worker to stop');
+    }
 }
