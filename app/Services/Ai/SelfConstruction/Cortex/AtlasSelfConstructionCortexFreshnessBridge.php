@@ -44,7 +44,7 @@ final class AtlasSelfConstructionCortexFreshnessBridge
 
     /**
      * @param  array{now_unix?:int, freshness_window_seconds?:int, sources?:array<string,array{last_unix?:int, hash?:string}>}  $facts
-     * @return array{schema:string, all_fresh:bool, rows:list<array{source_id:string, readiness:string, reason:string}>}
+     * @return array{schema:string, all_fresh:bool, safe_to_origin_tasks:bool, rows:list<array{source_id:string, readiness:string, reason:string}>, knowledge_dominance_refresh_plan:list<array<string,mixed>>}
      */
     public function adapt(array $facts): array
     {
@@ -60,7 +60,13 @@ final class AtlasSelfConstructionCortexFreshnessBridge
             );
             usort($rows, static fn (array $a, array $b): int => strcmp($a['source_id'], $b['source_id']));
 
-            return ['schema' => self::SCHEMA, 'all_fresh' => false, 'rows' => $rows];
+            return [
+                'schema'                          => self::SCHEMA,
+                'all_fresh'                       => false,
+                'safe_to_origin_tasks'            => false,
+                'rows'                            => $rows,
+                'knowledge_dominance_refresh_plan' => $this->buildRefreshPlan($rows),
+            ];
         }
 
         $rows = [];
@@ -98,9 +104,58 @@ final class AtlasSelfConstructionCortexFreshnessBridge
         $allFresh = ! array_filter($rows, static fn (array $r): bool => $r['readiness'] !== self::FRESH);
 
         return [
-            'schema' => self::SCHEMA,
-            'all_fresh' => $allFresh,
-            'rows' => $rows,
+            'schema'                          => self::SCHEMA,
+            'all_fresh'                       => $allFresh,
+            'safe_to_origin_tasks'            => $allFresh,
+            'rows'                            => $rows,
+            'knowledge_dominance_refresh_plan' => $this->buildRefreshPlan($rows),
         ];
+    }
+
+    /**
+     * Build a deterministic refresh plan for every non-fresh source row.
+     * Fresh rows produce no plan entry. Does NOT perform any refresh.
+     *
+     * Plan entry fields:
+     *   source_id          string  — which source needs refreshing
+     *   refresh_action     string  — deterministic action label
+     *   blocking_reason    string  — reason from the readiness row
+     *   required_receipt   string  — token the caller must obtain after the action
+     *   safe_to_origin_tasks bool  — stale=true (data old but present), unknown/blocked=false
+     *
+     * @param  list<array{source_id:string, readiness:string, reason:string}>  $rows
+     * @return list<array<string,mixed>>
+     */
+    private function buildRefreshPlan(array $rows): array
+    {
+        $plan = [];
+        foreach ($rows as $row) {
+            if ($row['readiness'] === self::FRESH) {
+                continue;
+            }
+
+            $action = match ($row['readiness']) {
+                self::STALE   => 'run_sync',
+                self::UNKNOWN => 'supply_source',
+                self::BLOCKED => match (true) {
+                    str_contains($row['reason'], 'hash_missing')        => 'repair_hash',
+                    str_contains($row['reason'], 'last_unix_missing')   => 'repair_timestamp',
+                    str_contains($row['reason'], 'future_timestamp')    => 'correct_clock',
+                    str_contains($row['reason'], 'invalid_freshness_window') => 'repair_window_config',
+                    default                                             => 'inspect_and_repair',
+                },
+                default => 'inspect_and_repair',
+            };
+
+            $plan[] = [
+                'source_id'            => $row['source_id'],
+                'refresh_action'       => $action,
+                'blocking_reason'      => $row['reason'],
+                'required_receipt'     => 'receipt:'.$row['source_id'].':'.$action,
+                'safe_to_origin_tasks' => $row['readiness'] === self::STALE,
+            ];
+        }
+
+        return $plan;
     }
 }

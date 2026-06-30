@@ -152,4 +152,117 @@ final class AtlasSelfConstructionCortexFreshnessBridgeTest extends TestCase
         sort($sorted, SORT_STRING);
         $this->assertSame($sorted, $ids);
     }
+
+    // --- knowledge_dominance_refresh_plan tests ---
+
+    public function test_all_fresh_yields_empty_refresh_plan_and_safe_to_origin_true(): void
+    {
+        $now = 1719252000;
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt([
+            'now_unix' => $now,
+            'sources'  => $this->freshSources($now),
+        ]);
+
+        $this->assertArrayHasKey('knowledge_dominance_refresh_plan', $r);
+        $this->assertSame([], $r['knowledge_dominance_refresh_plan']);
+        $this->assertTrue($r['safe_to_origin_tasks']);
+    }
+
+    public function test_stale_source_produces_run_sync_plan_entry(): void
+    {
+        $now = 1719252000;
+        $sources = $this->freshSources($now);
+        $sources['docs']['last_unix'] = $now - 999999;
+
+        $r    = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+        $plan = array_column($r['knowledge_dominance_refresh_plan'], null, 'source_id');
+
+        $this->assertArrayHasKey('docs', $plan);
+        $this->assertSame('run_sync', $plan['docs']['refresh_action']);
+        $this->assertStringContainsString('age_', $plan['docs']['blocking_reason']);
+        $this->assertSame('receipt:docs:run_sync', $plan['docs']['required_receipt']);
+        $this->assertTrue($plan['docs']['safe_to_origin_tasks']);  // stale = still safe
+    }
+
+    public function test_unknown_source_produces_supply_source_plan_entry_not_safe(): void
+    {
+        $now = 1719252000;
+        $sources = $this->freshSources($now);
+        unset($sources['queue']);
+
+        $r    = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+        $plan = array_column($r['knowledge_dominance_refresh_plan'], null, 'source_id');
+
+        $this->assertArrayHasKey('queue', $plan);
+        $this->assertSame('supply_source', $plan['queue']['refresh_action']);
+        $this->assertSame('receipt:queue:supply_source', $plan['queue']['required_receipt']);
+        $this->assertFalse($plan['queue']['safe_to_origin_tasks']);
+    }
+
+    public function test_blocked_hash_missing_produces_repair_hash_action(): void
+    {
+        $now = 1719252000;
+        $sources = $this->freshSources($now);
+        $sources['receipts']['hash'] = '';
+
+        $r    = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+        $plan = array_column($r['knowledge_dominance_refresh_plan'], null, 'source_id');
+
+        $this->assertSame('repair_hash', $plan['receipts']['refresh_action']);
+        $this->assertFalse($plan['receipts']['safe_to_origin_tasks']);
+    }
+
+    public function test_blocked_future_timestamp_produces_correct_clock_action(): void
+    {
+        $now = 1719252000;
+        $sources = $this->freshSources($now);
+        $sources['docs']['last_unix'] = $now + 9999;
+
+        $r    = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+        $plan = array_column($r['knowledge_dominance_refresh_plan'], null, 'source_id');
+
+        $this->assertSame('correct_clock', $plan['docs']['refresh_action']);
+        $this->assertFalse($plan['docs']['safe_to_origin_tasks']);
+    }
+
+    public function test_blocked_invalid_window_produces_repair_window_config_action(): void
+    {
+        $now = 1719252000;
+        $r   = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt([
+            'now_unix'                 => $now,
+            'freshness_window_seconds' => 0,
+            'sources'                  => $this->freshSources($now),
+        ]);
+
+        foreach ($r['knowledge_dominance_refresh_plan'] as $entry) {
+            $this->assertSame('repair_window_config', $entry['refresh_action']);
+            $this->assertFalse($entry['safe_to_origin_tasks']);
+        }
+        $this->assertCount(count(AtlasSelfConstructionCortexFreshnessBridge::REQUIRED_SOURCES), $r['knowledge_dominance_refresh_plan']);
+    }
+
+    public function test_plan_entry_has_all_required_keys(): void
+    {
+        $now = 1719252000;
+        $sources = $this->freshSources($now);
+        unset($sources['code_index']);
+
+        $r     = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+        $entry = $r['knowledge_dominance_refresh_plan'][0];
+
+        foreach (['source_id', 'refresh_action', 'blocking_reason', 'required_receipt', 'safe_to_origin_tasks'] as $key) {
+            $this->assertArrayHasKey($key, $entry);
+        }
+    }
+
+    public function test_safe_to_origin_tasks_false_when_any_blocked_or_unknown(): void
+    {
+        $now = 1719252000;
+        $sources = $this->freshSources($now);
+        unset($sources['runtime_evidence']);
+
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+
+        $this->assertFalse($r['safe_to_origin_tasks']);
+    }
 }
