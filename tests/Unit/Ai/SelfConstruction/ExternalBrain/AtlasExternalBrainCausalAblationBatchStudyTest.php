@@ -242,4 +242,120 @@ final class AtlasExternalBrainCausalAblationBatchStudyTest extends TestCase
 
         $this->assertSame(json_encode($this->study($facts)), json_encode($this->study($facts)));
     }
+
+    // ── compare(): control vs treatment ──────────────────────────────────────
+
+    private function makeSnapshot(float $greenRate, float $giveback = 0.15, float $proxy = 0.05, float $capDelta = 0.05, int $n = 20, float $cost = 100.0): array
+    {
+        return [
+            'green_rate'       => $greenRate,
+            'give_back_rate'   => $giveback,
+            'proxy_rate'       => $proxy,
+            'capability_delta' => $capDelta,
+            'sample_count'     => $n,
+            'cost_per_green'   => $cost,
+        ];
+    }
+
+    public function test_compare_output_has_required_fields(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.70));
+
+        foreach (['schema_version', 'causal_lift', 'confidence', 'decision', 'decision_reason', 'metrics'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+        $this->assertSame(AtlasExternalBrainCausalAblationBatchStudy::SCHEMA, $r['schema_version']);
+    }
+
+    public function test_compare_metrics_contain_per_field_deltas(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.70));
+
+        foreach (['green_rate', 'give_back_rate', 'proxy_rate', 'capability_delta', 'cost_per_green'] as $f) {
+            $this->assertArrayHasKey($f, $r['metrics']);
+            $this->assertArrayHasKey('delta', $r['metrics'][$f]);
+        }
+        $this->assertArrayHasKey('sample_count', $r['metrics']);
+    }
+
+    public function test_positive_lift_yields_keep_policy(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.72));
+
+        $this->assertSame('keep_policy', $r['decision']);
+        $this->assertGreaterThan(0.0, $r['causal_lift']);
+    }
+
+    public function test_negative_lift_yields_rollback_policy(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.70), $this->makeSnapshot(0.58));
+
+        $this->assertSame('rollback_policy', $r['decision']);
+        $this->assertLessThan(0.0, $r['causal_lift']);
+    }
+
+    public function test_inconclusive_small_sample_yields_collect_more_evidence(): void
+    {
+        // Good lift but sample below threshold → collect
+        $r = $this->svc->compare($this->makeSnapshot(0.60, n: 5), $this->makeSnapshot(0.72, n: 5));
+
+        $this->assertSame('collect_more_evidence', $r['decision']);
+        $this->assertSame('weak', $r['confidence']);
+        $this->assertStringContainsString('below', $r['decision_reason']);
+    }
+
+    public function test_proxy_regression_yields_rollback_policy(): void
+    {
+        // proxy_rate jumps from 0.05 to 0.20 — delta 0.15 > limit 0.10
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, proxy: 0.05),
+            $this->makeSnapshot(0.72, proxy: 0.20),
+        );
+
+        $this->assertSame('rollback_policy', $r['decision']);
+        $this->assertStringContainsString('proxy_rate', $r['decision_reason']);
+    }
+
+    public function test_cost_regression_yields_rollback_policy(): void
+    {
+        // cost rises 50% (1.5x) — exceeds 1.20x limit
+        $r = $this->svc->compare(
+            $this->makeSnapshot(0.60, cost: 100.0),
+            $this->makeSnapshot(0.72, cost: 150.0),
+        );
+
+        $this->assertSame('rollback_policy', $r['decision']);
+        $this->assertStringContainsString('cost_per_green', $r['decision_reason']);
+    }
+
+    public function test_lift_within_threshold_yields_collect_more_evidence(): void
+    {
+        // lift = 0.02 < 0.05 threshold
+        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.62));
+
+        $this->assertSame('collect_more_evidence', $r['decision']);
+        $this->assertStringContainsString('inconclusive', $r['decision_reason']);
+    }
+
+    public function test_high_confidence_when_large_sample(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.60, n: 30), $this->makeSnapshot(0.72, n: 30));
+
+        $this->assertSame('high', $r['confidence']);
+    }
+
+    public function test_medium_confidence_between_thresholds(): void
+    {
+        // sample_count = 15 — between 10 and 20
+        $r = $this->svc->compare($this->makeSnapshot(0.60, n: 15), $this->makeSnapshot(0.72, n: 15));
+
+        $this->assertSame('medium', $r['confidence']);
+    }
+
+    public function test_causal_lift_is_green_rate_delta(): void
+    {
+        $r = $this->svc->compare($this->makeSnapshot(0.60), $this->makeSnapshot(0.75));
+
+        $this->assertEqualsWithDelta(0.15, $r['causal_lift'], 0.0001);
+    }
 }

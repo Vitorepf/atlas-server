@@ -41,6 +41,13 @@ final class AtlasExternalBrainCausalAblationBatchStudy
     private const GOOD_OUTCOMES = ['value_proof_rate', 'commit_success_rate', 'compounding_impact'];
     private const BAD_OUTCOMES  = ['give_back_rate', 'poison_rate', 'implementation_cost'];
 
+    // compare() thresholds
+    private const LIFT_THRESHOLD         = 0.05;
+    private const PROXY_REGRESSION_LIMIT = 0.10;
+    private const COST_REGRESSION_RATIO  = 1.20;
+    private const MIN_DECISION_SAMPLE    = 10;
+    private const HIGH_CONF_SAMPLE       = 20;
+
     public function study(array $facts): array
     {
         $batches       = is_array($facts['batches'] ?? null) ? $facts['batches'] : [];
@@ -157,6 +164,97 @@ final class AtlasExternalBrainCausalAblationBatchStudy
             'confidence'             => $confidence,
             'confidence_reason'      => $confidenceReason,
         ];
+    }
+
+    /**
+     * Compare a control batch against a treatment batch and decide whether
+     * to keep, roll back, or collect more evidence.
+     *
+     * @param  array{green_rate?:float, give_back_rate?:float, proxy_rate?:float,
+     *               capability_delta?:float, sample_count?:int, cost_per_green?:float}  $control
+     * @param  array{green_rate?:float, give_back_rate?:float, proxy_rate?:float,
+     *               capability_delta?:float, sample_count?:int, cost_per_green?:float}  $treatment
+     * @return array{schema_version:string, causal_lift:float, confidence:string,
+     *               decision:string, decision_reason:string, metrics:array<string,mixed>}
+     */
+    public function compare(array $control, array $treatment): array
+    {
+        $minSample = min(
+            max(0, (int) ($control['sample_count']   ?? 0)),
+            max(0, (int) ($treatment['sample_count'] ?? 0)),
+        );
+
+        $causalLift = round(
+            (float) ($treatment['green_rate'] ?? 0.0) - (float) ($control['green_rate'] ?? 0.0),
+            4,
+        );
+
+        $confidence = match (true) {
+            $minSample < self::MIN_DECISION_SAMPLE => 'weak',
+            $minSample < self::HIGH_CONF_SAMPLE    => 'medium',
+            default                                 => 'high',
+        };
+
+        $metrics = $this->compareMetrics($control, $treatment);
+
+        [$decision, $reason] = $this->compareDecide($causalLift, $metrics, $minSample);
+
+        return [
+            'schema_version'  => self::SCHEMA,
+            'causal_lift'     => $causalLift,
+            'confidence'      => $confidence,
+            'decision'        => $decision,
+            'decision_reason' => $reason,
+            'metrics'         => $metrics,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function compareMetrics(array $control, array $treatment): array
+    {
+        $metrics = [];
+        foreach (['green_rate', 'give_back_rate', 'proxy_rate', 'capability_delta', 'cost_per_green'] as $f) {
+            $c = (float) ($control[$f]   ?? 0.0);
+            $t = (float) ($treatment[$f] ?? 0.0);
+            $metrics[$f] = ['control' => $c, 'treatment' => $t, 'delta' => round($t - $c, 4)];
+        }
+        $metrics['sample_count'] = [
+            'control'   => (int) ($control['sample_count']   ?? 0),
+            'treatment' => (int) ($treatment['sample_count'] ?? 0),
+        ];
+
+        return $metrics;
+    }
+
+    /** @return array{string, string} */
+    private function compareDecide(float $lift, array $metrics, int $minSample): array
+    {
+        if ($minSample < self::MIN_DECISION_SAMPLE) {
+            return ['collect_more_evidence', 'min_sample ' . $minSample . ' below ' . self::MIN_DECISION_SAMPLE];
+        }
+
+        $proxyDelta = (float) ($metrics['proxy_rate']['delta'] ?? 0.0);
+        if ($proxyDelta > self::PROXY_REGRESSION_LIMIT) {
+            return ['rollback_policy', 'proxy_rate increased by ' . $proxyDelta . ' exceeding limit ' . self::PROXY_REGRESSION_LIMIT];
+        }
+
+        $ctrlCost  = (float) ($metrics['cost_per_green']['control']   ?? 0.0);
+        $treatCost = (float) ($metrics['cost_per_green']['treatment'] ?? 0.0);
+        if ($ctrlCost > 0.0 && $treatCost > $ctrlCost * self::COST_REGRESSION_RATIO) {
+            $ratio = round($treatCost / $ctrlCost, 2);
+
+            return ['rollback_policy', 'cost_per_green ratio ' . $ratio . 'x exceeds limit ' . self::COST_REGRESSION_RATIO . 'x'];
+        }
+
+        if ($lift >= self::LIFT_THRESHOLD) {
+            return ['keep_policy', 'positive_lift ' . $lift . ' >= threshold ' . self::LIFT_THRESHOLD];
+        }
+
+        if ($lift <= -self::LIFT_THRESHOLD) {
+            return ['rollback_policy', 'negative_lift ' . $lift . ' <= -threshold ' . self::LIFT_THRESHOLD];
+        }
+
+        return ['collect_more_evidence', 'lift ' . $lift . ' within inconclusive range ±' . self::LIFT_THRESHOLD];
     }
 
     private function pearson(array $x, array $y): float
