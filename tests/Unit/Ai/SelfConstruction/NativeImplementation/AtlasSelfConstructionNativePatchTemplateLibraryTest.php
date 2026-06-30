@@ -73,4 +73,95 @@ final class AtlasSelfConstructionNativePatchTemplateLibraryTest extends TestCase
         $this->expectExceptionMessageMatches('/missing_variable:method_name/');
         (new AtlasSelfConstructionNativePatchTemplateLibrary)->renderSkeleton('pure_service', ['namespace' => 'X', 'class_name' => 'Y']);
     }
+
+    public function test_templates_exposes_proof_strength_for_every_entry(): void
+    {
+        $lib = new AtlasSelfConstructionNativePatchTemplateLibrary;
+        foreach ($lib->templates() as $t) {
+            $this->assertArrayHasKey('proof_strength', $t, "template {$t['template_id']} must expose proof_strength");
+            $this->assertNotEmpty($t['proof_strength']);
+        }
+    }
+
+    public function test_describe_exposes_proof_strength(): void
+    {
+        $d = (new AtlasSelfConstructionNativePatchTemplateLibrary)->describe('pure_service');
+        $this->assertSame(AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_PRODUCTION, $d['proof_strength']);
+    }
+
+    public function test_production_templates_have_production_proof_strength(): void
+    {
+        $lib = new AtlasSelfConstructionNativePatchTemplateLibrary;
+        foreach (['pure_service', 'value_object', 'facts_only_gate'] as $id) {
+            $this->assertSame(
+                AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_PRODUCTION,
+                $lib->describe($id)['proof_strength'],
+                "$id should be production"
+            );
+        }
+    }
+
+    public function test_unit_test_scaffold_is_behavioral_test_not_production(): void
+    {
+        $d = (new AtlasSelfConstructionNativePatchTemplateLibrary)->describe('unit_test_scaffold');
+        $this->assertSame(AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_BEHAVIORAL_TEST, $d['proof_strength']);
+        $this->assertNotSame(AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_PRODUCTION, $d['proof_strength']);
+    }
+
+    public function test_cli_wrapper_skeleton_does_not_contain_print_ok_only(): void
+    {
+        $lib = new AtlasSelfConstructionNativePatchTemplateLibrary;
+        $rendered = $lib->renderSkeleton('cli_wrapper', [
+            'namespace'          => 'App\\Console\\Commands',
+            'class_name'         => 'FooCommand',
+            'signature'          => 'atlas:foo',
+            'description'        => 'Run foo',
+            'service_fqn'        => 'App\\Services\\FooService',
+            'service_class_short' => 'FooService',
+        ]);
+        $this->assertStringNotContainsString("\$this->line('ok')", $rendered);
+        $this->assertStringContainsString('FooService', $rendered);
+    }
+
+    public function test_unit_test_scaffold_skeleton_does_not_contain_assert_true_true(): void
+    {
+        $lib = new AtlasSelfConstructionNativePatchTemplateLibrary;
+        $rendered = $lib->renderSkeleton('unit_test_scaffold', [
+            'namespace'         => 'Tests\\Unit',
+            'class_name'        => 'FooTest',
+            'target_fqn'        => 'App\\Services\\Foo',
+            'target_class_short' => 'Foo',
+        ]);
+        $this->assertStringNotContainsString('assertTrue(true)', $rendered);
+        $this->assertStringContainsString('assertInstanceOf', $rendered);
+    }
+
+    public function test_supports_exposes_match_proof_strengths(): void
+    {
+        $r = (new AtlasSelfConstructionNativePatchTemplateLibrary)->supports(['kind' => 'service', 'side_effects' => 'none']);
+        $this->assertArrayHasKey('match_proof_strengths', $r);
+        $this->assertArrayHasKey('pure_service', $r['match_proof_strengths']);
+        $this->assertSame(AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_PRODUCTION, $r['match_proof_strengths']['pure_service']);
+    }
+
+    public function test_supports_distinguishes_production_from_scaffold_without_string_hacks(): void
+    {
+        $lib = new AtlasSelfConstructionNativePatchTemplateLibrary;
+        $prodResult  = $lib->supports(['kind' => 'service', 'side_effects' => 'none']);
+        $testResult  = $lib->supports(['kind' => 'unit_test']);
+        $cliResult   = $lib->supports(['kind' => 'cli_wrapper']);
+
+        $this->assertSame(
+            AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_PRODUCTION,
+            $prodResult['match_proof_strengths']['pure_service']
+        );
+        $this->assertSame(
+            AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_BEHAVIORAL_TEST,
+            $testResult['match_proof_strengths']['unit_test_scaffold']
+        );
+        $this->assertSame(
+            AtlasSelfConstructionNativePatchTemplateLibrary::PROOF_STRENGTH_THIN_DELEGATION,
+            $cliResult['match_proof_strengths']['cli_wrapper']
+        );
+    }
 }
