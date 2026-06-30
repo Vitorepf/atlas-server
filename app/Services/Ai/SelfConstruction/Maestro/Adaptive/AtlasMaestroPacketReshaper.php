@@ -31,6 +31,9 @@ final class AtlasMaestroPacketReshaper
             $proposals[] = match ((string) ($pattern['type'] ?? '')) {
                 'missing_impl_file'        => $this->repairMissingImplFile($packet, $pattern),
                 'contradictory_acceptance' => $this->retireContradictory($packet, $pattern),
+                'forbidden_target'         => $this->retireForbiddenTarget($packet, $pattern),
+                'schema_mismatch'          => $this->repairSchemaMismatch($packet, $pattern),
+                'duplicate_or_noop'        => $this->repairDuplicateOrNoop($packet, $pattern),
                 default                    => $this->retireUnknown($packet, $pattern),
             };
         }
@@ -83,6 +86,60 @@ final class AtlasMaestroPacketReshaper
             'pattern'            => 'contradictory_acceptance',
             'original_packet_id' => (string) ($packet['task_packet_id'] ?? $packet['label'] ?? ''),
             'detail'             => (string) ($pattern['reason'] ?? 'acceptance criteria contradict each other'),
+        ];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function retireForbiddenTarget(array $packet, array $pattern): array
+    {
+        return [
+            'action'             => 'retire',
+            'reason'             => 'forbidden_target_unrepairable',
+            'pattern'            => 'forbidden_target',
+            'original_packet_id' => (string) ($packet['task_packet_id'] ?? $packet['label'] ?? ''),
+            'detail'             => (string) ($pattern['detail'] ?? 'target is forbidden and cannot be repaired by file edits alone'),
+        ];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function repairSchemaMismatch(array $packet, array $pattern): array
+    {
+        $id = (string) ($packet['task_packet_id'] ?? $packet['label'] ?? '');
+        $expectedSchema = (string) ($pattern['expected_schema'] ?? '');
+        $repairedPacket = $packet;
+        if ($expectedSchema !== '') {
+            $repairedPacket['schema'] = $expectedSchema;
+        }
+
+        return [
+            'action'             => 'repair',
+            'reason'             => 'schema_mismatch_corrected',
+            'pattern'            => 'schema_mismatch',
+            'original_packet_id' => $id,
+            'expected_schema'    => $expectedSchema,
+            'respec'             => $repairedPacket,
+        ];
+    }
+
+    /** @param  array<string,mixed>  $packet  @param  array<string,mixed>  $pattern */
+    private function repairDuplicateOrNoop(array $packet, array $pattern): array
+    {
+        $id = (string) ($packet['task_packet_id'] ?? $packet['label'] ?? '');
+
+        // Emit a replacement objective/acceptance that demands behavior proof, not a cosmetic rename.
+        $repairedPacket = $packet;
+        $repairedPacket['objective'] = 'Re-implement with measurable behavior change: '.$id;
+        $repairedPacket['acceptance_criteria'] = [
+            '/opt/homebrew/bin/php artisan test --filter=<TestClass> must exit 0 proving real behavior change',
+        ];
+        $repairedPacket['required_evidence'] = ['tests_or_gates_result', 'implementation_notes'];
+
+        return [
+            'action'             => 'repair',
+            'reason'             => 'duplicate_or_noop_replaced_with_behavior_proof',
+            'pattern'            => 'duplicate_or_noop',
+            'original_packet_id' => $id,
+            'respec'             => $repairedPacket,
         ];
     }
 

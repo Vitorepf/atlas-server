@@ -234,4 +234,40 @@ final class AtlasMaestroPacketReshaperTest extends TestCase
             'depends_on' => ['upstream-ledger'],
         ];
     }
+
+    // ── forbidden_target, schema_mismatch, duplicate_or_noop ─────────────────
+
+    public function test_forbidden_target_retires_instead_of_faking_repair(): void
+    {
+        $r = (new AtlasMaestroPacketReshaper($this->miner()))->propose($this->packet(), [
+            ['type' => 'forbidden_target', 'detail' => 'file is pétreo'],
+        ]);
+
+        $this->assertSame('retire', $r['proposals'][0]['action']);
+        $this->assertSame('forbidden_target_unrepairable', $r['proposals'][0]['reason']);
+    }
+
+    public function test_schema_mismatch_repairs_with_expected_schema(): void
+    {
+        $r = (new AtlasMaestroPacketReshaper($this->miner()))->propose($this->packet(), [
+            ['type' => 'schema_mismatch', 'expected_schema' => 'atlas.task_serving.envelope.v2'],
+        ]);
+
+        $this->assertSame('repair', $r['proposals'][0]['action']);
+        $this->assertSame('atlas.task_serving.envelope.v2', $r['proposals'][0]['expected_schema']);
+        $this->assertSame('atlas.task_serving.envelope.v2', $r['proposals'][0]['respec']['schema']);
+    }
+
+    public function test_duplicate_or_noop_emits_behavior_proof_not_rename(): void
+    {
+        $r = (new AtlasMaestroPacketReshaper($this->miner()))->propose($this->packet(), [
+            ['type' => 'duplicate_or_noop'],
+        ]);
+
+        $this->assertSame('repair', $r['proposals'][0]['action']);
+        $respec = $r['proposals'][0]['respec'];
+        $this->assertStringContainsString('measurable behavior change', $respec['objective']);
+        $this->assertStringContainsString('artisan test', $respec['acceptance_criteria'][0]);
+        $this->assertContains('tests_or_gates_result', $respec['required_evidence']);
+    }
 }
