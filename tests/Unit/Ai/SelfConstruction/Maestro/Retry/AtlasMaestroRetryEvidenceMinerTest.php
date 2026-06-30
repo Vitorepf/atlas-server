@@ -139,5 +139,123 @@ final class AtlasMaestroRetryEvidenceMinerTest extends TestCase
         $fact = $facts[0];
         $this->assertTrue($fact['insufficient_sample'], 'below MIN_SAMPLE_FOR_POLICY must be marked insufficient_sample');
         $this->assertFalse($fact['regression_after_reshape'], 'insufficient sample must not be treated as regression policy');
+        $this->assertSame('insufficient_sample', $fact['outcome']);
+        $this->assertSame('no_action_insufficient_sample', $fact['policy_action']);
+    }
+
+    public function test_root_cause_bucket_forbidden_removed_takes_priority(): void
+    {
+        $row = $this->row([
+            'structural_metadata' => [
+                'forbidden_removed' => ['app/Petreo/A.php'],
+                'anchors_added' => ['Foo::run'],
+                'scope_widened_bool' => true,
+            ],
+        ]);
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine([$row], ['pkt-A' => true]);
+
+        $this->assertSame('forbidden_removed', $facts[0]['root_cause_bucket']);
+    }
+
+    public function test_root_cause_bucket_scope_widened_when_no_forbidden_removed(): void
+    {
+        $row = $this->row([
+            'structural_metadata' => [
+                'forbidden_removed' => [],
+                'anchors_added' => [],
+                'scope_widened_bool' => true,
+            ],
+        ]);
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine([$row], ['pkt-A' => true]);
+
+        $this->assertSame('scope_widened', $facts[0]['root_cause_bucket']);
+    }
+
+    public function test_root_cause_bucket_anchor_added_when_no_forbidden_or_scope(): void
+    {
+        $row = $this->row([
+            'original_allowed_files' => ['app/Foo.php'],
+            'reshaped_allowed_files' => ['app/Foo.php'],
+            'structural_metadata' => [
+                'forbidden_removed' => [],
+                'anchors_added' => ['Foo::run'],
+                'scope_widened_bool' => false,
+            ],
+        ]);
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine([$row], ['pkt-A' => true]);
+
+        $this->assertSame('anchor_added', $facts[0]['root_cause_bucket']);
+    }
+
+    public function test_root_cause_bucket_unclassified_when_delta_empty(): void
+    {
+        $row = $this->row([
+            'original_allowed_files' => ['app/Foo.php'],
+            'reshaped_allowed_files' => ['app/Foo.php'],
+            'structural_metadata' => [
+                'forbidden_removed' => [],
+                'anchors_added' => [],
+                'scope_widened_bool' => false,
+            ],
+        ]);
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine([$row], ['pkt-A' => true]);
+
+        $this->assertSame('unclassified', $facts[0]['root_cause_bucket']);
+    }
+
+    public function test_regression_outcome_emits_block_policy_action(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_POLICY;
+        $rows = [];
+        $successMap = [];
+        for ($i = 0; $i < $min; $i++) {
+            $id = 'pkt-block-'.$i;
+            $rows[] = $this->row(['task_packet_id' => $id, 'seq' => $i + 1]);
+            $successMap[$id] = $i === 0;
+        }
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine($rows, $successMap);
+
+        $this->assertSame('regression', $facts[0]['outcome']);
+        $this->assertSame('block_reshape_pattern', $facts[0]['policy_action']);
+    }
+
+    public function test_repair_success_outcome_emits_allow_policy_action(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_POLICY;
+        $rows = [];
+        $successMap = [];
+        for ($i = 0; $i < $min; $i++) {
+            $id = 'pkt-allow-'.$i;
+            $rows[] = $this->row(['task_packet_id' => $id, 'seq' => $i + 1]);
+            $successMap[$id] = $i !== 0; // only first fails, rest succeed
+        }
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine($rows, $successMap);
+
+        $this->assertSame('repair_success', $facts[0]['outcome']);
+        $this->assertSame('allow_reshape_pattern', $facts[0]['policy_action']);
+    }
+
+    public function test_neutral_outcome_when_successes_equal_failures(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_POLICY;
+        $rows = [];
+        $successMap = [];
+        for ($i = 0; $i < $min + 1; $i++) {
+            $id = 'pkt-neutral-'.$i;
+            $rows[] = $this->row(['task_packet_id' => $id, 'seq' => $i + 1]);
+            $successMap[$id] = $i % 2 === 0;
+        }
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mine($rows, $successMap);
+
+        $this->assertSame($facts[0]['observed_successes'], $facts[0]['observed_failures']);
+        $this->assertSame('neutral', $facts[0]['outcome']);
+        $this->assertSame('no_action_neutral', $facts[0]['policy_action']);
     }
 }

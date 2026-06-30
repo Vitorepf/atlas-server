@@ -60,15 +60,21 @@ final class AtlasMaestroRetryEvidenceMiner
         $facts = [];
         foreach ($buckets as $fp => $bucket) {
             $insufficient = $bucket['attempts'] < self::MIN_SAMPLE_FOR_POLICY;
+            $regression = ! $insufficient && $bucket['failures'] > $bucket['successes'];
+            $rootCauseBucket = $this->rootCauseBucket($bucket['delta']);
+            $outcome = $this->outcome($insufficient, $regression, $bucket['successes'], $bucket['failures']);
             $facts[] = [
                 'reshape_pattern_fingerprint' => (string) $fp,
                 'structural_delta' => $bucket['delta'],
+                'root_cause_bucket' => $rootCauseBucket,
                 'observed_attempts' => $bucket['attempts'],
                 'observed_successes' => $bucket['successes'],
                 'observed_failures' => $bucket['failures'],
                 'last_seen_seq' => $bucket['last_seen_seq'],
-                'regression_after_reshape' => ! $insufficient && $bucket['failures'] > $bucket['successes'],
+                'regression_after_reshape' => $regression,
                 'insufficient_sample' => $insufficient,
+                'outcome' => $outcome,
+                'policy_action' => $this->policyAction($outcome),
             ];
         }
         usort($facts, static fn (array $a, array $b): int => strcmp($a['reshape_pattern_fingerprint'], $b['reshape_pattern_fingerprint']));
@@ -97,6 +103,55 @@ final class AtlasMaestroRetryEvidenceMiner
             'anchors_added' => $anchors,
             'scope_widened_bool' => count($reshaped) > count($original) || (bool) ($metadata['scope_widened_bool'] ?? false),
         ];
+    }
+
+    /**
+     * Categorical root cause of the structural delta — deterministic, no scoring.
+     *
+     * @param  array<string,mixed>  $delta
+     */
+    private function rootCauseBucket(array $delta): string
+    {
+        if ((array) ($delta['forbidden_removed'] ?? []) !== []) {
+            return 'forbidden_removed';
+        }
+        if ((bool) ($delta['scope_widened_bool'] ?? false)) {
+            return 'scope_widened';
+        }
+        if ((array) ($delta['anchors_added'] ?? []) !== []) {
+            return 'anchor_added';
+        }
+
+        return 'unclassified';
+    }
+
+    private function outcome(bool $insufficient, bool $regression, int $successes, int $failures): string
+    {
+        if ($insufficient) {
+            return 'insufficient_sample';
+        }
+        if ($regression) {
+            return 'regression';
+        }
+        if ($successes > $failures) {
+            return 'repair_success';
+        }
+
+        return 'neutral';
+    }
+
+    /**
+     * Recommended retry-policy action for this pattern fingerprint — stops infinite give_back
+     * loops by telling the caller whether to keep retrying this exact structural reshape.
+     */
+    private function policyAction(string $outcome): string
+    {
+        return match ($outcome) {
+            'regression' => 'block_reshape_pattern',
+            'repair_success' => 'allow_reshape_pattern',
+            'insufficient_sample' => 'no_action_insufficient_sample',
+            default => 'no_action_neutral',
+        };
     }
 
     /**
