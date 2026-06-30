@@ -354,4 +354,143 @@ final class AtlasExternalBrainMuscleOutcomeLearningMatrixTest extends TestCase
         ]);
         $this->assertEmpty($r['repeat_offenders']);
     }
+
+    // ── Routing recommendations ───────────────────────────────────────────────
+
+    public function test_output_has_routing_and_cross_matrix_keys(): void
+    {
+        $r = $this->matrix()->analyze([]);
+        $this->assertArrayHasKey('routing_recommendations', $r);
+        $this->assertArrayHasKey('family_worker_fit',       $r);
+        $this->assertArrayHasKey('family_tier_fit',         $r);
+    }
+
+    public function test_high_success_worker_family_pair_appears_in_preferred_workers(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
+                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
+                $this->row(['worker_id' => 'w1', 'outcome' => 'success']),
+            ],
+            'routing_prefer_floor' => 0.70,
+            'routing_min_rows'     => 2,
+        ]);
+
+        $pref = $r['routing_recommendations']['refactor']['preferred_workers'] ?? [];
+        $ids  = array_column($pref, 'worker_id');
+        $this->assertContains('w1', $ids, 'w1 with 100% success must appear in preferred_workers');
+        $this->assertSame('prefer', $pref[array_search('w1', $ids)]['routing']);
+    }
+
+    public function test_low_success_worker_family_pair_appears_in_avoid_workers(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['worker_id' => 'w2', 'outcome' => 'failure']),
+                $this->row(['worker_id' => 'w2', 'outcome' => 'failure']),
+                $this->row(['worker_id' => 'w2', 'outcome' => 'failure']),
+            ],
+            'routing_avoid_ceiling' => 0.40,
+            'routing_min_rows'      => 2,
+        ]);
+
+        $avoid = $r['routing_recommendations']['refactor']['avoid_workers'] ?? [];
+        $this->assertContains('w2', array_column($avoid, 'worker_id'));
+        $this->assertSame('avoid', $avoid[0]['routing']);
+    }
+
+    public function test_poison_prone_worker_family_pair_is_fail_closed(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['worker_id' => 'w3', 'outcome' => 'poison']),
+                $this->row(['worker_id' => 'w3', 'outcome' => 'poison']),
+                $this->row(['worker_id' => 'w3', 'outcome' => 'success']),
+            ],
+            'poison_threshold' => 0.20,
+            'routing_min_rows' => 2,
+        ]);
+
+        $fc = $r['routing_recommendations']['refactor']['fail_closed_combinations'] ?? [];
+        $this->assertNotEmpty($fc, 'poison-prone w3×refactor must be fail_closed');
+        $this->assertSame('w3', $fc[0]['worker_id']);
+        $this->assertSame('fail_closed', $fc[0]['routing']);
+        $this->assertSame('poison_prone_combination', $fc[0]['reason']);
+    }
+
+    public function test_preferred_tier_is_highest_success_tier_for_family(): void
+    {
+        $r = $this->matrix()->analyze([
+            'outcome_rows' => [
+                $this->row(['model_tier' => 'small',    'outcome' => 'failure']),
+                $this->row(['model_tier' => 'small',    'outcome' => 'failure']),
+                $this->row(['model_tier' => 'frontier', 'outcome' => 'success']),
+                $this->row(['model_tier' => 'frontier', 'outcome' => 'success']),
+            ],
+            'routing_min_rows' => 2,
+        ]);
+
+        $this->assertSame('frontier', $r['routing_recommendations']['refactor']['preferred_tier']);
+    }
+
+    public function test_three_family_routing_scenario_covers_all_routing_categories(): void
+    {
+        // add_feature: w1=3×success → prefer; w2=2×failure → avoid
+        // bugfix: w3=3×success → prefer; model frontier has high success
+        // refactor: w4=3×poison → fail_closed; w1=3×success → prefer
+        $rows = [
+            // add_feature
+            ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
+            ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
+            ['task_family' => 'add_feature', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
+            ['task_family' => 'add_feature', 'worker_id' => 'w2', 'model_tier' => 'small', 'outcome' => 'failure'],
+            ['task_family' => 'add_feature', 'worker_id' => 'w2', 'model_tier' => 'small', 'outcome' => 'failure'],
+            // bugfix
+            ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'],
+            ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'],
+            ['task_family' => 'bugfix', 'worker_id' => 'w3', 'model_tier' => 'frontier', 'outcome' => 'success'],
+            // refactor
+            ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'poison'],
+            ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'poison'],
+            ['task_family' => 'refactor', 'worker_id' => 'w4', 'model_tier' => 'small', 'outcome' => 'success'],
+            ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
+            ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
+            ['task_family' => 'refactor', 'worker_id' => 'w1', 'model_tier' => 'small', 'outcome' => 'success'],
+        ];
+
+        $r = $this->matrix()->analyze([
+            'outcome_rows'    => $rows,
+            'poison_threshold' => 0.20,
+            'routing_prefer_floor'  => 0.70,
+            'routing_avoid_ceiling' => 0.40,
+            'routing_min_rows'      => 2,
+        ]);
+
+        // Three distinct families covered.
+        $this->assertCount(3, $r['family_matrix']);
+
+        // add_feature: w1 preferred, w2 avoided
+        $addFeature = $r['routing_recommendations']['add_feature'];
+        $this->assertContains('w1', array_column($addFeature['preferred_workers'], 'worker_id'));
+        $this->assertContains('w2', array_column($addFeature['avoid_workers'],     'worker_id'));
+
+        // bugfix: w3 preferred; frontier is preferred tier
+        $bugfix = $r['routing_recommendations']['bugfix'];
+        $this->assertContains('w3', array_column($bugfix['preferred_workers'], 'worker_id'));
+        $this->assertSame('frontier', $bugfix['preferred_tier']);
+
+        // refactor: w4 fail_closed, w1 preferred
+        $refactor = $r['routing_recommendations']['refactor'];
+        $this->assertContains('w4', array_column($refactor['fail_closed_combinations'], 'worker_id'));
+        $this->assertContains('w1', array_column($refactor['preferred_workers'],        'worker_id'));
+
+        // Evidence fields are present for Maestro/Task Fabric to explain routing.
+        foreach (['add_feature', 'bugfix', 'refactor'] as $fam) {
+            $rec = $r['routing_recommendations'][$fam];
+            $this->assertArrayHasKey('routing_basis',            $rec);
+            $this->assertArrayHasKey('fail_closed_combinations', $rec);
+            $this->assertArrayHasKey('preferred_tier',           $rec);
+        }
+    }
 }
