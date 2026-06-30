@@ -69,6 +69,23 @@ final class AtlasExternalBrainRunPolicyCompiler
     private const DEFAULT_MAX_GIVE_BACK_RATIO          = 0.30; // ≤30% tasks returned without value
     private const DEFAULT_MAX_TEMPLATE_REPETITION_RATE = 0.20; // ≤20% tasks from same template
 
+    /** AC1: explicit thresholds for all 24/7 autonomy action axes. */
+    private const DEFAULT_AUTONOMY_THRESHOLDS = [
+        // create: generate new tasks when queue_depth falls below this count
+        'create_min_queue_depth'                   => 5,
+        // stop: only when quota reached or honest_exhausted AND no learning/self-heal remaining
+        'stop_requires_no_pending_learning'        => true,
+        // consolidate: required when queue_pressure OR simplification_debt exceeds floor
+        'consolidate_queue_pressure_floor'         => 0.70,
+        'consolidate_simplification_debt_floor'    => 0.60,
+        // self_heal: trigger when error_rate exceeds ceiling
+        'self_heal_error_rate_ceiling'             => 0.20,
+        // research: trigger when novelty_score falls below floor
+        'research_novelty_score_floor'             => 0.30,
+        // ambition_escalation: trigger when stagnation_index exceeds floor
+        'ambition_escalation_stagnation_floor'     => 0.40,
+    ];
+
     /**
      * @param  array{
      *   target_quota?:int,
@@ -98,6 +115,11 @@ final class AtlasExternalBrainRunPolicyCompiler
         // stall_threshold: absolute count below which a stall is declared (pct of target).
         $stallThreshold = max(1, (int) ceil($targetQuota * $stallThresholdPct));
 
+        // AC1: explicit action thresholds for all 24/7 autonomy decision axes.
+        $autonomyThresholds = is_array($config['autonomy_action_thresholds'] ?? null)
+            ? array_merge(self::DEFAULT_AUTONOMY_THRESHOLDS, $config['autonomy_action_thresholds'])
+            : self::DEFAULT_AUTONOMY_THRESHOLDS;
+
         return [
             'schema' => self::SCHEMA_POLICY,
             'target_quota' => $targetQuota,
@@ -114,6 +136,7 @@ final class AtlasExternalBrainRunPolicyCompiler
                 'max_give_back_ratio'          => self::DEFAULT_MAX_GIVE_BACK_RATIO,
                 'max_template_repetition_rate' => self::DEFAULT_MAX_TEMPLATE_REPETITION_RATE,
             ],
+            'autonomy_action_thresholds' => $autonomyThresholds,
         ];
     }
 
@@ -187,6 +210,43 @@ final class AtlasExternalBrainRunPolicyCompiler
         if ($valueScore < $minValueScore) {
             $violations[] = 'value_score_below_minimum:'.round($valueScore, 4).':min:'.round($minValueScore, 4);
             $requiredActions[] = 'raise_value_bar_before_continuing';
+        }
+
+        // AC2 — block stopping when required learning/self-heal actions remain,
+        // even if quota is reached or fatigue/honest_exhausted is the stated reason.
+        $learningRemaining  = max(0, (int) ($runState['learning_actions_remaining']  ?? 0));
+        $selfHealRemaining  = max(0, (int) ($runState['self_heal_actions_remaining'] ?? 0));
+        $stopRequiresNoPending = (bool) ($policy['autonomy_action_thresholds']['stop_requires_no_pending_learning']
+            ?? self::DEFAULT_AUTONOMY_THRESHOLDS['stop_requires_no_pending_learning']);
+
+        if ($stopRequiresNoPending && $learningRemaining > 0) {
+            $violations[]      = 'pending_learning_actions_block_stop:remaining:'.$learningRemaining;
+            $requiredActions[] = 'complete_learning_actions_before_stopping';
+        }
+        if ($stopRequiresNoPending && $selfHealRemaining > 0) {
+            $violations[]      = 'pending_self_heal_actions_block_stop:remaining:'.$selfHealRemaining;
+            $requiredActions[] = 'complete_self_heal_actions_before_stopping';
+        }
+
+        // AC3 — require consolidation when queue_pressure or simplification_debt exceeds thresholds.
+        $autonomyThresholds = is_array($policy['autonomy_action_thresholds'] ?? null)
+            ? $policy['autonomy_action_thresholds']
+            : self::DEFAULT_AUTONOMY_THRESHOLDS;
+
+        $queuePressure           = (float) ($runState['queue_pressure']      ?? 0.0);
+        $simplificationDebt      = (float) ($runState['simplification_debt'] ?? 0.0);
+        $consolidateQueueFloor   = (float) ($autonomyThresholds['consolidate_queue_pressure_floor']
+            ?? self::DEFAULT_AUTONOMY_THRESHOLDS['consolidate_queue_pressure_floor']);
+        $consolidateDebtFloor    = (float) ($autonomyThresholds['consolidate_simplification_debt_floor']
+            ?? self::DEFAULT_AUTONOMY_THRESHOLDS['consolidate_simplification_debt_floor']);
+
+        if ($queuePressure > $consolidateQueueFloor) {
+            $violations[]      = 'queue_pressure_exceeds_consolidation_threshold:'.round($queuePressure, 4).':max:'.round($consolidateQueueFloor, 4);
+            $requiredActions[] = 'consolidate_queue_before_creating_new_tasks';
+        }
+        if ($simplificationDebt > $consolidateDebtFloor) {
+            $violations[]      = 'simplification_debt_exceeds_consolidation_threshold:'.round($simplificationDebt, 4).':max:'.round($consolidateDebtFloor, 4);
+            $requiredActions[] = 'consolidate_simplification_debt_before_continuing';
         }
 
         // RUNTIME QUALITY GATES — applied even when quota is reached.
