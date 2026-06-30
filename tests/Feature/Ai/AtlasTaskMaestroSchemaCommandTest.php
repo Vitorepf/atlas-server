@@ -173,4 +173,61 @@ class AtlasTaskMaestroSchemaCommandTest extends TestCase
         self::assertNotSame(0, $r['exit']);
         self::assertStringContainsString('unknown_action', $r['output']);
     }
+
+    public function test_migrate_json_without_to_emits_refused_json(): void
+    {
+        $r = $this->runCmd(['action' => 'migrate', '--input' => $this->tmpInput, '--json' => true]);
+
+        self::assertSame(2, $r['exit']);
+        $p = json_decode($r['output'], true);
+        self::assertSame('refused', $p['status']);
+        self::assertSame('to_option_missing', $p['reason']);
+    }
+
+    public function test_migrate_json_with_missing_input_emits_refused_json(): void
+    {
+        $r = $this->runCmd(['action' => 'migrate', '--to' => 'v2', '--json' => true]);
+
+        self::assertSame(2, $r['exit']);
+        $p = json_decode($r['output'], true);
+        self::assertSame('refused', $p['status']);
+        self::assertSame('input_option_missing', $p['reason']);
+    }
+
+    public function test_migrate_json_with_invalid_json_input_emits_refused_json(): void
+    {
+        file_put_contents($this->tmpInput, 'not-json');
+        $r = $this->runCmd(['action' => 'migrate', '--to' => 'atlas.self_construction.agent_control_plane_task_packet.v2', '--input' => $this->tmpInput, '--json' => true]);
+
+        self::assertSame(2, $r['exit']);
+        $p = json_decode($r['output'], true);
+        self::assertSame('refused', $p['status']);
+        self::assertSame('input_not_valid_json', $p['reason']);
+    }
+
+    public function test_migrate_json_with_unknown_target_emits_refused_json(): void
+    {
+        file_put_contents($this->tmpInput, json_encode(['schema_version' => AtlasMaestroPacketSchemaVersioning::CANONICAL_V1, 'task_packet_id' => 'pk-z']));
+        $r = $this->runCmd(['action' => 'migrate', '--to' => 'never.heard.v99', '--input' => $this->tmpInput, '--json' => true]);
+
+        self::assertSame(2, $r['exit']);
+        $p = json_decode($r['output'], true);
+        self::assertSame('refused', $p['status']);
+        self::assertStringContainsString('UnknownSchemaVersionException', $p['reason']);
+    }
+
+    public function test_deprecate_json_refusal_emits_refused_json(): void
+    {
+        $r = $this->runCmd([
+            'action' => 'deprecate',
+            '--from' => AtlasMaestroPacketSchemaVersioning::CANONICAL_V1,
+            '--reason' => 'test',
+            '--json' => true,
+        ]);
+
+        self::assertSame(2, $r['exit']);
+        $p = json_decode($r['output'], true);
+        self::assertSame('refused', $p['status']);
+        self::assertStringContainsString('deprecate_refused', $p['reason']);
+    }
 }

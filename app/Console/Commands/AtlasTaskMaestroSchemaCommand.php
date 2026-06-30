@@ -227,7 +227,11 @@ final class AtlasTaskMaestroSchemaCommand extends Command
 
     private function failWith(string $reason): int
     {
-        $this->line($reason);
+        if ($this->option('json')) {
+            $this->line((string) json_encode(['status' => 'refused', 'reason' => $reason], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->line($reason);
+        }
 
         return self::EXIT_USAGE;
     }
