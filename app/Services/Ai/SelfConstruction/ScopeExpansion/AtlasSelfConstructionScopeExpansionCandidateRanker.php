@@ -46,6 +46,12 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
 
     public const REASON_MISSING_REQUIRED_FACT = 'missing_required_fact';
 
+    public const REASON_HYPE_ONLY = 'hype_only';
+
+    public const REASON_MISSING_STRUCTURAL_LEVERAGE_REFS = 'missing_structural_leverage_refs';
+
+    public const REASON_DUPLICATE_SCOPE_ID = 'duplicate_scope_id';
+
     /**
      * @param  array<string,mixed>  $facts {candidates:list<array>, current_scope?:array, queue_health?:array, autonomy?:array, risk_budget:array}
      * @return array<string,mixed>
@@ -97,13 +103,32 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
             ];
         });
 
-        foreach ($accepted as &$candidate) {
+        // Deduplicate by scope_id: keep the best-ranked (first in sorted order), reject the rest.
+        $seenScopeIds = [];
+        $deduped = [];
+        foreach ($accepted as $c) {
+            $sid = (string) ($c['scope_id'] ?? '');
+            if (isset($seenScopeIds[$sid])) {
+                $rejected[] = ['scope_id' => $sid, 'reasons' => [self::REASON_DUPLICATE_SCOPE_ID]];
+            } else {
+                $seenScopeIds[$sid] = true;
+                $deduped[] = $c;
+            }
+        }
+        $accepted = $deduped;
+
+        foreach ($accepted as $idx => &$candidate) {
             $candidate['score_components'] = [
                 'leverage'   => (int) ($candidate['proven_leverage_tier'] ?? 0),
                 'readiness'  => (int) ($candidate['autonomy_readiness_tier'] ?? 0),
                 'proof_cost' => (int) ($candidate['proof_cost'] ?? 5),
                 'isolation'  => (int) ($candidate['isolation'] ?? 5),
                 'risk'       => (int) ($candidate['risk'] ?? 0),
+            ];
+            $candidate['decision_facts'] = [
+                'rank'            => $idx + 1,
+                'sort_dimensions' => ['proven_leverage_tier', 'autonomy_readiness_tier', 'proof_cost', 'isolation', 'risk', 'scope_id'],
+                'accepted'        => true,
             ];
         }
         unset($candidate);
@@ -167,6 +192,13 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
         }
         if (($candidate['scalar_only_proxy'] ?? false) === true) {
             $reasons[] = self::REASON_SCALAR_ONLY_PROXY;
+        }
+        if (($candidate['hype_only'] ?? false) === true) {
+            $reasons[] = self::REASON_HYPE_ONLY;
+        }
+        // Only fires when the key is explicitly present but empty — absent means the candidate hasn't declared refs yet.
+        if (array_key_exists('structural_leverage_refs', $candidate) && (array) ($candidate['structural_leverage_refs']) === []) {
+            $reasons[] = self::REASON_MISSING_STRUCTURAL_LEVERAGE_REFS;
         }
 
         return array_values(array_unique($reasons));

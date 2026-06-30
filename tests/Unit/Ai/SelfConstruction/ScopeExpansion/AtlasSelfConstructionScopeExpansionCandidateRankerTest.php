@@ -183,4 +183,120 @@ final class AtlasSelfConstructionScopeExpansionCandidateRankerTest extends TestC
         $order = array_column($out['accepted_candidates'], 'scope_id');
         $this->assertSame(['high-iso', 'low-iso'], $order);
     }
+
+    // ── hype_only + structural_leverage_refs ──────────────────────────────────
+
+    public function test_hype_only_candidate_is_rejected_with_named_reason(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [$this->goodCandidate(['scope_id' => 'h', 'hype_only' => true])],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertSame([], $out['accepted_candidates']);
+        $this->assertContains(
+            AtlasSelfConstructionScopeExpansionCandidateRanker::REASON_HYPE_ONLY,
+            $out['rejected_candidates'][0]['reasons'],
+        );
+    }
+
+    public function test_structural_leverage_refs_present_but_empty_is_rejected(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [$this->goodCandidate(['scope_id' => 's', 'structural_leverage_refs' => []])],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertSame([], $out['accepted_candidates']);
+        $this->assertContains(
+            AtlasSelfConstructionScopeExpansionCandidateRanker::REASON_MISSING_STRUCTURAL_LEVERAGE_REFS,
+            $out['rejected_candidates'][0]['reasons'],
+        );
+    }
+
+    public function test_structural_leverage_refs_absent_does_not_reject(): void
+    {
+        // goodCandidate() has no structural_leverage_refs key — must still be accepted.
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [$this->goodCandidate()],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertCount(1, $out['accepted_candidates']);
+        $this->assertSame([], $out['rejected_candidates']);
+    }
+
+    public function test_structural_leverage_refs_non_empty_does_not_reject(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [$this->goodCandidate(['structural_leverage_refs' => ['doc:lever.md']])],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertCount(1, $out['accepted_candidates']);
+    }
+
+    // ── duplicate scope_id deduplication ─────────────────────────────────────
+
+    public function test_duplicate_scope_ids_collapsed_keeping_best_ranked(): void
+    {
+        // Two candidates with the same scope_id; the higher-leverage one ranks first → is kept.
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'dup', 'proven_leverage_tier' => 1]),
+                $this->goodCandidate(['scope_id' => 'dup', 'proven_leverage_tier' => 3]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertCount(1, $out['accepted_candidates']);
+        $this->assertSame('dup', $out['accepted_candidates'][0]['scope_id']);
+        // Higher leverage wins (tier 3 ranks first, tier 1 duplicate gets rejected).
+        $this->assertSame(3, $out['accepted_candidates'][0]['proven_leverage_tier']);
+        $rejectedReasons = array_column($out['rejected_candidates'], 'reasons');
+        $this->assertContains(
+            [AtlasSelfConstructionScopeExpansionCandidateRanker::REASON_DUPLICATE_SCOPE_ID],
+            $rejectedReasons,
+        );
+    }
+
+    public function test_accepted_list_never_contains_duplicate_scope_ids(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'x']),
+                $this->goodCandidate(['scope_id' => 'x']),
+                $this->goodCandidate(['scope_id' => 'x']),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $acceptedIds = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(array_unique($acceptedIds), $acceptedIds);
+        $this->assertCount(1, $out['accepted_candidates']);
+    }
+
+    // ── decision_facts ────────────────────────────────────────────────────────
+
+    public function test_accepted_candidates_have_decision_facts_with_rank_and_dimensions(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'a', 'proven_leverage_tier' => 3]),
+                $this->goodCandidate(['scope_id' => 'b', 'proven_leverage_tier' => 1]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertCount(2, $out['accepted_candidates']);
+        $top = $out['accepted_candidates'][0];
+        $this->assertArrayHasKey('decision_facts', $top);
+        $this->assertSame(1, $top['decision_facts']['rank']);
+        $this->assertTrue($top['decision_facts']['accepted']);
+        $this->assertIsArray($top['decision_facts']['sort_dimensions']);
+        $this->assertNotEmpty($top['decision_facts']['sort_dimensions']);
+
+        $second = $out['accepted_candidates'][1];
+        $this->assertSame(2, $second['decision_facts']['rank']);
+    }
 }
