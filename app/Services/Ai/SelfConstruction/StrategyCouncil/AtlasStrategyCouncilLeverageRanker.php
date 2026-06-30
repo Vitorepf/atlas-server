@@ -121,6 +121,7 @@ final class AtlasStrategyCouncilLeverageRanker
                 ?: $b['factors']['user_impact'] <=> $a['factors']['user_impact']
                 ?: $b['factors']['waste_reduction'] <=> $a['factors']['waste_reduction']
                 ?: $b['factors']['risk_reduction'] <=> $a['factors']['risk_reduction']
+                ?: $b['factors']['evidence_refs_count'] <=> $a['factors']['evidence_refs_count']
                 ?: $a['factors']['dependency_count'] <=> $b['factors']['dependency_count']
                 ?: $a['factors']['risk'] <=> $b['factors']['risk']
                 ?: strcmp($a['candidate_id'], $b['candidate_id']);
@@ -165,7 +166,7 @@ final class AtlasStrategyCouncilLeverageRanker
     {
         // DESC comparisons (higher is better)
         $descFactors = ['cross_campaign_compounding', 'autonomy_unlock', 'unblocks_count', 'capability_gap',
-                        'user_impact', 'waste_reduction', 'risk_reduction'];
+                        'user_impact', 'waste_reduction', 'risk_reduction', 'evidence_refs_count'];
         foreach ($descFactors as $f) {
             $wv = (int) ($w[$f] ?? 0);
             $nv = (int) ($n[$f] ?? 0);

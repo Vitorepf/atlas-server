@@ -431,4 +431,38 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
             $this->assertStringNotContainsString('total_score', (string) $key);
         }
     }
+
+    // ── evidence strength breaks ties before cosmetic factors ──────────────────
+
+    public function test_stronger_evidence_breaks_a_tie_on_all_other_real_levers(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'thin-evidence', 'evidence_refs' => ['receipt:r1']]),
+            $this->candidate(['candidate_id' => 'strong-evidence', 'evidence_refs' => ['receipt:r1', 'receipt:r2', 'receipt:r3']]),
+        ]);
+
+        $this->assertSame(['strong-evidence', 'thin-evidence'], array_column($verdict['ranked'], 'candidate_id'),
+            'more evidence_refs must win a tie on every other real-leverage factor');
+    }
+
+    public function test_evidence_strength_is_outranked_by_autonomy_unlock(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'low-autonomy-much-evidence', 'autonomy_unlock' => 1, 'evidence_refs' => ['r1', 'r2', 'r3', 'r4']]),
+            $this->candidate(['candidate_id' => 'high-autonomy-thin-evidence', 'autonomy_unlock' => 9, 'evidence_refs' => ['r1']]),
+        ]);
+
+        $this->assertSame('high-autonomy-thin-evidence', $verdict['ranked'][0]['candidate_id'],
+            'evidence strength must not outrank a real autonomy_unlock advantage');
+    }
+
+    public function test_dominance_trace_names_evidence_refs_count_when_it_is_the_first_differentiator(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'thin-evidence', 'evidence_refs' => ['receipt:r1']]),
+            $this->candidate(['candidate_id' => 'strong-evidence', 'evidence_refs' => ['receipt:r1', 'receipt:r2']]),
+        ]);
+
+        $this->assertStringContainsString('evidence_refs_count', $verdict['ranked'][0]['dominance_trace']);
+    }
 }
