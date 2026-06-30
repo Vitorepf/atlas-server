@@ -485,4 +485,97 @@ final class AtlasExternalBrainTaskGraphRoiSchedulerTest extends TestCase
         $reasons = $r['next_wave_candidate_reasons']['root'] ?? [];
         $this->assertContains('on_critical_path', $reasons);
     }
+
+    // ── family risk penalty ───────────────────────────────────────────────────
+
+    public function test_family_risk_lowers_order_of_penalised_family_within_layer(): void
+    {
+        // Both tasks have identical raw ROI; family_risk penalises 'broken_family' → 'safe' ranks first.
+        $tasks = [
+            $this->task('risky', ['task_family' => 'broken_family', 'expected_impact' => 0.8, 'cost_risk' => 0.2, 'unlock_value' => 0.5]),
+            $this->task('safe',  ['task_family' => 'clean_family',  'expected_impact' => 0.8, 'cost_risk' => 0.2, 'unlock_value' => 0.5]),
+        ];
+
+        $r         = $this->scheduler->schedule($tasks, ['family_risk' => ['broken_family' => 1.0]]);
+        $waveOrder = $r['waves'][0]['tasks'];
+
+        $this->assertSame('safe', $waveOrder[0], "'safe' must outrank penalised 'risky' within the same layer");
+        $this->assertSame('risky', $waveOrder[1]);
+    }
+
+    public function test_poison_family_hints_lowers_order_of_named_family(): void
+    {
+        // bad raw ROI ≈ 1.905, adjusted (×0.5) ≈ 0.952; good raw ROI ≈ 1.129 > 0.952 → 'good' wins.
+        $tasks = [
+            $this->task('bad',  ['task_family' => 'poison_family', 'expected_impact' => 0.8, 'cost_risk' => 0.2, 'unlock_value' => 0.5]),
+            $this->task('good', ['task_family' => 'clean_family',  'expected_impact' => 0.7, 'cost_risk' => 0.3, 'unlock_value' => 0.5]),
+        ];
+
+        $r         = $this->scheduler->schedule($tasks, ['poison_family_hints' => ['poison_family']]);
+        $waveOrder = $r['waves'][0]['tasks'];
+
+        $this->assertSame('good', $waveOrder[0], "'good' must outrank the poison-family task within the same layer");
+    }
+
+    public function test_family_risk_does_not_break_dependency_order(): void
+    {
+        // 'prereq' is in the risky family; 'dependent' depends on it.
+        // Even with max penalty, prereq must still appear in an earlier wave.
+        $tasks = [
+            $this->task('prereq',    ['task_family' => 'risky', 'depends_on' => []]),
+            $this->task('dependent', ['task_family' => 'clean', 'depends_on' => ['prereq']]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks, ['family_risk' => ['risky' => 1.0]]);
+
+        $waveOf = [];
+        foreach ($r['waves'] as $wave) {
+            foreach ($wave['tasks'] as $tid) {
+                $waveOf[$tid] = $wave['wave_index'];
+            }
+        }
+
+        $this->assertLessThan($waveOf['dependent'], $waveOf['prereq'], 'prereq must come before dependent even when penalised');
+    }
+
+    public function test_risk_penalty_reason_exposed_in_next_wave_candidate_reasons(): void
+    {
+        $tasks   = [$this->task('penalised', ['task_family' => 'risky_fam'])];
+        $r       = $this->scheduler->schedule($tasks, ['family_risk' => ['risky_fam' => 0.8]]);
+        $reasons = $r['next_wave_candidate_reasons']['penalised'] ?? [];
+
+        $penaltyReasons = array_filter($reasons, fn (string $s): bool => str_starts_with($s, 'risk_penalty:'));
+        $this->assertNotEmpty($penaltyReasons, 'risk_penalty reason must appear for penalised family');
+        $this->assertStringContainsString('risky_fam', array_values($penaltyReasons)[0]);
+    }
+
+    public function test_risk_penalty_reason_includes_penalty_value(): void
+    {
+        $tasks   = [$this->task('t', ['task_family' => 'fam_a'])];
+        $r       = $this->scheduler->schedule($tasks, ['family_risk' => ['fam_a' => 0.6]]);
+        $reasons = $r['next_wave_candidate_reasons']['t'] ?? [];
+
+        $penaltyReason = array_values(array_filter($reasons, fn (string $s): bool => str_starts_with($s, 'risk_penalty:')))[0] ?? '';
+        $this->assertStringContainsString('penalty=0.60', $penaltyReason);
+    }
+
+    public function test_no_risk_penalty_reason_when_family_not_at_risk(): void
+    {
+        $tasks   = [$this->task('clean', ['task_family' => 'safe_fam'])];
+        $r       = $this->scheduler->schedule($tasks, ['family_risk' => ['other_fam' => 0.9]]);
+        $reasons = $r['next_wave_candidate_reasons']['clean'] ?? [];
+
+        $penaltyReasons = array_filter($reasons, fn (string $s): bool => str_starts_with($s, 'risk_penalty:'));
+        $this->assertEmpty($penaltyReasons);
+    }
+
+    public function test_no_risk_penalty_without_context(): void
+    {
+        $tasks   = [$this->task('t1', ['task_family' => 'some_family'])];
+        $r       = $this->scheduler->schedule($tasks);
+        $reasons = $r['next_wave_candidate_reasons']['t1'] ?? [];
+
+        $penaltyReasons = array_filter($reasons, fn (string $s): bool => str_starts_with($s, 'risk_penalty:'));
+        $this->assertEmpty($penaltyReasons, 'no risk_penalty when no family_risk context provided');
+    }
 }

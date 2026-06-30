@@ -61,6 +61,15 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $workerPressure = max(0.0, min(1.0, (float) ($context['worker_pressure'] ?? 0.0)));
         $maxWidth = max(1, (int) ($context['max_wave_width'] ?? self::DEFAULT_MAX_WAVE_WIDTH));
 
+        // family_risk = array<family→float> lowers order within a layer; poison_family_hints = list<family> (full risk).
+        $familyRisk = [];
+        foreach ((array) ($context['family_risk'] ?? []) as $fam => $score) {
+            $familyRisk[(string) $fam] = min(1.0, max(0.0, (float) $score));
+        }
+        foreach ((array) ($context['poison_family_hints'] ?? []) as $fam) {
+            $familyRisk[(string) $fam] = 1.0;
+        }
+
         // Scale wave width down under high pressure: at pressure=1.0, width halves.
         $effectiveWidth = max(1, (int) round($maxWidth * (1.0 - $workerPressure * 0.5)));
 
@@ -78,6 +87,7 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
                 'cost_risk' => max(0.0, min(1.0, (float) ($t['cost_risk'] ?? 0.5))),
                 'unlock_value' => max(0.0, min(1.0, (float) ($t['unlock_value'] ?? 0.0))),
                 'allowed_files' => is_array($t['allowed_files'] ?? null) ? array_values(array_filter(array_map('strval', $t['allowed_files']))) : [],
+                'task_family' => trim((string) ($t['task_family'] ?? '')),
             ];
         }
 
@@ -102,10 +112,12 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $waveIndex = 0;
 
         foreach ($layers as $layer) {
-            // Sort: ROI DESC, task_id ASC for determinism.
-            usort($layer, static function (string $a, string $b) use ($taskMap): int {
-                $ra = $taskMap[$a]['expected_impact'] * $taskMap[$a]['unlock_value'] / ($taskMap[$a]['cost_risk'] + 0.01);
-                $rb = $taskMap[$b]['expected_impact'] * $taskMap[$b]['unlock_value'] / ($taskMap[$b]['cost_risk'] + 0.01);
+            // Sort: adjusted-ROI DESC (penalised by family risk), task_id ASC for determinism.
+            usort($layer, static function (string $a, string $b) use ($taskMap, $familyRisk): int {
+                $rawA = $taskMap[$a]['expected_impact'] * $taskMap[$a]['unlock_value'] / ($taskMap[$a]['cost_risk'] + 0.01);
+                $rawB = $taskMap[$b]['expected_impact'] * $taskMap[$b]['unlock_value'] / ($taskMap[$b]['cost_risk'] + 0.01);
+                $ra = $rawA * (1.0 - ($familyRisk[$taskMap[$a]['task_family']] ?? 0.0) * 0.5);
+                $rb = $rawB * (1.0 - ($familyRisk[$taskMap[$b]['task_family']] ?? 0.0) * 0.5);
 
                 return $ra !== $rb ? ($rb <=> $ra) : strcmp($a, $b);
             });
@@ -123,7 +135,7 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $criticalPath             = $this->computeCriticalPath($taskMap, $layers);
         $deadEndWarnings          = $this->computeDeadEndWarnings($taskMap, $frontierUnlocks);
         $downstreamReach          = $this->computeDownstreamReach($taskMap, $frontierUnlocks, $layers);
-        $nextWaveCandidateReasons = $this->computeNextWaveCandidateReasons($taskMap, $waves, $criticalPath, $downstreamReach);
+        $nextWaveCandidateReasons = $this->computeNextWaveCandidateReasons($taskMap, $waves, $criticalPath, $downstreamReach, $familyRisk);
 
         return [
             'schema'                       => self::SCHEMA,
@@ -301,11 +313,16 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
      * @param  array<string, int>  $downstreamReach
      * @return array<string, list<string>>
      */
+    /**
+     * @param  array<string, float>  $familyRisk
+     * @return array<string, list<string>>
+     */
     private function computeNextWaveCandidateReasons(
         array $taskMap,
         array $waves,
         array $criticalPath,
-        array $downstreamReach
+        array $downstreamReach,
+        array $familyRisk = [],
     ): array {
         $reasons     = [];
         $firstWave   = $waves[0]['tasks'] ?? [];
@@ -323,6 +340,12 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
 
             if (isset($criticalSet[$id])) {
                 $taskReasons[] = 'on_critical_path';
+            }
+
+            $family = $task['task_family'];
+            $risk   = $familyRisk[$family] ?? 0.0;
+            if ($risk > 0.0 && $family !== '') {
+                $taskReasons[] = sprintf('risk_penalty:family=%s:penalty=%.2f', $family, $risk);
             }
 
             $reasons[$id] = $taskReasons;
