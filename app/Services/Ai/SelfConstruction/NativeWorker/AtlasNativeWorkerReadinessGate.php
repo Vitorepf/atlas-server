@@ -25,6 +25,8 @@ final class AtlasNativeWorkerReadinessGate
 
     public const STALE_HEARTBEAT_THRESHOLD_SECONDS = 300;
 
+    public const DEFAULT_WORKER_FEED_FLOOR = 1.0;
+
     public const REQUIRED_COMPONENTS = [
         'patch_planner',
         'scoped_patch_applier',
@@ -67,6 +69,23 @@ final class AtlasNativeWorkerReadinessGate
             $availableWorkers = (int) ($observed['available_worker_count'] ?? 0);
             if ($queuePressure > 0 && $availableWorkers === 0) {
                 $blockers[] = 'no_available_workers_with_queue_pressure';
+            }
+
+            // Worker-feed floor: when claimable (or servable) work per active
+            // worker is below the floor, readiness must block NOW with an
+            // explicit blocker — never wait until workers actually hit
+            // no_claimable_task before reporting the shortfall.
+            $feedFloor = (float) ($observed['worker_feed_floor'] ?? self::DEFAULT_WORKER_FEED_FLOOR);
+            if (array_key_exists('claimable_per_active_worker', $observed)) {
+                $claimablePerActiveWorker = (float) $observed['claimable_per_active_worker'];
+                if ($claimablePerActiveWorker < $feedFloor) {
+                    $blockers[] = 'queue_feed_floor:claimable_per_active_worker_'.$claimablePerActiveWorker.'_below_'.$feedFloor;
+                }
+            } elseif (array_key_exists('servable_per_worker', $observed)) {
+                $servablePerWorker = (float) $observed['servable_per_worker'];
+                if ($servablePerWorker < $feedFloor) {
+                    $blockers[] = 'queue_feed_floor:servable_per_worker_'.$servablePerWorker.'_below_'.$feedFloor;
+                }
             }
         }
 
