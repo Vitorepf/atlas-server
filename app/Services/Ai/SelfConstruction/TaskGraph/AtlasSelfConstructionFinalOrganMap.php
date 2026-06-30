@@ -259,6 +259,75 @@ final class AtlasSelfConstructionFinalOrganMap
     }
 
     /**
+     * Canonical circuits that must hold end-to-end: each is a from→to organ pair where
+     * 'from' originates a signal that 'to' must consume. Both ends must be implemented
+     * AND wired for the circuit to be closed.
+     */
+    private const CIRCUITS = [
+        ['name' => 'brain_to_knowledge_sync', 'from' => self::ORGAN_TASK_FABRIC, 'to' => self::ORGAN_DOCS_KNOWLEDGE_SYNC],
+        ['name' => 'implementation_to_verification', 'from' => self::ORGAN_WORKER_SWARM, 'to' => self::ORGAN_VERIFICATION_COURT],
+        ['name' => 'verification_to_merge', 'from' => self::ORGAN_VERIFICATION_COURT, 'to' => self::ORGAN_MERGE_GOVERNOR],
+        ['name' => 'merge_to_receipts', 'from' => self::ORGAN_MERGE_GOVERNOR, 'to' => self::ORGAN_RECEIPTS],
+        ['name' => 'learning_to_strategy', 'from' => self::ORGAN_LEARNING_TRANSFER, 'to' => self::ORGAN_STRATEGY_COUNCIL],
+    ];
+
+    /**
+     * Single truth surface for originators: which end-to-end circuits are broken (present
+     * organs that don't actually connect) and which organs are consolidation candidates
+     * (duplicate, low-value) that must never be counted as useful backlog.
+     *
+     * @param  array{
+     *   implemented?: list<string>, has_tests?: list<string>, wired?: list<string>,
+     *   duplicate_low_value_organs?: list<array{organ_id?: string, duplicate_of?: string, value_score?: float}>,
+     * }  $facts
+     * @return array{schema:string, circuit_gaps:list<array<string,mixed>>, consolidation_candidates:list<array<string,mixed>>}
+     */
+    public function circuitReport(array $facts): array
+    {
+        $view = $this->coverageView($facts);
+        $implemented = array_flip($view['implemented_organs']);
+        $wired = array_flip((array) ($facts['wired'] ?? []));
+
+        $circuitGaps = [];
+        foreach (self::CIRCUITS as $circuit) {
+            $fromClosed = isset($implemented[$circuit['from']]) && isset($wired[$circuit['from']]);
+            $toClosed = isset($implemented[$circuit['to']]) && isset($wired[$circuit['to']]);
+            if ($fromClosed && $toClosed) {
+                continue;
+            }
+            $circuitGaps[] = [
+                'circuit' => $circuit['name'],
+                'from' => $circuit['from'],
+                'to' => $circuit['to'],
+                'reason' => ! $fromClosed ? 'from_organ_not_implemented_or_not_wired' : 'to_organ_not_implemented_or_not_wired',
+            ];
+        }
+
+        $consolidationCandidates = [];
+        foreach ((array) ($facts['duplicate_low_value_organs'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $organId = (string) ($entry['organ_id'] ?? '');
+            if ($organId === '') {
+                continue;
+            }
+            $consolidationCandidates[] = [
+                'organ_id' => $organId,
+                'duplicate_of' => (string) ($entry['duplicate_of'] ?? ''),
+                'value_score' => isset($entry['value_score']) ? (float) $entry['value_score'] : null,
+                'reason' => 'duplicate_low_value_organ',
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'circuit_gaps' => $circuitGaps,
+            'consolidation_candidates' => $consolidationCandidates,
+        ];
+    }
+
+    /**
      * @param  list<string>  $capabilities
      * @param  list<string>  $evidenceIds
      * @param  list<string>  $nonAuthorities
