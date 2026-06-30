@@ -82,4 +82,36 @@ final class AtlasSelfConstructionReceiptFactIndexTest extends TestCase
         ]);
         $this->assertSame(['a-task', 'm-task', 'z-task'], array_keys($r['index']['task_receipts']));
     }
+
+    public function test_blank_decision_ref_on_downstream_row_yields_blocker(): void
+    {
+        $f = $this->completeFacts();
+        $f['task_receipts'][0]['decision_ref'] = ''; // present but blank
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+        $this->assertContains('task_receipts:blank_decision_ref:t-1', $r['blockers']);
+    }
+
+    public function test_blank_decision_hash_on_downstream_row_yields_blocker(): void
+    {
+        $f = $this->completeFacts();
+        $f['learning_receipts'] = [['id' => 'lr-1', 'hash' => 'h-lr1', 'ts' => 't', 'decision_hash' => '']];
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+        $this->assertContains('learning_receipts:blank_decision_hash:lr-1', $r['blockers']);
+    }
+
+    public function test_absent_decision_ref_does_not_yield_blank_blocker(): void
+    {
+        $f = $this->completeFacts();
+        // task_receipts row has no decision_ref key at all — no blocker expected
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+        $this->assertNotContains('task_receipts:blank_decision_ref:t-1', $r['blockers']);
+    }
+
+    public function test_blank_decision_ref_on_merge_receipt_yields_blocker(): void
+    {
+        $f = $this->completeFacts();
+        $f['merge_receipts'][0]['decision_ref'] = '  '; // whitespace only
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+        $this->assertContains('merge_receipts:blank_decision_ref:m-1', $r['blockers']);
+    }
 }

@@ -44,6 +44,9 @@ final class AtlasSelfConstructionReceiptFactIndex
     /** Kinds whose rows MAY declare a chain_ref (verification/merge link upstream to a verdict). */
     public const CHAIN_LINKED_KINDS = ['verification_receipts', 'merge_receipts'];
 
+    /** Downstream kinds whose decision_ref and decision_hash fields must not be blank when present. */
+    public const DECISION_LINKED_KINDS = ['task_receipts', 'verification_receipts', 'merge_receipts', 'learning_receipts'];
+
     /**
      * @param  array<string,list<array<string,mixed>>>  $facts
      * @return array{schema:string, index:array<string,array<string,array<string,mixed>>>, blockers:list<string>, summary:array<string,int>}
@@ -91,6 +94,14 @@ final class AtlasSelfConstructionReceiptFactIndex
                     $chainRef = (string) $r['chain_ref'];
                     if ($chainRef !== '' && ! isset($allDecisionIds[$chainRef])) {
                         $blockers[] = $kind.':chain_ref_unknown:'.$chainRef;
+                    }
+                }
+                if (in_array($kind, self::DECISION_LINKED_KINDS, true)) {
+                    if (array_key_exists('decision_ref', $r) && trim((string) ($r['decision_ref'] ?? '')) === '') {
+                        $blockers[] = $kind.':blank_decision_ref:'.$id;
+                    }
+                    if (array_key_exists('decision_hash', $r) && trim((string) ($r['decision_hash'] ?? '')) === '') {
+                        $blockers[] = $kind.':blank_decision_hash:'.$id;
                     }
                 }
                 $index[$kind][$id] = $r;
