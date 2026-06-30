@@ -88,6 +88,31 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoopTest extends TestCa
         $this->assertCount(1, $verdict['unknown_failures']);
     }
 
+    public function test_retry_budget_exhausted_moves_to_unknown_failures(): void
+    {
+        $plan = array_merge($this->plan(), ['max_retry_count' => 3]);
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'retry_count' => 3],
+        ], $plan);
+
+        $this->assertSame([], $verdict['proposals']);
+        $this->assertCount(1, $verdict['unknown_failures']);
+        $this->assertSame('retry_budget_exhausted', $verdict['unknown_failures'][0]['reason']);
+        $this->assertSame('missing_class', $verdict['unknown_failures'][0]['failure_kind']);
+    }
+
+    public function test_known_failure_below_retry_budget_still_produces_proposal(): void
+    {
+        $plan = array_merge($this->plan(), ['max_retry_count' => 3]);
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'retry_count' => 2],
+        ], $plan);
+
+        $this->assertCount(1, $verdict['proposals']);
+        $this->assertSame([], $verdict['unknown_failures']);
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::TEMPLATE_STUB_CLASS, $verdict['proposals'][0]['template_id']);
+    }
+
     public function test_repair_loop_does_not_call_providers_or_edit_files(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionNativeTestFeedbackRepairLoop.php'));

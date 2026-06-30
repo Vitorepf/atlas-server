@@ -48,6 +48,7 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
     public function repair(array $failures, array $patchPlan): array
     {
         $allowed = array_values((array) ($patchPlan['allowed_files'] ?? []));
+        $maxRetryCount = isset($patchPlan['max_retry_count']) ? (int) $patchPlan['max_retry_count'] : PHP_INT_MAX;
         $proposals = [];
         $unknown = [];
 
@@ -57,6 +58,17 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
             }
             $kind = (string) ($f['failure_kind'] ?? '');
             $targetPath = (string) ($f['target_path'] ?? '');
+            $retryCount = isset($f['retry_count']) ? (int) $f['retry_count'] : 0;
+
+            if ($retryCount >= $maxRetryCount) {
+                $unknown[] = [
+                    'failure_kind' => $kind ?: 'unknown',
+                    'original_payload' => $f,
+                    'reason' => 'retry_budget_exhausted',
+                ];
+
+                continue;
+            }
 
             if (! isset(self::KIND_TEMPLATE_MAP[$kind])) {
                 $unknown[] = ['failure_kind' => $kind ?: 'unknown', 'original_payload' => $f];
