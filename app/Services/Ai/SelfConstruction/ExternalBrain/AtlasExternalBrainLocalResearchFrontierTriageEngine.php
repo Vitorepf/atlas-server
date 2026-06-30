@@ -36,12 +36,13 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
 {
     public const SCHEMA = 'atlas.external_brain.local_research_frontier_triage_engine.v1';
 
-    private const HYPE_SIGNAL_MIN   = 2;
-    private const HYPE_EVIDENCE_CAP = 0.40;
-    private const UNGROUNDED_CAP    = 0.30;
-    private const PROMISING_MIN     = 0.70;
-    private const ATLAS_FIT_FLOOR   = 0.50;
-    private const RISK_CEILING      = 0.70;
+    private const HYPE_SIGNAL_MIN    = 2;
+    private const HYPE_EVIDENCE_CAP  = 0.40;
+    private const UNGROUNDED_CAP     = 0.30;
+    private const PROMISING_MIN      = 0.70;
+    private const ATLAS_FIT_FLOOR    = 0.50;
+    private const RISK_CEILING       = 0.70;
+    private const SAFETY_RISK_CEILING = 0.70;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -58,18 +59,23 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
         $providerDependentRejected = [];
         $highRiskRejected          = [];
         $noAtlasFitRejected        = [];
+        $holdForReview             = [];
 
         foreach ($rows as $row) {
-            $id             = (string) ($row['id']    ?? '');
-            $title          = (string) ($row['title'] ?? '');
-            $evidence       = max(0.0, min(1.0, (float) ($row['evidence_strength'] ?? 0.0)));
-            $hasCode        = (bool) ($row['has_code']      ?? false);
-            $hasBenchmark   = (bool) ($row['has_benchmark'] ?? false);
-            $hypeSignals    = array_values((array) ($row['hype_signals'] ?? []));
-            $atlasfit       = max(0.0, min(1.0, (float) ($row['atlas_fit_score']             ?? 1.0)));
-            $risk           = max(0.0, min(1.0, (float) ($row['implementation_risk']          ?? 0.0)));
-            $providerDepSS  = (bool) ($row['provider_steady_state_dependency'] ?? false);
-            $compoundImpact = max(0.0, min(1.0, (float) ($row['expected_compounding_impact'] ?? 0.0)));
+            $id                   = (string) ($row['id']    ?? '');
+            $title                = (string) ($row['title'] ?? '');
+            $evidence             = max(0.0, min(1.0, (float) ($row['evidence_strength'] ?? 0.0)));
+            $hasCode              = (bool) ($row['has_code']      ?? false);
+            $hasBenchmark         = (bool) ($row['has_benchmark'] ?? false);
+            $hypeSignals          = array_values((array) ($row['hype_signals'] ?? []));
+            $atlasfit             = max(0.0, min(1.0, (float) ($row['atlas_fit_score']              ?? 1.0)));
+            $risk                 = max(0.0, min(1.0, (float) ($row['implementation_risk']           ?? 0.0)));
+            $safetyRisk           = max(0.0, min(1.0, (float) ($row['safety_risk']                  ?? 0.0)));
+            $providerDepSS        = (bool) ($row['provider_steady_state_dependency'] ?? false);
+            $compoundImpact       = max(0.0, min(1.0, (float) ($row['expected_compounding_impact']  ?? 0.0)));
+            $evidenceUnknown      = (bool) ($row['evidence_quality_unknown']          ?? false);
+            $implTarget           = (string) ($row['implementation_target']           ?? '');
+            $testTarget           = (string) ($row['test_target']                     ?? '');
 
             // AC1: deterministic score fields derived from inputs.
             $evidenceQualityScore    = round(min(1.0, $evidence + ($hasCode ? 0.10 : 0.0) + ($hasBenchmark ? 0.10 : 0.0)), 4);
@@ -109,6 +115,16 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                 continue;
             }
 
+            // 3.5. AC3: unknown evidence quality or high safety risk → hold for review.
+            if ($evidenceUnknown) {
+                $holdForReview[] = array_merge($entry, ['reason' => 'evidence_quality_unknown']);
+                continue;
+            }
+            if ($safetyRisk >= self::SAFETY_RISK_CEILING) {
+                $holdForReview[] = array_merge($entry, ['reason' => 'safety_risk_above_ceiling', 'safety_risk' => $safetyRisk]);
+                continue;
+            }
+
             // 4. High implementation risk.
             if ($risk >= self::RISK_CEILING) {
                 $highRiskRejected[] = array_merge($entry, ['reason' => 'implementation_risk_above_ceiling']);
@@ -121,9 +137,17 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                 continue;
             }
 
-            // 6. Promising.
+            // 6. Promising — AC2: include task_seed_hints.
             if ($evidence >= self::PROMISING_MIN && ($hasCode || $hasBenchmark)) {
-                $promising[] = array_merge($entry, ['has_code' => $hasCode, 'has_benchmark' => $hasBenchmark]);
+                $promising[] = array_merge($entry, [
+                    'has_code'       => $hasCode,
+                    'has_benchmark'  => $hasBenchmark,
+                    'task_seed_hints' => [
+                        'implementation_target' => $implTarget,
+                        'test_target'           => $testTarget,
+                        'expected_leverage'     => $compoundImpact,
+                    ],
+                ]);
                 continue;
             }
 
@@ -138,6 +162,7 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             'schema_version'               => self::SCHEMA,
             'promising'                    => $promising,
             'exploratory'                  => $exploratory,
+            'hold_for_review'              => $holdForReview,
             'hype_rejected'                => $hypeRejected,
             'ungrounded_rejected'          => $ungroundedRejected,
             'provider_dependent_rejected'  => $providerDependentRejected,
@@ -145,6 +170,7 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             'no_atlas_fit_rejected'        => $noAtlasFitRejected,
             'promising_count'              => count($promising),
             'exploratory_count'            => count($exploratory),
+            'hold_for_review_count'        => count($holdForReview),
             'hype_rejected_count'          => count($hypeRejected),
             'ungrounded_rejected_count'    => count($ungroundedRejected),
             'next_research_action'         => $this->nextAction($promising, $exploratory, $providerDependentRejected, $highRiskRejected),
