@@ -29,6 +29,95 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
     ) {}
 
     /**
+     * Pure facts-only readiness contract — no I/O, no queue mutations, no provider calls.
+     *
+     * Evaluates pre-computed facts into one of three verdicts:
+     *   - 'passed'               : all checks green
+     *   - 'blocked'              : facts present but indicate failure
+     *   - 'insufficient_evidence': required fact keys are missing
+     *
+     * Required fact keys: command_receipts, queue_health, worker_reports.
+     * Optional: active_leases (skipped from lease-mismatch check when absent).
+     *
+     * Concrete blocker ids emitted per failure:
+     *   missing_command_receipts
+     *   missing_queue_health
+     *   missing_worker_reports
+     *   dry_queue_no_claimable_tasks
+     *   no_successful_worker_reports
+     *   active_lease_without_matching_worker_report
+     *
+     * @param  array<string, mixed>  $facts
+     * @return array{verdict:string, blockers:list<string>, facts_evaluated:array<string,mixed>}
+     */
+    public function evaluate(array $facts): array
+    {
+        $commandReceipts = is_array($facts['command_receipts'] ?? null) ? $facts['command_receipts'] : null;
+        $queueHealth     = is_array($facts['queue_health'] ?? null)     ? $facts['queue_health']     : null;
+        $activeLeases    = is_array($facts['active_leases'] ?? null)    ? $facts['active_leases']    : null;
+        $workerReports   = is_array($facts['worker_reports'] ?? null)   ? $facts['worker_reports']   : null;
+
+        $blockers = [];
+
+        if ($commandReceipts === null) {
+            $blockers[] = 'missing_command_receipts';
+        }
+        if ($queueHealth === null) {
+            $blockers[] = 'missing_queue_health';
+        }
+        if ($workerReports === null) {
+            $blockers[] = 'missing_worker_reports';
+        }
+
+        if ($blockers !== []) {
+            return [
+                'verdict'         => 'insufficient_evidence',
+                'blockers'        => $blockers,
+                'facts_evaluated' => [
+                    'command_receipts_present' => $commandReceipts !== null,
+                    'queue_health_present'     => $queueHealth !== null,
+                    'worker_reports_present'   => $workerReports !== null,
+                ],
+            ];
+        }
+
+        $claimableCount    = (int) ($queueHealth['claimable_count'] ?? 0);
+        $successfulReports = array_values(array_filter(
+            $workerReports,
+            static fn (array $r): bool => (string) ($r['outcome'] ?? '') === 'success',
+        ));
+
+        if ($claimableCount === 0 && $workerReports === []) {
+            $blockers[] = 'dry_queue_no_claimable_tasks';
+        }
+        if ($successfulReports === []) {
+            $blockers[] = 'no_successful_worker_reports';
+        }
+        if ($activeLeases !== null && $activeLeases !== []) {
+            $workerTaskIds = array_column($workerReports, 'task_packet_id');
+            foreach ($activeLeases as $lease) {
+                $taskId = (string) ($lease['task_packet_id'] ?? '');
+                if ($taskId !== '' && ! in_array($taskId, $workerTaskIds, true)) {
+                    $blockers[] = 'active_lease_without_matching_worker_report';
+                    break;
+                }
+            }
+        }
+
+        return [
+            'verdict'         => $blockers === [] ? 'passed' : 'blocked',
+            'blockers'        => $blockers,
+            'facts_evaluated' => [
+                'command_receipts_count'    => count($commandReceipts),
+                'claimable_count'           => $claimableCount,
+                'active_lease_count'        => count($activeLeases ?? []),
+                'worker_reports_count'      => count($workerReports),
+                'successful_worker_reports' => count($successfulReports),
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
