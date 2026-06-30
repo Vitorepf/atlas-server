@@ -38,6 +38,9 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
     private const REPLAY_FAILURE_FLOOR      = 0.50;
     private const PROXY_LEAK_FAILURE_FLOOR  = 0.15;
     private const REGRESSION_FAILURE_FLOOR  = 0.10;
+    private const HELDOUT_FAILURE_FLOOR     = 0.50;
+    private const MUSCLE_OUTCOME_FAILURE_FLOOR = 0.20;
+    private const DEFAULT_COST_FAILURE_CEILING = 10.0;
 
     // Warning thresholds (→ watch)
     private const SHADOW_WARNING_FLOOR      = 0.70;
@@ -47,6 +50,9 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
     private const REPLAY_WARNING_FLOOR      = 0.65;
     private const PROXY_LEAK_WARNING_FLOOR  = 0.05;
     private const REGRESSION_WARNING_FLOOR  = 0.05;
+    private const HELDOUT_WARNING_FLOOR     = 0.70;
+    private const MUSCLE_OUTCOME_WARNING_FLOOR = 0.10;
+    private const DEFAULT_COST_WARNING_CEILING = 5.0;
 
     /**
      * @param  array{
@@ -85,19 +91,27 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $proxyCount     = count(array_filter($runs, static fn (array $r): bool => ! empty($r['is_proxy'])));
             $regressedCount = count(array_filter($runs, static fn (array $r): bool => ! empty($r['regressed'])));
             $totalCost      = (float) array_sum(array_map(static fn (array $r): float => (float) ($r['cost'] ?? 0.0), $runs));
+            $badOutcomeCount = count(array_filter($runs, static fn (array $r): bool => in_array((string) ($r['outcome'] ?? ''), ['poison', 'give_back'], true)));
 
             $passRate        = round($passedCount / $sampleCount, 4);
             $heldoutPassRate = count($heldoutRuns) > 0 ? round($heldoutPassed / count($heldoutRuns), 4) : 0.0;
             $proxyLeakRate   = round($proxyCount  / $sampleCount, 4);
             $avgCost         = round($totalCost   / $sampleCount, 4);
             $regressionRate  = round($regressedCount / $sampleCount, 4);
+            $muscleOutcomeBadRate = round($badOutcomeCount / $sampleCount, 4);
         } else {
             $passRate        = round(($shadow + $canary + $replay) / 3, 4);
-            $heldoutPassRate = max(0.0, min(1.0, (float) ($input['heldout_pass_rate'] ?? 0.0)));
+            $heldoutPassRate = max(0.0, min(1.0, (float) ($input['heldout_pass_rate'] ?? 1.0)));
             $proxyLeakRate   = max(0.0, min(1.0, (float) ($input['proxy_leak_rate']   ?? 0.0)));
             $avgCost         = (float) ($input['avg_cost'] ?? 0.0);
             $regressionRate  = max(0.0, min(1.0, (float) ($input['regression_rate']   ?? 0.0)));
+            $muscleOutcomeBadRate = max(0.0, min(1.0,
+                (float) ($input['poison_rate'] ?? 0.0) + (float) ($input['give_back_rate'] ?? 0.0),
+            ));
         }
+
+        $costFailureCeiling = (float) ($input['cost_failure_ceiling'] ?? self::DEFAULT_COST_FAILURE_CEILING);
+        $costWarningCeiling = (float) ($input['cost_warning_ceiling'] ?? self::DEFAULT_COST_WARNING_CEILING);
 
         $confidence = match (true) {
             $sampleCount >= 20 => 'high',
@@ -184,6 +198,39 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $rollup['regression'] = 'watch';
         } else {
             $rollup['regression'] = 'healthy';
+        }
+
+        // AC2: held-out evidence.
+        if ($heldoutPassRate < self::HELDOUT_FAILURE_FLOOR) {
+            $blocking[] = "heldout_pass_rate:{$heldoutPassRate}<".self::HELDOUT_FAILURE_FLOOR;
+            $rollup['heldout'] = 'blocking';
+        } elseif ($heldoutPassRate < self::HELDOUT_WARNING_FLOOR) {
+            $weak[]     = "heldout_pass_rate:{$heldoutPassRate}<".self::HELDOUT_WARNING_FLOOR;
+            $rollup['heldout'] = 'watch';
+        } else {
+            $rollup['heldout'] = 'healthy';
+        }
+
+        // AC2: cost — higher is worse, opposite direction from pass-rate signals.
+        if ($avgCost >= $costFailureCeiling) {
+            $blocking[] = "avg_cost:{$avgCost}>={$costFailureCeiling}";
+            $rollup['cost'] = 'blocking';
+        } elseif ($avgCost >= $costWarningCeiling) {
+            $weak[]     = "avg_cost:{$avgCost}>={$costWarningCeiling}";
+            $rollup['cost'] = 'watch';
+        } else {
+            $rollup['cost'] = 'healthy';
+        }
+
+        // AC3: muscle outcome — poison/give_back rate forces rollback even when other signals are healthy.
+        if ($muscleOutcomeBadRate >= self::MUSCLE_OUTCOME_FAILURE_FLOOR) {
+            $blocking[] = "muscle_outcome_bad_rate:{$muscleOutcomeBadRate}>=".self::MUSCLE_OUTCOME_FAILURE_FLOOR;
+            $rollup['muscle_outcome'] = 'blocking';
+        } elseif ($muscleOutcomeBadRate >= self::MUSCLE_OUTCOME_WARNING_FLOOR) {
+            $weak[]     = "muscle_outcome_bad_rate:{$muscleOutcomeBadRate}>=".self::MUSCLE_OUTCOME_WARNING_FLOOR;
+            $rollup['muscle_outcome'] = 'watch';
+        } else {
+            $rollup['muscle_outcome'] = 'healthy';
         }
 
         $status = $this->resolveStatus($blocking, $weak);

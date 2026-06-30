@@ -357,4 +357,74 @@ final class AtlasExternalBrainAmplifierTelemetryAggregatorTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
     }
+
+    // ── AC2/AC4: signal_rollup includes heldout, cost, muscle_outcome ─────────
+
+    public function test_signal_rollup_includes_heldout_cost_muscle_outcome_keys(): void
+    {
+        $result = $this->aggregator->aggregate($this->allHealthy());
+
+        foreach (['heldout', 'cost', 'muscle_outcome'] as $signal) {
+            $this->assertArrayHasKey($signal, $result['signal_rollup']);
+        }
+        $this->assertSame('healthy', $result['signal_rollup']['heldout']);
+        $this->assertSame('healthy', $result['signal_rollup']['cost']);
+        $this->assertSame('healthy', $result['signal_rollup']['muscle_outcome']);
+    }
+
+    public function test_low_heldout_pass_rate_forces_rollback(): void
+    {
+        $input                       = $this->allHealthy();
+        $input['heldout_pass_rate']  = 0.30; // below failure floor (0.50)
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+        $this->assertSame('blocking', $result['signal_rollup']['heldout']);
+        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'heldout')));
+    }
+
+    public function test_high_avg_cost_forces_rollback(): void
+    {
+        $input         = $this->allHealthy();
+        $input['runs'] = [
+            ['passed' => true, 'cost' => 12.0],
+            ['passed' => true, 'cost' => 11.0],
+        ]; // avg_cost=11.5 >= DEFAULT_COST_FAILURE_CEILING (10.0)
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+        $this->assertSame('blocking', $result['signal_rollup']['cost']);
+        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'avg_cost')));
+    }
+
+    public function test_high_muscle_outcome_bad_rate_forces_rollback_from_runs(): void
+    {
+        $input         = $this->allHealthy();
+        // 25 out of 100 runs are poison/give_back = 0.25 (>= MUSCLE_OUTCOME_FAILURE_FLOOR 0.20)
+        $input['runs'] = array_merge(
+            array_fill(0, 75, ['passed' => true, 'outcome' => 'success']),
+            array_fill(0, 15, ['passed' => false, 'outcome' => 'poison']),
+            array_fill(0, 10, ['passed' => false, 'outcome' => 'give_back']),
+        );
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+        $this->assertSame('blocking', $result['signal_rollup']['muscle_outcome']);
+        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'muscle_outcome')));
+    }
+
+    public function test_high_muscle_outcome_bad_rate_forces_rollback_from_flat_input(): void
+    {
+        $input                  = $this->allHealthy();
+        $input['poison_rate']    = 0.15;
+        $input['give_back_rate'] = 0.10; // sum=0.25 >= failure floor
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+        $this->assertSame('blocking', $result['signal_rollup']['muscle_outcome']);
+    }
 }
