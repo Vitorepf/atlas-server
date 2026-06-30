@@ -44,6 +44,29 @@ final class AtlasMaestroReplenisherFeedback
                 if (($entry['insufficient_support'] ?? true) === true || $total < AtlasMaestroOutcomePatternMiner::MIN_SUPPORT) {
                     continue; // not enough evidence ⇒ never emitted (no lucky-run facts)
                 }
+
+                if ((string) $dimension === 'queue_starvation') {
+                    $noClaimableTask          = (int) ($entry['no_claimable_task_count'] ?? 0);
+                    $claimablePerActiveWorker = (float) ($entry['claimable_per_active_worker'] ?? 0.0);
+                    $workerFloorBreaches      = (int) ($entry['worker_floor_breach_count'] ?? 0);
+                    $supported[]              = $entry;
+                    $scored[]                 = [
+                        'line' => sprintf(
+                            '%s=%s: no_claimable_task=%d, claimable_per_active_worker=%.2f, worker_floor_breaches=%d (total %d, support>=%d)',
+                            (string) $dimension,
+                            (string) $bucket,
+                            $noClaimableTask,
+                            $claimablePerActiveWorker,
+                            $workerFloorBreaches,
+                            $total,
+                            AtlasMaestroOutcomePatternMiner::MIN_SUPPORT,
+                        ),
+                        'yield_score' => 0.0,
+                    ];
+
+                    continue;
+                }
+
                 $delivered       = (int) ($entry['delivered'] ?? 0);
                 $rate            = (float) ($entry['delivery_rate'] ?? ($total > 0 ? $delivered / $total : 0.0));
                 $giveBackRate    = $total > 0 ? (int) ($entry['give_back_count'] ?? 0) / $total : 0.0;
