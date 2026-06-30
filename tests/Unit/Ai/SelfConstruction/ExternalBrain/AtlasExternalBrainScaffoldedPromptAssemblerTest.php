@@ -107,6 +107,16 @@ final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
         $this->assertContains('app/Services/BarService.php', $result['anti_duplication_checks']);
     }
 
+    public function test_anti_duplication_checks_deduplicate_case_insensitive_repeats(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'queued_targets' => ['AtlasFoo.php', 'AtlasFoo.php', 'atlasfoo.php', 'AtlasBar.php'],
+        ]));
+
+        $this->assertCount(2, $result['anti_duplication_checks']);
+        $this->assertSame(['AtlasFoo.php', 'AtlasBar.php'], $result['anti_duplication_checks']);
+    }
+
     // ── AC2: max_context_budget_chars ────────────────────────────────────────
 
     public function test_context_budget_echoed_in_result(): void

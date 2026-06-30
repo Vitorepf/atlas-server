@@ -65,7 +65,7 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
         $allowDirectAnswer = (bool)  ($input['allow_direct_final_answer'] ?? false);
         $evidenceIntake    = (array) ($input['evidence_intake']           ?? []);
         $dedupProvided     = array_key_exists('queued_targets', $input);
-        $queuedTargets     = $dedupProvided ? (array) $input['queued_targets'] : [];
+        $queuedTargets     = $dedupProvided ? $this->dedupTargets((array) $input['queued_targets']) : [];
         $budgetChars       = max(1, (int) ($input['context_budget_chars'] ?? self::DEFAULT_CONTEXT_BUDGET_CHARS));
 
         $failureReason = $this->failCloseReason($allowDirectAnswer, $evidenceIntake, $dedupProvided);
@@ -94,6 +94,31 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
             'anti_duplication_checks'  => array_values($queuedTargets),
             'max_context_budget_chars' => $budgetChars,
         ];
+    }
+
+    /**
+     * Case-insensitive dedup of the live-queue snapshot, preserving the first occurrence's
+     * casing and original order — a weak model must never see the same target twice (it
+     * would read as two distinct anti-duplication entries and waste budget/attention).
+     *
+     * @param  list<mixed>  $targets
+     * @return list<string>
+     */
+    private function dedupTargets(array $targets): array
+    {
+        $seen = [];
+        $deduped = [];
+        foreach ($targets as $target) {
+            $target = (string) $target;
+            $key = strtolower($target);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $deduped[] = $target;
+        }
+
+        return $deduped;
     }
 
     private function failCloseReason(bool $allowDirectAnswer, array $evidence, bool $dedupProvided): ?string
