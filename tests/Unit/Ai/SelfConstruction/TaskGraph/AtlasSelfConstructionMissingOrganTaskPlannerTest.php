@@ -168,4 +168,112 @@ class AtlasSelfConstructionMissingOrganTaskPlannerTest extends TestCase
         self::assertSame('coverage-cortex-missing-v1', $a['drafts'][0]['task_packet_id']);
         self::assertSame('coverage-verification_court-missing-v1', $a['drafts'][1]['task_packet_id']);
     }
+
+    // ── new fields: prerequisite_ids, required_proof, priority ────────────────
+
+    public function test_draft_has_prerequisite_ids_field(): void
+    {
+        $organs = $this->organs();
+        $organs[0]['depends_on'] = ['organ_map', 'cortex_seed'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $organs,
+        );
+
+        $draft = $verdict['drafts'][0];
+        self::assertArrayHasKey('prerequisite_ids', $draft);
+        self::assertSame(['organ_map', 'cortex_seed'], $draft['prerequisite_ids']);
+        self::assertSame($draft['depends_on'], $draft['prerequisite_ids']);
+    }
+
+    public function test_draft_has_required_proof_with_test_file_path(): void
+    {
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $this->organs(),
+        );
+
+        $proof = $verdict['drafts'][0]['required_proof'];
+        self::assertIsArray($proof);
+        self::assertNotEmpty($proof);
+        $hasTestEntry = false;
+        foreach ($proof as $p) {
+            if (str_contains($p, 'CortexServiceTest.php')) {
+                $hasTestEntry = true;
+            }
+        }
+        self::assertTrue($hasTestEntry, 'required_proof must include test file path');
+    }
+
+    public function test_draft_has_priority_with_value_and_reason(): void
+    {
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $this->organs(),
+        );
+
+        $priority = $verdict['drafts'][0]['priority'];
+        self::assertArrayHasKey('value', $priority);
+        self::assertArrayHasKey('reason', $priority);
+        self::assertIsInt($priority['value']);
+        self::assertIsString($priority['reason']);
+        self::assertNotEmpty($priority['reason']);
+    }
+
+    public function test_missing_organ_priority_higher_than_thin_organ(): void
+    {
+        $organs = $this->organs();
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            [
+                'missing_organs' => ['cortex'],
+                'thin_organs' => [['organ_id' => 'verification_court', 'missing_evidence_classes' => ['gate']]],
+            ],
+            $organs,
+        );
+
+        $missingPriority = $verdict['drafts'][0]['priority']['value'] ?? 0;
+        $thinPriority = $verdict['drafts'][1]['priority']['value'] ?? 0;
+        // After sort by task_packet_id: cortex < verification_court alphabetically
+        $byId = array_column($verdict['drafts'], null, 'task_packet_id');
+        $mp = $byId['coverage-cortex-missing-v1']['priority']['value'];
+        $tp = $byId['coverage-verification_court-thin-v1']['priority']['value'];
+        self::assertGreaterThan($tp, $mp, 'missing organ should have higher priority value than thin organ');
+    }
+
+    // ── live_target_exists + already_drafted ──────────────────────────────────
+
+    public function test_organ_with_live_target_is_withheld_with_live_target_exists_reason(): void
+    {
+        $liveTargets = ['app/Services/Ai/SelfConstruction/Cortex/CortexService.php'];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $this->organs(),
+            'self_construction_coverage',
+            $liveTargets,
+        );
+
+        self::assertSame(0, $verdict['draft_count']);
+        $reasons = array_column($verdict['withheld_gaps'], 'reason');
+        self::assertContains('live_target_exists', $reasons);
+    }
+
+    public function test_organ_in_both_missing_and_thin_produces_one_draft_and_already_drafted_withheld(): void
+    {
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            [
+                'missing_organs' => ['cortex'],
+                'thin_organs' => [['organ_id' => 'cortex', 'missing_evidence_classes' => ['gate']]],
+            ],
+            $this->organs(),
+        );
+
+        // Only one draft for cortex, plus one withheld with already_drafted.
+        $cortexDrafts = array_filter($verdict['drafts'], static fn (array $d): bool => str_contains($d['task_packet_id'], 'cortex'));
+        self::assertCount(1, $cortexDrafts, 'organ in missing+thin must produce only one draft');
+
+        $withheldReasons = array_column($verdict['withheld_gaps'], 'reason');
+        self::assertContains('already_drafted', $withheldReasons);
+    }
 }

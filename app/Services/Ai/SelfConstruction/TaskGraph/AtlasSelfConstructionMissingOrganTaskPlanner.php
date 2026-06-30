@@ -31,9 +31,11 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
     /**
      * @param  array<string,mixed>  $coverage
      * @param  list<array<string,mixed>>  $organs
+     * @param  list<string>  $liveTargets  Implementation/test files already claimed by live tasks — organs whose
+     *                                     targets appear here are withheld with reason 'live_target_exists'.
      * @return array<string,mixed>
      */
-    public function plan(array $coverage, array $organs, string $wave = 'self_construction_coverage'): array
+    public function plan(array $coverage, array $organs, string $wave = 'self_construction_coverage', array $liveTargets = []): array
     {
         $organsById = [];
         foreach ($organs as $organ) {
@@ -42,6 +44,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
 
         $drafts = [];
         $withheld = [];
+        $drafted = [];  // dedup: organ_id → true once a draft is emitted
 
         $missing = array_values((array) ($coverage['missing_organs'] ?? []));
         $thin = array_values((array) ($coverage['thin_organs'] ?? []));
@@ -50,44 +53,43 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             $organId = (string) $organId;
             $organ = $organsById[$organId] ?? null;
             if ($organ === null) {
-                $withheld[] = [
-                    'organ_id' => $organId,
-                    'reason' => 'organ_metadata_not_supplied',
-                ];
-
+                $withheld[] = ['organ_id' => $organId, 'reason' => 'organ_metadata_not_supplied'];
                 continue;
             }
-            $draft = $this->makeDraft($organId, $organ, $coverageKind = 'missing', $missingClasses = [], $wave);
+            $withReason = $this->withholdReason($organ, $liveTargets);
+            if ($withReason !== null) {
+                $withheld[] = ['organ_id' => $organId, 'reason' => $withReason];
+                continue;
+            }
+            $draft = $this->makeDraft($organId, $organ, 'missing', [], $wave);
             if ($draft === null) {
-                $withheld[] = [
-                    'organ_id' => $organId,
-                    'reason' => 'safe_targets_unavailable',
-                ];
-
+                $withheld[] = ['organ_id' => $organId, 'reason' => 'safe_targets_unavailable'];
                 continue;
             }
+            $drafted[$organId] = true;
             $drafts[] = $draft;
         }
 
         foreach ($thin as $row) {
             $organId = (string) ($row['organ_id'] ?? '');
             $missingClasses = array_values(array_map('strval', (array) ($row['missing_evidence_classes'] ?? [])));
+            if (isset($drafted[$organId])) {
+                $withheld[] = ['organ_id' => $organId, 'reason' => 'already_drafted'];
+                continue;
+            }
             $organ = $organsById[$organId] ?? null;
             if ($organ === null) {
-                $withheld[] = [
-                    'organ_id' => $organId,
-                    'reason' => 'organ_metadata_not_supplied',
-                ];
-
+                $withheld[] = ['organ_id' => $organId, 'reason' => 'organ_metadata_not_supplied'];
+                continue;
+            }
+            $withReason = $this->withholdReason($organ, $liveTargets);
+            if ($withReason !== null) {
+                $withheld[] = ['organ_id' => $organId, 'reason' => $withReason];
                 continue;
             }
             $draft = $this->makeDraft($organId, $organ, 'thin', $missingClasses, $wave);
             if ($draft === null) {
-                $withheld[] = [
-                    'organ_id' => $organId,
-                    'reason' => 'safe_targets_unavailable',
-                ];
-
+                $withheld[] = ['organ_id' => $organId, 'reason' => 'safe_targets_unavailable'];
                 continue;
             }
             $drafts[] = $draft;
@@ -116,6 +118,26 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
 
     /**
      * @param  array<string,mixed>  $organ
+     * @param  list<string>  $liveTargets
+     * @return string|null  null = pass, non-null = withheld reason code
+     */
+    private function withholdReason(array $organ, array $liveTargets): ?string
+    {
+        if ($liveTargets !== []) {
+            $safeTargets = is_array($organ['safe_targets'] ?? null) ? $organ['safe_targets'] : [];
+            $impl = (string) ($safeTargets['implementation'] ?? '');
+            $test = (string) ($safeTargets['test'] ?? '');
+            if (($impl !== '' && in_array($impl, $liveTargets, true)) ||
+                ($test !== '' && in_array($test, $liveTargets, true))) {
+                return 'live_target_exists';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $organ
      * @param  list<string>  $missingClasses
      * @return array<string,mixed>|null  null ⇒ safe_targets unavailable, draft withheld
      */
@@ -134,6 +156,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             array_values(array_map('strval', (array) ($organ['required_task_tags'] ?? []))),
         )));
         $taskId = sprintf('coverage-%s-%s-v1', $organId, $coverageKind);
+        $prerequisiteIds = array_values(array_map('strval', (array) ($organ['depends_on'] ?? [])));
 
         $acceptance = [
             sprintf('Implement %s organ scaffolding so the task graph covers it deterministically.', $organId),
@@ -147,17 +170,32 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             );
         }
 
+        // Priority: missing organs are higher priority than thin; more missing evidence = higher.
+        $priorityValue = $coverageKind === 'missing' ? 10 : max(1, 5 - count($missingClasses));
+        $priorityReason = $coverageKind === 'missing'
+            ? sprintf('organ_absent_from_task_graph:%s', $organId)
+            : sprintf('organ_thin_missing_%d_evidence_classes:%s', count($missingClasses), $organId);
+
+        $requiredProof = [
+            sprintf('test_file_must_pass:%s', $test),
+            'evidence_hash_required',
+            'implementation_notes_required',
+        ];
+
         return [
-            'task_packet_id' => $taskId,
-            'objective' => sprintf('Cover organ "%s" (%s gap): %s', $organId, $coverageKind, $purpose),
-            'allowed_files' => [$impl, $test],
-            'scope_in' => [$impl, $test],
+            'task_packet_id'     => $taskId,
+            'objective'          => sprintf('Cover organ "%s" (%s gap): %s', $organId, $coverageKind, $purpose),
+            'allowed_files'      => [$impl, $test],
+            'scope_in'           => [$impl, $test],
             'acceptance_criteria' => $acceptance,
-            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
-            'depends_on' => array_values(array_map('strval', (array) ($organ['depends_on'] ?? []))),
-            'wave' => $wave,
-            'tags' => $tags,
-            'rationale' => sprintf(
+            'required_evidence'  => ['tests_or_gates_result', 'implementation_notes'],
+            'depends_on'         => $prerequisiteIds,
+            'prerequisite_ids'   => $prerequisiteIds,
+            'required_proof'     => $requiredProof,
+            'priority'           => ['value' => $priorityValue, 'reason' => $priorityReason],
+            'wave'               => $wave,
+            'tags'               => $tags,
+            'rationale'          => sprintf(
                 'task graph coverage gap (%s) on organ %s; missing evidence classes: %s',
                 $coverageKind,
                 $organId,
