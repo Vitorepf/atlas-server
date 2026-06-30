@@ -224,4 +224,75 @@ final class AtlasExternalBrainLearningRetentionPolicyTest extends TestCase
         $b = $this->policy()->evaluate($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: contradiction_evidence → decayed ─────────────────────────────────
+
+    public function test_contradicted_record_is_decayed(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.8, 'age_days' => 5, 'contradiction_evidence' => ['newer_run_failed']]),
+        ]]);
+
+        $this->assertSame(1, $r['decaying_count']);
+        $this->assertSame('contradicted_by_outcome_evidence', $r['decaying'][0]['reason']);
+    }
+
+    public function test_high_utility_recent_is_not_contradicted_when_evidence_empty(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.8, 'age_days' => 5, 'contradiction_evidence' => []]),
+        ]]);
+
+        $this->assertSame(1, $r['retained_count']);
+    }
+
+    public function test_contradiction_overrides_high_utility_retain(): void
+    {
+        // High utility + recent + confirmed — but has contradiction evidence → must decay, not retain
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'utility_score'         => 0.9,
+                'age_days'              => 5,
+                'confirmed'             => true,
+                'contradiction_evidence' => ['evidence_a', 'evidence_b'],
+            ]),
+        ]]);
+
+        $this->assertSame(1, $r['decaying_count']);
+        $this->assertSame(0, $r['retained_count']);
+        $this->assertSame('contradicted_by_outcome_evidence', $r['decaying'][0]['reason']);
+    }
+
+    // ── AC3: revalidation_needed ──────────────────────────────────────────────
+
+    public function test_revalidation_needed_key_always_present(): void
+    {
+        $r = $this->policy()->evaluate([]);
+
+        $this->assertArrayHasKey('revalidation_needed', $r);
+        $this->assertArrayHasKey('revalidation_needed_count', $r);
+        $this->assertSame([], $r['revalidation_needed']);
+    }
+
+    public function test_high_utility_stale_unconfirmed_goes_to_revalidation(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.8, 'age_days' => 45, 'confirmed' => false]),
+        ]]);
+
+        $this->assertSame(1, $r['revalidation_needed_count']);
+        $this->assertSame('high_utility_stale_needs_revalidation', $r['revalidation_needed'][0]['reason']);
+        $this->assertSame(0, $r['decaying_count']);
+    }
+
+    public function test_high_utility_stale_confirmed_does_not_go_to_revalidation(): void
+    {
+        // confirmed=true → skips rule 3.5 → falls to default_decay
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.8, 'age_days' => 45, 'confirmed' => true]),
+        ]]);
+
+        $this->assertSame(0, $r['revalidation_needed_count']);
+        $this->assertSame(1, $r['decaying_count']);
+    }
 }
