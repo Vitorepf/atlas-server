@@ -479,4 +479,63 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
         // actual > 0.5 default → up hint or hold
         $this->assertContains($result['calibrations'][0]['next_ranking_hint'], ['up', 'hold']);
     }
+
+    // ── next_batch_constraints ───────────────────────────────────────────────
+
+    public function test_calibration_record_includes_next_batch_constraints_key(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'gate', 'predicted_leverage' => 'high']],
+            [['task_family' => 'gate', 'actual_outcome' => 'delivered', 'capability_delta' => 'high']],
+        );
+
+        $this->assertArrayHasKey('next_batch_constraints', $result['calibrations'][0]);
+        $this->assertNotEmpty($result['calibrations'][0]['next_batch_constraints']);
+    }
+
+    public function test_repeated_overclaim_requires_stronger_evidence_next_batch(): void
+    {
+        $forecasts = array_fill(0, 2, ['task_family' => 'overclaimer', 'predicted_leverage' => 'high']);
+        $outcomes = array_fill(0, 2, ['task_family' => 'overclaimer', 'actual_outcome' => 'give_back']);
+
+        $result = $this->calibrator()->calibrate($forecasts, $outcomes);
+
+        $cal = $result['calibrations'][0];
+        $this->assertContains('require_stronger_evidence_before_high_leverage_claim', $cal['next_batch_constraints']);
+    }
+
+    public function test_down_ranking_hint_caps_next_batch_size(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'falling', 'predicted_leverage' => 'high']],
+            [['task_family' => 'falling', 'actual_outcome' => 'give_back']],
+        );
+
+        $cal = $result['calibrations'][0];
+        $this->assertSame('down', $cal['next_ranking_hint']);
+        $this->assertContains('cap_batch_size:1', $cal['next_batch_constraints']);
+    }
+
+    public function test_up_ranking_hint_with_strong_multiplier_allows_increased_batch_size(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'rising', 'predicted_leverage' => 'low']],
+            [['task_family' => 'rising', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4, 'green_evidence' => true]],
+        );
+
+        $cal = $result['calibrations'][0];
+        $this->assertSame('up', $cal['next_ranking_hint']);
+        $this->assertContains('eligible_for_increased_batch_size', $cal['next_batch_constraints']);
+    }
+
+    public function test_accurate_family_has_no_constraint(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'steady', 'predicted_leverage' => 'medium']],
+            [['task_family' => 'steady', 'actual_outcome' => 'delivered', 'capability_delta' => 'medium']],
+        );
+
+        $cal = $result['calibrations'][0];
+        $this->assertSame(['no_constraint'], $cal['next_batch_constraints']);
+    }
 }

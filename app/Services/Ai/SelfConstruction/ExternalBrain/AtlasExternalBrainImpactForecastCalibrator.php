@@ -89,6 +89,8 @@ final class AtlasExternalBrainImpactForecastCalibrator
                 $familyOutcomes,
             );
 
+            $nextBatchConstraints = $this->nextBatchConstraints($overclaim, $multiplier, $nextRankingHint, $familyOverclaimFlags);
+
             $calibrations[] = [
                 'task_family'              => $family,
                 'forecast_error'           => $forecastError,
@@ -99,6 +101,7 @@ final class AtlasExternalBrainImpactForecastCalibrator
                 'next_forecast_multiplier' => $multiplier,
                 'repeated_overclaim_flags' => $familyOverclaimFlags,
                 'next_ranking_hint'        => $nextRankingHint,
+                'next_batch_constraints'   => $nextBatchConstraints,
             ];
         }
 
@@ -278,6 +281,33 @@ final class AtlasExternalBrainImpactForecastCalibrator
         $multiplier      = round(max(0.5, min(1.5, 1.0 - $bias)), 4);
 
         return [$overclaim_rate, $underclaim_rate, $multiplier];
+    }
+
+    /**
+     * Translates calibration signal into concrete constraints for the NEXT batch of this family —
+     * the point where forecast accuracy actually changes future ranking, not just describes the past.
+     *
+     * @param  list<string>  $overclaimFlags
+     * @return list<string>
+     */
+    private function nextBatchConstraints(float $overclaimRate, float $multiplier, string $rankingHint, array $overclaimFlags): array
+    {
+        $constraints = [];
+
+        if ($overclaimFlags !== [] || $overclaimRate >= 0.5) {
+            $constraints[] = 'require_stronger_evidence_before_high_leverage_claim';
+        }
+        if ($rankingHint === 'down' || $multiplier <= 0.75) {
+            $constraints[] = 'cap_batch_size:1';
+        }
+        if ($rankingHint === 'up' && $multiplier >= 1.0) {
+            $constraints[] = 'eligible_for_increased_batch_size';
+        }
+        if ($constraints === []) {
+            $constraints[] = 'no_constraint';
+        }
+
+        return $constraints;
     }
 
     /**
