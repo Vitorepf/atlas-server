@@ -22,9 +22,82 @@ final class AtlasExternalBrainTieredCognitionRouterTest extends TestCase
         $this->assertSame(AtlasExternalBrainTieredCognitionRouter::SCHEMA, $r['schema_version']);
         $this->assertArrayHasKey('assigned_tier', $r);
         $this->assertArrayHasKey('escalation_reason', $r);
+        $this->assertArrayHasKey('reason', $r);
         $this->assertArrayHasKey('fallback_to_scaffolded_small_model', $r);
         $this->assertArrayHasKey('frontier_unavailable', $r);
+        $this->assertArrayHasKey('required_scaffold', $r);
+        $this->assertArrayHasKey('quality_gate_expectations', $r);
         $this->assertArrayHasKey('routing_explanation', $r);
+        $this->assertNotEmpty($r['required_scaffold']);
+        $this->assertNotEmpty($r['quality_gate_expectations']);
+    }
+
+    // ── multi-agent arena tier ────────────────────────────────────────────────
+
+    public function test_explicit_critique_arena_request_routes_to_arena(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'         => 'enhancement',
+            'scaffold_evidence_strength' => 0.5,
+            'requires_critique_arena'  => true,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_ARENA, $r['assigned_tier']);
+        $this->assertSame('critique_arena_explicitly_required', $r['reason']);
+    }
+
+    public function test_moderate_ambiguity_with_high_impact_routes_to_arena(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'  => 'enhancement',
+            'ambiguity_score'   => 0.5,
+            'impact_score'      => 0.7,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_ARENA, $r['assigned_tier']);
+        $this->assertSame('moderate_ambiguity_high_impact_requires_arena', $r['reason']);
+    }
+
+    public function test_moderate_ambiguity_with_low_impact_does_not_route_to_arena(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'  => 'enhancement',
+            'ambiguity_score'   => 0.5,
+            'impact_score'      => 0.1,
+        ]);
+        $this->assertNotSame(AtlasExternalBrainTieredCognitionRouter::TIER_ARENA, $r['assigned_tier']);
+    }
+
+    public function test_conflicting_evidence_outranks_arena_request(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'enhancement',
+            'requires_critique_arena' => true,
+            'is_conflicting_evidence' => true,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+    }
+
+    public function test_arena_tier_quality_gate_expectations_include_adversarial_critique(): void
+    {
+        $r = $this->router()->route(['requires_critique_arena' => true]);
+        $this->assertContains('adversarial_critique_required', $r['quality_gate_expectations']);
+        $this->assertSame('scaffold_required_plus_critique_panel', $r['required_scaffold']);
+    }
+
+    public function test_frontier_tier_quality_gate_expectations_include_human_review(): void
+    {
+        $r = $this->router()->route(['origination_type' => 'novel_research']);
+        $this->assertContains('human_or_certification_review_required', $r['quality_gate_expectations']);
+    }
+
+    public function test_low_impact_obvious_work_de_escalates_to_small_model(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'           => 'extraction',
+            'scaffold_evidence_strength' => 0.9,
+            'ambiguity_score'            => 0.0,
+            'impact_score'               => 0.05,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_SMALL, $r['assigned_tier']);
     }
 
     // ── AC2: small-model / scaffolded for low-risk tasks ─────────────────────

@@ -41,6 +41,7 @@ final class AtlasExternalBrainTieredCognitionRouter
 
     public const TIER_SMALL      = 'small_model';
     public const TIER_SCAFFOLDED = 'scaffolded_small_model';
+    public const TIER_ARENA      = 'multi_agent_arena';
     public const TIER_FRONTIER   = 'frontier_model';
 
     private const FRONTIER_TYPES           = ['architecture_tradeoff', 'novel_research'];
@@ -51,6 +52,28 @@ final class AtlasExternalBrainTieredCognitionRouter
     private const LEVERAGE_FLOOR           = 0.80;
     private const QUALITY_DELTA_THRESHOLD  = 0.40;
     private const RISK_CLASS_CRITICAL      = 'critical';
+    private const ARENA_AMBIGUITY_THRESHOLD = 0.35;
+    private const ARENA_IMPACT_THRESHOLD    = 0.50;
+
+    /** @var array<string, array{required_scaffold: string, quality_gate_expectations: list<string>}> */
+    private const TIER_EXPECTATIONS = [
+        self::TIER_SMALL => [
+            'required_scaffold' => 'light_scaffold_optional',
+            'quality_gate_expectations' => ['unit_test_required'],
+        ],
+        self::TIER_SCAFFOLDED => [
+            'required_scaffold' => 'scaffold_required',
+            'quality_gate_expectations' => ['unit_test_required', 'scope_lock_required'],
+        ],
+        self::TIER_ARENA => [
+            'required_scaffold' => 'scaffold_required_plus_critique_panel',
+            'quality_gate_expectations' => ['unit_test_required', 'scope_lock_required', 'adversarial_critique_required'],
+        ],
+        self::TIER_FRONTIER => [
+            'required_scaffold' => 'full_context_pack_required',
+            'quality_gate_expectations' => ['unit_test_required', 'scope_lock_required', 'adversarial_critique_required', 'human_or_certification_review_required'],
+        ],
+    ];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -66,10 +89,13 @@ final class AtlasExternalBrainTieredCognitionRouter
         $leverageScore      = max(0.0, min(1.0, (float) ($facts['leverage_score']             ?? 0.0)));
         $expectedQualityDelta = max(0.0, min(1.0, (float) ($facts['expected_quality_delta']   ?? 0.0)));
         $riskClass          = strtolower(trim((string) ($facts['risk_class']                  ?? '')));
+        $impactScore        = max(0.0, min(1.0, (float) ($facts['impact_score']               ?? 0.0)));
+        $requiresArena      = (bool) ($facts['requires_critique_arena']  ?? false);
 
         [$tier, $escalationReason] = $this->assignTier(
             $type, $scaffoldStrength, $ambiguity, $conflicting,
             $leverageScore, $expectedQualityDelta, $riskClass,
+            $impactScore, $requiresArena,
         );
 
         $fallback        = false;
@@ -81,12 +107,17 @@ final class AtlasExternalBrainTieredCognitionRouter
             $frontierUnavail = true;
         }
 
+        $expectations = self::TIER_EXPECTATIONS[$tier];
+
         return [
             'schema_version'                     => self::SCHEMA,
             'assigned_tier'                      => $tier,
             'escalation_reason'                  => $escalationReason,
+            'reason'                             => $escalationReason,
             'fallback_to_scaffolded_small_model' => $fallback,
             'frontier_unavailable'               => $frontierUnavail,
+            'required_scaffold'                  => $expectations['required_scaffold'],
+            'quality_gate_expectations'          => $expectations['quality_gate_expectations'],
             'routing_explanation'                => $this->explain($tier, $escalationReason, $fallback),
         ];
     }
@@ -102,6 +133,8 @@ final class AtlasExternalBrainTieredCognitionRouter
         float $leverageScore,
         float $expectedQualityDelta,
         string $riskClass,
+        float $impactScore,
+        bool $requiresArena,
     ): array {
         // 1. Conflicting evidence → frontier.
         if ($conflicting) {
@@ -133,6 +166,12 @@ final class AtlasExternalBrainTieredCognitionRouter
             return [self::TIER_FRONTIER, 'expected_quality_delta_justifies_frontier'];
         }
 
+        // 6.5. Explicit critique-arena request, or moderate ambiguity + high impact
+        // → multi-agent arena (cheaper than frontier, stronger than a lone small model).
+        if ($requiresArena || ($ambiguity >= self::ARENA_AMBIGUITY_THRESHOLD && $impactScore >= self::ARENA_IMPACT_THRESHOLD)) {
+            return [self::TIER_ARENA, $requiresArena ? 'critique_arena_explicitly_required' : 'moderate_ambiguity_high_impact_requires_arena'];
+        }
+
         // 7. Simple type with strong scaffold → small model (anti-over-escalation).
         if (in_array($type, self::SIMPLE_TYPES, true) && $scaffold >= self::SCAFFOLD_STRONG) {
             return [self::TIER_SMALL, null];
@@ -149,6 +188,9 @@ final class AtlasExternalBrainTieredCognitionRouter
         }
         if ($tier === self::TIER_FRONTIER) {
             return "escalated_to_frontier: $reason";
+        }
+        if ($tier === self::TIER_ARENA) {
+            return "routed_to_multi_agent_arena: $reason";
         }
 
         return "assigned_$tier: sufficient_for_task";
