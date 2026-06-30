@@ -58,6 +58,98 @@ final class AtlasExternalBrainResearchPatternPlan
     }
 
     /**
+     * Convert an accepted research entry into an Atlas-native task_opportunity draft.
+     *
+     * Required entry fields (same as accept()): provenance, comparison_summary, atlas_adaptation_hypothesis.
+     * Optional: idea (string), allowed_files_hint (list<string>), runnable_acceptance_hint (string).
+     *
+     * Returns { accepted:bool, rejection_reason:string|null, draft:array|null }.
+     * draft: { source_provenance, adaptation_hypothesis, implementability_notes,
+     *          anti_hype_risks:list<string>, allowed_files_hint:list<string>, runnable_acceptance_hint:string }
+     *
+     * Entries missing provenance or Atlas adaptation are REJECTED — never produce hype-only drafts.
+     *
+     * @param  array<string,mixed>  $entry
+     * @return array<string,mixed>
+     */
+    public function toTaskOpportunity(array $entry): array
+    {
+        if (! $this->accept($entry)) {
+            return ['accepted' => false, 'rejection_reason' => $this->rejectionReason($entry), 'draft' => null];
+        }
+
+        $provenance = (string) $entry['provenance'];
+        $adaptationHypothesis = (string) $entry['atlas_adaptation_hypothesis'];
+        $comparisonSummary = (string) $entry['comparison_summary'];
+        $idea = trim((string) ($entry['idea'] ?? ''));
+
+        $allowedFilesHint = is_array($entry['allowed_files_hint'] ?? null)
+            ? array_values(array_filter(array_map('strval', $entry['allowed_files_hint'])))
+            : [];
+
+        $runnableHint = trim((string) ($entry['runnable_acceptance_hint'] ?? ''));
+        if ($runnableHint === '') {
+            $runnableHint = $idea !== ''
+                ? "Add a PHPUnit test proving the {$idea} primitive works end-to-end with no provider calls."
+                : 'Add a PHPUnit test proving the adapted primitive satisfies the Atlas adaptation hypothesis with no provider calls.';
+        }
+
+        return [
+            'accepted' => true,
+            'rejection_reason' => null,
+            'draft' => [
+                'source_provenance' => $provenance,
+                'adaptation_hypothesis' => $adaptationHypothesis,
+                'implementability_notes' => "Comparison basis: {$comparisonSummary}. "
+                    ."Atlas adaptation path: {$adaptationHypothesis}. "
+                    .'Verify against existing AtlasTaskServingStack primitives before introducing new abstractions.',
+                'anti_hype_risks' => $this->buildAntiHypeRisks($adaptationHypothesis, $comparisonSummary),
+                'allowed_files_hint' => $allowedFilesHint,
+                'runnable_acceptance_hint' => $runnableHint,
+            ],
+        ];
+    }
+
+    /** @param  array<string,mixed>  $entry */
+    private function rejectionReason(array $entry): string
+    {
+        if (empty($entry['provenance']) || ! is_string($entry['provenance'])) {
+            return 'missing_or_empty_provenance';
+        }
+        if (empty($entry['comparison_summary']) || ! is_string($entry['comparison_summary'])) {
+            return 'missing_or_empty_comparison_summary';
+        }
+
+        return 'missing_or_empty_atlas_adaptation_hypothesis';
+    }
+
+    /** @return list<string> */
+    private function buildAntiHypeRisks(string $adaptationHypothesis, string $comparisonSummary): array
+    {
+        $risks = [];
+        $combined = strtolower($adaptationHypothesis.' '.$comparisonSummary);
+
+        $hypeSignals = [
+            'completely transforms' => 'hype_claim:completely_transforms — verify with a bounded proof before committing',
+            'revolutionary'         => 'hype_claim:revolutionary — scope to smallest Atlas primitive first',
+            'game changer'          => 'hype_claim:game_changer — prove with a single runnable gate, not a roadmap',
+            'unlimited'             => 'hype_claim:unlimited — all real systems have limits; specify the Atlas ceiling',
+            '10x'                   => 'hype_claim:10x — requires before/after benchmark, not assertion',
+        ];
+
+        foreach ($hypeSignals as $signal => $risk) {
+            if (str_contains($combined, $signal)) {
+                $risks[] = $risk;
+            }
+        }
+
+        $risks[] = 'orphan_wiring:implement_stub_and_never_wire_callers';
+        $risks[] = 'provider_bleed:research_pattern_may_silently_introduce_provider_call';
+
+        return $risks;
+    }
+
+    /**
      * Validate that a completed research entry has provenance, comparison, and an Atlas adaptation hypothesis.
      *
      * @param  array<string,mixed>  $entry

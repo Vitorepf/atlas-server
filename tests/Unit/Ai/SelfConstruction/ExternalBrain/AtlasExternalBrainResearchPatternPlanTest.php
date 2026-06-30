@@ -138,4 +138,146 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
             'atlas_adaptation_hypothesis' => 'ok',
         ]));
     }
+
+    // ── toTaskOpportunity() ───────────────────────────────────────────────────
+
+    private function acceptedEntry(array $overrides = []): array
+    {
+        return array_merge([
+            'provenance'                  => 'atlas:journal:loop-evidence-2026',
+            'comparison_summary'          => 'Pattern A outperforms B for local-first wiring',
+            'atlas_adaptation_hypothesis' => 'Wrap pattern A behind AtlasWiringAdapter, keep provider-free',
+            'idea'                        => 'evidence-driven wiring',
+        ], $overrides);
+    }
+
+    public function test_to_task_opportunity_returns_draft_for_accepted_entry(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry());
+
+        $this->assertTrue($r['accepted']);
+        $this->assertNull($r['rejection_reason']);
+        $this->assertIsArray($r['draft']);
+
+        foreach (['source_provenance', 'adaptation_hypothesis', 'implementability_notes',
+                  'anti_hype_risks', 'allowed_files_hint', 'runnable_acceptance_hint'] as $key) {
+            $this->assertArrayHasKey($key, $r['draft'], "draft must contain {$key}");
+        }
+    }
+
+    public function test_draft_source_provenance_matches_entry_provenance(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $this->assertSame('atlas:journal:loop-evidence-2026', $r['draft']['source_provenance']);
+    }
+
+    public function test_draft_adaptation_hypothesis_matches_entry(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $this->assertSame(
+            'Wrap pattern A behind AtlasWiringAdapter, keep provider-free',
+            $r['draft']['adaptation_hypothesis']
+        );
+    }
+
+    public function test_draft_implementability_notes_reference_comparison_and_adaptation(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $notes = $r['draft']['implementability_notes'];
+
+        $this->assertStringContainsString('Pattern A outperforms B', $notes);
+        $this->assertStringContainsString('AtlasWiringAdapter', $notes);
+    }
+
+    public function test_draft_runnable_acceptance_hint_includes_idea(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $hint = $r['draft']['runnable_acceptance_hint'];
+
+        $this->assertNotEmpty($hint);
+        $this->assertStringContainsString('evidence-driven wiring', $hint);
+    }
+
+    public function test_draft_accepts_explicit_runnable_acceptance_hint(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'runnable_acceptance_hint' => 'php artisan test --filter=AtlasWiringAdapterTest',
+        ]));
+
+        $this->assertSame('php artisan test --filter=AtlasWiringAdapterTest', $r['draft']['runnable_acceptance_hint']);
+    }
+
+    public function test_draft_accepts_explicit_allowed_files_hint(): void
+    {
+        $files = ['app/Services/Ai/SelfConstruction/AtlasWiringAdapter.php'];
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry(['allowed_files_hint' => $files]));
+
+        $this->assertSame($files, $r['draft']['allowed_files_hint']);
+    }
+
+    public function test_anti_hype_risks_always_include_structural_risks(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $risks = implode(' ', $r['draft']['anti_hype_risks']);
+
+        $this->assertStringContainsString('orphan_wiring', $risks);
+        $this->assertStringContainsString('provider_bleed', $risks);
+    }
+
+    public function test_anti_hype_risks_flag_hype_signals_in_adaptation_hypothesis(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'atlas_adaptation_hypothesis' => 'This revolutionary pattern completely transforms how Atlas works',
+        ]));
+
+        $risks = implode(' ', $r['draft']['anti_hype_risks']);
+        $this->assertStringContainsString('hype_claim:revolutionary', $risks);
+        $this->assertStringContainsString('hype_claim:completely_transforms', $risks);
+    }
+
+    public function test_to_task_opportunity_rejects_entry_missing_provenance(): void
+    {
+        $r = $this->planner->toTaskOpportunity([
+            'comparison_summary'          => 'A vs B',
+            'atlas_adaptation_hypothesis' => 'use A',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertStringContainsString('provenance', $r['rejection_reason']);
+        $this->assertNull($r['draft']);
+    }
+
+    public function test_to_task_opportunity_rejects_entry_missing_comparison_summary(): void
+    {
+        $r = $this->planner->toTaskOpportunity([
+            'provenance'                  => 'atlas:journal:x',
+            'atlas_adaptation_hypothesis' => 'use A',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertStringContainsString('comparison_summary', $r['rejection_reason']);
+    }
+
+    public function test_to_task_opportunity_rejects_entry_missing_adaptation_hypothesis(): void
+    {
+        $r = $this->planner->toTaskOpportunity([
+            'provenance'         => 'atlas:journal:x',
+            'comparison_summary' => 'A beats B',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertStringContainsString('atlas_adaptation_hypothesis', $r['rejection_reason']);
+    }
+
+    public function test_hype_only_entry_without_provenance_never_produces_draft(): void
+    {
+        // No provenance, hype-filled hypothesis → must be rejected, no draft.
+        $r = $this->planner->toTaskOpportunity([
+            'comparison_summary'          => 'revolutionary game changer unlimited 10x',
+            'atlas_adaptation_hypothesis' => 'completely transforms everything',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertNull($r['draft']);
+    }
 }
