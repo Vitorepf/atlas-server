@@ -5,136 +5,132 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\TaskQuality;
 
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedPacketFamilyClassifier;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
-/**
- * Pure family classifier for blocked queue packets. Deterministic: same fixture in → same family+action out.
- */
 final class AtlasTaskBlockedPacketFamilyClassifierTest extends TestCase
 {
-    private function svc(): AtlasTaskBlockedPacketFamilyClassifier
+    // ── AC1: every listed family maps deterministically ──────────────────────
+
+    public function test_forbidden_target_classified_with_retire_action(): void
     {
-        return new AtlasTaskBlockedPacketFamilyClassifier;
+        $r = $this->classify(['blocking_deficiencies' => ['forbidden_self_target']]);
+
+        $this->assertSame('forbidden_target', $r['family']);
+        $this->assertSame('retire', $r['recommended_action']);
+        $this->assertSame('unrepairable', $r['repairability']);
+        $this->assertSame('high', $r['confidence']);
     }
 
-    private function packet(string $id, array $overrides = []): array
+    public function test_contradictory_acceptance_classified_with_retire(): void
     {
-        return array_merge(['task_packet_id' => $id, 'status' => 'queued', 'give_back_count' => 0], $overrides);
+        $r = $this->classify(['blocking_deficiencies' => ['contradictory_acceptance']]);
+
+        $this->assertSame('contradictory_acceptance', $r['family']);
+        $this->assertSame('retire', $r['recommended_action']);
     }
 
-    public function test_classifies_dormant_cli_arm_proxy(): void
+    public function test_schema_mismatch_classified_as_repairable(): void
     {
-        $p = $this->packet('p-cli-arm', ['packet_quality' => ['facts' => ['dormant_cli_arm_proxy' => true], 'blocking_deficiencies' => []]]);
-        $result = $this->svc()->classifyOne($p);
+        $r = $this->classify(['blocking_deficiencies' => ['schema mismatch']]);
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::SCHEMA, $result['schema_version']);
-        $this->assertSame('p-cli-arm', $result['task_packet_id']);
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY, $result['family']);
-        $this->assertStringContainsString('dormant_cli_arm_proxy', $result['rationale']);
+        $this->assertSame('schema_mismatch', $r['family']);
+        $this->assertSame('respec', $r['recommended_action']);
+        $this->assertSame('repairable', $r['repairability']);
     }
 
-    public function test_classifies_test_only_microtask_requires_contract(): void
+    public function test_missing_impl_file_classified_as_repairable(): void
     {
-        $p = $this->packet('p-contract', ['packet_quality' => ['facts' => ['test_only_has_contract' => true], 'blocking_deficiencies' => []]]);
-        $result = $this->svc()->classifyOne($p);
+        $r = $this->classify(['quality_facts' => ['impl_file_missing' => true]]);
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_TEST_ONLY_MICROTASK, $result['family']);
-        $this->assertStringContainsString('test_only_has_contract', $result['rationale']);
+        $this->assertSame('missing_impl_file', $r['family']);
+        $this->assertSame('respec', $r['recommended_action']);
     }
 
-    public function test_classifies_repeated_give_back_at_threshold(): void
+    public function test_duplicate_already_done_classified_with_retire(): void
     {
-        $p = $this->packet('p-giveback', ['give_back_count' => 8]);
-        $result = $this->svc()->classifyOne($p);
+        $r = $this->classify(['quality_facts' => ['already_done' => true]]);
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_REPEATED_GIVE_BACK, $result['family']);
-        $this->assertStringContainsString('8', $result['rationale']);
-        $this->assertSame('respec_or_retire', $result['recommended_action']);
+        $this->assertSame('duplicate_already_done', $r['family']);
+        $this->assertSame('retire', $r['recommended_action']);
     }
 
-    public function test_give_back_below_threshold_does_not_classify_as_repeated(): void
+    public function test_dormant_cli_arm_proxy_classified(): void
     {
-        $p = $this->packet('p-giveback-low', ['give_back_count' => 7]);
-        $result = $this->svc()->classifyOne($p);
+        $r = $this->classify(['quality_facts' => ['dormant_cli_arm_proxy' => true]]);
 
-        $this->assertNotSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_REPEATED_GIVE_BACK, $result['family']);
+        $this->assertSame('dormant_cli_arm_proxy', $r['family']);
     }
 
-    public function test_classifies_duplicate_already_done_via_fact(): void
+    public function test_unknown_classified_as_manual_review_with_low_confidence(): void
     {
-        $p = $this->packet('p-done', ['packet_quality' => ['facts' => ['already_done' => true], 'blocking_deficiencies' => []]]);
-        $result = $this->svc()->classifyOne($p);
+        $r = $this->classify([]);
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DUPLICATE_ALREADY_DONE, $result['family']);
-        $this->assertSame('retire', $result['recommended_action']);
+        $this->assertSame('unknown', $r['family']);
+        $this->assertSame('manual_review', $r['recommended_action']);
+        $this->assertSame('low', $r['confidence']);
     }
 
-    public function test_classifies_duplicate_already_done_via_status(): void
-    {
-        $p = $this->packet('p-completed', ['status' => 'completed']);
-        $result = $this->svc()->classifyOne($p);
+    // ── AC2: repeated give_back with vs without prior success ────────────────
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DUPLICATE_ALREADY_DONE, $result['family']);
+    public function test_repeated_give_back_with_prior_success_is_respec_candidate(): void
+    {
+        $r = $this->classify(['give_back_count' => 10, 'has_prior_success' => true]);
+
+        $this->assertSame('repeated_give_back', $r['family']);
+        $this->assertSame('respec', $r['recommended_action']);
+        $this->assertSame('repairable', $r['repairability']);
     }
 
-    public function test_classifies_respec_candidate_from_blocking_deficiencies(): void
+    public function test_repeated_give_back_without_prior_success_is_retire(): void
     {
-        $p = $this->packet('p-respec', ['packet_quality' => ['facts' => [], 'blocking_deficiencies' => ['vague_objective', 'missing_scope']]]);
-        $result = $this->svc()->classifyOne($p);
+        $r = $this->classify(['give_back_count' => 10, 'has_prior_success' => false]);
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_RESPEC_CANDIDATE, $result['family']);
-        $this->assertSame('respec', $result['recommended_action']);
-        $this->assertStringContainsString('vague_objective', $result['rationale']);
+        $this->assertSame('repeated_give_back', $r['family']);
+        $this->assertSame('retire', $r['recommended_action']);
+        $this->assertSame('unrepairable', $r['repairability']);
     }
 
-    public function test_classifies_unknown_when_no_rule_matches(): void
-    {
-        $result = $this->svc()->classifyOne($this->packet('p-unknown'));
+    // ── AC3: unknown stays manual_review with low confidence ─────────────────
 
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_UNKNOWN, $result['family']);
-        $this->assertSame('manual_review', $result['recommended_action']);
+    public function test_unknown_has_low_confidence_and_unknown_repairability(): void
+    {
+        $r = $this->classify(['status' => 'blocked']);
+
+        $this->assertSame('unknown', $r['family']);
+        $this->assertSame('low', $r['confidence']);
+        $this->assertSame('unknown', $r['repairability']);
     }
 
-    public function test_classify_batch_returns_one_record_per_packet(): void
-    {
-        $packets = [
-            $this->packet('b-1', ['packet_quality' => ['facts' => ['dormant_cli_arm_proxy' => true], 'blocking_deficiencies' => []]]),
-            $this->packet('b-2', ['give_back_count' => 8]),
-            $this->packet('b-3', ['packet_quality' => ['facts' => ['already_done' => true], 'blocking_deficiencies' => []]]),
-        ];
-        $results = $this->svc()->classifyBatch($packets);
+    // ── output shape ─────────────────────────────────────────────────────────
 
-        $this->assertCount(3, $results);
-        $this->assertSame(['b-1', 'b-2', 'b-3'], array_column($results, 'task_packet_id'));
-        $families = array_column($results, 'family');
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY, $families[0]);
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_REPEATED_GIVE_BACK, $families[1]);
-        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DUPLICATE_ALREADY_DONE, $families[2]);
-    }
-
-    public function test_all_records_carry_schema_version_and_rationale(): void
+    public function test_output_has_all_required_fields(): void
     {
-        $packets = [
-            $this->packet('s-1', ['packet_quality' => ['facts' => ['dormant_cli_arm_proxy' => true], 'blocking_deficiencies' => []]]),
-            $this->packet('s-2', ['packet_quality' => ['facts' => ['test_only_has_contract' => true], 'blocking_deficiencies' => []]]),
-            $this->packet('s-3', ['give_back_count' => 8]),
-            $this->packet('s-4', ['packet_quality' => ['facts' => ['already_done' => true], 'blocking_deficiencies' => []]]),
-            $this->packet('s-5', ['packet_quality' => ['facts' => [], 'blocking_deficiencies' => ['vague_objective']]]),
-            $this->packet('s-6'),
-        ];
-        foreach ($this->svc()->classifyBatch($packets) as $r) {
-            $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::SCHEMA, $r['schema_version']);
-            $this->assertNotEmpty($r['rationale'], 'every record must carry a rationale');
-            $this->assertNotEmpty($r['recommended_action']);
+        $r = $this->classify([]);
+
+        foreach (['schema_version', 'task_packet_id', 'family', 'recommended_action', 'repairability', 'rationale', 'required_respec_fields', 'confidence'] as $key) {
+            $this->assertArrayHasKey($key, $r, "missing key: {$key}");
         }
     }
 
-    public function test_is_deterministic(): void
+    public function test_classify_batch_returns_list(): void
     {
-        $p = $this->packet('det', ['give_back_count' => 9]);
-        $a = $this->svc()->classifyOne($p);
-        $b = $this->svc()->classifyOne($p);
+        $classifier = new AtlasTaskBlockedPacketFamilyClassifier;
+        $results = $classifier->classifyBatch([
+            ['task_packet_id' => 'a', 'blocking_deficiencies' => ['forbidden_self_target']],
+            ['task_packet_id' => 'b', 'quality_facts' => ['already_done' => true]],
+        ]);
 
-        $this->assertSame($a, $b);
+        $this->assertCount(2, $results);
+        $this->assertSame('a', $results[0]['task_packet_id']);
+        $this->assertSame('forbidden_target', $results[0]['family']);
+        $this->assertSame('b', $results[1]['task_packet_id']);
+        $this->assertSame('duplicate_already_done', $results[1]['family']);
+    }
+
+    private function classify(array $packet): array
+    {
+        $packet['task_packet_id'] = $packet['task_packet_id'] ?? 'test-packet';
+
+        return (new AtlasTaskBlockedPacketFamilyClassifier)->classifyOne($packet);
     }
 }
