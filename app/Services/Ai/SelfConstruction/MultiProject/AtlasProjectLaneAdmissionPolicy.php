@@ -29,6 +29,12 @@ final class AtlasProjectLaneAdmissionPolicy
         'merge_policy',
         'rollback_policy',
         'knowledge_sync_policy',
+        // Self-Construction proof floor — must be explicit before any 24/7 autonomous work.
+        'context_freshness_command',
+        'queue_namespace',
+        'receipt_ledger_path',
+        'rollback_verification_command',
+        'steady_state_owner',
     ];
 
     /**
@@ -84,6 +90,35 @@ final class AtlasProjectLaneAdmissionPolicy
         }
         if (! is_array($knowledgeSync) || ! isset($knowledgeSync['mode'])) {
             $reasons[] = 'knowledge_sync_policy_missing_mode';
+        }
+
+        // Self-Construction proof floor: each field must be non-empty.
+        if (trim((string) ($manifest['context_freshness_command'] ?? '')) === '') {
+            $reasons[] = 'context_freshness_command_empty';
+        }
+        if (trim((string) ($manifest['queue_namespace'] ?? '')) === '') {
+            $reasons[] = 'queue_namespace_empty';
+        }
+        if (trim((string) ($manifest['receipt_ledger_path'] ?? '')) === '') {
+            $reasons[] = 'receipt_ledger_path_empty';
+        }
+        if (trim((string) ($manifest['rollback_verification_command'] ?? '')) === '') {
+            $reasons[] = 'rollback_verification_command_empty';
+        }
+        // steady_state_owner must explicitly declare atlas_server — no vague ownership.
+        if (array_key_exists('steady_state_owner', $manifest) && (string) ($manifest['steady_state_owner'] ?? '') !== 'atlas_server') {
+            $reasons[] = 'steady_state_owner_must_be_atlas_server';
+        }
+
+        // Dependency flags block admission — they are hard stops, not advisory defaults.
+        if (! empty($manifest['requires_human'])) {
+            $reasons[] = 'human_dependency_blocks_admission';
+        }
+        if (! empty($manifest['requires_operator'])) {
+            $reasons[] = 'operator_dependency_blocks_admission';
+        }
+        if (! empty($manifest['calls_external_providers'])) {
+            $reasons[] = 'external_provider_dependency_blocks_admission';
         }
 
         $admitted = $reasons === [];
