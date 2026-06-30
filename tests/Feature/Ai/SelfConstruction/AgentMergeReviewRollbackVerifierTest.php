@@ -260,4 +260,97 @@ final class AgentMergeReviewRollbackVerifierTest extends TestCase
 
         return [$packet, $dryRun];
     }
+
+    /**
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function scenarioWithMigration(): array
+    {
+        $files = [
+            ['path' => 'database/migrations/2026_06_30_add_column.php', 'change_kind' => 'added', 'lines_added' => 5, 'content_hash' => 'h1'],
+        ];
+        $packet = (new AgentMergeReviewPacketBuilder)->build(['files' => $files], [], ['packet_id' => 'p']);
+        $scope = (new AgentMergeReviewScopeVerifier)->verify($packet, ['allowed_files' => ['database/']]);
+        $risk = (new AgentMergeReviewRiskScorer)->score($packet, $scope);
+        $approval = (new AgentMergeReviewHumanApprovalPlanner)->plan($packet, $scope, $risk);
+        $dryRun = (new AgentMergeReviewPromotionDryRun)->plan($packet, $scope, $risk, $approval);
+
+        return [$packet, $dryRun];
+    }
+
+    // ── classifyRollbackReadiness() ─────────────────────────────────────────────
+
+    public function test_clean_scenario_is_rollback_ready(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        [$packet, $dryRun] = $this->scenario();
+
+        $result = $svc->classifyRollbackReadiness($packet, $dryRun);
+
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
+        $this->assertNotEmpty($result['rollback_reason']);
+    }
+
+    public function test_unverified_steps_require_manual_plan(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        [$packet, $dryRun] = $this->scenario();
+        $dryRun['plan']['rollback_steps'][] = [
+            'name' => 'rollback_simulation:modified',
+            'path' => 'app/UnknownPath.php',
+            'change_kind' => 'modified',
+        ];
+
+        $result = $svc->classifyRollbackReadiness($packet, $dryRun);
+
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_REQUIRE_MANUAL_PLAN, $result['decision']);
+    }
+
+    public function test_migration_risk_without_recovery_evidence_requires_manual_plan(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        [$packet, $dryRun] = $this->scenarioWithMigration();
+
+        $result = $svc->classifyRollbackReadiness($packet, $dryRun);
+
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_REQUIRE_MANUAL_PLAN, $result['decision']);
+        $this->assertContains('db_backup_snapshot_ref', $result['required_recovery_evidence']);
+    }
+
+    public function test_migration_risk_with_recovery_evidence_is_rollback_ready(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        [$packet, $dryRun] = $this->scenarioWithMigration();
+        $dryRun['recovery_evidence'] = ['db_backup_snapshot_ref'];
+
+        $result = $svc->classifyRollbackReadiness($packet, $dryRun);
+
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
+    }
+
+    public function test_unverified_steps_with_migration_risk_rejects_merge(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        [$packet, $dryRun] = $this->scenarioWithMigration();
+        $dryRun['plan']['rollback_steps'][] = [
+            'name' => 'rollback_simulation:modified',
+            'path' => 'database/migrations/unknown.php',
+            'change_kind' => 'modified',
+        ];
+
+        $result = $svc->classifyRollbackReadiness($packet, $dryRun);
+
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_REJECT_MERGE, $result['decision']);
+    }
+
+    public function test_decision_is_derived_purely_from_evidence_no_human_flag_needed(): void
+    {
+        $svc = new AgentMergeReviewRollbackVerifier;
+        [$packet, $dryRun] = $this->scenario();
+        unset($dryRun['human_approval']);
+
+        $result = $svc->classifyRollbackReadiness($packet, $dryRun);
+
+        $this->assertSame(AgentMergeReviewRollbackVerifier::DECISION_ROLLBACK_READY, $result['decision']);
+    }
 }

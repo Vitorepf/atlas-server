@@ -183,6 +183,102 @@ final class AgentMergeReviewRollbackVerifier
         return 'medium';
     }
 
+    public const DECISION_ROLLBACK_READY      = 'rollback_ready';
+    public const DECISION_REQUIRE_MANUAL_PLAN = 'require_manual_plan';
+    public const DECISION_REJECT_MERGE        = 'reject_merge';
+
+    private const MIGRATION_PATH_MARKERS = ['database/migrations/', 'schema/'];
+    private const GENERATED_CHANGE_KINDS = ['generated'];
+
+    /**
+     * Classify rollback readiness from changed files, migration/schema risk,
+     * generated artifacts and the verify() evidence — never depends on human
+     * approval in steady state; decisions are derived purely from evidence.
+     *
+     * @param  array<string, mixed>  $packet
+     * @param  array<string, mixed>  $promotionDryRun  may include recovery_evidence list
+     * @return array{schema_version:string, decision:string, rollback_reason:string, required_recovery_evidence:list<string>}
+     */
+    public function classifyRollbackReadiness(array $packet, array $promotionDryRun): array
+    {
+        $verification = $this->verify($packet, $promotionDryRun);
+        $unverifiedCount = $verification['verification']['unverified_step_count'];
+
+        $files = (array) data_get($packet, 'packet.files', []);
+        $providedEvidence = (array) ($promotionDryRun['recovery_evidence'] ?? []);
+
+        $hasMigrationRisk = false;
+        $hasGeneratedArtifact = false;
+        foreach ($files as $file) {
+            $path = (string) ($file['path'] ?? '');
+            $changeKind = (string) ($file['change_kind'] ?? '');
+            if ((bool) ($file['schema_risk'] ?? false) || $this->matchesAny($path, self::MIGRATION_PATH_MARKERS)) {
+                $hasMigrationRisk = true;
+            }
+            if (in_array($changeKind, self::GENERATED_CHANGE_KINDS, true)) {
+                $hasGeneratedArtifact = true;
+            }
+        }
+
+        $requiredEvidence = [];
+        if ($hasMigrationRisk) {
+            $requiredEvidence[] = 'db_backup_snapshot_ref';
+        }
+        if ($hasGeneratedArtifact) {
+            $requiredEvidence[] = 'regenerate_command';
+        }
+
+        $missingEvidence = array_values(array_diff($requiredEvidence, $providedEvidence));
+
+        // Unrollbackable steps + migration/schema risk together: too dangerous to
+        // proceed autonomously — reject outright rather than hope a manual plan helps.
+        if ($unverifiedCount > 0 && $hasMigrationRisk) {
+            return [
+                'schema_version'              => self::SCHEMA_VERSION,
+                'decision'                    => self::DECISION_REJECT_MERGE,
+                'rollback_reason'             => 'unverifiable rollback steps combined with migration/schema risk make this change unsafe to merge autonomously',
+                'required_recovery_evidence'  => $requiredEvidence,
+            ];
+        }
+
+        if ($unverifiedCount > 0) {
+            return [
+                'schema_version'              => self::SCHEMA_VERSION,
+                'decision'                    => self::DECISION_REQUIRE_MANUAL_PLAN,
+                'rollback_reason'             => sprintf('%d rollback step(s) could not be verified against the packet', $unverifiedCount),
+                'required_recovery_evidence'  => $requiredEvidence,
+            ];
+        }
+
+        if ($missingEvidence !== []) {
+            return [
+                'schema_version'              => self::SCHEMA_VERSION,
+                'decision'                    => self::DECISION_REQUIRE_MANUAL_PLAN,
+                'rollback_reason'             => 'migration/schema risk or generated artifacts present without the required recovery evidence',
+                'required_recovery_evidence'  => $requiredEvidence,
+            ];
+        }
+
+        return [
+            'schema_version'              => self::SCHEMA_VERSION,
+            'decision'                    => self::DECISION_ROLLBACK_READY,
+            'rollback_reason'             => 'all rollback steps verified and required recovery evidence is present',
+            'required_recovery_evidence'  => $requiredEvidence,
+        ];
+    }
+
+    /** @param  list<string>  $markers */
+    private function matchesAny(string $path, array $markers): bool
+    {
+        foreach ($markers as $marker) {
+            if (str_contains($path, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param  array<string, mixed>  $envelope
      */
