@@ -317,4 +317,90 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizerTest extends TestCa
 
         $this->assertCount(2, $result['repair_specs']);
     }
+
+    // ── AC2: promoted repair spec field contract ────────────────────────────────
+
+    public function test_promoted_spec_has_task_packet_id_seed(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $spec = $result['repair_specs'][0];
+        $this->assertArrayHasKey('task_packet_id', $spec);
+        $this->assertIsString($spec['task_packet_id']);
+        $this->assertNotEmpty($spec['task_packet_id']);
+    }
+
+    public function test_promoted_spec_task_packet_id_is_stable_for_same_target(): void
+    {
+        $r1 = $this->synthesizer->synthesize($this->input($this->good()));
+        $r2 = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $this->assertSame($r1['repair_specs'][0]['task_packet_id'], $r2['repair_specs'][0]['task_packet_id']);
+    }
+
+    public function test_promoted_spec_has_target_path_and_impl_plus_test_allowed_files(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $spec = $result['repair_specs'][0];
+        $this->assertArrayHasKey('target_path', $spec);
+        $this->assertCount(2, $spec['allowed_files']);
+        $hasImpl = false;
+        $hasTest = false;
+        foreach ($spec['allowed_files'] as $f) {
+            if (str_ends_with($f, 'Test.php')) {
+                $hasTest = true;
+            } else {
+                $hasImpl = true;
+            }
+        }
+        $this->assertTrue($hasImpl, 'allowed_files must include an implementation file');
+        $this->assertTrue($hasTest, 'allowed_files must include a test file');
+    }
+
+    public function test_promoted_spec_acceptance_criteria_contains_runnable_proof_command(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $acText = implode(' ', $result['repair_specs'][0]['acceptance_criteria']);
+        $this->assertStringContainsString('./vendor/bin/phpunit tests/Unit/FooTest.php', $acText);
+    }
+
+    public function test_promoted_spec_has_required_evidence(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $spec = $result['repair_specs'][0];
+        $this->assertArrayHasKey('required_evidence', $spec);
+        $this->assertContains('tests_or_gates_result', $spec['required_evidence']);
+    }
+
+    public function test_promoted_spec_has_unblock_reason(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $this->assertArrayHasKey('unblock_reason', $result['repair_specs'][0]);
+        $this->assertNotEmpty($result['repair_specs'][0]['unblock_reason']);
+    }
+
+    public function test_promoted_spec_has_source_diagnostic_ids_list(): void
+    {
+        $d1 = $this->good(['diagnostic_id' => 'diag-a']);
+        $d2 = $this->good(['diagnostic_id' => 'diag-b']);
+
+        $result = $this->synthesizer->synthesize($this->input($d1, $d2));
+
+        $spec = $result['repair_specs'][0];
+        $this->assertArrayHasKey('source_diagnostic_ids', $spec);
+        $this->assertSame(['diag-a', 'diag-b'], $spec['source_diagnostic_ids']);
+    }
+
+    public function test_synthesize_with_new_fields_is_deterministic(): void
+    {
+        $input = $this->input($this->good());
+        $r1 = $this->synthesizer->synthesize($input);
+        $r2 = $this->synthesizer->synthesize($input);
+
+        $this->assertSame(json_encode($r1), json_encode($r2));
+    }
 }

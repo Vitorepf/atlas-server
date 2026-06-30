@@ -174,12 +174,15 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
             : 'macro_repair['.implode(',', $uniqueGates).']';
 
         return [
-            'diagnostic_id'       => count($diagIds) === 1 ? $diagIds[0] : implode(',', $diagIds),
-            'gate_name'           => $macroGate,
-            'target_path'         => $implTarget,
-            'allowed_files'       => $allowedFiles,
-            'acceptance_criteria' => $acceptance,
-            'unblock_reason'      => $unblockReason,
+            'task_packet_id'        => 'repair_'.substr(hash('sha256', $implTarget), 0, 16),
+            'diagnostic_id'         => count($diagIds) === 1 ? $diagIds[0] : implode(',', $diagIds),
+            'source_diagnostic_ids' => $diagIds,
+            'gate_name'             => $macroGate,
+            'target_path'           => $implTarget,
+            'allowed_files'         => $allowedFiles,
+            'acceptance_criteria'   => $acceptance,
+            'required_evidence'     => ['tests_or_gates_result', 'implementation_notes'],
+            'unblock_reason'        => $unblockReason,
         ];
     }
 
