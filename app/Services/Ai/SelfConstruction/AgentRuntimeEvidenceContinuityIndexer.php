@@ -41,6 +41,7 @@ final class AgentRuntimeEvidenceContinuityIndexer
         $types = [];
         $tasks = [];
         $agents = [];
+        $typesByTask = [];
         foreach ($entries as $entry) {
             $type = (string) ($entry['evidence_type'] ?? 'unknown');
             $task = (string) ($entry['task_packet_id'] ?? 'unknown');
@@ -48,12 +49,26 @@ final class AgentRuntimeEvidenceContinuityIndexer
             $types[$type] = ($types[$type] ?? 0) + 1;
             $tasks[$task] = ($tasks[$task] ?? 0) + 1;
             $agents[$agent] = ($agents[$agent] ?? 0) + 1;
+            $typesByTask[$task][$type] = true;
         }
         ksort($types);
         ksort($tasks);
         ksort($agents);
+        ksort($typesByTask);
 
         $missing = array_values(array_diff(self::REQUIRED_TYPES, array_keys($types)));
+
+        $perTaskContinuity = [];
+        foreach ($typesByTask as $task => $presentTypes) {
+            $present = array_values(array_intersect(self::REQUIRED_TYPES, array_keys($presentTypes)));
+            $missingForTask = array_values(array_diff(self::REQUIRED_TYPES, array_keys($presentTypes)));
+            $perTaskContinuity[] = [
+                'task_packet_id' => $task,
+                'present_required_types' => $present,
+                'missing_required_types' => $missingForTask,
+                'complete' => $missingForTask === [],
+            ];
+        }
         $index = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -66,6 +81,7 @@ final class AgentRuntimeEvidenceContinuityIndexer
             'agent_counts' => $agents,
             'required_evidence_types' => self::REQUIRED_TYPES,
             'missing_required_evidence_types' => $missing,
+            'per_task_continuity' => $perTaskContinuity,
             'continuation_summary_ready' => in_array('continuation_summary', array_keys($types), true),
             'runtime_safety' => [
                 'runtime_safety_all_false' => true,
