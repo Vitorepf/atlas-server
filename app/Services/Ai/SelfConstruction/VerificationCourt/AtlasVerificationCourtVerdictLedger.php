@@ -70,11 +70,15 @@ final class AtlasVerificationCourtVerdictLedger
         if ($reasons === null) {
             throw new RuntimeException('verdict ledger: missing reasons (use [] for none)');
         }
+        // failed and blocked verdicts MUST carry diagnostic reasons — empty list is not enough evidence.
+        if (in_array($verdict, [AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, AtlasVerificationCourtFalseGreenDetector::VERDICT_BLOCKED], true) && $reasons === []) {
+            throw new RuntimeException('verdict ledger: '.$verdict.' verdict requires non-empty diagnostic reasons');
+        }
         if ($outcomeHash === '') {
             throw new RuntimeException('verdict ledger: missing replay_outcome_hash');
         }
-        if ($decidedAt === '') {
-            throw new RuntimeException('verdict ledger: missing decided_at');
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|\+00:00)$/', $decidedAt)) {
+            throw new RuntimeException('verdict ledger: decided_at must be canonical UTC ISO-8601, got: '.$decidedAt);
         }
 
         sort($reasons, SORT_STRING);

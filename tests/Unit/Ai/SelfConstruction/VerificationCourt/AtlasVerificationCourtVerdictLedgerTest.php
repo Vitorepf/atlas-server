@@ -29,7 +29,9 @@ final class AtlasVerificationCourtVerdictLedgerTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->ledgerPath);
+        if (is_file($this->ledgerPath)) {
+            unlink($this->ledgerPath);
+        }
         parent::tearDown();
     }
 
@@ -79,6 +81,74 @@ final class AtlasVerificationCourtVerdictLedgerTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/missing replay_plan_hash/');
         $this->ledger->append($p);
+    }
+
+    public function test_failed_verdict_without_diagnostic_reasons_throws(): void
+    {
+        $p = $this->payload();
+        $p['verdict'] = AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED;
+        $p['reasons'] = [];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/non-empty diagnostic reasons/');
+        $this->ledger->append($p);
+    }
+
+    public function test_blocked_verdict_without_diagnostic_reasons_throws(): void
+    {
+        $p = $this->payload();
+        $p['verdict'] = AtlasVerificationCourtFalseGreenDetector::VERDICT_BLOCKED;
+        $p['reasons'] = [];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/non-empty diagnostic reasons/');
+        $this->ledger->append($p);
+    }
+
+    public function test_passed_verdict_with_empty_reasons_is_accepted(): void
+    {
+        $p = $this->payload();
+        $p['verdict'] = AtlasVerificationCourtFalseGreenDetector::VERDICT_PASSED;
+        $p['reasons'] = [];
+        $res = $this->ledger->append($p);
+        $this->assertSame(AtlasVerificationCourtVerdictLedger::STATUS_OK, $res['status']);
+    }
+
+    public function test_failed_verdict_with_non_empty_reasons_is_accepted(): void
+    {
+        $p = $this->payload();
+        $p['verdict'] = AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED;
+        $p['reasons'] = ['test_suite_red'];
+        $res = $this->ledger->append($p);
+        $this->assertSame(AtlasVerificationCourtVerdictLedger::STATUS_OK, $res['status']);
+    }
+
+    public function test_decided_at_must_be_canonical_utc_iso8601(): void
+    {
+        $p = $this->payload();
+
+        // Local timezone offset is not UTC — must throw
+        $p['decided_at'] = '2026-06-25T00:00:00+03:00';
+        try {
+            $this->ledger->append($p);
+            $this->fail('non-UTC decided_at must throw');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('decided_at', $e->getMessage());
+        }
+
+        // Entirely missing timestamp
+        $p['decided_at'] = 'not-a-date';
+        try {
+            $this->ledger->append($p);
+            $this->fail('non-ISO decided_at must throw');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('decided_at', $e->getMessage());
+        }
+
+        // Both valid UTC forms should be accepted
+        $pZ = array_merge($this->payload(), ['decided_at' => '2026-06-25T12:00:00Z']);
+        $this->assertSame(AtlasVerificationCourtVerdictLedger::STATUS_OK, $this->ledger->append($pZ)['status']);
+
+        $pUtc = array_merge($this->payload(), ['decided_at' => '2026-06-25T12:00:01+00:00', 'replay_outcome_hash' => 'distinct']);
+        $this->assertSame(AtlasVerificationCourtVerdictLedger::STATUS_OK, $this->ledger->append($pUtc)['status']);
     }
 
     public function test_by_task_packet_id_filters_to_that_packet(): void
