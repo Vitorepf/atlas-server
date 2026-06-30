@@ -106,4 +106,40 @@ final class AtlasTaskServingLeaseMismatchRepairPlanTest extends TestCase
 
         $this->assertSame($plan->compile($report), $plan->compile($report));
     }
+
+    // ── AC1/AC2: reap-leases tried before repair_registry for non-recoverable surplus ──
+
+    public function test_non_recoverable_active_lease_surplus_tries_reap_leases_before_repair_registry(): void
+    {
+        $report = [
+            'classification' => 'active_lease_surplus',
+            'active_leases' => 2,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $actions = array_column($result['steps'], 'action');
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::ACTION_REAP_LEASES, $actions[0]);
+        $reapIndex = array_search(AtlasTaskServingLeaseMismatchRepairPlan::ACTION_REAP_LEASES, $actions, true);
+        $repairIndex = array_search(AtlasTaskServingLeaseMismatchRepairPlan::ACTION_REPAIR_REGISTRY, $actions, true);
+        $this->assertNotFalse($repairIndex);
+        $this->assertLessThan($repairIndex, $reapIndex);
+    }
+
+    public function test_clean_parity_report_still_returns_observe_only(): void
+    {
+        $report = [
+            'classification' => 'clean',
+            'active_leases' => 1,
+            'claimed_records' => 1,
+            'recoverable_candidates' => ['total' => 0],
+        ];
+
+        $result = $this->plan()->compile($report);
+
+        $this->assertCount(1, $result['steps']);
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::ACTION_OBSERVE, $result['steps'][0]['action']);
+    }
 }

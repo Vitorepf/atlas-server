@@ -49,6 +49,15 @@ final class AtlasTaskServingLeaseMismatchRepairPlan
         }
 
         if ($recoverableTotal === 0 && $activeLeases > $claimedRecords) {
+            // Observed live behavior: reap-leases restores leases_match_claimed even when
+            // recoverable_candidates.total=0 — try the cheap, safe normalization FIRST, before
+            // recommending the heavier registry repair.
+            $steps[] = $this->step(
+                self::ACTION_REAP_LEASES,
+                'non_recoverable_active_lease_surplus_try_reap_first:active='.$activeLeases.',claimed='.$claimedRecords,
+                'safe',
+                'may_resolve_lease_claim_mismatch_without_registry_repair',
+            );
             $steps[] = $this->step(
                 self::ACTION_REPAIR_REGISTRY,
                 'non_recoverable_active_lease_surplus:active='.$activeLeases.',claimed='.$claimedRecords,
