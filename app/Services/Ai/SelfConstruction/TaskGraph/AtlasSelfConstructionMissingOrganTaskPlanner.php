@@ -138,6 +138,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
         $acceptance = [
             sprintf('Implement %s organ scaffolding so the task graph covers it deterministically.', $organId),
             'Output is deterministic, facts-only, no scalar scoring.',
+            sprintf('/opt/homebrew/bin/php artisan test %s', $test),
         ];
         if ($missingClasses !== []) {
             $acceptance[] = sprintf(
@@ -152,7 +153,7 @@ final class AtlasSelfConstructionMissingOrganTaskPlanner
             'allowed_files' => [$impl, $test],
             'scope_in' => [$impl, $test],
             'acceptance_criteria' => $acceptance,
-            'required_evidence' => ['tests_or_gates_result'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
             'depends_on' => array_values(array_map('strval', (array) ($organ['depends_on'] ?? []))),
             'wave' => $wave,
             'tags' => $tags,

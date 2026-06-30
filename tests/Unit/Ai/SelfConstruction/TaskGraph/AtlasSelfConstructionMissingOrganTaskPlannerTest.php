@@ -109,6 +109,54 @@ class AtlasSelfConstructionMissingOrganTaskPlannerTest extends TestCase
         self::assertTrue((bool) $report['self_sufficient'], 'planner draft must pass quality inspector. Deficiencies: '.implode(',', (array) $report['deficiencies']));
     }
 
+    public function test_draft_acceptance_criteria_include_runnable_artisan_test_command(): void
+    {
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $this->organs(),
+        );
+
+        $criteria = $verdict['drafts'][0]['acceptance_criteria'];
+        $hasTestCommand = false;
+        foreach ($criteria as $c) {
+            if (str_starts_with($c, '/opt/homebrew/bin/php artisan test ')) {
+                $hasTestCommand = true;
+                self::assertStringContainsString('CortexServiceTest.php', $c);
+            }
+        }
+        self::assertTrue($hasTestCommand, 'acceptance_criteria must contain a runnable artisan test command');
+    }
+
+    public function test_draft_required_evidence_includes_implementation_notes(): void
+    {
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['cortex']],
+            $this->organs(),
+        );
+
+        self::assertContains('implementation_notes', $verdict['drafts'][0]['required_evidence']);
+    }
+
+    public function test_impl_only_or_test_only_safe_targets_are_withheld(): void
+    {
+        $organs = [
+            ['organ_id' => 'impl_only', 'purpose' => 'impl but no test', 'safe_targets' => ['implementation' => 'app/Foo.php']],
+            ['organ_id' => 'test_only', 'purpose' => 'test but no impl', 'safe_targets' => ['test' => 'tests/FooTest.php']],
+        ];
+
+        $verdict = (new AtlasSelfConstructionMissingOrganTaskPlanner)->plan(
+            ['missing_organs' => ['impl_only', 'test_only']],
+            $organs,
+        );
+
+        self::assertSame(0, $verdict['draft_count']);
+        self::assertCount(2, $verdict['withheld_gaps']);
+        $reasons = array_column($verdict['withheld_gaps'], 'reason');
+        foreach ($reasons as $r) {
+            self::assertSame('safe_targets_unavailable', $r);
+        }
+    }
+
     public function test_draft_ids_are_deterministic_for_identical_input(): void
     {
         $planner = new AtlasSelfConstructionMissingOrganTaskPlanner();
