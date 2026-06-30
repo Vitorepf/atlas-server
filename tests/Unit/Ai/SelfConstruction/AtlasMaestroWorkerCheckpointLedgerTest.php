@@ -109,4 +109,49 @@ final class AtlasMaestroWorkerCheckpointLedgerTest extends TestCase
 
         $this->assertNull($ledger->resumeFrom('A'));
     }
+
+    public function test_record_with_metadata_stores_normalized_scalar_fields(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('W', 'task-w1', 'h1', [
+            'status' => 'success',
+            'give_back_reason' => '',
+            'test_command_hash' => 'abc123',
+            'committed_hash' => 'def456',
+            'task_family' => 'smoke',
+            'unknown_key' => 'ignored',
+        ]);
+
+        $row = $ledger->latest('W');
+        $this->assertIsArray($row['meta'] ?? null);
+        $meta = $row['meta'];
+        $this->assertSame('success', $meta['status']);
+        $this->assertSame('abc123', $meta['test_command_hash']);
+        $this->assertSame('def456', $meta['committed_hash']);
+        $this->assertSame('smoke', $meta['task_family']);
+        $this->assertArrayNotHasKey('unknown_key', $meta);
+    }
+
+    public function test_record_without_metadata_omits_meta_key_for_old_rows(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('V', 'task-v1', 'h1');
+
+        $row = $ledger->latest('V');
+        $this->assertArrayNotHasKey('meta', $row, 'rows without metadata must not carry a meta key');
+    }
+
+    public function test_latest_and_resume_from_tolerate_rows_without_meta(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record('M', 'task-m1', 'h1');
+        $ledger->record('M', 'task-m2', 'h2', ['status' => 'give_back', 'give_back_reason' => 'impossible', 'test_command_hash' => '', 'committed_hash' => '', 'task_family' => '']);
+
+        $latest = $ledger->latest('M');
+        $this->assertSame('task-m2', $latest['task_packet_id']);
+        $this->assertSame('give_back', $latest['meta']['status']);
+
+        $resume = $ledger->resumeFrom('M');
+        $this->assertNotNull($resume);
+    }
 }

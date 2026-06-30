@@ -52,7 +52,8 @@ final class AtlasMaestroWorkerCheckpointLedger
         return rtrim($root, '/').'/'.$safe.'.jsonl';
     }
 
-    public function record(string $clientId, string $taskPacketId, string $payloadHash): void
+    /** @param array<string,mixed> $meta optional outcome facts; unknown keys are silently dropped */
+    public function record(string $clientId, string $taskPacketId, string $payloadHash, array $meta = []): void
     {
         $path = $this->path($clientId);
         $dir = \dirname($path);
@@ -71,7 +72,22 @@ final class AtlasMaestroWorkerCheckpointLedger
             'payload_hash' => trim($payloadHash),
         ];
 
+        if ($meta !== []) {
+            $row['meta'] = $this->normalizeMeta($meta);
+        }
+
         @file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR).PHP_EOL, FILE_APPEND | LOCK_EX);
+    }
+
+    /** @param array<string,mixed> $meta @return array<string,string> */
+    private function normalizeMeta(array $meta): array
+    {
+        $out = [];
+        foreach (['status', 'give_back_reason', 'test_command_hash', 'committed_hash', 'task_family'] as $key) {
+            $out[$key] = isset($meta[$key]) ? (string) $meta[$key] : '';
+        }
+
+        return $out;
     }
 
     /**
