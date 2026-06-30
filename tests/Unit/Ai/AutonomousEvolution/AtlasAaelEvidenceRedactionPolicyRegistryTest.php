@@ -56,10 +56,14 @@ final class AtlasAaelEvidenceRedactionPolicyRegistryTest extends TestCase
     public function test_frozen_default_kinds_are_all_covered(): void
     {
         $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+        // Allow-decision kinds carry no rules by design (they are safe scalars).
+        $allowKinds = ['task_id', 'evidence_hash'];
         foreach (AtlasAaelEvidenceRedactionPolicyRegistry::FROZEN_DEFAULT_KINDS as $kind) {
             $policy = $registry->resolve($kind);
             $this->assertFalse($policy->isFailClosedDefault, $kind.' must be a configured policy, not the sealed default');
-            $this->assertNotEmpty($policy->rules, $kind.' must carry at least the frozen secret-family rules');
+            if (! in_array($kind, $allowKinds, true)) {
+                $this->assertNotEmpty($policy->rules, $kind.' must carry at least the frozen secret-family rules');
+            }
         }
     }
 
@@ -90,5 +94,85 @@ final class AtlasAaelEvidenceRedactionPolicyRegistryTest extends TestCase
 
         $kinds = array_map(static fn (AtlasAaelEvidenceRedactionRule $r): string => $r->kind, $policy->rules);
         $this->assertContains(AtlasAaelEvidenceRedactionRule::KIND_KEY_NAME, $kinds, 'env_snapshot must redact by key_name');
+    }
+
+    // ---------- Self-Construction receipt kinds ----------
+
+    public function test_classify_task_id_and_evidence_hash_return_allow_decision(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+
+        foreach (['task_id', 'evidence_hash', 'file_path'] as $kind) {
+            $result = $registry->classify($kind);
+            $this->assertSame(AtlasAaelEvidenceRedactionPolicyRegistry::DECISION_ALLOW, $result['decision'], $kind.' must be allowed');
+            $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $result['policy_id'], $kind.' policy_id must be sha256 hex');
+        }
+    }
+
+    public function test_classify_agent_prompt_returns_redact_decision(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+        $result   = $registry->classify('agent_prompt');
+
+        $this->assertSame(AtlasAaelEvidenceRedactionPolicyRegistry::DECISION_REDACT, $result['decision']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $result['policy_id']);
+    }
+
+    public function test_classify_trace_returns_block_decision(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+        $result   = $registry->classify('trace');
+
+        $this->assertSame(AtlasAaelEvidenceRedactionPolicyRegistry::DECISION_BLOCK, $result['decision']);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $result['policy_id']);
+    }
+
+    public function test_classify_unknown_kind_fails_closed_to_block(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+        $result   = $registry->classify('completely_unknown_channel_xyz');
+
+        $this->assertSame(AtlasAaelEvidenceRedactionPolicyRegistry::DECISION_BLOCK, $result['decision'], 'unknown kind must fail-closed to block');
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $result['policy_id']);
+    }
+
+    public function test_classify_policy_id_is_deterministic_across_calls(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+
+        foreach (['task_id', 'trace', 'agent_prompt', 'objective'] as $kind) {
+            $a = $registry->classify($kind);
+            $b = $registry->classify($kind);
+            $this->assertSame($a['policy_id'], $b['policy_id'], "policy_id must be deterministic for $kind");
+        }
+    }
+
+    public function test_classify_objective_and_provider_label_return_hash_only(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+
+        foreach (['objective', 'provider_label'] as $kind) {
+            $result = $registry->classify($kind);
+            $this->assertSame(AtlasAaelEvidenceRedactionPolicyRegistry::DECISION_HASH_ONLY, $result['decision'], $kind.' must be hash_only');
+        }
+    }
+
+    public function test_resolve_trace_carries_block_sentinel_rule(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+        $policy   = $registry->resolve('trace');
+
+        $this->assertNotEmpty($policy->rules);
+        $replacements = array_map(static fn (AtlasAaelEvidenceRedactionRule $r): string => $r->replacement, $policy->rules);
+        $this->assertContains('[BLOCKED:trace]', $replacements, 'trace must carry the block sentinel rule');
+    }
+
+    public function test_resolve_task_id_carries_no_rules_since_it_is_allowed(): void
+    {
+        $registry = new AtlasAaelEvidenceRedactionPolicyRegistry();
+        $policy   = $registry->resolve('task_id');
+
+        $this->assertFalse($policy->isFailClosedDefault);
+        $this->assertEmpty($policy->rules, 'task_id is allow — no redaction rules needed');
     }
 }

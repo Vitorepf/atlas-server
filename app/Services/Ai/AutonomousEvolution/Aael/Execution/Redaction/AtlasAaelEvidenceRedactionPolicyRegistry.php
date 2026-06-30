@@ -23,9 +23,37 @@ final class AtlasAaelEvidenceRedactionPolicyRegistry
         'file_path',
         'http_response',
         'agent_prompt',
+        // Self-Construction receipt kinds
+        'task_id',
+        'evidence_hash',
+        'objective',
+        'provider_label',
+        'trace',
     ];
 
     public const UNKNOWN_KIND_SENTINEL = '[REDACTED:unknown_kind]';
+
+    /** Dispatch decision for each evidence kind — governs what the receipt builder may surface. */
+    public const DECISION_ALLOW     = 'allow';
+    public const DECISION_HASH_ONLY = 'hash_only';
+    public const DECISION_REDACT    = 'redact';
+    public const DECISION_BLOCK     = 'block';
+
+    /** @var array<string,string>  kind → decision constant */
+    private const KIND_DECISIONS = [
+        'task_id'        => self::DECISION_ALLOW,
+        'evidence_hash'  => self::DECISION_ALLOW,
+        'file_path'      => self::DECISION_ALLOW,
+        'objective'      => self::DECISION_HASH_ONLY,
+        'provider_label' => self::DECISION_HASH_ONLY,
+        'stdout'         => self::DECISION_REDACT,
+        'stderr'         => self::DECISION_REDACT,
+        'command_args'   => self::DECISION_REDACT,
+        'env_snapshot'   => self::DECISION_REDACT,
+        'http_response'  => self::DECISION_REDACT,
+        'agent_prompt'   => self::DECISION_REDACT,
+        'trace'          => self::DECISION_BLOCK,
+    ];
 
     /** @var array<string,AtlasAaelEvidenceRedactionPolicy>|null */
     private ?array $memo = null;
@@ -36,6 +64,20 @@ final class AtlasAaelEvidenceRedactionPolicyRegistry
      * @param  array<string,list<array<string,mixed>>>|null  $overridePolicies
      */
     public function __construct(private readonly ?array $overridePolicies = null) {}
+
+    /**
+     * Return the dispatch decision and a deterministic policy_id for an evidence kind.
+     * Unknown kinds are fail-closed to DECISION_BLOCK.
+     *
+     * @return array{decision:string, policy_id:string}
+     */
+    public function classify(string $evidenceKind): array
+    {
+        $decision = self::KIND_DECISIONS[$evidenceKind] ?? self::DECISION_BLOCK;
+        $policyId = hash('sha256', 'aael_evidence_policy:'.$evidenceKind.':'.$decision);
+
+        return ['decision' => $decision, 'policy_id' => $policyId];
+    }
 
     public function resolve(string $evidenceKind): AtlasAaelEvidenceRedactionPolicy
     {
@@ -196,6 +238,17 @@ final class AtlasAaelEvidenceRedactionPolicyRegistry
                 'replacement' => '[REDACTED:env_value]',
                 'scope' => AtlasAaelEvidenceRedactionRule::SCOPE_MATCH,
             ]]),
+            // Self-Construction: task IDs and hashes are safe scalar identifiers — no secrets.
+            'task_id', 'evidence_hash' => [],
+            // Objectives and provider labels are non-secret but must not carry raw PII/keys.
+            'objective', 'provider_label' => $secretFamilies,
+            // Raw execution traces are blocked entirely — full-scope sentinel.
+            'trace' => [[
+                'kind' => AtlasAaelEvidenceRedactionRule::KIND_REGEX,
+                'pattern' => '/(?s).*/',
+                'replacement' => '[BLOCKED:trace]',
+                'scope' => AtlasAaelEvidenceRedactionRule::SCOPE_FULL,
+            ]],
             default => $secretFamilies,
         };
     }
