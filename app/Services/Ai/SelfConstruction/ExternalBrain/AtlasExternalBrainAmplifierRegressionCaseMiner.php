@@ -71,6 +71,9 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
             $heldoutReason    = trim((string) ($f['heldout_reason'] ?? ''));
             $severity         = strtolower(trim((string) ($f['severity'] ?? 'low')));
             $hasProviderTrace = (bool) ($f['has_provider_trace']    ?? false);
+            $taskFamily       = (string) ($f['task_family']         ?? '');
+            $isReproducible   = (bool) ($f['is_reproducible']       ?? false);
+            $sampleEvidence   = (string) ($f['sample_evidence']     ?? '');
 
             if ($hasProviderTrace) {
                 $promotionBlockers[] = ['failure_id' => $id, 'blocker' => 'contains_provider_trace'];
@@ -95,24 +98,38 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
             $promotedCases[] = [
                 'failure_id'         => $id,
                 'failure_type'       => $type,
+                'failure_mode'       => $type,
                 'trigger_shape'      => $trigger,
+                'task_family'        => $taskFamily,
                 'expected_rejection' => $expectedRejection,
+                'expected_guard'     => $expectedRejection,
                 'heldout_reason'     => $heldoutReason !== ''
                     ? $heldoutReason
                     : ($isRepeated ? 'repeated_failure' : 'severe_singleton'),
+                'sample_evidence'    => $sampleEvidence,
+                'is_reproducible'    => $isReproducible,
             ];
         }
 
         $uniqueTypes = array_values(array_unique(array_column($promotedCases, 'failure_type')));
 
+        // AC3: only reproducible promoted cases are concrete enough to become benchmark_case
+        // candidates — a non-reproducible failure cannot be turned into a runnable test.
+        $benchmarkCases = array_values(array_filter(
+            $promotedCases,
+            static fn (array $c): bool => $c['is_reproducible'] && $c['trigger_shape'] !== '',
+        ));
+
         return [
             'schema_version'       => self::SCHEMA,
             'promoted_cases'       => $promotedCases,
             'rejected_candidates'  => $rejectedCandidates,
+            'benchmark_case_candidates' => $benchmarkCases,
             'heldout_suite_updates' => [
                 'promoted_count'       => count($promotedCases),
                 'rejected_count'       => count($rejectedCandidates),
                 'unique_failure_types' => $uniqueTypes,
+                'benchmark_case_count' => count($benchmarkCases),
             ],
             'promotion_blockers'   => $promotionBlockers,
         ];

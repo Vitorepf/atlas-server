@@ -247,4 +247,52 @@ final class AtlasExternalBrainAmplifierRegressionCaseMinerTest extends TestCase
 
         $this->assertSame(json_encode($this->mine($failures)), json_encode($this->mine($failures)));
     }
+
+    // ── failure_mode / task_family / expected_guard / benchmark_case (AC2/AC3) ──
+
+    public function test_promoted_case_has_failure_mode_task_family_expected_guard(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['task_family'] = 'task_fabric:amplifier';
+
+        $result = $this->mine([$failure]);
+
+        $case = $result['promoted_cases'][0];
+        $this->assertSame('overfit', $case['failure_mode']);
+        $this->assertSame('task_fabric:amplifier', $case['task_family']);
+        $this->assertSame('reject_overfit', $case['expected_guard']);
+    }
+
+    public function test_reproducible_promoted_case_becomes_benchmark_case_candidate(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['is_reproducible'] = true;
+
+        $result = $this->mine([$failure]);
+
+        $this->assertCount(1, $result['benchmark_case_candidates']);
+        $this->assertSame('f1', $result['benchmark_case_candidates'][0]['failure_id']);
+        $this->assertSame(1, $result['heldout_suite_updates']['benchmark_case_count']);
+    }
+
+    public function test_non_reproducible_promoted_case_does_not_become_benchmark_case(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['is_reproducible'] = false;
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame([], $result['benchmark_case_candidates']);
+        $this->assertSame(0, $result['heldout_suite_updates']['benchmark_case_count']);
+    }
+
+    public function test_sample_evidence_is_kept_on_promoted_case(): void
+    {
+        $failure = $this->failure('f1', 'overfit', 'shape', 'reject_overfit', '', 'critical');
+        $failure['sample_evidence'] = 'amplifier_run_log_excerpt_42';
+
+        $result = $this->mine([$failure]);
+
+        $this->assertSame('amplifier_run_log_excerpt_42', $result['promoted_cases'][0]['sample_evidence']);
+    }
 }
