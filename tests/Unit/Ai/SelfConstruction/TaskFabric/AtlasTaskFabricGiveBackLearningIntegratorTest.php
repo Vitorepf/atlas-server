@@ -341,4 +341,151 @@ final class AtlasTaskFabricGiveBackLearningIntegratorTest extends TestCase
         $this->assertSame(1, $groups[0]['success_count']);
         $this->assertSame(1, $groups[0]['give_back_count']);
     }
+
+    // ── chain_repair_hints ──────────────────────────────────────────────────────
+
+    public function test_output_has_chain_repair_hints_key(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([]);
+        $this->assertArrayHasKey('chain_repair_hints', $r);
+        $this->assertSame([], $r['chain_repair_hints']);
+    }
+
+    // ── AC1: repeated scope-repair give_backs → respec_or_add_impl hint ────────
+
+    public function test_scope_repair_give_back_emits_respec_or_add_impl_chain_hint(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-scope', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl:app/Foo.php']],
+            ['task_packet_id' => 'pkt-scope', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl:app/Foo.php']],
+        ]);
+
+        $hints = $r['chain_repair_hints'];
+        $this->assertNotEmpty($hints);
+        $hint = $hints[0];
+        $this->assertSame('pkt-scope', $hint['task_packet_id']);
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_RESPEC_OR_ADD_IMPL, $hint['action']);
+    }
+
+    // ── AC2: contradictory / forbidden-petreo → block or cancel, never blind requeue ──
+
+    public function test_contradictory_acceptance_emits_block_dependent_chain_hint(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-contra', 'reason' => 'acceptance_contradiction', 'blocking_deficiencies' => ['scalar_score_required_but_anti_goodhart_forbids']],
+        ]);
+
+        $hint = $r['chain_repair_hints'][0];
+        $this->assertSame('pkt-contra', $hint['task_packet_id']);
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_BLOCK_DEPENDENT_CHAIN, $hint['action']);
+        $this->assertNotSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_REROUTE, $hint['action']);
+    }
+
+    public function test_forbidden_petreo_emits_cancel_hint(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-petreo', 'reason' => 'cli_clobber', 'blocking_deficiencies' => ['cli_clobber']],
+        ]);
+
+        $hint = $r['chain_repair_hints'][0];
+        $this->assertSame('pkt-petreo', $hint['task_packet_id']);
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_CANCEL, $hint['action']);
+    }
+
+    public function test_quarantine_emits_cancel_hint_never_requeued(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-quar', 'reason' => 'scope_repair', 'blocking_deficiencies' => [], 'give_back_count' => 8],
+        ]);
+
+        $hint = $r['chain_repair_hints'][0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_CANCEL, $hint['action']);
+    }
+
+    public function test_split_recommendation_emits_split_hint(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-split2', 'reason' => 'too_broad', 'blocking_deficiencies' => ['a', 'b', 'c', 'd']],
+        ]);
+
+        $hint = $r['chain_repair_hints'][0];
+        $this->assertSame(AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_SPLIT, $hint['action']);
+    }
+
+    public function test_operator_only_recommendation_emits_no_chain_hint(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-op', 'reason' => 'unknown_issue', 'blocking_deficiencies' => []],
+        ]);
+
+        $this->assertSame([], $r['chain_repair_hints']);
+    }
+
+    // ── AC3: worker_shape_learning emits reroute hints, sorting unchanged ──────
+
+    public function test_worker_shape_learning_emits_reroute_hint_on_repeated_zero_success_give_back(): void
+    {
+        $events = [
+            ['task_packet_id' => 'pkt-a', 'reason' => 'generic', 'task_shape' => 'risky_impl', 'worker_client_id' => 'w-bad'],
+            ['task_packet_id' => 'pkt-b', 'reason' => 'generic', 'task_shape' => 'risky_impl', 'worker_client_id' => 'w-bad'],
+            ['task_packet_id' => 'pkt-c', 'reason' => 'generic', 'task_shape' => 'risky_impl', 'worker_client_id' => 'w-bad'],
+        ];
+
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate($events);
+
+        $rerouteHints = array_values(array_filter(
+            $r['chain_repair_hints'],
+            static fn (array $h): bool => $h['action'] === AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_REROUTE,
+        ));
+        $this->assertNotEmpty($rerouteHints);
+        $this->assertSame('risky_impl', $rerouteHints[0]['task_shape']);
+        $this->assertSame('w-bad', $rerouteHints[0]['worker_client_id']);
+    }
+
+    public function test_reroute_hints_do_not_change_existing_recommendation_sorting(): void
+    {
+        $events = [
+            ['task_packet_id' => 'zzz', 'reason' => 'generic', 'task_shape' => 'shape-x', 'worker_client_id' => 'w-1'],
+            ['task_packet_id' => 'zzz', 'reason' => 'generic', 'task_shape' => 'shape-x', 'worker_client_id' => 'w-1'],
+            ['task_packet_id' => 'zzz', 'reason' => 'generic', 'task_shape' => 'shape-x', 'worker_client_id' => 'w-1'],
+            ['task_packet_id' => 'aaa', 'reason' => 'generic'],
+        ];
+
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate($events);
+
+        // recommendations must remain sorted by task_packet_id regardless of reroute hints existing.
+        $this->assertSame(['aaa', 'zzz'], array_column($r['recommendations'], 'task_packet_id'));
+    }
+
+    public function test_no_reroute_hint_when_worker_shape_has_a_success(): void
+    {
+        $events = [
+            ['task_packet_id' => 'pkt-a', 'reason' => 'generic', 'task_shape' => 'shape-y', 'worker_client_id' => 'w-ok', 'outcome' => 'success'],
+            ['task_packet_id' => 'pkt-b', 'reason' => 'generic', 'task_shape' => 'shape-y', 'worker_client_id' => 'w-ok'],
+            ['task_packet_id' => 'pkt-c', 'reason' => 'generic', 'task_shape' => 'shape-y', 'worker_client_id' => 'w-ok'],
+            ['task_packet_id' => 'pkt-d', 'reason' => 'generic', 'task_shape' => 'shape-y', 'worker_client_id' => 'w-ok'],
+        ];
+
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate($events);
+
+        $rerouteHints = array_filter(
+            $r['chain_repair_hints'],
+            static fn (array $h): bool => $h['action'] === AtlasTaskFabricGiveBackLearningIntegrator::CHAIN_ACTION_REROUTE,
+        );
+        $this->assertEmpty($rerouteHints);
+    }
+
+    public function test_chain_repair_hints_output_is_deterministic(): void
+    {
+        $events = [
+            ['task_packet_id' => 'pkt-scope', 'reason' => 'scope_repair', 'blocking_deficiencies' => ['missing_impl:app/Foo.php']],
+            ['task_packet_id' => 'pkt-contra', 'reason' => 'acceptance_contradiction', 'blocking_deficiencies' => ['scalar_score_required_but_anti_goodhart_forbids']],
+        ];
+        $ig = new AtlasTaskFabricGiveBackLearningIntegrator;
+
+        $a = $ig->integrate($events);
+        $b = $ig->integrate($events);
+
+        $this->assertSame(json_encode($a['chain_repair_hints']), json_encode($b['chain_repair_hints']));
+    }
 }

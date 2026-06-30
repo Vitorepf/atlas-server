@@ -48,6 +48,19 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
 
     public const REC_OPERATOR = 'operator_only';
 
+    public const CHAIN_ACTION_RESPEC_OR_ADD_IMPL = 'respec_or_add_impl';
+
+    public const CHAIN_ACTION_BLOCK_DEPENDENT_CHAIN = 'block_dependent_chain';
+
+    public const CHAIN_ACTION_CANCEL = 'cancel';
+
+    public const CHAIN_ACTION_SPLIT = 'split';
+
+    public const CHAIN_ACTION_REROUTE = 'reroute';
+
+    /** Worker+task_shape give_back count at/above which a reroute hint fires. */
+    private const REROUTE_GIVE_BACK_THRESHOLD = 3;
+
     /**
      * @param  list<array{task_packet_id?:string, reason?:string, blocking_deficiencies?:list<string>, allowed_files?:list<string>, worker_notes?:string, give_back_count?:int}>  $events
      * @return array{schema:string, recommendations:list<array<string,mixed>>, grouped_by_class:array<string,int>}
@@ -90,13 +103,72 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
         $defectPatterns = array_values(array_filter($patternGroups, static fn (array $p): bool => ($p['count'] ?? 0) >= 2));
         usort($defectPatterns, static fn (array $a, array $b): int => strcmp($a['packet_shape_key'], $b['packet_shape_key']));
 
+        $workerShapeLearning = $this->buildWorkerShapeLearning($events);
+
         return [
             'schema'                => self::SCHEMA,
             'recommendations'       => $recommendations,
             'grouped_by_class'      => $classCounts,
             'defect_patterns'       => $defectPatterns,
-            'worker_shape_learning' => $this->buildWorkerShapeLearning($events),
+            'worker_shape_learning' => $workerShapeLearning,
+            'chain_repair_hints'    => $this->buildChainRepairHints($recommendations, $workerShapeLearning),
         ];
+    }
+
+    /**
+     * Task-graph-ready repair hints: tells the NEXT chain build whether to respec, split, cancel,
+     * reroute, or block a dependent chain — so a planner never blindly requeues the same failure
+     * shape into a fresh dependent chain. Built from the same per-packet recommendations (never
+     * reorders or mutates them) plus worker-shape learning.
+     *
+     * @param  list<array<string,mixed>>  $recommendations
+     * @param  list<array{task_shape:string, worker_client_id:string, give_back_count:int, quarantine_count:int, success_count:int}>  $workerShapeLearning
+     * @return list<array<string,mixed>>
+     */
+    private function buildChainRepairHints(array $recommendations, array $workerShapeLearning): array
+    {
+        $hints = [];
+
+        foreach ($recommendations as $rec) {
+            $action = match ($rec['recommendation']) {
+                self::REC_ADD_IMPL => self::CHAIN_ACTION_RESPEC_OR_ADD_IMPL,
+                self::REC_RESPEC => self::CHAIN_ACTION_BLOCK_DEPENDENT_CHAIN,
+                self::REC_CANCEL, self::REC_QUARANTINE => self::CHAIN_ACTION_CANCEL,
+                self::REC_SPLIT => self::CHAIN_ACTION_SPLIT,
+                default => null, // operator_only: a human decision, no automated chain hint
+            };
+            if ($action === null) {
+                continue;
+            }
+
+            $hints[] = [
+                'kind'           => 'packet',
+                'task_packet_id' => $rec['task_packet_id'],
+                'action'         => $action,
+                'reason'         => $rec['failure_class'],
+            ];
+        }
+
+        foreach ($workerShapeLearning as $shape) {
+            if ($shape['give_back_count'] >= self::REROUTE_GIVE_BACK_THRESHOLD && $shape['success_count'] === 0) {
+                $hints[] = [
+                    'kind'             => 'worker_shape',
+                    'task_shape'       => $shape['task_shape'],
+                    'worker_client_id' => $shape['worker_client_id'],
+                    'action'           => self::CHAIN_ACTION_REROUTE,
+                    'reason'           => 'repeated_give_back_with_zero_success_for_worker_shape',
+                ];
+            }
+        }
+
+        usort($hints, static function (array $a, array $b): int {
+            $idA = $a['kind'].'|'.($a['task_packet_id'] ?? ($a['task_shape'].'||'.$a['worker_client_id']));
+            $idB = $b['kind'].'|'.($b['task_packet_id'] ?? ($b['task_shape'].'||'.$b['worker_client_id']));
+
+            return strcmp($idA, $idB);
+        });
+
+        return $hints;
     }
 
     /**
