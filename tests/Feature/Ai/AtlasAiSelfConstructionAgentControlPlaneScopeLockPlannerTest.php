@@ -215,6 +215,76 @@ final class AtlasAiSelfConstructionAgentControlPlaneScopeLockPlannerTest extends
         $this->assertSame('block', $plan['conflict_policy']['on_forbidden_overlap']);
     }
 
+    // ── lock_key / conflict_set / recommendation / rationale ──────────────────
+
+    public function test_lock_key_is_deterministic_for_the_same_write_set(): void
+    {
+        $packet = $this->packet(['a.php', 'b.php']);
+        $planner = new AgentControlPlaneScopeLockPlanner;
+
+        $first = $planner->plan($packet);
+        $second = $planner->plan($packet);
+
+        $this->assertNotEmpty($first['lock_key']);
+        $this->assertSame($first['lock_key'], $second['lock_key']);
+    }
+
+    public function test_no_conflict_recommends_allow_parallel(): void
+    {
+        $packet = $this->packet(['a.php']);
+        $plan = (new AgentControlPlaneScopeLockPlanner)->plan($packet);
+
+        $this->assertSame('allow_parallel', $plan['recommendation']);
+        $this->assertSame([], $plan['conflict_set']);
+        $this->assertNotEmpty($plan['rationale']);
+    }
+
+    public function test_overlapping_active_lease_recommends_serialize_with_conflict_set(): void
+    {
+        $packet = $this->packet(['shared.php']);
+        $plan = (new AgentControlPlaneScopeLockPlanner)->plan($packet, [], [
+            'active_leases' => [
+                ['task_packet_id' => 'other-task', 'write_set' => ['shared.php']],
+            ],
+        ]);
+
+        $this->assertSame('serialize', $plan['recommendation']);
+        $this->assertContains('other-task', $plan['conflict_set']);
+        $this->assertStringContainsString('other-task', $plan['rationale']);
+    }
+
+    public function test_hot_scope_hit_without_active_lease_conflict_recommends_serialize(): void
+    {
+        $packet = $this->packet(['hot.php']);
+        $plan = (new AgentControlPlaneScopeLockPlanner)->plan($packet, [], [
+            'hot_scopes' => ['hot.php'],
+        ]);
+
+        $this->assertSame('serialize', $plan['recommendation']);
+        $this->assertSame([], $plan['conflict_set']);
+        $this->assertContains('hot.php', $plan['hot_scope_hits']);
+    }
+
+    public function test_blocked_plan_recommends_reject_conflict(): void
+    {
+        $packet = $this->packet(['.env']);
+        $plan = (new AgentControlPlaneScopeLockPlanner)->plan($packet);
+
+        $this->assertSame('planned_blocked', $plan['status']);
+        $this->assertSame('reject_conflict', $plan['recommendation']);
+    }
+
+    public function test_does_not_introduce_worktree_or_sandbox_dependency_in_recommendation(): void
+    {
+        $packet = $this->packet(['shared.php']);
+        $plan = (new AgentControlPlaneScopeLockPlanner)->plan($packet, [], [
+            'active_leases' => [['task_packet_id' => 'other-task', 'write_set' => ['shared.php']]],
+        ]);
+
+        $this->assertStringNotContainsStringIgnoringCase('worktree', $plan['rationale']);
+        $this->assertStringNotContainsStringIgnoringCase('sandbox', $plan['rationale']);
+    }
+
     /**
      * @param  array<int, string>  $allowed
      * @return array<string, mixed>

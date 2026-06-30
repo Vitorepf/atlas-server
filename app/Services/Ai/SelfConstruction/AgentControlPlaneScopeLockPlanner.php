@@ -116,6 +116,47 @@ final class AgentControlPlaneScopeLockPlanner
 
         $status = $blockingReasons === [] ? 'planned_safe' : 'planned_blocked';
 
+        // Lock planning: identify what this write_set collides with among currently
+        // active leases and known hot scopes, WITHOUT introducing any worktree or
+        // sandbox dependency — this is a pure facts comparison, no isolation strategy.
+        $activeLeases = (array) ($options['active_leases'] ?? []);
+        $hotScopes = $this->paths((array) ($options['hot_scopes'] ?? []));
+
+        $conflictSet = [];
+        foreach ($activeLeases as $lease) {
+            if (! is_array($lease)) {
+                continue;
+            }
+            $leaseId = (string) ($lease['task_packet_id'] ?? $lease['lease_id'] ?? '');
+            if ($leaseId === '' || $leaseId === $packetId) {
+                continue;
+            }
+            $leaseWriteSet = $this->paths((array) ($lease['write_set'] ?? []));
+            if (WriteSetOverlap::collidingPaths($writeSet, $leaseWriteSet) !== []) {
+                $conflictSet[] = $leaseId;
+            }
+        }
+        $conflictSet = array_values(array_unique($conflictSet));
+
+        $hotScopeHits = WriteSetOverlap::collidingPaths($writeSet, $hotScopes);
+
+        $lockKey = 'lock_'.substr(hash('sha256', implode('|', $writeSet)), 0, 24);
+
+        $recommendation = match (true) {
+            $blockingReasons !== [] => 'reject_conflict',
+            $conflictSet !== [] => 'serialize',
+            $hotScopeHits !== [] => 'serialize',
+            default => 'allow_parallel',
+        };
+
+        $rationale = match ($recommendation) {
+            'reject_conflict' => sprintf('Plan is blocked: %s.', implode(', ', $blockingReasons)),
+            'serialize' => $conflictSet !== []
+                ? sprintf('Write set overlaps active lease(s): %s.', implode(', ', $conflictSet))
+                : sprintf('Write set touches hot scope path(s): %s.', implode(', ', $hotScopeHits)),
+            default => 'No overlap with active leases or hot scopes; safe to run in parallel.',
+        };
+
         $rollbackBoundary = [
             'strategy' => (string) ($options['rollback_strategy'] ?? 'git_worktree_discard'),
             'rollback_runtime_enabled' => false,
@@ -148,6 +189,11 @@ final class AgentControlPlaneScopeLockPlanner
             'cross_axis_blockers' => $crossAxisBlockers,
             'forbidden_in_write_set' => $forbiddenInWrite,
             'blocking_reasons' => $blockingReasons,
+            'lock_key' => $lockKey,
+            'conflict_set' => $conflictSet,
+            'hot_scope_hits' => $hotScopeHits,
+            'recommendation' => $recommendation,
+            'rationale' => $rationale,
             'read_only' => true,
             'runtime_disabled' => true,
             'dispatch_allowed' => false,
