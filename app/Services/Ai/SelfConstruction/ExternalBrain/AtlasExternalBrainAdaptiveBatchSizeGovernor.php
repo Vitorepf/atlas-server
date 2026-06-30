@@ -65,8 +65,10 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         $themeSaturation = max(0.0, min(1.0, (float) ($input['theme_saturation'] ?? 0.0)));
         $candidateValueScore = max(0.0, min(1.0, (float) ($input['candidate_value_score'] ?? 0.0)));
         $highPriorityGapCount = max(0, (int) ($input['high_priority_gap_count'] ?? 0));
+        $minimumClaimablePerWorker = max(1, (int) ($input['minimum_claimable_per_worker'] ?? 2));
 
-        $sufficient = $servableNow >= max($activeWorkers * 2, 4);
+        $requiredFloor = max($activeWorkers * $minimumClaimablePerWorker, 4);
+        $sufficient = $servableNow >= $requiredFloor;
         $deepBacklog = $queueDepth >= self::DEEP_BACKLOG_QUEUE_DEPTH;
         $saturated = $themeSaturation >= self::SATURATION_THRESHOLD;
         $slowDrain = $drainRatePerHour < $activeWorkers;
@@ -90,6 +92,13 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         if ($slowDrain) {
             $batch = intdiv($batch, 2);
             $reasonCodes[] = 'slow_drain_rate_reduces_batch';
+        }
+        if ($servableNow === 0 && ! $sufficient) {
+            $topUp = min(self::MAX_BATCH_SIZE, max(0, $requiredFloor - $servableNow));
+            if ($batch < $topUp) {
+                $batch = $topUp;
+                $reasonCodes[] = 'near_starvation_top_up_batch';
+            }
         }
         if ($highPriorityGapCount > 0) {
             $batch = max($batch, min(self::MAX_BATCH_SIZE, $highPriorityGapCount));
