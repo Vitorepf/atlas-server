@@ -61,10 +61,19 @@ final class ElevationConfig
     /**
      * Build the helper from a raw config sub-array (no Laravel kernel needed).
      *
+     * A null block (the whole elevation is missing from config) resolves
+     * directly to the safe default (advisory) without touching array access,
+     * so a misconfigured or absent config block can never crash the pipeline
+     * nor silently disable an elevation (VAL-M2-027).
+     *
      * @param  ?array{mode?: mixed}  $rawBlock  null = the whole block is missing
      */
     public static function for(string $elevation, ?array $rawBlock): self
     {
+        if ($rawBlock === null) {
+            return new self($elevation, ElevationMode::SAFE_DEFAULT);
+        }
+
         $raw = $rawBlock['mode'] ?? null;
 
         return new self($elevation, ElevationMode::resolve($raw));

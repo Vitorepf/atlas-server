@@ -275,4 +275,145 @@ final class ElevationConfigTest extends TestCase
         $this->assertFalse($hard->shouldAppendHonestyFlag());
         $this->assertTrue($hard->shouldBlock());
     }
+
+    // -- VAL-M2-027: safe default for ALL elevations E1-E6 -------------------
+    //
+    // A misconfigured/unknown/invalid elevation mode must resolve to advisory
+    // (the safe default), never silently off (which would disable an elevation)
+    // and never accidentally hard (which would hard-block the pipeline). This
+    // holds for ALL elevations E1-E6, not just a representative one. The
+    // existing VAL-M0-009 tests cover e1 only; VAL-M2-027 extends the coverage
+    // to every elevation and adds the specific invalid values from the
+    // assertion (banana, null, '', 42, true).
+
+    /**
+     * The specific invalid values called out by VAL-M2-027, plus additional
+     * edge cases that exercise both the non-string and invalid-string paths.
+     */
+    private const VAL_M2_027_INVALID_VALUES = [
+        'banana',          // unknown string
+        null,              // null (missing value)
+        '',                // empty string
+        42,                // integer
+        true,              // boolean true
+        false,             // boolean false
+        0,                 // integer zero
+        1.5,               // float
+        'HARD',            // wrong case
+        'Off',             // wrong case
+        'disable',         // unknown string
+        '1',               // numeric string
+        ['advisory'],      // array
+    ];
+
+    public function test_val_m2_027_invalid_mode_values_resolve_to_advisory_for_all_elevations(): void
+    {
+        foreach (self::ALL_ELEVATIONS as $elevation) {
+            foreach (self::VAL_M2_027_INVALID_VALUES as $invalidValue) {
+                $config = ElevationConfig::for($elevation, ['mode' => $invalidValue]);
+
+                $this->assertTrue(
+                    $config->isAdvisory(),
+                    "[$elevation] invalid mode value ".var_export($invalidValue, true)
+                    .' must resolve to advisory (safe default)'
+                );
+                $this->assertFalse(
+                    $config->isOff(),
+                    "[$elevation] invalid mode value ".var_export($invalidValue, true)
+                    .' must NOT resolve to off (silent disable)'
+                );
+                $this->assertFalse(
+                    $config->isHard(),
+                    "[$elevation] invalid mode value ".var_export($invalidValue, true)
+                    .' must NOT resolve to hard (accidental block)'
+                );
+                $this->assertFalse(
+                    $config->shouldBlock(),
+                    "[$elevation] invalid mode value must not block"
+                );
+            }
+        }
+    }
+
+    public function test_val_m2_027_missing_whole_block_resolves_to_advisory_for_all_elevations(): void
+    {
+        foreach (self::ALL_ELEVATIONS as $elevation) {
+            $config = ElevationConfig::for($elevation, null);
+
+            $this->assertTrue(
+                $config->isAdvisory(),
+                "[$elevation] missing block (null) must resolve to advisory"
+            );
+            $this->assertFalse($config->isOff(), "[$elevation] missing block must NOT be off");
+            $this->assertFalse($config->isHard(), "[$elevation] missing block must NOT be hard");
+        }
+    }
+
+    public function test_val_m2_027_missing_mode_key_resolves_to_advisory_for_all_elevations(): void
+    {
+        foreach (self::ALL_ELEVATIONS as $elevation) {
+            $config = ElevationConfig::for($elevation, []);
+
+            $this->assertTrue(
+                $config->isAdvisory(),
+                "[$elevation] missing mode key (empty block) must resolve to advisory"
+            );
+            $this->assertFalse($config->isOff(), "[$elevation] empty block must NOT be off");
+            $this->assertFalse($config->isHard(), "[$elevation] empty block must NOT be hard");
+        }
+    }
+
+    public function test_val_m2_027_resolver_never_throws_on_any_input_type(): void
+    {
+        // The resolver must be total: any input type collapses to advisory
+        // without throwing. This is the fail-safe guarantee that a
+        // misconfigured flag never crashes the pipeline.
+        $edgeCases = [
+            null, false, 0, 42, 3.14, '', 'banana',
+            ['mode' => 'off'], (object) ['mode' => 'hard'],
+            "\x00binary", '  advisory  ', 'ADVISORY',
+        ];
+
+        foreach (self::ALL_ELEVATIONS as $elevation) {
+            foreach ($edgeCases as $value) {
+                $threw = false;
+                try {
+                    $config = ElevationConfig::for($elevation, ['mode' => $value]);
+                } catch (\Throwable) {
+                    $threw = true;
+                }
+
+                $this->assertFalse(
+                    $threw,
+                    "[$elevation] resolver must not throw for value: ".var_export($value, true)
+                );
+            }
+        }
+
+        // Also verify the null-block case never throws.
+        foreach (self::ALL_ELEVATIONS as $elevation) {
+            $threw = false;
+            try {
+                ElevationConfig::for($elevation, null);
+            } catch (\Throwable) {
+                $threw = true;
+            }
+            $this->assertFalse($threw, "[$elevation] resolver must not throw for null block");
+        }
+    }
+
+    public function test_val_m2_027_advisory_safe_default_routes_to_honesty_flag_not_block(): void
+    {
+        // The safe default (advisory) surfaces via an honesty flag, never a
+        // block. This means a misconfigured elevation degrades to a soft
+        // needs_review, not a hard failed. The operator sees the advisory
+        // flag, not a firm block.
+        foreach (self::ALL_ELEVATIONS as $elevation) {
+            $config = ElevationConfig::for($elevation, ['mode' => 'banana']);
+
+            $this->assertTrue($config->shouldAppendHonestyFlag(), "[$elevation] advisory should flag");
+            $this->assertFalse($config->shouldBlock(), "[$elevation] advisory should not block");
+            $this->assertNotNull($config->honestyFlagName(), "[$elevation] advisory flag name is set");
+        }
+    }
 }
