@@ -179,6 +179,54 @@ final class AtlasNativeWorkerCapabilityRegistry
         ];
     }
 
+    /**
+     * Pure integrity check for any supplied capability rows. Blocks: duplicate ids, missing final
+     * capability ids, bootstrap ids leaking into final rows, empty readiness_requirements.
+     *
+     * @param  list<array<string,mixed>>  $capabilities
+     * @param  list<array<string,mixed>>  $bootstrapOwners
+     * @return array{passed:bool, blockers:list<string>}
+     */
+    public function verifyIntegrity(array $capabilities, array $bootstrapOwners): array
+    {
+        $blockers = [];
+
+        // 1. Duplicate capability_id across the union.
+        $seen = [];
+        foreach (array_merge($capabilities, $bootstrapOwners) as $row) {
+            $id = (string) ($row['capability_id'] ?? '');
+            if (isset($seen[$id])) {
+                $blockers[] = 'duplicate_capability_id:'.$id;
+            }
+            $seen[$id] = true;
+        }
+
+        // 2. Every FINAL_CAPABILITY_ID must appear in $capabilities.
+        $finalIds = array_column($capabilities, 'capability_id');
+        foreach (self::FINAL_CAPABILITY_IDS as $required) {
+            if (! in_array($required, $finalIds, true)) {
+                $blockers[] = 'missing_final_capability:'.$required;
+            }
+        }
+
+        // 3. Bootstrap ids must not appear in final capabilities.
+        foreach ($capabilities as $row) {
+            $id = (string) ($row['capability_id'] ?? '');
+            if (in_array($id, self::BOOTSTRAP_IDS, true)) {
+                $blockers[] = 'bootstrap_id_in_final_capabilities:'.$id;
+            }
+        }
+
+        // 4. Every row must have non-empty readiness_requirements.
+        foreach (array_merge($capabilities, $bootstrapOwners) as $row) {
+            if (empty($row['readiness_requirements'])) {
+                $blockers[] = 'empty_readiness_requirements:'.(string) ($row['capability_id'] ?? '');
+            }
+        }
+
+        return ['passed' => $blockers === [], 'blockers' => array_values($blockers)];
+    }
+
     private function autonomyRank(string $level): int
     {
         return match ($level) {

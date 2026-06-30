@@ -147,6 +147,68 @@ final class AtlasNativeWorkerCapabilityRegistryTest extends TestCase
         );
     }
 
+    public function test_verify_integrity_returns_no_blockers_for_canonical_registry(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->verifyIntegrity($r->capabilities(), $r->bootstrapOwners());
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_verify_integrity_blocks_duplicate_capability_id(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $caps = $r->capabilities();
+        // duplicate first row
+        $caps[] = $caps[0];
+
+        $result = $r->verifyIntegrity($caps, $r->bootstrapOwners());
+
+        $this->assertFalse($result['passed']);
+        $this->assertNotEmpty(array_filter($result['blockers'], fn ($b) => str_starts_with($b, 'duplicate_capability_id:')));
+    }
+
+    public function test_verify_integrity_blocks_missing_final_capability_id(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        // Remove first final capability row
+        $caps = array_slice($r->capabilities(), 1);
+
+        $result = $r->verifyIntegrity($caps, $r->bootstrapOwners());
+
+        $this->assertFalse($result['passed']);
+        $this->assertNotEmpty(array_filter($result['blockers'], fn ($b) => str_starts_with($b, 'missing_final_capability:')));
+    }
+
+    public function test_verify_integrity_blocks_bootstrap_id_in_final_capabilities(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        // Inject a bootstrap row into the final caps list
+        $caps = $r->capabilities();
+        $caps[] = ['capability_id' => 'external_provider_worker', 'autonomy_level' => 'bootstrap_only',
+                   'required_inputs' => ['x'], 'outputs' => ['y'], 'forbidden_side_effects' => [],
+                   'readiness_requirements' => ['r']];
+
+        $result = $r->verifyIntegrity($caps, $r->bootstrapOwners());
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('bootstrap_id_in_final_capabilities:external_provider_worker', $result['blockers']);
+    }
+
+    public function test_verify_integrity_blocks_empty_readiness_requirements(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+        $caps = $r->capabilities();
+        // Strip readiness from first row
+        $caps[0]['readiness_requirements'] = [];
+
+        $result = $r->verifyIntegrity($caps, $r->bootstrapOwners());
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('empty_readiness_requirements:inspect_task_packet', $result['blockers']);
+    }
+
     public function test_no_scalar_score_or_percent_field_in_any_row(): void
     {
         $r = new AtlasNativeWorkerCapabilityRegistry;
