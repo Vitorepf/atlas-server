@@ -216,4 +216,107 @@ final class AtlasTaskFabricBrutalValueAdmissionGateTest extends TestCase
         $input = $this->admissible();
         $this->assertSame($this->gate()->decide($input), $this->gate()->decide($input));
     }
+
+    // ── worker_floor_context / worker_continuity exception (AC) ─────────────────
+
+    public function test_worker_continuity_packet_admitted_under_worker_floor_despite_marginal_impact(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'compound_impact_score' => 0.05, // well below the 0.30 floor
+            'worker_floor_context'  => true,
+            'impact_reason'         => 'worker_continuity',
+            'runnable_acceptance'   => true,
+        ]));
+
+        $this->assertTrue($result['admitted']);
+        $this->assertSame([], $result['rejection_reasons']);
+        $this->assertTrue($result['admitted_via_worker_continuity_exception']);
+    }
+
+    public function test_worker_continuity_exception_does_not_apply_without_worker_floor_context(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'compound_impact_score' => 0.05,
+            'impact_reason'         => 'worker_continuity',
+            'runnable_acceptance'   => true,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('compound_impact_low', $result['rejection_reasons']);
+    }
+
+    public function test_worker_continuity_exception_does_not_apply_without_runnable_acceptance(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'compound_impact_score' => 0.05,
+            'worker_floor_context'  => true,
+            'impact_reason'         => 'worker_continuity',
+            'runnable_acceptance'   => false,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('compound_impact_low', $result['rejection_reasons']);
+    }
+
+    public function test_worker_continuity_exception_does_not_apply_without_impl_or_test_files(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'allowed_files'         => [],
+            'compound_impact_score' => 0.05,
+            'worker_floor_context'  => true,
+            'impact_reason'         => 'worker_continuity',
+            'runnable_acceptance'   => true,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('compound_impact_low', $result['rejection_reasons']);
+    }
+
+    public function test_semantic_duplicate_still_rejected_under_worker_floor_context(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'target'                => 'AtlasFooService',
+            'known_targets'         => ['atlasfooservice'],
+            'worker_floor_context'  => true,
+            'impact_reason'         => 'worker_continuity',
+            'runnable_acceptance'   => true,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('semantic_duplicate', $result['rejection_reasons']);
+    }
+
+    public function test_template_farm_still_rejected_under_worker_floor_context(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'is_template_farm'      => true,
+            'worker_floor_context'  => true,
+            'impact_reason'         => 'worker_continuity',
+            'runnable_acceptance'   => true,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('template_farm', $result['rejection_reasons']);
+    }
+
+    public function test_worker_floor_context_without_worker_continuity_reason_does_not_exempt(): void
+    {
+        $result = $this->gate()->decide($this->admissible([
+            'compound_impact_score' => 0.05,
+            'worker_floor_context'  => true,
+            'impact_reason'         => 'general',
+            'runnable_acceptance'   => true,
+        ]));
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('compound_impact_low', $result['rejection_reasons']);
+    }
+
+    public function test_admitted_via_worker_continuity_exception_is_false_for_normal_admission(): void
+    {
+        $result = $this->gate()->decide($this->admissible());
+
+        $this->assertTrue($result['admitted']);
+        $this->assertFalse($result['admitted_via_worker_continuity_exception']);
+    }
 }

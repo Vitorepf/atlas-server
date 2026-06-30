@@ -75,6 +75,9 @@ final class AtlasTaskFabricBrutalValueAdmissionGate
             ? array_map('strtolower', array_map('trim', array_map('strval', $candidate['known_targets'])))
             : [];
         $isTemplateFarm = (bool) ($candidate['is_template_farm'] ?? false);
+        $workerFloorContext = (bool) ($candidate['worker_floor_context'] ?? false);
+        $impactReason = trim((string) ($candidate['impact_reason'] ?? ''));
+        $runnableAcceptance = (bool) ($candidate['runnable_acceptance'] ?? false);
 
         $thresholds = is_array($candidate['thresholds'] ?? null) ? $candidate['thresholds'] : [];
         $minChars       = (int) ($thresholds['min_objective_chars']   ?? self::MIN_OBJECTIVE_CHARS);
@@ -119,8 +122,17 @@ final class AtlasTaskFabricBrutalValueAdmissionGate
             }
         }
 
-        // 4. Compound impact.
-        if ($impactScore < $impactFloor) {
+        // 4. Compound impact — UNLESS this is a genuinely muscle-feed packet during
+        // replenish_soon: worker_floor_context + impact_reason=worker_continuity + a proven
+        // impl+test+runnable-acceptance shape. Never lowers the floor for template farms or
+        // duplicates — those are rejected by checks 1/2 above regardless of this exception.
+        $isWorkerContinuityExempt = $workerFloorContext
+            && $impactReason === 'worker_continuity'
+            && $hasImpl
+            && $hasTest
+            && $runnableAcceptance;
+
+        if ($impactScore < $impactFloor && ! $isWorkerContinuityExempt) {
             $rejectionReasons[] = 'compound_impact_low';
         }
 
@@ -155,6 +167,7 @@ final class AtlasTaskFabricBrutalValueAdmissionGate
             'value_score'        => round($valueScore, 6),
             'risk_score'         => $giveBackRisk,
             'required_followups' => $requiredFollowups,
+            'admitted_via_worker_continuity_exception' => $isWorkerContinuityExempt && $impactScore < $impactFloor,
         ];
     }
 }
