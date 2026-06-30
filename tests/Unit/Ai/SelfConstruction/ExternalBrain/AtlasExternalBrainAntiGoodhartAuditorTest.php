@@ -390,4 +390,137 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
         $this->assertNotContains('template_similarity_farm', $findingNames,
             'genuinely diverse batch must not trigger similarity farm');
     }
+
+    // ── new AC: countermetric_floor + required_repairs output keys ────────────
+
+    public function test_output_includes_countermetric_floor_and_required_repairs(): void
+    {
+        $result = $this->auditor()->audit([$this->task('key-check-2')]);
+
+        $this->assertArrayHasKey('countermetric_floor', $result);
+        $this->assertArrayHasKey('required_repairs', $result);
+        $this->assertIsFloat($result['countermetric_floor']);
+        $this->assertIsArray($result['required_repairs']);
+    }
+
+    public function test_countermetric_floor_is_one_when_no_findings(): void
+    {
+        $batch = [
+            $this->task('arch-2',    'architecture_unlock', 'app/Core/Arch'),
+            $this->task('bug-2',     'bug_fix',             'app/Queue/Bugs'),
+            $this->task('runtime-2', 'runtime_continuity',  'app/Runtime/Svc'),
+            $this->task('docs-2',    'docs_sync',           'docs/engineering'),
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertSame(1.0, $result['countermetric_floor']);
+        $this->assertSame([], $result['required_repairs']);
+    }
+
+    public function test_required_repairs_lists_repair_hints_when_findings_present(): void
+    {
+        $batch = array_map(static fn (int $i): array => [
+            'label'           => "task-{$i}",
+            'category'        => 'architecture_unlock',
+            'allowed_files'   => ["app/Services/Distinct{$i}/{$i}.php", "tests/Distinct{$i}Test.php"],
+            'value_mechanism' => 'new_capability:same_thing_every_time',
+            'final_score'     => 0.75,
+        ], range(1, 6));
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertNotEmpty($result['required_repairs']);
+        $this->assertLessThan(1.0, $result['countermetric_floor']);
+    }
+
+    // ── new AC: template_farm/low_variety/value_mechanism_clone reject even with high task count ──
+
+    public function test_template_farm_rejects_even_with_high_task_count(): void
+    {
+        $batch = array_map(
+            static fn (int $i) => [
+                'label'           => "tplfarm-{$i}",
+                'category'        => 'bug_fix',
+                'allowed_files'   => ["app/Services/Ai/SelfConstruction/Tpl{$i}.php"],
+                'value_mechanism' => "fixes:thing_{$i}",
+                'final_score'     => 0.6,
+            ],
+            range(1, 20),
+        );
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertSame(20, $result['total_audited']);
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict']);
+        $this->assertContains('template_farm', array_column($result['findings'], 'finding'));
+    }
+
+    public function test_low_variety_rejects_even_with_high_task_count(): void
+    {
+        $batch = array_map(
+            static fn (int $i) => [
+                'label'           => "lowvar-{$i}",
+                'category'        => 'bug_fix',
+                'allowed_files'   => ["app/Services/Ai/SelfConstruction/Distinct{$i}/Lowvar{$i}.php"],
+                'value_mechanism' => "fixes:distinct_thing_{$i}",
+                'final_score'     => 0.6,
+            ],
+            range(1, 25),
+        );
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertSame(25, $result['total_audited']);
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict']);
+        $this->assertContains('low_variety', array_column($result['findings'], 'finding'));
+    }
+
+    public function test_value_mechanism_clone_rejects_even_with_high_task_count(): void
+    {
+        $batch = array_map(static fn (int $i): array => [
+            'label'           => "vmclone-{$i}",
+            'category'        => 'architecture_unlock',
+            'allowed_files'   => ["app/Services/Distinct{$i}/{$i}.php", "tests/Distinct{$i}Test.php"],
+            'value_mechanism' => 'new_capability:same_thing_every_time',
+            'final_score'     => 0.75,
+        ], range(1, 30));
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertSame(30, $result['total_audited']);
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict']);
+        $this->assertContains('value_mechanism_clone', array_column($result['findings'], 'finding'));
+    }
+
+    // ── new AC: high final_score without proof fields → repair_required, not pass ──
+
+    public function test_high_score_without_proof_yields_repair_required_not_pass(): void
+    {
+        $batch = [
+            [
+                'label'           => 'no-proof-1',
+                'category'        => 'bug_fix',
+                'allowed_files'   => ['app/Services/Ai/SelfConstruction/NoProof1.php'],
+                'value_mechanism' => 'closes_runtime_gap:no_proof_1',
+                'final_score'     => 0.90,
+                // no runnable_acceptance / implementation_proof
+            ],
+            [
+                'label'           => 'has-proof-2',
+                'category'        => 'architecture_unlock',
+                'allowed_files'   => ['app/Services/Ai/SelfConstruction/HasProof2.php'],
+                'value_mechanism' => 'new_capability:has_proof_2',
+                'final_score'     => 0.85,
+                'runnable_acceptance'  => 'php artisan test tests/Unit/HasProof2Test.php',
+                'implementation_proof' => 'commit abc123',
+            ],
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $this->assertNotSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_PASS, $result['verdict']);
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REPAIR_REQUIRED, $result['verdict']);
+        $this->assertContains('high_score_missing_proof', array_column($result['findings'], 'finding'));
+    }
 }

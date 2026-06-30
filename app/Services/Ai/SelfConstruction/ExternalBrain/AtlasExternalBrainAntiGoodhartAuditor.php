@@ -63,18 +63,27 @@ final class AtlasExternalBrainAntiGoodhartAuditor
             default                                          => self::VERDICT_REPAIR_REQUIRED,
         };
 
+        $checksRun = [
+            'template_farm', 'template_similarity_farm', 'low_variety',
+            'test_count_padding', 'unverifiable_value_claim', 'file_overconcentration',
+            'already_satisfied_work', 'high_score_missing_proof', 'value_mechanism_clone',
+        ];
+
+        // countermetric_floor: fraction of checks the batch cleared cleanly — the
+        // minimum proportion of Goodhart countermetrics a batch must satisfy to be
+        // trustworthy. 1.0 = every check is clean; falls as findings accumulate.
+        $countermetricFloor = round(1.0 - (count($findings) / count($checksRun)), 3);
+
         return [
-            'schema'        => self::SCHEMA,
-            'verdict'       => $verdict,
-            'passed'        => $verdict === self::VERDICT_PASS,
-            'total_audited' => $total,
-            'finding_count' => count($findings),
-            'findings'      => $findings,
-            'checks_run'    => [
-                'template_farm', 'template_similarity_farm', 'low_variety',
-                'test_count_padding', 'unverifiable_value_claim', 'file_overconcentration',
-                'already_satisfied_work', 'high_score_missing_proof', 'value_mechanism_clone',
-            ],
+            'schema'              => self::SCHEMA,
+            'verdict'             => $verdict,
+            'passed'              => $verdict === self::VERDICT_PASS,
+            'total_audited'       => $total,
+            'finding_count'       => count($findings),
+            'findings'            => $findings,
+            'checks_run'          => $checksRun,
+            'countermetric_floor' => $countermetricFloor,
+            'required_repairs'    => array_values(array_column($findings, 'repair_hint')),
         ];
     }
 
