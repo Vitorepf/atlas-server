@@ -35,6 +35,9 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
 
     public const REQUIRED_AUTONOMY_OWNER = 'atlas_native';
 
+    /** Documented max age (seconds) for a step's evidence_fresh_at before it is considered stale. */
+    public const MAX_EVIDENCE_AGE_SECONDS = 86400;
+
     /** Canonical step order — also the dependency chain (each step's next_step_dependency is the next entry). */
     public const STEP_ORDER = [
         'cortex',
@@ -71,10 +74,12 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
 
     /**
      * @param  array<string,array<string,mixed>>  $facts
+     * @param  ?string  $now  ISO8601 timestamp used to evaluate evidence_fresh_at; defaults to current time.
      * @return array{schema:string, status:string, blockers:list<string>, autonomy_owner:string, steps:list<array<string,mixed>>}
      */
-    public function build(array $facts): array
+    public function build(array $facts, ?string $now = null): array
     {
+        $nowTimestamp = $now !== null ? strtotime($now) : time();
         $blockers = [];
 
         // Autonomy owner check via cortex facts.
@@ -114,12 +119,30 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
                 $blockers[] = 'rollback_gap:'.$organ;
             }
 
+            $evidenceSource = $orgFacts['evidence_source'] ?? null;
+            $evidenceFreshAt = $orgFacts['evidence_fresh_at'] ?? null;
+
+            if ($evidencePresent && ($evidenceSource === null || $evidenceSource === '')) {
+                $stepBlockers[] = 'missing_evidence_source:'.$organ;
+                $blockers[] = 'missing_evidence_source:'.$organ;
+            }
+
+            if ($evidencePresent && $evidenceFreshAt !== null && $evidenceFreshAt !== '') {
+                $freshAtTimestamp = strtotime((string) $evidenceFreshAt);
+                if ($freshAtTimestamp === false || ($nowTimestamp - $freshAtTimestamp) > self::MAX_EVIDENCE_AGE_SECONDS) {
+                    $stepBlockers[] = 'stale_evidence:'.$organ;
+                    $blockers[] = 'stale_evidence:'.$organ;
+                }
+            }
+
             $steps[] = [
                 'organ' => $organ,
                 'owner' => self::REQUIRED_AUTONOMY_OWNER,
                 'input_facts' => $orgFacts,
                 'output_evidence' => $evidenceKey,
                 'evidence_present' => $evidencePresent,
+                'evidence_source' => $evidenceSource,
+                'evidence_fresh_at' => $evidenceFreshAt,
                 'rollback_expectation' => $spec['rollback'],
                 'rollback_present' => $rollbackPresent,
                 'blockers' => $stepBlockers,
