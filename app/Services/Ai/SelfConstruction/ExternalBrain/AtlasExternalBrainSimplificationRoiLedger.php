@@ -17,6 +17,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   action === 'merge' | 'simplify':
  *     3. negative_roi_estimate — roi_estimate <= 0 (no positive value to unlock).
  *
+ *   any action (OPT-IN — never breaks the default roi_positive_no_proof contract):
+ *     4. missing_behavior_preservation_proof — only checked when the candidate explicitly sets
+ *        requires_behavior_preservation_proof=true AND behavior_preservation_proof is absent/empty.
+ *
  * Per-candidate behavior_preservation_status:
  *   'proof_verified'        — delete approved with proof + coverage
  *   'roi_positive_no_proof' — merge/simplify approved with positive ROI
@@ -61,6 +65,8 @@ final class AtlasExternalBrainSimplificationRoiLedger
                     'roi_estimate'                => $roiEstimate,
                     'refusal_reason'              => $refusalReason,
                     'behavior_preservation_status' => 'refused',
+                    'refused_roi'                 => $roiEstimate,
+                    'opportunity_cost'            => $roiEstimate,
                 ];
                 $refusedRoi += $roiEstimate;
             } else {
@@ -71,6 +77,12 @@ final class AtlasExternalBrainSimplificationRoiLedger
                     'target'                      => $target,
                     'roi_estimate'                => $roiEstimate,
                     'behavior_preservation_status' => $bpStatus,
+                    'tests_preserved'             => (bool) ($candidate['tests_preserved'] ?? false),
+                    'line_delta'                  => (int) ($candidate['line_delta'] ?? 0),
+                    'cognitive_load_delta'        => (float) ($candidate['cognitive_load_delta'] ?? 0.0),
+                    'compounding_benefit'         => (float) ($candidate['compounding_benefit'] ?? 0.0),
+                    'approved_roi'                => $roiEstimate,
+                    'next_simplification_action'  => 'execute_simplification:'.$id,
                 ];
                 $totalRoi   += $roiEstimate;
             }
@@ -103,11 +115,15 @@ final class AtlasExternalBrainSimplificationRoiLedger
             if (array_key_exists('coverage_maintained', $candidate) && $candidate['coverage_maintained'] === false) {
                 return 'deletion_without_coverage_guarantee';
             }
-            return null;
+        } elseif ((float) ($candidate['roi_estimate'] ?? 0.0) <= 0.0) {
+            return 'negative_roi_estimate';
         }
 
-        if ((float) ($candidate['roi_estimate'] ?? 0.0) <= 0.0) {
-            return 'negative_roi_estimate';
+        // Opt-in proof requirement: only enforced when the candidate explicitly demands it, so the
+        // default roi_positive_no_proof contract for ordinary merge/simplify candidates never breaks.
+        if ((bool) ($candidate['requires_behavior_preservation_proof'] ?? false)
+            && (string) ($candidate['behavior_preservation_proof'] ?? '') === '') {
+            return 'missing_behavior_preservation_proof';
         }
 
         return null;
