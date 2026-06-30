@@ -110,6 +110,13 @@ final class AtlasExternalBrainResearchToTaskDigestor
             'test_path'           => trim((string) ($item['test_path']          ?? '')),
             'anti_goodhart_risks' => array_values(array_filter(array_map('trim', (array) ($item['anti_goodhart_risks'] ?? [])))),
             'runnable_acceptance' => trim((string) ($item['runnable_acceptance'] ?? '')),
+            // AC2: advisory benchmark grounding fields — present if supplied, null otherwise.
+            'benchmark_grounding' => [
+                'source_quality'         => isset($item['source_quality'])         ? (float) $item['source_quality']        : null,
+                'observed_failure_class' => isset($item['observed_failure_class'])  ? trim((string) $item['observed_failure_class']) : null,
+                'atlas_mapping'          => isset($item['atlas_mapping'])           ? trim((string) $item['atlas_mapping'])  : null,
+                'expected_quality_delta' => isset($item['expected_quality_delta'])  ? (float) $item['expected_quality_delta'] : null,
+            ],
         ];
     }
 

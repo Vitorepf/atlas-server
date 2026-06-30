@@ -210,4 +210,56 @@ final class AtlasExternalBrainResearchToTaskDigestorTest extends TestCase
         $this->assertArrayHasKey('item', $result['rejected'][0]);
         $this->assertSame($item, $result['rejected'][0]['item']);
     }
+
+    // ── AC2: benchmark fields are advisory — promotion still happens without them ──
+
+    public function test_promoted_without_any_benchmark_fields(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem()));
+
+        $this->assertCount(1, $result['promoted']);
+        $bg = $result['promoted'][0]['benchmark_grounding'];
+        $this->assertNull($bg['source_quality']);
+        $this->assertNull($bg['observed_failure_class']);
+        $this->assertNull($bg['atlas_mapping']);
+        $this->assertNull($bg['expected_quality_delta']);
+    }
+
+    // ── AC2/AC3: benchmark_grounding always present in promoted candidates ────
+
+    public function test_benchmark_grounding_key_always_in_promoted(): void
+    {
+        $result = $this->digestor->digest($this->input($this->goodItem()));
+
+        $this->assertArrayHasKey('benchmark_grounding', $result['promoted'][0]);
+    }
+
+    // ── AC2: benchmark fields passed through when provided ────────────────────
+
+    public function test_benchmark_fields_passed_through_when_provided(): void
+    {
+        $item = $this->goodItem([
+            'source_quality'         => 0.85,
+            'observed_failure_class' => 'correctness_regression',
+            'atlas_mapping'          => 'ACOS.cognitive_immune',
+            'expected_quality_delta' => 0.30,
+        ]);
+        $result = $this->digestor->digest($this->input($item));
+
+        $bg = $result['promoted'][0]['benchmark_grounding'];
+        $this->assertSame(0.85, $bg['source_quality']);
+        $this->assertSame('correctness_regression', $bg['observed_failure_class']);
+        $this->assertSame('ACOS.cognitive_immune', $bg['atlas_mapping']);
+        $this->assertSame(0.30, $bg['expected_quality_delta']);
+    }
+
+    public function test_partial_benchmark_fields_preserved(): void
+    {
+        $item   = $this->goodItem(['source_quality' => 0.70]);
+        $result = $this->digestor->digest($this->input($item));
+
+        $bg = $result['promoted'][0]['benchmark_grounding'];
+        $this->assertSame(0.70, $bg['source_quality']);
+        $this->assertNull($bg['observed_failure_class']);
+    }
 }
