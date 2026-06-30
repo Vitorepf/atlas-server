@@ -83,4 +83,22 @@ final class AtlasTaskWorkerInstructionLintTest extends TestCase
         ]);
         $this->assertContains('ignore_give_back_when_capability_exists', $r['findings']);
     }
+
+    public function test_weaken_tests_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'If a test fails, just delete the failing test and move on.',
+        ]);
+        $this->assertContains('weaken_tests', $r['findings']);
+    }
+
+    public function test_lower_acceptance_wording_is_flagged(): void
+    {
+        $r = (new AtlasTaskWorkerInstructionLint)->lint([
+            'packet_id' => 'p',
+            'worker_instructions' => 'It is fine to relax the acceptance criteria if time runs short.',
+        ]);
+        $this->assertContains('lower_acceptance_criteria', $r['findings']);
+    }
 }

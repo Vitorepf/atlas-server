@@ -43,6 +43,10 @@ final class AtlasTaskWorkerInstructionLint
 
     public const OUTSIDE_SCOPE_REGEX = '/edit\s+files?\s+outside\s+allowed_files|modify\s+anywhere|touch\s+other\s+files?/i';
 
+    public const WEAKEN_TESTS_REGEX = '/(skip|delete|remove|comment\s+out|disable|weaken)\s+(the\s+)?(failing\s+)?tests?\b|make\s+the\s+tests?\s+pass\s+without/i';
+
+    public const LOWER_ACCEPTANCE_REGEX = '/(lower|relax|reduce|loosen|weaken)\s+(the\s+)?acceptance(\s+criteria|\s+bar)?/i';
+
     /**
      * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, worker_instructions?:string, duplicate_canonical_candidates?:list<string>}  $packet
      * @return array{schema:string, accepted:bool, findings:list<string>}
@@ -64,6 +68,12 @@ final class AtlasTaskWorkerInstructionLint
         }
         if (preg_match(self::IGNORE_GIVE_BACK_REGEX, $text)) {
             $findings[] = 'ignore_give_back_when_capability_exists';
+        }
+        if (preg_match(self::WEAKEN_TESTS_REGEX, $text)) {
+            $findings[] = 'weaken_tests';
+        }
+        if (preg_match(self::LOWER_ACCEPTANCE_REGEX, $text)) {
+            $findings[] = 'lower_acceptance_criteria';
         }
 
         $dups = is_array($packet['duplicate_canonical_candidates'] ?? null) ? array_values(array_map('strval', $packet['duplicate_canonical_candidates'])) : [];
