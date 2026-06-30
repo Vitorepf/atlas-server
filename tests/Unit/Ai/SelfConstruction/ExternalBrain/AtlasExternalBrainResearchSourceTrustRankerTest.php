@@ -84,9 +84,72 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
     {
         $r = $this->ranker()->rank(['source_type' => 'blog', 'source_date' => '2026-01-01']);
 
-        foreach (['trust_score', 'trust_tier', 'use_decision', 'penalties', 'grounding_requirements', 'rejection_reasons'] as $key) {
+        foreach (['trust_score', 'trust_tier', 'use_decision', 'penalties', 'grounding_requirements', 'rejection_reasons', 'adoption_blockers'] as $key) {
             $this->assertArrayHasKey($key, $r, "missing key: {$key}");
         }
+    }
+
+    // ── invalid dates never crash, always downgrade ────────────────────────────
+
+    public function test_invalid_source_date_does_not_throw_and_is_penalized(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'source_date' => 'not-a-real-date',
+        ]);
+
+        $this->assertContains('invalid_source_date', $r['penalties']);
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+    }
+
+    public function test_invalid_as_of_does_not_throw_and_is_penalized(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'source_date' => '2026-06-01',
+            'as_of'       => 'garbage-as-of-value',
+        ]);
+
+        $this->assertContains('invalid_as_of', $r['penalties']);
+    }
+
+    public function test_implausible_year_is_treated_as_invalid(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'source_date' => '0001-01-01',
+        ]);
+
+        $this->assertContains('invalid_source_date', $r['penalties']);
+    }
+
+    // ── high-trust admission requires concrete claim + url + grounding + no hype ──
+
+    public function test_missing_grounding_blocks_adopt_directly_despite_high_score(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type'        => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date'        => '2026-06-30',
+            'has_source_url'     => true,
+            'grounding'          => 'none',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+        $this->assertContains('no_repo_local_or_primary_source_grounding', $r['adoption_blockers']);
+    }
+
+    public function test_missing_concrete_claim_blocks_adopt_directly(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type'    => 'primary_documentation',
+            'source_date'    => '2026-06-30',
+            'has_source_url' => true,
+            'grounding'      => 'repo_verified',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+        $this->assertContains('no_concrete_claim', $r['adoption_blockers']);
     }
 
     // ── staleness penalty ─────────────────────────────────────────────────────

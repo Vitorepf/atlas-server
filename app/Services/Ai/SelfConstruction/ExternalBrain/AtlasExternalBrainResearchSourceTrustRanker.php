@@ -77,27 +77,45 @@ final class AtlasExternalBrainResearchSourceTrustRanker
         }
 
         $dateStr = trim((string) ($candidate['source_date'] ?? ''));
+        $hasConcreteClaim = ($candidate['has_concrete_claim'] ?? false) === true;
+        $hasSourceUrl = ($candidate['has_source_url'] ?? true) === true;
+        $isHypeHeavy = ($candidate['is_hype_heavy'] ?? false) === true;
+
         if ($dateStr === '') {
             $score -= self::PENALTY_UNDATED;
             $penalties[] = 'missing_source_date';
         } else {
-            $sourceDate = CarbonImmutable::parse($dateStr);
-            $asOfStr = trim((string) ($candidate['as_of'] ?? ''));
-            $asOf = $asOfStr !== '' ? CarbonImmutable::parse($asOfStr) : CarbonImmutable::now();
-            if ($sourceDate->diffInDays($asOf, false) > self::STALE_DAYS_THRESHOLD) {
-                $score -= self::PENALTY_STALE;
-                $penalties[] = 'stale_source';
+            $sourceDate = $this->safeParseDate($dateStr);
+            if ($sourceDate === null) {
+                $score -= self::PENALTY_UNDATED;
+                $penalties[] = 'invalid_source_date';
+            } else {
+                $asOfStr = trim((string) ($candidate['as_of'] ?? ''));
+                if ($asOfStr === '') {
+                    $asOf = CarbonImmutable::now();
+                } else {
+                    $asOf = $this->safeParseDate($asOfStr);
+                    if ($asOf === null) {
+                        $penalties[] = 'invalid_as_of';
+                        $asOf = CarbonImmutable::now();
+                    }
+                }
+                if ($sourceDate->diffInDays($asOf, false) > self::STALE_DAYS_THRESHOLD) {
+                    $score -= self::PENALTY_STALE;
+                    $penalties[] = 'stale_source';
+                }
             }
         }
 
-        if (($candidate['has_source_url'] ?? true) === false) {
+        if (! $hasSourceUrl) {
             $score -= self::PENALTY_SOURCE_MISSING;
             $penalties[] = 'source_url_missing';
         }
 
         // ── Grounding requirements ─────────────────────────────────────────
         $grounding = strtolower(trim((string) ($candidate['grounding'] ?? '')));
-        if ($grounding === '' || $grounding === 'none') {
+        $isReposOrPrimaryGrounded = $grounding !== '' && $grounding !== 'none';
+        if (! $isReposOrPrimaryGrounded) {
             $groundingReqs[] = 'requires_repo_local_verification';
         }
         if ($type === 'blog' || $type === 'generic_summary' || $type === 'summary') {
@@ -113,8 +131,24 @@ final class AtlasExternalBrainResearchSourceTrustRanker
             default       => self::TIER_LOW,
         };
 
+        // High-trust admission requires: concrete claim, source URL, no hype, AND
+        // repo-local or primary-source grounding — score alone is never sufficient.
+        $adoptionBlockers = [];
+        if (! $hasConcreteClaim) {
+            $adoptionBlockers[] = 'no_concrete_claim';
+        }
+        if (! $hasSourceUrl) {
+            $adoptionBlockers[] = 'no_source_url';
+        }
+        if ($isHypeHeavy) {
+            $adoptionBlockers[] = 'hype_heavy';
+        }
+        if (! $isReposOrPrimaryGrounded) {
+            $adoptionBlockers[] = 'no_repo_local_or_primary_source_grounding';
+        }
+
         $useDecision = match (true) {
-            $score >= 7.0 && empty(array_intersect($penalties, ['hype_heavy', 'source_url_missing'])) => self::USE_ADOPT_DIRECTLY,
+            $score >= 7.0 && $adoptionBlockers === [] => self::USE_ADOPT_DIRECTLY,
             $score >= 3.0 => self::USE_REVIEW_FIRST,
             default       => self::USE_REJECT,
         };
@@ -130,12 +164,31 @@ final class AtlasExternalBrainResearchSourceTrustRanker
         }
 
         return [
-            'trust_score'           => $score,
-            'trust_tier'            => $tier,
-            'use_decision'          => $useDecision,
-            'penalties'             => array_values(array_unique($penalties)),
+            'schema'                 => self::SCHEMA,
+            'trust_score'            => $score,
+            'trust_tier'             => $tier,
+            'use_decision'           => $useDecision,
+            'penalties'              => array_values(array_unique($penalties)),
             'grounding_requirements' => array_values(array_unique($groundingReqs)),
-            'rejection_reasons'     => array_values(array_unique($rejectionReasons)),
+            'rejection_reasons'      => array_values(array_unique($rejectionReasons)),
+            'adoption_blockers'      => array_values(array_unique($adoptionBlockers)),
         ];
+    }
+
+    private function safeParseDate(string $value): ?CarbonImmutable
+    {
+        try {
+            $parsed = CarbonImmutable::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        // Carbon::parse() can silently accept garbage and return "now" or an absurd year —
+        // reject obviously implausible years rather than trust a malformed string.
+        if ($parsed->year < 1990 || $parsed->year > 2200) {
+            return null;
+        }
+
+        return $parsed;
     }
 }
