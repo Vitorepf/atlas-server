@@ -735,4 +735,127 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
 
         return $evidence;
     }
+
+    // ── classifyPacket ──────────────────────────────────────────────────────────
+
+    private function classifiablePacket(array $overrides = []): array
+    {
+        return array_merge([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'],
+            'acceptance_criteria' => ['php artisan test --filter=FooTest passes'],
+            'duplicate_of' => '',
+            'poison_risk_score' => 0.0,
+            'is_stale' => false,
+        ], $overrides);
+    }
+
+    public function test_classify_packet_serves_clean_packet(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket());
+
+        $this->assertSame('serve', $result['decision']);
+        $this->assertSame('packet_passes_classification_checks', $result['reason']);
+    }
+
+    public function test_classify_packet_quarantines_empty_allowed_files(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket(['allowed_files' => [], 'scope_in' => []]));
+
+        $this->assertSame('quarantine', $result['decision']);
+        $this->assertSame('implementation_missing_no_allowed_files', $result['reason']);
+    }
+
+    public function test_classify_packet_quarantines_test_only_packet(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket([
+            'allowed_files' => ['tests/Unit/Ai/SelfConstruction/FooTest.php'],
+            'scope_in' => ['tests/Unit/Ai/SelfConstruction/FooTest.php'],
+        ]));
+
+        $this->assertSame('quarantine', $result['decision']);
+        $this->assertSame('test_only_packet_no_implementation_target', $result['reason']);
+    }
+
+    public function test_classify_packet_quarantines_duplicate_target(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket(['duplicate_of' => 'codex-meta-existing-task']));
+
+        $this->assertSame('quarantine', $result['decision']);
+        $this->assertSame('duplicate_target', $result['reason']);
+    }
+
+    public function test_classify_packet_quarantines_high_poison_risk(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket(['poison_risk_score' => 0.85]));
+
+        $this->assertSame('quarantine', $result['decision']);
+        $this->assertSame('high_poison_risk_score', $result['reason']);
+    }
+
+    public function test_classify_packet_defers_stale_packet(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket(['is_stale' => true]));
+
+        $this->assertSame('defer', $result['decision']);
+        $this->assertSame('stale_context_requires_refresh', $result['reason']);
+    }
+
+    public function test_classify_packet_repairs_when_allowed_files_not_covered_by_scope_in(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php', 'app/Services/Ai/SelfConstruction/Bar.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'],
+            'scope_in' => ['app/Services/Ai/SelfConstruction/Foo.php', 'tests/Unit/Ai/SelfConstruction/FooTest.php'],
+        ]));
+
+        $this->assertSame('repair', $result['decision']);
+        $this->assertSame('scope_in_does_not_cover_allowed_files', $result['reason']);
+    }
+
+    public function test_classify_packet_repairs_missing_acceptance_criteria(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket(['acceptance_criteria' => []]));
+
+        $this->assertSame('repair', $result['decision']);
+        $this->assertSame('missing_acceptance_criteria', $result['reason']);
+    }
+
+    public function test_classify_packet_priority_empty_files_outranks_all_other_checks(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket([
+            'allowed_files' => [],
+            'scope_in' => [],
+            'duplicate_of' => 'something',
+            'poison_risk_score' => 0.99,
+            'is_stale' => true,
+        ]));
+
+        $this->assertSame('quarantine', $result['decision']);
+        $this->assertSame('implementation_missing_no_allowed_files', $result['reason']);
+    }
+
+    public function test_classify_packet_priority_duplicate_outranks_poison_and_stale(): void
+    {
+        $result = $this->orchestrator()->classifyPacket($this->classifiablePacket([
+            'duplicate_of' => 'something',
+            'poison_risk_score' => 0.99,
+            'is_stale' => true,
+        ]));
+
+        $this->assertSame('quarantine', $result['decision']);
+        $this->assertSame('duplicate_target', $result['reason']);
+    }
+
+    public function test_classify_packet_reads_normalized_scope_when_present(): void
+    {
+        $result = $this->orchestrator()->classifyPacket([
+            'normalized_scope' => [
+                'allowed_files' => ['app/Foo.php'],
+                'scope_in' => ['app/Foo.php'],
+            ],
+            'acceptance_criteria' => ['php artisan test passes'],
+        ]);
+
+        $this->assertSame('serve', $result['decision']);
+    }
 }

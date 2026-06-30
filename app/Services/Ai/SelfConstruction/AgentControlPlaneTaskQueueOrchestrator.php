@@ -361,6 +361,85 @@ final class AgentControlPlaneTaskQueueOrchestrator
     }
 
     /**
+     * Routing thresholds for {@see classifyPacket()}.
+     */
+    private const POISON_RISK_QUARANTINE_THRESHOLD = 0.70;
+
+    /**
+     * Pure, stateless packet router: classifies a task packet into serve,
+     * repair, quarantine, or defer using only fields already present on the
+     * packet (scope, freshness, duplicate, and poison-risk evidence) before
+     * a worker burns tokens claiming it. Does not query the queue, leases,
+     * or disk — callers that need fresh duplicate/poison signals must
+     * compute them and place the result on the packet before calling.
+     *
+     * Decision priority (first match wins):
+     *   1. allowed_files is empty                                  -> quarantine: implementation_missing_no_allowed_files
+     *   2. every allowed_files entry lives under tests/ (no app/ target) -> quarantine: test_only_packet_no_implementation_target
+     *   3. duplicate_of is non-empty                                -> quarantine: duplicate_target
+     *   4. poison_risk_score >= POISON_RISK_QUARANTINE_THRESHOLD (0.70) -> quarantine: high_poison_risk_score
+     *   5. is_stale=true                                            -> defer: stale_context_requires_refresh
+     *   6. allowed_files contains a path not covered by scope_in     -> repair: scope_in_does_not_cover_allowed_files
+     *   7. acceptance_criteria is empty                              -> repair: missing_acceptance_criteria
+     *   8. otherwise                                                  -> serve: packet_passes_classification_checks
+     *
+     * @param  array<string, mixed>  $packet
+     * @return array{decision: string, reason: string}
+     */
+    public function classifyPacket(array $packet): array
+    {
+        $allowedFiles = array_values(array_map('strval', (array) (
+            data_get($packet, 'normalized_scope.allowed_files', $packet['allowed_files'] ?? [])
+        )));
+        $scopeIn = array_values(array_map('strval', (array) (
+            data_get($packet, 'normalized_scope.scope_in', $packet['scope_in'] ?? [])
+        )));
+        $acceptanceCriteria = (array) ($packet['acceptance_criteria'] ?? []);
+        $duplicateOf = trim((string) ($packet['duplicate_of'] ?? ''));
+        $poisonRiskScore = (float) ($packet['poison_risk_score'] ?? 0.0);
+        $isStale = (bool) ($packet['is_stale'] ?? false);
+
+        if ($allowedFiles === []) {
+            return ['decision' => 'quarantine', 'reason' => 'implementation_missing_no_allowed_files'];
+        }
+
+        $hasNonTestTarget = false;
+        foreach ($allowedFiles as $file) {
+            if (! str_contains($file, 'tests/') && ! str_ends_with($file, 'Test.php')) {
+                $hasNonTestTarget = true;
+                break;
+            }
+        }
+        if (! $hasNonTestTarget) {
+            return ['decision' => 'quarantine', 'reason' => 'test_only_packet_no_implementation_target'];
+        }
+
+        if ($duplicateOf !== '') {
+            return ['decision' => 'quarantine', 'reason' => 'duplicate_target'];
+        }
+
+        if ($poisonRiskScore >= self::POISON_RISK_QUARANTINE_THRESHOLD) {
+            return ['decision' => 'quarantine', 'reason' => 'high_poison_risk_score'];
+        }
+
+        if ($isStale) {
+            return ['decision' => 'defer', 'reason' => 'stale_context_requires_refresh'];
+        }
+
+        foreach ($allowedFiles as $file) {
+            if (! in_array($file, $scopeIn, true)) {
+                return ['decision' => 'repair', 'reason' => 'scope_in_does_not_cover_allowed_files'];
+            }
+        }
+
+        if ($acceptanceCriteria === []) {
+            return ['decision' => 'repair', 'reason' => 'missing_acceptance_criteria'];
+        }
+
+        return ['decision' => 'serve', 'reason' => 'packet_passes_classification_checks'];
+    }
+
+    /**
      * SERVABILITY BREAKDOWN — the honest cross-cut the coordination-health panel embeds so health, the
      * orchestrator, the service and the CLI all AGREE on how many claimable tasks can actually be pulled now.
      * Reuses the SAME predicates the claim path uses (dependency classification, probe guard, executability),
