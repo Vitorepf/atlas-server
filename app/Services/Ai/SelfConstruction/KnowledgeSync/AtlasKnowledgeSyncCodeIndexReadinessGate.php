@@ -60,6 +60,10 @@ final class AtlasKnowledgeSyncCodeIndexReadinessGate
             $blockers[] = 'workspace_id_missing';
         }
 
+        if ($requiredArtifacts === []) {
+            $blockers[] = 'required_artifacts_empty';
+        }
+
         if (! $localSchemaAvailable) {
             $degradedBlocked[] = 'local_schema_unavailable';
             $blockers[] = 'degraded_but_blocked:local_schema_unavailable';

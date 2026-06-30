@@ -127,4 +127,41 @@ final class AtlasKnowledgeSyncCodeIndexReadinessGateTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    public function test_required_artifacts_empty_blocks_readiness(): void
+    {
+        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
+            $this->manifest(['required_artifacts' => []]),
+            $this->obs(),
+        );
+
+        $this->assertFalse($verdict['ready']);
+        $this->assertContains('required_artifacts_empty', $verdict['blockers']);
+    }
+
+    public function test_docs_only_bypass_does_not_bypass_when_changed_code_hash_is_non_empty(): void
+    {
+        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
+            $this->manifest(['docs_only_bypass' => true]),
+            // changed_code_hash is non-empty so bypass must NOT fire; stale index should block
+            $this->obs(['changed_code_hash' => 'xyz', 'index_hash' => 'different']),
+        );
+
+        $this->assertFalse($verdict['bypassed_docs_only']);
+        $this->assertFalse($verdict['ready']);
+        $this->assertContains('changed_code_hash_not_represented', $verdict['blockers']);
+    }
+
+    public function test_workspace_id_missing_blocks_readiness_even_on_docs_only_bypass(): void
+    {
+        $verdict = (new AtlasKnowledgeSyncCodeIndexReadinessGate)->evaluate(
+            $this->manifest(['workspace_id' => '', 'docs_only_bypass' => true]),
+            ['now_unix' => self::NOW, 'local_schema_available' => true],
+        );
+
+        // bypass fires (no changed_code_hash) but workspace_id_missing is still in blockers
+        $this->assertTrue($verdict['bypassed_docs_only']);
+        $this->assertFalse($verdict['ready']);
+        $this->assertContains('workspace_id_missing', $verdict['blockers']);
+    }
 }
