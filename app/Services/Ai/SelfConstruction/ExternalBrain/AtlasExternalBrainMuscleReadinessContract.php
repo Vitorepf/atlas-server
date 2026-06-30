@@ -7,13 +7,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 /**
  * Decides whether a task is ready to be sent to worker muscles (Claude/Codex/Cursor/native).
  *
- * Six readiness checks (all must pass for ready=true):
- *   scoped_files       — allowed_files non-empty, no bare dirs, no wildcards, no path traversal.
- *   no_collision       — allowed_files don't overlap with any active claim's claimed_files.
- *   runnable_proof     — at least one acceptance criterion mentions a runnable test or gate.
- *   enough_context     — objective non-empty and long enough to act on (>= 20 chars); not vague.
- *   bounded_risk       — risk_level is 'low' or 'medium' (critical tasks need operator gate).
- *   clear_give_back_path — required_evidence non-empty (worker knows how to prove done/give_back).
+ * Eleven readiness checks (all must pass for ready=true):
+ *   scoped_files                    — allowed_files non-empty, no bare dirs, no wildcards, no path traversal.
+ *   no_test_only_packet             — allowed_files must contain at least one non-test implementation file.
+ *   implementation_plus_test_scope  — allowed_files must contain at least one impl AND one test file.
+ *   no_collision                    — allowed_files don't overlap with any active claim's claimed_files.
+ *   runnable_proof                  — at least one acceptance criterion mentions a runnable test or gate.
+ *   enough_context                  — objective non-empty and long enough to act on (>= 20 chars); not vague.
+ *   concrete_symbol_presence        — objective references at least one concrete code symbol (PascalCase class, ::method, artisan:cmd).
+ *   acceptance_contradiction_risk   — acceptance criteria must not contain contradictory assertions.
+ *   bounded_risk                    — risk_level is 'low' or 'medium' (critical tasks need operator gate).
+ *   clear_give_back_path            — required_evidence non-empty (worker knows how to prove done/give_back).
+ *   give_back_escape_hatch          — spec tells the worker when to give_back (give_back_condition | give_back_on_blocked | max_attempts).
  *
  * FAILURE CATEGORIES (mutually exclusive, first match wins):
  *   already_implemented    — duplicate flag set on task OR target files already in implemented set.
@@ -24,11 +29,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   { task_packet_id?:string, objective?:string, allowed_files?:list<string>,
  *     acceptance_criteria?:list<string>, required_evidence?:list<string>,
  *     risk_level?:string, duplicate?:bool, implemented_files?:list<string>,
- *     active_claims?:list<{worker_id:string, claimed_files:list<string>}> }
+ *     active_claims?:list<{worker_id:string, claimed_files:list<string>}>,
+ *     give_back_condition?:string, give_back_on_blocked?:bool, max_attempts?:int }
  *
  * OUTPUT:
- *   { schema, task_packet_id, ready:bool, failure_category:string|null,
- *     checks:list<Check>, repair_hints:list<string> }
+ *   { schema, task_packet_id, ready:bool, readiness_category:string,
+ *     failure_category:string|null, give_back_risk_score:float,
+ *     blocking_deficiencies:list<string>, checks:list<Check>, repair_hints:list<string> }
  *
  * Check: { check:string, passed:bool, reason:string }
  * PURE / DETERMINISTIC. No I/O.
@@ -49,34 +56,46 @@ final class AtlasExternalBrainMuscleReadinessContract
 
     private const OPERATOR_OBJECTIVE_PATTERNS = ['requires operator', 'ask operator', 'human approval', 'manual review', 'operator must'];
 
+    /** Negation markers in acceptance criteria that signal a contradiction. */
+    private const CONTRADICTION_NEGATIVE = ['must not', 'should not', 'must fail', 'should fail', 'never ', 'cannot '];
+
+    /** Positive assertion markers in acceptance criteria. */
+    private const CONTRADICTION_POSITIVE = ['must pass', 'must return', 'must be ', 'should pass', 'should return', 'should be ', 'always '];
+
     /**
      * @param  array{
      *   task_packet_id?:string, objective?:string, allowed_files?:list<string>,
      *   acceptance_criteria?:list<string>, required_evidence?:list<string>,
      *   risk_level?:string, duplicate?:bool, implemented_files?:list<string>,
-     *   active_claims?:list<array{worker_id:string, claimed_files:list<string>}>
+     *   active_claims?:list<array{worker_id:string, claimed_files:list<string>}>,
+     *   give_back_condition?:string, give_back_on_blocked?:bool, max_attempts?:int
      * }  $spec
-     * @return array{schema:string, task_packet_id:string, ready:bool, failure_category:string|null, checks:list<array<string,mixed>>, repair_hints:list<string>}
+     * @return array{schema:string, task_packet_id:string, ready:bool, readiness_category:string, failure_category:string|null, give_back_risk_score:float, blocking_deficiencies:list<string>, checks:list<array<string,mixed>>, repair_hints:list<string>}
      */
     public function check(array $spec): array
     {
-        $id = (string) ($spec['task_packet_id'] ?? '');
-        $objective = (string) ($spec['objective'] ?? '');
-        $allowedFiles = is_array($spec['allowed_files'] ?? null) ? array_values(array_filter(array_map('strval', $spec['allowed_files']))) : [];
-        $criteria = is_array($spec['acceptance_criteria'] ?? null) ? $spec['acceptance_criteria'] : [];
-        $evidence = is_array($spec['required_evidence'] ?? null) ? $spec['required_evidence'] : [];
-        $riskLevel = strtolower(trim((string) ($spec['risk_level'] ?? 'low')));
-        $isDuplicate = (bool) ($spec['duplicate'] ?? false);
+        $id               = (string) ($spec['task_packet_id'] ?? '');
+        $objective        = (string) ($spec['objective'] ?? '');
+        $allowedFiles     = is_array($spec['allowed_files'] ?? null) ? array_values(array_filter(array_map('strval', $spec['allowed_files']))) : [];
+        $criteria         = is_array($spec['acceptance_criteria'] ?? null) ? $spec['acceptance_criteria'] : [];
+        $evidence         = is_array($spec['required_evidence'] ?? null) ? $spec['required_evidence'] : [];
+        $riskLevel        = strtolower(trim((string) ($spec['risk_level'] ?? 'low')));
+        $isDuplicate      = (bool) ($spec['duplicate'] ?? false);
         $implementedFiles = is_array($spec['implemented_files'] ?? null) ? array_flip(array_map('strval', $spec['implemented_files'])) : [];
-        $activeClaims = is_array($spec['active_claims'] ?? null) ? $spec['active_claims'] : [];
+        $activeClaims     = is_array($spec['active_claims'] ?? null) ? $spec['active_claims'] : [];
 
         $checks = [
             $this->checkScopedFiles($allowedFiles),
+            $this->checkNoTestOnlyPacket($allowedFiles),
+            $this->checkImplementationPlusTestScope($allowedFiles),
             $this->checkNoCollision($allowedFiles, $activeClaims),
             $this->checkRunnableProof($criteria),
             $this->checkEnoughContext($objective),
+            $this->checkConcreteSymbolPresence($objective),
+            $this->checkAcceptanceContradictionRisk($criteria),
             $this->checkBoundedRisk($riskLevel, $objective),
             $this->checkClearGiveBackPath($evidence),
+            $this->checkGiveBackEscapeHatch($spec),
         ];
 
         $ready = array_reduce($checks, static fn (bool $carry, array $c): bool => $carry && $c['passed'], true);
@@ -92,14 +111,21 @@ final class AtlasExternalBrainMuscleReadinessContract
             $failureCategory = $this->classifyFailure($isDuplicate, $allowedFiles, $implementedFiles, $riskLevel, $objective, $checks);
         }
 
+        $blockingDeficiencies = array_values(
+            array_column(array_filter($checkOutput, static fn (array $c): bool => ! $c['passed']), 'check')
+        );
+
         return [
-            'schema' => self::SCHEMA,
-            'task_packet_id' => $id,
-            'ready' => $ready,
-            'failure_category' => $failureCategory,
-            'checks' => $checkOutput,
-            'repair_hints' => $hints,
-            'worker_readiness' => $this->assessWorkerReadiness($spec),
+            'schema'                => self::SCHEMA,
+            'task_packet_id'        => $id,
+            'ready'                 => $ready,
+            'readiness_category'    => $this->deriveReadinessCategory($ready, $failureCategory, $checks),
+            'failure_category'      => $failureCategory,
+            'give_back_risk_score'  => $this->computeGiveBackRiskScore($checks),
+            'blocking_deficiencies' => $blockingDeficiencies,
+            'checks'                => $checkOutput,
+            'repair_hints'          => $hints,
+            'worker_readiness'      => $this->assessWorkerReadiness($spec),
         ];
     }
 
@@ -107,28 +133,81 @@ final class AtlasExternalBrainMuscleReadinessContract
     private function checkScopedFiles(array $allowedFiles): array
     {
         $reasons = [];
-        $hints = [];
+        $hints   = [];
 
         if ($allowedFiles === []) {
             $reasons[] = 'allowed_files_empty';
-            $hints[] = 'add_at_least_one_implementation_file_to_allowed_files';
+            $hints[]   = 'add_at_least_one_implementation_file_to_allowed_files';
         }
         foreach ($allowedFiles as $f) {
             if (str_contains($f, '*')) {
                 $reasons[] = 'wildcard_in_allowed_files';
-                $hints[] = 'expand_wildcard_to_explicit_file_paths';
+                $hints[]   = 'expand_wildcard_to_explicit_file_paths';
             }
             if (str_contains($f, '..')) {
                 $reasons[] = 'path_traversal_in_allowed_files';
-                $hints[] = 'use_repo_relative_paths_without_traversal';
+                $hints[]   = 'use_repo_relative_paths_without_traversal';
             }
             if (! str_contains($f, '.') && ! str_contains($f, '*')) {
                 $reasons[] = 'bare_directory_in_allowed_files:'.$f;
-                $hints[] = 'expand_directory_to_explicit_php_file_paths';
+                $hints[]   = 'expand_directory_to_explicit_php_file_paths';
             }
         }
 
         return $this->build('scoped_files', $reasons, $hints);
+    }
+
+    /** Spec must not be test-only: at least one implementation file must be present. */
+    private function checkNoTestOnlyPacket(array $allowedFiles): array
+    {
+        if ($allowedFiles === []) {
+            return $this->build('no_test_only_packet', [], []);
+        }
+
+        foreach ($allowedFiles as $f) {
+            if (! str_starts_with($f, 'tests/')) {
+                return $this->build('no_test_only_packet', [], []);
+            }
+        }
+
+        return $this->build(
+            'no_test_only_packet',
+            ['all_allowed_files_are_test_files_no_implementation_file_present'],
+            ['add_the_implementation_file_to_allowed_files_alongside_its_test'],
+        );
+    }
+
+    /** Spec must scope both an implementation file AND a test file. */
+    private function checkImplementationPlusTestScope(array $allowedFiles): array
+    {
+        if ($allowedFiles === []) {
+            return $this->build('implementation_plus_test_scope', [], []);
+        }
+
+        $hasImpl = false;
+        $hasTest = false;
+
+        foreach ($allowedFiles as $f) {
+            if (str_starts_with($f, 'tests/')) {
+                $hasTest = true;
+            } else {
+                $hasImpl = true;
+            }
+        }
+
+        $reasons = [];
+        $hints   = [];
+
+        if (! $hasImpl) {
+            $reasons[] = 'no_implementation_file_in_allowed_files';
+            $hints[]   = 'add_the_implementation_php_class_file_to_allowed_files';
+        }
+        if (! $hasTest) {
+            $reasons[] = 'no_test_file_in_allowed_files';
+            $hints[]   = 'add_the_corresponding_phpunit_test_file_to_allowed_files';
+        }
+
+        return $this->build('implementation_plus_test_scope', $reasons, $hints);
     }
 
     /**
@@ -139,19 +218,19 @@ final class AtlasExternalBrainMuscleReadinessContract
     private function checkNoCollision(array $allowedFiles, array $activeClaims): array
     {
         $reasons = [];
-        $hints = [];
+        $hints   = [];
 
         if ($allowedFiles === []) {
             return $this->build('no_collision', [], []);
         }
 
         foreach ($activeClaims as $claim) {
-            $wid = (string) ($claim['worker_id'] ?? '');
+            $wid     = (string) ($claim['worker_id'] ?? '');
             $claimed = is_array($claim['claimed_files'] ?? null) ? $claim['claimed_files'] : [];
             $overlap = array_intersect($allowedFiles, $claimed);
             if ($overlap !== []) {
                 $reasons[] = 'file_collision_with_worker:'.$wid.':'.implode(',', array_values($overlap));
-                $hints[] = 'wait_for_worker_'.$wid.'_to_release_claim_or_split_task';
+                $hints[]   = 'wait_for_worker_'.$wid.'_to_release_claim_or_split_task';
             }
         }
 
@@ -183,18 +262,18 @@ final class AtlasExternalBrainMuscleReadinessContract
     private function checkEnoughContext(string $objective): array
     {
         $reasons = [];
-        $hints = [];
+        $hints   = [];
 
         if (strlen($objective) < 20) {
             $reasons[] = 'objective_too_short_to_act_on';
-            $hints[] = 'expand_objective_to_describe_what_capability_atlas_gains';
+            $hints[]   = 'expand_objective_to_describe_what_capability_atlas_gains';
         }
 
         $lower = strtolower($objective);
         foreach (self::VAGUE_OBJECTIVE_PATTERNS as $pattern) {
             if (str_contains($lower, $pattern)) {
                 $reasons[] = 'objective_is_vague:'.$pattern;
-                $hints[] = 'replace_vague_objective_with_specific_capability_statement';
+                $hints[]   = 'replace_vague_objective_with_specific_capability_statement';
                 break;
             }
         }
@@ -202,22 +281,89 @@ final class AtlasExternalBrainMuscleReadinessContract
         return $this->build('enough_context', $reasons, $hints);
     }
 
+    /** Objective must contain at least one concrete code symbol (PascalCase class, ::method, artisan cmd). */
+    private function checkConcreteSymbolPresence(string $objective): array
+    {
+        // PascalCase compound: e.g. AtlasDriftDetector (capital → lower → capital)
+        if (preg_match('/[A-Z][a-z]+[A-Z][a-zA-Z0-9]+/', $objective) === 1) {
+            return $this->build('concrete_symbol_presence', [], []);
+        }
+
+        // Static method reference: e.g. AtlasFoo::bar
+        if (preg_match('/[A-Z][a-zA-Z0-9]+::/', $objective) === 1) {
+            return $this->build('concrete_symbol_presence', [], []);
+        }
+
+        // Artisan command: e.g. "php artisan atlas:task" or "artisan atlas:"
+        if (preg_match('/\bartisan[: ]+[a-z]/i', $objective) === 1) {
+            return $this->build('concrete_symbol_presence', [], []);
+        }
+
+        return $this->build(
+            'concrete_symbol_presence',
+            ['no_concrete_code_symbol_in_objective'],
+            ['name_the_specific_class_method_or_artisan_command_the_task_must_touch'],
+        );
+    }
+
+    /**
+     * Detects contradictory assertions within individual acceptance criteria.
+     * A contradiction is detected when a single criterion contains both a positive
+     * assertion marker and a negation marker that logically conflict.
+     */
+    private function checkAcceptanceContradictionRisk(array $criteria): array
+    {
+        foreach ($criteria as $criterion) {
+            $lower = strtolower((string) $criterion);
+
+            $hasNegation = false;
+            foreach (self::CONTRADICTION_NEGATIVE as $neg) {
+                if (str_contains($lower, $neg)) {
+                    $hasNegation = true;
+                    break;
+                }
+            }
+
+            if (! $hasNegation) {
+                continue;
+            }
+
+            $hasPositive = false;
+            foreach (self::CONTRADICTION_POSITIVE as $pos) {
+                if (str_contains($lower, $pos)) {
+                    $hasPositive = true;
+                    break;
+                }
+            }
+
+            if ($hasPositive) {
+                return $this->build(
+                    'acceptance_contradiction_risk',
+                    ['criterion_contains_both_positive_and_negative_assertion: '.substr($criterion, 0, 80)],
+                    ['split_into_separate_positive_and_negative_criteria_or_remove_the_contradiction'],
+                );
+            }
+        }
+
+        return $this->build('acceptance_contradiction_risk', [], []);
+    }
+
     /** @return array<string, mixed> */
     private function checkBoundedRisk(string $riskLevel, string $objective): array
     {
         $reasons = [];
-        $hints = [];
+        $hints   = [];
 
         if (! in_array($riskLevel, ['low', 'medium'], true)) {
             $reasons[] = 'risk_level_is_'.$riskLevel.'_requires_operator_gate';
-            $hints[] = 'escalate_to_operator_before_queueing_critical_or_unknown_risk_task';
+            $hints[]   = 'escalate_to_operator_before_queueing_critical_or_unknown_risk_task';
         }
 
         $lower = strtolower($objective);
         foreach (self::OPERATOR_OBJECTIVE_PATTERNS as $pat) {
             if (str_contains($lower, $pat)) {
                 $reasons[] = 'objective_requires_operator_intervention:'.$pat;
-                $hints[] = 'redesign_task_to_complete_autonomously_or_escalate_to_operator';
+                $hints[]   = 'redesign_task_to_complete_autonomously_or_escalate_to_operator';
                 break;
             }
         }
@@ -238,6 +384,36 @@ final class AtlasExternalBrainMuscleReadinessContract
     }
 
     /**
+     * Spec must tell the worker WHEN to give_back (not just what to prove when done).
+     * Passes if: give_back_condition string is set, OR give_back_on_blocked=true,
+     * OR max_attempts > 0 is provided.
+     */
+    private function checkGiveBackEscapeHatch(array $spec): array
+    {
+        $condition = trim((string) ($spec['give_back_condition'] ?? ''));
+        if ($condition !== '') {
+            return $this->build('give_back_escape_hatch', [], []);
+        }
+
+        if ((bool) ($spec['give_back_on_blocked'] ?? false)) {
+            return $this->build('give_back_escape_hatch', [], []);
+        }
+
+        if ((int) ($spec['max_attempts'] ?? 0) > 0) {
+            return $this->build('give_back_escape_hatch', [], []);
+        }
+
+        return $this->build(
+            'give_back_escape_hatch',
+            ['no_give_back_stopping_criterion_in_spec'],
+            [
+                'add_give_back_condition_string_explaining_when_to_give_back',
+                'or_set_give_back_on_blocked_true_or_max_attempts_integer',
+            ],
+        );
+    }
+
+    /**
      * @param array<string, bool> $implementedFiles
      * @param list<array<string, mixed>> $checks
      */
@@ -249,7 +425,6 @@ final class AtlasExternalBrainMuscleReadinessContract
         string $objective,
         array $checks,
     ): string {
-        // already_implemented wins first.
         if ($isDuplicate) {
             return self::CATEGORY_ALREADY_IMPLEMENTED;
         }
@@ -259,7 +434,6 @@ final class AtlasExternalBrainMuscleReadinessContract
             }
         }
 
-        // operator_only: critical risk or objective explicitly requires human.
         if ($riskLevel === 'critical') {
             return self::CATEGORY_OPERATOR_ONLY;
         }
@@ -273,6 +447,67 @@ final class AtlasExternalBrainMuscleReadinessContract
         return self::CATEGORY_REPAIRABLE;
     }
 
+    /** @param list<array<string,mixed>> $checks */
+    private function deriveReadinessCategory(bool $ready, ?string $failureCategory, array $checks): string
+    {
+        if ($ready) {
+            return 'ready';
+        }
+
+        if ($failureCategory === self::CATEGORY_ALREADY_IMPLEMENTED) {
+            return 'already_implemented';
+        }
+        if ($failureCategory === self::CATEGORY_OPERATOR_ONLY) {
+            return 'operator_gate_required';
+        }
+
+        $map = [
+            'scoped_files'                   => 'missing_scope',
+            'no_test_only_packet'            => 'test_only_packet',
+            'implementation_plus_test_scope' => 'missing_impl_or_test_file',
+            'no_collision'                   => 'file_collision',
+            'runnable_proof'                 => 'missing_runnable_proof',
+            'enough_context'                 => 'vague_objective',
+            'concrete_symbol_presence'       => 'vague_objective',
+            'acceptance_contradiction_risk'  => 'contradiction_risk',
+            'bounded_risk'                   => 'operator_gate_required',
+            'clear_give_back_path'           => 'missing_evidence',
+            'give_back_escape_hatch'         => 'no_escape_hatch',
+        ];
+
+        foreach ($checks as $check) {
+            if (! $check['passed'] && isset($map[$check['check']])) {
+                return $map[$check['check']];
+            }
+        }
+
+        return 'repairable_spec_defect';
+    }
+
+    /** @param list<array<string,mixed>> $checks */
+    private function computeGiveBackRiskScore(array $checks): float
+    {
+        $weights = [
+            'no_test_only_packet'            => 0.30,
+            'runnable_proof'                 => 0.25,
+            'implementation_plus_test_scope' => 0.20,
+            'clear_give_back_path'           => 0.20,
+            'acceptance_contradiction_risk'  => 0.15,
+            'concrete_symbol_presence'       => 0.15,
+            'give_back_escape_hatch'         => 0.10,
+            'enough_context'                 => 0.10,
+        ];
+
+        $score = 0.0;
+        foreach ($checks as $check) {
+            if (! $check['passed'] && isset($weights[$check['check']])) {
+                $score += $weights[$check['check']];
+            }
+        }
+
+        return round(min(1.0, $score), 4);
+    }
+
     /**
      * Assess worker-level readiness dimensions from optional worker facts.
      * Missing facts → deficiency, not ready (no optimistic declarations allowed).
@@ -283,13 +518,13 @@ final class AtlasExternalBrainMuscleReadinessContract
     private function assessWorkerReadiness(array $spec): array
     {
         // scope_discipline
-        $sd = is_array($spec['scope_discipline_facts'] ?? null) ? $spec['scope_discipline_facts'] : null;
+        $sd    = is_array($spec['scope_discipline_facts'] ?? null) ? $spec['scope_discipline_facts'] : null;
         $sdDef = [];
         if ($sd === null) {
             $sdDef[] = 'scope_discipline_evidence_missing';
         } else {
             $totalTasks = max(1, (int) ($sd['total_tasks'] ?? 0));
-            $incidents = (int) ($sd['out_of_scope_incidents'] ?? 0);
+            $incidents  = (int) ($sd['out_of_scope_incidents'] ?? 0);
             if (($incidents / $totalTasks) > 0.2) {
                 $sdDef[] = 'scope_discipline_out_of_scope_rate_too_high';
             }
@@ -297,7 +532,7 @@ final class AtlasExternalBrainMuscleReadinessContract
         $scopeDiscipline = ['ready' => $sdDef === [], 'deficiency_codes' => $sdDef];
 
         // runnable_proof_support
-        $rp = is_array($spec['runnable_proof_facts'] ?? null) ? $spec['runnable_proof_facts'] : null;
+        $rp    = is_array($spec['runnable_proof_facts'] ?? null) ? $spec['runnable_proof_facts'] : null;
         $rpDef = [];
         if ($rp === null) {
             $rpDef[] = 'runnable_proof_support_evidence_missing';
@@ -307,7 +542,7 @@ final class AtlasExternalBrainMuscleReadinessContract
         $runnableProof = ['ready' => $rpDef === [], 'deficiency_codes' => $rpDef];
 
         // give_back_hygiene
-        $gb = is_array($spec['give_back_hygiene_facts'] ?? null) ? $spec['give_back_hygiene_facts'] : null;
+        $gb    = is_array($spec['give_back_hygiene_facts'] ?? null) ? $spec['give_back_hygiene_facts'] : null;
         $gbDef = [];
         if ($gb === null) {
             $gbDef[] = 'give_back_hygiene_evidence_missing';
@@ -317,7 +552,7 @@ final class AtlasExternalBrainMuscleReadinessContract
         $giveBack = ['ready' => $gbDef === [], 'deficiency_codes' => $gbDef];
 
         // current_load
-        $cl = is_array($spec['current_load_facts'] ?? null) ? $spec['current_load_facts'] : null;
+        $cl    = is_array($spec['current_load_facts'] ?? null) ? $spec['current_load_facts'] : null;
         $clDef = [];
         if ($cl === null) {
             $clDef[] = 'current_load_evidence_missing';
@@ -341,10 +576,10 @@ final class AtlasExternalBrainMuscleReadinessContract
     private function build(string $name, array $reasons, array $hints): array
     {
         return [
-            'check' => $name,
+            'check'  => $name,
             'passed' => $reasons === [],
             'reason' => $reasons === [] ? '' : implode('; ', $reasons),
-            'hints' => $hints,
+            'hints'  => $hints,
         ];
     }
 }
