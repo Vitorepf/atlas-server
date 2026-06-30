@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Console\Command;
 use Throwable;
@@ -48,6 +49,12 @@ class AtlasAgentControlPlaneReapLeasesCommand extends Command
             return self::FAILURE;
         }
 
+        try {
+            $health = (new AtlasTaskCoordinationHealthService)->snapshot();
+        } catch (Throwable) {
+            $health = ['healthy' => false, 'leases_match_claimed' => false, 'recoverable' => ['total' => -1]];
+        }
+
         $payload = [
             'ok' => true,
             'expired_recovered' => (int) ($expired['recovered_count'] ?? 0),
@@ -56,6 +63,11 @@ class AtlasAgentControlPlaneReapLeasesCommand extends Command
             'orphaned_skipped' => (int) ($orphaned['skipped_count'] ?? 0),
             'released_recovered' => (int) ($released['recovered_count'] ?? 0),
             'released_skipped' => (int) ($released['skipped_count'] ?? 0),
+            'post_recovery_health' => [
+                'healthy' => (bool) ($health['healthy'] ?? false),
+                'leases_match_claimed' => (bool) ($health['leases_match_claimed'] ?? false),
+                'recoverable_total' => (int) ($health['recoverable']['total'] ?? 0),
+            ],
         ];
         $this->emit($payload);
 

@@ -74,6 +74,11 @@ final class AtlasAgentControlPlaneReapLeasesServingDiskTest extends TestCase
         $this->assertIsArray($payload);
         $this->assertTrue((bool) $payload['ok']);
         $this->assertGreaterThanOrEqual(1, (int) $payload['expired_recovered']);
+        $this->assertArrayHasKey('post_recovery_health', $payload);
+        $health = $payload['post_recovery_health'];
+        $this->assertTrue((bool) $health['healthy'], 'post-recovery health must be healthy after reap');
+        $this->assertTrue((bool) $health['leases_match_claimed'], 'leases must match claimed records after reap');
+        $this->assertSame(0, (int) $health['recoverable_total'], 'no recoverable tasks should remain after reap');
 
         // Final state on the SERVING disk: the seeded packet is back to claimable.
         $record = AtlasTaskServingStack::queueRepo()->get('serving-expired-1');
