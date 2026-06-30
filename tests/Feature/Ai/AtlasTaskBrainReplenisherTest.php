@@ -67,6 +67,82 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         $this->assertSame([], array_values(array_filter($defaultTasks, fn (array $x): bool => str_starts_with($x['task_packet_id'], 'brain-orphan-'))));
     }
 
+    public function test_doc_gap_packets_carry_prioritization_metadata(): void
+    {
+        $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($this->model());
+
+        foreach ($tasks as $t) {
+            if (! str_starts_with($t['task_packet_id'], 'brain-docgap-')) {
+                continue;
+            }
+            $this->assertArrayHasKey('domain_area', $t);
+            $this->assertArrayHasKey('template_family', $t);
+            $this->assertArrayHasKey('leverage_factors', $t);
+            $this->assertArrayHasKey('prioritization_reason', $t);
+            $this->assertIsString($t['domain_area']);
+            $this->assertNotEmpty($t['domain_area']);
+            $this->assertIsArray($t['leverage_factors']);
+            $this->assertNotEmpty($t['leverage_factors']);
+            $this->assertNotEmpty($t['template_family']);
+            $this->assertNotEmpty($t['prioritization_reason']);
+            $this->assertCount(2, $t['allowed_files'], 'metadata must not change allowed_files');
+        }
+
+        // Orphan packets must NOT carry domain metadata.
+        $withOrphans = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($this->model(), includeOrphans: true);
+        $orphan = array_values(array_filter($withOrphans, fn (array $t): bool => str_starts_with($t['task_packet_id'], 'brain-orphan-')));
+        $this->assertNotEmpty($orphan);
+        $this->assertArrayNotHasKey('domain_area', $orphan[0]);
+    }
+
+    public function test_template_family_dedup_emits_only_strongest_per_family(): void
+    {
+        $model = new AtlasLoopScopeComprehensionModel(
+            inventory: [],
+            edges: [],
+            orphans: [],
+            cloneClusters: [],
+            forbidden: [],
+            docPurposes: [],
+            docStatedGaps: [
+                'a retry budget for provider calls',  // family: budget
+                'a performance budget for queue ops', // family: budget (collision → skipped)
+                'a circuit breaker for the registry', // family: breaker (unique)
+            ],
+            snapshotId: 'dedup-test',
+        );
+
+        $tasks = (new AtlasTaskBrainReplenisher($this->orchestrator()))->structureTasks($model);
+
+        $this->assertCount(2, $tasks, 'second budget gap is deduped; budget+breaker survive');
+        $families = array_column($tasks, 'template_family');
+        $this->assertContains('budget', $families);
+        $this->assertContains('breaker', $families);
+    }
+
+    public function test_skipped_template_family_count_in_replenish_summary(): void
+    {
+        $model = new AtlasLoopScopeComprehensionModel(
+            inventory: [],
+            edges: [],
+            orphans: [],
+            cloneClusters: [],
+            forbidden: [],
+            docPurposes: [],
+            docStatedGaps: [
+                'a retry budget for provider calls',
+                'a performance budget for queue ops', // same family → skipped
+            ],
+            snapshotId: 'dedup-count-test',
+        );
+
+        $r = (new AtlasTaskBrainReplenisher($this->orchestrator()))
+            ->replenishFromModel($model, 'app/Demo', targetMin: 20, maxPerRun: 40);
+
+        $this->assertArrayHasKey('skipped_template_family_count', $r);
+        $this->assertSame(1, $r['skipped_template_family_count']);
+    }
+
     public function test_doc_gap_is_skipped_when_the_capability_already_exists_anywhere_in_the_repo(): void
     {
         // THE LIVE FALSE-POSITIVE the worker kept giving back: the comprehension scrapes a class name from docs

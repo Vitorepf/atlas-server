@@ -38,10 +38,46 @@ final class AtlasTaskBrainReplenisher
 
     public const DEFAULT_MAX_PER_RUN = 40;
 
+    private const FAMILY_KEYWORDS = [
+        'budget', 'breaker', 'ledger', 'audit', 'gate', 'registry',
+        'bridge', 'monitor', 'tracker', 'inspector', 'scheduler', 'validator',
+        'planner', 'executor', 'router', 'resolver', 'builder', 'adapter',
+        'factory', 'repository', 'store', 'meter', 'notifier', 'collector',
+    ];
+
+    private const DOMAIN_KEYWORDS = [
+        'retry' => 'provider_resilience', 'fallback' => 'provider_resilience',
+        'timeout' => 'provider_resilience', 'circuit' => 'provider_resilience',
+        'provider' => 'provider_resilience',
+        'lease' => 'leasing', 'claim' => 'leasing', 'lock' => 'leasing',
+        'audit' => 'audit_trail', 'ledger' => 'audit_trail',
+        'evidence' => 'audit_trail', 'receipt' => 'audit_trail',
+        'queue' => 'task_queue', 'packet' => 'task_queue',
+        'task' => 'task_queue', 'serving' => 'task_queue',
+        'brain' => 'brain_to_queue', 'comprehension' => 'brain_to_queue',
+        'origination' => 'brain_to_queue', 'gap' => 'brain_to_queue',
+        'orphan' => 'wiring', 'wiring' => 'wiring',
+        'merge' => 'quality_gates', 'certif' => 'quality_gates',
+        'quality' => 'quality_gates', 'inspect' => 'quality_gates',
+    ];
+
+    private const LEVERAGE_FACTORS = [
+        'brain_to_queue'      => ['improves brain-to-queue bridge', 'reduces queue starvation risk'],
+        'task_queue'          => ['reduces queue poison risk', 'improves task flow reliability'],
+        'provider_resilience' => ['reduces provider failure blast radius', 'improves autonomy resilience'],
+        'leasing'             => ['improves lease safety', 'reduces concurrent-write collision risk'],
+        'audit_trail'         => ['improves evidence auditability', 'strengthens quality gates'],
+        'quality_gates'       => ['unblocks autonomous merge', 'improves certification reliability'],
+        'wiring'              => ['unblocks orphan capability', 'improves wiring coverage'],
+        'general'             => ['adds real capability'],
+    ];
+
     /** @var list<array<string,true>>|null memoized token-sets of every class file under the repo's app/ tree */
     private ?array $repoClassTokenSets = null;
 
     private ?AtlasLoopCortexRoleTokenSemanticDisambiguator $roleDisambiguator = null;
+
+    private int $lastSkippedTemplateFamilyCount = 0;
 
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
@@ -139,7 +175,12 @@ final class AtlasTaskBrainReplenisher
 
         $context = array_merge(
             $this->summary($scopeRoot, $before, $depth, $enqueued, $exhausted ? 'material_exhausted' : 'topped_up'),
-            ['skipped_existing' => $skippedExisting, 'skipped_deficient' => $skippedDeficient, 'candidates_considered' => count($candidates)],
+            [
+                'skipped_existing'              => $skippedExisting,
+                'skipped_deficient'             => $skippedDeficient,
+                'candidates_considered'         => count($candidates),
+                'skipped_template_family_count' => $this->lastSkippedTemplateFamilyCount,
+            ],
         );
 
         // W16 give_back→replenisher feedback (additive, flag-gated atlas.loop.feedback.replenisher_enabled,
@@ -156,13 +197,12 @@ final class AtlasTaskBrainReplenisher
      */
     public function structureTasks(\App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel $model, bool $includeOrphans = false): array
     {
-        $out = [];
-
         // DOC-STATED GAPS — capabilities the canonical docs demand but no symbol provides. RESOLVABLE in-scope:
         // a NEW class + its NEW test, both inside allowed_files (conflict-free; nothing existing to wire).
         // FALSE-POSITIVE GUARD: skip a "gap" whose name already matches a real inventory symbol (the doc
         // mentions a capability that DOES exist) — so a worker never creates a redundant duplicate class.
         $existing = $this->inventoryShortNames($model);
+        $docGapPackets = [];
         foreach ($model->docStatedGaps as $gap) {
             $gap = trim((string) $gap);
             if ($gap === '' || $this->gapAlreadyExists($gap, $existing)) {
@@ -171,16 +211,34 @@ final class AtlasTaskBrainReplenisher
             $className = $this->classNameForGap($gap);
             $newFile = 'app/Services/Ai/AutonomousEvolution/Generated/'.$className.'.php';
             $testFile = 'tests/Unit/Ai/AutonomousEvolution/Generated/'.$className.'Test.php';
-            $out[] = $this->packet(
-                id: 'brain-docgap-'.substr(md5($gap), 0, 12),
-                objective: "Implement the capability the canonical docs require but no symbol provides yet: \"{$gap}\". "
-                    ."Create the class `App\\Services\\Ai\\AutonomousEvolution\\Generated\\{$className}` at the EXACT path {$newFile} "
-                    ."AND a passing PHPUnit test at the EXACT path {$testFile}. Edit ONLY those two files (do not rename the paths — "
-                    ."they are your commit scope). If the capability already exists elsewhere, give_back.",
-                allowed: [$newFile, $testFile],
-                accept: ["the class {$className} exists at {$newFile}", "the PHPUnit test at {$testFile} passes"],
+            $docGapPackets[] = array_merge(
+                $this->packet(
+                    id: 'brain-docgap-'.substr(md5($gap), 0, 12),
+                    objective: "Implement the capability the canonical docs require but no symbol provides yet: \"{$gap}\". "
+                        ."Create the class `App\\Services\\Ai\\AutonomousEvolution\\Generated\\{$className}` at the EXACT path {$newFile} "
+                        ."AND a passing PHPUnit test at the EXACT path {$testFile}. Edit ONLY those two files (do not rename the paths — "
+                        ."they are your commit scope). If the capability already exists elsewhere, give_back.",
+                    allowed: [$newFile, $testFile],
+                    accept: ["the class {$className} exists at {$newFile}", "the PHPUnit test at {$testFile} passes"],
+                ),
+                $this->gapMeta($gap),
             );
         }
+
+        // Template-family dedup: keep strongest (first = deterministic md5-order) candidate per family.
+        $seenFamilies = [];
+        $skipped = 0;
+        $out = [];
+        foreach ($docGapPackets as $pkt) {
+            $family = (string) ($pkt['template_family'] ?? '');
+            if ($family !== '' && isset($seenFamilies[$family])) {
+                $skipped++;
+                continue;
+            }
+            $seenFamilies[$family] = true;
+            $out[] = $pkt;
+        }
+        $this->lastSkippedTemplateFamilyCount = $skipped;
 
         // ORPHANS — built-but-unwired capabilities (the Loop's REAL evolution debt). The naive task "wire it in"
         // is multi-file and the correct site sits OUTSIDE a single-file scope → guaranteed give_back. So each
@@ -475,6 +533,38 @@ final class AtlasTaskBrainReplenisher
         $parts = explode('\\', $fqcn);
 
         return (string) end($parts);
+    }
+
+    /** @return array{domain_area:string,template_family:string,leverage_factors:list<string>,prioritization_reason:string} */
+    private function gapMeta(string $gap): array
+    {
+        $lower = strtolower($gap);
+        $wordSet = array_flip(preg_split('/\W+/', $lower, -1, PREG_SPLIT_NO_EMPTY) ?: []);
+
+        $family = 'capability';
+        foreach (self::FAMILY_KEYWORDS as $kw) {
+            if (isset($wordSet[$kw])) {
+                $family = $kw;
+                break;
+            }
+        }
+
+        $domain = 'general';
+        foreach (self::DOMAIN_KEYWORDS as $kw => $area) {
+            if (str_contains($lower, $kw)) {
+                $domain = $area;
+                break;
+            }
+        }
+
+        $factors = array_values(self::LEVERAGE_FACTORS[$domain] ?? ['adds real capability']);
+
+        return [
+            'domain_area'           => $domain,
+            'template_family'       => $family,
+            'leverage_factors'      => $factors,
+            'prioritization_reason' => "domain:{$domain};family:{$family};leverage:".count($factors),
+        ];
     }
 
     /** A deterministic StudlyCase class name derived from the gap text. */
