@@ -18,6 +18,84 @@ class AgentCodexExternalProcessInvocationAuthorizationGate
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
+    private const REPAIR_HINTS = [
+        'missing_signed_task_scope' => 'attach a sha256 task_scope_signature_hash signed over task_packet_id and allowed_files',
+        'task_scope_signature_mismatch' => 'resign task_scope_signature_hash over the current task_packet_id and allowed_files',
+        'missing_allowed_files' => 'attach the non-empty allowed_files list authorized for this task',
+        'missing_worker_identity' => 'attach the worker_identity that will run the process',
+        'missing_lease' => 'attach an active lease_id for this worker',
+        'lease_worker_mismatch' => 'reclaim the lease under the requesting worker_identity before invocation',
+        'lease_expired' => 'renew or re-claim the lease before requesting invocation authorization',
+    ];
+
+    /**
+     * Pure, provider-free authorization decision for whether a Codex muscle
+     * process is allowed to start: requires a signed task scope (verified
+     * against task_packet_id + allowed_files), a non-empty allowed_files
+     * set, a worker identity, and an active, unexpired, matching lease.
+     * Never starts a process; only decides allow/deny.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function authorizeProviderProcessInvocation(array $facts): array
+    {
+        $taskPacketId = (string) ($facts['task_packet_id'] ?? '');
+        $allowedFiles = array_values(array_filter(array_map('strval', (array) ($facts['allowed_files'] ?? []))));
+        $workerIdentity = (string) ($facts['worker_identity'] ?? '');
+        $signatureHash = strtolower(trim((string) ($facts['task_scope_signature_hash'] ?? '')));
+        $lease = (array) ($facts['lease'] ?? []);
+        $leaseId = (string) ($lease['lease_id'] ?? '');
+        $leaseWorkerIdentity = (string) ($lease['worker_identity'] ?? '');
+        $leaseExpiresAt = (string) ($lease['expires_at'] ?? '');
+        $now = (string) ($facts['now'] ?? '');
+
+        $denialReason = null;
+
+        if ($signatureHash === '' || ! preg_match('/^[a-f0-9]{64}$/', $signatureHash)) {
+            $denialReason = 'missing_signed_task_scope';
+        } elseif ($allowedFiles === []) {
+            $denialReason = 'missing_allowed_files';
+        } elseif ($workerIdentity === '') {
+            $denialReason = 'missing_worker_identity';
+        } elseif ($leaseId === '') {
+            $denialReason = 'missing_lease';
+        } else {
+            $expectedSignatureHash = $this->expectedTaskScopeSignatureHash($taskPacketId, $allowedFiles);
+            if ($signatureHash !== $expectedSignatureHash) {
+                $denialReason = 'task_scope_signature_mismatch';
+            } elseif ($leaseWorkerIdentity !== $workerIdentity) {
+                $denialReason = 'lease_worker_mismatch';
+            } elseif ($now !== '' && $leaseExpiresAt !== '' && strtotime($now) >= strtotime($leaseExpiresAt)) {
+                $denialReason = 'lease_expired';
+            }
+        }
+
+        return [
+            'allow' => $denialReason === null,
+            'denial_reason' => $denialReason,
+            'required_repair_hint' => $denialReason === null ? null : self::REPAIR_HINTS[$denialReason],
+            'task_packet_id' => $taskPacketId,
+            'worker_identity' => $workerIdentity,
+            'lease_id' => $leaseId,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function expectedTaskScopeSignatureHash(string $taskPacketId, array $allowedFiles): string
+    {
+        $sorted = $allowedFiles;
+        sort($sorted);
+
+        return hash('sha256', $taskPacketId.'|'.implode(',', $sorted));
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

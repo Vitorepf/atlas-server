@@ -233,4 +233,109 @@ class AtlasAiSelfConstructionAgentCodexExternalProcessInvocationAuthorizationGat
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── authorizeProviderProcessInvocation() ────────────────────────────────
+
+    private function signedFacts(array $overrides = []): array
+    {
+        $taskPacketId = 'task-1';
+        $allowedFiles = ['app/Foo.php', 'app/Bar.php'];
+        $sorted = $allowedFiles;
+        sort($sorted);
+        $signature = hash('sha256', $taskPacketId.'|'.implode(',', $sorted));
+
+        return array_merge([
+            'task_packet_id' => $taskPacketId,
+            'allowed_files' => $allowedFiles,
+            'worker_identity' => 'worker-1',
+            'task_scope_signature_hash' => $signature,
+            'lease' => [
+                'lease_id' => 'lease_abc',
+                'worker_identity' => 'worker-1',
+                'expires_at' => '2026-06-30T23:59:00Z',
+            ],
+            'now' => '2026-06-30T22:00:00Z',
+        ], $overrides);
+    }
+
+    public function test_authorize_allows_when_all_components_present_and_valid(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts());
+
+        $this->assertTrue($result['allow']);
+        $this->assertNull($result['denial_reason']);
+        $this->assertNull($result['required_repair_hint']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_authorize_denies_missing_signature(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts(['task_scope_signature_hash' => '']));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('missing_signed_task_scope', $result['denial_reason']);
+        $this->assertNotNull($result['required_repair_hint']);
+    }
+
+    public function test_authorize_denies_mismatched_signature(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts([
+            'task_scope_signature_hash' => str_repeat('a', 64),
+        ]));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('task_scope_signature_mismatch', $result['denial_reason']);
+    }
+
+    public function test_authorize_denies_missing_allowed_files(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts(['allowed_files' => []]));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('missing_allowed_files', $result['denial_reason']);
+    }
+
+    public function test_authorize_denies_missing_worker_identity(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts(['worker_identity' => '']));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('missing_worker_identity', $result['denial_reason']);
+    }
+
+    public function test_authorize_denies_missing_lease(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts(['lease' => []]));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('missing_lease', $result['denial_reason']);
+    }
+
+    public function test_authorize_denies_lease_worker_mismatch(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts([
+            'lease' => ['lease_id' => 'lease_abc', 'worker_identity' => 'worker-2', 'expires_at' => '2026-06-30T23:59:00Z'],
+        ]));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('lease_worker_mismatch', $result['denial_reason']);
+    }
+
+    public function test_authorize_denies_expired_lease(): void
+    {
+        $gate = app(AgentCodexExternalProcessInvocationAuthorizationGate::class);
+        $result = $gate->authorizeProviderProcessInvocation($this->signedFacts([
+            'lease' => ['lease_id' => 'lease_abc', 'worker_identity' => 'worker-1', 'expires_at' => '2026-06-30T21:00:00Z'],
+        ]));
+
+        $this->assertFalse($result['allow']);
+        $this->assertSame('lease_expired', $result['denial_reason']);
+    }
 }
