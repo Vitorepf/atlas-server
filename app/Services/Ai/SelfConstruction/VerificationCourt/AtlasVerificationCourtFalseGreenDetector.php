@@ -73,19 +73,44 @@ final class AtlasVerificationCourtFalseGreenDetector
             }
         }
 
-        // 3. every planned command must have a recorded outcome
+        // 3. every planned command must have a recorded outcome; conflicting duplicates fail-closed
         $plannedCmds = is_array($plan['commands'] ?? null) ? $plan['commands'] : [];
         $outcomes = is_array($facts['replay_outcomes'] ?? null) ? array_values($facts['replay_outcomes']) : [];
-        $outcomeById = [];
+
+        $outcomesById = [];
         foreach ($outcomes as $o) {
             if (is_array($o) && isset($o['command_id'])) {
-                $outcomeById[(string) $o['command_id']] = $o;
+                $outcomesById[(string) $o['command_id']][] = $o;
             }
         }
+
+        $conflictedIds = [];
+        $outcomeById = [];
+        foreach ($outcomesById as $cmdId => $rows) {
+            $ref = $rows[0];
+            $conflict = false;
+            foreach (array_slice($rows, 1) as $row) {
+                if (($row['passed'] ?? null) !== ($ref['passed'] ?? null)
+                    || ($row['output_present'] ?? null) !== ($ref['output_present'] ?? null)) {
+                    $conflict = true;
+                    break;
+                }
+            }
+            if ($conflict) {
+                $conflictedIds[$cmdId] = true;
+                $failedReasons[] = 'replay_conflict:'.$cmdId;
+            } else {
+                $outcomeById[$cmdId] = $ref;
+            }
+        }
+
         foreach ($plannedCmds as $cmd) {
             $cmdId = (string) ($cmd['id'] ?? '');
             if ($cmdId === '') {
                 continue;
+            }
+            if (isset($conflictedIds[$cmdId])) {
+                continue; // replay_conflict already added
             }
             if (! isset($outcomeById[$cmdId])) {
                 $blockerReasons[] = 'replay_missing_for:'.$cmdId;

@@ -136,4 +136,73 @@ final class AtlasVerificationCourtFalseGreenDetectorTest extends TestCase
         $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
         $this->assertContains('replay_output_missing:cmd-abc', $r['reasons']);
     }
+
+    public function test_conflicting_duplicate_replay_outcomes_yields_failed_with_replay_conflict_reason(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true,  'output_present' => true],
+                ['command_id' => 'cmd-abc', 'passed' => false, 'output_present' => true], // conflict on passed
+                ['command_id' => 'cmd-xyz', 'passed' => true,  'output_present' => true],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
+        $this->assertContains('replay_conflict:cmd-abc', $r['reasons']);
+    }
+
+    public function test_exact_duplicate_replay_outcomes_does_not_produce_false_failure(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
+                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true], // exact dup
+                ['command_id' => 'cmd-xyz', 'passed' => true, 'output_present' => true],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_PASSED, $r['verdict']);
+        $this->assertSame([], $r['reasons']);
+    }
+
+    public function test_conflicting_output_present_yields_replay_conflict(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
+                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => false], // conflict on output_present
+                ['command_id' => 'cmd-xyz', 'passed' => true],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
+        $this->assertContains('replay_conflict:cmd-abc', $r['reasons']);
+    }
+
+    public function test_reasons_are_sorted_deterministically(): void
+    {
+        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
+            'evidence_contract_result' => ['accepted' => true],
+            'replay_plan_result' => $this->basePlan(),
+            'replay_outcomes' => [
+                ['command_id' => 'cmd-abc', 'passed' => true,  'output_present' => true],
+                ['command_id' => 'cmd-abc', 'passed' => false, 'output_present' => true],
+                ['command_id' => 'cmd-xyz', 'passed' => false],
+            ],
+            'changed_files' => ['app/Foo.php'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+        $sorted = $r['reasons'];
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $r['reasons'], 'reasons must be sorted deterministically');
+    }
 }
