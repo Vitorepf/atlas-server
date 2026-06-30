@@ -342,4 +342,146 @@ final class AtlasExternalBrainControlPlaneIntegrationGateTest extends TestCase
             $this->gate()->evaluate($organ),
         );
     }
+
+    // ── batch evaluation ─────────────────────────────────────────────────────────
+
+    public function test_evaluate_batch_returns_required_keys(): void
+    {
+        $result = $this->gate()->evaluateBatch([]);
+
+        foreach (['schema', 'total_organs', 'integration_coverage_percent', 'delivered_organs', 'blocked_organs', 'integration_blockers_by_organ'] as $key) {
+            $this->assertArrayHasKey($key, $result, "missing key: {$key}");
+        }
+    }
+
+    public function test_evaluate_batch_coverage_percent_reflects_delivered_ratio(): void
+    {
+        $organs = [
+            ['organ_id' => 'wired-1', 'is_important' => true, 'control_plane_exposure' => true],
+            ['organ_id' => 'unwired-1', 'is_important' => true, 'control_plane_exposure' => false, 'readiness_map_exposure' => false],
+        ];
+
+        $result = $this->gate()->evaluateBatch($organs);
+
+        $this->assertSame(2, $result['total_organs']);
+        $this->assertEqualsWithDelta(50.0, $result['integration_coverage_percent'], 0.01);
+        $this->assertSame(['wired-1'], $result['delivered_organs']);
+        $this->assertSame(['unwired-1'], $result['blocked_organs']);
+    }
+
+    public function test_evaluate_batch_full_coverage_is_100_percent(): void
+    {
+        $organs = [
+            ['organ_id' => 'a', 'is_important' => true, 'control_plane_exposure' => true],
+            ['organ_id' => 'b', 'is_important' => false],
+        ];
+
+        $result = $this->gate()->evaluateBatch($organs);
+
+        $this->assertEqualsWithDelta(100.0, $result['integration_coverage_percent'], 0.01);
+        $this->assertSame([], $result['blocked_organs']);
+    }
+
+    public function test_evaluate_batch_empty_input_has_zero_total_and_zero_coverage(): void
+    {
+        $result = $this->gate()->evaluateBatch([]);
+
+        $this->assertSame(0, $result['total_organs']);
+        $this->assertSame(0.0, $result['integration_coverage_percent']);
+    }
+
+    // ── AC3: read-only helper cannot count as final capability without control-plane exposure ──
+
+    public function test_evaluate_batch_blocks_read_only_helper_without_control_plane_exposure(): void
+    {
+        $organs = [
+            [
+                'organ_id'                => 'helper-1',
+                'is_important'             => true,
+                'is_read_only_helper'      => true,
+                'control_plane_exposure'   => false,
+                'readiness_map_exposure'   => false,
+            ],
+        ];
+
+        $result = $this->gate()->evaluateBatch($organs);
+
+        $this->assertContains('helper-1', $result['blocked_organs']);
+        $this->assertArrayNotHasKey('helper-1', array_flip($result['delivered_organs']));
+        $this->assertArrayHasKey('helper-1', $result['integration_blockers_by_organ']);
+        $this->assertContains('read_only_helper_requires_control_plane_exposure', $result['integration_blockers_by_organ']['helper-1']);
+    }
+
+    public function test_evaluate_batch_admits_read_only_helper_with_control_plane_exposure(): void
+    {
+        $organs = [
+            [
+                'organ_id'                => 'helper-2',
+                'is_important'             => true,
+                'is_read_only_helper'      => true,
+                'control_plane_exposure'   => true,
+            ],
+        ];
+
+        $result = $this->gate()->evaluateBatch($organs);
+
+        $this->assertContains('helper-2', $result['delivered_organs']);
+    }
+
+    // ── AC4: standalone exception requires all four fields ──────────────────────
+
+    public function test_evaluate_batch_blocks_standalone_exception_missing_fields(): void
+    {
+        $organs = [
+            [
+                'organ_id'                => 'standalone-incomplete',
+                'is_important'             => true,
+                'control_plane_exposure'   => false,
+                'readiness_map_exposure'   => false,
+                'standalone_reason'        => 'pure utility, no control-plane decision affected',
+                // evidence_floor, consumer_links, expiry_or_review_condition all missing
+            ],
+        ];
+
+        $result = $this->gate()->evaluateBatch($organs);
+
+        $this->assertContains('standalone-incomplete', $result['blocked_organs']);
+        $this->assertContains('missing_evidence_floor', $result['integration_blockers_by_organ']['standalone-incomplete']);
+        $this->assertContains('missing_consumer_links', $result['integration_blockers_by_organ']['standalone-incomplete']);
+        $this->assertContains('missing_expiry_or_review_condition', $result['integration_blockers_by_organ']['standalone-incomplete']);
+    }
+
+    public function test_evaluate_batch_admits_standalone_exception_with_all_four_fields(): void
+    {
+        $organs = [
+            [
+                'organ_id'                   => 'standalone-complete',
+                'is_important'                => true,
+                'control_plane_exposure'      => false,
+                'readiness_map_exposure'      => false,
+                'standalone_reason'           => 'governed read-only audit tool',
+                'evidence_floor'              => 'tests_or_gates_result',
+                'consumer_links'              => ['atlas:engineering-knowledge-sync'],
+                'expiry_or_review_condition'  => 'review_after_90_days',
+            ],
+        ];
+
+        $result = $this->gate()->evaluateBatch($organs);
+
+        $this->assertContains('standalone-complete', $result['delivered_organs']);
+        $this->assertArrayNotHasKey('standalone-complete', $result['integration_blockers_by_organ']);
+    }
+
+    public function test_evaluate_batch_is_deterministic(): void
+    {
+        $organs = [
+            ['organ_id' => 'a', 'is_important' => true, 'control_plane_exposure' => true],
+            ['organ_id' => 'b', 'is_important' => true, 'control_plane_exposure' => false, 'readiness_map_exposure' => false],
+        ];
+
+        $a = $this->gate()->evaluateBatch($organs);
+        $b = $this->gate()->evaluateBatch($organs);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }

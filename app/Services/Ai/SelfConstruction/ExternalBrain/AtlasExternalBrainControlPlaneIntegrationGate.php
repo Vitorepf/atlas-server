@@ -177,6 +177,52 @@ final class AtlasExternalBrainControlPlaneIntegrationGate
     }
 
     /**
+     * Batch audit: evaluates every organ and refuses to count any important organ as delivered
+     * unless it clears one of the wiring/standalone paths above. Never trusts a self-declared
+     * "done" — only control-plane exposure, readiness-map exposure, or a complete governed
+     * standalone exception count.
+     *
+     * @param  list<array<string,mixed>>  $organs
+     * @return array{schema:string, total_organs:int, integration_coverage_percent:float, delivered_organs:list<string>, blocked_organs:list<string>, integration_blockers_by_organ:array<string,list<string>>}
+     */
+    public function evaluateBatch(array $organs): array
+    {
+        $deliveredOrgans            = [];
+        $blockedOrgans              = [];
+        $integrationBlockersByOrgan = [];
+
+        foreach ($organs as $organ) {
+            if (! is_array($organ)) {
+                continue;
+            }
+
+            $result  = $this->evaluate($organ);
+            $organId = (string) $result['organ_id'];
+
+            if ($result['count_as_delivered']) {
+                $deliveredOrgans[] = $organId;
+            } else {
+                $blockedOrgans[]                          = $organId;
+                $integrationBlockersByOrgan[$organId] = $result['integration_blockers'];
+            }
+        }
+
+        $total = count($organs);
+        $coveragePercent = $total > 0
+            ? round((count($deliveredOrgans) / $total) * 100, 2)
+            : 0.0;
+
+        return [
+            'schema'                        => self::SCHEMA,
+            'total_organs'                  => $total,
+            'integration_coverage_percent'  => $coveragePercent,
+            'delivered_organs'              => $deliveredOrgans,
+            'blocked_organs'                => $blockedOrgans,
+            'integration_blockers_by_organ' => $integrationBlockersByOrgan,
+        ];
+    }
+
+    /**
      * @param  list<string>  $evidenceRequirements
      * @param  list<string>  $reasons
      * @param  list<string>  $integrationBlockers
