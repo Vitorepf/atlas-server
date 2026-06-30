@@ -114,10 +114,23 @@ final class AtlasGoalValueDecisionPolicy
 
         // PROMOTE — real_leverage true + gate clean + verification green/passed.
         if ($verificationPassed && $color === 'green') {
-            // Require explicit implementation evidence refs — empty refs cannot substitute for real proof.
+            // Require explicit implementation evidence refs.
             $implRefs = array_values(array_filter(array_map('strval', (array) ($leverageVerdict['implementation_evidence_refs'] ?? []))));
             if ($implRefs === []) {
                 return $this->envelope(self::DECISION_REVISE, ['implementation_evidence_refs_empty'], ['attach_implementation_evidence_refs']);
+            }
+
+            // Require downstream consumer evidence refs.
+            $downstreamRefs = array_values(array_filter(array_map('strval', (array) ($leverageVerdict['downstream_consumer_evidence_refs'] ?? []))));
+            if ($downstreamRefs === []) {
+                return $this->envelope(self::DECISION_REVISE, ['downstream_consumer_evidence_refs_empty'], ['attach_downstream_consumer_evidence_refs']);
+            }
+
+            // Require at least one compounding or autonomy-unlock evidence ref.
+            $compoundingRefs = array_values(array_filter(array_map('strval', (array) ($leverageVerdict['compounding_evidence_refs'] ?? []))));
+            $autonomyRefs = array_values(array_filter(array_map('strval', (array) ($leverageVerdict['autonomy_unlock_evidence_refs'] ?? []))));
+            if ($compoundingRefs === [] && $autonomyRefs === []) {
+                return $this->envelope(self::DECISION_REVISE, ['compounding_or_autonomy_unlock_evidence_required'], ['attach_compounding_or_autonomy_unlock_evidence_refs']);
             }
 
             return $this->envelope(self::DECISION_PROMOTE, ['promotion_criteria_met'], []);

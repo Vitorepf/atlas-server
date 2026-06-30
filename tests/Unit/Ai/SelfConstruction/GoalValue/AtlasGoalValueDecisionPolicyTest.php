@@ -11,7 +11,14 @@ final class AtlasGoalValueDecisionPolicyTest extends TestCase
 {
     private function leverageGood(): array
     {
-        return ['real_leverage' => true, 'proxy_only' => false, 'blockers' => [], 'implementation_evidence_refs' => ['phpunit:exit_0']];
+        return [
+            'real_leverage'                    => true,
+            'proxy_only'                       => false,
+            'blockers'                         => [],
+            'implementation_evidence_refs'     => ['phpunit:exit_0'],
+            'downstream_consumer_evidence_refs' => ['consumer:verified'],
+            'compounding_evidence_refs'        => ['compounding:self_construction'],
+        ];
     }
 
     private function leverageBad(): array
@@ -164,6 +171,45 @@ final class AtlasGoalValueDecisionPolicyTest extends TestCase
             $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_REJECT, $verdict['decision'], "$key must cause reject");
             $this->assertContains('finality_forbidden:'.$key, $verdict['reasons']);
         }
+    }
+
+    // --- compounding proof floor ---
+
+    public function test_green_with_real_leverage_but_no_downstream_refs_yields_revise(): void
+    {
+        $lev = array_replace($this->leverageGood(), ['downstream_consumer_evidence_refs' => []]);
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($lev, $this->gateOk(), $this->verificationGreen());
+        $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_REVISE, $verdict['decision']);
+        $this->assertContains('downstream_consumer_evidence_refs_empty', $verdict['reasons']);
+        $this->assertContains('attach_downstream_consumer_evidence_refs', $verdict['next_required_evidence']);
+    }
+
+    public function test_green_with_real_leverage_but_no_compounding_or_autonomy_refs_yields_revise(): void
+    {
+        $lev = array_replace($this->leverageGood(), ['compounding_evidence_refs' => [], 'autonomy_unlock_evidence_refs' => []]);
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($lev, $this->gateOk(), $this->verificationGreen());
+        $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_REVISE, $verdict['decision']);
+        $this->assertContains('compounding_or_autonomy_unlock_evidence_required', $verdict['reasons']);
+        $this->assertContains('attach_compounding_or_autonomy_unlock_evidence_refs', $verdict['next_required_evidence']);
+    }
+
+    public function test_autonomy_unlock_refs_alone_satisfy_compounding_floor(): void
+    {
+        $lev = array_replace($this->leverageGood(), [
+            'compounding_evidence_refs' => [],
+            'autonomy_unlock_evidence_refs' => ['autonomy:loop_enabled'],
+        ]);
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($lev, $this->gateOk(), $this->verificationGreen());
+        $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_PROMOTE, $verdict['decision']);
+    }
+
+    public function test_promote_requires_all_three_evidence_families(): void
+    {
+        $lev = $this->leverageGood(); // has all three
+        $verdict = (new AtlasGoalValueDecisionPolicy)->decide($lev, $this->gateOk(), $this->verificationGreen());
+        $this->assertSame(AtlasGoalValueDecisionPolicy::DECISION_PROMOTE, $verdict['decision']);
+        $this->assertContains('promotion_criteria_met', $verdict['reasons']);
+        $this->assertSame([], $verdict['next_required_evidence']);
     }
 
     public function test_decisions_are_deterministic(): void
