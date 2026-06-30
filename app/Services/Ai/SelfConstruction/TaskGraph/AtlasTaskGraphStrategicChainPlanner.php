@@ -32,6 +32,8 @@ final class AtlasTaskGraphStrategicChainPlanner
 
     private const DEFAULT_HIGH_RISK_THRESHOLD = 0.70;
 
+    private const DEFAULT_WORKER_FEED_TARGET = 1.0;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -42,6 +44,17 @@ final class AtlasTaskGraphStrategicChainPlanner
         $highRisk = (float) ($facts['high_risk_threshold'] ?? self::DEFAULT_HIGH_RISK_THRESHOLD);
         $outcomeFacts = is_array($facts['task_outcome_facts'] ?? null) ? $facts['task_outcome_facts'] : [];
         $outcomeAdjustments = $this->outcomeAdjustments($outcomeFacts);
+
+        // Worker-feed precedence: when claimable work per active worker is below
+        // target, replenishment chains marked worker_feed=true must be ordered
+        // before ordinary expansion at the same dependency level so muscles never
+        // starve while the planner is busy expanding non-blocking work.
+        $queueFacts = is_array($facts['queue_facts'] ?? null) ? $facts['queue_facts'] : [];
+        $workerFeedTarget = (float) ($facts['worker_feed_target'] ?? self::DEFAULT_WORKER_FEED_TARGET);
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $queueFacts)
+            ? (float) $queueFacts['claimable_per_active_worker']
+            : null;
+        $workerFeedPrecedenceActive = $claimablePerActiveWorker !== null && $claimablePerActiveWorker < $workerFeedTarget;
 
         // Index tasks by id.
         $taskMap = [];
@@ -57,6 +70,7 @@ final class AtlasTaskGraphStrategicChainPlanner
                 'unlocks'       => array_map('strval', (array) ($raw['unlocks']       ?? [])),
                 'risk'          => max(0.0, min(1.0, (float) ($raw['risk']   ?? 0.0))),
                 'payoff'        => max(0.0, min(1.0, (float) ($raw['payoff'] ?? 0.0))),
+                'worker_feed'   => (bool) ($raw['worker_feed'] ?? false),
             ];
         }
 
@@ -149,7 +163,15 @@ final class AtlasTaskGraphStrategicChainPlanner
         }
         ksort($depthGroups);
         foreach ($depthGroups as &$ids) {
-            usort($ids, function (string $a, string $b) use ($taskMap, $outcomeAdjustments): int {
+            usort($ids, function (string $a, string $b) use ($taskMap, $outcomeAdjustments, $workerFeedPrecedenceActive): int {
+                if ($workerFeedPrecedenceActive) {
+                    $feedRankA = $taskMap[$a]['worker_feed'] ? 0 : 1;
+                    $feedRankB = $taskMap[$b]['worker_feed'] ? 0 : 1;
+                    if ($feedRankA !== $feedRankB) {
+                        return $feedRankA <=> $feedRankB;
+                    }
+                }
+
                 $rankA = $this->outcomeRank($taskMap[$a]['family'], $outcomeAdjustments);
                 $rankB = $this->outcomeRank($taskMap[$b]['family'], $outcomeAdjustments);
 
