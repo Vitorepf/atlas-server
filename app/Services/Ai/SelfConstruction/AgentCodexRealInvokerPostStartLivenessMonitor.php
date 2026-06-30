@@ -131,6 +131,98 @@ class AgentCodexRealInvokerPostStartLivenessMonitor
         });
     }
 
+    public const LIVENESS_PRODUCTIVE  = 'productive';
+    public const LIVENESS_IDLE        = 'idle';
+    public const LIVENESS_STALE       = 'stale';
+    public const LIVENESS_STUCK       = 'stuck';
+    public const LIVENESS_FAKE_ALIVE  = 'fake_alive';
+
+    public const RECOMMENDATION_CONTINUE   = 'continue';
+    public const RECOMMENDATION_WAIT       = 'wait';
+    public const RECOMMENDATION_RECOVER    = 'recover';
+    public const RECOMMENDATION_QUARANTINE = 'quarantine';
+
+    /** Minutes since last heartbeat beyond which a process is considered stale. */
+    private const STALE_HEARTBEAT_MINUTES = 10;
+
+    /** Minutes with no progress signal (but recent heartbeat) before "stuck". */
+    private const STUCK_NO_PROGRESS_MINUTES = 20;
+
+    /**
+     * Pure liveness assessment: an alive process or fresh heartbeat alone does
+     * NOT mean liveness — it must be accompanied by actual task progress
+     * evidence (receipts, file changes, output growth). Never mutates run
+     * state, never writes the ledger.
+     *
+     * @param  array{
+     *   process_alive?: bool,
+     *   minutes_since_heartbeat?: float,
+     *   minutes_since_last_progress?: ?float,
+     *   has_progress_evidence?: bool,
+     *   receipt_count?: int,
+     *   stuck_failure_streak?: int,
+     * }  $input
+     * @return array{liveness_status:string, progress_signal:string, recommendation:string, recovery_hint:?string}
+     */
+    public function assessLiveness(array $input): array
+    {
+        $processAlive = (bool) ($input['process_alive'] ?? false);
+        $minutesSinceHeartbeat = (float) ($input['minutes_since_heartbeat'] ?? 0.0);
+        $minutesSinceProgress = isset($input['minutes_since_last_progress']) ? (float) $input['minutes_since_last_progress'] : null;
+        $hasProgressEvidence = (bool) ($input['has_progress_evidence'] ?? false);
+        $receiptCount = max(0, (int) ($input['receipt_count'] ?? 0));
+        $stuckFailureStreak = max(0, (int) ($input['stuck_failure_streak'] ?? 0));
+
+        $heartbeatFresh = $minutesSinceHeartbeat < self::STALE_HEARTBEAT_MINUTES;
+
+        // fake_alive: heartbeat looks healthy but there is zero progress evidence at all
+        // (no receipts ever) — the process is "alive" but never actually did task work.
+        if ($processAlive && $heartbeatFresh && ! $hasProgressEvidence && $receiptCount === 0) {
+            return [
+                'liveness_status'  => self::LIVENESS_FAKE_ALIVE,
+                'progress_signal'  => 'no_progress_evidence_despite_fresh_heartbeat',
+                'recommendation'   => self::RECOMMENDATION_QUARANTINE,
+                'recovery_hint'    => 'process reports alive but has never produced a progress receipt; quarantine and require a real start receipt before retry',
+            ];
+        }
+
+        if (! $processAlive || ! $heartbeatFresh) {
+            return [
+                'liveness_status'  => self::LIVENESS_STALE,
+                'progress_signal'  => 'heartbeat_stale_or_process_not_alive',
+                'recommendation'   => self::RECOMMENDATION_RECOVER,
+                'recovery_hint'    => 'restart the process or reclaim the lease; heartbeat is stale or process is not alive',
+            ];
+        }
+
+        if ($minutesSinceProgress !== null && $minutesSinceProgress >= self::STUCK_NO_PROGRESS_MINUTES) {
+            return [
+                'liveness_status'  => self::LIVENESS_STUCK,
+                'progress_signal'  => sprintf('no_progress_for_%d_minutes', (int) $minutesSinceProgress),
+                'recommendation'   => $stuckFailureStreak >= 2 ? self::RECOMMENDATION_QUARANTINE : self::RECOMMENDATION_RECOVER,
+                'recovery_hint'    => $stuckFailureStreak >= 2
+                    ? 'repeated stuck episodes for this worker/task; quarantine pending review'
+                    : 'process alive and heartbeat fresh but no progress in a long time; consider restarting the work item',
+            ];
+        }
+
+        if ($hasProgressEvidence) {
+            return [
+                'liveness_status'  => self::LIVENESS_PRODUCTIVE,
+                'progress_signal'  => 'recent_progress_evidence_present',
+                'recommendation'   => self::RECOMMENDATION_CONTINUE,
+                'recovery_hint'    => null,
+            ];
+        }
+
+        return [
+            'liveness_status'  => self::LIVENESS_IDLE,
+            'progress_signal'  => 'alive_and_fresh_heartbeat_but_no_recent_progress_evidence_yet',
+            'recommendation'   => self::RECOMMENDATION_WAIT,
+            'recovery_hint'    => null,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>

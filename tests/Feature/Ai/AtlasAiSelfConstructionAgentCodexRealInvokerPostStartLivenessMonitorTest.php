@@ -279,4 +279,101 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartLivenessMonitorTest e
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── assessLiveness() ─────────────────────────────────────────────────────
+
+    public function test_alive_fresh_heartbeat_with_progress_is_productive(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness([
+            'process_alive' => true,
+            'minutes_since_heartbeat' => 1.0,
+            'has_progress_evidence' => true,
+            'receipt_count' => 3,
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_PRODUCTIVE, $result['liveness_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::RECOMMENDATION_CONTINUE, $result['recommendation']);
+        $this->assertNull($result['recovery_hint']);
+    }
+
+    public function test_alive_fresh_heartbeat_no_recent_progress_is_idle(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness([
+            'process_alive' => true,
+            'minutes_since_heartbeat' => 1.0,
+            'has_progress_evidence' => false,
+            'receipt_count' => 1,
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_IDLE, $result['liveness_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::RECOMMENDATION_WAIT, $result['recommendation']);
+    }
+
+    public function test_stale_heartbeat_recommends_recover(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness([
+            'process_alive' => true,
+            'minutes_since_heartbeat' => 15.0,
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_STALE, $result['liveness_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::RECOMMENDATION_RECOVER, $result['recommendation']);
+        $this->assertNotEmpty($result['recovery_hint']);
+    }
+
+    public function test_process_not_alive_is_stale(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness(['process_alive' => false, 'minutes_since_heartbeat' => 1.0]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_STALE, $result['liveness_status']);
+    }
+
+    public function test_long_no_progress_with_fresh_heartbeat_is_stuck(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness([
+            'process_alive' => true,
+            'minutes_since_heartbeat' => 1.0,
+            'minutes_since_last_progress' => 25.0,
+            'has_progress_evidence' => false,
+            'receipt_count' => 2,
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_STUCK, $result['liveness_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::RECOMMENDATION_RECOVER, $result['recommendation']);
+    }
+
+    public function test_repeated_stuck_episodes_recommend_quarantine(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness([
+            'process_alive' => true,
+            'minutes_since_heartbeat' => 1.0,
+            'minutes_since_last_progress' => 25.0,
+            'receipt_count' => 2,
+            'stuck_failure_streak' => 3,
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_STUCK, $result['liveness_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::RECOMMENDATION_QUARANTINE, $result['recommendation']);
+    }
+
+    public function test_alive_fresh_heartbeat_zero_receipts_is_fake_alive(): void
+    {
+        $monitor = app(AgentCodexRealInvokerPostStartLivenessMonitor::class);
+        $result = $monitor->assessLiveness([
+            'process_alive' => true,
+            'minutes_since_heartbeat' => 1.0,
+            'has_progress_evidence' => false,
+            'receipt_count' => 0,
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::LIVENESS_FAKE_ALIVE, $result['liveness_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartLivenessMonitor::RECOMMENDATION_QUARANTINE, $result['recommendation']);
+        $this->assertNotEmpty($result['recovery_hint']);
+    }
 }
