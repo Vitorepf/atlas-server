@@ -7,8 +7,13 @@ namespace App\Services\Ai\SelfConstruction\TaskServing;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 
 /**
- * Read-only, facts-only auditor that compares legacy queue records' task_packet.simplicity_contract
- * against the canonical default. Returns deterministic envelopes, no scalar scoring, no side effects.
+ * Read-only, facts-only auditor that checks:
+ *   (a) task_packet.simplicity_contract conformance against the canonical default, and
+ *   (b) task spec quality: over-broad allowed_files, test-only tasks, wrapper/template-farm wording,
+ *       and missing implementation targets.
+ *
+ * All spec checks are ADVISORY: they emit named facts and a suggested action — never block a task.
+ * Returns deterministic envelopes, no scalar scoring, no side effects.
  */
 final class AtlasTaskSimplicityContractAuditor
 {
@@ -21,6 +26,21 @@ final class AtlasTaskSimplicityContractAuditor
     public const STATUS_DRIFTED = 'drifted';
 
     public const STATUS_SKIPPED = 'skipped';
+
+    public const STATUS_WARNING = 'warning';
+
+    /** Tasks with more than this many allowed_files are flagged as over-broad. */
+    public const OVER_BROAD_FILE_THRESHOLD = 15;
+
+    /** Patterns in objective or acceptance_criteria that indicate proxy/template-farm work. */
+    private const WRAPPER_PATTERNS = [
+        'cosmetic wrapper',
+        'template farm',
+        'template_farm',
+        'proxy work',
+        'no-op refactor',
+        'boilerplate only',
+    ];
 
     /**
      * @param  list<array<string,mixed>>  $records
@@ -35,6 +55,7 @@ final class AtlasTaskSimplicityContractAuditor
         $missing = 0;
         $drift = 0;
         $skipped = 0;
+        $specWarnings = 0;
 
         foreach ($records as $record) {
             if (! is_array($record) || ! isset($record['task_packet']) || ! is_array($record['task_packet'])) {
@@ -47,6 +68,7 @@ final class AtlasTaskSimplicityContractAuditor
             $packet = $record['task_packet'];
             $contract = $packet['simplicity_contract'] ?? null;
 
+            // --- Simplicity contract conformance ---
             if (! is_array($contract)) {
                 $missing++;
                 $findings[] = $this->finding(
@@ -56,29 +78,59 @@ final class AtlasTaskSimplicityContractAuditor
                     'simplicity_contract_absent',
                     'rebuild_packet_with_default_contract',
                 );
-
-                continue;
-            }
-
-            $driftFields = [];
-            foreach ($default as $key => $expected) {
-                if (! array_key_exists($key, $contract) || $contract[$key] !== $expected) {
-                    $driftFields[] = $key;
+            } else {
+                $driftFields = [];
+                foreach ($default as $key => $expected) {
+                    if (! array_key_exists($key, $contract) || $contract[$key] !== $expected) {
+                        $driftFields[] = $key;
+                    }
+                }
+                if ($driftFields === []) {
+                    $conforming++;
+                    $findings[] = $this->finding($record, self::STATUS_CONFORMING, [], 'matches_default_contract', 'no_action');
+                } else {
+                    $drift++;
+                    $findings[] = $this->finding(
+                        $record,
+                        self::STATUS_DRIFTED,
+                        $driftFields,
+                        'drifted_from_default_contract',
+                        'reset_drifted_fields_to_default',
+                    );
                 }
             }
 
-            if ($driftFields === []) {
-                $conforming++;
-                $findings[] = $this->finding($record, self::STATUS_CONFORMING, [], 'matches_default_contract', 'no_action');
-            } else {
-                $drift++;
-                $findings[] = $this->finding(
-                    $record,
-                    self::STATUS_DRIFTED,
-                    $driftFields,
-                    'drifted_from_default_contract',
-                    'reset_drifted_fields_to_default',
-                );
+            // --- Spec quality checks (advisory, facts-only, never block) ---
+
+            // allowed_files checks (only when key is explicitly present).
+            if (array_key_exists('allowed_files', $packet)) {
+                $allowedFiles = array_values((array) ($packet['allowed_files'] ?? []));
+                $implFiles = array_filter($allowedFiles, static fn ($f) => is_string($f) && ! str_starts_with($f, 'tests/'));
+                $fileCount = count($allowedFiles);
+
+                if ($fileCount === 0) {
+                    $specWarnings++;
+                    $findings[] = $this->finding($record, self::STATUS_WARNING, [], 'missing_implementation_target', 'specify_implementation_files_in_allowed_files');
+                } elseif (count($implFiles) === 0) {
+                    $specWarnings++;
+                    $findings[] = $this->finding($record, self::STATUS_WARNING, [], 'test_only_task', 'add_implementation_target_to_allowed_files');
+                } elseif ($fileCount > self::OVER_BROAD_FILE_THRESHOLD) {
+                    $specWarnings++;
+                    $findings[] = $this->finding($record, self::STATUS_WARNING, ['allowed_files_count:'.$fileCount], 'over_broad_allowed_files', 'split_into_smaller_tasks');
+                }
+            }
+
+            // Wrapper/template-farm wording check.
+            $textToScan = strtolower(
+                (string) ($packet['objective'] ?? '').' '.
+                implode(' ', (array) ($packet['acceptance_criteria'] ?? []))
+            );
+            foreach (self::WRAPPER_PATTERNS as $pattern) {
+                if (str_contains($textToScan, $pattern)) {
+                    $specWarnings++;
+                    $findings[] = $this->finding($record, self::STATUS_WARNING, ['pattern:'.$pattern], 'wrapper_wording_detected', 'rewrite_objective_to_delivery_focused');
+                    break; // one warning per packet
+                }
             }
         }
 
@@ -94,6 +146,7 @@ final class AtlasTaskSimplicityContractAuditor
             'proof_summary' => [
                 'default_contract_field_count' => count($default),
                 'records_total' => count($records),
+                'spec_warning_count' => $specWarnings,
             ],
         ];
     }
