@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\SelfConstruction\NativeWorker;
+
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerOutcomeMapper;
+use Tests\TestCase;
+
+class AtlasNativeWorkerOutcomeMapperNoClaimableTest extends TestCase
+{
+    private function envelope(array $override = []): array
+    {
+        return array_replace([
+            'task_packet_id' => 'p1',
+            'required_evidence' => ['tests_or_gates_result'],
+        ], $override);
+    }
+
+    private function execution(array $override = []): array
+    {
+        return array_replace([
+            'command_status' => 'green',
+            'patch_status' => 'green',
+            'results' => [],
+            'evidence_refs' => ['tests_or_gates_result'],
+            'blockers' => [],
+        ], $override);
+    }
+
+    private function verification(array $override = []): array
+    {
+        return array_replace([
+            'passed' => true,
+            'blockers' => [],
+            'evidence_refs' => [],
+        ], $override);
+    }
+
+    private function mapper(): AtlasNativeWorkerOutcomeMapper
+    {
+        return new AtlasNativeWorkerOutcomeMapper;
+    }
+
+    public function test_no_claimable_task_maps_to_give_back_with_stable_queue_starvation_reason(): void
+    {
+        $result = $this->mapper()->map(
+            $this->envelope(),
+            $this->execution(['command_status' => 'no_claimable_task']),
+            $this->verification(),
+        );
+
+        $this->assertSame('give_back', $result['report_outcome']);
+        $this->assertSame('queue_starvation:no_claimable_task', $result['report_reason']);
+        $this->assertContains('queue_starvation:no_claimable_task', $result['blocking_deficiencies']);
+    }
+
+    public function test_no_self_sufficient_task_maps_to_give_back_with_stable_queue_starvation_reason(): void
+    {
+        $result = $this->mapper()->map(
+            $this->envelope(),
+            $this->execution(['command_status' => 'no_self_sufficient_task']),
+            $this->verification(),
+        );
+
+        $this->assertSame('give_back', $result['report_outcome']);
+        $this->assertSame('queue_starvation:no_self_sufficient_task', $result['report_reason']);
+    }
+
+    public function test_verification_failed_still_returns_failed(): void
+    {
+        $result = $this->mapper()->map(
+            $this->envelope(),
+            $this->execution(),
+            $this->verification(['passed' => false]),
+        );
+
+        $this->assertSame('failed', $result['report_outcome']);
+    }
+
+    public function test_impossible_scope_still_returns_give_back(): void
+    {
+        $result = $this->mapper()->map(
+            $this->envelope(['impossible_scope' => true]),
+            $this->execution(),
+            $this->verification(),
+        );
+
+        $this->assertSame('give_back', $result['report_outcome']);
+    }
+}

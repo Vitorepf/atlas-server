@@ -96,6 +96,11 @@ final class AtlasNativeWorkerOutcomeMapper
                 $reasons[] = 'command_execution_denied';
             } elseif ($cs === 'timeout') {
                 $reasons[] = 'command_execution_timeout';
+            } elseif ($cs === 'no_claimable_task') {
+                // Queue starvation, not a worker failure — never reported as a generic/empty result.
+                $reasons[] = 'queue_starvation:no_claimable_task';
+            } elseif ($cs === 'no_self_sufficient_task') {
+                $reasons[] = 'queue_starvation:no_self_sufficient_task';
             }
         }
         if ((bool) ($execution['empty_results'] ?? false)) {
