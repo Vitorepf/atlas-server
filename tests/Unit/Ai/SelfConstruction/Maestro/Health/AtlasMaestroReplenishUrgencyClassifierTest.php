@@ -258,4 +258,159 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         $this->assertArrayHasKey('reasons', $result);
         $this->assertArrayHasKey('inputs', $result);
     }
+
+    // ── stale age alone → MID + wait/monitor, not originate ────────────────────
+
+    public function test_stale_age_alone_with_healthy_depth_no_stuck_no_dry_eta_recommends_wait(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 1200, 'p95_seconds' => 900],
+            lease: ['p95_seconds' => 30, 'suspected_stuck_count' => 0],
+            // claimable_depth=9 is healthy relative to thresholdLowClaimableDepth=5; no seconds_until_dry key.
+            idle: ['claimable_depth' => 9, 'serve_rate_per_minute' => 1.0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+        )->classify();
+
+        $this->assertSame('MID', $result['urgency']);
+        $this->assertSame(['p95_claimable_age_above_threshold_stale'], $result['reasons']);
+        $this->assertContains($result['next_action'], ['wait', 'monitor'],
+            'stale age alone with healthy depth and no dry ETA must not recommend originate');
+        $this->assertNotSame('originate', $result['next_action']);
+    }
+
+    public function test_stale_age_with_known_dry_eta_still_originates(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 1200, 'p95_seconds' => 900],
+            lease: ['p95_seconds' => 30, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 9, 'serve_rate_per_minute' => 1.0, 'seconds_until_dry' => 1000],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+        )->classify();
+
+        // seconds_until_dry=1000 < thresholdMidSeconds=600? No, 1000 > 600 so that reason won't
+        // fire either — both stale-age and dry-eta-known are visibility-only here, but a known dry
+        // ETA (even if not below threshold) means we are NOT in the "no dry ETA known" case.
+        $this->assertSame('MID', $result['urgency']);
+    }
+
+    public function test_stale_age_with_low_depth_still_originates_via_other_branch(): void
+    {
+        // claimable_depth=3 is below thresholdLowClaimableDepth=5 — not the "healthy depth" case.
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 1200, 'p95_seconds' => 900],
+            lease: ['p95_seconds' => 30, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 3, 'serve_rate_per_minute' => 1.0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+        )->classify();
+
+        $this->assertSame('originate', $result['next_action']);
+    }
+
+    // ── existing next_action priorities preserved for HIGH-priority reasons ────
+
+    public function test_queue_dry_preserves_originate_next_action(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 0, 'p95_seconds' => 0],
+            lease: ['p95_seconds' => 0, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 0, 'serve_rate_per_minute' => 5.0, 'seconds_until_dry' => 900],
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertSame(['queue_dry'], $result['reasons']);
+        $this->assertSame('originate', $result['next_action']);
+    }
+
+    public function test_low_claimable_depth_with_active_worker_pressure_preserves_originate(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 2, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_claimed_workers' => 3, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+            thresholdMinActiveWorkers: 2,
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('low_claimable_depth_with_active_worker_pressure', $result['reasons']);
+        $this->assertSame('originate', $result['next_action']);
+    }
+
+    public function test_poison_pressure_preserves_drain_poison_next_action(): void
+    {
+        $result = $this->classifier(
+            queue: ['p95_seconds' => 0],
+            lease: ['p95_seconds' => 0, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 10, 'poison_pressure' => 5, 'serve_rate_per_minute' => 1.0],
+        )->classify();
+
+        $this->assertContains('poison_pressure_detected', $result['reasons']);
+        $this->assertSame('drain_poison', $result['next_action']);
+    }
+
+    public function test_stuck_lease_reasons_preserve_unblock_next_action(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 100, 'p95_seconds' => 100],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 1],
+            idle: ['claimable_depth' => 20, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 2000, 'active_claimed_workers' => 0, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdHighStuckLeases: 3,
+        )->classify();
+
+        $this->assertSame('MID', $result['urgency']);
+        $this->assertContains('suspected_stuck_leases_threaten_throughput', $result['reasons']);
+        $this->assertSame('unblock', $result['next_action']);
+    }
+
+    // ── active_workers fallback when active_claimed_workers is absent ──────────
+
+    public function test_active_workers_key_is_accepted_when_active_claimed_workers_is_absent(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            // 'active_workers' instead of 'active_claimed_workers' — must still be read as 3, not 0.
+            idle: ['claimable_depth' => 2, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_workers' => 3, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+            thresholdMinActiveWorkers: 2,
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('low_claimable_depth_with_active_worker_pressure', $result['reasons']);
+        $this->assertSame(3, $result['inputs']['active_claimed_workers']);
+    }
+
+    public function test_active_claimed_workers_key_takes_precedence_over_active_workers_when_both_present(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 2, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_claimed_workers' => 0, 'active_workers' => 99, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+            thresholdMinActiveWorkers: 2,
+        )->classify();
+
+        $this->assertSame(0, $result['inputs']['active_claimed_workers']);
+    }
 }

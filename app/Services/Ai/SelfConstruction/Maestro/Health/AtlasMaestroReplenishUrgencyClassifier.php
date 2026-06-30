@@ -38,7 +38,11 @@ final class AtlasMaestroReplenishUrgencyClassifier
         $secondsUntilDry = $this->nullableIntFact($idle, 'seconds_until_dry');
         $p95ClaimableAge = $this->intFact($queueAge, 'p95_seconds');
         $suspectedStuckLeases = $this->intFact($leaseLifetime, 'suspected_stuck_count');
-        $activeClaimedWorkers = $this->intFact($idle, 'active_claimed_workers');
+        // Accept 'active_workers' when 'active_claimed_workers' is absent, so the live active-worker
+        // count is never silently read as zero just because the caller used the other key name.
+        $activeClaimedWorkers = array_key_exists('active_claimed_workers', $idle)
+            ? $this->intFact($idle, 'active_claimed_workers')
+            : $this->intFact($idle, 'active_workers');
         $poisonPressure = $this->intFact($idle, 'poison_pressure');
 
         $inputs = [
@@ -72,7 +76,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
             $reasons[] = 'high_stuck_lease_threat';
         }
         if ($reasons !== []) {
-            return $this->resultWithAction('HIGH', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure), $reasons, $inputs);
+            return $this->resultWithAction('HIGH', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure, $claimableDepth, $secondsUntilDry), $reasons, $inputs);
         }
 
         if ($secondsUntilDry !== null && $secondsUntilDry < $this->thresholdMidSeconds) {
@@ -89,7 +93,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
             $reasons[] = 'poison_pressure_detected';
         }
         if ($reasons !== []) {
-            return $this->resultWithAction('MID', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure), $reasons, $inputs);
+            return $this->resultWithAction('MID', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure, $claimableDepth, $secondsUntilDry), $reasons, $inputs);
         }
 
         return $this->resultWithAction('LOW', 'wait', ['no_replenish_pressure'], $inputs);
@@ -98,9 +102,13 @@ final class AtlasMaestroReplenishUrgencyClassifier
     /**
      * Determine the recommended next action from the collected reasons and facts.
      *
-     * Priority: drain_poison → unblock → originate → wait.
+     * Priority: drain_poison → unblock → originate → wait/monitor.
+     *
+     * Stale p95 claimable age ALONE — no stuck leases, no known dry ETA, and a healthy (non-low)
+     * claimable depth — is MID-urgency VISIBILITY only. It must not trigger 'originate': an old
+     * backlog that is otherwise healthy needs draining/monitoring, not more origination pressure.
      */
-    private function nextAction(array $reasons, int $stuckLeases, int $poisonPressure): string
+    private function nextAction(array $reasons, int $stuckLeases, int $poisonPressure, int $claimableDepth, ?int $secondsUntilDry): string
     {
         if ($poisonPressure > 0 && (in_array('poison_pressure_detected', $reasons, true) || $poisonPressure >= 3)) {
             return 'drain_poison';
@@ -108,8 +116,19 @@ final class AtlasMaestroReplenishUrgencyClassifier
         if ($stuckLeases > 0 || in_array('high_stuck_lease_threat', $reasons, true) || in_array('suspected_stuck_leases_threaten_throughput', $reasons, true)) {
             return 'unblock';
         }
-        if (in_array('queue_dry', $reasons, true) || in_array('low_claimable_depth_with_active_worker_pressure', $reasons, true) || in_array('seconds_until_dry_below_threshold_high', $reasons, true)) {
+        if (in_array('queue_dry', $reasons, true)
+            || in_array('low_claimable_depth_with_active_worker_pressure', $reasons, true)
+            || in_array('seconds_until_dry_below_threshold_high', $reasons, true)
+            || in_array('seconds_until_dry_below_threshold_mid', $reasons, true)) {
             return 'originate';
+        }
+
+        $onlyStaleAgeReason = $reasons === ['p95_claimable_age_above_threshold_stale'];
+        if ($onlyStaleAgeReason
+            && $stuckLeases === 0
+            && $secondsUntilDry === null
+            && $claimableDepth > $this->thresholdLowClaimableDepth) {
+            return 'wait';
         }
 
         return 'originate';
