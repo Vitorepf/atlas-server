@@ -85,4 +85,76 @@ final class AtlasKnowledgeSyncRequiredArtifactMapTest extends TestCase
         $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive(['changed_files' => []]);
         $this->assertSame([], $r['required_artifacts']);
     }
+
+    public function test_completion_and_promotion_events_require_all_five_baseline_artifacts(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        foreach (['completion', 'promotion'] as $event) {
+            $r = $svc->derive(['changed_files' => [], 'event_type' => $event]);
+            $ids = array_column($r['required_artifacts'], 'artifact_id');
+            foreach (['code_index', 'docs', 'memory', 'receipt_chain', 'tests_or_gates'] as $required) {
+                $this->assertContains($required, $ids, "{$event} must require {$required}");
+            }
+            $categories = array_column($r['required_artifacts'], 'category');
+            foreach ($categories as $cat) {
+                $this->assertSame(AtlasKnowledgeSyncRequiredArtifactMap::CATEGORY_ATLAS_NATIVE, $cat, 'baseline artifacts must all be atlas_native');
+            }
+        }
+    }
+
+    public function test_stale_or_missing_artifacts_return_blocked_with_named_missing(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive(['changed_files' => [], 'event_type' => 'completion']);
+        $artifacts = $r['required_artifacts'];
+
+        // No fresh artifacts → all blocked
+        $check = $svc->checkFreshness($artifacts, []);
+        $this->assertTrue($check['blocked']);
+        $this->assertNotEmpty($check['missing_artifacts']);
+
+        // All fresh → not blocked
+        $allIds = array_column($artifacts, 'artifact_id');
+        $check2 = $svc->checkFreshness($artifacts, $allIds);
+        $this->assertFalse($check2['blocked']);
+        $this->assertSame([], $check2['missing_artifacts']);
+
+        // Partial: only memory fresh → still blocked, missing the rest
+        $check3 = $svc->checkFreshness($artifacts, ['memory']);
+        $this->assertTrue($check3['blocked']);
+        $this->assertContains('code_index', $check3['missing_artifacts']);
+        $this->assertNotContains('memory', $check3['missing_artifacts']);
+    }
+
+    public function test_operator_visibility_artifacts_do_not_satisfy_atlas_native_finality(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive([
+            'changed_files' => ['app/Foo.php'],
+            'event_type' => 'completion',
+            'release_candidate' => ['requires_release_notes' => true],
+        ]);
+
+        $byId = array_column($r['required_artifacts'], 'category', 'artifact_id');
+        $this->assertSame(AtlasKnowledgeSyncRequiredArtifactMap::CATEGORY_OPERATOR_VISIBILITY, $byId['release-notes-update']);
+        $this->assertSame(AtlasKnowledgeSyncRequiredArtifactMap::CATEGORY_ATLAS_NATIVE, $byId['code_index']);
+
+        // Providing only release-notes-update as fresh still leaves finality blocked
+        $check = $svc->checkFreshness($r['required_artifacts'], ['release-notes-update']);
+        $this->assertTrue($check['blocked'], 'operator_visibility artifact must not satisfy atlas_native finality gate');
+        $this->assertContains('code_index', $check['missing_artifacts']);
+    }
+
+    public function test_artifact_map_hash_is_deterministic_across_input_key_order(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $factsA = ['changed_files' => ['app/Foo.php', 'docs/bar.md'], 'event_type' => 'completion'];
+        $factsB = ['event_type' => 'completion', 'changed_files' => ['docs/bar.md', 'app/Foo.php']];
+
+        $rA = $svc->derive($factsA);
+        $rB = $svc->derive($factsB);
+
+        $this->assertSame(64, strlen($rA['map_hash']));
+        $this->assertSame($rA['map_hash'], $rB['map_hash']);
+    }
 }

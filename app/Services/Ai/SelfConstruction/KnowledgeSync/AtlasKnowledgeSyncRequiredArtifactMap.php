@@ -31,6 +31,13 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
 {
     public const SCHEMA = 'atlas.knowledgesync.required_artifact_map.v1';
 
+    public const CATEGORY_ATLAS_NATIVE = 'atlas_native';
+
+    public const CATEGORY_OPERATOR_VISIBILITY = 'operator_visibility';
+
+    /** Baseline atlas_native artifact IDs required for completion and promotion events. */
+    private const FINALITY_BASELINE = ['code_index', 'docs', 'memory', 'receipt_chain', 'tests_or_gates'];
+
     /**
      * @param  array{
      *     changed_files?:list<string>,
@@ -46,68 +53,98 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
         $organs = is_array($facts['touched_organs'] ?? null) ? array_values(array_map('strval', $facts['touched_organs'])) : [];
         $lane = is_array($facts['project_lane'] ?? null) ? $facts['project_lane'] : null;
         $candidate = is_array($facts['release_candidate'] ?? null) ? $facts['release_candidate'] : [];
+        $eventType = (string) ($facts['event_type'] ?? '');
 
         $artifacts = [];
 
+        // Completion and promotion events always require the full finality baseline.
+        if (in_array($eventType, ['completion', 'promotion'], true)) {
+            $hintMap = [
+                'code_index'    => 'atlas engineering knowledge index-code --prune',
+                'docs'          => 'atlas engineering documentation health',
+                'memory'        => 'atlas memory:sync',
+                'receipt_chain' => 'atlas:task:receipts verify',
+                'tests_or_gates' => 'php artisan test',
+            ];
+            foreach (self::FINALITY_BASELINE as $id) {
+                $artifacts[] = $this->artifact($id, $hintMap[$id] ?? $id, 'required for '.$eventType.' finality', self::CATEGORY_ATLAS_NATIVE);
+            }
+        }
+
         $hasCanonicalDocs = $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'docs/') || in_array(strtolower(pathinfo($p, PATHINFO_EXTENSION)), ['md', 'rst'], true));
         if ($hasCanonicalDocs) {
-            $artifacts[] = $this->artifact(
-                'docs-health-check',
-                'atlas engineering documentation health',
-                'canonical docs changed — health check rerun required',
-            );
-            $artifacts[] = $this->artifact(
-                'engineering-knowledge-sync',
-                'atlas engineering knowledge sync --prune',
-                'docs changed — Atlas KB must re-sync',
-            );
+            $artifacts[] = $this->artifact('docs-health-check', 'atlas engineering documentation health', 'canonical docs changed — health check rerun required', self::CATEGORY_ATLAS_NATIVE);
+            $artifacts[] = $this->artifact('engineering-knowledge-sync', 'atlas engineering knowledge sync --prune', 'docs changed — Atlas KB must re-sync', self::CATEGORY_ATLAS_NATIVE);
         }
 
         $hasImpl = $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'app/') && str_ends_with($p, '.php'));
         if ($hasImpl) {
-            $artifacts[] = $this->artifact(
-                'code-intelligence-index',
-                'atlas engineering knowledge index-code --prune',
-                'impl code changed — code-intelligence index must rerun',
-            );
+            $artifacts[] = $this->artifact('code-intelligence-index', 'atlas engineering knowledge index-code --prune', 'impl code changed — code-intelligence index must rerun', self::CATEGORY_ATLAS_NATIVE);
         }
 
         if ($lane !== null && (string) ($lane['project_id'] ?? '') !== '') {
-            $artifacts[] = $this->artifact(
-                'project-lane-context-freshness:'.$lane['project_id'],
-                'atlas:task:project-lanes health --manifest=<lane>',
-                'project_lane attached — freshness gate must rerun',
-            );
+            $artifacts[] = $this->artifact('project-lane-context-freshness:'.$lane['project_id'], 'atlas:task:project-lanes health --manifest=<lane>', 'project_lane attached — freshness gate must rerun', self::CATEGORY_ATLAS_NATIVE);
         }
 
         if (! empty($candidate['requires_release_notes'])) {
-            $artifacts[] = $this->artifact(
-                'release-notes-update',
-                'edit CHANGELOG.md / release notes',
-                'release_candidate.requires_release_notes=true',
-            );
+            $artifacts[] = $this->artifact('release-notes-update', 'edit CHANGELOG.md / release notes', 'release_candidate.requires_release_notes=true', self::CATEGORY_OPERATOR_VISIBILITY);
         }
 
-        // Deterministic ordering.
-        usort($artifacts, static fn (array $a, array $b): int => strcmp($a['artifact_id'], $b['artifact_id']));
+        // Deterministic ordering — deduplicate by artifact_id (completion baseline may overlap file-driven).
+        $seen = [];
+        $deduped = [];
+        foreach ($artifacts as $a) {
+            if (! isset($seen[$a['artifact_id']])) {
+                $seen[$a['artifact_id']] = true;
+                $deduped[] = $a;
+            }
+        }
+        usort($deduped, static fn (array $a, array $b): int => strcmp($a['artifact_id'], $b['artifact_id']));
+
+        $mapHash = hash('sha256', (string) json_encode($deduped, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return [
             'schema' => self::SCHEMA,
-            'required_artifacts' => $artifacts,
+            'required_artifacts' => $deduped,
+            'map_hash' => $mapHash,
             'summary' => [
                 'changed_files' => count($changed),
                 'touched_organs' => count($organs),
-                'artifact_count' => count($artifacts),
+                'artifact_count' => count($deduped),
             ],
         ];
     }
 
     /**
-     * @return array{artifact_id:string, command_hint:string, reason:string, required:bool}
+     * Check freshness: returns blocked=true with missing_artifacts if any atlas_native required artifact
+     * is absent from $knownFreshIds. Operator-visibility artifacts are intentionally excluded from
+     * the finality gate — they can never substitute for atlas_native ones.
+     *
+     * @param  list<array<string,mixed>>  $requiredArtifacts  from derive()['required_artifacts']
+     * @param  list<string>  $knownFreshIds  artifact_ids confirmed fresh by the caller
+     * @return array{blocked:bool, missing_artifacts:list<string>}
      */
-    private function artifact(string $id, string $cmdHint, string $reason): array
+    public function checkFreshness(array $requiredArtifacts, array $knownFreshIds): array
     {
-        return ['artifact_id' => $id, 'command_hint' => $cmdHint, 'reason' => $reason, 'required' => true];
+        $missing = [];
+        foreach ($requiredArtifacts as $artifact) {
+            $id = (string) ($artifact['artifact_id'] ?? '');
+            $category = (string) ($artifact['category'] ?? self::CATEGORY_ATLAS_NATIVE);
+            $required = (bool) ($artifact['required'] ?? true);
+            if ($required && $category === self::CATEGORY_ATLAS_NATIVE && ! in_array($id, $knownFreshIds, true)) {
+                $missing[] = $id;
+            }
+        }
+
+        return ['blocked' => $missing !== [], 'missing_artifacts' => array_values($missing)];
+    }
+
+    /**
+     * @return array{artifact_id:string, command_hint:string, reason:string, required:bool, category:string}
+     */
+    private function artifact(string $id, string $cmdHint, string $reason, string $category = self::CATEGORY_ATLAS_NATIVE): array
+    {
+        return ['artifact_id' => $id, 'command_hint' => $cmdHint, 'reason' => $reason, 'required' => true, 'category' => $category];
     }
 
     /**
