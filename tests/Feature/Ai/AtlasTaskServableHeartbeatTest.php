@@ -41,14 +41,17 @@ final class AtlasTaskServableHeartbeatTest extends TestCase
 
     public function test_jammed_queue_fires_three_commands_in_order(): void
     {
-        $envelope = $this->service(servable: 0, claimable: 3)->tick();
-        $this->assertSame([
+        $expected = [
             'atlas:acp:reap-leases',
             'atlas:task:sweep-malformed',
             'atlas:task:repair-blocked',
-        ], $this->artisanCalls);
+            'atlas:task:retire',
+        ];
+
+        $envelope = $this->service(servable: 0, claimable: 3)->tick();
+        $this->assertSame($expected, $this->artisanCalls);
         $this->assertSame('recovery_fired', $envelope['status']);
-        $this->assertSame(['atlas:acp:reap-leases', 'atlas:task:sweep-malformed', 'atlas:task:repair-blocked'], $envelope['actions_fired']);
+        $this->assertSame($expected, $envelope['actions_fired']);
         $this->assertTrue($envelope['ok']);
     }
 

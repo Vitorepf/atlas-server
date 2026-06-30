@@ -25,6 +25,7 @@ final class AtlasTaskServableHeartbeatService
         'atlas:acp:reap-leases',
         'atlas:task:sweep-malformed',
         'atlas:task:repair-blocked',
+        'atlas:task:retire',
     ];
 
     /** @var Closure():string */
