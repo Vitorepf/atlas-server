@@ -129,6 +129,24 @@ final class AtlasTaskServingSentinel
             $continuityState = $lastDepth === 0 ? 'dry' : 'degrading';
         }
 
+        // Real serve-window metadata: derived from the FIRST/LAST serve record's own `recorded_at`
+        // timestamp in this tail — never fabricated, never present when there is no serve record.
+        $windowStartedAt = null;
+        $windowEndedAt = null;
+        $windowElapsedSeconds = null;
+        if ($serves !== []) {
+            $windowStartedAt = (string) ($serves[0]['recorded_at'] ?? '');
+            $windowEndedAt = (string) ($serves[count($serves) - 1]['recorded_at'] ?? '');
+            if ($windowStartedAt !== '' && $windowEndedAt !== '') {
+                try {
+                    $elapsed = CarbonImmutable::parse($windowEndedAt)->diffInSeconds(CarbonImmutable::parse($windowStartedAt));
+                    $windowElapsedSeconds = max(0, (int) $elapsed);
+                } catch (Throwable) {
+                    $windowElapsedSeconds = null;
+                }
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'r1_invariant' => self::INVARIANT_R1,
@@ -144,6 +162,9 @@ final class AtlasTaskServingSentinel
             'consecutive_below_floor' => $consecutiveBelowFloor,
             'consecutive_non_honest_serves' => $consecutiveNonHonest,
             'continuity_state' => $continuityState,
+            'window_started_at_iso8601' => $windowStartedAt !== '' ? $windowStartedAt : null,
+            'window_ended_at_iso8601' => $windowEndedAt !== '' ? $windowEndedAt : null,
+            'window_elapsed_seconds' => $windowElapsedSeconds,
         ];
     }
 

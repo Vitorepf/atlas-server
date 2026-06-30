@@ -125,6 +125,59 @@ final class AtlasTaskServingSentinelTest extends TestCase
         $this->assertSame(0, $st['consecutive_below_floor']);
     }
 
+    // ── window_*_iso8601 / window_elapsed_seconds ─────────────────────────────
+
+    public function test_status_includes_window_metadata_when_serve_records_exist(): void
+    {
+        $s = $this->sentinel();
+        $s->recordServe('c1', 'served');
+        $s->recordServe('c2', 'served');
+
+        $st = $s->status();
+
+        $this->assertArrayHasKey('window_started_at_iso8601', $st);
+        $this->assertArrayHasKey('window_ended_at_iso8601', $st);
+        $this->assertArrayHasKey('window_elapsed_seconds', $st);
+        $this->assertNotNull($st['window_started_at_iso8601']);
+        $this->assertNotNull($st['window_ended_at_iso8601']);
+        $this->assertIsInt($st['window_elapsed_seconds']);
+    }
+
+    public function test_window_elapsed_seconds_is_derived_from_serve_record_timestamps_and_never_negative(): void
+    {
+        $s = $this->sentinel();
+        $s->recordServe('c1', 'served');
+        $s->recordServe('c2', 'served');
+        $s->recordServe('c3', 'no_claimable_task');
+
+        $st = $s->status();
+
+        $this->assertGreaterThanOrEqual(0, $st['window_elapsed_seconds']);
+    }
+
+    public function test_window_metadata_safe_defaults_when_no_serve_records(): void
+    {
+        $s = $this->sentinel();
+        $s->recordQueueFill(5, 1); // queue_fill only, no serve records
+
+        $st = $s->status();
+
+        $this->assertNull($st['window_started_at_iso8601']);
+        $this->assertNull($st['window_ended_at_iso8601']);
+        $this->assertNull($st['window_elapsed_seconds']);
+        $this->assertSame(0, $st['serve_total'], 'no serve records must not fabricate serve_total');
+    }
+
+    public function test_empty_log_keeps_safe_defaults_for_window_fields(): void
+    {
+        $st = $this->sentinel()->status();
+
+        $this->assertNull($st['window_started_at_iso8601']);
+        $this->assertNull($st['window_ended_at_iso8601']);
+        $this->assertNull($st['window_elapsed_seconds']);
+        $this->assertSame(0, $st['serve_total']);
+    }
+
     public function test_serving_invariants_i17_i18_are_declared_separately_from_the_16(): void
     {
         $svc = new AtlasAgentControlPlaneSafetyInvariantsService;
