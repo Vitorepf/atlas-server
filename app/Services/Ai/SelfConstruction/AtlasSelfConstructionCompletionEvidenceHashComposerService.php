@@ -21,29 +21,48 @@ final class AtlasSelfConstructionCompletionEvidenceHashComposerService
         $humanReceipt = (array) ($options['completion_receipt'] ?? []);
         $realProviderSmoke = (array) ($options['real_provider_smoke'] ?? []);
 
+        $runtimePromotionReceipt = $this->composeReceipt(
+            kind: 'runtime_promotion_receipt',
+            payload: $runtimeReceipt,
+            hashField: 'receipt_hash',
+            hash: $runtimeReceipt === [] ? '' : $this->hashes()->runtimePromotionReceiptHash($runtimeReceipt),
+        );
+        $humanCompletionReceipt = $this->composeReceipt(
+            kind: 'human_completion_receipt',
+            payload: $humanReceipt,
+            hashField: 'receipt_hash',
+            hash: $humanReceipt === [] ? '' : $this->hashes()->humanCompletionReceiptHash($humanReceipt),
+        );
+        $realProviderSmokeComposed = $this->composeReceipt(
+            kind: 'real_provider_smoke',
+            payload: $realProviderSmoke,
+            hashField: 'smoke_hash',
+            hash: $realProviderSmoke === [] ? '' : $this->hashes()->realProviderSmokeHash($realProviderSmoke),
+        );
+
+        $runtimePromotionReceipt['persist_readiness'] = $this->persistReadiness($runtimePromotionReceipt);
+        $humanCompletionReceipt['persist_readiness'] = $this->persistReadiness($humanCompletionReceipt);
+        $realProviderSmokeComposed['persist_readiness'] = $this->persistReadiness($realProviderSmokeComposed);
+
+        $providedArtifacts = array_filter(
+            [$runtimePromotionReceipt, $humanCompletionReceipt, $realProviderSmokeComposed],
+            static fn (array $artifact): bool => (bool) $artifact['input_present'],
+        );
+        $aggregateReady = $providedArtifacts !== [] && ! in_array(
+            false,
+            array_map(static fn (array $artifact): bool => $artifact['persist_readiness']['ready'], $providedArtifacts),
+            true,
+        );
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => ($runtimeReceipt !== [] || $humanReceipt !== [] || $realProviderSmoke !== []) ? 'available' : 'no_input',
             'composed_at' => CarbonImmutable::now()->toIso8601String(),
-            'runtime_promotion_receipt' => $this->composeReceipt(
-                kind: 'runtime_promotion_receipt',
-                payload: $runtimeReceipt,
-                hashField: 'receipt_hash',
-                hash: $runtimeReceipt === [] ? '' : $this->hashes()->runtimePromotionReceiptHash($runtimeReceipt),
-            ),
-            'human_completion_receipt' => $this->composeReceipt(
-                kind: 'human_completion_receipt',
-                payload: $humanReceipt,
-                hashField: 'receipt_hash',
-                hash: $humanReceipt === [] ? '' : $this->hashes()->humanCompletionReceiptHash($humanReceipt),
-            ),
-            'real_provider_smoke' => $this->composeReceipt(
-                kind: 'real_provider_smoke',
-                payload: $realProviderSmoke,
-                hashField: 'smoke_hash',
-                hash: $realProviderSmoke === [] ? '' : $this->hashes()->realProviderSmokeHash($realProviderSmoke),
-            ),
+            'runtime_promotion_receipt' => $runtimePromotionReceipt,
+            'human_completion_receipt' => $humanCompletionReceipt,
+            'real_provider_smoke' => $realProviderSmokeComposed,
+            'aggregate_all_evidence_ready' => $aggregateReady,
             'composer_policy' => [
                 'read_only' => true,
                 'computes_hashes_only' => true,
@@ -117,6 +136,34 @@ final class AtlasSelfConstructionCompletionEvidenceHashComposerService
             'payload_with_computed_hash' => $payloadWithHash,
             'placeholder_fields' => $this->placeholderFields($payload, $hashField),
             'runtime_enabling_flags_true' => $this->runtimeEnablingFlagsTrue($payload),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $artifact
+     * @return array<string, mixed>
+     */
+    private function persistReadiness(array $artifact): array
+    {
+        $blockers = [];
+        if (! (bool) ($artifact['input_present'] ?? false)) {
+            $blockers[] = 'missing_input';
+        } else {
+            $inputHash = (string) ($artifact['input_hash'] ?? '');
+            if ($inputHash !== '' && ! (bool) ($artifact['input_hash_matches_computed_hash'] ?? false)) {
+                $blockers[] = 'hash_mismatch';
+            }
+            if ((array) ($artifact['placeholder_fields'] ?? []) !== []) {
+                $blockers[] = 'placeholder_fields_present';
+            }
+            if ((array) ($artifact['runtime_enabling_flags_true'] ?? []) !== []) {
+                $blockers[] = 'runtime_enabling_flags_true';
+            }
+        }
+
+        return [
+            'ready' => $blockers === [],
+            'blockers' => $blockers,
         ];
     }
 
