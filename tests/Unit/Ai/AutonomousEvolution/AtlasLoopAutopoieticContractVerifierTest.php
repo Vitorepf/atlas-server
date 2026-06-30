@@ -81,6 +81,45 @@ final class AtlasLoopAutopoieticContractVerifierTest extends TestCase
         $this->assertContains('CONTRACT_NAMESPACE_MISMATCH', $this->codes($report->violations));
     }
 
+    public function test_passing_report_exposes_task_fabric_readiness_true_in_to_array(): void
+    {
+        $manifest = $this->writeScope();
+
+        $arr = (new AtlasLoopAutopoieticContractVerifier)->verify($manifest)->toArray();
+
+        $this->assertArrayHasKey('task_fabric_readiness', $arr);
+        $r = $arr['task_fabric_readiness'];
+        $this->assertTrue($r['readiness_to_enqueue'], 'clean scope must be ready to enqueue');
+        $this->assertSame([], $r['blockers']);
+        $this->assertSame('enqueue_ready', $r['safe_next_action']);
+        $this->assertNotEmpty($r['required_evidence']);
+        $this->assertNotEmpty($r['allowed_file_roots']);
+    }
+
+    public function test_missing_primitive_files_yield_readiness_false_with_blockers(): void
+    {
+        // Build manifest pointing to non-existent files so CONTRACT_FILE_MISSING fires.
+        $missing = [
+            'loop' => $this->nsDir.'/LoopSubstrateContract.php',
+            'cortex' => $this->nsDir.'/CortexComprehensionContract.php',
+            'maestro' => $this->nsDir.'/MaestroOrchestrationContract.php',
+        ]; // files NOT written
+        $manifest = [
+            'scope_id' => 'broken-scope',
+            'namespace' => self::NS,
+            'roots' => [$this->base],
+            'primitives' => $missing,
+            'manifest_sha256' => '',
+        ];
+
+        $arr = (new AtlasLoopAutopoieticContractVerifier)->verify($manifest)->toArray();
+
+        $r = $arr['task_fabric_readiness'];
+        $this->assertFalse($r['readiness_to_enqueue'], 'missing files must not be ready');
+        $this->assertNotEmpty($r['blockers'], 'blockers must list the violations');
+        $this->assertSame('fix_missing_primitive_files', $r['safe_next_action']);
+    }
+
     public function test_verify_is_side_effect_free_and_fast(): void
     {
         $manifest = $this->writeScope();

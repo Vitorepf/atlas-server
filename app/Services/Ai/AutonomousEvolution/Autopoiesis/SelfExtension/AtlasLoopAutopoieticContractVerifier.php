@@ -8,23 +8,26 @@ namespace App\Services\Ai\AutonomousEvolution\Autopoiesis\SelfExtension;
  * Structured result of a contract verification. {@see AtlasLoopAutopoieticContractVerifier} returns this VO.
  *
  * @phpstan-type Violation array{code:string, detail:string}
+ * @phpstan-type TaskFabricReadiness array{readiness_to_enqueue:bool, blockers:list<string>, required_evidence:list<string>, allowed_file_roots:list<string>, safe_next_action:string}
  */
 final class AutopoieticVerifierReport
 {
     /**
      * @param  list<array{code:string, detail:string}>  $violations
+     * @param  array{readiness_to_enqueue:bool, blockers:list<string>, required_evidence:list<string>, allowed_file_roots:list<string>, safe_next_action:string}  $taskFabricReadiness
      */
     public function __construct(
         public readonly bool $ok,
         public readonly array $violations,
+        public readonly array $taskFabricReadiness = [],
     ) {}
 
     /**
-     * @return array{ok:bool, violations:list<array{code:string, detail:string}>}
+     * @return array{ok:bool, violations:list<array{code:string, detail:string}>, task_fabric_readiness:array}
      */
     public function toArray(): array
     {
-        return ['ok' => $this->ok, 'violations' => $this->violations];
+        return ['ok' => $this->ok, 'violations' => $this->violations, 'task_fabric_readiness' => $this->taskFabricReadiness];
     }
 }
 
@@ -121,7 +124,29 @@ final class AtlasLoopAutopoieticContractVerifier
             }
         }
 
-        return new AutopoieticVerifierReport($violations === [], array_values($violations));
+        $violationCodes = array_flip(array_column($violations, 'code'));
+        $taskFabricReadiness = [
+            'readiness_to_enqueue' => $violations === [],
+            'blockers' => array_values(array_map(
+                static fn (array $v): string => $v['code'].': '.$v['detail'],
+                $violations,
+            )),
+            'required_evidence' => [
+                'primitive_files_present',
+                'manifest_sha_verified',
+                'contract_interfaces_validated',
+                'scope_layout_consistent',
+            ],
+            'allowed_file_roots' => array_values(array_map('strval', (array) ($manifest['roots'] ?? []))),
+            'safe_next_action' => match (true) {
+                $violations === [] => 'enqueue_ready',
+                isset($violationCodes['CONTRACT_FILE_MISSING']) => 'fix_missing_primitive_files',
+                isset($violationCodes['SCOPE_LAYOUT_INCONSISTENT']) => 'fix_scope_layout',
+                default => 'fix_contract_violations',
+            },
+        ];
+
+        return new AutopoieticVerifierReport($violations === [], array_values($violations), $taskFabricReadiness);
     }
 
     /**
