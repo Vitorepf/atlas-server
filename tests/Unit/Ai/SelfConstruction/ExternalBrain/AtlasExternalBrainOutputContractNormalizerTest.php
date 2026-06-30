@@ -20,7 +20,7 @@ final class AtlasExternalBrainOutputContractNormalizerTest extends TestCase
             'id'            => 'p1',
             'objective'     => 'Implement FooService',
             'allowed_files' => ['app/Services/Foo.php'],
-            'acceptance'    => ['tests pass', 'no regressions'],
+            'acceptance'    => ['php artisan test tests/Unit/FooTest.php passes', 'no regressions'],
             'evidence'      => ['phpunit:FooTest'],
         ], $overrides);
     }
@@ -46,7 +46,7 @@ final class AtlasExternalBrainOutputContractNormalizerTest extends TestCase
         $c = $r['normalized_contracts'][0];
         $this->assertSame('Implement FooService', $c['objective']);
         $this->assertSame(['app/Services/Foo.php'], $c['allowed_files']);
-        $this->assertSame(['tests pass', 'no regressions'], $c['acceptance']);
+        $this->assertSame(['php artisan test tests/Unit/FooTest.php passes', 'no regressions'], $c['acceptance']);
         $this->assertSame(['phpunit:FooTest'], $c['evidence']);
     }
 
@@ -280,5 +280,27 @@ final class AtlasExternalBrainOutputContractNormalizerTest extends TestCase
         ])]]);
 
         $this->assertContains('generic_objective', $r['rejected_inputs'][0]['violation_reasons']);
+    }
+
+    // ── AC4: runnable_acceptance_present field + missing runnable acceptance ──
+
+    public function test_runnable_acceptance_present_true_for_valid_proposal(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid()]]);
+        $this->assertTrue($r['normalized_contracts'][0]['runnable_acceptance_present']);
+    }
+
+    public function test_missing_runnable_acceptance_is_rejected(): void
+    {
+        $r = $this->normalizer()->normalize(['proposals' => [$this->valid([
+            'acceptance' => ['tests pass', 'no regressions'],
+        ])]]);
+
+        $this->assertEmpty($r['normalized_contracts']);
+        $this->assertContains('missing_runnable_acceptance', $r['rejected_inputs'][0]['violation_reasons']);
+        $this->assertNotEmpty(array_filter(
+            $r['rejected_inputs'][0]['repair_hints'],
+            static fn (string $h): bool => str_contains($h, 'runnable acceptance'),
+        ));
     }
 }

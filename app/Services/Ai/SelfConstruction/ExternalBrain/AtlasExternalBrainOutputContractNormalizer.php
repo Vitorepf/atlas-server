@@ -145,17 +145,29 @@ final class AtlasExternalBrainOutputContractNormalizer
             default              => 'mixed',
         };
 
-        $contract['task_family']               = $taskFamily;
-        $contract['leverage_reason']           = trim((string) ($proposal['leverage_reason'] ?? ''));
-        $contract['expected_capability_delta'] = (float) ($proposal['expected_capability_delta'] ?? 0.0);
-        $contract['implementation_file_count'] = $implCount;
-        $contract['test_file_count']           = $testCount;
-        $contract['repair_hints']              = [];
+        $hasRunnableAcceptance = false;
+        foreach ($acceptance as $a) {
+            foreach (self::RUNNABLE_MARKERS as $marker) {
+                if (str_contains(strtolower($a), $marker)) { $hasRunnableAcceptance = true; break 2; }
+            }
+        }
+
+        $contract['task_family']                 = $taskFamily;
+        $contract['leverage_reason']             = trim((string) ($proposal['leverage_reason'] ?? ''));
+        $contract['expected_capability_delta']   = (float) ($proposal['expected_capability_delta'] ?? 0.0);
+        $contract['implementation_file_count']   = $implCount;
+        $contract['test_file_count']             = $testCount;
+        $contract['runnable_acceptance_present'] = $hasRunnableAcceptance;
+        $contract['repair_hints']                = [];
 
         // ── Semantic violations ───────────────────────────────────────────────
 
         if (! empty($allowedFiles) && $implCount === 0) {
             $violations[] = ['code' => 'test_only_scope', 'repair_hint' => 'include at least one implementation file in allowed_files'];
+        }
+
+        if (! empty($acceptance) && ! $hasRunnableAcceptance) {
+            $violations[] = ['code' => 'missing_runnable_acceptance', 'repair_hint' => 'add a runnable acceptance criterion (e.g. phpunit/artisan test command) to acceptance'];
         }
 
         if (! empty($evidence)) {
