@@ -41,6 +41,79 @@ final class AtlasExternalBrainMaturityCeilingBreakerTest extends TestCase
         $this->assertArrayHasKey('prerequisites', $r);
         $this->assertArrayHasKey('proof_gates', $r);
         $this->assertArrayHasKey('rejected_incremental_tasks', $r);
+        $this->assertArrayHasKey('unlock_chain', $r);
+        $this->assertArrayHasKey('incremental_rejection_reason', $r);
+    }
+
+    // ── insufficient data guard ────────────────────────────────────────────────
+
+    public function test_ceiling_not_declared_from_too_little_data_even_above_stagnation_threshold(): void
+    {
+        // Only 2 samples, both non-unlocking, with a low custom threshold — would otherwise
+        // trigger stagnation, but there isn't enough data to honestly declare a ceiling.
+        $r = $this->breaker()->analyze([
+            'recent_tasks'          => [$this->task(false), $this->task(false)],
+            'stagnation_threshold'  => 2,
+        ]);
+
+        $this->assertFalse($r['ceiling_detected']);
+        $this->assertTrue($r['ceiling_evidence']['insufficient_data']);
+    }
+
+    public function test_ceiling_can_be_declared_once_minimum_sample_size_is_met(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'         => array_fill(0, 3, $this->task(false)),
+            'stagnation_threshold' => 3,
+        ]);
+
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertFalse($r['ceiling_evidence']['insufficient_data']);
+    }
+
+    // ── unlock_chain ────────────────────────────────────────────────────────────
+
+    public function test_unlock_chain_lists_every_eligible_jump_in_order_with_compound_lift(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                $this->jump(['name' => 'best', 'risk_score' => 0.1, 'blast_radius' => 0.1]),
+                $this->jump(['name' => 'second', 'risk_score' => 0.4, 'blast_radius' => 0.3]),
+            ],
+        ]);
+
+        $this->assertCount(2, $r['unlock_chain']);
+        $this->assertSame('best', $r['unlock_chain'][0]['name']);
+        $this->assertSame(1, $r['unlock_chain'][0]['order']);
+        $this->assertSame('second', $r['unlock_chain'][1]['name']);
+        $this->assertSame(2, $r['unlock_chain'][1]['order']);
+
+        foreach ($r['unlock_chain'] as $entry) {
+            foreach (['prerequisites', 'proof_gates', 'risk_score', 'blast_radius', 'expected_compound_lift'] as $k) {
+                $this->assertArrayHasKey($k, $entry);
+            }
+        }
+    }
+
+    public function test_unlock_chain_excludes_rejected_jumps(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [
+                $this->jump(['name' => 'unsafe', 'risk_score' => 0.9]),
+            ],
+        ]);
+
+        $this->assertSame([], $r['unlock_chain']);
+        $this->assertNotEmpty($r['rejected_jumps']);
+    }
+
+    public function test_incremental_rejection_reason_cites_non_unlocking_count(): void
+    {
+        $r = $this->breaker()->analyze(['recent_tasks' => array_fill(0, 5, $this->task(false))]);
+
+        $this->assertStringContainsString('non_unlocking_task_count=5', $r['incremental_rejection_reason']);
     }
 
     // ── AC2: ceiling detection ────────────────────────────────────────────────

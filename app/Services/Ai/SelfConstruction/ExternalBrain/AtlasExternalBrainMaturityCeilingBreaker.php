@@ -39,6 +39,9 @@ final class AtlasExternalBrainMaturityCeilingBreaker
     private const MAX_RISK_SCORE          = 0.60;
     private const HIGH_SATURATION_THRESHOLD = 0.60;
 
+    /** Refuse to declare a ceiling without at least this many recent task samples. */
+    private const MIN_SAMPLE_SIZE = 3;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -84,10 +87,13 @@ final class AtlasExternalBrainMaturityCeilingBreaker
 
         $saturationScore = round(($repeatedFamilyRate + (1.0 - $structuralUnlockRate)) / 2.0, 4);
 
-        // AC2: ceiling triggered by stagnation count OR high saturation.
+        // AC2: ceiling triggered by stagnation count OR high saturation, but never
+        // declared from too little data — too few samples means "not enough evidence",
+        // not "ceiling reached".
+        $insufficientData  = $totalCount < self::MIN_SAMPLE_SIZE;
         $stagnationCeiling = $nonUnlockingCount >= $threshold;
         $saturationCeiling = $saturationScore >= self::HIGH_SATURATION_THRESHOLD;
-        $ceilingDetected   = $stagnationCeiling || $saturationCeiling;
+        $ceilingDetected   = ! $insufficientData && ($stagnationCeiling || $saturationCeiling);
 
         $marginalGainAvg = count($metricDeltas) > 0
             ? round(array_sum($metricDeltas) / count($metricDeltas), 6)
@@ -138,6 +144,20 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             ? round((1.0 - $proposedJump['risk_score']) * (1.0 - $proposedJump['blast_radius']), 4)
             : 0.0;
 
+        // AC3: ordered unlock_chain — every eligible jump, in selection order, each carrying
+        // its own expected_compound_lift, not just the single best candidate.
+        $unlockChain = [];
+        foreach ($eligibleJumps as $order => $jump) {
+            $unlockChain[] = $jump + [
+                'order'                  => $order + 1,
+                'expected_compound_lift' => round((1.0 - $jump['risk_score']) * (1.0 - $jump['blast_radius']), 4),
+            ];
+        }
+
+        $incrementalRejectionReason = $nonUnlockingCount > 0
+            ? "non_unlocking_task_count={$nonUnlockingCount}:tasks_did_not_unlock_a_new_capability_so_excluded_from_the_jump_chain"
+            : 'no_incremental_tasks_were_rejected';
+
         return [
             'schema_version'               => self::SCHEMA,
             'ceiling_detected'             => $ceilingDetected,
@@ -149,6 +169,9 @@ final class AtlasExternalBrainMaturityCeilingBreaker
                 'repeated_family_rate'      => $repeatedFamilyRate,
                 'saturation_score'          => $saturationScore,
                 'ambition_jump_score'       => $ambitionJumpScore,
+                'insufficient_data'         => $insufficientData,
+                'total_task_count'          => $totalCount,
+                'min_sample_size'           => self::MIN_SAMPLE_SIZE,
             ],
             'proposed_jump'                => $proposedJump,
             'prerequisites'                => $proposedJump['prerequisites'] ?? [],
@@ -157,6 +180,8 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             'risk_within_bounds'           => $proposedJump !== null ? ($proposedJump['risk_score']   <= self::MAX_RISK_SCORE)   : false,
             'rejected_incremental_tasks'   => $nonUnlockingTasks,
             'rejected_jumps'               => $rejectedJumps,
+            'unlock_chain'                 => $unlockChain,
+            'incremental_rejection_reason' => $incrementalRejectionReason,
         ];
     }
 }
