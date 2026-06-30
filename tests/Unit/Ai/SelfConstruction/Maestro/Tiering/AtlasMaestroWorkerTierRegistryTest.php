@@ -181,6 +181,65 @@ final class AtlasMaestroWorkerTierRegistryTest extends TestCase
         );
     }
 
+    // ---------- verifyIntegrity() ----------
+
+    private function canonicalTiers(): array
+    {
+        return [
+            ['tier_id' => 'atlas_native', 'max_concurrency' => 4, 'steady_state_external_provider_required' => false],
+            ['tier_id' => 'minimax_m3',   'max_concurrency' => 8, 'steady_state_external_provider_required' => false],
+        ];
+    }
+
+    public function test_canonical_tier_registry_passes_integrity_verification(): void
+    {
+        $result = $this->registry->verifyIntegrity($this->canonicalTiers());
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_duplicate_tier_id_blocks_integrity(): void
+    {
+        $tiers = [
+            ['tier_id' => 'atlas_native', 'max_concurrency' => 4, 'steady_state_external_provider_required' => false],
+            ['tier_id' => 'atlas_native', 'max_concurrency' => 2, 'steady_state_external_provider_required' => false],
+        ];
+        $result = $this->registry->verifyIntegrity($tiers);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('duplicate_tier_id:atlas_native', $result['blockers']);
+    }
+
+    public function test_missing_atlas_native_tier_blocks_integrity(): void
+    {
+        $tiers = [
+            ['tier_id' => 'minimax_m3', 'max_concurrency' => 8, 'steady_state_external_provider_required' => false],
+        ];
+        $result = $this->registry->verifyIntegrity($tiers);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('missing_atlas_native_tier', $result['blockers']);
+    }
+
+    public function test_missing_max_concurrency_blocks_integrity(): void
+    {
+        $tiers = [
+            ['tier_id' => 'atlas_native', 'steady_state_external_provider_required' => false],
+        ];
+        $result = $this->registry->verifyIntegrity($tiers);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('missing_max_concurrency:atlas_native', $result['blockers']);
+    }
+
+    public function test_steady_state_external_provider_required_blocks_integrity(): void
+    {
+        $tiers = [
+            ['tier_id' => 'atlas_native', 'max_concurrency' => 4, 'steady_state_external_provider_required' => false],
+            ['tier_id' => 'cloud_only',   'max_concurrency' => 2, 'steady_state_external_provider_required' => true],
+        ];
+        $result = $this->registry->verifyIntegrity($tiers);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('steady_state_external_provider_required:cloud_only', $result['blockers']);
+    }
+
     public function test_tier_for_local_facts_never_contain_scalar_score_or_rank(): void
     {
         $result = $this->registry->tierFor([

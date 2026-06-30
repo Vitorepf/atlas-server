@@ -153,6 +153,49 @@ final class AtlasMaestroWorkerTierRegistry
         ];
     }
 
+    /**
+     * Verify a list of worker tier definitions for structural integrity.
+     * Blocks: duplicate tier_id, missing atlas_native tier, missing/zero max_concurrency,
+     * any tier with steady_state_external_provider_required=true.
+     *
+     * @param  list<array<string,mixed>>  $tiers
+     * @return array{passed:bool, blockers:list<string>}
+     */
+    public function verifyIntegrity(array $tiers): array
+    {
+        $blockers = [];
+        $seenIds = [];
+        $hasNative = false;
+
+        foreach ($tiers as $tier) {
+            if (! is_array($tier)) {
+                continue;
+            }
+            $id = (string) ($tier['tier_id'] ?? '');
+
+            if (isset($seenIds[$id])) {
+                $blockers[] = 'duplicate_tier_id:'.$id;
+            } else {
+                $seenIds[$id] = true;
+            }
+            if ($id === 'atlas_native') {
+                $hasNative = true;
+            }
+            $maxConcurrency = $tier['max_concurrency'] ?? null;
+            if ($maxConcurrency === null || (int) $maxConcurrency <= 0) {
+                $blockers[] = 'missing_max_concurrency:'.$id;
+            }
+            if ((bool) ($tier['steady_state_external_provider_required'] ?? false)) {
+                $blockers[] = 'steady_state_external_provider_required:'.$id;
+            }
+        }
+        if (! $hasNative) {
+            $blockers[] = 'missing_atlas_native_tier';
+        }
+
+        return ['passed' => $blockers === [], 'blockers' => array_values($blockers)];
+    }
+
     public function revoke(string $clientId): bool
     {
         $snapshot = $this->loadSnapshot();
