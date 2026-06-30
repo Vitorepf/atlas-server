@@ -391,4 +391,115 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
         $this->assertSame([], $r['accepted_transfers']);
         $this->assertSame([], $r['rejected_transfers']);
     }
+
+    // ── AC2/AC3: blind copy / hype-only / dependency-heavy rejections ──────────
+
+    public function test_blind_copy_pattern_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['is_blind_copy' => true]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $r['results'][0]['transfer_decision']);
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_BLIND_COPY, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_hype_only_pattern_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['is_hype_only' => true]),
+        ]]);
+
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_HYPE_ONLY, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_dependency_heavy_pattern_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['is_dependency_heavy' => true]),
+        ]]);
+
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_DEPENDENCY_HEAVY, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_false_flags_do_not_reject(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), [
+                'is_blind_copy' => false,
+                'is_hype_only' => false,
+                'is_dependency_heavy' => false,
+            ]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_TRANSFERABLE, $r['results'][0]['transfer_decision']);
+    }
+
+    // ── AC1: expected_structural_leverage blends into transfer_score ───────────
+
+    public function test_expected_structural_leverage_blends_into_transfer_score(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id'                    => 'X',
+            'destination_fit_score'         => 0.80,
+            'adaptation_risk'               => 0.20,
+            'expected_structural_leverage'  => 0.90,
+            'cross_class_outcomes'          => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
+            ],
+        ]]]);
+
+        // fit_risk = 0.80 * (1 - 0.20) = 0.64; blended = (0.64 + 0.90) / 2 = 0.77
+        $this->assertSame(0.77, $r['accepted_transfers'][0]['transfer_score']);
+    }
+
+    public function test_transfer_score_unchanged_when_structural_leverage_absent(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id'             => 'X',
+            'destination_fit_score'  => 0.80,
+            'adaptation_risk'        => 0.20,
+            'cross_class_outcomes'   => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
+            ],
+        ]]]);
+
+        $this->assertSame(0.64, $r['accepted_transfers'][0]['transfer_score']);
+    }
+
+    // ── AC4: adaptation_requirements / first_task_spec_hint ────────────────────
+
+    public function test_results_emit_adaptation_requirements_and_first_task_spec_hint(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern('PAT'), ['required_adaptations' => ['adjust-threshold']]),
+        ]]);
+
+        $entry = $r['results'][0];
+        $this->assertArrayHasKey('adaptation_requirements', $entry);
+        $this->assertSame(['adjust-threshold'], $entry['adaptation_requirements']);
+        $this->assertSame('implement_adaptation:PAT->evidence:adjust-threshold', $entry['first_task_spec_hint']);
+    }
+
+    public function test_first_task_spec_hint_for_rejected_pattern_references_rejection_reason(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern('PAT'), ['is_blind_copy' => true]),
+        ]]);
+
+        $this->assertSame('address_rejection:PAT:blind_copy', $r['results'][0]['first_task_spec_hint']);
+    }
+
+    public function test_first_task_spec_hint_for_needs_more_evidence(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id'           => 'PAT',
+            'cross_class_outcomes' => [
+                ['task_class' => 'A', 'evidence_count' => 1, 'positive_ratio' => 0.90],
+            ],
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_NEEDS_MORE_EVIDENCE, $r['results'][0]['transfer_decision']);
+        $this->assertSame('collect_more_evidence:PAT', $r['results'][0]['first_task_spec_hint']);
+    }
 }

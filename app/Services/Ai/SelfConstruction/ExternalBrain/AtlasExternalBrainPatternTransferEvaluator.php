@@ -31,6 +31,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   missing_behaviour_contract — has_behaviour_contract === false
  *   low_destination_fit     — destination_fit_score < min_destination_fit
  *   high_adaptation_risk    — adaptation_risk > max_adaptation_risk
+ *   blind_copy               — is_blind_copy === true (no concrete Atlas fit reasoning given)
+ *   hype_only                — is_hype_only === true (no evidence beyond enthusiasm)
+ *   dependency_heavy         — is_dependency_heavy === true (drags in unverified externals)
  *   Any reason fires → decision = 'rejected' (trumps retire/needs_more_evidence/…)
  *
  * INJECTION RULES (per decision):
@@ -62,6 +65,9 @@ final class AtlasExternalBrainPatternTransferEvaluator
     public const REJECTION_LOW_DESTINATION_FIT      = 'low_destination_fit';
     public const REJECTION_HIGH_ADAPTATION_RISK     = 'high_adaptation_risk';
     public const REJECTION_MISSING_BEHAVIOUR_CONTRACT = 'missing_behaviour_contract';
+    public const REJECTION_BLIND_COPY               = 'blind_copy';
+    public const REJECTION_HYPE_ONLY                = 'hype_only';
+    public const REJECTION_DEPENDENCY_HEAVY         = 'dependency_heavy';
 
     private const DEFAULT_GIVE_BACK_THRESHOLD         = 0.30;
     private const DEFAULT_DUPLICATE_RATE_THRESHOLD    = 0.20;
@@ -107,6 +113,7 @@ final class AtlasExternalBrainPatternTransferEvaluator
             $proofOfSuccess      = isset($pattern['proof_of_source_success']) ? (string) $pattern['proof_of_source_success'] : null;
             $destinationFit      = isset($pattern['destination_fit_score']) ? (float) $pattern['destination_fit_score'] : null;
             $adaptationRisk      = isset($pattern['adaptation_risk']) ? (float) $pattern['adaptation_risk'] : null;
+            $structuralLeverage  = isset($pattern['expected_structural_leverage']) ? (float) $pattern['expected_structural_leverage'] : null;
 
             // Collect evidence counts per task class.
             $evidenceCounts = [];
@@ -142,7 +149,7 @@ final class AtlasExternalBrainPatternTransferEvaluator
                 );
 
                 if ($decision === self::DECISION_TRANSFERABLE) {
-                    $transferScore     = $this->computeTransferScore($destinationFit, $adaptationRisk, $crossOutcomes, $minEvidenceCount, $positiveThreshold);
+                    $transferScore     = $this->computeTransferScore($destinationFit, $adaptationRisk, $structuralLeverage, $crossOutcomes, $minEvidenceCount, $positiveThreshold);
                     $acceptedTransfers[] = [
                         'pattern_id'           => $patternId,
                         'source_area'          => $sourceArea,
@@ -166,6 +173,8 @@ final class AtlasExternalBrainPatternTransferEvaluator
                 'target_task_classes' => $targetClasses,
                 'evidence_counts'     => $evidenceCounts,
                 'injection_rule'      => $this->injectionRule($decision, $minEvidenceCount),
+                'adaptation_requirements' => $requiredAdaptations,
+                'first_task_spec_hint'    => $this->firstTaskSpecHint($decision, $patternId, $destinationArea, $requiredAdaptations, $rejectionReasons),
             ];
         }
 
@@ -278,22 +287,42 @@ final class AtlasExternalBrainPatternTransferEvaluator
             $reasons[] = self::REJECTION_HIGH_ADAPTATION_RISK;
         }
 
+        if (array_key_exists('is_blind_copy', $pattern) && (bool) $pattern['is_blind_copy']) {
+            $reasons[] = self::REJECTION_BLIND_COPY;
+        }
+
+        if (array_key_exists('is_hype_only', $pattern) && (bool) $pattern['is_hype_only']) {
+            $reasons[] = self::REJECTION_HYPE_ONLY;
+        }
+
+        if (array_key_exists('is_dependency_heavy', $pattern) && (bool) $pattern['is_dependency_heavy']) {
+            $reasons[] = self::REJECTION_DEPENDENCY_HEAVY;
+        }
+
         return $reasons;
     }
 
     /**
-     * transfer_score = destination_fit * (1 - adaptation_risk).
+     * transfer_score = destination_fit * (1 - adaptation_risk), optionally averaged with
+     * expected_structural_leverage when that field is explicitly provided.
      * Falls back to average positive_ratio of sufficient-evidence outcomes.
      */
     private function computeTransferScore(
         ?float $destinationFit,
         ?float $adaptationRisk,
+        ?float $structuralLeverage,
         array  $outcomes,
         int    $minEvidenceCount,
         float  $positiveThreshold,
     ): float {
         if ($destinationFit !== null) {
-            return round($destinationFit * (1.0 - ($adaptationRisk ?? 0.0)), 4);
+            $fitRiskScore = $destinationFit * (1.0 - ($adaptationRisk ?? 0.0));
+
+            if ($structuralLeverage !== null) {
+                return round(($fitRiskScore + $structuralLeverage) / 2.0, 4);
+            }
+
+            return round($fitRiskScore, 4);
         }
 
         // Fallback: average positive_ratio of sufficient-evidence outcomes.
@@ -305,6 +334,29 @@ final class AtlasExternalBrainPatternTransferEvaluator
         }
 
         return $ratios !== [] ? round(array_sum($ratios) / count($ratios), 4) : 0.0;
+    }
+
+    /**
+     * @param  list<string>  $requiredAdaptations
+     * @param  list<string>  $rejectionReasons
+     */
+    private function firstTaskSpecHint(
+        string $decision,
+        string $patternId,
+        string $destinationArea,
+        array  $requiredAdaptations,
+        array  $rejectionReasons,
+    ): string {
+        return match ($decision) {
+            self::DECISION_TRANSFERABLE => $requiredAdaptations !== []
+                ? "implement_adaptation:{$patternId}->{$destinationArea}:{$requiredAdaptations[0]}"
+                : "implement_direct_transfer:{$patternId}->{$destinationArea}",
+            self::DECISION_LOCAL_ONLY => "scope_pattern_to_source_classes:{$patternId}",
+            self::DECISION_NEEDS_MORE_EVIDENCE => "collect_more_evidence:{$patternId}",
+            self::DECISION_RETIRE => "retire_pattern:{$patternId}",
+            self::DECISION_REJECTED => 'address_rejection:'.$patternId.':'.($rejectionReasons[0] ?? 'unknown'),
+            default => "review_pattern:{$patternId}",
+        };
     }
 
     private function injectionRule(string $decision, int $minEvidenceCount): string
