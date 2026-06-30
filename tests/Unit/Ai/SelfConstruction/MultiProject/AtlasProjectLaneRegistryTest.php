@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\MultiProject;
 
+use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneKnowledgeSyncPolicy;
+use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneQueueNamespacePolicy;
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneRegistry;
 use RuntimeException;
 use Tests\TestCase;
@@ -78,5 +80,70 @@ final class AtlasProjectLaneRegistryTest extends TestCase
         foreach (['provider_key', 'shell_cmd', 'api_key'] as $forbidden) {
             $this->assertArrayNotHasKey($forbidden, $stored, "registry must never store runtime-execution key {$forbidden}");
         }
+    }
+
+    // ---------- derived facts (queue namespace + evidence namespace + knowledge_sync_policy) ----------
+
+    public function test_two_lanes_get_distinct_queue_namespaces_and_evidence_namespaces(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $a = $reg->register($this->lane('project-alpha', '/repos/alpha'));
+        $b = $reg->register($this->lane('project-beta',  '/repos/beta'));
+
+        // Queue namespace.
+        $nsA = $a['queue_namespace_facts']['namespace'] ?? null;
+        $nsB = $b['queue_namespace_facts']['namespace'] ?? null;
+        $this->assertNotNull($nsA, 'project-alpha must have queue_namespace_facts.namespace');
+        $this->assertNotNull($nsB, 'project-beta must have queue_namespace_facts.namespace');
+        $this->assertNotSame($nsA, $nsB, 'two lanes must have DISTINCT queue namespaces');
+        $this->assertStringStartsWith(AtlasProjectLaneQueueNamespacePolicy::NAMESPACE_PREFIX, $nsA);
+        $this->assertStringStartsWith(AtlasProjectLaneQueueNamespacePolicy::NAMESPACE_PREFIX, $nsB);
+
+        // Evidence namespace.
+        $evA = $a['evidence_namespace'] ?? null;
+        $evB = $b['evidence_namespace'] ?? null;
+        $this->assertNotNull($evA, 'project-alpha must have evidence_namespace');
+        $this->assertNotNull($evB, 'project-beta must have evidence_namespace');
+        $this->assertNotSame($evA, $evB, 'two lanes must have DISTINCT evidence namespaces');
+        $this->assertStringStartsWith('evidence.', $evA);
+        $this->assertStringStartsWith('evidence.', $evB);
+    }
+
+    public function test_two_lanes_get_distinct_knowledge_sync_policy_facts(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $a = $reg->register($this->lane('lane-x', '/repos/x'));
+        $b = $reg->register($this->lane('lane-y', '/repos/y'));
+
+        $kspA = $a['knowledge_sync_policy'] ?? null;
+        $kspB = $b['knowledge_sync_policy'] ?? null;
+
+        $this->assertIsArray($kspA, 'lane-x must have knowledge_sync_policy');
+        $this->assertIsArray($kspB, 'lane-y must have knowledge_sync_policy');
+        $this->assertSame(AtlasProjectLaneKnowledgeSyncPolicy::SCHEMA, $kspA['schema']);
+        $this->assertSame(AtlasProjectLaneKnowledgeSyncPolicy::SCHEMA, $kspB['schema']);
+
+        $this->assertSame('lane-x', $kspA['project_id']);
+        $this->assertSame('lane-y', $kspB['project_id']);
+        $this->assertNotSame($kspA['project_id'], $kspB['project_id'], 'knowledge_sync_policy.project_id must differ');
+        $this->assertTrue($kspA['docs_sync_required']);
+        $this->assertTrue($kspA['code_index_required']);
+    }
+
+    public function test_lane_ids_returns_insertion_order(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $reg->register($this->lane('first',  '/repos/first'));
+        $reg->register($this->lane('second', '/repos/second'));
+        $reg->register($this->lane('third',  '/repos/third'));
+
+        $this->assertSame(['first', 'second', 'third'], $reg->laneIds());
+    }
+
+    public function test_register_fails_closed_for_unsafe_project_id(): void
+    {
+        $reg = new AtlasProjectLaneRegistry;
+        $this->expectException(RuntimeException::class);
+        $reg->register(['project_id' => 'bad/id', 'repo_root' => '/repos/r', 'objective' => 'x']);
     }
 }
