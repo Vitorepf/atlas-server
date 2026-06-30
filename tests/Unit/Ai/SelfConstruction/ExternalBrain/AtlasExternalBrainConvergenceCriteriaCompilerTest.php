@@ -24,6 +24,7 @@ final class AtlasExternalBrainConvergenceCriteriaCompilerTest extends TestCase
             'learning_loop_closedness'    => 0.75,
             'worker_proof_count'          => 5.0,
             'compounding_evidence_score'  => 0.60,
+            'simplification_score'        => 0.70,
             'integration_organs_count'    => 5,
         ];
     }
@@ -52,7 +53,7 @@ final class AtlasExternalBrainConvergenceCriteriaCompilerTest extends TestCase
 
         foreach (['final_95_readiness', 'brain_health_score', 'queue_health_score',
                   'autonomy_independence_score', 'learning_loop_closedness',
-                  'worker_proof_count', 'compounding_evidence_score'] as $p) {
+                  'worker_proof_count', 'compounding_evidence_score', 'simplification_score'] as $p) {
             $this->assertArrayHasKey($p, $result['evidence_receipts']);
         }
     }
@@ -200,5 +201,127 @@ final class AtlasExternalBrainConvergenceCriteriaCompilerTest extends TestCase
         $input = $this->allPassing();
 
         $this->assertSame($this->compiler()->compile($input), $this->compiler()->compile($input));
+    }
+
+    // ── new output keys ───────────────────────────────────────────────────────
+
+    public function test_output_includes_convergence_status_missing_proof_and_next_verification_step(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        foreach (['convergence_status', 'missing_proof', 'next_verification_step'] as $k) {
+            $this->assertArrayHasKey($k, $result);
+        }
+    }
+
+    public function test_convergence_status_mirrors_verdict(): void
+    {
+        $result = $this->compiler()->compile($this->allPassing());
+
+        $this->assertSame($result['verdict'], $result['convergence_status']);
+        $this->assertSame(AtlasExternalBrainConvergenceCriteriaCompiler::VERDICT_CONVERGENCE_READY, $result['convergence_status']);
+    }
+
+    public function test_next_verification_step_is_null_when_fully_converged(): void
+    {
+        $result = $this->compiler()->compile($this->allPassing());
+
+        $this->assertNull($result['next_verification_step']);
+    }
+
+    public function test_next_verification_step_is_concrete_when_pillars_fail(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertIsString($result['next_verification_step']);
+        $this->assertNotEmpty($result['next_verification_step']);
+    }
+
+    // ── self-declared evidence refused ────────────────────────────────────────
+
+    public function test_self_declared_pillar_fails_regardless_of_score(): void
+    {
+        $input = $this->allPassing();
+        $input['evidence_meta'] = ['brain_health_score' => ['self_declared' => true]];
+
+        $result = $this->compiler()->compile($input);
+
+        $this->assertFalse($result['evidence_receipts']['brain_health_score']['passes']);
+        $this->assertContains('brain_health_score', $result['failing_pillars']);
+        $this->assertNotSame(AtlasExternalBrainConvergenceCriteriaCompiler::VERDICT_CONVERGENCE_READY, $result['verdict']);
+
+        $missing = collect($result['missing_proof'])->firstWhere('pillar', 'brain_health_score');
+        $this->assertContains('self_declared_not_externally_verified', $missing['reasons']);
+    }
+
+    // ── stale evidence refused ────────────────────────────────────────────────
+
+    public function test_stale_pillar_fails_regardless_of_score(): void
+    {
+        $input = $this->allPassing();
+        $input['evidence_meta'] = ['queue_health_score' => ['age_days' => 90]];
+
+        $result = $this->compiler()->compile($input);
+
+        $this->assertFalse($result['evidence_receipts']['queue_health_score']['passes']);
+        $missing = collect($result['missing_proof'])->firstWhere('pillar', 'queue_health_score');
+        $this->assertNotNull($missing);
+        $this->assertStringContainsString('evidence_stale', $missing['reasons'][0]);
+    }
+
+    public function test_fresh_evidence_within_max_age_passes(): void
+    {
+        $input = $this->allPassing();
+        $input['evidence_meta'] = ['queue_health_score' => ['age_days' => 5]];
+
+        $result = $this->compiler()->compile($input);
+
+        $this->assertTrue($result['evidence_receipts']['queue_health_score']['passes']);
+    }
+
+    public function test_custom_max_evidence_age_days_is_respected(): void
+    {
+        $input = $this->allPassing();
+        $input['evidence_meta'] = ['queue_health_score' => ['age_days' => 10]];
+        $input['max_evidence_age_days'] = 5;
+
+        $result = $this->compiler()->compile($input);
+
+        $this->assertFalse($result['evidence_receipts']['queue_health_score']['passes']);
+    }
+
+    // ── missing critical category ─────────────────────────────────────────────
+
+    public function test_missing_simplification_pillar_blocks_convergence(): void
+    {
+        $input = $this->allPassing();
+        unset($input['simplification_score']);
+
+        $result = $this->compiler()->compile($input);
+
+        $this->assertNotSame(AtlasExternalBrainConvergenceCriteriaCompiler::VERDICT_CONVERGENCE_READY, $result['verdict']);
+        $this->assertContains('simplification_score', $result['failing_pillars']);
+    }
+
+    // ── missing_proof structure ────────────────────────────────────────────────
+
+    public function test_missing_proof_entries_have_pillar_reasons_and_verification_step(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        foreach ($result['missing_proof'] as $entry) {
+            $this->assertArrayHasKey('pillar', $entry);
+            $this->assertArrayHasKey('reasons', $entry);
+            $this->assertArrayHasKey('verification_step', $entry);
+            $this->assertNotEmpty($entry['reasons']);
+            $this->assertNotEmpty($entry['verification_step']);
+        }
+    }
+
+    public function test_missing_proof_count_matches_failing_pillars_count(): void
+    {
+        $result = $this->compiler()->compile([]);
+
+        $this->assertSame(count($result['failing_pillars']), count($result['missing_proof']));
     }
 }
