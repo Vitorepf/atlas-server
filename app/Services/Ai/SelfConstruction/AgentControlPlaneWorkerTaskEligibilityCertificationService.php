@@ -101,10 +101,18 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
         $violationSummaryByCode = $this->violationSummaryByCode($violations);
         $operatorHandoffSeedCount = (int) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.operator_handoff_seed_count', 0);
 
+        // Stable, deterministic union of failed check ids and violation codes — so a caller
+        // sees status=blocked and a non-empty, actionable reason in the same payload.
+        $blockedReasons = $failedCheckIds === []
+            ? []
+            : array_values(array_unique(array_merge($failedCheckIds, array_keys($violationSummaryByCode))));
+        sort($blockedReasons);
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
             'status' => $failedCheckIds === [] ? 'available' : 'blocked',
+            'blocked_reasons' => $blockedReasons,
             'generated_at' => CarbonImmutable::now()->toIso8601String(),
             'queue_tags' => $queueTags,
             'checked_record_count' => count($records),
