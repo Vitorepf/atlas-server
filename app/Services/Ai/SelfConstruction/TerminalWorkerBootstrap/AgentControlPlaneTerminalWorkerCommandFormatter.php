@@ -52,9 +52,11 @@ class AgentControlPlaneTerminalWorkerCommandFormatter
         return implode(' ', $parts);
     }
 
+    private const SAFE_VALUE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.:@/-';
+
     public function commandValue(string $value): string
     {
-        if (preg_match('/^[A-Za-z0-9_.:@\\/-]+$/', $value) === 1) {
+        if ($value !== '' && strspn($value, self::SAFE_VALUE_CHARS) === strlen($value)) {
             return $value;
         }
 

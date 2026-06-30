@@ -37,19 +37,8 @@ final class AgentControlPlaneTerminalWorkerCommandFormatterTest extends TestCase
 
     public function test_command_value_passes_safe_chars_through_verbatim(): void
     {
-        // The god-class regex `/^[A-Za-z0-9_.:@\\/-]+$/` is a pre-existing bug in PHP single-quoted
-        // form (the `\\/` is interpreted as escape + closing regex delimiter, so the regex MAY not
-        // compile depending on PCRE cache state). The byte-identical contract is one of two valid
-        // outputs: either the regex matches and the value is emitted verbatim, OR the regex fails
-        // to compile and escapeshellarg wraps it. We assert either — both are correct god-class
-        // behaviour. A future hardening of the regex would belong in a SEPARATE refactor.
-        foreach (['hermes-1', 'a:b', 'a.b', 'a_b', 'a@b', 'a/b', 'a\\b', 'terminal-loop-codex'] as $v) {
-            $result = @$this->fmt->commandValue($v);
-            $this->assertContains(
-                $result,
-                [$v, escapeshellarg($v)],
-                "commandValue('$v') must be either verbatim or escapeshellarg-wrapped (got: ".var_export($result, true).')',
-            );
+        foreach (['hermes-1', 'a:b', 'a.b', 'a_b', 'a@b', 'a/b', 'terminal-loop-codex'] as $v) {
+            $this->assertSame($v, $this->fmt->commandValue($v), "commandValue('$v') must emit verbatim");
         }
     }
 
@@ -64,6 +53,7 @@ final class AgentControlPlaneTerminalWorkerCommandFormatterTest extends TestCase
         $this->assertSame("'a|b'", $this->fmt->commandValue('a|b'), 'pipe');
         $this->assertSame("'a`b'", $this->fmt->commandValue('a`b'), 'backtick');
         $this->assertSame("'a\nb'", $this->fmt->commandValue("a\nb"), 'newline');
+        $this->assertSame("'a\\b'", $this->fmt->commandValue('a\\b'), 'backslash');
     }
 
     public function test_command_value_handles_empty_string_via_escapeshellarg(): void
