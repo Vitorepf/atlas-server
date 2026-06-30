@@ -14,9 +14,97 @@ class AgentCodexRealInvokerPostStartReceiptContractBuilder
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
 
+    private const GENERIC_SUCCESS_PHRASES = [
+        'success',
+        'done',
+        'completed',
+        'task completed',
+        'ok',
+        'finished',
+    ];
+
+    private const PROVIDER_PRIVATE_FIELDS = [
+        'raw_provider_transcript',
+        'provider_api_key',
+        'provider_session_token',
+        'raw_stdout',
+    ];
+
+    private const CONTRACT_REQUIRED_FIELDS = [
+        'structured_outcome',
+        'proof_command',
+        'scope_digest',
+        'learning_payload',
+    ];
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
+
+    /**
+     * Pure builder: a post-start receipt is only provider-safe to record
+     * when it carries structured_outcome, proof_command, scope_digest and
+     * learning_payload — and does NOT carry generic success-text-only
+     * claims (e.g. outcome_text "success" with no structured_outcome) or
+     * any provider-private raw content field. Rejected receipts never make
+     * it into the returned contract.
+     *
+     * @param  array<string,mixed>  $receipt  { structured_outcome?: string,
+     *   proof_command?: string, scope_digest?: string,
+     *   learning_payload?: array<string,mixed>, outcome_text?: string }
+     *   plus any of PROVIDER_PRIVATE_FIELDS, which must be absent.
+     * @return array<string,mixed>
+     */
+    public function buildStructuredReceiptContract(array $receipt): array
+    {
+        $presentPrivateFields = array_values(array_intersect(self::PROVIDER_PRIVATE_FIELDS, array_keys($receipt)));
+
+        if ($presentPrivateFields !== []) {
+            return [
+                'contract' => null,
+                'missing_fields' => [],
+                'provider_safe_status' => 'rejected_provider_private_content',
+            ];
+        }
+
+        $outcomeText = strtolower(trim((string) ($receipt['outcome_text'] ?? '')));
+        $structuredOutcome = trim((string) ($receipt['structured_outcome'] ?? ''));
+
+        if ($structuredOutcome === '' && in_array($outcomeText, self::GENERIC_SUCCESS_PHRASES, true)) {
+            return [
+                'contract' => null,
+                'missing_fields' => [],
+                'provider_safe_status' => 'rejected_generic_success_text_only',
+            ];
+        }
+
+        $missingFields = [];
+        foreach (self::CONTRACT_REQUIRED_FIELDS as $field) {
+            $value = $receipt[$field] ?? null;
+            if ($value === null || $value === '' || $value === []) {
+                $missingFields[] = $field;
+            }
+        }
+
+        if ($missingFields !== []) {
+            return [
+                'contract' => null,
+                'missing_fields' => $missingFields,
+                'provider_safe_status' => 'rejected_missing_required_fields',
+            ];
+        }
+
+        return [
+            'contract' => [
+                'structured_outcome' => $structuredOutcome,
+                'proof_command' => (string) $receipt['proof_command'],
+                'scope_digest' => (string) $receipt['scope_digest'],
+                'learning_payload' => $receipt['learning_payload'],
+            ],
+            'missing_fields' => [],
+            'provider_safe_status' => 'accepted',
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input

@@ -257,6 +257,61 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartReceiptContractBuilde
         ];
     }
 
+    public function test_build_structured_receipt_contract_accepts_complete_receipt(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartReceiptContractBuilder::class)
+            ->buildStructuredReceiptContract([
+                'structured_outcome' => 'success',
+                'proof_command' => 'php artisan test --filter=FooTest',
+                'scope_digest' => str_repeat('a', 64),
+                'learning_payload' => ['worker_fit_signal' => 'positive'],
+            ]);
+
+        $this->assertSame('accepted', $result['provider_safe_status']);
+        $this->assertSame([], $result['missing_fields']);
+        $this->assertNotNull($result['contract']);
+        $this->assertSame('success', $result['contract']['structured_outcome']);
+    }
+
+    public function test_build_structured_receipt_contract_rejects_generic_success_text_only(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartReceiptContractBuilder::class)
+            ->buildStructuredReceiptContract([
+                'outcome_text' => 'success',
+            ]);
+
+        $this->assertSame('rejected_generic_success_text_only', $result['provider_safe_status']);
+        $this->assertNull($result['contract']);
+    }
+
+    public function test_build_structured_receipt_contract_rejects_provider_private_content(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartReceiptContractBuilder::class)
+            ->buildStructuredReceiptContract([
+                'structured_outcome' => 'success',
+                'proof_command' => 'php artisan test --filter=FooTest',
+                'scope_digest' => str_repeat('a', 64),
+                'learning_payload' => ['worker_fit_signal' => 'positive'],
+                'raw_provider_transcript' => 'leaked content',
+            ]);
+
+        $this->assertSame('rejected_provider_private_content', $result['provider_safe_status']);
+        $this->assertNull($result['contract']);
+    }
+
+    public function test_build_structured_receipt_contract_reports_missing_fields(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartReceiptContractBuilder::class)
+            ->buildStructuredReceiptContract([
+                'structured_outcome' => 'success',
+            ]);
+
+        $this->assertSame('rejected_missing_required_fields', $result['provider_safe_status']);
+        $this->assertContains('proof_command', $result['missing_fields']);
+        $this->assertContains('scope_digest', $result['missing_fields']);
+        $this->assertContains('learning_payload', $result['missing_fields']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
