@@ -308,4 +308,157 @@ final class AtlasExternalBrainModelWeaknessGuardTest extends TestCase
 
         $this->assertSame($this->guard()->guard($input), $this->guard()->guard($input));
     }
+
+    // ── contradiction_miss (high) ───────────────────────────────────────────
+
+    public function test_flags_contradiction_when_single_criterion_self_contradicts(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id'             => 'task-contra',
+                'objective'           => 'Implement AtlasContraService.',
+                'allowed_files'       => ['app/Services/AtlasContraService.php'],
+                'acceptance_criteria' => [
+                    'AtlasContraService::run() must return true and must not return true.',
+                ],
+            ],
+        ]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_CONTRADICTION_MISS, $ids);
+        $this->assertTrue($result['blocked_until_fixed']);
+    }
+
+    public function test_flags_contradiction_across_two_negated_criteria(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id'             => 'task-contra-2',
+                'objective'           => 'Implement AtlasContraService.',
+                'allowed_files'       => ['app/Services/AtlasContraService.php'],
+                'acceptance_criteria' => [
+                    'AtlasContraService::compute() returns the schema array.',
+                    'AtlasContraService::compute() does not return the schema array.',
+                ],
+            ],
+        ]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_CONTRADICTION_MISS, $ids);
+    }
+
+    public function test_no_contradiction_for_clean_candidate(): void
+    {
+        $result = $this->guard()->guard(['candidate' => $this->cleanCandidate()]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertNotContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_CONTRADICTION_MISS, $ids);
+    }
+
+    // ── proxy_output (medium) ───────────────────────────────────────────────
+
+    public function test_flags_proxy_output_when_acceptance_measures_line_count(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate' => [
+                'task_id'             => 'task-proxy',
+                'objective'           => 'Implement AtlasProxyService.',
+                'allowed_files'       => ['app/Services/AtlasProxyService.php'],
+                'acceptance_criteria' => [
+                    'AtlasProxyService.php must have at least 50 lines of code.',
+                    './vendor/bin/phpunit tests/Unit/AtlasProxyServiceTest.php produces green output.',
+                ],
+            ],
+        ]);
+
+        $ids = array_column($result['weakness_findings'], 'weakness_id');
+        $this->assertContains(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_PROXY_OUTPUT, $ids);
+    }
+
+    // ── escalation policy output fields ─────────────────────────────────────
+
+    public function test_output_includes_model_tier_weakness_decision_and_rationale(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate'  => $this->cleanCandidate(),
+            'model_tier' => 'small',
+        ]);
+
+        foreach (['model_tier', 'weakness', 'decision', 'escalation_rationale'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+        $this->assertSame('small', $result['model_tier']);
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ALLOW, $result['decision']);
+        $this->assertNull($result['weakness']);
+    }
+
+    public function test_high_severity_weakness_without_recovery_evidence_decides_block(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate'      => $this->cleanCandidate(),
+            'queued_targets' => ['app/Services/Foo/AtlasFooService.php'],
+            'model_tier'     => 'small',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_BLOCK, $result['decision']);
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::WEAKNESS_SHALLOW_DUPLICATION, $result['weakness']);
+        $this->assertTrue($result['blocked_until_fixed']);
+        $this->assertNotEmpty($result['escalation_rationale']);
+    }
+
+    public function test_high_severity_weakness_with_reliable_recovery_evidence_allows_scaffolded_execution(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate'         => $this->cleanCandidate(),
+            'queued_targets'    => ['app/Services/Foo/AtlasFooService.php'],
+            'model_tier'        => 'small',
+            'recovery_evidence' => [
+                AtlasExternalBrainModelWeaknessGuard::WEAKNESS_SHALLOW_DUPLICATION => 0.85,
+            ],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ALLOW_SCAFFOLDED, $result['decision']);
+        $this->assertFalse($result['blocked_until_fixed'], 'reliable recovery evidence must lift the block even though severity is high');
+        $this->assertStringContainsString('scaffold', $result['escalation_rationale']);
+    }
+
+    public function test_medium_severity_weakness_without_recovery_evidence_decides_escalate(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate'  => [
+                'task_id'             => 'task-medium',
+                'objective'           => 'Implement AtlasQuxService so it works.',
+                'allowed_files'       => ['app/Services/Qux/AtlasQuxService.php'],
+                'acceptance_criteria' => [
+                    'The AtlasQuxService::go() method must return true or false.',
+                    'The service must handle edge cases.',
+                ],
+            ],
+            'model_tier' => 'small',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ESCALATE, $result['decision']);
+        $this->assertFalse($result['blocked_until_fixed']);
+    }
+
+    public function test_medium_severity_weakness_with_reliable_recovery_evidence_allows_scaffolded_execution(): void
+    {
+        $result = $this->guard()->guard([
+            'candidate'  => [
+                'task_id'             => 'task-medium-2',
+                'objective'           => 'Implement AtlasQuxService so it works.',
+                'allowed_files'       => ['app/Services/Qux/AtlasQuxService.php'],
+                'acceptance_criteria' => [
+                    'The AtlasQuxService::go() method must return true or false.',
+                    'The service must handle edge cases.',
+                ],
+            ],
+            'model_tier'        => 'small',
+            'recovery_evidence' => [
+                ['weakness_id' => AtlasExternalBrainModelWeaknessGuard::WEAKNESS_MISSING_CODE_SEARCH, 'recovery_rate' => 0.9],
+            ],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelWeaknessGuard::DECISION_ALLOW_SCAFFOLDED, $result['decision']);
+    }
 }
