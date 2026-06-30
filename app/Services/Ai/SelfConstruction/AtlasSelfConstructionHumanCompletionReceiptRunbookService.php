@@ -4,22 +4,11 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
 final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-    use HashesKsortedPayloadCanonically;
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.human_completion_receipt_runbook.v1';
 
     public const MODE = 'read_only_human_completion_receipt_runbook';
@@ -83,7 +72,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
             'required_evidence_fields' => $requiredEvidenceFields,
             'required_acknowledgements' => $requiredAcknowledgements,
             'template_field_count' => count($humanCompletionTemplate),
-            'template_hash' => $this->stableHash($templateHashInput),
+            'template_hash' => ReadinessHash::stable(ReadinessHash::ksortRecursive($templateHashInput)),
             'steps' => $steps,
             'commands' => [
                 'persist_completion_receipt' => 'php artisan atlas:ai:self-construction --atlas-self-construction-os-completion-evidence-status --completion-receipt-json=@/path/to/completion-receipt.json --persist-completion-evidence --json',
@@ -108,7 +97,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptRunbookService
         ];
         $runbookHashInput = $payload;
         unset($runbookHashInput['generated_at'], $runbookHashInput['runbook_hash'], $runbookHashInput['receipt_id']);
-        $payload['runbook_hash'] = $this->stableHash($runbookHashInput);
+        $payload['runbook_hash'] = ReadinessHash::stable(ReadinessHash::ksortRecursive($runbookHashInput));
 
         return $payload;
     }

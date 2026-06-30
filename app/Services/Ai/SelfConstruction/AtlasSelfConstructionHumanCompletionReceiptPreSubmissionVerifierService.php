@@ -4,9 +4,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 
 
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
-use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use App\Services\Ai\SelfConstruction\ReadinessHash;
 use Carbon\CarbonImmutable;
 
 /**
@@ -18,15 +16,6 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-    use HashesKsortedPayloadCanonically;
-    use KsortsArraysByReference;
-
-
-    /**
-     * @param  array<string,mixed>  $value
-     * @return array<string,mixed>
-     */
     public const SCHEMA_VERSION = 'atlas.self_construction.human_completion_receipt_pre_submission_verifier.v1';
 
     public const MODE = 'read_only_human_completion_receipt_pre_submission_verifier';
@@ -211,7 +200,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierServ
 
         $preSubHashInput = $payload;
         unset($preSubHashInput['verified_at'], $preSubHashInput['pre_submission_verification_hash']);
-        $payload['pre_submission_verification_hash'] = $this->stableHash($preSubHashInput);
+        $payload['pre_submission_verification_hash'] = ReadinessHash::stable(ReadinessHash::ksortRecursive($preSubHashInput));
 
         return $payload;
     }
