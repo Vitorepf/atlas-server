@@ -238,10 +238,93 @@ final class AtlasExternalBrainWeakOutputRepairLoopTest extends TestCase
     public function test_duplicate_takes_precedence_over_low_value(): void
     {
         $result = $this->loop->repair($this->input([], [
-            'is_duplicate'   => true,
+            'is_duplicate'    => true,
             'weakness_labels' => ['template_farming'],
         ]));
 
         $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_DUPLICATE_TARGET, $result['failure_class']);
+    }
+
+    // ── No silent repair of duplicate or low-value ────────────────────────────
+
+    public function test_duplicate_is_never_silently_repaired(): void
+    {
+        $result = $this->loop->repair($this->input([], ['is_duplicate' => true]));
+
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+    }
+
+    public function test_low_value_is_never_silently_repaired(): void
+    {
+        $result = $this->loop->repair($this->input([], ['weakness_labels' => ['template_farming']]));
+
+        $this->assertNull($result['repaired_candidate']);
+        $this->assertSame([], $result['repair_steps']);
+    }
+
+    // ── AC2: classification — fixable_missing_implementation_file ────────────
+
+    public function test_empty_allowed_files_yields_fixable_missing_impl_file(): void
+    {
+        $result = $this->loop->repair($this->input(['allowed_files' => []]));
+
+        $this->assertSame(
+            AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_IMPL_FILE,
+            $result['failure_class'],
+        );
+        $this->assertNotNull($result['repaired_candidate']);
+        $this->assertNotEmpty($result['repair_steps']);
+    }
+
+    public function test_only_test_files_in_allowed_files_yields_fixable_missing_impl_file(): void
+    {
+        $result = $this->loop->repair($this->input([
+            'allowed_files' => ['tests/Unit/FooServiceTest.php'],
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_IMPL_FILE,
+            $result['failure_class'],
+        );
+    }
+
+    public function test_impl_file_with_test_file_does_not_yield_missing_impl_file(): void
+    {
+        // Mix of impl + test → NOT missing impl file
+        $result = $this->loop->repair($this->input([
+            'allowed_files' => ['app/Services/FooService.php', 'tests/Unit/FooServiceTest.php'],
+        ]));
+
+        $this->assertNotSame(
+            AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_MISSING_IMPL_FILE,
+            $result['failure_class'],
+        );
+    }
+
+    public function test_repaired_candidate_has_suggested_implementation_file(): void
+    {
+        $result = $this->loop->repair($this->input(['allowed_files' => []]));
+
+        $this->assertArrayHasKey('_suggested_implementation_file', $result['repaired_candidate']);
+        $this->assertNotEmpty($result['repaired_candidate']['_suggested_implementation_file']);
+    }
+
+    // ── over_broad_scope narrows allowed_files ────────────────────────────────
+
+    public function test_over_broad_scope_narrows_allowed_files(): void
+    {
+        $manyFiles = [
+            'app/Services/A.php', 'app/Services/B.php', 'app/Services/C.php',
+            'app/Services/D.php', 'app/Services/E.php',
+        ];
+
+        $result = $this->loop->repair($this->input(
+            ['allowed_files' => $manyFiles],
+            ['weakness_labels' => ['over_broad_scope']],
+        ));
+
+        $this->assertSame(AtlasExternalBrainWeakOutputRepairLoop::CLASS_FIXABLE_SCOPE_SHAPE, $result['failure_class']);
+        $this->assertLessThanOrEqual(2, count($result['repaired_candidate']['allowed_files']));
     }
 }
