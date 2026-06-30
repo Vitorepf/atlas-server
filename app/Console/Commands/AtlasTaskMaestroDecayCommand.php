@@ -37,15 +37,20 @@ final class AtlasTaskMaestroDecayCommand extends Command
 
     public function handle(): int
     {
+        $mode = (string) $this->argument('mode');
+
+        // inspect is a read-only lens — always available regardless of the master switch.
+        if ($mode === 'inspect') {
+            return $this->inspect();
+        }
+
         if (! $this->masterEnabled()) {
             $this->emit('master switch OFF — atlas:task:maestro:decay returns empty payload', []);
 
             return self::EXIT_OK;
         }
-        $mode = (string) $this->argument('mode');
 
         return match ($mode) {
-            'inspect' => $this->inspect(),
             'propose' => $this->propose(),
             'history' => $this->history(),
             default => $this->refuse('unknown_mode:'.$mode),

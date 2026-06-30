@@ -113,12 +113,24 @@ class AtlasTaskMaestroDecayCommandTest extends TestCase
     public function test_master_off_emits_notice_and_writes_no_history(): void
     {
         config()->set('atlas.loop.master_enabled', false);
-        foreach (['inspect', 'propose', 'history'] as $mode) {
+        // inspect bypasses the master switch — only propose and history are gated.
+        foreach (['propose', 'history'] as $mode) {
             $r = $this->runCmd(['mode' => $mode]);
             self::assertSame(0, $r['exit']);
             self::assertStringContainsString('master switch OFF', $r['output']);
         }
         self::assertFileDoesNotExist($this->historyPath);
+    }
+
+    public function test_inspect_bypasses_master_switch_and_emits_packet_facts(): void
+    {
+        config()->set('atlas.loop.master_enabled', false);
+        $r = $this->runCmd(['mode' => 'inspect', '--json' => true]);
+        self::assertSame(0, $r['exit']);
+        $payload = json_decode(trim($r['output']), true);
+        self::assertSame('inspect', $payload['mode']);
+        self::assertCount(2, $payload['payload'], 'inspect must emit real packet facts even with master OFF');
+        self::assertStringNotContainsString('master switch OFF', $r['output']);
     }
 
     public function test_unknown_mode_returns_usage(): void
