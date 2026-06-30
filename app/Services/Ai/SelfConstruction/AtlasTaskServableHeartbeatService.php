@@ -12,7 +12,7 @@ use Throwable;
  * Servable-heartbeat — every 5 minutes (via routes/console.php), reads the
  * AtlasTaskCoordinationHealthService snapshot and auto-fires the 3 recovery
  * commands (reap-leases → sweep-malformed → repair-blocked) when the queue is
- * jammed (servable_now=0 while claimable_depth>0).
+ * jammed per the health service's `health_flags.serving_jammed` verdict.
  *
  * Writes an escalation receipt every tick so the operator has a forensic trail
  * even when the queue is healthy.
@@ -85,10 +85,11 @@ final class AtlasTaskServableHeartbeatService
 
         $servableNow = (int) ($snapshot['servable_now'] ?? 0);
         $claimableDepth = (int) ($snapshot['claimable_depth'] ?? 0);
+        $servingJammed = (bool) ($snapshot['health_flags']['serving_jammed'] ?? false);
 
         $actions = [];
         $status = 'ok';
-        if ($servableNow === 0 && $claimableDepth > 0) {
+        if ($servingJammed) {
             $status = 'recovery_fired';
             foreach (self::RECOVERY_SEQUENCE as $cmd) {
                 try {
