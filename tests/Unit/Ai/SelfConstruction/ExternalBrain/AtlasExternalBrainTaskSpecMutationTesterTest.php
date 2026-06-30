@@ -39,16 +39,26 @@ final class AtlasExternalBrainTaskSpecMutationTesterTest extends TestCase
         $this->assertSame(AtlasExternalBrainTaskSpecMutationTester::SCHEMA, $result['schema']);
     }
 
-    public function test_mutation_results_contains_all_five_mutations(): void
+    public function test_mutation_results_contains_all_nine_mutations(): void
     {
         $result = $this->tester->test($this->fullSpec());
 
         $types = array_column($result['mutation_results'], 'mutation_type');
 
-        foreach (['missing_implementation_file', 'vague_acceptance', 'no_evidence', 'duplicate_target', 'weak_objective'] as $m) {
-            $this->assertContains($m, $types);
+        foreach ([
+            'missing_implementation_file',
+            'test_only_scope',
+            'vague_acceptance',
+            'contradictory_acceptance',
+            'no_evidence',
+            'weak_required_evidence',
+            'duplicate_target',
+            'weak_objective',
+            'template_farm_objective',
+        ] as $m) {
+            $this->assertContains($m, $types, "Expected mutation type '{$m}' in results");
         }
-        $this->assertCount(5, $result['mutation_results']);
+        $this->assertCount(9, $result['mutation_results']);
     }
 
     // ── AC1: missing_implementation_file ──────────────────────────────────────
@@ -165,6 +175,83 @@ final class AtlasExternalBrainTaskSpecMutationTesterTest extends TestCase
         $result = $this->tester->test($this->fullSpec(['target_exists_in_queue' => false]));
 
         $this->assertFalse($result['hardened']);
+    }
+
+    // ── repair_hint + fail_closed on every result ─────────────────────────────
+
+    public function test_every_mutation_result_has_repair_hint_and_fail_closed(): void
+    {
+        $result = $this->tester->test($this->fullSpec());
+
+        foreach ($result['mutation_results'] as $r) {
+            $type = $r['mutation_type'];
+            $this->assertArrayHasKey('repair_hint', $r, "{$type} missing repair_hint");
+            $this->assertArrayHasKey('fail_closed', $r, "{$type} missing fail_closed");
+            $this->assertIsString($r['repair_hint'], "{$type} repair_hint must be string");
+            $this->assertNotEmpty($r['repair_hint'], "{$type} repair_hint must not be empty");
+            $this->assertIsBool($r['fail_closed'], "{$type} fail_closed must be bool");
+        }
+    }
+
+    public function test_weak_required_evidence_is_not_fail_closed(): void
+    {
+        $r = $this->findMutation($this->tester->test($this->fullSpec()), 'weak_required_evidence');
+        $this->assertFalse($r['fail_closed'], 'weak_required_evidence is a warn-only mutation');
+    }
+
+    // ── test_only_scope ───────────────────────────────────────────────────────
+
+    public function test_only_scope_caught_when_all_files_are_tests(): void
+    {
+        $result = $this->tester->test($this->fullSpec([
+            'allowed_files' => ['tests/Feature/FooTest.php'],
+        ]));
+
+        $r = $this->findMutation($result, 'test_only_scope');
+        $this->assertTrue($r['caught']);
+    }
+
+    public function test_only_scope_is_always_caught(): void
+    {
+        $result = $this->tester->test($this->fullSpec([
+            'allowed_files' => ['app/Services/FooService.php', 'tests/FooTest.php'],
+        ]));
+
+        $r = $this->findMutation($result, 'test_only_scope');
+        $this->assertTrue($r['caught'], 'test_only_scope mutation always injects test-only scope, always caught');
+        $this->assertNull($r['weakness_signal']);
+    }
+
+    // ── contradictory_acceptance ──────────────────────────────────────────────
+
+    public function test_contradictory_acceptance_is_always_caught(): void
+    {
+        $result = $this->tester->test($this->fullSpec());
+
+        $r = $this->findMutation($result, 'contradictory_acceptance');
+        $this->assertTrue($r['caught']);
+        $this->assertNull($r['weakness_signal']);
+    }
+
+    // ── weak_required_evidence ────────────────────────────────────────────────
+
+    public function test_weak_required_evidence_is_always_caught(): void
+    {
+        $result = $this->tester->test($this->fullSpec());
+
+        $r = $this->findMutation($result, 'weak_required_evidence');
+        $this->assertTrue($r['caught']);
+    }
+
+    // ── template_farm_objective ───────────────────────────────────────────────
+
+    public function test_template_farm_objective_is_always_caught(): void
+    {
+        $result = $this->tester->test($this->fullSpec());
+
+        $r = $this->findMutation($result, 'template_farm_objective');
+        $this->assertTrue($r['caught']);
+        $this->assertNull($r['weakness_signal']);
     }
 
     // ── helper ────────────────────────────────────────────────────────────────

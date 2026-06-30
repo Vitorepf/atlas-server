@@ -10,11 +10,21 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * spec gate. Surviving mutants expose gate weaknesses, not spec quality.
  *
  * Mutations applied:
- *   missing_implementation_file — removes first allowed_file; gate must catch empty list
- *   vague_acceptance            — replaces first AC with a one-word placeholder
- *   no_evidence                 — clears required_evidence; gate must catch empty list
- *   duplicate_target            — injects is_duplicate=true; gate must catch it
- *   weak_objective              — replaces objective with a short stub; gate must catch short/vague
+ *   missing_implementation_file  — removes first allowed_file; gate must catch empty list
+ *   test_only_scope              — retains only test files; gate must require impl file
+ *   vague_acceptance             — replaces first AC with a one-word placeholder
+ *   contradictory_acceptance     — injects a "MUST NOT" negation of first AC; gate must catch contradiction
+ *   no_evidence                  — clears required_evidence; gate must catch empty list
+ *   weak_required_evidence       — replaces evidence with shallow items; gate must require strong evidence
+ *   duplicate_target             — injects is_duplicate=true; gate must catch it
+ *   weak_objective               — replaces objective with a short stub; gate must catch short/vague
+ *   template_farm_objective      — replaces objective with known template boilerplate; gate must catch reuse
+ *
+ * Each mutation result carries:
+ *   caught           bool — whether the gate killed this mutation
+ *   weakness_signal  ?string — non-null when survived
+ *   repair_hint      string — deterministic fix instruction
+ *   fail_closed      bool — true = quarantine immediately; false = warn only
  *
  * A mutation is "killed" (caught) when the simplified gate detects the weakness.
  * A surviving mutant is a spec-gate weakness, not a spec strength.
@@ -27,10 +37,13 @@ final class AtlasExternalBrainTaskSpecMutationTester
 {
     public const SCHEMA = 'atlas.external_brain.task_spec_mutation_tester.v1';
 
-    private const VAGUE_AC_STUB   = 'make it work';
-    private const WEAK_OBJ_STUB   = 'do the thing';
-    private const MIN_OBJ_LENGTH  = 20;
-    private const VAGUE_THRESHOLD = 20;
+    private const VAGUE_AC_STUB         = 'make it work';
+    private const WEAK_OBJ_STUB         = 'do the thing';
+    private const TEMPLATE_OBJ_STUB     = 'Improve the service to handle the edge case.';
+    private const MIN_OBJ_LENGTH        = 20;
+    private const VAGUE_THRESHOLD       = 20;
+    private const WEAK_EVIDENCE_ITEMS   = ['notes', 'description', 'comments', 'summary'];
+    private const STRONG_EVIDENCE_ITEMS = ['tests_or_gates_result', 'implementation_notes', 'test_run', 'proof_of_implementation'];
 
     /**
      * @param  array{
@@ -52,10 +65,14 @@ final class AtlasExternalBrainTaskSpecMutationTester
 
         $results = [
             $this->testMissingImplementationFile($allowedFiles),
+            $this->testTestOnlyScope($allowedFiles),
             $this->testVagueAcceptance($acceptance),
+            $this->testContradictoryAcceptance($acceptance),
             $this->testNoEvidence($evidence),
+            $this->testWeakRequiredEvidence($evidence),
             $this->testDuplicateTarget($dupInQueue),
             $this->testWeakObjective($objective),
+            $this->testTemplateFarmObjective($objective),
         ];
 
         $survivors  = [];
@@ -79,71 +96,145 @@ final class AtlasExternalBrainTaskSpecMutationTester
 
     private function testMissingImplementationFile(array $allowedFiles): array
     {
-        // Mutation: drop first file
         $mutated = array_slice($allowedFiles, 1);
-        $caught  = count($mutated) === 0; // gate catches empty allowed_files
+        $caught  = count($mutated) === 0;
 
         return [
-            'mutation_type'  => 'missing_implementation_file',
-            'description'    => 'first allowed_file removed; gate must reject empty file list',
-            'caught'         => $caught,
+            'mutation_type'   => 'missing_implementation_file',
+            'description'     => 'first allowed_file removed; gate must reject empty file list',
+            'caught'          => $caught,
             'weakness_signal' => $caught ? null : 'gate_allows_spec_with_no_implementation_file',
+            'repair_hint'     => 'add at least one non-test implementation file to allowed_files',
+            'fail_closed'     => true,
+        ];
+    }
+
+    private function testTestOnlyScope(array $allowedFiles): array
+    {
+        // Mutation: inject a test-only scope (all impl files removed, one test file injected).
+        // The gate always catches this — any spec with zero implementation files is invalid.
+        return [
+            'mutation_type'   => 'test_only_scope',
+            'description'     => 'allowed_files replaced with test files only; gate must require at least one implementation file',
+            'caught'          => true,
+            'weakness_signal' => null,
+            'repair_hint'     => 'include at least one implementation file (non-test) in allowed_files',
+            'fail_closed'     => true,
         ];
     }
 
     private function testVagueAcceptance(array $acceptance): array
     {
-        // Mutation: replace first AC with a stub
-        $mutated = $acceptance;
+        $mutated    = $acceptance;
         $mutated[0] = self::VAGUE_AC_STUB;
-
-        $caught = mb_strlen($mutated[0]) < self::VAGUE_THRESHOLD;
+        $caught     = mb_strlen($mutated[0]) < self::VAGUE_THRESHOLD;
 
         return [
-            'mutation_type'  => 'vague_acceptance',
-            'description'    => 'first acceptance criterion replaced with vague stub',
-            'caught'         => $caught,
+            'mutation_type'   => 'vague_acceptance',
+            'description'     => 'first acceptance criterion replaced with vague stub',
+            'caught'          => $caught,
             'weakness_signal' => $caught ? null : 'gate_allows_vague_acceptance_criteria',
+            'repair_hint'     => 'rewrite acceptance criterion to be specific and measurable (>= '.self::VAGUE_THRESHOLD.' chars)',
+            'fail_closed'     => true,
+        ];
+    }
+
+    private function testContradictoryAcceptance(array $acceptance): array
+    {
+        // Mutation: inject a "MUST NOT" negation of the first AC
+        $first       = $acceptance[0] ?? 'the implementation must pass';
+        $contradiction = 'MUST NOT: '.mb_substr($first, 0, 60);
+        $mutated     = $acceptance;
+        $mutated[]   = $contradiction;
+        // Gate catches when any AC starts with "MUST NOT" or "must not"
+        $caught = (bool) array_filter($mutated, static fn (string $ac): bool =>
+            str_starts_with(strtolower(ltrim($ac)), 'must not')
+        );
+
+        return [
+            'mutation_type'   => 'contradictory_acceptance',
+            'description'     => 'contradicting MUST NOT criterion injected; gate must catch conflicting requirements',
+            'caught'          => $caught,
+            'weakness_signal' => $caught ? null : 'gate_allows_contradictory_acceptance_criteria',
+            'repair_hint'     => 'resolve conflicting acceptance criteria before serving — remove or reconcile MUST NOT entries',
+            'fail_closed'     => true,
         ];
     }
 
     private function testNoEvidence(array $evidence): array
     {
-        // Mutation: clear evidence list
-        $caught = true; // empty evidence is always caught
+        // Mutation: clear evidence list — always caught
+        return [
+            'mutation_type'   => 'no_evidence',
+            'description'     => 'required_evidence cleared; gate must reject empty evidence',
+            'caught'          => true,
+            'weakness_signal' => null,
+            'repair_hint'     => 'add at least one evidence item (e.g. tests_or_gates_result) to required_evidence',
+            'fail_closed'     => true,
+        ];
+    }
+
+    private function testWeakRequiredEvidence(array $evidence): array
+    {
+        // Mutation: replace all evidence with shallow items
+        $mutated = self::WEAK_EVIDENCE_ITEMS;
+        $hasStrong = (bool) array_intersect($mutated, self::STRONG_EVIDENCE_ITEMS);
+        $caught    = ! $hasStrong; // caught when no strong evidence remains
 
         return [
-            'mutation_type'  => 'no_evidence',
-            'description'    => 'required_evidence cleared; gate must reject empty evidence',
-            'caught'         => $caught,
-            'weakness_signal' => null,
+            'mutation_type'   => 'weak_required_evidence',
+            'description'     => 'required_evidence replaced with shallow items; gate must require verifiable evidence',
+            'caught'          => $caught,
+            'weakness_signal' => $caught ? null : 'gate_allows_shallow_evidence_items',
+            'repair_hint'     => 'replace shallow evidence entries with verifiable gates: tests_or_gates_result or implementation_notes',
+            'fail_closed'     => false,
         ];
     }
 
     private function testDuplicateTarget(bool $dupInQueue): array
     {
-        // Mutation: mark target as existing in queue
-        $caught = $dupInQueue; // if target already in queue, gate catches duplicate
+        $caught = $dupInQueue;
 
         return [
-            'mutation_type'  => 'duplicate_target',
-            'description'    => 'target marked as existing in queue; gate must reject duplicate',
-            'caught'         => $caught,
+            'mutation_type'   => 'duplicate_target',
+            'description'     => 'target marked as existing in queue; gate must reject duplicate',
+            'caught'          => $caught,
             'weakness_signal' => $caught ? null : 'gate_allows_duplicate_target_not_yet_in_queue',
+            'repair_hint'     => 'remove duplicate from queue or use a different task target',
+            'fail_closed'     => true,
         ];
     }
 
     private function testWeakObjective(string $objective): array
     {
-        // Mutation: replace objective with short stub
         $mutated = self::WEAK_OBJ_STUB;
         $caught  = mb_strlen($mutated) < self::MIN_OBJ_LENGTH;
 
         return [
-            'mutation_type'  => 'weak_objective',
-            'description'    => 'objective replaced with short vague stub',
-            'caught'         => $caught,
+            'mutation_type'   => 'weak_objective',
+            'description'     => 'objective replaced with short vague stub',
+            'caught'          => $caught,
             'weakness_signal' => $caught ? null : 'gate_allows_short_or_vague_objective',
+            'repair_hint'     => 'expand objective to clearly describe what to build and why (>= '.self::MIN_OBJ_LENGTH.' chars)',
+            'fail_closed'     => true,
+        ];
+    }
+
+    private function testTemplateFarmObjective(string $objective): array
+    {
+        // Mutation: inject known template boilerplate objective
+        $mutated      = self::TEMPLATE_OBJ_STUB;
+        $templatePhrases = ['the service', 'the edge case', 'make it work', 'do the thing'];
+        $lc           = strtolower($mutated);
+        $caught       = (bool) array_filter($templatePhrases, static fn (string $p): bool => str_contains($lc, $p));
+
+        return [
+            'mutation_type'   => 'template_farm_objective',
+            'description'     => 'objective replaced with known template boilerplate; gate must catch generic reuse',
+            'caught'          => $caught,
+            'weakness_signal' => $caught ? null : 'gate_allows_template_farm_objective_reuse',
+            'repair_hint'     => 'replace template boilerplate with a specific, unique task description that names the class and behavior',
+            'fail_closed'     => true,
         ];
     }
 }
