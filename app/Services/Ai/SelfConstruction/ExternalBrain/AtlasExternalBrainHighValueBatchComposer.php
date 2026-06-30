@@ -93,6 +93,11 @@ final class AtlasExternalBrainHighValueBatchComposer
             $valid[] = $opp;
         }
 
+        // Phase 1.5: template-farm detection — reject same-shape overflow.
+        $templateFarmRejected = [];
+        [$valid, $templateFarmRejected] = $this->detectTemplateFarm($valid);
+        $rejected = array_merge($rejected, $templateFarmRejected);
+
         // Phase 2: separate thin microtasks; group by category.
         $thin     = [];
         $standard = [];
@@ -171,6 +176,10 @@ final class AtlasExternalBrainHighValueBatchComposer
                 'grouped_count'      => count($grouped),
                 'rejected_count'     => count($rejected),
             ],
+            'strategic_diversity'            => $this->computeStrategicDiversity($emitted),
+            'dependency_chain_summary'       => $this->computeDependencyChainSummary($emitted),
+            'batch_thesis'                   => $this->computeBatchThesis($emitted),
+            'rejected_template_farm_reasons' => $templateFarmRejected,
         ];
     }
 
@@ -253,6 +262,175 @@ final class AtlasExternalBrainHighValueBatchComposer
             'dependency_wave'    => $wave,
             'grouped_from'       => (array) ($opp['grouped_from'] ?? []),
         ];
+    }
+
+    /**
+     * Detect template-farm patterns in the valid list.
+     * A template farm is when > 50% of valid items share the same (category, top-dir-prefix).
+     * When detected (≥ 4 valid items), keep 1 representative per group and reject the rest.
+     *
+     * @param  list<array<string,mixed>>  $valid
+     * @return array{0: list<array<string,mixed>>, 1: list<array<string,string>>}
+     */
+    private function detectTemplateFarm(array $valid): array
+    {
+        $total = count($valid);
+        if ($total < 4) {
+            return [$valid, []];
+        }
+
+        // Group by (category, topDirPrefix)
+        $groups = [];
+        foreach ($valid as $idx => $opp) {
+            $cat    = (string) ($opp['category'] ?? 'uncategorised');
+            $prefix = $this->topDirPrefix($this->allowedFiles($opp)[0] ?? '');
+            $key    = $cat.'||'.$prefix;
+            $groups[$key][] = $idx;
+        }
+
+        // Find if any group captures > 50%
+        $farmKeys = [];
+        foreach ($groups as $key => $indices) {
+            if (count($indices) / $total > 0.50) {
+                $farmKeys[] = $key;
+            }
+        }
+
+        if ($farmKeys === []) {
+            return [$valid, []];
+        }
+
+        // Keep the first item per farm group, reject the rest
+        $keepIndices = [];
+        $rejectEntries = [];
+
+        foreach ($groups as $key => $indices) {
+            if (in_array($key, $farmKeys, true)) {
+                [$first, $rest] = [array_shift($indices), $indices];
+                $keepIndices[]  = $first;
+                foreach ($rest as $idx) {
+                    $opp = $valid[$idx];
+                    $rejectEntries[] = [
+                        'label'  => (string) ($opp['label'] ?? ''),
+                        'reason' => 'template_farm',
+                        'detail' => 'shape:'.$key,
+                    ];
+                }
+            } else {
+                foreach ($indices as $idx) {
+                    $keepIndices[] = $idx;
+                }
+            }
+        }
+
+        sort($keepIndices);
+        $kept = array_values(array_map(static fn (int $i): array => $valid[$i], $keepIndices));
+
+        return [$kept, $rejectEntries];
+    }
+
+    /**
+     * Compute a directory-depth-aware prefix key for template-farm detection.
+     * Shallow dirs (< 3 components) return the full path so each file is unique.
+     * Deep dirs (≥ 3 components) return the first-3-segment prefix for grouping.
+     */
+    private function topDirPrefix(string $path): string
+    {
+        $allParts = explode('/', $path);
+        $dirParts = array_slice($allParts, 0, -1);  // strip filename
+
+        if (count($dirParts) < 3) {
+            return $path;  // too shallow → each file is its own key, no false grouping
+        }
+
+        return implode('/', array_slice($dirParts, 0, 3));
+    }
+
+    /**
+     * Compute strategic diversity facts for the emitted batch.
+     *
+     * @param  list<array<string,mixed>>  $emitted
+     * @return array<string,mixed>
+     */
+    private function computeStrategicDiversity(array $emitted): array
+    {
+        $distribution = [];
+        foreach ($emitted as $packet) {
+            $cat = (string) ($packet['category'] ?? 'unknown');
+            $distribution[$cat] = ($distribution[$cat] ?? 0) + 1;
+        }
+
+        $distinctCategories = count($distribution);
+
+        return [
+            'distinct_categories'  => $distinctCategories,
+            'category_distribution' => $distribution,
+            'is_diverse'           => $distinctCategories >= 2 || count($emitted) < 3,
+        ];
+    }
+
+    /**
+     * Build a dependency chain summary grouped by wave.
+     *
+     * @param  list<array<string,mixed>>  $emitted
+     * @return array<string,mixed>
+     */
+    private function computeDependencyChainSummary(array $emitted): array
+    {
+        $byWave = [];
+        foreach ($emitted as $packet) {
+            $wave = (int) ($packet['dependency_wave'] ?? 2);
+            $cat  = (string) ($packet['category'] ?? 'unknown');
+            $byWave[$wave][] = $cat;
+        }
+
+        ksort($byWave);
+
+        $wavesPresent = array_keys($byWave);
+        $segments     = [];
+        foreach ($byWave as $wave => $cats) {
+            $unique    = array_unique($cats);
+            sort($unique);
+            $segments[] = 'wave '.$wave.' ('.implode(', ', $unique).')';
+        }
+
+        return [
+            'waves_present'      => $wavesPresent,
+            'chain_description'  => $segments !== [] ? implode(' → ', $segments) : 'empty batch',
+            'prerequisite_count' => count($byWave[1] ?? []),
+        ];
+    }
+
+    /**
+     * Generate a deterministic batch thesis from the emitted set.
+     *
+     * @param  list<array<string,mixed>>  $emitted
+     */
+    private function computeBatchThesis(array $emitted): string
+    {
+        $total = count($emitted);
+        if ($total === 0) {
+            return 'Empty batch — no tasks emitted.';
+        }
+
+        $byWave = [];
+        foreach ($emitted as $packet) {
+            $wave = (int) ($packet['dependency_wave'] ?? 2);
+            $cat  = (string) ($packet['category'] ?? 'unknown');
+            $byWave[$wave][$cat] = ($byWave[$wave][$cat] ?? 0) + 1;
+        }
+
+        ksort($byWave);
+        $parts = [];
+        foreach ($byWave as $wave => $cats) {
+            $catStr = [];
+            foreach ($cats as $cat => $count) {
+                $catStr[] = $count.'× '.$cat;
+            }
+            $parts[] = count($byWave[$wave]).' category'.((array_sum($byWave[$wave]) > 1) ? '-types' : '').' in wave '.$wave.' ('.implode(', ', $catStr).')';
+        }
+
+        return 'Batch of '.$total.' task'.($total > 1 ? 's' : '').': '.implode('; ', $parts).'.';
     }
 
     /** @return list<string> */

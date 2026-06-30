@@ -239,4 +239,117 @@ final class AtlasExternalBrainHighValueBatchComposerTest extends TestCase
         $this->assertCount(0, $result['rejected']);
         $this->assertSame(0, $result['stats']['opportunities_in']);
     }
+
+    // --- New fields: strategic_diversity, dependency_chain_summary, batch_thesis, rejected_template_farm_reasons ---
+
+    public function test_output_has_new_canonical_keys(): void
+    {
+        $result = $this->composer()->compose([$this->valid('key-test')]);
+
+        foreach (['strategic_diversity', 'dependency_chain_summary', 'batch_thesis', 'rejected_template_farm_reasons'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_strategic_diversity_has_canonical_subkeys(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('a', ['category' => 'architecture_unlock']),
+            $this->valid('b', ['category' => 'bug_fix', 'allowed_files' => ['app/B.php', 'tests/BTest.php']]),
+        ]);
+
+        $div = $result['strategic_diversity'];
+        $this->assertArrayHasKey('distinct_categories',   $div);
+        $this->assertArrayHasKey('category_distribution', $div);
+        $this->assertArrayHasKey('is_diverse',             $div);
+        $this->assertSame(2, $div['distinct_categories']);
+        $this->assertTrue($div['is_diverse']);
+    }
+
+    public function test_single_category_batch_is_not_diverse(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('t1', ['category' => 'bug_fix', 'allowed_files' => ['app/A.php', 'tests/ATest.php']]),
+            $this->valid('t2', ['category' => 'bug_fix', 'allowed_files' => ['app/B.php', 'tests/BTest.php']]),
+            $this->valid('t3', ['category' => 'bug_fix', 'allowed_files' => ['app/C.php', 'tests/CTest.php']]),
+        ]);
+
+        $this->assertFalse($result['strategic_diversity']['is_diverse']);
+        $this->assertSame(1, $result['strategic_diversity']['distinct_categories']);
+    }
+
+    public function test_dependency_chain_summary_has_canonical_subkeys(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('arch', ['category' => 'architecture_unlock']),
+            $this->valid('bug',  ['category' => 'bug_fix', 'allowed_files' => ['app/Bug.php', 'tests/BugTest.php']]),
+        ]);
+
+        $chain = $result['dependency_chain_summary'];
+        $this->assertArrayHasKey('waves_present',     $chain);
+        $this->assertArrayHasKey('chain_description', $chain);
+        $this->assertArrayHasKey('prerequisite_count', $chain);
+        $this->assertIsArray($chain['waves_present']);
+        $this->assertIsString($chain['chain_description']);
+        $this->assertStringContainsString('wave 1', $chain['chain_description']);
+        $this->assertStringContainsString('wave 2', $chain['chain_description']);
+    }
+
+    public function test_batch_thesis_is_non_empty_deterministic_string(): void
+    {
+        $result = $this->composer()->compose([
+            $this->valid('arch', ['category' => 'architecture_unlock']),
+        ]);
+
+        $this->assertIsString($result['batch_thesis']);
+        $this->assertNotEmpty($result['batch_thesis']);
+        $this->assertStringContainsString('wave 1', $result['batch_thesis']);
+    }
+
+    public function test_empty_batch_thesis_says_empty(): void
+    {
+        $result = $this->composer()->compose([]);
+
+        $this->assertStringContainsString('Empty', $result['batch_thesis']);
+    }
+
+    public function test_template_farm_fixture_rejected_with_explicit_reasons(): void
+    {
+        // 5 tasks in the same deep directory (≥ 3 components) and same category → template farm
+        $opps = array_map(
+            fn (int $i): array => $this->valid("deep-task-{$i}", [
+                'category'     => 'architecture_unlock',
+                'allowed_files' => [
+                    "app/Services/Ai/SelfConstruction/Organ{$i}.php",
+                    "tests/Unit/Ai/SelfConstruction/Organ{$i}Test.php",
+                ],
+            ]),
+            range(1, 5),
+        );
+
+        $result = $this->composer()->compose($opps);
+
+        // Template farm detected: overflow should be in rejected_template_farm_reasons
+        $this->assertNotEmpty($result['rejected_template_farm_reasons']);
+        $farmReasons = array_column($result['rejected_template_farm_reasons'], 'reason');
+        $this->assertContains('template_farm', $farmReasons);
+
+        // Should emit fewer than all 5
+        $this->assertLessThan(5, count($result['emitted']));
+    }
+
+    public function test_no_template_farm_on_diverse_dirs_leaves_rejected_template_farm_empty(): void
+    {
+        $opps = [
+            $this->valid('a', ['category' => 'bug_fix', 'allowed_files' => ['app/Core/Auth/A.php', 'tests/Core/Auth/ATest.php']]),
+            $this->valid('b', ['category' => 'bug_fix', 'allowed_files' => ['app/Queue/Jobs/B.php', 'tests/Queue/Jobs/BTest.php']]),
+            $this->valid('c', ['category' => 'bug_fix', 'allowed_files' => ['app/Runtime/Events/C.php', 'tests/Runtime/Events/CTest.php']]),
+            $this->valid('d', ['category' => 'bug_fix', 'allowed_files' => ['app/Domain/Finance/D.php', 'tests/Domain/Finance/DTest.php']]),
+        ];
+
+        $result = $this->composer()->compose($opps);
+
+        $this->assertSame([], $result['rejected_template_farm_reasons']);
+        $this->assertCount(4, $result['emitted']);
+    }
 }
