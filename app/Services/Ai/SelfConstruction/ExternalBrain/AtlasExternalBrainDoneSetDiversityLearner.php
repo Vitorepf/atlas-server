@@ -9,10 +9,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * concentrated families, and recommend underrepresented high-leverage families for
  * the next wave.
  *
- * diversity_score = 1 - max_family_concentration_ratio  (0=single family, 1=uniform)
- * concentrated_families = families appearing in > 50% of the done_set
+ * diversity_score         = 1 - max_family_concentration_ratio (task_family naming)
+ * capability_impact_score = 1 - max_capability_family_concentration (structural impact)
+ * concentrated_families   = families appearing in > 50% of the done_set
  * high_negative_signal_families = families where refused|give_back > 50% of their runs
  * missing_family_recommendations = KNOWN_FAMILIES unseen or under 10%, excluding negative-signal families
+ *
+ * recommendation:
+ *   shift_pattern       — naming concentrated AND capability_impact concentrated (no diversity in impact)
+ *   continue_or_compound — naming concentrated but capability_impact is diverse (repeated naming ≠ repeated impact)
+ *                          OR both dimensions are diverse
  */
 final class AtlasExternalBrainDoneSetDiversityLearner
 {
@@ -52,6 +58,8 @@ final class AtlasExternalBrainDoneSetDiversityLearner
             return [
                 'schema_version'                 => self::SCHEMA,
                 'diversity_score'                => 1.0,
+                'capability_impact_score'        => 1.0,
+                'recommendation'                 => 'continue_or_compound',
                 'concentrated_families'          => [],
                 'high_negative_signal_families'  => [],
                 'missing_family_recommendations' => self::KNOWN_FAMILIES,
@@ -63,11 +71,12 @@ final class AtlasExternalBrainDoneSetDiversityLearner
             ];
         }
 
-        $familyCounts     = [];
-        $negativeCounts   = [];
-        $templateCounts   = [];
-        $capFamiliesSeen  = [];
-        $shapeCounts      = [];
+        $familyCounts        = [];
+        $negativeCounts      = [];
+        $templateCounts      = [];
+        $capFamiliesSeen     = [];
+        $capFamilyCounts     = [];   // capability_family impact concentration
+        $shapeCounts         = [];
 
         foreach ($doneSet as $task) {
             $family  = (string) ($task['task_family']       ?? 'unknown');
@@ -84,7 +93,8 @@ final class AtlasExternalBrainDoneSetDiversityLearner
                 $templateCounts[$sig] = ($templateCounts[$sig] ?? 0) + 1;
             }
             if ($capFam !== '') {
-                $capFamiliesSeen[$capFam] = true;
+                $capFamiliesSeen[$capFam]    = true;
+                $capFamilyCounts[$capFam] = ($capFamilyCounts[$capFam] ?? 0) + 1;
             }
             if ($shape !== '') {
                 $shapeCounts[$shape] = ($shapeCounts[$shape] ?? 0) + 1;
@@ -155,9 +165,26 @@ final class AtlasExternalBrainDoneSetDiversityLearner
             });
         }
 
+        // AC3: capability impact diversity (independent of task_family naming).
+        $capImpactScore = 1.0;
+        if ($capFamilyCounts !== []) {
+            $maxCapConcentration = max(array_map(static fn (int $c): float => $c / $total, $capFamilyCounts));
+            $capImpactScore      = round(1.0 - $maxCapConcentration, 3);
+        }
+
+        // recommendation: shift_pattern when both naming AND impact are concentrated;
+        // continue_or_compound when impact is diverse even if naming repeats (AC2 + AC3).
+        $namingConcentrated  = $diversityScore < self::CONCENTRATION_THRESHOLD;
+        $impactConcentrated  = $capFamilyCounts !== [] && $capImpactScore < self::CONCENTRATION_THRESHOLD;
+        $recommendation = ($namingConcentrated && ($impactConcentrated || $capFamilyCounts === []))
+            ? 'shift_pattern'
+            : 'continue_or_compound';
+
         return [
             'schema_version'                 => self::SCHEMA,
             'diversity_score'                => $diversityScore,
+            'capability_impact_score'        => $capImpactScore,
+            'recommendation'                 => $recommendation,
             'concentrated_families'          => $concentrated,
             'high_negative_signal_families'  => $highNegative,
             'missing_family_recommendations' => $missing,
