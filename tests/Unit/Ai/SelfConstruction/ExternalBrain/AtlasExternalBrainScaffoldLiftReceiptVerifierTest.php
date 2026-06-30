@@ -160,6 +160,93 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifierTest extends TestCase
         $this->assertEmpty($r['rejected_claims']);
     }
 
+    // ── AC2/AC3: evidence_type gate — accepted/confidence/missing_evidence ─────
+
+    public function test_accepted_true_when_verified_and_evidence_type_is_before_after_benchmark(): void
+    {
+        $r = $this->verifier()->verify([
+            'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+            'required_dimensions' => ['accuracy'],
+            'evidence_type'       => 'before_after_benchmark',
+        ]);
+
+        $this->assertTrue($r['accepted']);
+        $this->assertSame([], $r['missing_evidence']);
+        $this->assertContains($r['confidence'], ['medium', 'high']);
+    }
+
+    public function test_accepted_true_for_heldout_case_delta_and_repeated_outcome_improvement(): void
+    {
+        foreach (['heldout_case_delta', 'repeated_outcome_improvement'] as $type) {
+            $r = $this->verifier()->verify([
+                'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+                'required_dimensions' => ['accuracy'],
+                'evidence_type'       => $type,
+            ]);
+            $this->assertTrue($r['accepted'], "expected accepted=true for evidence_type={$type}");
+        }
+    }
+
+    public function test_self_declared_evidence_type_is_rejected_even_when_benchmark_verified(): void
+    {
+        $r = $this->verifier()->verify([
+            'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+            'required_dimensions' => ['accuracy'],
+            'evidence_type'       => 'self_declared',
+        ]);
+
+        $this->assertTrue($r['verified']);
+        $this->assertFalse($r['accepted']);
+        $this->assertSame('none', $r['confidence']);
+        $this->assertNotEmpty($r['missing_evidence']);
+    }
+
+    public function test_anecdotal_and_single_unverified_result_are_rejected(): void
+    {
+        foreach (['anecdotal', 'single_unverified_result'] as $type) {
+            $r = $this->verifier()->verify([
+                'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+                'required_dimensions' => ['accuracy'],
+                'evidence_type'       => $type,
+            ]);
+            $this->assertFalse($r['accepted'], "expected accepted=false for evidence_type={$type}");
+        }
+    }
+
+    public function test_unrecognized_evidence_type_is_rejected(): void
+    {
+        $r = $this->verifier()->verify([
+            'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+            'required_dimensions' => ['accuracy'],
+            'evidence_type'       => 'a_prompt_said_it_felt_smarter',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+    }
+
+    public function test_missing_evidence_lists_rejected_claim_details_when_not_verified(): void
+    {
+        $r = $this->verifier()->verify([
+            'pairs'               => $this->goodPairs(2),
+            'required_dimensions' => ['accuracy'],
+            'min_sample_size'     => 5,
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertNotEmpty($r['missing_evidence']);
+    }
+
+    public function test_evidence_type_defaults_to_before_after_benchmark_when_omitted(): void
+    {
+        $r = $this->verifier()->verify([
+            'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+            'required_dimensions' => ['accuracy'],
+        ]);
+
+        $this->assertSame('before_after_benchmark', $r['evidence_type']);
+        $this->assertTrue($r['accepted']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void

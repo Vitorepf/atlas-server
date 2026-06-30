@@ -33,9 +33,17 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   commit_success_prediction, implementability, dedup_honesty,
  *   structural_leverage, compounding_impact
  *
+ * evidence_type (optional, default 'before_after_benchmark') — the source of the lift claim.
+ *   ACCEPTED: before_after_benchmark, heldout_case_delta, repeated_outcome_improvement
+ *   REJECTED: self_declared, anecdotal, single_unverified_result, or any unrecognized value —
+ *             a prompt asserting "this improved reasoning" is never sufficient by itself.
+ *
  * OUTPUT:
  *   schema_version, verified, lift_by_dimension, rejected_claims, sample_size,
- *   promotion_readiness, next_measurement_recommendation
+ *   promotion_readiness, next_measurement_recommendation,
+ *   accepted, confidence, missing_evidence, evidence_type
+ *
+ * accepted = verified (benchmark proof) AND evidence_type is one of the ACCEPTED types.
  *
  * PURE / DETERMINISTIC / NO I/O.
  */
@@ -55,6 +63,20 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
     ];
 
     private const PROXY_DIMENSIONS = ['gate_pass_rate'];
+
+    public const ACCEPTED_EVIDENCE_TYPES = [
+        'before_after_benchmark',
+        'heldout_case_delta',
+        'repeated_outcome_improvement',
+    ];
+
+    public const REJECTED_EVIDENCE_TYPES = [
+        'self_declared',
+        'anecdotal',
+        'single_unverified_result',
+    ];
+
+    private const DEFAULT_EVIDENCE_TYPE = 'before_after_benchmark';
 
     /**
      * @param  array<string,mixed>  $facts
@@ -179,6 +201,32 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
         $verified           = empty($rejectedClaims) && $sampleSize > 0;
         $promotionReadiness = $verified;
 
+        // Evidence-type gate: lift is never accepted on a self-declared/anecdotal/single-result
+        // claim, regardless of how the benchmark pairs scored.
+        $evidenceType = (string) ($facts['evidence_type'] ?? self::DEFAULT_EVIDENCE_TYPE);
+        $evidenceTypeAccepted = in_array($evidenceType, self::ACCEPTED_EVIDENCE_TYPES, true);
+
+        $missingEvidence = [];
+        if (! $evidenceTypeAccepted) {
+            $missingEvidence[] = sprintf(
+                "evidence_type '%s' is not an accepted lift evidence source; requires one of: %s",
+                $evidenceType,
+                implode(', ', self::ACCEPTED_EVIDENCE_TYPES),
+            );
+        }
+        foreach ($rejectedClaims as $claim) {
+            $missingEvidence[] = $claim['details'];
+        }
+
+        $accepted = $verified && $evidenceTypeAccepted;
+
+        $confidence = 'low';
+        if ($accepted) {
+            $confidence = $sampleSize >= ($minSample * 2) ? 'high' : 'medium';
+        } elseif (! $evidenceTypeAccepted) {
+            $confidence = 'none';
+        }
+
         return [
             'schema_version'                  => self::SCHEMA,
             'verified'                        => $verified,
@@ -187,6 +235,10 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
             'rejected_claims'                 => $rejectedClaims,
             'sample_size'                     => $sampleSize,
             'next_measurement_recommendation' => $this->recommendation($verified, $sampleSize, $minSample, $rejectedClaims),
+            'accepted'                        => $accepted,
+            'confidence'                      => $confidence,
+            'missing_evidence'                => $missingEvidence,
+            'evidence_type'                   => $evidenceType,
         ];
     }
 
