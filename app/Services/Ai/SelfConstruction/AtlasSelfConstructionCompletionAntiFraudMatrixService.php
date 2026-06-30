@@ -23,6 +23,21 @@ final class AtlasSelfConstructionCompletionAntiFraudMatrixService
 
     public const MODE = 'read_only_completion_anti_fraud_matrix';
 
+    // check id => [category, action_hint]
+    private const REASON_MAP = [
+        'fake_human_signature' => ['hard_fraud', 'have a real human operator sign the completion claim, not an agent/system identity'],
+        'fake_provider_smoke' => ['hard_fraud', 'run the real provider call and capture provider_response_hash + operator-observed confirmation'],
+        'runtime_autopromotion' => ['forbidden_autopromotion', 'remove automatic runtime promotion; require an explicit gated promotion step'],
+        'completion_autopromotion' => ['forbidden_autopromotion', 'remove automatic completion promotion; require an explicit gated promotion step'],
+        'token_spend_without_evidence' => ['missing_evidence', 'attach a valid cost_event_hash for the observed token spend'],
+        'dispatch_without_signed_policy' => ['missing_evidence', 'attach a valid signed_dispatch_policy_hash before allowing dispatch'],
+        'process_started_by_atlas_when_forbidden' => ['hard_fraud', 'do not let Atlas start the process itself; require external/human-initiated execution'],
+        'mutated_hashes' => ['hard_fraud', 'investigate hash mutation; resubmit evidence with untampered hashes'],
+        'missing_before_snapshot' => ['missing_evidence', 'attach a before_snapshot_id captured prior to the change'],
+        'missing_operator_reason' => ['missing_evidence', 'attach an operator_reason (or approval_reason) explaining the completion'],
+        'replay_mismatch' => ['replay_mismatch', 'reconcile the replayed evidence with the original claim before resubmitting'],
+    ];
+
     /** @return array<string, mixed> */
     public function evaluate(array $evidence): array
     {
@@ -47,6 +62,17 @@ final class AtlasSelfConstructionCompletionAntiFraudMatrixService
         }
 
         $status = $failures === [] ? 'passed' : 'blocked';
+
+        $claimRejectionReasonMap = [];
+        foreach ($failures as $failure) {
+            $code = $failure['code'];
+            [$category, $actionHint] = self::REASON_MAP[$code] ?? ['unclassified', 'review this check manually before claiming completion'];
+            $claimRejectionReasonMap[$code] = [
+                'category' => $category,
+                'action_hint' => $actionHint,
+            ];
+        }
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -56,6 +82,7 @@ final class AtlasSelfConstructionCompletionAntiFraudMatrixService
             'check_count' => count($checks),
             'failure_count' => count($failures),
             'failures' => $failures,
+            'claim_rejection_reason_map' => $claimRejectionReasonMap,
             'completion_claim_allowed' => $status === 'passed' && (bool) data_get($evidence, 'final_completion_allowed', false),
             'execution_allowed' => false,
             'dispatch_allowed' => false,
