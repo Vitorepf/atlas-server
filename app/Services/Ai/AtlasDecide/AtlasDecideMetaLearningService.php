@@ -483,6 +483,7 @@ class AtlasDecideMetaLearningService
 
             $signal = $this->liveFeedback->degradationSignal($task, $role, $framework, $provider, $model);
             $sig = (string) ($signal['signal'] ?? '');
+            $degradationReasons = $this->degradationReasons($signal);
             $inspected[] = [
                 'task_category' => $task,
                 'role' => $role,
@@ -495,7 +496,19 @@ class AtlasDecideMetaLearningService
                 'envelope_schema' => $signalSchema,
             ];
 
-            if (in_array($sig, [
+            if ($sig === AtlasDecideLiveOutcomeFeedbackService::SIGNAL_INSUFFICIENT_EVIDENCE) {
+                // Honest: not enough live samples to judge the route — never deactivate on sparse data.
+                $kept[] = [
+                    'task_category' => $task,
+                    'role' => $role,
+                    'framework' => $framework,
+                    'provider' => $provider,
+                    'model' => $model,
+                    'signal' => $sig,
+                    'insufficient_live_outcome_samples' => true,
+                    'degradation_reasons' => $degradationReasons,
+                ];
+            } elseif (in_array($sig, [
                 AtlasDecideLiveOutcomeFeedbackService::SIGNAL_DEGRADING,
                 AtlasDecideLiveOutcomeFeedbackService::SIGNAL_BROKEN,
             ], true)) {
@@ -516,6 +529,7 @@ class AtlasDecideMetaLearningService
                         'signal' => $sig,
                         'success_rate' => $signal['success_rate'] ?? null,
                         'activation_receipt_at' => $receipt['at'] ?? null,
+                        'degradation_reasons' => $degradationReasons,
                     ];
                 } catch (\Throwable $e) {
                     // Honest: deactivation may fail (e.g., already deactivated).
@@ -528,6 +542,7 @@ class AtlasDecideMetaLearningService
                         'model' => $model,
                         'signal' => $sig,
                         'note' => 'deactivation_failed:'.substr($e->getMessage(), 0, 120),
+                        'degradation_reasons' => $degradationReasons,
                     ];
                 }
             } else {
@@ -564,6 +579,41 @@ class AtlasDecideMetaLearningService
     }
 
     // ---------- internals ----------
+
+    /**
+     * Build the auditable per-route reason map a live-feedback signal envelope decodes to: WHY the
+     * route is degrading/broken/sparse, not just a bare signal string. stale_data is true when the
+     * sample observed is below the full feedback window, so the rate is still building confidence.
+     *
+     * @param  array<string,mixed>  $signal  degradationSignal() envelope
+     * @return array<string,mixed>
+     */
+    private function degradationReasons(array $signal): array
+    {
+        $sig = (string) ($signal['signal'] ?? '');
+        $sampleSize = (int) ($signal['sample_size'] ?? 0);
+        $successRate = $signal['success_rate'] ?? null;
+        $thresholds = is_array($signal['thresholds'] ?? null) ? $signal['thresholds'] : [];
+        $minSuccessRate = $sig === AtlasDecideLiveOutcomeFeedbackService::SIGNAL_BROKEN
+            ? ($thresholds['broken_threshold'] ?? null)
+            : ($thresholds['degradation_threshold'] ?? null);
+        $windowSize = (int) ($thresholds['window_size'] ?? 0);
+
+        $recommendedAction = match ($sig) {
+            AtlasDecideLiveOutcomeFeedbackService::SIGNAL_BROKEN,
+            AtlasDecideLiveOutcomeFeedbackService::SIGNAL_DEGRADING => self::ACTION_DEACTIVATE,
+            AtlasDecideLiveOutcomeFeedbackService::SIGNAL_INSUFFICIENT_EVIDENCE => self::MODE_SHADOW,
+            default => 'keep_active',
+        };
+
+        return [
+            'success_rate' => $successRate,
+            'minimum_success_rate' => $minSuccessRate,
+            'sample_count' => $sampleSize,
+            'stale_data' => $windowSize > 0 && $sampleSize < $windowSize,
+            'recommended_action' => $recommendedAction,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $signal

@@ -413,6 +413,93 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertGreaterThan(80, $rec['estimated_savings_pct']);
     }
 
+    // ── degradation_reasons (precise auditable map per active route) ─────────
+
+    private function activateBugfixRepairAgentRoute(): AtlasDecideMetaLearningService
+    {
+        config(['atlas.patamar4.adml_cost_outcome' => [
+            'enabled' => true,
+            'min_evidence' => 3,
+            'min_certification_rate' => 0.8,
+            'min_score' => 80.0,
+            'max_score_drop' => 3.0,
+            'require_measured_cost' => true,
+            'min_cost_samples' => 1,
+        ]]);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->appendLedgerEntry(
+                'bugfix', 'L2', 'repair_agent', 'codex', 'gpt-5.5', 91.0,
+                'degrad-codex-'.$i, framework: 'python', costEstimate: 0.04, recordedAt: date(DATE_ATOM),
+            );
+            $this->appendLedgerEntry(
+                'bugfix', 'L2', 'repair_agent', 'minimax', 'MiniMax-M3', 89.2,
+                'degrad-m3-'.$i, framework: 'python', costEstimate: 0.004, recordedAt: date(DATE_ATOM),
+            );
+        }
+
+        $svc = $this->buildService();
+        $svc->applyAction([
+            'action' => AtlasDecideMetaLearningService::ACTION_ACTIVATE,
+            'task_category' => 'bugfix',
+            'role' => 'repair_agent',
+            'framework' => 'python',
+            'actor' => 'operator-test',
+        ]);
+
+        return $svc;
+    }
+
+    public function test_degrading_active_route_deactivates_with_full_degradation_reasons(): void
+    {
+        $svc = $this->activateBugfixRepairAgentRoute();
+
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpRoot.'/live_outcomes.jsonl');
+        // 1 success + 4 failures = 0.2 success rate → below BROKEN_THRESHOLD (0.4).
+        $feedback->record(['task_category' => 'bugfix', 'role' => 'repair_agent', 'framework' => 'python', 'provider' => 'minimax_m27_cli', 'model' => 'MiniMax-M3', 'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS]);
+        for ($i = 0; $i < 4; $i++) {
+            $feedback->record(['task_category' => 'bugfix', 'role' => 'repair_agent', 'framework' => 'python', 'provider' => 'minimax_m27_cli', 'model' => 'MiniMax-M3', 'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE]);
+        }
+
+        $svc->setLiveOutcomeFeedback($feedback);
+        $sweep = $svc->autoDeactivateOnDegradation('test-actor');
+
+        $this->assertSame(1, $sweep['deactivated_count']);
+        $row = $sweep['deactivated'][0];
+        $this->assertArrayHasKey('degradation_reasons', $row);
+        $reasons = $row['degradation_reasons'];
+        $this->assertSame(0.2, $reasons['success_rate']);
+        $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::BROKEN_THRESHOLD, $reasons['minimum_success_rate']);
+        $this->assertSame(5, $reasons['sample_count']);
+        $this->assertArrayHasKey('stale_data', $reasons);
+        $this->assertSame(AtlasDecideMetaLearningService::ACTION_DEACTIVATE, $reasons['recommended_action']);
+    }
+
+    public function test_insufficient_live_samples_kept_not_deactivated(): void
+    {
+        $svc = $this->activateBugfixRepairAgentRoute();
+
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($this->tmpRoot.'/live_outcomes.jsonl');
+        // Only 2 outcomes recorded — below MIN_CALLS_FOR_SIGNAL (5) — must stay shadow/unchanged.
+        $feedback->record(['task_category' => 'bugfix', 'role' => 'repair_agent', 'framework' => 'python', 'provider' => 'minimax_m27_cli', 'model' => 'MiniMax-M3', 'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE]);
+        $feedback->record(['task_category' => 'bugfix', 'role' => 'repair_agent', 'framework' => 'python', 'provider' => 'minimax_m27_cli', 'model' => 'MiniMax-M3', 'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE]);
+
+        $svc->setLiveOutcomeFeedback($feedback);
+        $sweep = $svc->autoDeactivateOnDegradation('test-actor');
+
+        $this->assertSame(0, $sweep['deactivated_count']);
+        $this->assertSame(1, $sweep['kept_count']);
+        $kept = $sweep['kept'][0];
+        $this->assertTrue($kept['insufficient_live_outcome_samples']);
+        $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::SIGNAL_INSUFFICIENT_EVIDENCE, $kept['signal']);
+
+        // Route must still be active (unchanged) — not deactivated prematurely.
+        $route = $svc->activeRouteFor('bugfix', 'repair_agent', 'python');
+        $this->assertNotNull($route);
+    }
+
     private function appendLedgerEntry(
         string $taskCategory,
         string $difficultyLevel,
