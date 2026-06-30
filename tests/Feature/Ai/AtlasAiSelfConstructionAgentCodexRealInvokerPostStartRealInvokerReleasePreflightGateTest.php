@@ -422,4 +422,96 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartRealInvokerReleasePre
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── recheckRelease() ─────────────────────────────────────────────────────
+
+    private function freshProofs(string $now): array
+    {
+        $proofs = [];
+        foreach (AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::RECHECKED_PROOF_TYPES as $type) {
+            $proofs[$type] = ['generated_at' => $now, 'ttl_minutes' => 10];
+        }
+
+        return $proofs;
+    }
+
+    public function test_all_fresh_proofs_no_blockers_is_release_ready(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class);
+        $now = '2026-06-30T12:00:00Z';
+
+        $result = $gate->recheckRelease([
+            'proofs' => $this->freshProofs($now),
+            'current_blockers' => [],
+            'now' => $now,
+        ]);
+
+        $this->assertTrue($result['release_ready']);
+        $this->assertSame([], $result['stale_proofs']);
+        $this->assertNull($result['current_blocker']);
+    }
+
+    public function test_stale_proof_blocks_release(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class);
+        $proofs = $this->freshProofs('2026-06-30T11:00:00Z');
+        $proofs['launch_proof'] = ['generated_at' => '2026-06-30T11:00:00Z', 'ttl_minutes' => 10];
+
+        $result = $gate->recheckRelease([
+            'proofs' => $proofs,
+            'current_blockers' => [],
+            'now' => '2026-06-30T12:00:00Z',
+        ]);
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('launch_proof', $result['stale_proofs']);
+    }
+
+    public function test_missing_proof_counts_as_stale(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class);
+        $proofs = $this->freshProofs('2026-06-30T12:00:00Z');
+        unset($proofs['rollback_proof']);
+
+        $result = $gate->recheckRelease([
+            'proofs' => $proofs,
+            'now' => '2026-06-30T12:00:00Z',
+        ]);
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('rollback_proof', $result['stale_proofs']);
+    }
+
+    public function test_current_blocker_blocks_release_even_with_fresh_proofs(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class);
+        $now = '2026-06-30T12:00:00Z';
+
+        $result = $gate->recheckRelease([
+            'proofs' => $this->freshProofs($now),
+            'current_blockers' => ['queue_health_degraded'],
+            'now' => $now,
+        ]);
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertSame('queue_health_degraded', $result['current_blocker']);
+        $this->assertSame([], $result['stale_proofs']);
+    }
+
+    public function test_does_not_trust_earlier_dry_run_proof_past_its_ttl(): void
+    {
+        // Dry-run proof generated long ago must not be trusted just because it
+        // once existed — the gate must recheck CURRENT freshness, not history.
+        $gate = app(AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate::class);
+        $proofs = $this->freshProofs('2026-06-30T12:00:00Z');
+        $proofs['queue_health'] = ['generated_at' => '2026-06-29T12:00:00Z', 'ttl_minutes' => 10];
+
+        $result = $gate->recheckRelease([
+            'proofs' => $proofs,
+            'now' => '2026-06-30T12:00:00Z',
+        ]);
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('queue_health', $result['stale_proofs']);
+    }
 }

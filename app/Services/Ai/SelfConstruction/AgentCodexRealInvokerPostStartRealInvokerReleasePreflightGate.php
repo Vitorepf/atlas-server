@@ -172,6 +172,54 @@ class AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate
         });
     }
 
+    public const RECHECKED_PROOF_TYPES = ['queue_health', 'lease', 'scope', 'launch_proof', 'rollback_proof'];
+
+    /**
+     * Pure, read-only recheck: release readiness must be based on CURRENT proof,
+     * never on trusting an earlier dry-run or canary snapshot. Each proof has a
+     * freshness window (ttl_minutes); any proof older than its window — or any
+     * currently-reported blocker — blocks release. Never mutates run state.
+     *
+     * @param  array{
+     *   proofs?: array<string, array{generated_at?: string, ttl_minutes?: int}>,
+     *   current_blockers?: list<string>,
+     *   now?: string,
+     * }  $input
+     * @return array{release_ready:bool, stale_proofs:list<string>, current_blocker:?string}
+     */
+    public function recheckRelease(array $input): array
+    {
+        $proofs = is_array($input['proofs'] ?? null) ? $input['proofs'] : [];
+        $currentBlockers = (array) ($input['current_blockers'] ?? []);
+        $now = isset($input['now']) ? strtotime((string) $input['now']) : time();
+
+        $staleProofs = [];
+        foreach (self::RECHECKED_PROOF_TYPES as $proofType) {
+            $proof = is_array($proofs[$proofType] ?? null) ? $proofs[$proofType] : null;
+
+            if ($proof === null) {
+                $staleProofs[] = $proofType;
+
+                continue;
+            }
+
+            $generatedAt = isset($proof['generated_at']) ? strtotime((string) $proof['generated_at']) : false;
+            $ttlMinutes = max(0, (int) ($proof['ttl_minutes'] ?? 0));
+
+            if ($generatedAt === false || $now - $generatedAt > $ttlMinutes * 60) {
+                $staleProofs[] = $proofType;
+            }
+        }
+
+        $currentBlocker = $currentBlockers !== [] ? (string) $currentBlockers[0] : null;
+
+        return [
+            'release_ready'    => $staleProofs === [] && $currentBlocker === null,
+            'stale_proofs'     => $staleProofs,
+            'current_blocker'  => $currentBlocker,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
