@@ -154,4 +154,33 @@ class AtlasSelfConstructionFinalOrganMapTest extends TestCase
         self::assertSame($total, $view['total_organs']);
         self::assertSame([], $view['missing_organs']);
     }
+
+    public function test_ranked_gaps_missing_organs_outrank_untested_and_unwired(): void
+    {
+        $map = new AtlasSelfConstructionFinalOrganMap;
+
+        // cortex: implemented+tested, NOT wired → rank 3 (unwired)
+        // maestro: implemented, NOT tested → rank 2 (untested)
+        // all others: not implemented → rank 1 (missing)
+        $gaps = $map->rankedGaps([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX],
+            'wired'       => [],
+        ]);
+
+        self::assertNotEmpty($gaps);
+        self::assertSame('missing', $gaps[0]['gap_type'], 'first gap must be missing (rank 1)');
+
+        $types = array_column($gaps, 'gap_type');
+        self::assertContains('missing', $types);
+        self::assertContains('untested', $types);
+        self::assertContains('unwired', $types);
+
+        // ranks must be non-decreasing
+        $ranks = array_column($gaps, 'rank');
+        self::assertSame($ranks, array_values($ranks));
+        for ($i = 1; $i < count($ranks); $i++) {
+            self::assertGreaterThanOrEqual($ranks[$i - 1], $ranks[$i]);
+        }
+    }
 }

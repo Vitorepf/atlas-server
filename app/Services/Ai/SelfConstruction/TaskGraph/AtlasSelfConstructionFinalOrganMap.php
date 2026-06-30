@@ -230,6 +230,35 @@ final class AtlasSelfConstructionFinalOrganMap
     }
 
     /**
+     * Returns all capability gaps ranked by urgency: missing (1) > untested (2) > unwired (3).
+     *
+     * @param  array{implemented?:list<string>, has_tests?:list<string>, wired?:list<string>}  $facts
+     * @return list<array{organ_id:string, gap_type:string, rank:int}>
+     */
+    public function rankedGaps(array $facts): array
+    {
+        $view = $this->coverageView($facts);
+        $gaps = [];
+
+        foreach ($view['missing_organs'] as $id) {
+            $gaps[] = ['organ_id' => $id, 'gap_type' => 'missing', 'rank' => 1];
+        }
+        foreach ($view['missing_tests'] as $id) {
+            $gaps[] = ['organ_id' => $id, 'gap_type' => 'untested', 'rank' => 2];
+        }
+        $missingTestIds = array_flip($view['missing_tests']);
+        foreach ($view['unwired_organs'] as $id) {
+            if (! isset($missingTestIds[$id])) {
+                $gaps[] = ['organ_id' => $id, 'gap_type' => 'unwired', 'rank' => 3];
+            }
+        }
+
+        usort($gaps, static fn (array $a, array $b): int => $a['rank'] <=> $b['rank']);
+
+        return array_values($gaps);
+    }
+
+    /**
      * @param  list<string>  $capabilities
      * @param  list<string>  $evidenceIds
      * @param  list<string>  $nonAuthorities
