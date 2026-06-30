@@ -33,7 +33,8 @@ final class AtlasExternalBrainQueueSaturationStopPolicyTest extends TestCase
     {
         $result = $this->policy->evaluate($this->healthy());
 
-        foreach (['schema', 'decision', 'reason', 'next_cycle_hint', 'claimable_depth', 'servable_now'] as $k) {
+        foreach (['schema', 'decision', 'reason', 'next_cycle_hint', 'claimable_depth', 'servable_now',
+                  'queue_depth', 'value_density', 'dependency_unlock_score', 'decision_reason'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainQueueSaturationStopPolicy::SCHEMA, $result['schema']);
@@ -180,5 +181,108 @@ final class AtlasExternalBrainQueueSaturationStopPolicyTest extends TestCase
 
         $this->assertSame(42, $result['claimable_depth']);
         $this->assertSame(7,  $result['servable_now']);
+    }
+
+    public function test_queue_depth_is_alias_for_claimable_depth(): void
+    {
+        $result = $this->policy->evaluate($this->healthy(['claimable_depth' => 33]));
+
+        $this->assertSame(33, $result['queue_depth']);
+        $this->assertSame($result['claimable_depth'], $result['queue_depth']);
+    }
+
+    public function test_value_density_and_dependency_unlock_echoed_in_output(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'value_density'           => 0.9,
+            'dependency_unlock_score' => 2,
+        ]));
+
+        $this->assertEqualsWithDelta(0.9, $result['value_density'], 0.001);
+        $this->assertSame(2, $result['dependency_unlock_score']);
+    }
+
+    public function test_decision_reason_matches_reason(): void
+    {
+        $result = $this->policy->evaluate($this->healthy());
+
+        $this->assertSame($result['reason'], $result['decision_reason']);
+        $this->assertNotEmpty($result['decision_reason']);
+    }
+
+    // ── AC1: allow_enqueue_exception on high-value task during saturation ──────
+
+    public function test_high_value_density_allows_enqueue_during_saturation(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'claimable_depth' => 25,  // saturated
+            'servable_now'    => 10,
+            'value_density'   => 0.90,
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainQueueSaturationStopPolicy::DECISION_ALLOW_ENQUEUE_EXCEPTION,
+            $result['decision'],
+        );
+    }
+
+    public function test_dependency_unlock_allows_enqueue_during_saturation(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'claimable_depth'         => 30,
+            'servable_now'            => 10,
+            'value_density'           => 0.2,  // below exceptional floor
+            'dependency_unlock_score' => 1,    // but unlocks a dep chain
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainQueueSaturationStopPolicy::DECISION_ALLOW_ENQUEUE_EXCEPTION,
+            $result['decision'],
+        );
+    }
+
+    public function test_low_value_density_blocks_enqueue_during_saturation(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'claimable_depth'         => 25,
+            'servable_now'            => 10,
+            'value_density'           => 0.3,
+            'dependency_unlock_score' => 0,
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainQueueSaturationStopPolicy::DECISION_CONSOLIDATE_OR_AUDIT,
+            $result['decision'],
+        );
+    }
+
+    public function test_value_density_exactly_at_floor_allows_enqueue_exception(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'claimable_depth'                 => 25,
+            'servable_now'                    => 10,
+            'value_density'                   => 0.80,
+            'exceptional_value_density_floor' => 0.80,
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainQueueSaturationStopPolicy::DECISION_ALLOW_ENQUEUE_EXCEPTION,
+            $result['decision'],
+        );
+    }
+
+    public function test_allow_enqueue_exception_beats_consolidate_even_with_recoverable_backlog(): void
+    {
+        $result = $this->policy->evaluate($this->healthy([
+            'claimable_depth'         => 25,
+            'servable_now'            => 10,
+            'recoverable_backlog'     => 5,
+            'value_density'           => 0.95,
+        ]));
+
+        $this->assertSame(
+            AtlasExternalBrainQueueSaturationStopPolicy::DECISION_ALLOW_ENQUEUE_EXCEPTION,
+            $result['decision'],
+        );
     }
 }
