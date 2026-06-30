@@ -42,7 +42,10 @@ final class QuarantineAuthorizationGate
 
     public const REASON_RECENT_LAST_USE = 'last_use_within_90_days';
 
-    public const REASON_MISSING_RECEIPT = 'missing_operator_decision_receipt';
+    public const REASON_MISSING_RECEIPT = 'missing_decision_receipt';
+
+    /** Actor prefixes whose decision receipts are trusted for autonomous cleanup. */
+    private const AUTHORIZED_ACTOR_PREFIXES = ['operator:', 'atlas_native:'];
 
     public const REASON_OUT_OF_SCOPE = 'path_out_of_self_construction_scope';
 
@@ -98,7 +101,7 @@ final class QuarantineAuthorizationGate
                 'in_scope' => $inScopeCheck,
                 'reachability_dead' => $reachabilityCheck,
                 'last_used_over_90_days' => $lastUseCheck,
-                'operator_receipt_valid' => $receiptCheck,
+                'receipt_valid' => $receiptCheck,
             ],
             'blocking_reasons' => $blocking,
             'policy' => [
@@ -169,6 +172,17 @@ final class QuarantineAuthorizationGate
         ];
     }
 
+    private function isAuthorizedActor(string $actor): bool
+    {
+        foreach (self::AUTHORIZED_ACTOR_PREFIXES as $prefix) {
+            if (str_starts_with($actor, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param  array{schema_version?: string, actor?: string, file?: string}|null  $receipt
      * @return array{passed: bool, reason: ?string}
@@ -186,8 +200,8 @@ final class QuarantineAuthorizationGate
             ];
         }
         $actor = $receipt['actor'] ?? null;
-        if (! is_string($actor) || ! str_starts_with($actor, 'operator:')) {
-            return ['passed' => false, 'reason' => 'receipt actor must start with operator:'];
+        if (! is_string($actor) || ! $this->isAuthorizedActor($actor)) {
+            return ['passed' => false, 'reason' => 'receipt actor must use an authorized prefix (operator: or atlas_native:)'];
         }
         $citedFile = $receipt['file'] ?? null;
         if ($citedFile !== $targetPath) {

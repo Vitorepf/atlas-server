@@ -106,7 +106,7 @@ final class QuarantineAuthorizationGateTest extends TestCase
         );
 
         $this->assertSame('blocked', $result['decision']);
-        $this->assertContains('missing_operator_decision_receipt', $result['blocking_reasons']);
+        $this->assertContains('missing_decision_receipt', $result['blocking_reasons']);
     }
 
     public function test_blocks_when_receipt_schema_is_v1(): void
@@ -123,8 +123,8 @@ final class QuarantineAuthorizationGateTest extends TestCase
         );
 
         $this->assertSame('blocked', $result['decision']);
-        $this->assertContains('missing_operator_decision_receipt', $result['blocking_reasons']);
-        $this->assertStringContainsString('schema_version', $result['checks']['operator_receipt_valid']['reason']);
+        $this->assertContains('missing_decision_receipt', $result['blocking_reasons']);
+        $this->assertStringContainsString('schema_version', $result['checks']['receipt_valid']['reason']);
     }
 
     public function test_blocks_when_receipt_actor_is_not_operator(): void
@@ -141,7 +141,7 @@ final class QuarantineAuthorizationGateTest extends TestCase
         );
 
         $this->assertSame('blocked', $result['decision']);
-        $this->assertContains('missing_operator_decision_receipt', $result['blocking_reasons']);
+        $this->assertContains('missing_decision_receipt', $result['blocking_reasons']);
     }
 
     public function test_blocks_when_receipt_cites_wrong_file(): void
@@ -158,7 +158,7 @@ final class QuarantineAuthorizationGateTest extends TestCase
         );
 
         $this->assertSame('blocked', $result['decision']);
-        $this->assertContains('missing_operator_decision_receipt', $result['blocking_reasons']);
+        $this->assertContains('missing_decision_receipt', $result['blocking_reasons']);
     }
 
     public function test_blocks_when_path_is_out_of_scope(): void
@@ -225,6 +225,58 @@ final class QuarantineAuthorizationGateTest extends TestCase
 
         $this->assertSame('blocked', $result['decision']);
         $this->assertCount(4, $result['blocking_reasons']);
+    }
+
+    public function test_atlas_native_actor_authorizes_when_all_three_proofs_pass(): void
+    {
+        $result = $this->gate->evaluate(
+            'app/Services/Ai/SelfConstruction/SomeDeadFile.php',
+            ['reachability' => 'dead', 'last_used_at' => '2026-01-01T00:00:00Z'],
+            [
+                'schema_version' => 'atlas.decision_receipt.v2',
+                'actor' => 'atlas_native:self_construction',
+                'file' => 'app/Services/Ai/SelfConstruction/SomeDeadFile.php',
+            ],
+            $this->now,
+        );
+
+        $this->assertSame('authorized', $result['decision']);
+        $this->assertSame([], $result['blocking_reasons']);
+        $this->assertTrue($result['checks']['receipt_valid']['passed']);
+    }
+
+    public function test_human_actor_receipt_is_blocked(): void
+    {
+        $result = $this->gate->evaluate(
+            'app/Services/Ai/SelfConstruction/SomeDeadFile.php',
+            ['reachability' => 'dead', 'last_used_at' => '2026-01-01T00:00:00Z'],
+            [
+                'schema_version' => 'atlas.decision_receipt.v2',
+                'actor' => 'human:vitor',
+                'file' => 'app/Services/Ai/SelfConstruction/SomeDeadFile.php',
+            ],
+            $this->now,
+        );
+
+        $this->assertSame('blocked', $result['decision']);
+        $this->assertContains('missing_decision_receipt', $result['blocking_reasons']);
+    }
+
+    public function test_provider_actor_receipt_is_blocked(): void
+    {
+        $result = $this->gate->evaluate(
+            'app/Services/Ai/SelfConstruction/SomeDeadFile.php',
+            ['reachability' => 'dead', 'last_used_at' => '2026-01-01T00:00:00Z'],
+            [
+                'schema_version' => 'atlas.decision_receipt.v2',
+                'actor' => 'provider:claude',
+                'file' => 'app/Services/Ai/SelfConstruction/SomeDeadFile.php',
+            ],
+            $this->now,
+        );
+
+        $this->assertSame('blocked', $result['decision']);
+        $this->assertContains('missing_decision_receipt', $result['blocking_reasons']);
     }
 
     public function test_emits_canonical_schema_version(): void
