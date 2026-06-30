@@ -298,4 +298,94 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
         $this->assertSame('codex-1', $out['worker'], 'overloaded worker must be excluded; clean worker routed');
         $this->assertContains('claude-1', $out['overloaded_workers']);
     }
+
+    // ── Negative outcome evidence routing ─────────────────────────────────────
+
+    public function test_demoted_worker_with_high_give_back_rate_loses_to_clean_worker(): void
+    {
+        // claude-1: success=10, give_back=8 → rate=8/18≈0.444 > 0.40 → demoted.
+        $this->seedWorker('claude-1', 'wiring', 10, 8);
+        // codex-1: success=3, give_back=0 → rate=0 → clean → wins despite fewer successes.
+        $this->seedWorker('codex-1', 'wiring', 3, 0);
+
+        $out = $this->router()->route('wiring', ['claude-1', 'codex-1']);
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker'], 'clean worker must beat high-success but demoted worker');
+    }
+
+    public function test_all_demoted_still_routes_to_least_negative_with_explanation(): void
+    {
+        // Both demoted: claude-1 success=6/give_back=4 (rate=0.40), codex-1 success=3/give_back=4 (rate=0.57).
+        $this->seedWorker('claude-1', 'wiring', 6, 4);
+        $this->seedWorker('codex-1', 'wiring', 3, 4);
+
+        $out = $this->router()->route('wiring', ['claude-1', 'codex-1']);
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('claude-1', $out['worker'], 'when all demoted, route to least negative (highest success)');
+        $this->assertStringContainsString('all_candidates_have_negative_outcome_evidence', $out['routing_explanation']);
+        $this->assertNotNull($out['negative_outcome_evidence'], 'negative_outcome_evidence must be set when winner is demoted');
+    }
+
+    public function test_negative_outcome_evidence_is_null_for_clean_winner(): void
+    {
+        $this->seedWorker('claude-1', 'wiring', 5, 0);
+
+        $out = $this->router()->route('wiring', ['claude-1']);
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertNull($out['negative_outcome_evidence'], 'clean winner must have null negative_outcome_evidence');
+        $this->assertSame('routed', $out['routing_explanation']);
+    }
+
+    public function test_route_packet_avoids_worker_with_high_task_family_give_back(): void
+    {
+        // claude-1: high give_back rate for family:qa (8 give_backs / 3 successes → 0.727 ≥ 0.65) → avoided.
+        $this->seedWorker('claude-1', 'family:qa', 3, 8);
+        // codex-1: clean on family:qa; routes via task_class fallback.
+        $this->seedWorker('codex-1', 'wiring', 4, 0);
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'task_family' => 'qa', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker'], 'clean worker must be selected; family-negative worker avoided');
+        $this->assertContains('claude-1', $out['avoided_workers']);
+    }
+
+    public function test_route_packet_route_avoided_when_all_workers_unsafe_for_task_family(): void
+    {
+        // Both workers have high give_back rate for family:qa → both avoided.
+        $this->seedWorker('claude-1', 'family:qa', 2, 5);  // rate=5/7≈0.714 ≥ 0.65
+        $this->seedWorker('codex-1',  'family:qa', 1, 4);  // rate=4/5=0.80 ≥ 0.65
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'task_family' => 'qa', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_AVOIDED, $out['status']);
+        $this->assertSame('negative_outcome_evidence', $out['reason']);
+        $this->assertCount(2, $out['avoided_workers']);
+    }
+
+    public function test_route_packet_clean_worker_preferred_over_broad_success_unsafe_worker(): void
+    {
+        // claude-1: 15 broad successes but high family:qa give_back → avoided for this family.
+        $this->seedWorker('claude-1', 'family:qa', 4, 9);  // rate=9/13≈0.692 ≥ 0.65 → avoided
+        // codex-1: only 4 task_class successes, clean on family:qa → selected.
+        $this->seedWorker('codex-1', 'wiring', 4, 0);
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'task_family' => 'qa', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker'], 'lower-success clean worker beats high-success unsafe worker');
+        $this->assertContains('claude-1', $out['avoided_workers']);
+    }
 }
