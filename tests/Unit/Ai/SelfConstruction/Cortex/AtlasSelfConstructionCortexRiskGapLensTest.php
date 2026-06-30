@@ -155,4 +155,105 @@ final class AtlasSelfConstructionCortexRiskGapLensTest extends TestCase
         $this->assertArrayHasKey(AtlasSelfConstructionCortexRiskGapLens::GAP_UNSAFE_MERGE, $byClass);
         $this->assertSame('totally_invalid_posture', $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_UNSAFE_MERGE]['evidence']['posture']);
     }
+
+    // ── originator_hints ──────────────────────────────────────────────────────
+
+    public function test_every_gap_carries_originator_hints_with_all_four_keys(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'source_inventory' => ['blockers' => ['missing_required_source:docs']],
+            'verification'     => ['server_side_green' => false],
+            'merge'            => ['posture' => 'unsafe'],
+            'queue_health'     => ['malformed_count' => 1, 'repeated_give_back_count' => 0],
+            'sweep_health'     => ['coverage_unknown' => true],
+        ]);
+
+        $this->assertNotEmpty($r['gaps']);
+        foreach ($r['gaps'] as $gap) {
+            $this->assertArrayHasKey('originator_hints', $gap, "gap {$gap['class']} must carry originator_hints");
+            $hints = $gap['originator_hints'];
+            foreach (['suggested_lane', 'required_evidence', 'likely_owner_organ', 'avoid_proxy_warning'] as $k) {
+                $this->assertArrayHasKey($k, $hints, "originator_hints must contain {$k} for gap {$gap['class']}");
+                $this->assertIsString($hints[$k]);
+                $this->assertNotEmpty($hints[$k]);
+            }
+        }
+    }
+
+    public function test_clean_posture_produces_no_gaps_and_no_hints(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'source_inventory' => ['blockers' => []],
+            'verification'     => ['server_side_green' => true],
+            'merge'            => ['posture' => 'safe'],
+            'queue_health'     => ['malformed_count' => 0, 'repeated_give_back_count' => 0],
+            'sweep_health'     => ['coverage_unknown' => false],
+            'knowledge_sync'   => ['conformant' => true, 'blockers' => []],
+        ]);
+
+        $this->assertSame([], $r['gaps'], 'clean posture must produce no gaps and therefore no fabricated hints');
+    }
+
+    public function test_stale_context_hints_suggest_source_refresh_lane(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'source_inventory' => ['blockers' => ['missing_required_source:memory']],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_STALE_CONTEXT]['originator_hints'];
+
+        $this->assertSame('source_refresh', $hints['suggested_lane']);
+        $this->assertStringContainsString('staleness', $hints['avoid_proxy_warning']);
+        $this->assertSame('memory', $hints['likely_owner_organ']);
+    }
+
+    public function test_missing_receipts_hints_warn_against_self_report(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'verification' => ['server_side_green' => false],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_MISSING_RECEIPTS]['originator_hints'];
+
+        $this->assertSame('verification_closure', $hints['suggested_lane']);
+        $this->assertStringContainsString('self_report', $hints['avoid_proxy_warning']);
+    }
+
+    public function test_unsafe_merge_hints_reference_cert_gate(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'merge' => ['posture' => 'unsafe'],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_UNSAFE_MERGE]['originator_hints'];
+
+        $this->assertSame('merge_safety_repair', $hints['suggested_lane']);
+        $this->assertStringContainsString('cert_gate', $hints['avoid_proxy_warning']);
+        $this->assertSame('governance', $hints['likely_owner_organ']);
+    }
+
+    public function test_malformed_queue_hints_warn_against_creating_new_tasks(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'queue_health' => ['malformed_count' => 3],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_MALFORMED_QUEUE]['originator_hints'];
+
+        $this->assertSame('queue_repair', $hints['suggested_lane']);
+        $this->assertStringContainsString('creating_new_tasks', $hints['avoid_proxy_warning']);
+    }
+
+    public function test_unproved_runtime_hints_warn_against_test_count_proxy(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'sweep_health' => ['coverage_unknown' => true],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_UNPROVED_RUNTIME]['originator_hints'];
+
+        $this->assertSame('runtime_coverage', $hints['suggested_lane']);
+        $this->assertStringContainsString('test_count', $hints['avoid_proxy_warning']);
+        $this->assertSame('runtime_health', $hints['likely_owner_organ']);
+    }
 }

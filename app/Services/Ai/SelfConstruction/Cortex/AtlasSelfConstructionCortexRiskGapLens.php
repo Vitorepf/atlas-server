@@ -65,7 +65,8 @@ final class AtlasSelfConstructionCortexRiskGapLens
             }
         }
         if ($hasStale) {
-            $gaps[] = ['class' => self::GAP_STALE_CONTEXT, 'evidence' => ['inventory_blockers' => $invBlockers]];
+            $ev = ['inventory_blockers' => $invBlockers];
+            $gaps[] = ['class' => self::GAP_STALE_CONTEXT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_STALE_CONTEXT, $ev)];
         }
 
         $verification = is_array($facts['verification'] ?? null) ? $facts['verification'] : [];
@@ -73,37 +74,90 @@ final class AtlasSelfConstructionCortexRiskGapLens
         $missingReceipts = (isset($verification['server_side_green']) && ! (bool) $verification['server_side_green'])
             || (isset($knowledgeSync['conformant']) && ! (bool) $knowledgeSync['conformant']);
         if ($missingReceipts) {
-            $gaps[] = ['class' => self::GAP_MISSING_RECEIPTS, 'evidence' => [
-                'server_side_green' => (bool) ($verification['server_side_green'] ?? false),
+            $ev = [
+                'server_side_green'        => (bool) ($verification['server_side_green'] ?? false),
                 'knowledge_sync_conformant' => (bool) ($knowledgeSync['conformant'] ?? false),
-                'knowledge_sync_blockers' => array_values((array) ($knowledgeSync['blockers'] ?? [])),
-            ]];
+                'knowledge_sync_blockers'   => array_values((array) ($knowledgeSync['blockers'] ?? [])),
+            ];
+            $gaps[] = ['class' => self::GAP_MISSING_RECEIPTS, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MISSING_RECEIPTS, $ev)];
         }
 
         $merge = is_array($facts['merge'] ?? null) ? $facts['merge'] : [];
         $posture = (string) ($merge['posture'] ?? '');
         if ($posture !== '' && $posture !== 'safe') {
-            $gaps[] = ['class' => self::GAP_UNSAFE_MERGE, 'evidence' => ['posture' => $posture]];
+            $ev = ['posture' => $posture];
+            $gaps[] = ['class' => self::GAP_UNSAFE_MERGE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_UNSAFE_MERGE, $ev)];
         }
 
         $queueHealth = is_array($facts['queue_health'] ?? null) ? $facts['queue_health'] : [];
         $malformed = max(0, (int) ($queueHealth['malformed_count'] ?? 0));
         if ($malformed > 0) {
-            $gaps[] = ['class' => self::GAP_MALFORMED_QUEUE, 'evidence' => ['malformed_count' => $malformed]];
+            $ev = ['malformed_count' => $malformed];
+            $gaps[] = ['class' => self::GAP_MALFORMED_QUEUE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MALFORMED_QUEUE, $ev)];
         }
 
         $sweep = is_array($facts['sweep_health'] ?? null) ? $facts['sweep_health'] : [];
         $gbCount = max(0, (int) ($queueHealth['repeated_give_back_count'] ?? 0));
         $unproved = (bool) ($sweep['coverage_unknown'] ?? false) || $gbCount >= 3;
         if ($unproved) {
-            $gaps[] = ['class' => self::GAP_UNPROVED_RUNTIME, 'evidence' => ['coverage_unknown' => (bool) ($sweep['coverage_unknown'] ?? false), 'repeated_give_back_count' => $gbCount]];
+            $ev = ['coverage_unknown' => (bool) ($sweep['coverage_unknown'] ?? false), 'repeated_give_back_count' => $gbCount];
+            $gaps[] = ['class' => self::GAP_UNPROVED_RUNTIME, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_UNPROVED_RUNTIME, $ev)];
         }
 
         usort($gaps, static fn (array $a, array $b): int => strcmp($a['class'], $b['class']));
 
         return [
             'schema' => self::SCHEMA,
-            'gaps' => $gaps,
+            'gaps'   => $gaps,
         ];
+    }
+
+    /**
+     * Build task-origination hints for one gap class.
+     * Derived from the class name and the triggering evidence — no external state invented.
+     *
+     * @param  array<string,mixed>  $evidence
+     * @return array{suggested_lane:string, required_evidence:string, likely_owner_organ:string, avoid_proxy_warning:string}
+     */
+    private function hints(string $class, array $evidence): array
+    {
+        return match ($class) {
+            self::GAP_STALE_CONTEXT => [
+                'suggested_lane'      => 'source_refresh',
+                'required_evidence'   => 'knowledge_sync_conformant:true',
+                'likely_owner_organ'  => 'memory',
+                'avoid_proxy_warning' => 'filing_task_count_does_not_fix_staleness',
+            ],
+            self::GAP_MISSING_RECEIPTS => [
+                'suggested_lane'      => 'verification_closure',
+                'required_evidence'   => 'server_side_green:true',
+                'likely_owner_organ'  => 'certification',
+                'avoid_proxy_warning' => 'green_self_report_is_not_a_receipt',
+            ],
+            self::GAP_UNSAFE_MERGE => [
+                'suggested_lane'      => 'merge_safety_repair',
+                'required_evidence'   => 'merge_posture:safe',
+                'likely_owner_organ'  => 'governance',
+                'avoid_proxy_warning' => 'do_not_merge_without_cert_gate_passage',
+            ],
+            self::GAP_MALFORMED_QUEUE => [
+                'suggested_lane'      => 'queue_repair',
+                'required_evidence'   => 'malformed_count:0',
+                'likely_owner_organ'  => 'task_queue',
+                'avoid_proxy_warning' => 'creating_new_tasks_does_not_repair_malformed_existing_tasks',
+            ],
+            self::GAP_UNPROVED_RUNTIME => [
+                'suggested_lane'      => 'runtime_coverage',
+                'required_evidence'   => 'coverage_unknown:false AND repeated_give_back_count:lt_3',
+                'likely_owner_organ'  => 'runtime_health',
+                'avoid_proxy_warning' => 'adding_test_count_without_addressing_coverage_gap_is_proxy',
+            ],
+            default => [
+                'suggested_lane'      => 'general_repair',
+                'required_evidence'   => 'gap_class_resolved:'.$class,
+                'likely_owner_organ'  => 'cortex',
+                'avoid_proxy_warning' => 'task_volume_is_not_evidence_of_gap_closure',
+            ],
+        };
     }
 }
