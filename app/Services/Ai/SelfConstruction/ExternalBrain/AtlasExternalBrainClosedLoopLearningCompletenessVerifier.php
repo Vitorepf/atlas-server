@@ -27,12 +27,19 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
     public const LINK_VALUE_EVIDENCE        = 'no_value_evidence';
     public const LINK_LEARNING_RECORD       = 'no_learning_record';
     public const LINK_NEXT_BATCH_CONSTRAINT = 'no_next_batch_constraint';
+    // Outcome-type routing links (AC1/AC3)
+    public const LINK_LEARNER_ROUTE         = 'no_learner_route';
+    public const LINK_POLICY_ROUTE          = 'no_policy_route';
+    public const LINK_MAESTRO_ROUTE         = 'no_maestro_route';
 
     private const REPAIR_HINT_MAP = [
         self::LINK_ORIGINATION_RECEIPT   => 'emit_origination_receipt_for_cycle',
         self::LINK_IMPLEMENTATION_RESULT => 'ensure_implementation_result_is_committed',
         self::LINK_VALUE_EVIDENCE        => 'attach_runnable_evidence_to_cycle',
         self::LINK_LEARNING_RECORD       => 'run_outcome_learner_for_cycle',
+        self::LINK_LEARNER_ROUTE         => 'route_success_outcome_to_outcome_learner',
+        self::LINK_POLICY_ROUTE          => 'route_give_back_outcome_to_policy_adjuster',
+        self::LINK_MAESTRO_ROUTE         => 'route_quarantine_outcome_to_maestro_adjustment',
         self::LINK_NEXT_BATCH_CONSTRAINT => 'derive_next_batch_constraint_from_learning_update',
     ];
 
@@ -53,9 +60,10 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
             $missing = $this->missingLinks($cycle);
 
             $cycleReceipts[] = [
-                'cycle_id'      => $cycleId,
-                'complete'      => $missing === [],
-                'missing_links' => $missing,
+                'cycle_id'       => $cycleId,
+                'complete'       => $missing === [],
+                'missing_links'  => $missing,
+                'decision_chain' => $this->buildDecisionChain($cycle),
             ];
 
             if ($missing !== []) {
@@ -104,7 +112,47 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
             $missing[] = self::LINK_NEXT_BATCH_CONSTRAINT;
         }
 
+        // AC1: outcome-type routing checks — only when outcome_type is declared.
+        $outcomeType = strtolower(trim((string) ($cycle['outcome_type'] ?? '')));
+        if ($outcomeType !== '') {
+            $routeLink = $this->checkOutcomeRoute($cycle, $outcomeType);
+            if ($routeLink !== null) {
+                $missing[] = $routeLink;
+            }
+        }
+
         return $missing;
+    }
+
+    private function checkOutcomeRoute(array $cycle, string $outcomeType): ?string
+    {
+        $learning   = is_array($cycle['learning_update']       ?? null) ? $cycle['learning_update']       : [];
+        $constraint = is_array($cycle['next_batch_constraint'] ?? null) ? $cycle['next_batch_constraint'] : [];
+
+        return match ($outcomeType) {
+            'success'    => (($learning['routed_to_learner'] ?? false) || array_key_exists('learner_adjustment', $constraint))
+                             ? null : self::LINK_LEARNER_ROUTE,
+            'give_back'  => (($learning['routed_to_policy'] ?? false) || array_key_exists('policy_change', $constraint))
+                             ? null : self::LINK_POLICY_ROUTE,
+            'quarantine' => (($learning['routed_to_maestro'] ?? false) || array_key_exists('maestro_adjustment', $constraint))
+                             ? null : self::LINK_MAESTRO_ROUTE,
+            default      => null,
+        };
+    }
+
+    private function buildDecisionChain(array $cycle): array
+    {
+        $learning   = is_array($cycle['learning_update']       ?? null) ? $cycle['learning_update']       : [];
+        $constraint = is_array($cycle['next_batch_constraint'] ?? null) ? $cycle['next_batch_constraint'] : [];
+
+        return [
+            'outcome_type'            => (string) ($cycle['outcome_type'] ?? ''),
+            'learning_pattern_family' => (string) ($learning['pattern_family'] ?? ''),
+            'constraint_influences'   => array_values(array_intersect(
+                array_keys($constraint),
+                self::CONSTRAINT_INFLUENCE_KEYS,
+            )),
+        ];
     }
 
     private function hasOrigination(array $cycle): bool
@@ -134,6 +182,7 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
     /** At least one of these keys must be present to prove learning influenced origination. */
     private const CONSTRAINT_INFLUENCE_KEYS = [
         'promoted_rule', 'blocked_family', 'threshold_change', 'routing_hint', 'retired_pattern',
+        'learner_adjustment', 'policy_change', 'maestro_adjustment',
     ];
 
     private function hasNextConstraint(array $cycle): bool
@@ -158,6 +207,9 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
             self::LINK_IMPLEMENTATION_RESULT,
             self::LINK_VALUE_EVIDENCE,
             self::LINK_LEARNING_RECORD,
+            self::LINK_LEARNER_ROUTE,
+            self::LINK_POLICY_ROUTE,
+            self::LINK_MAESTRO_ROUTE,
             self::LINK_NEXT_BATCH_CONSTRAINT,
         ];
 
