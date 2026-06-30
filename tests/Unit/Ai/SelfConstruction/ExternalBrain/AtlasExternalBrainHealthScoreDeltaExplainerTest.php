@@ -268,4 +268,122 @@ final class AtlasExternalBrainHealthScoreDeltaExplainerTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainHealthScoreDeltaExplainer::SCHEMA, $r['schema_version']);
     }
+
+    // ── explainDelta: bucket decomposition ─────────────────────────────────────
+
+    public function test_explain_delta_has_required_keys(): void
+    {
+        $r = $this->svc->explainDelta([], []);
+
+        foreach (['schema_version', 'autonomy_gain', 'quality_gain', 'risk_reduction', 'simplification_gain', 'volume_noise', 'dominant_bucket', 'next_action'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+        $this->assertSame(AtlasExternalBrainHealthScoreDeltaExplainer::SCHEMA, $r['schema_version']);
+    }
+
+    public function test_autonomy_score_increase_yields_autonomy_gain(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['autonomy_score' => 0.5],
+            ['autonomy_score' => 0.8],
+        );
+
+        $this->assertEqualsWithDelta(0.3, $r['autonomy_gain'], 0.0001);
+    }
+
+    public function test_quality_score_increase_yields_quality_gain(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['quality_score' => 0.4],
+            ['quality_score' => 0.9],
+        );
+
+        $this->assertEqualsWithDelta(0.5, $r['quality_gain'], 0.0001);
+    }
+
+    public function test_risk_score_decrease_yields_risk_reduction(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['risk_score' => 0.6],
+            ['risk_score' => 0.2],
+        );
+
+        $this->assertEqualsWithDelta(0.4, $r['risk_reduction'], 0.0001);
+    }
+
+    public function test_risk_score_increase_does_not_yield_negative_risk_reduction(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['risk_score' => 0.2],
+            ['risk_score' => 0.6],
+        );
+
+        $this->assertSame(0.0, $r['risk_reduction']);
+    }
+
+    public function test_simplification_score_increase_yields_simplification_gain(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['simplification_score' => 0.1],
+            ['simplification_score' => 0.4],
+        );
+
+        $this->assertEqualsWithDelta(0.3, $r['simplification_gain'], 0.0001);
+    }
+
+    public function test_raw_task_count_without_proof_is_classified_as_volume_noise(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['task_count' => 10, 'proven_task_count' => 10],
+            ['task_count' => 60, 'proven_task_count' => 10],
+        );
+
+        $this->assertGreaterThan(0.0, $r['volume_noise']);
+        $this->assertSame(0.0, $r['autonomy_gain']);
+        $this->assertSame(0.0, $r['quality_gain']);
+    }
+
+    public function test_task_count_backed_by_equal_proven_increase_is_not_volume_noise(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['task_count' => 10, 'proven_task_count' => 10],
+            ['task_count' => 20, 'proven_task_count' => 20],
+        );
+
+        $this->assertSame(0.0, $r['volume_noise']);
+    }
+
+    public function test_volume_noise_dominant_when_count_grows_without_proof(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['task_count' => 0, 'proven_task_count' => 0, 'autonomy_score' => 0.5, 'quality_score' => 0.5],
+            ['task_count' => 100, 'proven_task_count' => 0, 'autonomy_score' => 0.51, 'quality_score' => 0.51],
+        );
+
+        $this->assertSame('volume_noise', $r['dominant_bucket']);
+        $this->assertSame('reject_count_based_claim_require_runnable_proof_per_task', $r['next_action']);
+    }
+
+    public function test_quality_gain_dominant_yields_quality_next_action(): void
+    {
+        $r = $this->svc->explainDelta(
+            ['quality_score' => 0.3, 'autonomy_score' => 0.5, 'risk_score' => 0.5, 'simplification_score' => 0.5],
+            ['quality_score' => 0.9, 'autonomy_score' => 0.5, 'risk_score' => 0.5, 'simplification_score' => 0.5],
+        );
+
+        $this->assertSame('quality_gain', $r['dominant_bucket']);
+        $this->assertStringContainsString('quality', $r['next_action']);
+    }
+
+    public function test_no_movement_yields_zero_buckets(): void
+    {
+        $snapshot = ['autonomy_score' => 0.5, 'quality_score' => 0.5, 'risk_score' => 0.5, 'simplification_score' => 0.5, 'task_count' => 10, 'proven_task_count' => 10];
+        $r = $this->svc->explainDelta($snapshot, $snapshot);
+
+        $this->assertSame(0.0, $r['autonomy_gain']);
+        $this->assertSame(0.0, $r['quality_gain']);
+        $this->assertSame(0.0, $r['risk_reduction']);
+        $this->assertSame(0.0, $r['simplification_gain']);
+        $this->assertSame(0.0, $r['volume_noise']);
+    }
 }

@@ -43,6 +43,16 @@ final class AtlasExternalBrainHealthScoreDeltaExplainer
     public const QUEUE_COLLISION_THRESHOLD   =  0.15;
     public const LOW_COMPOUNDING_THRESHOLD   =  0.30;
 
+    public const VOLUME_NOISE_WEIGHT = 0.01;
+
+    private const NEXT_ACTION_BY_BUCKET = [
+        'volume_noise' => 'reject_count_based_claim_require_runnable_proof_per_task',
+        'risk_reduction' => 'consolidate_and_document_the_risk_reduction_mechanism',
+        'quality_gain' => 'extend_the_quality_pattern_that_drove_this_gain_to_adjacent_surfaces',
+        'autonomy_gain' => 'verify_the_autonomy_gain_with_a_zero_human_steady_state_check',
+        'simplification_gain' => 'lock_in_the_simplification_with_a_regression_test',
+    ];
+
     /**
      * @param  array<string,mixed>  $breakdown
      * @return array{schema_version:string, ranked_recommendations:list<array<string,mixed>>, total_expected_lift:float}
@@ -165,6 +175,72 @@ final class AtlasExternalBrainHealthScoreDeltaExplainer
             'schema_version'         => self::SCHEMA,
             'ranked_recommendations' => array_values($recs),
             'total_expected_lift'    => round((float) array_sum(array_column($recs, 'expected_score_lift')), 2),
+        ];
+    }
+
+    /**
+     * Decomposes a before/after health snapshot into five named buckets so
+     * health movement explains quality, autonomy, and queue-risk change
+     * instead of rewarding raw task count or shallow green checks.
+     *
+     * BUCKETS (each clamped to >= 0):
+     *   autonomy_gain       = max(0, after.autonomy_score - before.autonomy_score)
+     *   quality_gain        = max(0, after.quality_score - before.quality_score)
+     *   risk_reduction       = max(0, before.risk_score - after.risk_score)
+     *   simplification_gain = max(0, after.simplification_score - before.simplification_score)
+     *   volume_noise         = (raw task_count increase NOT backed by an equal
+     *                          increase in proven_task_count) * VOLUME_NOISE_WEIGHT
+     *                          i.e. tasks added without runnable proof never
+     *                          register as health improvement, only as noise.
+     *
+     * next_action is derived from whichever bucket has the largest magnitude
+     * (ties broken by the fixed priority order below, dominant bucket first):
+     *   volume_noise > risk_reduction > quality_gain > autonomy_gain > simplification_gain
+     *
+     * @param  array<string,mixed>  $before
+     * @param  array<string,mixed>  $after
+     * @return array{schema_version:string, autonomy_gain:float, quality_gain:float,
+     *               risk_reduction:float, simplification_gain:float, volume_noise:float,
+     *               dominant_bucket:string, next_action:string}
+     */
+    public function explainDelta(array $before, array $after): array
+    {
+        $autonomyGain = max(0.0, (float) ($after['autonomy_score'] ?? 0.0) - (float) ($before['autonomy_score'] ?? 0.0));
+        $qualityGain = max(0.0, (float) ($after['quality_score'] ?? 0.0) - (float) ($before['quality_score'] ?? 0.0));
+        $riskReduction = max(0.0, (float) ($before['risk_score'] ?? 0.0) - (float) ($after['risk_score'] ?? 0.0));
+        $simplificationGain = max(0.0, (float) ($after['simplification_score'] ?? 0.0) - (float) ($before['simplification_score'] ?? 0.0));
+
+        $taskCountDelta = max(0, (int) ($after['task_count'] ?? 0) - (int) ($before['task_count'] ?? 0));
+        $provenTaskCountDelta = max(0, (int) ($after['proven_task_count'] ?? 0) - (int) ($before['proven_task_count'] ?? 0));
+        $unprovenTaskDelta = max(0, $taskCountDelta - $provenTaskCountDelta);
+        $volumeNoise = $unprovenTaskDelta * self::VOLUME_NOISE_WEIGHT;
+
+        $buckets = [
+            'volume_noise' => $volumeNoise,
+            'risk_reduction' => $riskReduction,
+            'quality_gain' => $qualityGain,
+            'autonomy_gain' => $autonomyGain,
+            'simplification_gain' => $simplificationGain,
+        ];
+
+        $dominantBucket = 'autonomy_gain';
+        $dominantValue = -1.0;
+        foreach ($buckets as $bucket => $value) {
+            if ($value > $dominantValue) {
+                $dominantValue = $value;
+                $dominantBucket = $bucket;
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'autonomy_gain' => round($autonomyGain, 4),
+            'quality_gain' => round($qualityGain, 4),
+            'risk_reduction' => round($riskReduction, 4),
+            'simplification_gain' => round($simplificationGain, 4),
+            'volume_noise' => round($volumeNoise, 4),
+            'dominant_bucket' => $dominantBucket,
+            'next_action' => self::NEXT_ACTION_BY_BUCKET[$dominantBucket],
         ];
     }
 }
