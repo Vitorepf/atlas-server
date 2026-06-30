@@ -46,12 +46,24 @@ final class AtlasProjectLaneQueueNamespacePolicy
         if ($repoRoot === '') {
             throw new RuntimeException('queue namespace policy: empty repo_root');
         }
+        if (! str_starts_with($repoRoot, '/')) {
+            throw new RuntimeException('queue namespace policy: repo_root must be an absolute path: '.$repoRoot);
+        }
+        if ($repoRoot === '/') {
+            throw new RuntimeException('queue namespace policy: repo_root must not be filesystem root /');
+        }
+        if (str_contains($repoRoot, '..')) {
+            throw new RuntimeException('queue namespace policy: repo_root must not contain traversal: '.$repoRoot);
+        }
         if ($mainlineRaw === '') {
             throw new RuntimeException('queue namespace policy: empty mainline_branch');
         }
 
         $repoHash = substr(hash('sha256', $repoRoot), 0, 8);
-        $branchSafe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $mainlineRaw) ?? 'main';
+        $branchSafe = preg_replace('/[^A-Za-z0-9_\-]/', '_', $mainlineRaw) ?? '';
+        if ($branchSafe === '') {
+            throw new RuntimeException('queue namespace policy: mainline_branch sanitizes to empty namespace segment: '.$mainlineRaw);
+        }
         $namespace = self::NAMESPACE_PREFIX.$projectId.'.'.$repoHash.'.'.$branchSafe;
         $queueKey = 'queue.'.$namespace;
 
@@ -94,6 +106,9 @@ final class AtlasProjectLaneQueueNamespacePolicy
             $prefix = substr($taskId, 0, $dot);
             if ($prefix !== $namespace) {
                 throw new RuntimeException('queue namespace policy: cross-lane refusal — task_id namespace '.$prefix.' != lane '.$namespace);
+            }
+            if (substr($taskId, $dot + 1) === '') {
+                throw new RuntimeException('queue namespace policy: lane-prefix smuggling — no task segment after namespace: '.$taskId);
             }
 
             return $taskId;

@@ -82,4 +82,55 @@ final class AtlasProjectLaneQueueNamespacePolicyTest extends TestCase
         $out = $p->namespacedTaskId('PACKET-1', $facts);
         $this->assertSame($facts['namespace'].':PACKET-1', $out);
     }
+
+    public function test_relative_repo_root_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/repo_root must be an absolute path/');
+        (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts('demo', 'relative/path/proj'));
+    }
+
+    public function test_filesystem_root_repo_root_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/repo_root must not be filesystem root/');
+        (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts('demo', '/'));
+    }
+
+    public function test_traversal_in_repo_root_throws(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/repo_root must not contain traversal/');
+        (new AtlasProjectLaneQueueNamespacePolicy)->derive($this->manifestFacts('demo', '/valid/../etc/passwd'));
+    }
+
+    public function test_branch_with_special_chars_sanitizes_to_valid_namespace(): void
+    {
+        $p = new AtlasProjectLaneQueueNamespacePolicy;
+        $facts = $p->derive($this->manifestFacts('demo', '/abs/path', 'feature/my-branch@2'));
+        $this->assertStringContainsString('feature_my-branch_2', $facts['namespace']);
+        $this->assertStringStartsWith('lane.demo.', $facts['namespace']);
+    }
+
+    public function test_lane_prefix_smuggling_with_empty_task_segment_throws(): void
+    {
+        $p = new AtlasProjectLaneQueueNamespacePolicy;
+        $facts = $p->derive($this->manifestFacts());
+        $smuggled = $facts['namespace'].':';
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/lane-prefix smuggling/');
+        $p->namespacedTaskId($smuggled, $facts);
+    }
+
+    public function test_lane_prefixed_id_without_colon_throws_malformed(): void
+    {
+        $p = new AtlasProjectLaneQueueNamespacePolicy;
+        $facts = $p->derive($this->manifestFacts());
+        $noColon = $facts['namespace'];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/malformed namespaced task_id/');
+        $p->namespacedTaskId($noColon, $facts);
+    }
 }
