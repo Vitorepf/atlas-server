@@ -95,4 +95,53 @@ final class AtlasAutonomousRuntimeSafetyStopGateTest extends TestCase
         $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_HOLD, $r['action']);
         $this->assertContains('context_freshness_blocked', $r['reasons']);
     }
+
+    // ── resume() tests ──────────────────────────────────────────────────────
+
+    private function goodResumeFacts(array $overrides = []): array
+    {
+        return $overrides + [
+            'atlas_native_resume_proof' => ['verified_at' => '2026-06-30T00:00:00Z', 'source' => 'atlas_native'],
+            'queue_health' => true,
+            'rollback_readiness' => true,
+            'unsafe_release_active' => false,
+        ];
+    }
+
+    public function test_missing_resume_proof_keeps_stop_closed(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts(['atlas_native_resume_proof' => null]));
+        $this->assertFalse($r['resume_allowed']);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_STOP, $r['action']);
+        $this->assertContains('atlas_native_resume_proof_missing', $r['blockers']);
+    }
+
+    public function test_unhealthy_queue_keeps_stop_closed(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts(['queue_health' => false]));
+        $this->assertFalse($r['resume_allowed']);
+        $this->assertContains('queue_health_unhealthy', $r['blockers']);
+    }
+
+    public function test_rollback_unready_keeps_stop_closed(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts(['rollback_readiness' => false]));
+        $this->assertFalse($r['resume_allowed']);
+        $this->assertContains('rollback_unready', $r['blockers']);
+    }
+
+    public function test_unsafe_release_active_keeps_stop_closed(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts(['unsafe_release_active' => true]));
+        $this->assertFalse($r['resume_allowed']);
+        $this->assertContains('unsafe_release_active', $r['blockers']);
+    }
+
+    public function test_complete_resume_proof_opens_to_observe_state(): void
+    {
+        $r = (new AtlasAutonomousRuntimeSafetyStopGate)->resume($this->goodResumeFacts());
+        $this->assertTrue($r['resume_allowed']);
+        $this->assertSame(AtlasAutonomousRuntimeSafetyStopGate::ACTION_OBSERVE, $r['action']);
+        $this->assertSame([], $r['blockers']);
+    }
 }

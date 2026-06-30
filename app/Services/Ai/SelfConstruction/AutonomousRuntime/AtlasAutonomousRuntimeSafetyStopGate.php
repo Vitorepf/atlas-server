@@ -47,6 +47,50 @@ final class AtlasAutonomousRuntimeSafetyStopGate
 
     public const REPEATED_GIVE_BACK_THRESHOLD = 3;
 
+    public const ACTION_OBSERVE = 'observe';
+
+    /**
+     * Resume gate — decides whether the autonomous runtime may EXIT a safety stop.
+     *
+     * Required to exit: atlas_native_resume_proof (non-empty array), queue_health (truthy),
+     * rollback_readiness (truthy), and unsafe_release_active must be false.
+     *
+     * If all conditions pass, action='observe' (cautious post-stop state). Otherwise action='stop'.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array{schema:string, action:string, resume_allowed:bool, blockers:list<string>}
+     */
+    public function resume(array $facts): array
+    {
+        $blockers = [];
+
+        $proof = $facts['atlas_native_resume_proof'] ?? null;
+        if (! is_array($proof) || $proof === []) {
+            $blockers[] = 'atlas_native_resume_proof_missing';
+        }
+
+        if (! (bool) ($facts['queue_health'] ?? false)) {
+            $blockers[] = 'queue_health_unhealthy';
+        }
+
+        if (! (bool) ($facts['rollback_readiness'] ?? false)) {
+            $blockers[] = 'rollback_unready';
+        }
+
+        if ((bool) ($facts['unsafe_release_active'] ?? false)) {
+            $blockers[] = 'unsafe_release_active';
+        }
+
+        sort($blockers, SORT_STRING);
+
+        return [
+            'schema' => self::SCHEMA,
+            'action' => $blockers === [] ? self::ACTION_OBSERVE : self::ACTION_STOP,
+            'resume_allowed' => $blockers === [],
+            'blockers' => $blockers,
+        ];
+    }
+
     /**
      * @param  array<string,array<string,mixed>>  $facts
      * @return array{schema:string, action:string, reasons:list<string>, evidence:array<string,mixed>}
