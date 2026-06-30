@@ -29,15 +29,22 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
 {
     public const SCHEMA = 'atlas.external_brain.queue_saturation_stop_policy.v1';
 
-    public const DECISION_ALLOW_ENQUEUE_EXCEPTION = 'allow_enqueue_exception';
-    public const DECISION_CONSOLIDATE_OR_AUDIT    = 'consolidate_or_audit';
-    public const DECISION_ORIGINATE_MORE          = 'originate_more';
-    public const DECISION_UNBLOCK_FIRST           = 'unblock_first';
-    public const DECISION_MONITOR                 = 'monitor';
+    public const DECISION_ALLOW_ENQUEUE_EXCEPTION        = 'allow_enqueue_exception';
+    public const DECISION_CONSOLIDATE_OR_AUDIT           = 'consolidate_or_audit';
+    public const DECISION_ORIGINATE_MORE                 = 'originate_more';
+    public const DECISION_UNBLOCK_FIRST                  = 'unblock_first';
+    public const DECISION_MONITOR                        = 'monitor';
+    public const DECISION_PAUSE_CREATION_AND_CONSOLIDATE = 'pause_creation_and_consolidate';
+    public const DECISION_CONTINUE_CREATION              = 'continue_creation';
+    public const DECISION_SELF_HEAL_BEFORE_MORE_VOLUME   = 'self_heal_before_more_volume';
 
     private const DEFAULT_SATURATION_THRESHOLD            = 20;
     private const DEFAULT_MUSCLE_BURN_RATE_FLOOR          = 5;
     private const DEFAULT_EXCEPTIONAL_VALUE_DENSITY_FLOOR = 0.80;
+    private const DEFAULT_AGE_SATURATION_THRESHOLD        = 14;   // days old = stale queue
+    private const DEFAULT_LOW_SERVE_RATE_THRESHOLD        = 0.30; // fraction below = low throughput
+    private const DEFAULT_POISON_PRESSURE_THRESHOLD       = 1;    // ≥ this → self-heal
+    private const DEFAULT_VALUE_DENSITY_CREATION_FLOOR    = 0.60; // minimum for continue_creation
 
     /**
      * @param  array{
@@ -62,15 +69,48 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
         $dependencyUnlock    = max(0, (int)   ($input['dependency_unlock_score']        ?? 0));
         $exceptionFloor      = max(0.0, (float) ($input['exceptional_value_density_floor'] ?? self::DEFAULT_EXCEPTIONAL_VALUE_DENSITY_FLOOR));
 
+        // New inputs (AC1/AC2/AC3)
+        $claimableAgeDays    = max(0, (int)   ($input['claimable_age_days']             ?? 0));
+        $serveRate           = max(0.0, min(1.0, (float) ($input['serve_rate']          ?? 1.0)));
+        $poisonPacketCount   = max(0, (int)   ($input['poison_packet_count']            ?? 0));
+        $malformedPacketRate = max(0.0, min(1.0, (float) ($input['malformed_packet_rate'] ?? 0.0)));
+        $ageSatThreshold     = max(1, (int)   ($input['age_saturation_threshold']       ?? self::DEFAULT_AGE_SATURATION_THRESHOLD));
+        $lowServeRateFloor   = max(0.0, (float) ($input['low_serve_rate_threshold']     ?? self::DEFAULT_LOW_SERVE_RATE_THRESHOLD));
+        $poisonThreshold     = max(1, (int)   ($input['poison_pressure_threshold']      ?? self::DEFAULT_POISON_PRESSURE_THRESHOLD));
+        $creationFloor       = max(0.0, (float) ($input['value_density_creation_floor'] ?? self::DEFAULT_VALUE_DENSITY_CREATION_FLOOR));
+
         $queueSaturated      = $claimableDepth >= $saturationThreshold;
         $musclesStarved      = $servableNow < $burnRateFloor;
         $isExceptionalValue  = $valueDensity >= $exceptionFloor || $dependencyUnlock > 0;
+        $poisonPressure      = $poisonPacketCount >= $poisonThreshold || $malformedPacketRate > 0.0;
+        $queueStaleByAge     = $claimableAgeDays >= $ageSatThreshold;
+        $lowThroughput       = $serveRate < $lowServeRateFloor;
+
+        // AC3: poison/malformed pressure → self-heal before anything else
+        if ($poisonPressure) {
+            return $this->result(
+                self::DECISION_SELF_HEAL_BEFORE_MORE_VOLUME,
+                "poison_packet_count={$poisonPacketCount}, malformed_packet_rate={$malformedPacketRate}; queue integrity compromised",
+                'self_heal_queue_integrity_before_adding_volume',
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+            );
+        }
 
         if ($queueSaturated && $isExceptionalValue) {
             return $this->result(
                 self::DECISION_ALLOW_ENQUEUE_EXCEPTION,
                 "queue saturated (depth={$claimableDepth}) but task has exceptional value: value_density={$valueDensity}, dependency_unlock_score={$dependencyUnlock}",
                 'enqueue_this_task_then_reassess',
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+            );
+        }
+
+        // AC1: stale queue (old tasks accumulating) + low serve rate → pause and consolidate
+        if ($queueStaleByAge && $lowThroughput) {
+            return $this->result(
+                self::DECISION_PAUSE_CREATION_AND_CONSOLIDATE,
+                "claimable_age_days={$claimableAgeDays} ≥ threshold={$ageSatThreshold} and serve_rate={$serveRate} < floor={$lowServeRateFloor}; tasks pile up faster than consumed",
+                'pause_creation_and_consolidate_existing_queue',
                 $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
             );
         }
@@ -98,6 +138,16 @@ final class AtlasExternalBrainQueueSaturationStopPolicy
                 self::DECISION_ORIGINATE_MORE,
                 "servable_now={$servableNow} < floor={$burnRateFloor} and recoverable_backlog=0; muscles genuinely starved",
                 'originate_fresh_tasks_to_refill_worker_pipeline',
+                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
+            );
+        }
+
+        // AC2: healthy throughput + fresh queue → continue_creation ONLY when value density stays high
+        if (! $queueStaleByAge && ! $lowThroughput && $valueDensity >= $creationFloor) {
+            return $this->result(
+                self::DECISION_CONTINUE_CREATION,
+                "queue fresh (age={$claimableAgeDays}d < {$ageSatThreshold}d), serve_rate={$serveRate} healthy, value_density={$valueDensity} ≥ floor={$creationFloor}",
+                'continue_creation_at_current_cadence',
                 $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock,
             );
         }
