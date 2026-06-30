@@ -168,6 +168,98 @@ final class AtlasExternalBrainMaturityCeilingBreakerTest extends TestCase
         $this->assertEmpty($r['proof_gates']);
     }
 
+    // ── AC1: new ceiling metrics ──────────────────────────────────────────────
+
+    public function test_structural_unlock_rate_in_ceiling_evidence(): void
+    {
+        // 3 unlocking out of 5 → rate = 0.6
+        $tasks = [
+            $this->task(true),  $this->task(true),  $this->task(true),
+            $this->task(false), $this->task(false),
+        ];
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(0.6, $r['ceiling_evidence']['structural_unlock_rate']);
+    }
+
+    public function test_repeated_family_rate_computed_from_task_family_field(): void
+    {
+        // 4 bug-hunt, 1 research → repeated = 4/5 = 0.8
+        $tasks = [
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt'],
+            ['unlocks_new_capability' => false, 'task_family' => 'research'],
+        ];
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(0.8, $r['ceiling_evidence']['repeated_family_rate']);
+    }
+
+    public function test_saturation_score_is_derived_from_unlock_and_family_rates(): void
+    {
+        // All non-unlocking (unlock_rate=0.0), all same family (repeated=1.0)
+        // saturation = (1.0 + 1.0) / 2 = 1.0
+        $tasks = array_fill(0, 3, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt']);
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(1.0, $r['ceiling_evidence']['saturation_score']);
+    }
+
+    public function test_ambition_jump_score_derived_from_risk_and_blast_of_best_jump(): void
+    {
+        // (1-0.4) * (1-0.3) = 0.6 * 0.7 = 0.42
+        $tasks = array_fill(0, 5, $this->task(false));
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'proposed_capability_jumps' => [$this->jump(['risk_score' => 0.4, 'blast_radius' => 0.3])],
+        ]);
+
+        $this->assertSame(0.42, $r['ceiling_evidence']['ambition_jump_score']);
+    }
+
+    public function test_ambition_jump_score_zero_when_no_eligible_jump(): void
+    {
+        $r = $this->breaker()->analyze(['recent_tasks' => array_fill(0, 5, $this->task(false))]);
+        $this->assertSame(0.0, $r['ceiling_evidence']['ambition_jump_score']);
+    }
+
+    public function test_tasks_without_task_family_do_not_inflate_repeated_family_rate(): void
+    {
+        // No task_family → repeated_family_rate = 0.0
+        $tasks = array_fill(0, 4, $this->task(false));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame(0.0, $r['ceiling_evidence']['repeated_family_rate']);
+    }
+
+    // ── AC2: saturation triggers ceiling ──────────────────────────────────────
+
+    public function test_ceiling_detected_by_saturation_without_stagnation_count(): void
+    {
+        // Only 3 tasks but all same family, all non-unlocking → saturation=1.0 >= 0.60
+        $tasks = array_fill(0, 3, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt']);
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks, 'stagnation_threshold' => 5]);
+
+        $this->assertTrue($r['ceiling_detected']);       // saturation triggered, not stagnation count
+        $this->assertSame(3, $r['ceiling_evidence']['non_unlocking_task_count']); // still < threshold
+    }
+
+    public function test_saturation_ceiling_proposes_eligible_jump(): void
+    {
+        $tasks = array_fill(0, 3, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt']);
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'stagnation_threshold'      => 5,
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertNotNull($r['proposed_jump']);
+        $this->assertSame('self_directed_origination', $r['proposed_jump']['name']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void

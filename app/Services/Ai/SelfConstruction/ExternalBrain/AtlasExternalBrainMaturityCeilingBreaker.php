@@ -34,9 +34,10 @@ final class AtlasExternalBrainMaturityCeilingBreaker
 {
     public const SCHEMA = 'atlas.external_brain.maturity_ceiling_breaker.v1';
 
-    private const STAGNATION_DEFAULT = 5;
-    private const MAX_BLAST_RADIUS   = 0.50;
-    private const MAX_RISK_SCORE     = 0.60;
+    private const STAGNATION_DEFAULT      = 5;
+    private const MAX_BLAST_RADIUS        = 0.50;
+    private const MAX_RISK_SCORE          = 0.60;
+    private const HIGH_SATURATION_THRESHOLD = 0.60;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -49,21 +50,46 @@ final class AtlasExternalBrainMaturityCeilingBreaker
         $proposedJumps = is_array($facts['proposed_capability_jumps'] ?? null)
             ? $facts['proposed_capability_jumps'] : [];
 
-        // Separate tasks by capability-unlock status.
+        // Separate tasks by capability-unlock status; collect family counts.
         $nonUnlockingTasks = [];
         $metricDeltas      = [];
+        $unlockCount       = 0;
+        $familyCounts      = [];
 
         foreach ($recentTasks as $task) {
             $unlocks = (bool) ($task['unlocks_new_capability'] ?? false);
-            if (! $unlocks) {
+            if ($unlocks) {
+                $unlockCount++;
+            } else {
                 $nonUnlockingTasks[] = $task;
             }
             $metricDeltas[] = max(0.0, (float) ($task['metric_delta'] ?? 0.0));
+            // Only tasks with an explicit non-empty family contribute to concentration.
+            $family = (string) ($task['task_family'] ?? '');
+            if ($family !== '') {
+                $familyCounts[$family] = ($familyCounts[$family] ?? 0) + 1;
+            }
         }
 
-        $nonUnlockingCount  = count($nonUnlockingTasks);
-        $ceilingDetected    = $nonUnlockingCount >= $threshold;
-        $marginalGainAvg    = count($metricDeltas) > 0
+        $totalCount        = count($recentTasks);
+        $nonUnlockingCount = count($nonUnlockingTasks);
+
+        // AC1: 4 new metrics.
+        $structuralUnlockRate = $totalCount > 0
+            ? round($unlockCount / $totalCount, 4) : 0.0;
+
+        $familyTaskCount    = array_sum($familyCounts);
+        $repeatedFamilyRate = $familyTaskCount > 0
+            ? round(max($familyCounts) / $familyTaskCount, 4) : 0.0;
+
+        $saturationScore = round(($repeatedFamilyRate + (1.0 - $structuralUnlockRate)) / 2.0, 4);
+
+        // AC2: ceiling triggered by stagnation count OR high saturation.
+        $stagnationCeiling = $nonUnlockingCount >= $threshold;
+        $saturationCeiling = $saturationScore >= self::HIGH_SATURATION_THRESHOLD;
+        $ceilingDetected   = $stagnationCeiling || $saturationCeiling;
+
+        $marginalGainAvg = count($metricDeltas) > 0
             ? round(array_sum($metricDeltas) / count($metricDeltas), 6)
             : 0.0;
 
@@ -108,13 +134,21 @@ final class AtlasExternalBrainMaturityCeilingBreaker
 
         $proposedJump = $eligibleJumps[0] ?? null;
 
+        $ambitionJumpScore = $proposedJump !== null
+            ? round((1.0 - $proposedJump['risk_score']) * (1.0 - $proposedJump['blast_radius']), 4)
+            : 0.0;
+
         return [
             'schema_version'               => self::SCHEMA,
             'ceiling_detected'             => $ceilingDetected,
             'ceiling_evidence'             => [
-                'non_unlocking_task_count' => $nonUnlockingCount,
-                'marginal_gain_average'    => $marginalGainAvg,
+                'non_unlocking_task_count'  => $nonUnlockingCount,
+                'marginal_gain_average'     => $marginalGainAvg,
                 'stagnation_threshold_used' => $threshold,
+                'structural_unlock_rate'    => $structuralUnlockRate,
+                'repeated_family_rate'      => $repeatedFamilyRate,
+                'saturation_score'          => $saturationScore,
+                'ambition_jump_score'       => $ambitionJumpScore,
             ],
             'proposed_jump'                => $proposedJump,
             'prerequisites'                => $proposedJump['prerequisites'] ?? [],
