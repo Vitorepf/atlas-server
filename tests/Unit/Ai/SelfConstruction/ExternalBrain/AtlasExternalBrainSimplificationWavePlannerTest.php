@@ -165,4 +165,93 @@ final class AtlasExternalBrainSimplificationWavePlannerTest extends TestCase
         $this->assertSame([], $r['deferred']);
         $this->assertSame(0, $r['expected_reduction_score']);
     }
+
+    // ── output has the required AC fields ────────────────────────────────────────
+
+    public function test_output_has_autonomy_lane_policy_and_stop_go_decision(): void
+    {
+        $r = $this->planner()->plan([$this->candidate('a')]);
+
+        $this->assertArrayHasKey('autonomy_lane_policy', $r);
+        $this->assertArrayHasKey('stop_go_decision', $r);
+        foreach (['lane', 'recurring', 'cadence', 'min_reserved_capacity', 'crowd_out_protection_active'] as $key) {
+            $this->assertArrayHasKey($key, $r['autonomy_lane_policy'], "autonomy_lane_policy missing key: {$key}");
+        }
+        foreach (['decision', 'reasons'] as $key) {
+            $this->assertArrayHasKey($key, $r['stop_go_decision'], "stop_go_decision missing key: {$key}");
+        }
+    }
+
+    public function test_autonomy_lane_policy_is_recurring(): void
+    {
+        $r = $this->planner()->plan([$this->candidate('a')]);
+
+        $this->assertTrue($r['autonomy_lane_policy']['recurring']);
+        $this->assertSame('simplification', $r['autonomy_lane_policy']['lane']);
+    }
+
+    // ── AC3: build_or_repair_urgent bounds capacity AND defers stop_go_decision ──
+
+    public function test_urgent_build_or_repair_bounds_capacity_and_defers_simplification(): void
+    {
+        $r = $this->planner()->plan(
+            [$this->candidate('a')],
+            ['wave_capacity' => 4, 'build_or_repair_urgent' => true],
+        );
+
+        $this->assertSame(2, $r['capacity_allocation']['effective_wave_capacity']);
+        $this->assertSame('defer_to_build_repair', $r['stop_go_decision']['decision']);
+        $this->assertTrue($r['autonomy_lane_policy']['crowd_out_protection_active']);
+    }
+
+    // ── AC3: high complexity debt + behavior coverage → prioritize_simplification_over_new_feature ──
+
+    public function test_high_complexity_debt_with_eligible_candidates_prioritizes_simplification(): void
+    {
+        $r = $this->planner()->plan(
+            [$this->candidate('a', ['line_reduction' => 100])],
+            ['complexity_debt_high' => true],
+        );
+
+        $this->assertSame('prioritize_simplification_over_new_feature', $r['stop_go_decision']['decision']);
+        $this->assertNotEmpty($r['stop_go_decision']['reasons']);
+    }
+
+    public function test_high_complexity_debt_without_eligible_candidates_does_not_prioritize(): void
+    {
+        // All candidates deferred (no behavior coverage) — no real evidence to act on.
+        $r = $this->planner()->plan(
+            [$this->candidate('a', ['has_behavior_coverage' => false])],
+            ['complexity_debt_high' => true],
+        );
+
+        $this->assertNotSame('prioritize_simplification_over_new_feature', $r['stop_go_decision']['decision']);
+    }
+
+    public function test_normal_conditions_proceed_normal(): void
+    {
+        $r = $this->planner()->plan([$this->candidate('a')]);
+
+        $this->assertSame('proceed_normal', $r['stop_go_decision']['decision']);
+    }
+
+    public function test_urgent_takes_priority_over_complexity_debt(): void
+    {
+        // Both urgent AND high debt present — urgent must win (simplification always yields).
+        $r = $this->planner()->plan(
+            [$this->candidate('a', ['line_reduction' => 100])],
+            ['build_or_repair_urgent' => true, 'complexity_debt_high' => true],
+        );
+
+        $this->assertSame('defer_to_build_repair', $r['stop_go_decision']['decision']);
+    }
+
+    public function test_stop_go_decision_is_deterministic(): void
+    {
+        $candidates = [$this->candidate('a', ['line_reduction' => 100])];
+        $a = $this->planner()->plan($candidates, ['complexity_debt_high' => true]);
+        $b = $this->planner()->plan($candidates, ['complexity_debt_high' => true]);
+
+        $this->assertSame(json_encode($a['stop_go_decision']), json_encode($b['stop_go_decision']));
+    }
 }

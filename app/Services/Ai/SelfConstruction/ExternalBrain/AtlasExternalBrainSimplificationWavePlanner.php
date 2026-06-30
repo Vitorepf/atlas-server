@@ -124,6 +124,8 @@ final class AtlasExternalBrainSimplificationWavePlanner
             $safetyNotes[] = 'build_or_repair_urgent=true: simplification capacity halved so it never crowds out urgent work';
         }
 
+        $complexityDebtHigh = (bool) ($capacityFacts['complexity_debt_high'] ?? false);
+
         return [
             'schema' => self::SCHEMA,
             'waves' => $waves,
@@ -137,6 +139,60 @@ final class AtlasExternalBrainSimplificationWavePlanner
             ],
             'expected_reduction_score' => $expectedReductionScore,
             'safety_notes' => $safetyNotes,
+            'autonomy_lane_policy' => $this->autonomyLanePolicy($baseCapacity, $effectiveCapacity, $urgent),
+            'stop_go_decision' => $this->stopGoDecision($urgent, $complexityDebtHigh, $eligible, $expectedReductionScore),
+        ];
+    }
+
+    /**
+     * Describes how simplification runs as a recurring governed lane in 24/7 autonomy — never a
+     * one-off cleanup, never the whole capacity, always reserving room for urgent build/repair.
+     *
+     * @return array{lane:string, recurring:bool, cadence:string, min_reserved_capacity:int, crowd_out_protection_active:bool}
+     */
+    private function autonomyLanePolicy(int $baseCapacity, int $effectiveCapacity, bool $urgent): array
+    {
+        return [
+            'lane' => 'simplification',
+            'recurring' => true,
+            'cadence' => 'every_cycle',
+            'min_reserved_capacity' => min($baseCapacity, $effectiveCapacity),
+            'crowd_out_protection_active' => $urgent,
+        ];
+    }
+
+    /**
+     * Stop/go: should this cycle PRIORITIZE simplification over new-feature origination?
+     *
+     * Urgent build/repair always wins (simplification yields, never blocks recovery). Otherwise,
+     * high complexity debt with eligible (behavior-covered) candidates and real expected reduction
+     * outranks new-feature origination — but only with evidence, never on prose alone.
+     *
+     * @param  list<array<string,mixed>>  $eligible
+     * @return array{decision:string, reasons:list<string>}
+     */
+    private function stopGoDecision(bool $urgent, bool $complexityDebtHigh, array $eligible, int $expectedReductionScore): array
+    {
+        if ($urgent) {
+            return [
+                'decision' => 'defer_to_build_repair',
+                'reasons' => ['build_or_repair_urgent=true: simplification yields capacity to urgent work this cycle'],
+            ];
+        }
+
+        if ($complexityDebtHigh && $eligible !== [] && $expectedReductionScore > 0) {
+            return [
+                'decision' => 'prioritize_simplification_over_new_feature',
+                'reasons' => [
+                    'complexity_debt_high=true with behavior-covered eligible candidates present',
+                    sprintf('eligible_count=%d, expected_reduction_score=%d', count($eligible), $expectedReductionScore),
+                ],
+            ];
+        }
+
+        return [
+            'decision' => 'proceed_normal',
+            'reasons' => ['no urgent build/repair pressure and no high-debt+evidenced simplification opportunity this cycle'],
         ];
     }
 }
