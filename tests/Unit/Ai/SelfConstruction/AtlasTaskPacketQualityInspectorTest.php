@@ -537,6 +537,73 @@ final class AtlasTaskPacketQualityInspectorTest extends TestCase
         }
     }
 
+    // property_gated_target_missing_constitution_evidence: Brain organs under AutonomousEvolution/ require
+    // `constitution_gate_receipt` in required_evidence. Absent receipt → blocking. Present → self_sufficient.
+    // True forbidden lock files (pétreo) still produce forbidden_self_target_in_allowed_files, not this.
+
+    public function test_brain_target_with_constitution_gate_receipt_is_self_sufficient(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'Extend AtlasBrainSomethingNormal with a new method so php artisan test stays green',
+            'allowed_files' => [
+                'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormal.php',
+                'tests/Unit/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormalTest.php',
+            ],
+            'scope_in' => [
+                'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormal.php',
+                'tests/Unit/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormalTest.php',
+            ],
+            'required_evidence' => ['tests_or_gates_result', 'constitution_gate_receipt'],
+        ]));
+
+        $this->assertTrue($r['self_sufficient'], 'Brain target with constitution_gate_receipt must be self_sufficient');
+        $this->assertNotContains('property_gated_target_missing_constitution_evidence', $r['blocking_deficiencies']);
+        $this->assertNotEmpty($r['facts']['property_gated_targets'], 'property_gated_targets must list the Brain implementation file');
+        $this->assertNotContains('forbidden_self_target_in_allowed_files', $r['blocking_deficiencies']);
+    }
+
+    public function test_brain_target_without_constitution_gate_receipt_is_blocked(): void
+    {
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'objective' => 'Extend AtlasBrainSomethingNormal with a new method so php artisan test stays green',
+            'allowed_files' => [
+                'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormal.php',
+                'tests/Unit/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormalTest.php',
+            ],
+            'scope_in' => [
+                'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormal.php',
+                'tests/Unit/Ai/AutonomousEvolution/Brain/AtlasBrainSomethingNormalTest.php',
+            ],
+            'required_evidence' => ['tests_or_gates_result'],
+        ]));
+
+        $this->assertFalse($r['self_sufficient'], 'Brain target without constitution_gate_receipt must be blocked');
+        $this->assertContains('property_gated_target_missing_constitution_evidence', $r['blocking_deficiencies']);
+        $this->assertNotContains('forbidden_self_target_in_allowed_files', $r['blocking_deficiencies'], 'property_gated must not also produce forbidden_self_target');
+    }
+
+    public function test_true_forbidden_lock_files_still_produce_forbidden_self_target_not_property_gated(): void
+    {
+        // AtlasLoopHarnessGuard.php is pétreo — matches FORBIDDEN_PATTERNS, not property_gated.
+        $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([
+            'allowed_files' => [
+                'app/Console/Commands/AtlasFoo.php',
+                'app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php',
+                'tests/Unit/Ai/SelfConstruction/AtlasFooTest.php',
+            ],
+            'scope_in' => [
+                'app/Console/Commands/AtlasFoo.php',
+                'app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php',
+                'tests/Unit/Ai/SelfConstruction/AtlasFooTest.php',
+            ],
+            'required_evidence' => ['tests_or_gates_result', 'constitution_gate_receipt'],
+        ]));
+
+        $this->assertFalse($r['self_sufficient'], 'forbidden pétreo files block even with constitution_gate_receipt');
+        $this->assertContains('forbidden_self_target_in_allowed_files', $r['blocking_deficiencies']);
+        $this->assertNotContains('property_gated_target_missing_constitution_evidence', $r['blocking_deficiencies'], 'pétreo forbidden must not also emit property_gated deficiency');
+    }
+
     public function test_filter_naming_the_target_does_not_trigger_coverage_mismatch(): void
     {
         $r = (new AtlasTaskPacketQualityInspector)->inspect($this->packet([

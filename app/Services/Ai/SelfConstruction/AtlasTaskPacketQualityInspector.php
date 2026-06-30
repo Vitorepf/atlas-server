@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\SelfConstruction\GovernedTargets\AtlasTaskPropertyGatedTargetPolicy;
 use App\Services\Ai\SelfConstruction\Support\NormalizesToStringList;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskHiddenPoisonDetector;
 
@@ -75,6 +76,11 @@ final class AtlasTaskPacketQualityInspector
         // asserts exit 0 makes dormant code observable, but does not by itself add a decision, gate, repair, or
         // runtime capability. It burned cerebro-5 into 108 same-shape proxy packets.
         'dormant_cli_arm_proxy',
+        // A packet whose allowed_files include a PROPERTY-GATED target (e.g., a Brain organ under
+        // AutonomousEvolution/) must carry `constitution_gate_receipt` in required_evidence — proof that the
+        // governing constitution gate approved the scope. Without that receipt the cold worker has no authority
+        // to implement the change and the report gate cannot validate compliance.
+        'property_gated_target_missing_constitution_evidence',
     ];
 
     /**
@@ -132,10 +138,20 @@ final class AtlasTaskPacketQualityInspector
 
         $bareDirs = array_values(array_filter($allowed, fn (string $p): bool => $this->isBareDirectory($p)));
         $uncovered = $this->uncoveredByScopeIn($allowed, $scopeIn);
-        // PÉTREO commit-safety: any allowed_file the scoped committer would refuse makes the whole packet
-        // uncommittable. Use the SAME guard the committer uses, so a served packet is always committable.
-        $guard = $this->guard ?? new AtlasLoopHarnessGuard;
-        $forbiddenTargets = array_values(array_filter($allowed, fn (string $p): bool => $guard->isForbiddenSelfTarget($p)));
+        // Classify allowed_files by governance tier. Forbidden (pétreo) → uncommittable; property_gated
+        // (AutonomousEvolution organs) → allowed only with constitution_gate_receipt evidence. Test paths
+        // under AutonomousEvolution/ are excluded from property_gated classification — the receipt gates the
+        // IMPLEMENTATION target, not the test that covers it.
+        $targetPolicy = new AtlasTaskPropertyGatedTargetPolicy;
+        $classified = $targetPolicy->classifyAll($allowed);
+        $forbiddenTargets = $classified[AtlasTaskPropertyGatedTargetPolicy::CLASSIFICATION_FORBIDDEN];
+        $propertyGatedTargets = array_values(array_filter(
+            $classified[AtlasTaskPropertyGatedTargetPolicy::CLASSIFICATION_PROPERTY_GATED],
+            static function (string $p): bool {
+                $norm = ltrim(str_replace('\\', '/', $p), '/');
+                return ! str_starts_with($norm, 'tests/') && ! str_contains($norm, '/tests/');
+            }
+        ));
         $scopeRepairRemovedTargets = $this->scopeRepairRemovedRequiredTargets($objective, $acceptance, $forbidden);
         $scopeRepairAcceptanceTargets = $this->targetsMentionedInText(implode("\n", $acceptance), $scopeRepairRemovedTargets);
         $policyText = $objective."\n".implode("\n", $acceptance);
@@ -163,6 +179,9 @@ final class AtlasTaskPacketQualityInspector
         }
         if ($forbiddenTargets !== []) {
             $deficiencies[] = 'forbidden_self_target_in_allowed_files';
+        }
+        if ($propertyGatedTargets !== [] && ! in_array('constitution_gate_receipt', $evidence, true)) {
+            $deficiencies[] = 'property_gated_target_missing_constitution_evidence';
         }
         if ($uncovered !== []) {
             $deficiencies[] = 'scope_incoherent'; // advisory
@@ -257,6 +276,7 @@ final class AtlasTaskPacketQualityInspector
                 'bare_directories' => $bareDirs,
                 'scope_uncovered_allowed_files' => $uncovered,
                 'forbidden_self_targets' => $forbiddenTargets,
+                'property_gated_targets' => $propertyGatedTargets,
                 'scope_repair_removed_required_targets' => $scopeRepairRemovedTargets,
                 'scope_repair_removed_targets_mentioned_in_acceptance' => $scopeRepairAcceptanceTargets,
                 'requires_test_authoring' => $requiresTestAuthoring,
