@@ -151,6 +151,7 @@ final class AgentControlPlaneCertificationCoverageReportService
             '--agent-control-plane-agent-runtime-registry-certification-status',
         ];
         $statusOptionCount = count($statusFlags);
+        $missingStatusFlagNames = [];
         $command = $registry['atlas:ai:self-construction'] ?? null;
         if ($command !== null) {
             $definition = $command->getDefinition();
@@ -159,8 +160,12 @@ final class AgentControlPlaneCertificationCoverageReportService
                 $name = ltrim($flag, '-');
                 if (in_array($name, $available, true)) {
                     $statusFlagPresent++;
+                } else {
+                    $missingStatusFlagNames[] = $flag;
                 }
             }
+        } else {
+            $missingStatusFlagNames = $statusFlags;
         }
         $commandStatusCoverage = $statusOptionCount > 0 ? round($statusFlagPresent / $statusOptionCount, 4) : 0.0;
 
@@ -255,6 +260,32 @@ final class AgentControlPlaneCertificationCoverageReportService
             default => 'F',
         };
 
+        // critical_gap_summary: turns the single coverage_score into an actionable next-task
+        // selector — lowest blocks first, explicit skip flags (never silently treated as complete),
+        // and a single recommended_next_focus the external brain can act on directly.
+        $lowestCoverageBlocks = $missing;
+        usort($lowestCoverageBlocks, static fn (array $a, array $b): int => $a['value'] <=> $b['value']);
+
+        $skippedInputs = [];
+        if ($skipSimulator) {
+            $skippedInputs[] = 'simulator';
+        }
+        if ($skipFuzz) {
+            $skippedInputs[] = 'fuzz';
+        }
+
+        $recommendedNextFocus = $lowestCoverageBlocks !== []
+            ? (string) $lowestCoverageBlocks[0]['block']
+            : 'none_all_blocks_at_full_coverage';
+
+        $criticalGapSummary = [
+            'lowest_coverage_blocks' => $lowestCoverageBlocks,
+            'missing_status_flags' => $missingStatusFlagNames,
+            'skipped_inputs' => $skippedInputs,
+            'blocked_by_skipped_inputs' => $skippedInputs !== [],
+            'recommended_next_focus' => $recommendedNextFocus,
+        ];
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -275,6 +306,7 @@ final class AgentControlPlaneCertificationCoverageReportService
             'coverage_grade' => $grade,
             'coverage_blocks' => $coverageBlocks,
             'missing_coverage' => $missing,
+            'critical_gap_summary' => $criticalGapSummary,
             'block_count' => count($coverageBlocks),
             'metrics' => [
                 'slice_count' => $sliceCount,
