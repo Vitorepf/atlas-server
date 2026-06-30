@@ -22,7 +22,7 @@ final class AtlasLoopFeatureCompletenessResolver
      * One falsifiable criterion per verification atom, in atom order.
      *
      * @param  list<array<string,mixed>>  $atoms  the packet's `verification_atoms`
-     * @return list<array{index:int, type:string, criterion:string}>
+     * @return list<array{index:int, type:string, criterion:string, atom_id:string, proof_kind:string, proof_command_or_path:string|null, evidence_required:string}>
      */
     public function resolve(array $atoms): array
     {
@@ -37,11 +37,45 @@ final class AtlasLoopFeatureCompletenessResolver
             if ($criterion === '') {
                 continue;
             }
-            $checklist[] = ['index' => $index, 'type' => $type, 'criterion' => $criterion];
+            $checklist[] = array_merge(
+                ['index' => $index, 'type' => $type, 'criterion' => $criterion],
+                $this->proofHandleFor($type, $atom, $index),
+            );
             $index++;
         }
 
         return $checklist;
+    }
+
+    /**
+     * @param  array<string,mixed>  $atom
+     * @return array{atom_id:string, proof_kind:string, proof_command_or_path:string|null, evidence_required:string}
+     */
+    private function proofHandleFor(string $type, array $atom, int $index): array
+    {
+        $atomId = trim((string) ($atom['atom_id'] ?? ($atom['id'] ?? '')));
+        if ($atomId === '') {
+            $atomId = $type.'_'.$index;
+        }
+
+        [$proofCommand, $evidenceRequired] = match ($type) {
+            'command_output' => [trim((string) ($atom['command'] ?? '')) ?: null, 'exit_code_and_output'],
+            'http_response' => [
+                strtoupper(trim((string) ($atom['method'] ?? 'GET'))).' '.trim((string) ($atom['path'] ?? '')),
+                'http_status_and_body',
+            ],
+            'db_state' => [null, 'db_row_count'],
+            'event_dispatched' => [null, 'event_dispatch_assertion'],
+            'job_dispatched' => [null, 'job_dispatch_assertion'],
+            default => [null, 'return_value'],
+        };
+
+        return [
+            'atom_id' => $atomId,
+            'proof_kind' => $type,
+            'proof_command_or_path' => $proofCommand,
+            'evidence_required' => $evidenceRequired,
+        ];
     }
 
     /**
