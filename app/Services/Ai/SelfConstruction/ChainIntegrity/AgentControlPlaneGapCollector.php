@@ -27,6 +27,8 @@ final class AgentControlPlaneGapCollector
                     $gaps[] = [
                         'slice_key' => $deepChain[$index]['slice_key'] ?? '',
                         'capability_check' => $key,
+                        'severity' => 'high',
+                        'repair_hint' => 'register_'.str_replace('_registered', '', $key),
                     ];
                 }
             }
@@ -51,6 +53,8 @@ final class AgentControlPlaneGapCollector
                     'prepare_method' => (string) ($report['prepare_method'] ?? ''),
                     'invoker_class_exists' => (bool) ($checks['invoker_class_exists'] ?? false),
                     'invoker_prepare_method_exists' => (bool) ($checks['invoker_prepare_method_exists'] ?? false),
+                    'severity' => 'high',
+                    'repair_hint' => ($checks['invoker_class_exists'] ?? false) ? 'add_prepare_method' : 'create_invoker_class',
                 ];
             }
         }
@@ -72,6 +76,8 @@ final class AgentControlPlaneGapCollector
                     $gaps[] = [
                         'slice_key' => (string) ($report['slice_key'] ?? ''),
                         'readiness_check' => $key,
+                        'severity' => 'medium',
+                        'repair_hint' => 'implement_'.str_replace('_exists', '', $key),
                     ];
                 }
             }
@@ -82,7 +88,7 @@ final class AgentControlPlaneGapCollector
 
     /**
      * @param  array<string, mixed>  $runtimeSafety
-     * @return list<string>
+     * @return list<array<string, string>>
      */
     public static function runtimeSafetyGaps(array $runtimeSafety): array
     {
@@ -101,11 +107,11 @@ final class AgentControlPlaneGapCollector
         ];
         foreach ($expectedFalse as $flag) {
             if ((bool) ($runtimeSafety[$flag] ?? false) === true) {
-                $gaps[] = $flag;
+                $gaps[] = ['flag' => $flag, 'severity' => 'critical', 'repair_hint' => 'disable_'.$flag];
             }
         }
         if (($runtimeSafety['runtime_safety_all_false'] ?? false) !== true) {
-            $gaps[] = 'runtime_safety_all_false';
+            $gaps[] = ['flag' => 'runtime_safety_all_false', 'severity' => 'critical', 'repair_hint' => 'ensure_runtime_safety_all_false'];
         }
 
         return $gaps;

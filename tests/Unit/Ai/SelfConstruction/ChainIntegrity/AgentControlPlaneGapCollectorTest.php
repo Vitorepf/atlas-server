@@ -91,15 +91,15 @@ class AgentControlPlaneGapCollectorTest extends TestCase
 
         $gaps = AgentControlPlaneGapCollector::runtimeSafetyGaps($safety);
 
-        self::assertContains('codex_cli_invoked', $gaps);
-        self::assertContains('dispatch_allowed_anywhere', $gaps);
+        self::assertContains('codex_cli_invoked', array_column($gaps, 'flag'));
+        self::assertContains('dispatch_allowed_anywhere', array_column($gaps, 'flag'));
     }
 
     public function test_runtime_safety_gaps_reports_all_false_missing(): void
     {
         $gaps = AgentControlPlaneGapCollector::runtimeSafetyGaps([]);
 
-        self::assertContains('runtime_safety_all_false', $gaps);
+        self::assertContains('runtime_safety_all_false', array_column($gaps, 'flag'));
     }
 
     public function test_all_methods_are_deterministic(): void
@@ -110,5 +110,57 @@ class AgentControlPlaneGapCollectorTest extends TestCase
             AgentControlPlaneGapCollector::collectReadinessGaps($reports),
             AgentControlPlaneGapCollector::collectReadinessGaps($reports),
         );
+    }
+
+    public function test_capability_gaps_include_severity_and_repair_hint(): void
+    {
+        $reports = [['checks' => ['capability_contract_registered' => false]]];
+        $gaps = AgentControlPlaneGapCollector::capabilityGaps([['slice_key' => 'a']], $reports);
+
+        self::assertNotEmpty($gaps);
+        self::assertArrayHasKey('severity', $gaps[0]);
+        self::assertArrayHasKey('repair_hint', $gaps[0]);
+        self::assertNotEmpty($gaps[0]['severity']);
+        self::assertNotEmpty($gaps[0]['repair_hint']);
+    }
+
+    public function test_invoker_gaps_include_severity_and_repair_hint(): void
+    {
+        $reports = [['slice_key' => 'a', 'invoker_class' => 'Foo', 'prepare_method' => 'bar', 'checks' => ['invoker_class_exists' => false, 'invoker_prepare_method_exists' => true]]];
+        $gaps = AgentControlPlaneGapCollector::collectInvokerGaps($reports);
+
+        self::assertNotEmpty($gaps);
+        self::assertSame('high', $gaps[0]['severity']);
+        self::assertSame('create_invoker_class', $gaps[0]['repair_hint']);
+    }
+
+    public function test_readiness_gaps_include_severity_and_repair_hint(): void
+    {
+        $reports = [['slice_key' => 'a', 'checks' => ['contract_method_exists' => true, 'preflight_method_exists' => false, 'implementation_packet_method_exists' => true, 'status_method_exists' => true]]];
+        $gaps = AgentControlPlaneGapCollector::collectReadinessGaps($reports);
+
+        self::assertNotEmpty($gaps);
+        self::assertSame('medium', $gaps[0]['severity']);
+        self::assertSame('implement_preflight_method', $gaps[0]['repair_hint']);
+    }
+
+    public function test_runtime_safety_gaps_include_severity_and_repair_hint(): void
+    {
+        $gaps = AgentControlPlaneGapCollector::runtimeSafetyGaps(['runtime_safety_all_false' => true, 'codex_cli_invoked' => true]);
+
+        self::assertNotEmpty($gaps);
+        self::assertSame('critical', $gaps[0]['severity']);
+        self::assertStringStartsWith('disable_', $gaps[0]['repair_hint']);
+        self::assertArrayHasKey('flag', $gaps[0]);
+    }
+
+    public function test_all_gap_methods_return_empty_for_green_reports(): void
+    {
+        $allChecksTrue = ['checks' => ['capability_contract_registered' => true, 'capability_preflight_registered' => true, 'capability_implementation_packet_registered' => true, 'capability_invoker_service_registered' => true, 'capability_status_projection_registered' => true, 'invoker_class_exists' => true, 'invoker_prepare_method_exists' => true, 'contract_method_exists' => true, 'preflight_method_exists' => true, 'implementation_packet_method_exists' => true, 'status_method_exists' => true]];
+
+        self::assertSame([], AgentControlPlaneGapCollector::capabilityGaps([['slice_key' => 'a']], [$allChecksTrue]));
+        self::assertSame([], AgentControlPlaneGapCollector::collectInvokerGaps([$allChecksTrue]));
+        self::assertSame([], AgentControlPlaneGapCollector::collectReadinessGaps([$allChecksTrue]));
+        self::assertSame([], AgentControlPlaneGapCollector::runtimeSafetyGaps(['runtime_safety_all_false' => true]));
     }
 }
