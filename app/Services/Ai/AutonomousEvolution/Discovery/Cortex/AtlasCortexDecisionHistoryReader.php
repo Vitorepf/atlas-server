@@ -31,7 +31,7 @@ final class AtlasCortexDecisionHistoryReader
         }
 
         $fqcn = $this->fqcn(is_file($filePath) ? (string) file_get_contents($filePath) : '');
-        $result = $this->run(['git', 'log', '--follow', '--format=%H%x1f%s%x1f%b%x1f%at', '--', $filePath]);
+        $result = $this->run(['git', 'log', '--follow', '--format=%H%x1f%s%x1f%b%x1f%at%x1e', '--', $filePath]);
         if (($result['exit_code'] ?? 1) !== 0) {
             return $this->cache[$cacheKey] = new DecisionHistoryFact($fqcn, $filePath, 0, []);
         }
@@ -85,7 +85,7 @@ final class AtlasCortexDecisionHistoryReader
      */
     private function parse(string $output): array
     {
-        $rows = preg_split('/\\R+/', trim($output)) ?: [];
+        $rows = array_filter(explode("\x1e", $output), static fn (string $r): bool => trim($r) !== '');
         $decisions = [];
         foreach ($rows as $row) {
             $parts = explode("\x1f", $row);

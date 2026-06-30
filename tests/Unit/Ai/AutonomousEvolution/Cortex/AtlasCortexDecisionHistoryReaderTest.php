@@ -21,7 +21,7 @@ final class AtlasCortexDecisionHistoryReaderTest extends TestCase
 
             return [
                 'exit_code' => 0,
-                'output' => implode("\x1f", ['abc123', 'fix invariant sentinel', 'body', '1710000000']),
+                'output' => implode("\x1f", ['abc123', 'fix invariant sentinel', 'body', '1710000000'])."\x1e",
             ];
         });
         $path = $this->phpFixture();
@@ -36,7 +36,7 @@ final class AtlasCortexDecisionHistoryReaderTest extends TestCase
         $this->assertSame('fix invariant sentinel', $fact->decisions[0]['subject']);
         $this->assertSame(1710000000, $fact->decisions[0]['decided_on']);
         $this->assertTrue($fact->decisions[0]['keyword_hit']);
-        $this->assertSame(['git', 'log', '--follow', '--format=%H%x1f%s%x1f%b%x1f%at', '--', $path], $commands[1]);
+        $this->assertSame(['git', 'log', '--follow', '--format=%H%x1f%s%x1f%b%x1f%at%x1e', '--', $path], $commands[1]);
     }
 
     public function test_keyword_set_is_detected_case_insensitively(): void
@@ -48,7 +48,7 @@ final class AtlasCortexDecisionHistoryReaderTest extends TestCase
                     return ['exit_code' => 0, 'output' => 'head-sha'];
                 }
 
-                return ['exit_code' => 0, 'output' => implode("\x1f", ['abc123', strtoupper($keyword).' subject', '', '1710000000'])];
+                return ['exit_code' => 0, 'output' => implode("\x1f", ['abc123', strtoupper($keyword).' subject', '', '1710000000'])."\x1e"];
             });
 
             $this->assertTrue($reader->read($this->phpFixture())->decisions[0]['keyword_hit'], $keyword);
@@ -80,7 +80,7 @@ final class AtlasCortexDecisionHistoryReaderTest extends TestCase
                 return ['exit_code' => 0, 'output' => 'head-sha'];
             }
 
-            return ['exit_code' => 0, 'output' => implode("\x1f", ['abc123', 'decision cached', '', '1710000000'])];
+            return ['exit_code' => 0, 'output' => implode("\x1f", ['abc123', 'decision cached', '', '1710000000'])."\x1e"];
         });
         $path = $this->phpFixture();
 
@@ -89,6 +89,28 @@ final class AtlasCortexDecisionHistoryReaderTest extends TestCase
 
         $this->assertSame($first, $second);
         $this->assertSame(3, $calls, 'HEAD is checked each time; log output is cached for the same file mtime and HEAD.');
+    }
+
+    public function test_multiline_body_commit_is_parsed_not_dropped(): void
+    {
+        $reader = new AtlasCortexDecisionHistoryReader(function (array $command): array {
+            if ($command === ['git', 'rev-parse', 'HEAD']) {
+                return ['exit_code' => 0, 'output' => 'head-sha'];
+            }
+
+            $multiLineBody = "first line\nsecond line\nthird line";
+            $record1 = implode("\x1f", ['sha1', 'subject one', $multiLineBody, '1710000000'])."\x1e";
+            $record2 = implode("\x1f", ['sha2', 'subject two', 'simple body', '1710000001'])."\x1e";
+
+            return ['exit_code' => 0, 'output' => $record1.$record2];
+        });
+
+        $fact = $reader->read($this->phpFixture());
+
+        $this->assertSame(2, $fact->commitCount, 'multi-line body commit must not be dropped');
+        $this->assertSame('sha1', $fact->decisions[0]['sha']);
+        $this->assertSame('subject one', $fact->decisions[0]['subject']);
+        $this->assertSame('sha2', $fact->decisions[1]['sha']);
     }
 
     public function test_implementation_contains_no_mutating_git_command_phrases(): void
