@@ -30,6 +30,10 @@ final class WriteSetOverlap
         if ($a === '' || $b === '') {
             return false;
         }
+        // Traversal segments are always unsafe — fail-closed to prevent alias escape.
+        if (self::hasTraversal($a) || self::hasTraversal($b)) {
+            return true;
+        }
         if ($a === $b) {
             return true;
         }
@@ -96,6 +100,14 @@ final class WriteSetOverlap
 
     private static function norm(string $path): string
     {
-        return rtrim(str_replace('\\', '/', trim($path)), '/');
+        $p = str_replace('\\', '/', trim($path));
+        $p = (string) preg_replace('#/+#', '/', $p);
+
+        return rtrim($p, '/');
+    }
+
+    private static function hasTraversal(string $normPath): bool
+    {
+        return in_array('..', explode('/', $normPath), true);
     }
 }

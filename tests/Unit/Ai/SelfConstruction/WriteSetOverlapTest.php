@@ -44,4 +44,28 @@ final class WriteSetOverlapTest extends TestCase
         $this->assertSame(['app/Foo'], WriteSetOverlap::conflicts(['app/Foo'], [], ['app/Foo/Bar.php'], []));
         $this->assertSame([], WriteSetOverlap::conflicts(['app/Foo'], [], ['app/Bar/Baz.php'], []));
     }
+
+    public function test_canonical_slash_normalization_detects_collision(): void
+    {
+        $this->assertTrue(WriteSetOverlap::pathsCollide('app//Foo', 'app/Foo/Bar.php'));
+        $this->assertTrue(WriteSetOverlap::pathsCollide('app\\Foo', 'app/Foo/Bar.php'));
+        $this->assertSame(['app/Foo'], WriteSetOverlap::conflicts(['app//Foo'], [], ['app/Foo/Bar.php'], []));
+        $this->assertSame(['app/Foo'], WriteSetOverlap::conflicts(['app\\Foo'], [], ['app/Foo/Bar.php'], []));
+    }
+
+    public function test_traversal_paths_are_always_unsafe_collision(): void
+    {
+        $this->assertTrue(WriteSetOverlap::pathsCollide('../etc/passwd', 'etc/passwd'));
+        $this->assertTrue(WriteSetOverlap::pathsCollide('app/../etc', 'etc/passwd'));
+        $this->assertNotEmpty(WriteSetOverlap::conflicts(['../etc/passwd'], [], ['app/Foo.php'], []));
+        $this->assertNotEmpty(WriteSetOverlap::conflicts(['app/Safe.php'], [], ['app/../secret'], []));
+    }
+
+    public function test_empty_paths_in_write_sets_produce_no_collision(): void
+    {
+        $this->assertFalse(WriteSetOverlap::pathsCollide('', 'app/Foo.php'));
+        $this->assertFalse(WriteSetOverlap::pathsCollide('app/Foo.php', ''));
+        $this->assertSame([], WriteSetOverlap::conflicts([''], [], ['app/Foo.php'], []));
+        $this->assertSame([], WriteSetOverlap::conflicts(['app/Foo.php'], [], [''], []));
+    }
 }
