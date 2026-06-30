@@ -13,7 +13,7 @@ namespace App\Services\Ai\SelfConstruction\GoalValue;
  * capability or failure-removal evidence (a non-empty list under `capability_lift_refs` or
  * `failure_removal_refs`). Without that pairing, the proxy is the only signal and the gate refuses.
  *
- * Output (FACTS only): {schema_version, blocked, proxy_categories, blocked_proxy_categories, has_real_lever}
+ * Output (FACTS only): {schema_version, blocked, proxy_categories, blocked_proxy_categories, has_real_lever, real_lever_families}
  * No scalar score, no ranking.
  */
 final class AtlasGoalValueAntiProxyGate
@@ -42,9 +42,17 @@ final class AtlasGoalValueAntiProxyGate
             }
         }
 
-        $capabilityRefs = array_values((array) ($realLevers['capability_lift_refs'] ?? []));
-        $failureRefs = array_values((array) ($realLevers['failure_removal_refs'] ?? []));
+        $capabilityRefs = $this->normalizeRefs((array) ($realLevers['capability_lift_refs'] ?? []));
+        $failureRefs = $this->normalizeRefs((array) ($realLevers['failure_removal_refs'] ?? []));
         $hasRealLever = $capabilityRefs !== [] || $failureRefs !== [];
+
+        $families = [];
+        if ($capabilityRefs !== []) {
+            $families[] = 'capability_lift';
+        }
+        if ($failureRefs !== []) {
+            $families[] = 'failure_removal';
+        }
 
         $blocked = ! $hasRealLever && $present !== [];
         $blockedCategories = $blocked ? $present : [];
@@ -55,6 +63,23 @@ final class AtlasGoalValueAntiProxyGate
             'proxy_categories' => $present,
             'blocked_proxy_categories' => $blockedCategories,
             'has_real_lever' => $hasRealLever,
+            'real_lever_families' => $families,
         ];
+    }
+
+    /** @return list<string> */
+    private function normalizeRefs(array $refs): array
+    {
+        $seen = [];
+        foreach ($refs as $ref) {
+            $s = trim((string) $ref);
+            if ($s !== '') {
+                $seen[$s] = true;
+            }
+        }
+        $out = array_keys($seen);
+        sort($out);
+
+        return $out;
     }
 }

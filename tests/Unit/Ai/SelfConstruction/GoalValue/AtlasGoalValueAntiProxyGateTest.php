@@ -69,4 +69,48 @@ final class AtlasGoalValueAntiProxyGateTest extends TestCase
         $levers = ['capability_lift_refs' => ['r1']];
         $this->assertSame(json_encode($svc->evaluate($signals, $levers)), json_encode($svc->evaluate($signals, $levers)));
     }
+
+    public function test_whitespace_only_null_false_empty_refs_do_not_set_has_real_lever(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            ['test_count' => true],
+            ['capability_lift_refs' => ['   ', '', null, false], 'failure_removal_refs' => [' ', '']],
+        );
+
+        $this->assertTrue($verdict['blocked'], 'whitespace/empty refs must not unlock proxy-only work');
+        $this->assertFalse($verdict['has_real_lever']);
+        $this->assertSame([], $verdict['real_lever_families']);
+    }
+
+    public function test_duplicate_refs_normalized_deterministically(): void
+    {
+        $svc = new AtlasGoalValueAntiProxyGate;
+        $withDups = $svc->evaluate(['line_churn' => true], ['capability_lift_refs' => ['ref-a', 'ref-a', 'ref-a']]);
+        $withOne  = $svc->evaluate(['line_churn' => true], ['capability_lift_refs' => ['ref-a']]);
+
+        $this->assertSame($withOne['has_real_lever'], $withDups['has_real_lever']);
+        $this->assertSame($withOne['blocked'], $withDups['blocked']);
+        $this->assertSame($withOne['real_lever_families'], $withDups['real_lever_families']);
+    }
+
+    public function test_real_lever_families_lists_contributing_families(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            [],
+            ['capability_lift_refs' => ['cap-1'], 'failure_removal_refs' => ['fix-1']],
+        );
+
+        $this->assertSame(['capability_lift', 'failure_removal'], $verdict['real_lever_families']);
+    }
+
+    public function test_real_lever_families_only_capability_lift_when_failure_refs_absent(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(
+            ['rename_only' => true],
+            ['capability_lift_refs' => ['cap-ref']],
+        );
+
+        $this->assertSame(['capability_lift'], $verdict['real_lever_families']);
+        $this->assertFalse($verdict['blocked']);
+    }
 }
