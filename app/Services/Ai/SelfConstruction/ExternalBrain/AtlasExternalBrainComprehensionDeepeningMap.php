@@ -35,6 +35,10 @@ final class AtlasExternalBrainComprehensionDeepeningMap
 
     public const LOW_COVERAGE_THRESHOLD = 50.0;
 
+    public const INVESTIGATE_IMPACT_THRESHOLD = 0.5;
+
+    public const CURIOSITY_ONLY_IMPACT_FLOOR = 0.3;
+
     /**
      * @param  array<string,mixed>  $input  domains list + architecture_targets list
      * @return array{schema_version:string, ranked_domains:list<array<string,mixed>>, blocked_architecture_targets:list<string>, next_context_actions:list<array<string,mixed>>}
@@ -123,6 +127,90 @@ final class AtlasExternalBrainComprehensionDeepeningMap
             'ranked_domains' => array_values($rankedDomains),
             'blocked_architecture_targets' => $blocked,
             'next_context_actions' => $nextContextActions,
+        ];
+    }
+
+    /**
+     * Converts comprehension gaps into investigate, read_evidence,
+     * create_guardrail_task or defer decisions, ranked by impact on task
+     * quality and autonomy — never by curiosity alone.
+     *
+     * impact_score = (impact_on_quality + impact_on_autonomy) / 2.
+     *
+     * DECISION (first matching rule wins):
+     *   curiosity_only=true AND impact_score < CURIOSITY_ONLY_IMPACT_FLOOR (0.3)
+     *     -> defer (curiosity alone never justifies investigation)
+     *   recurring_failure_signal=true
+     *     -> create_guardrail_task (a repeated failure needs prevention, not just reading)
+     *   has_existing_evidence=true
+     *     -> read_evidence (don't re-investigate what is already documented)
+     *   impact_score >= INVESTIGATE_IMPACT_THRESHOLD (0.5)
+     *     -> investigate
+     *   otherwise
+     *     -> defer
+     *
+     * @param  array<string,mixed>  $input  { gaps: list<{gap_id, missing_context,
+     *   impact_on_quality?, impact_on_autonomy?, has_existing_evidence?,
+     *   recurring_failure_signal?, curiosity_only?}> }
+     * @return array<string,mixed>
+     */
+    public function rankGaps(array $input): array
+    {
+        $gaps = is_array($input['gaps'] ?? null) ? $input['gaps'] : [];
+
+        $rankedGaps = [];
+        foreach ($gaps as $gap) {
+            if (! is_array($gap) || ! isset($gap['gap_id'])) {
+                continue;
+            }
+
+            $gapId = (string) $gap['gap_id'];
+            $missingContext = (string) ($gap['missing_context'] ?? '');
+            $impactOnQuality = max(0.0, min(1.0, (float) ($gap['impact_on_quality'] ?? 0.0)));
+            $impactOnAutonomy = max(0.0, min(1.0, (float) ($gap['impact_on_autonomy'] ?? 0.0)));
+            $hasExistingEvidence = (bool) ($gap['has_existing_evidence'] ?? false);
+            $recurringFailureSignal = (bool) ($gap['recurring_failure_signal'] ?? false);
+            $curiosityOnly = (bool) ($gap['curiosity_only'] ?? false);
+
+            $impactScore = round(($impactOnQuality + $impactOnAutonomy) / 2, 4);
+
+            [$decision, $firstNextStep] = match (true) {
+                $curiosityOnly && $impactScore < self::CURIOSITY_ONLY_IMPACT_FLOOR => [
+                    'defer',
+                    'defer_until_impact_increases_or_curiosity_is_backed_by_a_real_need',
+                ],
+                $recurringFailureSignal => [
+                    'create_guardrail_task',
+                    "author_guardrail_task_to_prevent_recurrence_of_{$missingContext}_failure",
+                ],
+                $hasExistingEvidence => [
+                    'read_evidence',
+                    'read_existing_evidence_before_authoring_any_new_investigation',
+                ],
+                $impactScore >= self::INVESTIGATE_IMPACT_THRESHOLD => [
+                    'investigate',
+                    "author_targeted_investigation_task_for_{$missingContext}",
+                ],
+                default => [
+                    'defer',
+                    'defer_until_impact_on_quality_or_autonomy_increases',
+                ],
+            };
+
+            $rankedGaps[] = [
+                'gap_id' => $gapId,
+                'missing_context' => $missingContext,
+                'decision' => $decision,
+                'first_next_step' => $firstNextStep,
+                'impact_score' => $impactScore,
+            ];
+        }
+
+        usort($rankedGaps, static fn (array $a, array $b): int => $b['impact_score'] <=> $a['impact_score'] ?: strcmp($a['gap_id'], $b['gap_id']));
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'ranked_gaps' => array_values($rankedGaps),
         ];
     }
 }

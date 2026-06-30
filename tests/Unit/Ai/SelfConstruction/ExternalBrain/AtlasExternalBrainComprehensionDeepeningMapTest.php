@@ -174,4 +174,107 @@ final class AtlasExternalBrainComprehensionDeepeningMapTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainComprehensionDeepeningMap::SCHEMA, $r['schema_version']);
     }
+
+    // ── rankGaps ────────────────────────────────────────────────────────────────
+
+    private function gap(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'gap_id' => $id,
+            'missing_context' => 'queue_lease_lifecycle',
+            'impact_on_quality' => 0.6,
+            'impact_on_autonomy' => 0.6,
+            'has_existing_evidence' => false,
+            'recurring_failure_signal' => false,
+            'curiosity_only' => false,
+        ], $overrides);
+    }
+
+    private function gapResultFor(array $result, string $id): ?array
+    {
+        foreach ($result['ranked_gaps'] as $g) {
+            if ($g['gap_id'] === $id) {
+                return $g;
+            }
+        }
+
+        return null;
+    }
+
+    public function test_rank_gaps_output_has_required_fields(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1')]]);
+
+        $entry = $r['ranked_gaps'][0];
+        foreach (['gap_id', 'missing_context', 'decision', 'first_next_step', 'impact_score'] as $k) {
+            $this->assertArrayHasKey($k, $entry);
+        }
+        $this->assertNotEmpty($entry['first_next_step']);
+    }
+
+    public function test_high_impact_gap_with_no_other_signals_is_investigated(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['impact_on_quality' => 0.8, 'impact_on_autonomy' => 0.8])]]);
+
+        $this->assertSame('investigate', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_recurring_failure_signal_creates_guardrail_task_even_with_high_impact(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['recurring_failure_signal' => true])]]);
+
+        $this->assertSame('create_guardrail_task', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_existing_evidence_routes_to_read_evidence_not_reinvestigation(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['has_existing_evidence' => true])]]);
+
+        $this->assertSame('read_evidence', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_recurring_failure_outranks_existing_evidence(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['has_existing_evidence' => true, 'recurring_failure_signal' => true])]]);
+
+        $this->assertSame('create_guardrail_task', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_curiosity_only_low_impact_gap_is_deferred(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['curiosity_only' => true, 'impact_on_quality' => 0.1, 'impact_on_autonomy' => 0.1])]]);
+
+        $this->assertSame('defer', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_curiosity_only_high_impact_gap_still_investigated(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['curiosity_only' => true, 'impact_on_quality' => 0.9, 'impact_on_autonomy' => 0.9])]]);
+
+        $this->assertSame('investigate', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_low_impact_non_curiosity_gap_is_deferred(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [$this->gap('g1', ['impact_on_quality' => 0.1, 'impact_on_autonomy' => 0.1])]]);
+
+        $this->assertSame('defer', $this->gapResultFor($r, 'g1')['decision']);
+    }
+
+    public function test_gaps_ranked_by_impact_score_not_curiosity(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => [
+            $this->gap('low-impact-curious', ['curiosity_only' => true, 'impact_on_quality' => 0.05, 'impact_on_autonomy' => 0.05]),
+            $this->gap('high-impact-boring', ['impact_on_quality' => 0.9, 'impact_on_autonomy' => 0.9]),
+        ]]);
+
+        $this->assertSame('high-impact-boring', $r['ranked_gaps'][0]['gap_id']);
+    }
+
+    public function test_empty_gaps_returns_empty_ranking(): void
+    {
+        $r = $this->svc()->rankGaps(['gaps' => []]);
+
+        $this->assertSame([], $r['ranked_gaps']);
+    }
 }
