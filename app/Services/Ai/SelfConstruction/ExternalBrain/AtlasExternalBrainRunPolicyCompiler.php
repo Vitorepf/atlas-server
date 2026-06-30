@@ -84,6 +84,8 @@ final class AtlasExternalBrainRunPolicyCompiler
         'research_novelty_score_floor'             => 0.30,
         // ambition_escalation: trigger when stagnation_index exceeds floor
         'ambition_escalation_stagnation_floor'     => 0.40,
+        // drain: trigger when claimable backlog depth exceeds this count
+        'drain_claimable_depth_ceiling'             => 50,
     ];
 
     /**
@@ -273,6 +275,16 @@ final class AtlasExternalBrainRunPolicyCompiler
             $requiredActions[] = 'diversify_task_templates_before_continuing';
         }
 
+        // AC1: drain action — claimable backlog depth exceeds the configured ceiling.
+        $claimableDepth      = max(0, (int) ($runState['claimable_depth'] ?? 0));
+        $drainDepthCeiling   = (int) ($autonomyThresholds['drain_claimable_depth_ceiling']
+            ?? self::DEFAULT_AUTONOMY_THRESHOLDS['drain_claimable_depth_ceiling']);
+        $drainRequired = $claimableDepth > $drainDepthCeiling;
+        if ($drainRequired) {
+            $violations[]      = 'claimable_depth_exceeds_drain_threshold:'.$claimableDepth.':max:'.$drainDepthCeiling;
+            $requiredActions[] = 'drain_claimable_backlog_before_creating_new_tasks';
+        }
+
         $violations = array_values($violations);
         $requiredActions = array_values(array_unique($requiredActions));
 
@@ -283,12 +295,24 @@ final class AtlasExternalBrainRunPolicyCompiler
             $stopReason = $honestExhausted ? 'honest_exhausted' : 'quota_reached';
         }
 
+        // Single next-action recommendation across the 7 autonomy axes (priority order below).
+        $nextAutonomyAction = match (true) {
+            $canStop => 'stop',
+            $stopRequiresNoPending && $selfHealRemaining > 0 => 'self_heal',
+            $stopRequiresNoPending && $learningRemaining > 0 => 'research',
+            $drainRequired => 'drain',
+            $queuePressure > $consolidateQueueFloor || $simplificationDebt > $consolidateDebtFloor => 'consolidate',
+            $stalled && $breakthroughRequired && ! $breakthroughTaken => 'ambition_escalation',
+            default => 'create',
+        };
+
         return [
             'schema' => self::SCHEMA_VERDICT,
             'can_stop' => $canStop,
             'violations' => $violations,
             'required_actions' => $requiredActions,
             'stop_reason' => $stopReason,
+            'next_autonomy_action' => $nextAutonomyAction,
         ];
     }
 }

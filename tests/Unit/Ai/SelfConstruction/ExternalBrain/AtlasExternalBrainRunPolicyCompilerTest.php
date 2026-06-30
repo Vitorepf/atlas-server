@@ -290,4 +290,62 @@ final class AtlasExternalBrainRunPolicyCompilerTest extends TestCase
         $this->assertFalse($verdict['can_stop']);
         $this->assertContains('continue_searching', $verdict['required_actions']);
     }
+
+    // ── AC1: autonomy_action_thresholds for all 7 axes (including drain) ─────
+
+    public function test_compile_autonomy_action_thresholds_covers_all_seven_axes(): void
+    {
+        $policy = $this->compiler->compile([]);
+        $thresholds = $policy['autonomy_action_thresholds'];
+
+        foreach (['create', 'stop', 'consolidate', 'self_heal', 'research', 'ambition_escalation', 'drain'] as $axis) {
+            $hasAxisKey = false;
+            foreach (array_keys($thresholds) as $key) {
+                if (str_starts_with($key, $axis)) {
+                    $hasAxisKey = true;
+                    break;
+                }
+            }
+            $this->assertTrue($hasAxisKey, "missing autonomy_action_thresholds key for axis: {$axis}");
+        }
+    }
+
+    // ── AC2/AC3: evaluate() emits next_autonomy_action ────────────────────────
+
+    public function test_evaluate_verdict_includes_next_autonomy_action_key(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+        $verdict = $this->compiler->evaluate($policy, ['verified_count' => 100]);
+
+        $this->assertArrayHasKey('next_autonomy_action', $verdict);
+        $this->assertSame('stop', $verdict['next_autonomy_action']);
+    }
+
+    public function test_drain_required_when_claimable_depth_exceeds_ceiling(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 10,
+            'stalled' => false,
+            'claimable_depth' => 75,
+        ]);
+
+        $this->assertFalse($verdict['can_stop']);
+        $this->assertContains('drain_claimable_backlog_before_creating_new_tasks', $verdict['required_actions']);
+        $this->assertSame('drain', $verdict['next_autonomy_action']);
+    }
+
+    public function test_next_autonomy_action_is_self_heal_when_self_heal_remaining(): void
+    {
+        $policy = $this->compiler->compile(['target_quota' => 100]);
+
+        $verdict = $this->compiler->evaluate($policy, [
+            'verified_count' => 100,
+            'self_heal_actions_remaining' => 2,
+        ]);
+
+        $this->assertFalse($verdict['can_stop']);
+        $this->assertSame('self_heal', $verdict['next_autonomy_action']);
+    }
 }
