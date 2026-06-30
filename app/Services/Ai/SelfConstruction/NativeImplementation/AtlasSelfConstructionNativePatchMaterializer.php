@@ -41,6 +41,7 @@ final class AtlasSelfConstructionNativePatchMaterializer
         $files = [];
         $diffs = [];
         $blockers = [];
+        $seenPaths = [];
 
         if ($allowed === []) {
             $blockers[] = 'allowed_files_empty';
@@ -62,6 +63,18 @@ final class AtlasSelfConstructionNativePatchMaterializer
 
                 continue;
             }
+            // Reject path-traversal attempts (relative or absolute escapes).
+            if (str_starts_with($path, '/') || str_contains($path, '../') || $path === '..') {
+                $blockers[] = 'traversal_path:'.$path;
+
+                continue;
+            }
+            // Reject duplicate output paths within the same plan.
+            if (isset($seenPaths[$path])) {
+                $blockers[] = 'duplicate_output_path:'.$path;
+
+                continue;
+            }
             if (! in_array($path, $allowed, true)) {
                 $blockers[] = 'forbidden_output_path:'.$path;
 
@@ -73,6 +86,7 @@ final class AtlasSelfConstructionNativePatchMaterializer
                 continue;
             }
 
+            $seenPaths[$path] = true;
             $files[] = ['path' => $path, 'contents' => $next];
             $diffs[] = [
                 'path' => $path,

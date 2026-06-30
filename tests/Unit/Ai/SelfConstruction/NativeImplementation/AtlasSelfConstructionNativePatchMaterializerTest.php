@@ -76,6 +76,40 @@ final class AtlasSelfConstructionNativePatchMaterializerTest extends TestCase
         $this->assertContains('unknown_patch_mode:mystical', $verdict['blockers']);
     }
 
+    public function test_traversal_path_is_rejected(): void
+    {
+        $svc = new AtlasSelfConstructionNativePatchMaterializer;
+
+        $v1 = $svc->materialize([
+            'allowed_files' => ['../etc/passwd'],
+            'patches' => [['path' => '../etc/passwd', 'mode' => 'create', 'next' => 'x']],
+        ]);
+        $this->assertFalse($v1['accepted']);
+        $this->assertContains('traversal_path:../etc/passwd', $v1['blockers']);
+
+        $v2 = $svc->materialize([
+            'allowed_files' => ['/etc/passwd'],
+            'patches' => [['path' => '/etc/passwd', 'mode' => 'create', 'next' => 'x']],
+        ]);
+        $this->assertFalse($v2['accepted']);
+        $this->assertContains('traversal_path:/etc/passwd', $v2['blockers']);
+    }
+
+    public function test_duplicate_output_path_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativePatchMaterializer)->materialize([
+            'allowed_files' => ['app/Foo.php'],
+            'patches' => [
+                ['path' => 'app/Foo.php', 'mode' => 'create', 'next' => 'first'],
+                ['path' => 'app/Foo.php', 'mode' => 'modify', 'previous' => 'first', 'next' => 'second'],
+            ],
+        ]);
+
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('duplicate_output_path:app/Foo.php', $verdict['blockers']);
+        $this->assertCount(1, $verdict['files']);
+    }
+
     public function test_diff_output_is_byte_stable_across_two_invocations(): void
     {
         $svc = new AtlasSelfConstructionNativePatchMaterializer;
