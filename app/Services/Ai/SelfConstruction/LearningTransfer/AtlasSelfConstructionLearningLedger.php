@@ -155,6 +155,14 @@ final class AtlasSelfConstructionLearningLedger
         if (! is_array($lesson['evidence_refs'])) {
             throw new RuntimeException('learning_ledger_evidence_refs_not_array');
         }
+        if ($lesson['evidence_refs'] === []) {
+            throw new RuntimeException('learning_ledger_evidence_refs_empty');
+        }
+        foreach (['raw_prompt', 'provider_trace', 'conversation_text', 'secret'] as $forbidden) {
+            if (array_key_exists($forbidden, $lesson)) {
+                throw new RuntimeException('learning_ledger_forbidden_field:'.$forbidden);
+            }
+        }
     }
 
     /**

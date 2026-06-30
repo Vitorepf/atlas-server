@@ -45,6 +45,50 @@ final class AtlasSelfConstructionLearningLedgerQuery
     /**
      * @return list<array<string,mixed>>
      */
+    public function byFamily(string $family): array
+    {
+        return array_values(array_filter(
+            $this->ledger->all(),
+            static fn (array $row): bool => (string) ($row['lesson']['family'] ?? '') === $family,
+        ));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function bySourceProject(string $sourceProject): array
+    {
+        return array_values(array_filter(
+            $this->ledger->all(),
+            static fn (array $row): bool => (string) ($row['lesson']['source_project'] ?? '') === $sourceProject,
+        ));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function byTargetProject(string $targetProject): array
+    {
+        return array_values(array_filter(
+            $this->ledger->all(),
+            static fn (array $row): bool => (string) ($row['lesson']['target_project'] ?? '') === $targetProject,
+        ));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function byFailureMode(string $failureMode): array
+    {
+        return array_values(array_filter(
+            $this->ledger->all(),
+            static fn (array $row): bool => (string) ($row['lesson']['failure_mode'] ?? '') === $failureMode,
+        ));
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
     public function listChronological(): array
     {
         $rows = $this->ledger->all();

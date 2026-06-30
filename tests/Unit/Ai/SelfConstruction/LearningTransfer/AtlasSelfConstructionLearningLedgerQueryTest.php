@@ -44,6 +44,18 @@ class AtlasSelfConstructionLearningLedgerQueryTest extends TestCase
             'reasons' => ['r'],
             'evidence_refs' => ['e3'],
         ]);
+        $this->ledger->append([
+            'lesson_id' => 'L4',
+            'class' => 'respec_candidate',
+            'decision' => 'admit',
+            'observation_ts' => '2026-06-25T00:00:04Z',
+            'reasons' => ['scope_drift_detected'],
+            'evidence_refs' => ['e4'],
+            'family' => 'repeated_give_back',
+            'source_project' => 'atlas-server',
+            'target_project' => 'atlas-mobile',
+            'failure_mode' => 'scope_drift',
+        ]);
     }
 
     protected function tearDown(): void
@@ -55,7 +67,7 @@ class AtlasSelfConstructionLearningLedgerQueryTest extends TestCase
     public function test_all_returns_every_row(): void
     {
         $q = new AtlasSelfConstructionLearningLedgerQuery($this->ledger);
-        self::assertCount(3, $q->all());
+        self::assertCount(4, $q->all());
     }
 
     public function test_by_class_filters_to_matching_class(): void
@@ -72,7 +84,7 @@ class AtlasSelfConstructionLearningLedgerQueryTest extends TestCase
     {
         $q = new AtlasSelfConstructionLearningLedgerQuery($this->ledger);
         $admits = $q->byDecision('admit');
-        self::assertCount(2, $admits);
+        self::assertCount(3, $admits);
 
         $holds = $q->byDecision('hold');
         self::assertCount(1, $holds);
@@ -84,7 +96,64 @@ class AtlasSelfConstructionLearningLedgerQueryTest extends TestCase
         $q = new AtlasSelfConstructionLearningLedgerQuery($this->ledger);
         $rows = $q->listChronological();
         $ids = array_map(static fn (array $r): string => (string) $r['lesson']['lesson_id'], $rows);
-        self::assertSame(['L2', 'L1', 'L3'], $ids);
+        self::assertSame(['L2', 'L1', 'L3', 'L4'], $ids);
+    }
+
+    public function test_by_family_filters_to_matching_family(): void
+    {
+        $rows = (new AtlasSelfConstructionLearningLedgerQuery($this->ledger))->byFamily('repeated_give_back');
+        self::assertCount(1, $rows);
+        self::assertSame('L4', $rows[0]['lesson']['lesson_id']);
+    }
+
+    public function test_by_source_project_filters_to_matching_source(): void
+    {
+        $rows = (new AtlasSelfConstructionLearningLedgerQuery($this->ledger))->bySourceProject('atlas-server');
+        self::assertCount(1, $rows);
+        self::assertSame('L4', $rows[0]['lesson']['lesson_id']);
+    }
+
+    public function test_by_target_project_filters_to_matching_target(): void
+    {
+        $rows = (new AtlasSelfConstructionLearningLedgerQuery($this->ledger))->byTargetProject('atlas-mobile');
+        self::assertCount(1, $rows);
+        self::assertSame('L4', $rows[0]['lesson']['lesson_id']);
+    }
+
+    public function test_by_failure_mode_filters_to_matching_failure_mode(): void
+    {
+        $rows = (new AtlasSelfConstructionLearningLedgerQuery($this->ledger))->byFailureMode('scope_drift');
+        self::assertCount(1, $rows);
+        self::assertSame('L4', $rows[0]['lesson']['lesson_id']);
+    }
+
+    public function test_empty_evidence_refs_is_rejected_by_ledger(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('learning_ledger_evidence_refs_empty');
+        $this->ledger->append([
+            'lesson_id' => 'no-evidence',
+            'class' => 'duplicate_capability',
+            'decision' => 'admit',
+            'observation_ts' => '2026-06-25T00:01:00Z',
+            'reasons' => ['r'],
+            'evidence_refs' => [],
+        ]);
+    }
+
+    public function test_forbidden_fields_are_rejected_by_ledger(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('learning_ledger_forbidden_field:raw_prompt');
+        $this->ledger->append([
+            'lesson_id' => 'leaky',
+            'class' => 'duplicate_capability',
+            'decision' => 'admit',
+            'observation_ts' => '2026-06-25T00:01:00Z',
+            'reasons' => ['r'],
+            'evidence_refs' => ['e-ref'],
+            'raw_prompt' => 'DO NOT PERSIST THIS',
+        ]);
     }
 
     public function test_queries_reconstruct_state_from_jsonl_no_in_memory_cache(): void
@@ -106,7 +175,7 @@ class AtlasSelfConstructionLearningLedgerQueryTest extends TestCase
         file_put_contents($this->path, json_encode($direct, JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
 
         $q = new AtlasSelfConstructionLearningLedgerQuery($this->ledger);
-        self::assertCount(4, $q->all());
+        self::assertCount(5, $q->all());
         self::assertCount(1, $q->byDecision('reject'));
     }
 }
