@@ -74,4 +74,36 @@ final class AtlasTaskGraphStrategicChainPlannerWorkerFeedTest extends TestCase
         $this->assertNotContains('cyc_b', $flatOrder);
         $this->assertContains('feed_c', $flatOrder);
     }
+
+    public function test_replenish_soon_orders_worker_feed_first_even_with_comfortable_ratio(): void
+    {
+        $result = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 3, 'replenish_recommendation' => 'replenish_soon'],
+            'worker_feed_target' => 5,
+            'tasks' => [
+                $this->task(['id' => 'expand_a', 'worker_feed' => false]),
+                $this->task(['id' => 'feed_b', 'worker_feed' => true]),
+            ],
+        ]);
+
+        $flatOrder = array_merge(...$result['chains']);
+        $this->assertSame('feed_b', $flatOrder[0]);
+        $this->assertSame('expand_a', $flatOrder[1]);
+    }
+
+    public function test_comfortable_buffer_with_high_worker_feed_target_preserves_existing_ordering(): void
+    {
+        $result = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 10],
+            'worker_feed_target' => 5,
+            'tasks' => [
+                $this->task(['id' => 'expand_a', 'worker_feed' => false]),
+                $this->task(['id' => 'feed_b', 'worker_feed' => true]),
+            ],
+        ]);
+
+        $flatOrder = array_merge(...$result['chains']);
+        $this->assertSame('expand_a', $flatOrder[0]);
+        $this->assertSame('feed_b', $flatOrder[1]);
+    }
 }

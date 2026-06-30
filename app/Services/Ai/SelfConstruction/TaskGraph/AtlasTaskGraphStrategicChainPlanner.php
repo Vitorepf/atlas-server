@@ -54,7 +54,10 @@ final class AtlasTaskGraphStrategicChainPlanner
         $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $queueFacts)
             ? (float) $queueFacts['claimable_per_active_worker']
             : null;
-        $workerFeedPrecedenceActive = $claimablePerActiveWorker !== null && $claimablePerActiveWorker < $workerFeedTarget;
+        $replenishRecommendation = (string) ($queueFacts['replenish_recommendation'] ?? '');
+        $workerFeedPrecedenceActive = ($claimablePerActiveWorker !== null && $claimablePerActiveWorker < $workerFeedTarget)
+            || $replenishRecommendation === 'replenish_soon'
+            || $replenishRecommendation === 'replenish_urgently';
 
         // Index tasks by id.
         $taskMap = [];
