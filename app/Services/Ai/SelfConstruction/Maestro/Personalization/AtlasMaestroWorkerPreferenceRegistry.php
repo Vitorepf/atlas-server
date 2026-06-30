@@ -7,8 +7,17 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Personalization;
 /**
  * Pure read-model registry of DECLARED worker preferences (never learned, never inferred).
  *
- * Keyed by opaque `client_id`. Each entry stores {max_files, max_loc, tier}. Unknown ids return
- * a neutral default profile byte-identically. NEVER branches on platform / provider name.
+ * Keyed by opaque `client_id`. Each entry stores:
+ *   {max_files, max_loc, tier, source, task_family, priority, registered_at, ttl_seconds}
+ *
+ * Unknown ids return a neutral DEFAULT_PROFILE byte-identically.
+ * Expired entries (registered_at + ttl_seconds < now) are treated as absent.
+ * NEVER branches on platform / provider name; NEVER mutates the queue.
+ *
+ * Conflict resolution (registerWithMerge):
+ *   1. Higher categorical priority wins (high > medium > low).
+ *   2. Same priority → more recent registered_at wins.
+ *   3. Same priority + same timestamp → lower source string alphabetically wins (deterministic).
  */
 final class AtlasMaestroWorkerPreferenceRegistry
 {
@@ -18,7 +27,10 @@ final class AtlasMaestroWorkerPreferenceRegistry
         'tier' => 'neutral',
     ];
 
-    /** @var array<string, array{max_files:int,max_loc:int,tier:string}> */
+    /** @var array<string,int> */
+    private const PRIORITY_ORDER = ['low' => 0, 'medium' => 1, 'high' => 2];
+
+    /** @var array<string, array<string,mixed>> */
     private array $declared;
 
     /**
@@ -32,6 +44,9 @@ final class AtlasMaestroWorkerPreferenceRegistry
             : $this->normalize($this->loadFromConfig());
     }
 
+    /**
+     * Always-override registration (existing behaviour, no conflict resolution).
+     */
     public function register(string $clientId, array $prefs): void
     {
         $clientId = trim($clientId);
@@ -42,19 +57,68 @@ final class AtlasMaestroWorkerPreferenceRegistry
     }
 
     /**
-     * @return array{max_files:int,max_loc:int,tier:string}
+     * Register with deterministic conflict resolution:
+     *   - higher priority wins
+     *   - same priority → more recent registered_at wins
+     *   - same priority + same timestamp → lower source alphabetically wins
      */
-    public function inspect(string $clientId): array
+    public function registerWithMerge(string $clientId, array $prefs): void
     {
-        return $this->declared[$clientId] ?? self::DEFAULT_PROFILE;
+        $clientId = trim($clientId);
+        if ($clientId === '') {
+            return;
+        }
+        $incoming = $this->normalizeProfile($prefs);
+
+        if (! isset($this->declared[$clientId])) {
+            $this->declared[$clientId] = $incoming;
+
+            return;
+        }
+
+        $existing = $this->declared[$clientId];
+        $inPri = self::PRIORITY_ORDER[$incoming['priority']] ?? 1;
+        $exPri = self::PRIORITY_ORDER[$existing['priority']] ?? 1;
+
+        if ($inPri > $exPri) {
+            $this->declared[$clientId] = $incoming;
+        } elseif ($inPri === $exPri) {
+            if ((int) $incoming['registered_at'] > (int) $existing['registered_at']) {
+                $this->declared[$clientId] = $incoming;
+            } elseif ((int) $incoming['registered_at'] === (int) $existing['registered_at']
+                && (string) $incoming['source'] < (string) $existing['source']) {
+                $this->declared[$clientId] = $incoming;
+            }
+        }
+        // existing higher priority → keep existing, do nothing
     }
 
     /**
-     * @return array<string, array{max_files:int,max_loc:int,tier:string}>
+     * @return array<string,mixed>
+     */
+    public function inspect(string $clientId): array
+    {
+        if (! isset($this->declared[$clientId])) {
+            return self::DEFAULT_PROFILE;
+        }
+        $profile = $this->declared[$clientId];
+        if ($this->isExpired($profile)) {
+            return self::DEFAULT_PROFILE;
+        }
+
+        return $profile;
+    }
+
+    /**
+     * @return array<string, array<string,mixed>>
      */
     public function all(): array
     {
-        $out = $this->declared;
+        $now = time();
+        $out = array_filter(
+            $this->declared,
+            fn (array $p): bool => ! $this->isExpiredAt($p, $now),
+        );
         ksort($out, SORT_STRING);
 
         return $out;
@@ -75,7 +139,7 @@ final class AtlasMaestroWorkerPreferenceRegistry
 
     /**
      * @param  array<string, array<string,mixed>>  $raw
-     * @return array<string, array{max_files:int,max_loc:int,tier:string}>
+     * @return array<string, array<string,mixed>>
      */
     private function normalize(array $raw): array
     {
@@ -93,14 +157,36 @@ final class AtlasMaestroWorkerPreferenceRegistry
 
     /**
      * @param  array<string,mixed>  $prefs
-     * @return array{max_files:int,max_loc:int,tier:string}
+     * @return array<string,mixed>
      */
     private function normalizeProfile(array $prefs): array
     {
+        $priority = (string) ($prefs['priority'] ?? 'medium');
+        if (! array_key_exists($priority, self::PRIORITY_ORDER)) {
+            $priority = 'medium';
+        }
+
         return [
             'max_files' => max(1, (int) ($prefs['max_files'] ?? self::DEFAULT_PROFILE['max_files'])),
             'max_loc' => max(1, (int) ($prefs['max_loc'] ?? self::DEFAULT_PROFILE['max_loc'])),
             'tier' => (string) ($prefs['tier'] ?? self::DEFAULT_PROFILE['tier']),
+            'source' => (string) ($prefs['source'] ?? 'declared'),
+            'task_family' => (string) ($prefs['task_family'] ?? ''),
+            'priority' => $priority,
+            'registered_at' => array_key_exists('registered_at', $prefs) ? (int) $prefs['registered_at'] : time(),
+            'ttl_seconds' => isset($prefs['ttl_seconds']) ? (int) $prefs['ttl_seconds'] : null,
         ];
+    }
+
+    private function isExpired(array $profile): bool
+    {
+        return $this->isExpiredAt($profile, time());
+    }
+
+    private function isExpiredAt(array $profile, int $now): bool
+    {
+        $ttl = $profile['ttl_seconds'] ?? null;
+
+        return $ttl !== null && (int) ($profile['registered_at'] ?? 0) + (int) $ttl < $now;
     }
 }

@@ -65,6 +65,94 @@ class AtlasMaestroWorkerPreferenceRegistryTest extends TestCase
         }
     }
 
+    public function test_expired_preference_falls_back_to_default_on_inspect(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'worker-a' => [
+                'max_files' => 8,
+                'max_loc' => 800,
+                'tier' => 'large',
+                'registered_at' => time() - 200,
+                'ttl_seconds' => 100, // expired 100s ago
+            ],
+        ]);
+
+        self::assertSame(AtlasMaestroWorkerPreferenceRegistry::DEFAULT_PROFILE, $registry->inspect('worker-a'));
+    }
+
+    public function test_expired_preference_excluded_from_all(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'active' => ['max_files' => 5, 'max_loc' => 500, 'tier' => 't', 'ttl_seconds' => null],
+            'expired' => ['max_files' => 5, 'max_loc' => 500, 'tier' => 't', 'registered_at' => time() - 300, 'ttl_seconds' => 100],
+        ]);
+
+        self::assertArrayHasKey('active', $registry->all());
+        self::assertArrayNotHasKey('expired', $registry->all());
+    }
+
+    public function test_register_with_merge_high_priority_beats_existing_low(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'w' => ['max_files' => 1, 'max_loc' => 10, 'tier' => 'low_tier', 'priority' => 'low', 'source' => 'config'],
+        ]);
+        $registry->registerWithMerge('w', ['max_files' => 20, 'max_loc' => 2000, 'tier' => 'high_tier', 'priority' => 'high', 'source' => 'operator']);
+
+        $r = $registry->inspect('w');
+        self::assertSame(20, $r['max_files']);
+        self::assertSame('high_tier', $r['tier']);
+        self::assertSame('high', $r['priority']);
+    }
+
+    public function test_register_with_merge_low_priority_does_not_override_existing_high(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'w' => ['max_files' => 10, 'max_loc' => 1000, 'tier' => 'high_tier', 'priority' => 'high', 'source' => 'operator'],
+        ]);
+        $registry->registerWithMerge('w', ['max_files' => 1, 'max_loc' => 10, 'tier' => 'low_tier', 'priority' => 'low', 'source' => 'runtime']);
+
+        $r = $registry->inspect('w');
+        self::assertSame(10, $r['max_files']);
+        self::assertSame('high_tier', $r['tier']);
+    }
+
+    public function test_register_with_merge_same_priority_more_recent_registered_at_wins(): void
+    {
+        $earlier = time() - 100;
+        $later = time();
+
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'w' => ['max_files' => 1, 'max_loc' => 10, 'tier' => 'old', 'priority' => 'medium', 'source' => 's', 'registered_at' => $earlier],
+        ]);
+        $registry->registerWithMerge('w', ['max_files' => 99, 'max_loc' => 9900, 'tier' => 'new', 'priority' => 'medium', 'source' => 's', 'registered_at' => $later]);
+
+        self::assertSame(99, $registry->inspect('w')['max_files']);
+    }
+
+    public function test_register_with_merge_same_priority_same_time_lower_source_alphabetically_wins(): void
+    {
+        $ts = time();
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'w' => ['max_files' => 5, 'tier' => 'z_source', 'priority' => 'medium', 'source' => 'z_source', 'registered_at' => $ts],
+        ]);
+        $registry->registerWithMerge('w', ['max_files' => 99, 'tier' => 'a_source', 'priority' => 'medium', 'source' => 'a_source', 'registered_at' => $ts]);
+
+        // 'a_source' < 'z_source' → incoming (a_source) wins
+        self::assertSame(99, $registry->inspect('w')['max_files']);
+    }
+
+    public function test_preference_includes_source_task_family_and_priority_fields(): void
+    {
+        $registry = new AtlasMaestroWorkerPreferenceRegistry([
+            'w' => ['max_files' => 3, 'source' => 'operator', 'task_family' => 'refactor', 'priority' => 'high'],
+        ]);
+        $r = $registry->inspect('w');
+
+        self::assertSame('operator', $r['source']);
+        self::assertSame('refactor', $r['task_family']);
+        self::assertSame('high', $r['priority']);
+    }
+
     public function test_inspect_normalizes_partial_records_to_full_profile(): void
     {
         $registry = new AtlasMaestroWorkerPreferenceRegistry([
