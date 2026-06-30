@@ -127,7 +127,7 @@ final class AtlasCortexQueryLanguageExecutor
 
             foreach ($select as $column) {
                 $column = (string) $column;
-                if (isset($groupRow[$column])) {
+                if (array_key_exists($column, $groupRow)) {
                     $result[$column] = $groupRow[$column];
                     continue;
                 }

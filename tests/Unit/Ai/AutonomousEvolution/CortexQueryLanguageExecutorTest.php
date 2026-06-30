@@ -40,6 +40,33 @@ final class CortexQueryLanguageExecutorTest extends TestCase
         );
     }
 
+    public function test_null_group_by_value_is_echoed_not_aggregated(): void
+    {
+        $result = (new AtlasCortexQueryLanguageExecutor)->execute(
+            [
+                'SELECT' => ['classification', 'count(*)'],
+                'FROM' => 'cortex_api_diff',
+                'GROUP BY' => ['classification'],
+            ],
+            [
+                ['fqcn' => 'App\\A', 'classification' => null],
+                ['fqcn' => 'App\\B', 'classification' => null],
+                ['fqcn' => 'App\\C', 'classification' => 'alpha'],
+            ],
+            'snap-v1'
+        );
+
+        $nullGroup = null;
+        foreach ($result['rows'] as $row) {
+            if (array_key_exists('classification', $row) && $row['classification'] === null) {
+                $nullGroup = $row;
+                break;
+            }
+        }
+        $this->assertNotNull($nullGroup, 'null GROUP BY value must produce a row with classification=>null');
+        $this->assertSame(2, $nullGroup['count(*)']);
+    }
+
     public function test_it_emits_fact_only_envelope_fields(): void
     {
         $envelope = (new AtlasCortexQueryLanguageExecutor)->execute(
