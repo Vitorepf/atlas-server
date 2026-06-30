@@ -77,6 +77,17 @@ class AtlasLoopSubCycleResultMergerTest extends TestCase
         }
     }
 
+    public function test_nested_forbidden_scalar_is_rejected(): void
+    {
+        // 'score' is nested one level deep — the floor must catch it recursively
+        $merger = new AtlasLoopSubCycleResultMerger();
+        $result = $merger->merge($this->parent(), ['metrics' => ['score' => 9.5, 'count' => 3]]);
+
+        self::assertInstanceOf(RejectionRecord::class, $result);
+        self::assertSame('forbidden_scalar_keys_present', $result->reason);
+        self::assertContains('score', $result->forbiddenKeys);
+    }
+
     public function test_idempotent_merge_returns_byte_identical_record(): void
     {
         $merger = new AtlasLoopSubCycleResultMerger(clock: fn (): string => '2026-06-25T00:00:00Z');

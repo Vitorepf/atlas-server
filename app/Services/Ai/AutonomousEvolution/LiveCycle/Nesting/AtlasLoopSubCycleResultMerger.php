@@ -67,11 +67,15 @@ final class AtlasLoopSubCycleResultMerger
     {
         $found = [];
         $forbidden = array_flip(self::FORBIDDEN_SCALAR_KEYS);
-        foreach (array_keys($payload) as $key) {
+        foreach ($payload as $key => $value) {
             if (isset($forbidden[$key])) {
                 $found[] = $key;
             }
+            if (is_array($value)) {
+                array_push($found, ...$this->findForbiddenKeys($value));
+            }
         }
+        $found = array_values(array_unique($found));
         sort($found, SORT_STRING);
 
         return $found;
