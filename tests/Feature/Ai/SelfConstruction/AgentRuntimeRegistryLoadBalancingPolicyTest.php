@@ -132,4 +132,81 @@ final class AgentRuntimeRegistryLoadBalancingPolicyTest extends TestCase
             'current_task_count' => 0,
         ], $overrides);
     }
+
+    // ── assignForTask() ──────────────────────────────────────────────────────
+
+    public function test_assigns_to_qualified_capable_idle_worker(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->assignForTask(
+            ['difficulty' => 0.7],
+            [$this->candidate('agent-a', ['capability_score' => 0.9])],
+        );
+
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::DECISION_ASSIGN, $result['decision']);
+        $this->assertSame('agent-a', $result['selected_agent']);
+        $this->assertNotEmpty($result['quality_reason']);
+        $this->assertNotEmpty($result['capacity_reason']);
+    }
+
+    public function test_does_not_assign_hard_task_to_weak_idle_worker(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->assignForTask(
+            ['difficulty' => 0.9],
+            [$this->candidate('agent-weak', ['capability_score' => 0.3])],
+        );
+
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::DECISION_WAIT_OR_ROUTE_ELSEWHERE, $result['decision']);
+        $this->assertNull($result['selected_agent']);
+        $this->assertStringContainsString('quality bar', $result['quality_reason']);
+    }
+
+    public function test_does_not_assign_to_overloaded_worker_even_if_capable(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->assignForTask(
+            ['difficulty' => 0.5],
+            [$this->candidate('agent-full', ['capability_score' => 1.0, 'max_parallel_tasks' => 2, 'current_task_count' => 2])],
+        );
+
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::DECISION_WAIT_OR_ROUTE_ELSEWHERE, $result['decision']);
+        $this->assertStringContainsString('no candidates have free capacity', $result['capacity_reason']);
+    }
+
+    public function test_high_recent_failure_rate_disqualifies_worker(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $candidate = $this->candidate('agent-flaky', ['capability_score' => 1.0]);
+        $candidate['recent_failure_rate'] = 0.8;
+
+        $result = $svc->assignForTask(['difficulty' => 0.5], [$candidate]);
+
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::DECISION_WAIT_OR_ROUTE_ELSEWHERE, $result['decision']);
+    }
+
+    public function test_prefers_higher_capability_among_qualified_candidates(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->assignForTask(
+            ['difficulty' => 0.3],
+            [
+                $this->candidate('agent-mid', ['capability_score' => 0.6]),
+                $this->candidate('agent-best', ['capability_score' => 0.95]),
+            ],
+        );
+
+        $this->assertSame('agent-best', $result['selected_agent']);
+    }
+
+    public function test_family_mismatch_excludes_capable_idle_worker(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->assignForTask(
+            ['difficulty' => 0.3, 'required_capabilities' => ['security_audit']],
+            [$this->candidate('agent-a', ['capabilities' => ['code_edit']])],
+        );
+
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::DECISION_WAIT_OR_ROUTE_ELSEWHERE, $result['decision']);
+    }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+
 /**
  * Rank candidate agents under one of a fixed set of load-balancing
  * policies. Pure projection: never dispatches, never claims, never
@@ -147,6 +149,94 @@ final class AgentRuntimeRegistryLoadBalancingPolicy
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
         ];
+    }
+
+    public const DECISION_ASSIGN              = 'assign';
+    public const DECISION_WAIT_OR_ROUTE_ELSEWHERE = 'wait_or_route_elsewhere';
+
+    private const MAX_RECENT_FAILURE_RATE = 0.30;
+
+    /**
+     * Assign one task to one candidate worker, balancing throughput AND quality —
+     * never sends a hard task to a weak or overloaded worker just because it's idle.
+     *
+     * @param  array{difficulty?: float, required_capabilities?: list<string>}  $task
+     * @param  array<int, array<string, mixed>>  $candidates  each may include recent_failure_rate
+     * @return array{schema_version:string, decision:string, selected_agent:?string, quality_reason:string, capacity_reason:string}
+     */
+    public function assignForTask(array $task, array $candidates): array
+    {
+        $difficulty = max(0.0, min(1.0, (float) ($task['difficulty'] ?? 0.5)));
+        $requiredCapabilities = (array) ($task['required_capabilities'] ?? []);
+
+        $normalized = $this->normalizeCandidates($candidates);
+        foreach ($normalized as &$c) {
+            $c['recent_failure_rate'] = $this->failureRateFor($candidates, $c['agent_id']);
+            $c['family_fit'] = $requiredCapabilities === []
+                || array_intersect($requiredCapabilities, $c['capabilities']) !== [];
+        }
+        unset($c);
+
+        $qualified = array_values(array_filter($normalized, function (array $c) use ($difficulty): bool {
+            return $c['capability_score'] >= $difficulty
+                && $c['recent_failure_rate'] <= self::MAX_RECENT_FAILURE_RATE
+                && $c['free_slots'] > 0
+                && $c['family_fit'];
+        }));
+
+        if ($qualified !== []) {
+            usort($qualified, static function (array $a, array $b): int {
+                $cmp = $b['capability_score'] <=> $a['capability_score'];
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
+                $cmp = $b['free_slots'] <=> $a['free_slots'];
+
+                return $cmp !== 0 ? $cmp : strcmp($a['agent_id'], $b['agent_id']);
+            });
+
+            $winner = $qualified[0];
+
+            return [
+                'schema_version'  => self::SCHEMA_VERSION,
+                'decision'        => self::DECISION_ASSIGN,
+                'selected_agent'  => $winner['agent_id'],
+                'quality_reason'  => sprintf('capability_score=%.2f meets difficulty=%.2f with failure_rate=%.2f below ceiling', $winner['capability_score'], $difficulty, $winner['recent_failure_rate']),
+                'capacity_reason' => sprintf('free_slots=%d available', $winner['free_slots']),
+            ];
+        }
+
+        // No qualified candidate: never silently assign to a weak/overloaded idle worker.
+        $anyHasCapacity   = array_filter($normalized, static fn (array $c): bool => $c['free_slots'] > 0);
+        $anyMeetsQuality  = array_filter($normalized, static fn (array $c): bool => $c['capability_score'] >= $difficulty && $c['recent_failure_rate'] <= self::MAX_RECENT_FAILURE_RATE);
+
+        $qualityReason = $anyHasCapacity !== [] && $anyMeetsQuality === []
+            ? sprintf('idle workers exist but none meet the quality bar for difficulty=%.2f (capability_score too low or recent_failure_rate too high)', $difficulty)
+            : ($anyMeetsQuality === [] ? 'no candidates meet the quality bar' : 'quality bar is met by some candidates');
+
+        $capacityReason = $anyHasCapacity === []
+            ? 'no candidates have free capacity'
+            : 'qualified-and-capable candidates lack family fit or free capacity simultaneously';
+
+        return [
+            'schema_version'  => self::SCHEMA_VERSION,
+            'decision'        => self::DECISION_WAIT_OR_ROUTE_ELSEWHERE,
+            'selected_agent'  => null,
+            'quality_reason'  => $qualityReason,
+            'capacity_reason' => $capacityReason,
+        ];
+    }
+
+    /** @param  array<int, array<string,mixed>>  $candidates */
+    private function failureRateFor(array $candidates, string $agentId): float
+    {
+        foreach ($candidates as $c) {
+            if ((string) ($c['agent_id'] ?? '') === $agentId) {
+                return max(0.0, min(1.0, (float) ($c['recent_failure_rate'] ?? 0.0)));
+            }
+        }
+
+        return 0.0;
     }
 
     /**
