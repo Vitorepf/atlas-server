@@ -226,4 +226,75 @@ final class AtlasSelfConstructionNextActionSelectorTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "selector source must not contain {$forbidden}");
         }
     }
+
+    // ── starvation & drain policy ─────────────────────────────────────────────
+
+    public function test_stale_active_leases_triggers_repair_queue_before_verify(): void
+    {
+        $queue = ['open_verifications' => 5, 'ready_to_promote' => 5, 'tasks_pending_workers' => 5, 'backlog_acceptance_items' => 5, 'stale_active_leases' => 2];
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+        $this->assertContains('stale_active_leases:2', $verdict['reasons']);
+    }
+
+    public function test_stale_active_leases_triggers_repair_queue_before_merge(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['ready_to_promote'] = 3;
+        $queue['stale_active_leases'] = 1;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+        $this->assertContains('stale_active_leases:1', $verdict['reasons']);
+    }
+
+    public function test_idle_workers_with_claimable_depth_schedules_before_create_task_packets(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 5;
+        $queue['idle_workers'] = 3;
+        $queue['claimable_depth'] = 2;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_SCHEDULE_WORKERS, $verdict['action']);
+        $this->assertContains('idle_workers_with_claimable_tasks', $verdict['reasons']);
+    }
+
+    public function test_idle_workers_without_claimable_depth_falls_through_to_create_task_packets(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 5;
+        $queue['idle_workers'] = 3;
+        $queue['claimable_depth'] = 0;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+    }
+
+    public function test_starvation_reason_added_when_servable_now_below_floor(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 4;
+        $queue['servable_now'] = 1;
+        $queue['servability_floor'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+        $this->assertContains('starvation:servable_now_1_below_floor_5', $verdict['reasons']);
+    }
+
+    public function test_no_starvation_reason_when_servable_now_at_or_above_floor(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['backlog_acceptance_items'] = 4;
+        $queue['servable_now'] = 5;
+        $queue['servability_floor'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+        foreach ($verdict['reasons'] as $r) {
+            $this->assertStringNotContainsString('starvation', $r);
+        }
+    }
 }
