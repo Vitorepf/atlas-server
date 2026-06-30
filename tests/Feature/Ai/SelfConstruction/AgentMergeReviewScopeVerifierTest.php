@@ -211,6 +211,93 @@ final class AgentMergeReviewScopeVerifierTest extends TestCase
         $this->assertSame(1, $result['verification']['in_scope_count']);
     }
 
+    // ── AC1/AC2: scope_clean / scope_violation / conflict_with_active_worker ──
+
+    public function test_decision_scope_clean_when_no_violations(): void
+    {
+        $svc = new AgentMergeReviewScopeVerifier;
+        $packet = $this->packetWithFiles([['path' => 'app/Services/Ai/SelfConstruction/Foo.php']]);
+        $result = $svc->verify($packet, ['allowed_files' => ['app/Services/Ai/SelfConstruction/']]);
+
+        $this->assertSame(AgentMergeReviewScopeVerifier::DECISION_SCOPE_CLEAN, $result['decision']);
+    }
+
+    public function test_decision_scope_violation_when_out_of_scope(): void
+    {
+        $svc = new AgentMergeReviewScopeVerifier;
+        $packet = $this->packetWithFiles([['path' => 'app/Services/Ai/Other/Bar.php']]);
+        $result = $svc->verify($packet, ['allowed_files' => ['app/Services/Ai/SelfConstruction/']]);
+
+        $this->assertSame(AgentMergeReviewScopeVerifier::DECISION_SCOPE_VIOLATION, $result['decision']);
+    }
+
+    public function test_decision_conflict_with_active_worker_when_path_matches_other_lease(): void
+    {
+        $svc = new AgentMergeReviewScopeVerifier;
+        $packet = $this->packetWithFiles([['path' => 'app/Services/Ai/SelfConstruction/Foo.php']]);
+        $result = $svc->verify($packet, [
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'],
+            'own_lease_id' => 'lease-mine',
+            'active_lease_scopes' => [
+                ['lease_id' => 'lease-other', 'write_set' => ['app/Services/Ai/SelfConstruction/Foo.php']],
+            ],
+        ]);
+
+        $this->assertSame(AgentMergeReviewScopeVerifier::DECISION_CONFLICT_WITH_ACTIVE_WORKER, $result['decision']);
+        $this->assertSame(1, $result['verification']['active_worker_conflict_count']);
+        $this->assertSame('app/Services/Ai/SelfConstruction/Foo.php', $result['verification']['active_worker_conflicts'][0]['path']);
+        $this->assertSame('lease-other', $result['verification']['active_worker_conflicts'][0]['lease_id']);
+    }
+
+    public function test_own_lease_id_excluded_from_conflict_detection(): void
+    {
+        $svc = new AgentMergeReviewScopeVerifier;
+        $packet = $this->packetWithFiles([['path' => 'app/Services/Ai/SelfConstruction/Foo.php']]);
+        $result = $svc->verify($packet, [
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'],
+            'own_lease_id' => 'lease-mine',
+            'active_lease_scopes' => [
+                ['lease_id' => 'lease-mine', 'write_set' => ['app/Services/Ai/SelfConstruction/Foo.php']],
+            ],
+        ]);
+
+        $this->assertSame([], $result['verification']['active_worker_conflicts']);
+        $this->assertSame(AgentMergeReviewScopeVerifier::DECISION_SCOPE_CLEAN, $result['decision']);
+    }
+
+    public function test_non_overlapping_lease_does_not_conflict(): void
+    {
+        $svc = new AgentMergeReviewScopeVerifier;
+        $packet = $this->packetWithFiles([['path' => 'app/Services/Ai/SelfConstruction/Foo.php']]);
+        $result = $svc->verify($packet, [
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'],
+            'active_lease_scopes' => [
+                ['lease_id' => 'lease-other', 'write_set' => ['app/Services/Ai/SelfConstruction/Unrelated.php']],
+            ],
+        ]);
+
+        $this->assertSame([], $result['verification']['active_worker_conflicts']);
+        $this->assertSame(AgentMergeReviewScopeVerifier::DECISION_SCOPE_CLEAN, $result['decision']);
+    }
+
+    public function test_active_worker_conflict_takes_priority_over_scope_violation(): void
+    {
+        $svc = new AgentMergeReviewScopeVerifier;
+        $packet = $this->packetWithFiles([
+            ['path' => 'app/Services/Ai/Other/Bar.php'],
+            ['path' => 'app/Services/Ai/SelfConstruction/Foo.php'],
+        ]);
+        $result = $svc->verify($packet, [
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'],
+            'active_lease_scopes' => [
+                ['lease_id' => 'lease-other', 'write_set' => ['app/Services/Ai/SelfConstruction/Foo.php']],
+            ],
+        ]);
+
+        $this->assertSame(AgentMergeReviewScopeVerifier::DECISION_CONFLICT_WITH_ACTIVE_WORKER, $result['decision']);
+        $this->assertSame('agent_merge_review_scope_violations_present', $result['status']);
+    }
+
     /**
      * @param  list<array<string, mixed>>  $files
      * @return array<string, mixed>

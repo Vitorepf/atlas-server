@@ -25,6 +25,10 @@ final class AgentMergeReviewScopeVerifier
         'voice' => 'voice/',
     ];
 
+    public const DECISION_SCOPE_CLEAN = 'scope_clean';
+    public const DECISION_SCOPE_VIOLATION = 'scope_violation';
+    public const DECISION_CONFLICT_WITH_ACTIVE_WORKER = 'conflict_with_active_worker';
+
     public const UNSAFE_PATH_PREFIXES = [
         '../',
         '/etc/',
@@ -57,12 +61,15 @@ final class AgentMergeReviewScopeVerifier
         $forbidden = $this->normalizePaths((array) ($declaredScope['forbidden_files'] ?? []));
         $scopeIn = $this->normalizePaths((array) ($declaredScope['scope_in'] ?? []));
         $scopeOut = $this->normalizePaths((array) ($declaredScope['scope_out'] ?? []));
+        $ownLeaseId = (string) ($declaredScope['own_lease_id'] ?? '');
+        $activeLeaseScopes = (array) ($declaredScope['active_lease_scopes'] ?? []);
 
         $inScope = [];
         $outOfScope = [];
         $forbiddenViolations = [];
         $crossAxisViolations = [];
         $unsafePathViolations = [];
+        $activeWorkerConflicts = [];
 
         foreach ($files as $file) {
             $path = (string) ($file['path'] ?? '');
@@ -76,6 +83,22 @@ final class AgentMergeReviewScopeVerifier
                     'change_kind' => (string) ($file['change_kind'] ?? 'modified'),
                     'reason' => 'path_matched_forbidden_or_scope_out',
                 ];
+            }
+
+            // AC1/AC2: did this change steal a file another active worker's lease already claims?
+            foreach ($activeLeaseScopes as $lease) {
+                $leaseId = (string) ($lease['lease_id'] ?? '');
+                if ($leaseId === '' || $leaseId === $ownLeaseId) {
+                    continue;
+                }
+                $leaseWriteSet = $this->normalizePaths((array) ($lease['write_set'] ?? []));
+                if ($this->matchesAny($path, $leaseWriteSet)) {
+                    $activeWorkerConflicts[] = [
+                        'path' => $path,
+                        'lease_id' => $leaseId,
+                        'change_kind' => (string) ($file['change_kind'] ?? 'modified'),
+                    ];
+                }
             }
 
             foreach (self::CROSS_AXIS_BLOCKERS as $axis => $prefix) {
@@ -113,13 +136,21 @@ final class AgentMergeReviewScopeVerifier
         $crossAxisViolations = $this->uniqueRows($crossAxisViolations, ['axis', 'path']);
         $forbiddenViolations = $this->uniqueRows($forbiddenViolations, ['path']);
         $unsafePathViolations = $this->uniqueRows($unsafePathViolations, ['path', 'reason']);
+        $activeWorkerConflicts = $this->uniqueRows($activeWorkerConflicts, ['path', 'lease_id']);
 
         $violationCount = count($forbiddenViolations) + count($crossAxisViolations) + count($unsafePathViolations) + count($outOfScope);
         $status = $violationCount === 0 ? 'agent_merge_review_scope_verified' : 'agent_merge_review_scope_violations_present';
 
+        $decision = match (true) {
+            $activeWorkerConflicts !== [] => self::DECISION_CONFLICT_WITH_ACTIVE_WORKER,
+            $violationCount > 0 => self::DECISION_SCOPE_VIOLATION,
+            default => self::DECISION_SCOPE_CLEAN,
+        };
+
         $envelope = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
+            'decision' => $decision,
             'mode' => self::MODE,
             'apply_patch_allowed' => false,
             'real_file_write_allowed' => false,
@@ -132,11 +163,13 @@ final class AgentMergeReviewScopeVerifier
                 'forbidden_violations' => $forbiddenViolations,
                 'cross_axis_violations' => $crossAxisViolations,
                 'unsafe_path_violations' => $unsafePathViolations,
+                'active_worker_conflicts' => $activeWorkerConflicts,
                 'in_scope_count' => count(array_unique($inScope)),
                 'out_of_scope_count' => count($outOfScope),
                 'forbidden_violation_count' => count($forbiddenViolations),
                 'cross_axis_violation_count' => count($crossAxisViolations),
                 'unsafe_path_violation_count' => count($unsafePathViolations),
+                'active_worker_conflict_count' => count($activeWorkerConflicts),
                 'violation_count' => $violationCount,
                 'all_in_scope' => $violationCount === 0,
             ],
