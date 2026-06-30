@@ -225,4 +225,94 @@ final class AtlasExternalBrainModelTierCalibrationLedgerTest extends TestCase
         $this->assertSame([], $result['routing_recommendations']);
         $this->assertSame([], $result['under_sampled_segments']);
     }
+
+    // ── Task family tier classification ───────────────────────────────────────
+
+    private function verifiedRun(array $overrides = []): array
+    {
+        return $this->makeRun(array_merge(['verified' => true], $overrides));
+    }
+
+    public function test_strong_verified_small_model_evidence_classifies_small_model_ok(): void
+    {
+        $runs = array_fill(0, 5, $this->verifiedRun([
+            'model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL,
+            'outcome' => 'success',
+        ]));
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $classification = $result['task_class_classifications'][0];
+
+        $this->assertSame('extraction', $classification['task_class']);
+        $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::CLASS_SMALL_MODEL_OK, $classification['classification']);
+    }
+
+    public function test_weak_small_but_strong_scaffolded_classifies_scaffold_required(): void
+    {
+        $runs = [
+            ...array_fill(0, 5, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL, 'outcome' => 'give_back'])),
+            ...array_fill(0, 5, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SCAFFOLDED, 'outcome' => 'success'])),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $classification = $result['task_class_classifications'][0];
+
+        $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::CLASS_SCAFFOLD_REQUIRED, $classification['classification']);
+    }
+
+    public function test_only_frontier_succeeds_classifies_frontier_required(): void
+    {
+        $runs = [
+            ...array_fill(0, 3, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL, 'outcome' => 'success'])),
+            ...array_fill(0, 2, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL, 'outcome' => 'give_back'])),
+            ...array_fill(0, 4, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'success'])),
+            ...array_fill(0, 1, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'give_back'])),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $classification = $result['task_class_classifications'][0];
+
+        $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::CLASS_FRONTIER_REQUIRED, $classification['classification']);
+    }
+
+    public function test_frontier_far_exceeding_small_classifies_frontier_high_lift(): void
+    {
+        $runs = [
+            ...array_fill(0, 5, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_SMALL, 'outcome' => 'low_value'])),
+            ...array_fill(0, 5, $this->verifiedRun(['model_tier' => AtlasExternalBrainModelTierCalibrationLedger::TIER_FRONTIER, 'outcome' => 'success'])),
+        ];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $classification = $result['task_class_classifications'][0];
+
+        $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::CLASS_FRONTIER_HIGH_LIFT, $classification['classification']);
+    }
+
+    public function test_single_unverified_sample_does_not_overclaim_small_model_ok(): void
+    {
+        $runs = [$this->makeRun(['outcome' => 'success', 'verified' => false])];
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertSame([], $result['task_class_classifications']);
+    }
+
+    public function test_self_reported_unverified_runs_never_count_toward_classification(): void
+    {
+        $runs = array_fill(0, 10, $this->makeRun(['outcome' => 'success', 'verified' => false]));
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+
+        $this->assertSame([], $result['task_class_classifications']);
+    }
+
+    public function test_below_threshold_verified_samples_is_insufficient_evidence(): void
+    {
+        $runs = array_fill(0, 3, $this->verifiedRun(['outcome' => 'success']));
+
+        $result = $this->ledger->calibrate(['runs' => $runs]);
+        $classification = $result['task_class_classifications'][0];
+
+        $this->assertSame(AtlasExternalBrainModelTierCalibrationLedger::CLASS_INSUFFICIENT_EVIDENCE, $classification['classification']);
+    }
 }

@@ -38,6 +38,15 @@ final class AtlasExternalBrainModelTierCalibrationLedger
     private const RECOMMEND_SUCCESS_CEILING = 0.80;
     private const RECOMMEND_GIVEBACK_DANGER = 0.50;
 
+    public const CLASS_SMALL_MODEL_OK       = 'small_model_ok';
+    public const CLASS_SCAFFOLD_REQUIRED    = 'scaffold_required';
+    public const CLASS_FRONTIER_REQUIRED    = 'frontier_required';
+    public const CLASS_FRONTIER_HIGH_LIFT   = 'frontier_high_lift';
+    public const CLASS_INSUFFICIENT_EVIDENCE = 'insufficient_evidence';
+
+    /** Frontier must beat the best small/scaffolded verified success rate by this much to count as extraordinary lift. */
+    private const FRONTIER_HIGH_LIFT_DELTA = 0.30;
+
     /**
      * @param  array{runs?: list<array<string,mixed>>}  $input
      * @return array{schema:string, tier_stats:array<string,mixed>, routing_recommendations:list<array<string,mixed>>, under_sampled_segments:list<array<string,mixed>>, evidence_thresholds:array<string,mixed>}
@@ -49,6 +58,7 @@ final class AtlasExternalBrainModelTierCalibrationLedger
         // Aggregate by segment key
         $segments = [];
         $tierRaw  = [];
+        $taskClassTier = [];
 
         foreach ($runs as $run) {
             $tier      = (string) ($run['model_tier']        ?? 'unknown');
@@ -57,6 +67,19 @@ final class AtlasExternalBrainModelTierCalibrationLedger
             $taskClass = (string) ($run['task_class']        ?? 'general');
             $outcome   = (string) ($run['outcome']           ?? '');
             $valueStr  = max(0.0, min(1.0, (float) ($run['value_proof_strength'] ?? 0.0)));
+            $verified  = (bool) ($run['verified'] ?? false);
+
+            if ($verified) {
+                if (! isset($taskClassTier[$taskClass][$tier])) {
+                    $taskClassTier[$taskClass][$tier] = ['total' => 0, 'success' => 0, 'give_back' => 0];
+                }
+                $taskClassTier[$taskClass][$tier]['total']++;
+                match ($outcome) {
+                    self::OUTCOME_SUCCESS   => $taskClassTier[$taskClass][$tier]['success']++,
+                    self::OUTCOME_GIVE_BACK => $taskClassTier[$taskClass][$tier]['give_back']++,
+                    default                 => null,
+                };
+            }
 
             $segKey = "{$tier}|{$scaffold}|{$critique}|{$taskClass}";
 
@@ -148,11 +171,14 @@ final class AtlasExternalBrainModelTierCalibrationLedger
             }
         }
 
+        $taskClassClassifications = $this->classifyTaskClasses($taskClassTier);
+
         return [
             'schema'                   => self::SCHEMA,
             'tier_stats'               => $tierStats,
             'routing_recommendations'  => $recommendations,
             'under_sampled_segments'   => $underSampled,
+            'task_class_classifications' => $taskClassClassifications,
             'evidence_thresholds'      => [
                 'min_samples_for_recommendation' => self::MIN_SAMPLES_FOR_RECOMMENDATION,
                 'success_rate_floor'             => self::RECOMMEND_SUCCESS_FLOOR,
@@ -160,6 +186,77 @@ final class AtlasExternalBrainModelTierCalibrationLedger
                 'give_back_danger_threshold'     => self::RECOMMEND_GIVEBACK_DANGER,
             ],
         ];
+    }
+
+    /**
+     * Classifies each task class into small_model_ok, scaffold_required,
+     * frontier_required, frontier_high_lift, or insufficient_evidence —
+     * using ONLY verified runs, so a single unverified self-report can
+     * never produce a routing claim.
+     *
+     * @param  array<string, array<string, array{total:int, success:int, give_back:int}>>  $taskClassTier
+     * @return list<array<string, mixed>>
+     */
+    private function classifyTaskClasses(array $taskClassTier): array
+    {
+        $classifications = [];
+
+        foreach ($taskClassTier as $taskClass => $tiers) {
+            $small = $this->tierVerifiedRates($tiers[self::TIER_SMALL] ?? null);
+            $scaffolded = $this->tierVerifiedRates($tiers[self::TIER_SCAFFOLDED] ?? null);
+            $frontier = $this->tierVerifiedRates($tiers[self::TIER_FRONTIER] ?? null);
+
+            $classification = match (true) {
+                $this->isVerifiedAdequate($small) => self::CLASS_SMALL_MODEL_OK,
+                $this->isVerifiedAdequate($scaffolded) => self::CLASS_SCAFFOLD_REQUIRED,
+                $this->isVerifiedAdequate($frontier) => $this->isExtraordinaryLift($frontier, $small, $scaffolded)
+                    ? self::CLASS_FRONTIER_HIGH_LIFT
+                    : self::CLASS_FRONTIER_REQUIRED,
+                default => self::CLASS_INSUFFICIENT_EVIDENCE,
+            };
+
+            $classifications[] = [
+                'task_class' => $taskClass,
+                'classification' => $classification,
+                'small_model_verified_samples' => $small['total'],
+                'scaffolded_verified_samples' => $scaffolded['total'],
+                'frontier_verified_samples' => $frontier['total'],
+            ];
+        }
+
+        return $classifications;
+    }
+
+    /** @return array{total:int, success_rate:float, give_back_rate:float} */
+    private function tierVerifiedRates(?array $agg): array
+    {
+        $total = $agg['total'] ?? 0;
+
+        return [
+            'total' => $total,
+            'success_rate' => $total > 0 ? $agg['success'] / $total : 0.0,
+            'give_back_rate' => $total > 0 ? $agg['give_back'] / $total : 0.0,
+        ];
+    }
+
+    /** @param array{total:int, success_rate:float, give_back_rate:float} $rates */
+    private function isVerifiedAdequate(array $rates): bool
+    {
+        return $rates['total'] >= self::MIN_SAMPLES_FOR_RECOMMENDATION
+            && $rates['success_rate'] >= self::RECOMMEND_SUCCESS_CEILING
+            && $rates['give_back_rate'] <= self::RECOMMEND_GIVEBACK_DANGER;
+    }
+
+    /**
+     * @param  array{total:int, success_rate:float, give_back_rate:float}  $frontier
+     * @param  array{total:int, success_rate:float, give_back_rate:float}  $small
+     * @param  array{total:int, success_rate:float, give_back_rate:float}  $scaffolded
+     */
+    private function isExtraordinaryLift(array $frontier, array $small, array $scaffolded): bool
+    {
+        $bestLowerTierSuccessRate = max($small['success_rate'], $scaffolded['success_rate']);
+
+        return ($frontier['success_rate'] - $bestLowerTierSuccessRate) >= self::FRONTIER_HIGH_LIFT_DELTA;
     }
 
     private function recommendation(string $tier, float $successRate, float $giveBackRate, float $avgVs): ?string
