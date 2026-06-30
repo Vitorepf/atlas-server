@@ -93,9 +93,21 @@ final class AtlasStrategyCouncilRoadmapCandidateFilter
                 continue;
             }
             if ((bool) ($c['stale'] ?? false)) {
-                $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:stale'];
+                $isWorkerFloor = $kind === 'worker_floor';
+                $hasFreshQueueRefs = trim((string) ($c['queue_health_ref'] ?? '')) !== ''
+                    && trim((string) ($c['queued_targets_ref'] ?? '')) !== '';
 
-                continue;
+                // Worker-floor replenishment candidates are exempt from the blanket stale drop ONLY
+                // when backed by fresh queue evidence — stale context can never justify a wait or a
+                // duplicate-enqueue decision on its own.
+                if (! ($isWorkerFloor && $hasFreshQueueRefs)) {
+                    $dropped[] = [
+                        'candidate_id' => $id,
+                        'drop_reason' => $isWorkerFloor ? 'dropped:stale_queue_context' : 'dropped:stale',
+                    ];
+
+                    continue;
+                }
             }
             $dupKey = (string) ($c['duplicate_key'] ?? '');
             if ($dupKey !== '' && isset($seenDupKeys[$dupKey])) {
