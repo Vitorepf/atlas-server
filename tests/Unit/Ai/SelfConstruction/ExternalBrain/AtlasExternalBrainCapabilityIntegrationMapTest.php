@@ -158,4 +158,119 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         $b = $this->mapper()->map($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: dormant_implemented ──────────────────────────────────────────────
+
+    public function test_dormant_implemented_when_no_consumers_unwired_no_missing(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'                 => 'sleeper',
+            'is_wired'           => false,
+            'consumer_count'     => 0,
+            'integration_points' => ['orchestrator', 'task_fabric'],
+            'connected_to'       => ['orchestrator', 'task_fabric'],
+        ])]]);
+
+        $this->assertSame('dormant_implemented', $r['capability_map'][0]['integration_status']);
+        $this->assertNotContains('sleeper', $r['fulfilled_capabilities']);
+        $this->assertEmpty($r['integration_debt_items']);
+        $this->assertSame(1, $r['debt_summary']['dormant_implemented']);
+    }
+
+    public function test_unwired_without_consumer_count_is_still_integration_debt(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'       => 'debt',
+            'is_wired' => false,
+        ])]]);
+
+        $this->assertSame('integration_debt', $r['capability_map'][0]['integration_status']);
+    }
+
+    // ── AC2: contract_missing ─────────────────────────────────────────────────
+
+    public function test_contract_missing_when_has_contract_false(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'           => 'no_spec',
+            'has_contract' => false,
+        ])]]);
+
+        $this->assertSame('contract_missing', $r['capability_map'][0]['integration_status']);
+        $this->assertNotContains('no_spec', $r['fulfilled_capabilities']);
+        $this->assertSame(1, $r['debt_summary']['contract_missing']);
+    }
+
+    public function test_has_contract_true_does_not_change_classification(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap(['has_contract' => true])]]);
+
+        $this->assertSame('fully_integrated', $r['capability_map'][0]['integration_status']);
+    }
+
+    // ── AC3: wiring_coverage ─────────────────────────────────────────────────
+
+    public function test_wiring_coverage_present_in_capability_map(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap()]]);
+
+        $this->assertArrayHasKey('wiring_coverage', $r['capability_map'][0]);
+        $this->assertIsFloat($r['capability_map'][0]['wiring_coverage']);
+    }
+
+    public function test_wiring_coverage_with_consumer_and_control_plane(): void
+    {
+        // coverage_score=1.0, consumer_count=5 (ceiling), control_plane=true
+        // wiring_coverage = 1.0*0.6 + 1.0*0.2 + 1.0*0.2 = 1.0
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'consumer_count'       => 5,
+            'control_plane_exists' => true,
+        ])]]);
+
+        $this->assertSame(1.0, $r['capability_map'][0]['wiring_coverage']);
+    }
+
+    public function test_wiring_coverage_no_new_fields_equals_60_pct_of_coverage(): void
+    {
+        // Fully connected, no consumer_count/control_plane → wiring_coverage = 1.0*0.6 = 0.6
+        $r = $this->mapper()->map(['capabilities' => [$this->cap()]]);
+
+        $this->assertSame(round(1.0 * 0.6, 4), $r['capability_map'][0]['wiring_coverage']);
+    }
+
+    // ── AC4: next_wiring_actions in debt items ────────────────────────────────
+
+    public function test_debt_item_has_next_wiring_actions(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'       => 'unwired',
+            'is_wired' => false,
+        ])]]);
+
+        $debt = $r['integration_debt_items'][0];
+        $this->assertArrayHasKey('next_wiring_actions', $debt);
+        $this->assertIsArray($debt['next_wiring_actions']);
+        $this->assertNotEmpty($debt['next_wiring_actions']);
+    }
+
+    public function test_next_wiring_actions_lists_connect_to_for_missing_points(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'           => 'partial',
+            'connected_to' => ['orchestrator'], // task_fabric missing
+        ])]]);
+
+        $actions = $r['integration_debt_items'][0]['next_wiring_actions'];
+        $this->assertContains('connect_to:task_fabric', $actions);
+    }
+
+    // ── AC4: debt_summary extended counts ────────────────────────────────────
+
+    public function test_debt_summary_has_dormant_and_contract_missing_keys(): void
+    {
+        $r = $this->mapper()->map([]);
+
+        $this->assertArrayHasKey('dormant_implemented', $r['debt_summary']);
+        $this->assertArrayHasKey('contract_missing',    $r['debt_summary']);
+    }
 }
