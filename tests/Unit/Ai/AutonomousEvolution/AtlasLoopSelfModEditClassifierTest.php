@@ -94,6 +94,26 @@ PHP;
         $this->assertContains('Stmt_If', $result['evidence']['ast_node_kinds_changed']);
     }
 
+    public function test_public_param_type_change_int_to_string_is_structural(): void
+    {
+        $before = <<<'PHP'
+<?php
+final class DemoClass {
+    public function run(int $x): int { return $x; }
+}
+PHP;
+        $after = <<<'PHP'
+<?php
+final class DemoClass {
+    public function run(string $x): int { return (int) $x; }
+}
+PHP;
+
+        $result = (new AtlasLoopSelfModEditClassifier)->classify('app/Services/Ai/AutonomousEvolution/DemoClass.php', $before, $after);
+
+        $this->assertSame('STRUCTURAL', $result['kind'], 'int->string public param type change must be STRUCTURAL, not SEMANTIC');
+    }
+
     public function test_parse_failure_fails_closed_as_structural(): void
     {
         $before = '<?php final class Broken {';

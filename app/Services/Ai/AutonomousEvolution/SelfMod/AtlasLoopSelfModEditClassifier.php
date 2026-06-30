@@ -115,8 +115,17 @@ final class AtlasLoopSelfModEditClassifier
                 if ($type === null) {
                     return 'mixed';
                 }
-
-                return $type->getType();
+                if ($type instanceof Node\NullableType) {
+                    return '?'.$this->typeString($type->type);
+                }
+                if ($type instanceof Node\UnionType) {
+                    return implode('|', array_map(fn ($t): string => $this->typeString($t), $type->types));
+                }
+                if ($type instanceof Node\IntersectionType) {
+                    return implode('&', array_map(fn ($t): string => $this->typeString($t), $type->types));
+                }
+                // Identifier (scalar: int, string, bool…) and Name (class types)
+                return (string) $type;
             }
         });
         $traverser->traverse($ast);
