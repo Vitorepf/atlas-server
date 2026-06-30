@@ -17,12 +17,12 @@ final class AtlasExternalBrainFrontierHarvestYieldModelTest extends TestCase
     private function goodFrontier(string $id = 'F1'): array
     {
         return [
-            'frontier_id'      => $id,
-            'verified_yield'   => 10,
-            'duplicate_rate'   => 0.10,
-            'give_back_rate'   => 0.05,
-            'tried_methods'    => ['grep'],
-            'available_methods' => ['grep', 'semantic', 'ast'],
+            'frontier_id' => $id,
+            'raw_seed_count' => 100,
+            'unique_high_value_count' => 30,
+            'duplicate_count' => 10,
+            'forbidden_wall_count' => 0,
+            'compounding_impact_per_task' => 1.0,
         ];
     }
 
@@ -47,7 +47,10 @@ final class AtlasExternalBrainFrontierHarvestYieldModelTest extends TestCase
         $result = $this->model()->model(['frontiers' => [$this->goodFrontier()]]);
 
         $entry = $result['results'][0];
-        foreach (['frontier_id', 'decision', 'next_harvest_method', 'evidence_counts', 'reasons'] as $f) {
+        foreach ([
+            'frontier_id', 'decision', 'marginal_yield', 'duplicate_rate',
+            'forbidden_wall_rate', 'expected_next_batch_value', 'evidence_counts', 'reasons',
+        ] as $f) {
             $this->assertArrayHasKey($f, $entry);
         }
     }
@@ -57,7 +60,7 @@ final class AtlasExternalBrainFrontierHarvestYieldModelTest extends TestCase
         $result = $this->model()->model(['frontiers' => [$this->goodFrontier()]]);
 
         $counts = $result['results'][0]['evidence_counts'];
-        foreach (['verified_yield', 'tried_methods_count', 'untried_methods_count'] as $f) {
+        foreach (['raw_seed_count', 'unique_high_value_count', 'duplicate_count', 'forbidden_wall_count'] as $f) {
             $this->assertArrayHasKey($f, $counts);
         }
     }
@@ -69,156 +72,144 @@ final class AtlasExternalBrainFrontierHarvestYieldModelTest extends TestCase
         $this->assertSame([], $result['results']);
     }
 
-    // ── harvest_more ──────────────────────────────────────────────────────────
+    // ── computed rates ────────────────────────────────────────────────────────
 
-    public function test_harvest_more_when_yield_high_and_rates_low(): void
+    public function test_marginal_yield_duplicate_rate_and_forbidden_wall_rate_are_computed(): void
+    {
+        $result = $this->model()->model(['frontiers' => [$this->goodFrontier()]]);
+        $r = $result['results'][0];
+
+        $this->assertSame(0.3, $r['marginal_yield']);
+        $this->assertSame(0.1, $r['duplicate_rate']);
+        $this->assertSame(0.0, $r['forbidden_wall_rate']);
+        $this->assertSame(30.0, $r['expected_next_batch_value']);
+    }
+
+    public function test_expected_next_batch_value_scales_with_compounding_impact(): void
+    {
+        $f = $this->goodFrontier();
+        $f['compounding_impact_per_task'] = 2.5;
+
+        $result = $this->model()->model(['frontiers' => [$f]]);
+
+        $this->assertSame(75.0, $result['results'][0]['expected_next_batch_value']);
+    }
+
+    // ── continue ──────────────────────────────────────────────────────────────
+
+    public function test_continue_when_yield_high_and_no_walls_or_duplication(): void
     {
         $result = $this->model()->model(['frontiers' => [$this->goodFrontier()]]);
 
-        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_HARVEST_MORE, $result['results'][0]['decision']);
-        $this->assertNull($result['results'][0]['next_harvest_method']);
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CONTINUE, $result['results'][0]['decision']);
     }
 
-    public function test_harvest_more_at_exact_yield_threshold(): void
+    // ── change_strategy (forbidden wall) ─────────────────────────────────────
+
+    public function test_change_strategy_when_forbidden_wall_rate_high(): void
     {
         $result = $this->model()->model([
             'frontiers' => [[
-                'frontier_id'      => 'F',
-                'verified_yield'   => 3,   // default threshold
-                'duplicate_rate'   => 0.10,
-                'give_back_rate'   => 0.05,
-                'tried_methods'    => [],
-                'available_methods' => [],
+                'frontier_id' => 'F2',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 40,
+                'duplicate_count' => 0,
+                'forbidden_wall_count' => 40,
             ]],
         ]);
 
-        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_HARVEST_MORE, $result['results'][0]['decision']);
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CHANGE_STRATEGY, $result['results'][0]['decision']);
     }
 
-    // ── change_method ─────────────────────────────────────────────────────────
-
-    public function test_change_method_when_yield_low_but_untried_methods_remain(): void
+    public function test_forbidden_wall_takes_priority_over_high_yield(): void
     {
         $result = $this->model()->model([
             'frontiers' => [[
-                'frontier_id'      => 'F2',
-                'verified_yield'   => 0,
-                'duplicate_rate'   => 0.70,
-                'give_back_rate'   => 0.60,
-                'tried_methods'    => ['grep'],
-                'available_methods' => ['grep', 'semantic'],
+                'frontier_id' => 'F2b',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 60,
+                'duplicate_count' => 0,
+                'forbidden_wall_count' => 35,
             ]],
         ]);
 
-        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CHANGE_METHOD, $result['results'][0]['decision']);
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CHANGE_STRATEGY, $result['results'][0]['decision']);
     }
 
-    public function test_change_method_picks_first_untried_method(): void
+    // ── consolidate (duplicate rate) ─────────────────────────────────────────
+
+    public function test_consolidate_when_duplicate_rate_high(): void
     {
         $result = $this->model()->model([
             'frontiers' => [[
-                'frontier_id'      => 'F3',
-                'verified_yield'   => 0,
-                'duplicate_rate'   => 0.80,
-                'give_back_rate'   => 0.50,
-                'tried_methods'    => ['grep'],
-                'available_methods' => ['grep', 'semantic', 'ast'],
+                'frontier_id' => 'F3',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 30,
+                'duplicate_count' => 55,
+                'forbidden_wall_count' => 0,
             ]],
         ]);
 
-        $this->assertSame('semantic', $result['results'][0]['next_harvest_method']);
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CONSOLIDATE, $result['results'][0]['decision']);
     }
 
-    public function test_frontier_not_retired_when_low_yield_but_untried_methods_exist(): void
+    // ── stop_frontier_harvest ─────────────────────────────────────────────────
+
+    public function test_stop_frontier_harvest_when_marginal_yield_below_floor(): void
     {
         $result = $this->model()->model([
             'frontiers' => [[
-                'frontier_id'      => 'F4',
-                'verified_yield'   => 1,   // below threshold
-                'duplicate_rate'   => 0.40,
-                'give_back_rate'   => 0.30,
-                'tried_methods'    => ['grep'],
-                'available_methods' => ['grep', 'semantic'],
+                'frontier_id' => 'F4',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 5,
+                'duplicate_count' => 10,
+                'forbidden_wall_count' => 0,
             ]],
         ]);
 
-        $this->assertNotSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_RETIRE, $result['results'][0]['decision']);
-        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CHANGE_METHOD, $result['results'][0]['decision']);
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_STOP_FRONTIER_HARVEST, $result['results'][0]['decision']);
     }
 
-    // ── retire ────────────────────────────────────────────────────────────────
+    // ── raw seed count alone is insufficient (AC4) ───────────────────────────
 
-    public function test_retire_when_yield_low_no_untried_methods(): void
+    public function test_large_raw_seed_count_with_zero_unique_high_value_stops_harvest(): void
     {
         $result = $this->model()->model([
             'frontiers' => [[
-                'frontier_id'      => 'F5',
-                'verified_yield'   => 0,
-                'duplicate_rate'   => 0.90,
-                'give_back_rate'   => 0.80,
-                'tried_methods'    => ['grep', 'semantic'],
-                'available_methods' => ['grep', 'semantic'],
+                'frontier_id' => 'F5',
+                'raw_seed_count' => 10000,
+                'unique_high_value_count' => 0,
+                'duplicate_count' => 0,
+                'forbidden_wall_count' => 0,
             ]],
         ]);
 
-        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_RETIRE, $result['results'][0]['decision']);
-        $this->assertNull($result['results'][0]['next_harvest_method']);
-    }
-
-    public function test_retire_includes_reason_about_no_untried_methods(): void
-    {
-        $result = $this->model()->model([
-            'frontiers' => [[
-                'frontier_id'      => 'F6',
-                'verified_yield'   => 0,
-                'duplicate_rate'   => 0.90,
-                'give_back_rate'   => 0.80,
-                'tried_methods'    => ['grep'],
-                'available_methods' => ['grep'],
-            ]],
-        ]);
-
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_STOP_FRONTIER_HARVEST, $result['results'][0]['decision']);
+        $this->assertSame(0.0, $result['results'][0]['marginal_yield']);
         $reasons = implode(' ', $result['results'][0]['reasons']);
-        $this->assertStringContainsString('untried', $reasons);
-    }
-
-    // ── evidence_counts ───────────────────────────────────────────────────────
-
-    public function test_untried_methods_count_is_correct(): void
-    {
-        $result = $this->model()->model([
-            'frontiers' => [[
-                'frontier_id'      => 'F7',
-                'verified_yield'   => 10,
-                'duplicate_rate'   => 0.10,
-                'give_back_rate'   => 0.05,
-                'tried_methods'    => ['grep'],
-                'available_methods' => ['grep', 'semantic', 'ast'],
-            ]],
-        ]);
-
-        $this->assertSame(2, $result['results'][0]['evidence_counts']['untried_methods_count']);
-        $this->assertSame(1, $result['results'][0]['evidence_counts']['tried_methods_count']);
-        $this->assertSame(10, $result['results'][0]['evidence_counts']['verified_yield']);
+        $this->assertStringContainsString('alone is not evidence', $reasons);
     }
 
     // ── custom thresholds ─────────────────────────────────────────────────────
 
-    public function test_custom_yield_threshold(): void
+    public function test_custom_marginal_yield_floor(): void
     {
         $result = $this->model()->model([
-            'frontiers' => [[
-                'frontier_id'      => 'F8',
-                'verified_yield'   => 5,
-                'duplicate_rate'   => 0.10,
-                'give_back_rate'   => 0.05,
-                'tried_methods'    => ['grep'],
-                'available_methods' => ['grep'],
-            ]],
-            'yield_threshold' => 10,   // 5 < 10 → not harvest_more
+            'frontiers' => [$this->goodFrontier()], // marginal_yield = 0.3
+            'marginal_yield_floor' => 0.5,
         ]);
 
-        $this->assertNotSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_HARVEST_MORE, $result['results'][0]['decision']);
+        $this->assertNotSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_CONTINUE, $result['results'][0]['decision']);
+    }
+
+    public function test_custom_min_expected_batch_value_can_block_continue(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [$this->goodFrontier()], // expected_next_batch_value = 30
+            'min_expected_batch_value' => 1000,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_STOP_FRONTIER_HARVEST, $result['results'][0]['decision']);
     }
 
     // ── reasons non-empty ─────────────────────────────────────────────────────
@@ -227,15 +218,10 @@ final class AtlasExternalBrainFrontierHarvestYieldModelTest extends TestCase
     {
         $result = $this->model()->model([
             'frontiers' => [
-                $this->goodFrontier('harvest'),
-                [
-                    'frontier_id' => 'change', 'verified_yield' => 0, 'duplicate_rate' => 0.8,
-                    'give_back_rate' => 0.5, 'tried_methods' => ['a'], 'available_methods' => ['a', 'b'],
-                ],
-                [
-                    'frontier_id' => 'retire', 'verified_yield' => 0, 'duplicate_rate' => 0.9,
-                    'give_back_rate' => 0.9, 'tried_methods' => ['a'], 'available_methods' => ['a'],
-                ],
+                $this->goodFrontier('continue'),
+                ['frontier_id' => 'wall', 'raw_seed_count' => 100, 'unique_high_value_count' => 50, 'duplicate_count' => 0, 'forbidden_wall_count' => 40],
+                ['frontier_id' => 'dup', 'raw_seed_count' => 100, 'unique_high_value_count' => 30, 'duplicate_count' => 60, 'forbidden_wall_count' => 0],
+                ['frontier_id' => 'stop', 'raw_seed_count' => 100, 'unique_high_value_count' => 0, 'duplicate_count' => 0, 'forbidden_wall_count' => 0],
             ],
         ]);
 

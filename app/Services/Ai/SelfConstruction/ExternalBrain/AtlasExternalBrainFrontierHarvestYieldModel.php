@@ -5,38 +5,61 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Decides whether a frontier still has genuine high-leverage tasks (harvest_more),
- * needs a different harvesting method (change_method), or is exhausted (retire).
+ * Estimates whether another frontier harvest pass is still yielding
+ * genuinely new structural tasks, or is burning tokens on diminishing
+ * returns — from recent harvest wave facts, never from raw seed volume
+ * alone.
  *
- * DECISION PRIORITY:
- *   harvest_more — yield >= yield_threshold AND duplicate_rate < dup_threshold AND give_back_rate < gb_threshold
- *   change_method — NOT harvest_more AND untried_methods is non-empty → pick first untried method
- *   retire        — NOT harvest_more AND NO untried methods remain
+ * Computed per frontier:
+ *   marginal_yield            = unique_high_value_count / raw_seed_count
+ *                                (the fraction of raw seeds that turned into
+ *                                NEW, high-value, non-duplicate tasks — a raw
+ *                                seed count by itself proves nothing).
+ *   duplicate_rate             = duplicate_count / raw_seed_count
+ *   forbidden_wall_rate        = forbidden_wall_count / raw_seed_count
+ *                                (seeds that hit a pétreo/forbidden boundary
+ *                                and could never become a task)
+ *   expected_next_batch_value  = unique_high_value_count × compounding_impact_per_task
+ *                                (defaults compounding_impact_per_task to 1.0)
  *
- * NOTE: A frontier is NEVER retired solely because the last wave found few tasks
- *       when untried harvest methods remain. change_method is returned in that case.
- *
- * untried_methods = available_methods \ tried_methods
+ * DECISION PRIORITY (first match wins):
+ *   change_strategy        — forbidden_wall_rate >= forbidden_wall_rate_ceiling:
+ *                             the current harvest method keeps hitting a
+ *                             structural wall; no amount of volume fixes that.
+ *   consolidate             — duplicate_rate >= duplicate_rate_ceiling:
+ *                             most seeds already exist; harvesting more raw
+ *                             volume just re-discovers the same ground —
+ *                             consolidate/dedup before harvesting again.
+ *   continue                — marginal_yield >= marginal_yield_floor AND
+ *                             expected_next_batch_value >= min_expected_batch_value:
+ *                             the frontier is still producing real, valuable,
+ *                             novel structural tasks.
+ *   stop_frontier_harvest   — none of the above: yield has dried up. This is
+ *                             also the forced outcome whenever
+ *                             unique_high_value_count = 0, no matter how
+ *                             large raw_seed_count is — raw seed count is
+ *                             NEVER, by itself, evidence of remaining value.
  *
  * INPUT:
  *   frontiers: list<{
- *     frontier_id:       string
- *     verified_yield:    int     (tasks found and verified)
- *     duplicate_rate:    float   (0..1)
- *     give_back_rate:    float   (0..1)
- *     compounding_impact?: float (0..1, informational)
- *     tried_methods?:    list<string>
- *     available_methods?: list<string>
+ *     frontier_id:                  string
+ *     raw_seed_count:                int
+ *     unique_high_value_count?:      int   (default 0)
+ *     duplicate_count?:              int   (default 0)
+ *     forbidden_wall_count?:         int   (default 0)
+ *     compounding_impact_per_task?:  float (default 1.0)
  *   }>
- *   yield_threshold?:           int   (default 3)
- *   duplicate_rate_threshold?:  float (default 0.50)
- *   give_back_rate_threshold?:  float (default 0.40)
+ *   marginal_yield_floor?:           float (default 0.15)
+ *   duplicate_rate_ceiling?:         float (default 0.50)
+ *   forbidden_wall_rate_ceiling?:    float (default 0.30)
+ *   min_expected_batch_value?:       float (default 1.0)
  *
  * OUTPUT:
  *   { schema, results }
  *
  *   results: list<{
- *     frontier_id, decision, next_harvest_method, evidence_counts, reasons
+ *     frontier_id, decision, marginal_yield, duplicate_rate,
+ *     forbidden_wall_rate, expected_next_batch_value, evidence_counts, reasons
  *   }>
  *
  * PURE / DETERMINISTIC / NO I/O.
@@ -45,13 +68,15 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
 {
     public const SCHEMA = 'atlas.external_brain.frontier_harvest_yield_model.v1';
 
-    public const DECISION_HARVEST_MORE   = 'harvest_more';
-    public const DECISION_CHANGE_METHOD  = 'change_method';
-    public const DECISION_RETIRE         = 'retire';
+    public const DECISION_CONTINUE = 'continue';
+    public const DECISION_CHANGE_STRATEGY = 'change_strategy';
+    public const DECISION_CONSOLIDATE = 'consolidate';
+    public const DECISION_STOP_FRONTIER_HARVEST = 'stop_frontier_harvest';
 
-    private const DEFAULT_YIELD_THRESHOLD       = 3;
-    private const DEFAULT_DUPLICATE_THRESHOLD   = 0.50;
-    private const DEFAULT_GIVE_BACK_THRESHOLD   = 0.40;
+    private const DEFAULT_MARGINAL_YIELD_FLOOR = 0.15;
+    private const DEFAULT_DUPLICATE_RATE_CEILING = 0.50;
+    private const DEFAULT_FORBIDDEN_WALL_RATE_CEILING = 0.30;
+    private const DEFAULT_MIN_EXPECTED_BATCH_VALUE = 1.0;
 
     /**
      * @param  array<string,mixed>  $input
@@ -59,10 +84,11 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
      */
     public function model(array $input): array
     {
-        $frontiers         = is_array($input['frontiers'] ?? null) ? $input['frontiers'] : [];
-        $yieldThreshold    = max(1, (int) ($input['yield_threshold'] ?? self::DEFAULT_YIELD_THRESHOLD));
-        $dupThreshold      = (float) ($input['duplicate_rate_threshold'] ?? self::DEFAULT_DUPLICATE_THRESHOLD);
-        $giveBackThreshold = (float) ($input['give_back_rate_threshold'] ?? self::DEFAULT_GIVE_BACK_THRESHOLD);
+        $frontiers = is_array($input['frontiers'] ?? null) ? $input['frontiers'] : [];
+        $marginalYieldFloor = (float) ($input['marginal_yield_floor'] ?? self::DEFAULT_MARGINAL_YIELD_FLOOR);
+        $duplicateRateCeiling = (float) ($input['duplicate_rate_ceiling'] ?? self::DEFAULT_DUPLICATE_RATE_CEILING);
+        $forbiddenWallRateCeiling = (float) ($input['forbidden_wall_rate_ceiling'] ?? self::DEFAULT_FORBIDDEN_WALL_RATE_CEILING);
+        $minExpectedBatchValue = (float) ($input['min_expected_batch_value'] ?? self::DEFAULT_MIN_EXPECTED_BATCH_VALUE);
 
         $results = [];
 
@@ -71,69 +97,67 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
                 continue;
             }
 
-            $frontierId         = (string) $f['frontier_id'];
-            $verifiedYield      = max(0, (int) ($f['verified_yield'] ?? 0));
-            $duplicateRate      = (float) ($f['duplicate_rate'] ?? 0.0);
-            $giveBackRate       = (float) ($f['give_back_rate'] ?? 0.0);
-            $triedMethods       = is_array($f['tried_methods'] ?? null) ? array_map('strval', $f['tried_methods']) : [];
-            $availableMethods   = is_array($f['available_methods'] ?? null) ? array_map('strval', $f['available_methods']) : [];
+            $frontierId = (string) $f['frontier_id'];
+            $rawSeedCount = max(0, (int) ($f['raw_seed_count'] ?? 0));
+            $uniqueHighValueCount = max(0, (int) ($f['unique_high_value_count'] ?? 0));
+            $duplicateCount = max(0, (int) ($f['duplicate_count'] ?? 0));
+            $forbiddenWallCount = max(0, (int) ($f['forbidden_wall_count'] ?? 0));
+            $compoundingImpactPerTask = (float) ($f['compounding_impact_per_task'] ?? 1.0);
 
-            $untriedMethods = array_values(array_diff($availableMethods, $triedMethods));
-            $reasons        = [];
+            $denominator = max(1, $rawSeedCount);
+            $marginalYield = round($uniqueHighValueCount / $denominator, 4);
+            $duplicateRate = round($duplicateCount / $denominator, 4);
+            $forbiddenWallRate = round($forbiddenWallCount / $denominator, 4);
+            $expectedNextBatchValue = round($uniqueHighValueCount * $compoundingImpactPerTask, 4);
 
-            $isHighYield    = $verifiedYield >= $yieldThreshold;
-            $isLowDup       = $duplicateRate < $dupThreshold;
-            $isLowGiveBack  = $giveBackRate < $giveBackThreshold;
+            $reasons = [];
+            if ($uniqueHighValueCount === 0 && $rawSeedCount > 0) {
+                $reasons[] = sprintf('raw_seed_count=%d alone is not evidence; unique_high_value_count=0', $rawSeedCount);
+            }
 
-            if ($isHighYield && $isLowDup && $isLowGiveBack) {
-                $decision          = self::DECISION_HARVEST_MORE;
-                $nextMethod        = null;
-                $reasons[]         = sprintf('verified_yield=%d >= threshold=%d', $verifiedYield, $yieldThreshold);
-                $reasons[]         = sprintf('duplicate_rate=%.2f < threshold=%.2f', $duplicateRate, $dupThreshold);
-                $reasons[]         = sprintf('give_back_rate=%.2f < threshold=%.2f', $giveBackRate, $giveBackThreshold);
-            } elseif ($untriedMethods !== []) {
-                $decision   = self::DECISION_CHANGE_METHOD;
-                $nextMethod = $untriedMethods[0];
-                if (! $isHighYield) {
-                    $reasons[] = sprintf('verified_yield=%d < threshold=%d', $verifiedYield, $yieldThreshold);
-                }
-                if (! $isLowDup) {
-                    $reasons[] = sprintf('duplicate_rate=%.2f >= threshold=%.2f', $duplicateRate, $dupThreshold);
-                }
-                if (! $isLowGiveBack) {
-                    $reasons[] = sprintf('give_back_rate=%.2f >= threshold=%.2f', $giveBackRate, $giveBackThreshold);
-                }
-                $reasons[] = sprintf('%d untried method(s) remain; switching to: %s', count($untriedMethods), $nextMethod);
+            $isHighForbiddenWall = $forbiddenWallRate >= $forbiddenWallRateCeiling;
+            $isHighDuplicate = $duplicateRate >= $duplicateRateCeiling;
+            $isHighYield = $marginalYield >= $marginalYieldFloor && $expectedNextBatchValue >= $minExpectedBatchValue;
+
+            if ($isHighForbiddenWall) {
+                $decision = self::DECISION_CHANGE_STRATEGY;
+                $reasons[] = sprintf('forbidden_wall_rate=%.2f >= ceiling=%.2f', $forbiddenWallRate, $forbiddenWallRateCeiling);
+            } elseif ($isHighDuplicate) {
+                $decision = self::DECISION_CONSOLIDATE;
+                $reasons[] = sprintf('duplicate_rate=%.2f >= ceiling=%.2f', $duplicateRate, $duplicateRateCeiling);
+            } elseif ($isHighYield) {
+                $decision = self::DECISION_CONTINUE;
+                $reasons[] = sprintf('marginal_yield=%.2f >= floor=%.2f', $marginalYield, $marginalYieldFloor);
+                $reasons[] = sprintf('expected_next_batch_value=%.2f >= min=%.2f', $expectedNextBatchValue, $minExpectedBatchValue);
             } else {
-                $decision   = self::DECISION_RETIRE;
-                $nextMethod = null;
-                if (! $isHighYield) {
-                    $reasons[] = sprintf('verified_yield=%d < threshold=%d', $verifiedYield, $yieldThreshold);
+                $decision = self::DECISION_STOP_FRONTIER_HARVEST;
+                if ($marginalYield < $marginalYieldFloor) {
+                    $reasons[] = sprintf('marginal_yield=%.2f < floor=%.2f', $marginalYield, $marginalYieldFloor);
                 }
-                if (! $isLowDup) {
-                    $reasons[] = sprintf('duplicate_rate=%.2f >= threshold=%.2f', $duplicateRate, $dupThreshold);
+                if ($expectedNextBatchValue < $minExpectedBatchValue) {
+                    $reasons[] = sprintf('expected_next_batch_value=%.2f < min=%.2f', $expectedNextBatchValue, $minExpectedBatchValue);
                 }
-                if (! $isLowGiveBack) {
-                    $reasons[] = sprintf('give_back_rate=%.2f >= threshold=%.2f', $giveBackRate, $giveBackThreshold);
-                }
-                $reasons[] = 'no untried harvest methods remain';
             }
 
             $results[] = [
-                'frontier_id'         => $frontierId,
-                'decision'            => $decision,
-                'next_harvest_method' => $nextMethod,
-                'evidence_counts'     => [
-                    'verified_yield'        => $verifiedYield,
-                    'tried_methods_count'   => count($triedMethods),
-                    'untried_methods_count' => count($untriedMethods),
+                'frontier_id' => $frontierId,
+                'decision' => $decision,
+                'marginal_yield' => $marginalYield,
+                'duplicate_rate' => $duplicateRate,
+                'forbidden_wall_rate' => $forbiddenWallRate,
+                'expected_next_batch_value' => $expectedNextBatchValue,
+                'evidence_counts' => [
+                    'raw_seed_count' => $rawSeedCount,
+                    'unique_high_value_count' => $uniqueHighValueCount,
+                    'duplicate_count' => $duplicateCount,
+                    'forbidden_wall_count' => $forbiddenWallCount,
                 ],
-                'reasons'             => $reasons,
+                'reasons' => $reasons,
             ];
         }
 
         return [
-            'schema'  => self::SCHEMA,
+            'schema' => self::SCHEMA,
             'results' => $results,
         ];
     }
