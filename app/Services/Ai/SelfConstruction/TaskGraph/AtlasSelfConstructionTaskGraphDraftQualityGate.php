@@ -95,6 +95,57 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             $repairHints[] = 'List at least one required evidence kind (e.g. tests_or_gates_result).';
         }
 
+        // Runnable proof: evidence must include tests_or_gates_result OR an AC references artisan/phpunit.
+        $hasRunnableProof = in_array('tests_or_gates_result', $evidence, true);
+        if (! $hasRunnableProof) {
+            foreach ($acceptance as $crit) {
+                if (str_contains((string) $crit, 'artisan test') || str_contains((string) $crit, 'phpunit')) {
+                    $hasRunnableProof = true;
+                    break;
+                }
+            }
+        }
+        $facts['runnable_proof_present'] = $hasRunnableProof;
+        if (! $hasRunnableProof) {
+            $blockers[] = 'runnable_proof_missing';
+            $repairHints[] = 'Add tests_or_gates_result to required_evidence or reference a runnable command (artisan test / phpunit) in acceptance_criteria.';
+        }
+
+        // Implementation + test file split (skipped when allowed_files already flagged as empty or all-bare).
+        if ($allowed !== [] && $bare === []) {
+            $hasImplFile = false;
+            $hasTestFile = false;
+            foreach ($allowed as $p) {
+                $ps = (string) $p;
+                if ($this->isTestPath($ps)) {
+                    $hasTestFile = true;
+                } elseif ($ps !== '') {
+                    $hasImplFile = true;
+                }
+            }
+            $facts['has_implementation_file'] = $hasImplFile;
+            $facts['has_test_file'] = $hasTestFile;
+            if (! $hasImplFile) {
+                $blockers[] = 'missing_implementation_file_in_allowed_files';
+                $repairHints[] = 'Add at least one implementation file (non-test) to allowed_files.';
+            }
+            if (! $hasTestFile) {
+                $blockers[] = 'missing_test_file_in_allowed_files';
+                $repairHints[] = 'Add at least one test file (tests/…Test.php or …Spec.php) to allowed_files.';
+            }
+        } else {
+            $facts['has_implementation_file'] = null;
+            $facts['has_test_file'] = null;
+        }
+
+        // Duplicate wording in acceptance_criteria.
+        $strCriteria = array_values(array_filter(array_map('strval', $acceptance)));
+        $facts['duplicate_acceptance_criteria'] = count($strCriteria) !== count(array_unique($strCriteria));
+        if ($facts['duplicate_acceptance_criteria']) {
+            $blockers[] = 'duplicate_acceptance_criteria_wording';
+            $repairHints[] = 'Remove or reword duplicate entries in acceptance_criteria.';
+        }
+
         // depends_on (only verified when queueFacts.known_packet_ids is provided)
         $depends = array_values(array_map('strval', (array) ($draft['depends_on'] ?? [])));
         $known = isset($queueFacts['known_packet_ids']) ? array_values(array_map('strval', (array) $queueFacts['known_packet_ids'])) : null;
@@ -152,11 +203,13 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
         $passed = $blockers === [];
 
         return [
-            'schema_version' => self::SCHEMA,
-            'passed' => $passed,
-            'blockers' => $blockers,
-            'facts' => $facts,
-            'repair_hints' => $repairHints,
+            'schema_version'  => self::SCHEMA,
+            'passed'          => $passed,
+            'blockers'        => $blockers,
+            'facts'           => $facts,
+            'repair_hints'    => $repairHints,
+            'capability_delta' => $passed ? ($draft['expected_delta'] ?? null) : null,
+            'proof_kind'       => $passed ? ($evidence[0] ?? null) : null,
         ];
     }
 
@@ -219,6 +272,14 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGate
             || $dependsOn !== []
             || (string) ($draft['organ_id'] ?? '') !== ''
             || (string) ($draft['task_graph_id'] ?? '') !== '';
+    }
+
+    private function isTestPath(string $path): bool
+    {
+        return str_starts_with($path, 'tests/')
+            || str_contains($path, '/tests/')
+            || str_ends_with($path, 'Test.php')
+            || str_ends_with($path, 'Spec.php');
     }
 
     private function isBareDirectory(string $path): bool

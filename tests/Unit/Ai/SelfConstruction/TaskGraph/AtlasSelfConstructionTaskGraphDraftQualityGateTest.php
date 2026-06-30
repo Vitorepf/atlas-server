@@ -255,6 +255,83 @@ final class AtlasSelfConstructionTaskGraphDraftQualityGateTest extends TestCase
         $this->assertSame([], $result['batch_blockers']);
     }
 
+    // ── new checks: runnable proof, impl+test split, duplicate AC, output fields ──
+
+    public function test_missing_runnable_proof_blocks(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft([
+            'required_evidence'  => ['implementation_notes'],
+            'acceptance_criteria' => ['Gate enforces business rule'],
+        ]));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('runnable_proof_missing', $verdict['blockers']);
+    }
+
+    public function test_artisan_test_in_acceptance_criteria_satisfies_runnable_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft([
+            'required_evidence'   => ['implementation_notes'],
+            'acceptance_criteria' => ['Run: artisan test passes green'],
+        ]));
+
+        $this->assertNotContains('runnable_proof_missing', $verdict['blockers']);
+    }
+
+    public function test_allowed_files_without_test_file_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft([
+            'allowed_files' => ['app/Services/Foo.php'],
+            'scope_in'      => ['app/Services/Foo.php'],
+        ]));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('missing_test_file_in_allowed_files', $verdict['blockers']);
+        $this->assertNotContains('missing_implementation_file_in_allowed_files', $verdict['blockers']);
+    }
+
+    public function test_allowed_files_without_implementation_file_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+            'scope_in'      => ['tests/Unit/FooTest.php'],
+        ]));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('missing_implementation_file_in_allowed_files', $verdict['blockers']);
+        $this->assertNotContains('missing_test_file_in_allowed_files', $verdict['blockers']);
+    }
+
+    public function test_duplicate_acceptance_criteria_wording_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft([
+            'acceptance_criteria' => ['Gate passes when valid', 'Gate passes when valid'],
+        ]));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertContains('duplicate_acceptance_criteria_wording', $verdict['blockers']);
+    }
+
+    public function test_accepted_draft_includes_capability_delta_and_proof_kind(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft());
+
+        $this->assertTrue($verdict['passed']);
+        $this->assertArrayHasKey('capability_delta', $verdict);
+        $this->assertArrayHasKey('proof_kind', $verdict);
+        $this->assertSame('Adds Foo capability; proved by green artisan test', $verdict['capability_delta']);
+        $this->assertSame('tests_or_gates_result', $verdict['proof_kind']);
+    }
+
+    public function test_rejected_draft_has_null_capability_delta_and_proof_kind(): void
+    {
+        $verdict = (new AtlasSelfConstructionTaskGraphDraftQualityGate)->evaluate($this->validDraft(['objective' => '']));
+
+        $this->assertFalse($verdict['passed']);
+        $this->assertNull($verdict['capability_delta']);
+        $this->assertNull($verdict['proof_kind']);
+    }
+
     public function test_chain_coherence_missing_and_lane_overconcentration_can_both_fire(): void
     {
         $gate = new AtlasSelfConstructionTaskGraphDraftQualityGate;
