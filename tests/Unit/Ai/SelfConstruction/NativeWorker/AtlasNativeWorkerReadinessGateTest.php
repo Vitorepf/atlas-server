@@ -28,6 +28,10 @@ final class AtlasNativeWorkerReadinessGateTest extends TestCase
             'runtime_owner' => AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER,
             'server_side_verification_available' => true,
             'rollback_available' => true,
+            'queue_pressure' => 0,
+            'available_worker_count' => 2,
+            'heartbeat_age_seconds' => 30,
+            'command_plan_runner_available' => true,
             'components' => [
                 'patch_planner' => ['present' => true, 'verified' => true],
                 'scoped_patch_applier' => ['present' => true, 'verified' => true],
@@ -90,6 +94,47 @@ final class AtlasNativeWorkerReadinessGateTest extends TestCase
         $a = json_encode($g->evaluate($o), JSON_UNESCAPED_SLASHES);
         $b = json_encode($g->evaluate($o), JSON_UNESCAPED_SLASHES);
         $this->assertSame($a, $b);
+    }
+
+    public function test_positive_queue_pressure_with_zero_available_workers_blocks_readiness(): void
+    {
+        $o = $this->allReady();
+        $o['queue_pressure'] = 5;
+        $o['available_worker_count'] = 0;
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['ready']);
+        $this->assertContains('no_available_workers_with_queue_pressure', $v['blockers']);
+    }
+
+    public function test_stale_heartbeat_blocks_readiness(): void
+    {
+        $o = $this->allReady();
+        $o['heartbeat_age_seconds'] = AtlasNativeWorkerReadinessGate::STALE_HEARTBEAT_THRESHOLD_SECONDS + 1;
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['ready']);
+        $this->assertContains('stale_heartbeat', $v['blockers']);
+    }
+
+    public function test_command_plan_runner_unavailable_blocks_readiness(): void
+    {
+        $o = $this->allReady();
+        $o['command_plan_runner_available'] = false;
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['ready']);
+        $this->assertContains('command_plan_runner_unavailable', $v['blockers']);
+    }
+
+    public function test_missing_queue_pressure_facts_blocks_readiness(): void
+    {
+        $o = $this->allReady();
+        unset($o['queue_pressure']);
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['ready']);
+        $this->assertContains('missing_queue_pressure_facts', $v['blockers']);
     }
 
     public function test_no_scalar_score_field_in_envelope(): void

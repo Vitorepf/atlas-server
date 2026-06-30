@@ -23,6 +23,8 @@ final class AtlasNativeWorkerReadinessGate
 {
     public const SCHEMA = 'atlas.native_worker.readiness.v1';
 
+    public const STALE_HEARTBEAT_THRESHOLD_SECONDS = 300;
+
     public const REQUIRED_COMPONENTS = [
         'patch_planner',
         'scoped_patch_applier',
@@ -56,6 +58,25 @@ final class AtlasNativeWorkerReadinessGate
         }
         if (! (bool) ($observed['rollback_available'] ?? false)) {
             $blockers[] = 'rollback_unavailable';
+        }
+
+        if (! array_key_exists('queue_pressure', $observed)) {
+            $blockers[] = 'missing_queue_pressure_facts';
+        } else {
+            $queuePressure = (int) ($observed['queue_pressure'] ?? 0);
+            $availableWorkers = (int) ($observed['available_worker_count'] ?? 0);
+            if ($queuePressure > 0 && $availableWorkers === 0) {
+                $blockers[] = 'no_available_workers_with_queue_pressure';
+            }
+        }
+
+        $heartbeatAge = $observed['heartbeat_age_seconds'] ?? null;
+        if (is_int($heartbeatAge) && $heartbeatAge > self::STALE_HEARTBEAT_THRESHOLD_SECONDS) {
+            $blockers[] = 'stale_heartbeat';
+        }
+
+        if (! (bool) ($observed['command_plan_runner_available'] ?? false)) {
+            $blockers[] = 'command_plan_runner_unavailable';
         }
 
         $components = is_array($observed['components'] ?? null) ? $observed['components'] : [];
