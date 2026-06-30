@@ -269,4 +269,152 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
 
         $this->assertSame($this->scheduler()->schedule($gaps), $this->scheduler()->schedule($gaps));
     }
+
+    // ── AC2: new gap types sorted after the original four ─────────────────────
+
+    public function test_integration_debt_priority_is_after_stale(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'integration_debt'],
+            ['organ_id' => 'b', 'gap_type' => 'stale'],
+        ]);
+
+        $ids = array_column($result['burn_down_schedule'], 'organ_id');
+        $this->assertSame('b', $ids[0]); // stale=4 before integration_debt=5
+    }
+
+    public function test_doc_drift_priority_is_after_integration_debt(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'doc_drift'],
+            ['organ_id' => 'b', 'gap_type' => 'integration_debt'],
+        ]);
+
+        $ids = array_column($result['burn_down_schedule'], 'organ_id');
+        $this->assertSame('b', $ids[0]);
+    }
+
+    public function test_weak_outcome_learning_is_last_priority(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'weak_outcome_learning'],
+            ['organ_id' => 'b', 'gap_type' => 'doc_drift'],
+        ]);
+
+        $ids = array_column($result['burn_down_schedule'], 'organ_id');
+        $this->assertSame('b', $ids[0]);
+    }
+
+    // ── AC3: doc_sync approach ────────────────────────────────────────────────
+
+    public function test_doc_sync_chosen_when_can_doc_sync_true(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'doc_drift', 'can_doc_sync' => true],
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_DOC_SYNC,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    public function test_doc_drift_defaults_to_doc_sync_without_flag(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'doc_drift'],
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_DOC_SYNC,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    public function test_doc_sync_stop_condition(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'doc_drift', 'can_doc_sync' => true],
+        ]);
+
+        $this->assertSame('doc_drift_eliminated', $result['burn_down_schedule'][0]['stop_condition']);
+    }
+
+    // ── AC3: integration_wiring approach ──────────────────────────────────────
+
+    public function test_integration_wiring_chosen_when_can_integration_wiring_true(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'thin', 'can_integration_wiring' => true],
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_INTEGRATION_WIRING,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    public function test_integration_debt_defaults_to_integration_wiring_without_flag(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'integration_debt'],
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_INTEGRATION_WIRING,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    public function test_integration_wiring_stop_condition(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'integration_debt'],
+        ]);
+
+        $this->assertSame('integration_points_fully_wired', $result['burn_down_schedule'][0]['stop_condition']);
+    }
+
+    public function test_weak_outcome_learning_defaults_to_evidence_backfill(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'x', 'gap_type' => 'weak_outcome_learning'],
+        ]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_EVIDENCE_BACKFILL,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    // ── AC3: approach preference order includes doc_sync before integration_wiring ──
+
+    public function test_doc_sync_preferred_over_integration_wiring(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id'              => 'x',
+            'gap_type'              => 'integration_debt',
+            'can_doc_sync'          => true,
+            'can_integration_wiring' => true,
+        ]]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_DOC_SYNC,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    public function test_integration_wiring_preferred_over_unblock(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id'              => 'x',
+            'gap_type'              => 'blocked',
+            'can_integration_wiring' => true,
+        ]]);
+
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_INTEGRATION_WIRING,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
 }

@@ -9,20 +9,25 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * cheapest next proof, and stop conditions.
  *
  * PREFERENCE ORDER (never creates new feature work when a cheaper approach is available):
- *   evidence_backfill > proof_replay > consolidation > unblock_dependency > new_feature_work
+ *   evidence_backfill > proof_replay > consolidation > doc_sync > integration_wiring
+ *   > unblock_dependency > new_feature_work
  *
  * GAP TYPE PRIORITY (1 = close first):
  *   blocked (1) > missing (2) > thin (3) > stale (4)
+ *   > integration_debt (5) > doc_drift (6) > weak_outcome_learning (7)
  *
  * INPUT: list<gap_report>
  *   gap_report:
- *     organ_id:              string
- *     gap_type:              'blocked'|'missing'|'thin'|'stale'
- *     owner_subsystem?:      string   (default 'unknown')
- *     blocker?:              string   (only meaningful for gap_type='blocked')
- *     can_evidence_backfill?: bool    (default false)
- *     can_proof_replay?:     bool    (default false)
- *     can_consolidate?:      bool    (default false)
+ *     organ_id:                string
+ *     gap_type:                'blocked'|'missing'|'thin'|'stale'
+ *                              |'integration_debt'|'doc_drift'|'weak_outcome_learning'
+ *     owner_subsystem?:        string   (default 'unknown')
+ *     blocker?:                string   (only meaningful for gap_type='blocked')
+ *     can_evidence_backfill?:  bool    (default false)
+ *     can_proof_replay?:       bool    (default false)
+ *     can_consolidate?:        bool    (default false)
+ *     can_doc_sync?:           bool    (default false)
+ *     can_integration_wiring?: bool    (default false)
  *
  * OUTPUT:
  *   { schema, burn_down_schedule, total_gaps, gaps_closeable_without_new_feature_work }
@@ -43,14 +48,19 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
     public const APPROACH_EVIDENCE_BACKFILL    = 'evidence_backfill';
     public const APPROACH_PROOF_REPLAY         = 'proof_replay';
     public const APPROACH_CONSOLIDATION        = 'consolidation';
+    public const APPROACH_DOC_SYNC             = 'doc_sync';
+    public const APPROACH_INTEGRATION_WIRING   = 'integration_wiring';
     public const APPROACH_UNBLOCK_DEPENDENCY   = 'unblock_dependency';
     public const APPROACH_NEW_FEATURE_WORK     = 'new_feature_work';
 
     private const GAP_PRIORITY = [
-        'blocked' => 1,
-        'missing' => 2,
-        'thin'    => 3,
-        'stale'   => 4,
+        'blocked'               => 1,
+        'missing'               => 2,
+        'thin'                  => 3,
+        'stale'                 => 4,
+        'integration_debt'      => 5,
+        'doc_drift'             => 6,
+        'weak_outcome_learning' => 7,
     ];
 
     /**
@@ -69,13 +79,15 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
             $organId     = (string) $gap['organ_id'];
             $gapType     = (string) ($gap['gap_type'] ?? 'missing');
             $ownerSub    = (string) ($gap['owner_subsystem'] ?? 'unknown');
-            $blocker     = isset($gap['blocker']) ? (string) $gap['blocker'] : null;
-            $canBackfill = (bool) ($gap['can_evidence_backfill'] ?? false);
-            $canReplay   = (bool) ($gap['can_proof_replay'] ?? false);
-            $canConsolidate = (bool) ($gap['can_consolidate'] ?? false);
+            $blocker              = isset($gap['blocker']) ? (string) $gap['blocker'] : null;
+            $canBackfill          = (bool) ($gap['can_evidence_backfill']  ?? false);
+            $canReplay            = (bool) ($gap['can_proof_replay']        ?? false);
+            $canConsolidate       = (bool) ($gap['can_consolidate']         ?? false);
+            $canDocSync           = (bool) ($gap['can_doc_sync']            ?? false);
+            $canIntegrationWiring = (bool) ($gap['can_integration_wiring'] ?? false);
 
             $priority = self::GAP_PRIORITY[$gapType] ?? 99;
-            $approach = $this->resolveApproach($gapType, $canBackfill, $canReplay, $canConsolidate);
+            $approach = $this->resolveApproach($gapType, $canBackfill, $canReplay, $canConsolidate, $canDocSync, $canIntegrationWiring);
 
             $entries[] = [
                 'organ_id'            => $organId,
@@ -128,6 +140,8 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
         bool $canBackfill,
         bool $canReplay,
         bool $canConsolidate,
+        bool $canDocSync,
+        bool $canIntegrationWiring,
     ): string {
         if ($canBackfill) {
             return self::APPROACH_EVIDENCE_BACKFILL;
@@ -138,8 +152,24 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
         if ($canConsolidate) {
             return self::APPROACH_CONSOLIDATION;
         }
+        if ($canDocSync) {
+            return self::APPROACH_DOC_SYNC;
+        }
+        if ($canIntegrationWiring) {
+            return self::APPROACH_INTEGRATION_WIRING;
+        }
         if ($gapType === 'blocked') {
             return self::APPROACH_UNBLOCK_DEPENDENCY;
+        }
+        // Gap-type-specific defaults when no cheap flag is set.
+        if ($gapType === 'integration_debt') {
+            return self::APPROACH_INTEGRATION_WIRING;
+        }
+        if ($gapType === 'doc_drift') {
+            return self::APPROACH_DOC_SYNC;
+        }
+        if ($gapType === 'weak_outcome_learning') {
+            return self::APPROACH_EVIDENCE_BACKFILL;
         }
 
         return self::APPROACH_NEW_FEATURE_WORK;
@@ -148,22 +178,26 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
     private function proofCommand(string $approach, string $organId, string $ownerSub): string
     {
         return match ($approach) {
-            self::APPROACH_EVIDENCE_BACKFILL  => 'atlas:brain:seed --organ='.$organId,
-            self::APPROACH_PROOF_REPLAY       => 'atlas:brain:verify --organ='.$organId,
-            self::APPROACH_CONSOLIDATION      => 'atlas:brain:consolidate --organ='.$organId,
-            self::APPROACH_UNBLOCK_DEPENDENCY => 'atlas:brain:unblock --organ='.$organId,
-            default                           => 'atlas:task:next --scope='.$ownerSub,
+            self::APPROACH_EVIDENCE_BACKFILL   => 'atlas:brain:seed --organ='.$organId,
+            self::APPROACH_PROOF_REPLAY        => 'atlas:brain:verify --organ='.$organId,
+            self::APPROACH_CONSOLIDATION       => 'atlas:brain:consolidate --organ='.$organId,
+            self::APPROACH_DOC_SYNC            => 'atlas:brain:doc-sync --organ='.$organId,
+            self::APPROACH_INTEGRATION_WIRING  => 'atlas:brain:wire --organ='.$organId,
+            self::APPROACH_UNBLOCK_DEPENDENCY  => 'atlas:brain:unblock --organ='.$organId,
+            default                            => 'atlas:task:next --scope='.$ownerSub,
         };
     }
 
     private function stopCondition(string $approach): string
     {
         return match ($approach) {
-            self::APPROACH_EVIDENCE_BACKFILL  => 'first_green_evidence_captured',
-            self::APPROACH_PROOF_REPLAY       => 'existing_proof_returns_green',
-            self::APPROACH_CONSOLIDATION      => 'duplicate_count_reduced_to_one',
-            self::APPROACH_UNBLOCK_DEPENDENCY => 'blocker_resolved',
-            default                           => 'acceptance_criteria_green',
+            self::APPROACH_EVIDENCE_BACKFILL   => 'first_green_evidence_captured',
+            self::APPROACH_PROOF_REPLAY        => 'existing_proof_returns_green',
+            self::APPROACH_CONSOLIDATION       => 'duplicate_count_reduced_to_one',
+            self::APPROACH_DOC_SYNC            => 'doc_drift_eliminated',
+            self::APPROACH_INTEGRATION_WIRING  => 'integration_points_fully_wired',
+            self::APPROACH_UNBLOCK_DEPENDENCY  => 'blocker_resolved',
+            default                            => 'acceptance_criteria_green',
         };
     }
 }
