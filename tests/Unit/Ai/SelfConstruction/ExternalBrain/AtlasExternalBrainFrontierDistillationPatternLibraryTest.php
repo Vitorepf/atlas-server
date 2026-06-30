@@ -11,22 +11,27 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 {
     private AtlasExternalBrainFrontierDistillationPatternLibrary $library;
 
+    private int $seq = 0;
+
     protected function setUp(): void
     {
         $this->library = new AtlasExternalBrainFrontierDistillationPatternLibrary;
+        $this->seq     = 0;
     }
 
     private function pattern(array $overrides = []): array
     {
         return array_merge([
-            'pattern_id'               => 'p-'.uniqid(),
-            'type'                     => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_DECISION_PATTERN,
-            'abstract_rule'            => 'When spec lacks runnable proof, reject before enqueue.',
-            'success_count'            => 5,
-            'give_back_count'          => 0,
-            'low_value_count'          => 0,
-            'contains_provider_prompt' => false,
-            'contains_private_trace'   => false,
+            'pattern_id'                          => 'p-'.(++$this->seq),
+            'type'                                => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_DECISION_PATTERN,
+            'abstract_rule'                       => 'When spec lacks runnable proof, reject before enqueue.',
+            'success_count'                       => 5,
+            'give_back_count'                     => 0,
+            'low_value_count'                     => 0,
+            'contains_provider_prompt'            => false,
+            'contains_private_trace'              => false,
+            'contains_provider_session_id'        => false,
+            'contains_unredacted_prompt_fragment' => false,
         ], $overrides);
     }
 
@@ -41,7 +46,7 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
     {
         $result = $this->library->distill($this->input($this->pattern()));
 
-        foreach (['schema', 'reusable_patterns', 'retired_patterns', 'provider_safe_summary', 'next_run_injection_rules'] as $k) {
+        foreach (['schema', 'reusable_patterns', 'retired_patterns', 'rejected_patterns', 'provider_safe_summary', 'next_run_injection_rules', 'pattern_quality_score'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainFrontierDistillationPatternLibrary::SCHEMA, $result['schema']);
@@ -55,6 +60,11 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
         $this->assertSame([], $result['reusable_patterns']);
         $this->assertSame([], $result['retired_patterns']);
+        $this->assertCount(1, $result['rejected_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_PROVIDER_PROMPT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
     }
 
     public function test_pattern_with_private_trace_is_rejected(): void
@@ -62,6 +72,32 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
         $result = $this->library->distill($this->input($this->pattern(['contains_private_trace' => true])));
 
         $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_PRIVATE_TRACE,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_pattern_with_provider_session_id_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(['contains_provider_session_id' => true])));
+
+        $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_PROVIDER_SESSION_ID,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_pattern_with_unredacted_prompt_fragment_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(['contains_unredacted_prompt_fragment' => true])));
+
+        $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_UNREDACTED_PROMPT_FRAGMENT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
     }
 
     public function test_invalid_type_is_rejected(): void
@@ -69,6 +105,10 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
         $result = $this->library->distill($this->input($this->pattern(['type' => 'raw_prompt'])));
 
         $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_INVALID_TYPE,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
     }
 
     public function test_clean_pattern_is_reusable(): void
@@ -77,6 +117,20 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
         $this->assertCount(1, $result['reusable_patterns']);
         $this->assertSame([], $result['retired_patterns']);
+        $this->assertSame([], $result['rejected_patterns']);
+    }
+
+    public function test_provider_prompt_beats_private_trace_in_rejection_order(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern([
+            'contains_provider_prompt' => true,
+            'contains_private_trace'   => true,
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_PROVIDER_PROMPT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
     }
 
     // ── AC3: retirement by give_back_count ────────────────────────────────────
@@ -104,7 +158,6 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
     public function test_pattern_with_high_give_back_rate_is_retired(): void
     {
-        // 3 give_back / 5 total > 50%  — and 5 >= MIN_OUTCOMES_FOR_RATE(4)
         $result = $this->library->distill($this->input($this->pattern([
             'success_count'   => 2,
             'give_back_count' => 3,
@@ -150,21 +203,23 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
     public function test_reusable_patterns_are_ranked_by_success_desc(): void
     {
-        $p1 = $this->pattern(['pattern_id' => 'low',  'success_count' => 2]);
-        $p2 = $this->pattern(['pattern_id' => 'high', 'success_count' => 9]);
-        $p3 = $this->pattern(['pattern_id' => 'mid',  'success_count' => 5]);
+        $p1 = $this->pattern(['success_count' => 2]);
+        $p2 = $this->pattern(['success_count' => 9]);
+        $p3 = $this->pattern(['success_count' => 5]);
 
         $result = $this->library->distill($this->input($p1, $p2, $p3));
 
-        $ids = array_column($result['reusable_patterns'], 'pattern_id');
-        $this->assertSame(['high', 'mid', 'low'], $ids);
+        $scores = array_column($result['reusable_patterns'], 'success_count');
+        $sorted = $scores;
+        rsort($sorted);
+        $this->assertSame($sorted, $scores);
     }
 
     // ── next_run_injection_rules ──────────────────────────────────────────────
 
     public function test_injection_rules_come_from_top_patterns(): void
     {
-        $result = $this->library->distill($this->input($this->pattern(['pattern_id' => 'top', 'success_count' => 10])));
+        $result = $this->library->distill($this->input($this->pattern(['success_count' => 10, 'abstract_rule' => 'top rule'])));
 
         $this->assertNotEmpty($result['next_run_injection_rules']);
         $this->assertStringContainsString('success_count=10', $result['next_run_injection_rules'][0]);
@@ -172,14 +227,50 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
     public function test_injection_rules_capped_at_three(): void
     {
-        $patterns = array_map(
-            fn (int $i) => $this->pattern(['pattern_id' => "p{$i}", 'success_count' => $i]),
-            range(1, 6),
-        );
+        $patterns = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $patterns[] = $this->pattern(['success_count' => $i]);
+        }
 
         $result = $this->library->distill(['patterns' => $patterns]);
 
         $this->assertLessThanOrEqual(3, count($result['next_run_injection_rules']));
+    }
+
+    // ── pattern_quality_score ─────────────────────────────────────────────────
+
+    public function test_quality_score_is_one_when_all_reusable(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(), $this->pattern()));
+
+        $this->assertEqualsWithDelta(1.0, $result['pattern_quality_score'], 0.0001);
+    }
+
+    public function test_quality_score_is_zero_when_all_retired(): void
+    {
+        $result = $this->library->distill($this->input(
+            $this->pattern(['give_back_count' => 3]),
+            $this->pattern(['give_back_count' => 3]),
+        ));
+
+        $this->assertEqualsWithDelta(0.0, $result['pattern_quality_score'], 0.0001);
+    }
+
+    public function test_quality_score_is_half_when_one_of_two_retired(): void
+    {
+        $result = $this->library->distill($this->input(
+            $this->pattern(['give_back_count' => 3]),
+            $this->pattern(['success_count'   => 5]),
+        ));
+
+        $this->assertEqualsWithDelta(0.5, $result['pattern_quality_score'], 0.0001);
+    }
+
+    public function test_quality_score_is_one_when_no_patterns(): void
+    {
+        $result = $this->library->distill(['patterns' => []]);
+
+        $this->assertEqualsWithDelta(1.0, $result['pattern_quality_score'], 0.0001);
     }
 
     // ── provider_safe_summary ─────────────────────────────────────────────────
@@ -191,7 +282,7 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
         $this->assertNotEmpty($result['provider_safe_summary']);
     }
 
-    // ── All three valid types ─────────────────────────────────────────────────
+    // ── All six valid types ───────────────────────────────────────────────────
 
     public function test_all_valid_types_are_accepted(): void
     {
@@ -199,9 +290,13 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
             $this->pattern(['type' => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_DECISION_PATTERN]),
             $this->pattern(['type' => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_FAILURE_CHECK]),
             $this->pattern(['type' => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_TASK_SHAPING_HEURISTIC]),
+            $this->pattern(['type' => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_ANTI_PROXY_RULE]),
+            $this->pattern(['type' => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_ESCALATION_TRIGGER]),
+            $this->pattern(['type' => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_SIMPLIFICATION_RULE]),
         ));
 
-        $this->assertCount(3, $result['reusable_patterns']);
+        $this->assertCount(6, $result['reusable_patterns']);
+        $this->assertSame([], $result['rejected_patterns']);
     }
 
     // ── Empty input ───────────────────────────────────────────────────────────
@@ -212,5 +307,6 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
         $this->assertSame([], $result['reusable_patterns']);
         $this->assertSame([], $result['retired_patterns']);
+        $this->assertSame([], $result['rejected_patterns']);
     }
 }
