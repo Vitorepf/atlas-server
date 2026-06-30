@@ -125,6 +125,71 @@ class AtlasSelfConstructionPromotionExecutorServiceTest extends TestCase
         ])."\n", FILE_APPEND);
     }
 
+    // ── promoteFacts() preflight tests (pure — no git, no staging needed) ──
+
+    private function goodFacts(array $overrides = []): array
+    {
+        return $overrides + [
+            'preflight_passed' => true,
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'changed_files' => ['app/Foo.php'],
+            'rollback_plan' => ['steps' => ['revert commit abc']],
+            'verification_hash' => 'sha256:abc123',
+            'knowledge_sync_plan' => ['sync_docs' => true],
+        ];
+    }
+
+    public function test_preflight_not_passed_blocks_promotion_facts(): void
+    {
+        $r = $this->executor->promoteFacts($this->goodFacts(['preflight_passed' => false]));
+
+        $this->assertFalse($r['promotable']);
+        $this->assertContains('preflight_not_passed', $r['blockers']);
+    }
+
+    public function test_out_of_scope_changed_file_blocks_promotion_facts(): void
+    {
+        $r = $this->executor->promoteFacts($this->goodFacts(['changed_files' => ['app/NotAllowed.php']]));
+
+        $this->assertFalse($r['promotable']);
+        $this->assertContains('changed_file_out_of_scope:app/NotAllowed.php', $r['blockers']);
+    }
+
+    public function test_missing_rollback_plan_blocks_promotion_facts(): void
+    {
+        $r = $this->executor->promoteFacts($this->goodFacts(['rollback_plan' => null]));
+
+        $this->assertFalse($r['promotable']);
+        $this->assertContains('rollback_plan_missing', $r['blockers']);
+    }
+
+    public function test_missing_verification_hash_blocks_promotion_facts(): void
+    {
+        $r = $this->executor->promoteFacts($this->goodFacts(['verification_hash' => '']));
+
+        $this->assertFalse($r['promotable']);
+        $this->assertContains('verification_hash_missing', $r['blockers']);
+    }
+
+    public function test_missing_knowledge_sync_plan_blocks_promotion_facts(): void
+    {
+        $r = $this->executor->promoteFacts($this->goodFacts(['knowledge_sync_plan' => []]));
+
+        $this->assertFalse($r['promotable']);
+        $this->assertContains('knowledge_sync_plan_missing', $r['blockers']);
+    }
+
+    public function test_complete_bounded_promotion_facts_pass(): void
+    {
+        $r = $this->executor->promoteFacts($this->goodFacts());
+
+        $this->assertTrue($r['promotable']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertSame(AtlasSelfConstructionPromotionExecutorService::SCHEMA_VERSION, $r['schema_version']);
+    }
+
+    // ── existing promote() tests below ──
+
     public function test_denies_when_flag_disabled(): void
     {
         config(['atlas.ai.self_construction.promote_to_source_enabled' => false]);

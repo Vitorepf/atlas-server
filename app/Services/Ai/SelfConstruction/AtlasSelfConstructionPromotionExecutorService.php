@@ -48,6 +48,57 @@ final class AtlasSelfConstructionPromotionExecutorService
     }
 
     /**
+     * Pure preflight gate — validates promotion facts without executing any git command.
+     *
+     * Required facts: preflight_passed, changed_files (scoped), rollback_plan,
+     * verification_hash, knowledge_sync_plan.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array{schema_version:string, promotable:bool, blockers:list<string>}
+     */
+    public function promoteFacts(array $facts): array
+    {
+        $blockers = [];
+
+        if (! (bool) ($facts['preflight_passed'] ?? false)) {
+            $blockers[] = 'preflight_not_passed';
+        }
+
+        $changedFiles = is_array($facts['changed_files'] ?? null) ? array_values($facts['changed_files']) : null;
+        if ($changedFiles === null || $changedFiles === []) {
+            $blockers[] = 'changed_files_missing';
+        } else {
+            $allowedFiles = is_array($facts['allowed_files'] ?? null) ? $facts['allowed_files'] : null;
+            foreach ($changedFiles as $file) {
+                $f = (string) $file;
+                if ($f === '' || str_contains($f, '..')) {
+                    $blockers[] = 'changed_file_out_of_scope:'.$f;
+                } elseif ($allowedFiles !== null && ! in_array($f, $allowedFiles, true)) {
+                    $blockers[] = 'changed_file_out_of_scope:'.$f;
+                }
+            }
+        }
+
+        if (empty($facts['rollback_plan'])) {
+            $blockers[] = 'rollback_plan_missing';
+        }
+
+        if ((string) ($facts['verification_hash'] ?? '') === '') {
+            $blockers[] = 'verification_hash_missing';
+        }
+
+        if (empty($facts['knowledge_sync_plan'])) {
+            $blockers[] = 'knowledge_sync_plan_missing';
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'promotable' => $blockers === [],
+            'blockers' => $blockers,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $approval  ['operator_id' => string, 'approved' => bool]
      * @return array<string,mixed>
      */
