@@ -416,7 +416,7 @@ final class AtlasSelfConstructionTerminalLoopCertifier
         if ($supplied && $selfProgrammingAllowed) {
             $validationViolations[] = 'self_programming_allowed_true';
         }
-        if ($supplied && preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+        if ($supplied && preg_match('/^[a-f0-9]{64}\z/', $hash) !== 1) {
             $validationViolations[] = 'invalid_or_missing_operational_proof_hash';
         }
         if (
@@ -429,7 +429,7 @@ final class AtlasSelfConstructionTerminalLoopCertifier
         ) {
             $validationViolations[] = 'post_cycle_cycle_supervisor_not_review_evidence';
         }
-        if ($supplied && preg_match('/^[a-f0-9]{64}$/', $cycleSupervisorHash) !== 1) {
+        if ($supplied && preg_match('/^[a-f0-9]{64}\z/', $cycleSupervisorHash) !== 1) {
             $validationViolations[] = 'invalid_or_missing_post_cycle_cycle_supervisor_hash';
         }
         if ($supplied && $endToEndContractStatus !== 'terminal_loop_end_to_end_contract_available') {
@@ -444,7 +444,7 @@ final class AtlasSelfConstructionTerminalLoopCertifier
         if ($supplied && $missingEndToEndContractCapabilities !== []) {
             $validationViolations[] = 'post_cycle_end_to_end_contract_missing_required_capabilities';
         }
-        if ($supplied && preg_match('/^[a-f0-9]{64}$/', $endToEndContractHash) !== 1) {
+        if ($supplied && preg_match('/^[a-f0-9]{64}\z/', $endToEndContractHash) !== 1) {
             $validationViolations[] = 'invalid_or_missing_post_cycle_end_to_end_contract_hash';
         }
         if ($supplied && $postCycleClaimedTaskCount !== 0) {

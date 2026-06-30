@@ -290,6 +290,19 @@ class AtlasSelfConstructionTerminalLoopCertifierTest extends TestCase
         self::assertTrue($result['supplied']);
     }
 
+    public function test_trailing_newline_hash_is_rejected_as_invalid(): void
+    {
+        $proof = [
+            'status' => 'passed',
+            'terminal_loop_operational_proof_hash' => str_repeat('a', 64)."\n",
+            'invariants_all_true' => true,
+        ];
+
+        $result = AtlasSelfConstructionTerminalLoopCertifier::terminalLoopOperationalProofEvidence($proof);
+
+        self::assertContains('invalid_or_missing_operational_proof_hash', $result['validation_violations']);
+    }
+
     public function test_terminal_loop_operational_proof_evidence_flags_post_cycle_not_zero(): void
     {
         $proof = [
