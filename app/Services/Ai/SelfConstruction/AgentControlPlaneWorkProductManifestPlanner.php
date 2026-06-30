@@ -136,6 +136,78 @@ final class AgentControlPlaneWorkProductManifestPlanner
         return $payload;
     }
 
+    private const GENERIC_SUCCESS_PHRASES = [
+        'done', 'success', 'completed', 'task complete', 'all good', 'ok', 'finished', 'works now', 'fixed',
+    ];
+
+    private const RUNNABLE_PROOF_INDICATORS = ['phpunit', 'artisan', 'vendor/bin', './vendor'];
+
+    /**
+     * Validates that a submitted work-product manifest declares a concrete,
+     * verifiable work product — not just generic success text. All four
+     * sections (changed_files, proof_commands, implementation_notes,
+     * outcome_learning_payload) must be present and non-generic for the
+     * manifest to be accepted.
+     *
+     * REJECTION RULES:
+     *   changed_files is empty                                -> missing_changed_files
+     *   proof_commands is empty, or none contain a runnable
+     *     indicator (phpunit/artisan/vendor/bin)               -> missing_runnable_proof_command
+     *   implementation_notes is empty or matches a generic
+     *     success phrase verbatim (e.g. "done", "all good")    -> implementation_notes_too_generic
+     *   outcome_learning_payload is empty                       -> missing_outcome_learning_payload
+     *
+     * Pure: no I/O, no side effects.
+     *
+     * @param  array<string, mixed>  $manifest  { changed_files?: list<string>,
+     *   proof_commands?: list<string>, implementation_notes?: string,
+     *   outcome_learning_payload?: array<string,mixed> }
+     * @return array{valid: bool, missing_requirements: list<string>, rejected_reason: string|null}
+     */
+    public function validateManifest(array $manifest): array
+    {
+        $changedFiles = array_values(array_filter(array_map('strval', (array) ($manifest['changed_files'] ?? []))));
+        $proofCommands = array_values(array_filter(array_map('strval', (array) ($manifest['proof_commands'] ?? []))));
+        $implementationNotes = trim((string) ($manifest['implementation_notes'] ?? ''));
+        $outcomeLearningPayload = (array) ($manifest['outcome_learning_payload'] ?? []);
+
+        $missing = [];
+
+        if ($changedFiles === []) {
+            $missing[] = 'missing_changed_files';
+        }
+
+        $hasRunnableProof = false;
+        foreach ($proofCommands as $command) {
+            $lower = strtolower($command);
+            foreach (self::RUNNABLE_PROOF_INDICATORS as $indicator) {
+                if (str_contains($lower, $indicator)) {
+                    $hasRunnableProof = true;
+                    break 2;
+                }
+            }
+        }
+        if (! $hasRunnableProof) {
+            $missing[] = 'missing_runnable_proof_command';
+        }
+
+        $isGenericNotes = $implementationNotes === ''
+            || in_array(strtolower($implementationNotes), self::GENERIC_SUCCESS_PHRASES, true);
+        if ($isGenericNotes) {
+            $missing[] = 'implementation_notes_too_generic';
+        }
+
+        if ($outcomeLearningPayload === []) {
+            $missing[] = 'missing_outcome_learning_payload';
+        }
+
+        return [
+            'valid' => $missing === [],
+            'missing_requirements' => $missing,
+            'rejected_reason' => $missing[0] ?? null,
+        ];
+    }
+
     private function classifyKind(string $path): string
     {
         $lower = strtolower($path);

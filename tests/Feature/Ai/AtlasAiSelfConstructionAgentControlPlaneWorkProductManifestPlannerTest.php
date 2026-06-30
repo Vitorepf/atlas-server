@@ -202,4 +202,83 @@ final class AtlasAiSelfConstructionAgentControlPlaneWorkProductManifestPlannerTe
             'required_evidence' => ['x'],
         ]);
     }
+
+    // ── validateManifest ─────────────────────────────────────────────────────────
+
+    private function completeManifest(array $overrides = []): array
+    {
+        return array_merge([
+            'changed_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+            'proof_commands' => ['php artisan test --filter=FooTest'],
+            'implementation_notes' => 'Added a guard against null scope before computing the diff hash.',
+            'outcome_learning_payload' => ['lesson' => 'scope_must_be_validated_before_hashing'],
+        ], $overrides);
+    }
+
+    public function test_complete_manifest_is_valid(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $planner->validateManifest($this->completeManifest());
+
+        $this->assertTrue($result['valid']);
+        $this->assertSame([], $result['missing_requirements']);
+        $this->assertNull($result['rejected_reason']);
+    }
+
+    public function test_empty_changed_files_is_rejected(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $planner->validateManifest($this->completeManifest(['changed_files' => []]));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('missing_changed_files', $result['missing_requirements']);
+    }
+
+    public function test_proof_command_without_runnable_indicator_is_rejected(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $planner->validateManifest($this->completeManifest(['proof_commands' => ['it works trust me']]));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('missing_runnable_proof_command', $result['missing_requirements']);
+    }
+
+    public function test_generic_implementation_notes_are_rejected(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+
+        foreach (['done', 'Success', 'ALL GOOD', 'ok', ''] as $genericNote) {
+            $result = $planner->validateManifest($this->completeManifest(['implementation_notes' => $genericNote]));
+            $this->assertFalse($result['valid'], "'{$genericNote}' should be rejected as generic");
+            $this->assertContains('implementation_notes_too_generic', $result['missing_requirements']);
+        }
+    }
+
+    public function test_missing_outcome_learning_payload_is_rejected(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $planner->validateManifest($this->completeManifest(['outcome_learning_payload' => []]));
+
+        $this->assertFalse($result['valid']);
+        $this->assertContains('missing_outcome_learning_payload', $result['missing_requirements']);
+    }
+
+    public function test_only_generic_success_text_with_no_concrete_work_product_is_fully_rejected(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $planner->validateManifest(['implementation_notes' => 'done']);
+
+        $this->assertFalse($result['valid']);
+        $this->assertCount(4, $result['missing_requirements']);
+        $this->assertSame('missing_changed_files', $result['rejected_reason']);
+    }
+
+    public function test_empty_manifest_is_rejected(): void
+    {
+        $planner = new AgentControlPlaneWorkProductManifestPlanner;
+        $result = $planner->validateManifest([]);
+
+        $this->assertFalse($result['valid']);
+        $this->assertNotEmpty($result['missing_requirements']);
+    }
 }
