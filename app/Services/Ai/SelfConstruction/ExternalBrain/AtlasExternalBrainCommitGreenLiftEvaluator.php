@@ -41,6 +41,78 @@ final class AtlasExternalBrainCommitGreenLiftEvaluator
     private const STATUS_GIVE_BACK    = 'give_back';
     private const GIVE_BACK_THRESHOLD = 0.05;
 
+    public const COMMIT_VERDICT_REAL_VALUE_LIFT = 'real_value_lift';
+    public const COMMIT_VERDICT_LOW_LIFT        = 'low_lift_cosmetic';
+
+    /**
+     * Evaluates a SINGLE green commit for real capability lift, downstream
+     * unlock, simplification, or risk reduction — a green test suite alone
+     * is never counted as value. A commit with none of these four signals
+     * is a cosmetic green and is marked low_lift, not success amplification.
+     *
+     * @param  array<string,mixed>  $commit
+     * @return array<string,mixed>
+     */
+    public function evaluateCommit(array $commit): array
+    {
+        $capabilityLiftEvidence = array_values((array) ($commit['capability_lift_evidence'] ?? []));
+        $downstreamUnlocks = array_values((array) ($commit['downstream_unlocks'] ?? []));
+        $simplificationDelta = (float) ($commit['simplification_delta'] ?? 0.0);
+        $riskReductionEvidence = array_values((array) ($commit['risk_reduction_evidence'] ?? []));
+
+        $hasCapabilityLift = $capabilityLiftEvidence !== [];
+        $hasDownstreamUnlock = $downstreamUnlocks !== [];
+        $hasSimplification = $simplificationDelta > 0.0;
+        $hasRiskReduction = $riskReductionEvidence !== [];
+
+        $signalCount = (int) $hasCapabilityLift + (int) $hasDownstreamUnlock + (int) $hasSimplification + (int) $hasRiskReduction;
+        $isLowLift = $signalCount === 0;
+        $verdict = $isLowLift ? self::COMMIT_VERDICT_LOW_LIFT : self::COMMIT_VERDICT_REAL_VALUE_LIFT;
+
+        return [
+            'schema'                  => self::SCHEMA,
+            'capability_lift'         => $hasCapabilityLift,
+            'downstream_unlocks'      => $downstreamUnlocks,
+            'downstream_unlock_count' => count($downstreamUnlocks),
+            'simplification_delta'    => round($simplificationDelta, 4),
+            'risk_reduction_evidence' => $riskReductionEvidence,
+            'signal_count'            => $signalCount,
+            'is_low_lift'             => $isLowLift,
+            'verdict'                 => $verdict,
+            'learning_feedback'       => $this->commitLearningFeedback(
+                verdict: $verdict,
+                hasCapabilityLift: $hasCapabilityLift,
+                hasDownstreamUnlock: $hasDownstreamUnlock,
+                hasSimplification: $hasSimplification,
+                hasRiskReduction: $hasRiskReduction,
+            ),
+        ];
+    }
+
+    /** @return list<string> */
+    private function commitLearningFeedback(
+        string $verdict,
+        bool $hasCapabilityLift,
+        bool $hasDownstreamUnlock,
+        bool $hasSimplification,
+        bool $hasRiskReduction,
+    ): array {
+        if ($verdict === self::COMMIT_VERDICT_LOW_LIFT) {
+            return [
+                'do_not_credit_green_tests_alone_as_value',
+                'avoid_authoring_more_cosmetic_only_tasks_in_this_theme',
+                'next_cycle_require_capability_lift_unlock_simplification_or_risk_reduction_evidence',
+            ];
+        }
+
+        return array_values(array_filter([
+            $hasCapabilityLift ? 'capability_lift_confirmed_author_more_in_this_family' : null,
+            $hasDownstreamUnlock ? 'downstream_tasks_unlocked_prioritize_them_next_cycle' : null,
+            $hasSimplification ? 'simplification_reduced_complexity_reward_this_pattern' : null,
+            $hasRiskReduction ? 'risk_reduction_evidenced_reinforce_this_safety_pattern' : null,
+        ]));
+    }
+
     /**
      * @param  array{before?: list<array<string,mixed>>, after?: list<array<string,mixed>>}  $input
      * @return array{schema:string, green_commit_rate_delta:float, give_back_rate_delta:float, impact_weighted_lift:float, verdict:string, before_stats:array<string,mixed>, after_stats:array<string,mixed>}

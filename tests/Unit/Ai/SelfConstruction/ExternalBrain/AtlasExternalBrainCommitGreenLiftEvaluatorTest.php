@@ -216,4 +216,75 @@ final class AtlasExternalBrainCommitGreenLiftEvaluatorTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── evaluateCommit(): per-commit capability lift evaluation ───────────────
+
+    public function test_commit_with_no_lift_signals_is_low_lift_cosmetic(): void
+    {
+        $result = $this->evaluator->evaluateCommit([]);
+
+        $this->assertTrue($result['is_low_lift']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::COMMIT_VERDICT_LOW_LIFT, $result['verdict']);
+        $this->assertSame(0, $result['signal_count']);
+        $this->assertNotEmpty($result['learning_feedback']);
+    }
+
+    public function test_commit_with_capability_lift_evidence_is_real_value_lift(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'capability_lift_evidence' => ['organ X now self-heals stale dependencies'],
+        ]);
+
+        $this->assertFalse($result['is_low_lift']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::COMMIT_VERDICT_REAL_VALUE_LIFT, $result['verdict']);
+        $this->assertTrue($result['capability_lift']);
+    }
+
+    public function test_commit_with_downstream_unlocks_is_real_value_lift(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'downstream_unlocks' => ['task-123', 'task-456'],
+        ]);
+
+        $this->assertFalse($result['is_low_lift']);
+        $this->assertSame(2, $result['downstream_unlock_count']);
+    }
+
+    public function test_commit_with_positive_simplification_delta_is_real_value_lift(): void
+    {
+        $result = $this->evaluator->evaluateCommit(['simplification_delta' => 0.3]);
+
+        $this->assertFalse($result['is_low_lift']);
+        $this->assertSame(0.3, $result['simplification_delta']);
+    }
+
+    public function test_commit_with_negative_simplification_delta_does_not_count_as_lift(): void
+    {
+        $result = $this->evaluator->evaluateCommit(['simplification_delta' => -0.2]);
+
+        $this->assertTrue($result['is_low_lift']);
+    }
+
+    public function test_commit_with_risk_reduction_evidence_is_real_value_lift(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'risk_reduction_evidence' => ['closed a fail-open path in the merge governor'],
+        ]);
+
+        $this->assertFalse($result['is_low_lift']);
+    }
+
+    public function test_low_lift_commit_emits_learning_feedback_to_avoid_cosmetic_authoring(): void
+    {
+        $result = $this->evaluator->evaluateCommit([]);
+
+        $this->assertContains('do_not_credit_green_tests_alone_as_value', $result['learning_feedback']);
+    }
+
+    public function test_real_lift_commit_emits_positive_learning_feedback(): void
+    {
+        $result = $this->evaluator->evaluateCommit(['capability_lift_evidence' => ['e1']]);
+
+        $this->assertContains('capability_lift_confirmed_author_more_in_this_family', $result['learning_feedback']);
+    }
 }
