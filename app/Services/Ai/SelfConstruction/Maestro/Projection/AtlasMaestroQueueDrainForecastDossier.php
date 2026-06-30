@@ -42,6 +42,7 @@ final class AtlasMaestroQueueDrainForecastDossier
     public const ACTION_UNBLOCK     = 'unblock';
     public const ACTION_MONITOR     = 'monitor';
     public const ACTION_DRAIN_POISON = 'drain_poison';
+    public const ACTION_FIX_DRAIN_TELEMETRY = 'fix_drain_telemetry';
 
     private const REPLENISH_EFFECTIVE_THRESHOLD = 3;
 
@@ -108,12 +109,38 @@ final class AtlasMaestroQueueDrainForecastDossier
             $effectiveReady, $blockedCount, $overallPoison, $projectionRisk, $belowWorkerFloor,
         );
 
+        // ── telemetry blind spot ────────────────────────────────────────────
+        // Active workers + a non-empty claimable backlog + zero recorded serve_total means the
+        // drain telemetry itself cannot be trusted (the serving pipeline isn't reporting, not
+        // that the queue is genuinely idle). Auto-detect this even when the caller didn't set the
+        // explicit flag, so a silent low-pressure report never masks a broken telemetry pipe.
+        $serveTotal = array_key_exists('serve_total', $projection) ? (int) $projection['serve_total'] : null;
+        $autoDetectedBlindSpot = $activeWorkerCount > 0 && $readyCount > 0 && $serveTotal === 0;
+        $telemetryBlindSpot = (bool) ($facts['telemetry_blind_spot'] ?? false) || $autoDetectedBlindSpot;
+        $fallbackDrainEtaHours = isset($facts['fallback_drain_eta_hours']) ? max(0.0, (float) $facts['fallback_drain_eta_hours']) : null;
+
+        $telemetryCaveat = null;
+        $estimatedDryTime = null;
+        if ($telemetryBlindSpot) {
+            $telemetryCaveat = 'telemetry_blind_spot: zero serve_total observed despite active workers and claimable backlog; the direct drain forecast cannot be trusted on its own';
+            if ($fallbackDrainEtaHours !== null) {
+                $estimatedDryTime = $this->formatEtaHours($fallbackDrainEtaHours);
+            } elseif ($nextAction === self::ACTION_MONITOR) {
+                // No fallback estimate to lean on, and nothing else (poison/unblock/originate)
+                // already overrode the decision — fix the telemetry before trusting "wait".
+                $nextAction = self::ACTION_FIX_DRAIN_TELEMETRY;
+            }
+        }
+
         // ── evidence_refs ────────────────────────────────────────────────────
         $evidenceRefs = $this->buildEvidenceRefs(
             $readyCount, $blockedCount, $claimedCount, $highPoisonCt, $overallPoison, $throughput, $effectiveReady,
         );
         if ($activeWorkerCount > 0) {
             $evidenceRefs[] = 'worker_floor:'.$workerFloor.':active_workers:'.$activeWorkerCount;
+        }
+        if ($telemetryBlindSpot) {
+            $evidenceRefs[] = 'telemetry.blind_spot:true';
         }
 
         // ── eta_to_dry_by_worker_count ───────────────────────────────────────
@@ -134,6 +161,9 @@ final class AtlasMaestroQueueDrainForecastDossier
             'eta_to_dry_by_worker_count' => $etaByWorkerCount,
             'below_worker_floor'         => $belowWorkerFloor,
             'worker_floor'               => $workerFloor,
+            'telemetry_blind_spot'       => $telemetryBlindSpot,
+            'telemetry_caveat'           => $telemetryCaveat,
+            'estimated_dry_time'         => $estimatedDryTime,
         ];
     }
 
@@ -145,7 +175,12 @@ final class AtlasMaestroQueueDrainForecastDossier
         if ($throughput <= 0.0) {
             return 'unknown:no_throughput_data';
         }
-        $etaHours = $effectiveReady / $throughput;
+
+        return $this->formatEtaHours($effectiveReady / $throughput);
+    }
+
+    private function formatEtaHours(float $etaHours): string
+    {
         if ($etaHours < 1.0) {
             return (int) round($etaHours * 60).'m';
         }
