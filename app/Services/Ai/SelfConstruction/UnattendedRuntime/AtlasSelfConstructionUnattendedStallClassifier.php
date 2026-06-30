@@ -9,15 +9,19 @@ namespace App\Services\Ai\SelfConstruction\UnattendedRuntime;
  * envelope. NO I/O, NO providers, NO scalar scoring.
  *
  * Classifications follow a fixed precedence (most severe first):
- *   1. unsafe_stop         — queue.safety_stop=true
- *   2. heartbeat_stale     — heartbeat.is_stale=true
- *   3. merge_blocked       — merge.blocked=true
- *   4. verification_blocked — verification.failed_run_count > 0
- *   5. replenisher_blocked — replenisher.last_run_status='blocked'
- *   6. worker_unavailable  — native_worker.ready=false
- *   7. queue_dry           — queue.depth=0 and queue.claimable_count=0
- *   8. waiting_on_dependencies — queue has depth but claimable_count=0 and dependencies pending
- *   9. healthy             — otherwise
+ *   1.  unsafe_stop                — queue.safety_stop=true
+ *   2.  heartbeat_stale           — heartbeat.is_stale=true
+ *   3.  merge_blocked             — merge.blocked=true
+ *   4.  verification_blocked      — verification.failed_run_count > 0
+ *   5.  replenisher_blocked       — replenisher.last_run_status='blocked'
+ *   6.  worker_unavailable        — native_worker.ready=false
+ *   7.  stale_brain_heartbeat     — brain_quota.stall_reason='stale_brain_heartbeat'
+ *   8.  stalled_before_quota      — brain_quota.stall_reason='stalled_before_quota' or remaining=0
+ *   9.  temp_spec_already_done    — brain_quota.stall_reason='temp_spec_already_done'
+ *   10. zero_active_brain_commands — brain_quota.active_brain_commands=0 and brain_quota.status≠''
+ *   11. queue_dry                 — queue.depth=0 and queue.claimable_count=0
+ *   12. waiting_on_dependencies   — queue has depth but claimable_count=0 and dependencies pending
+ *   13. healthy                   — otherwise
  *
  * Severity enum: 'none', 'low', 'medium', 'high', 'critical'.
  * Recovery_needed is true for any classification other than 'healthy'.
@@ -44,6 +48,14 @@ final class AtlasSelfConstructionUnattendedStallClassifier
 
     public const UNSAFE_STOP = 'unsafe_stop';
 
+    public const STALE_BRAIN_HEARTBEAT = 'stale_brain_heartbeat';
+
+    public const TEMP_SPEC_ALREADY_DONE = 'temp_spec_already_done';
+
+    public const STALLED_BEFORE_QUOTA = 'stalled_before_quota';
+
+    public const ZERO_ACTIVE_BRAIN_COMMANDS = 'zero_active_brain_commands';
+
     public const SEVERITY_NONE = 'none';
 
     public const SEVERITY_LOW = 'low';
@@ -67,6 +79,9 @@ final class AtlasSelfConstructionUnattendedStallClassifier
         $verification = is_array($facts['verification'] ?? null) ? $facts['verification'] : [];
         $merge = is_array($facts['merge'] ?? null) ? $facts['merge'] : [];
         $replenisher = is_array($facts['replenisher'] ?? null) ? $facts['replenisher'] : [];
+        $brainQuota = is_array($facts['brain_quota'] ?? null) ? $facts['brain_quota'] : [];
+        $brainStallReason = (string) ($brainQuota['stall_reason'] ?? '');
+        $brainStatus = (string) ($brainQuota['status'] ?? '');
 
         $reasons = [];
         $classification = self::HEALTHY;
@@ -96,6 +111,22 @@ final class AtlasSelfConstructionUnattendedStallClassifier
             $classification = self::WORKER_UNAVAILABLE;
             $severity = self::SEVERITY_HIGH;
             $reasons[] = 'native_worker_not_ready';
+        } elseif ($brainStallReason === 'stale_brain_heartbeat') {
+            $classification = self::STALE_BRAIN_HEARTBEAT;
+            $severity = self::SEVERITY_MEDIUM;
+            $reasons[] = 'brain_quota_stall_reason_stale_brain_heartbeat';
+        } elseif ($brainStallReason === 'stalled_before_quota' || ($brainQuota !== [] && ($brainQuota['remaining'] ?? null) === 0)) {
+            $classification = self::STALLED_BEFORE_QUOTA;
+            $severity = self::SEVERITY_MEDIUM;
+            $reasons[] = 'brain_quota_stall_reason_stalled_before_quota';
+        } elseif ($brainStallReason === 'temp_spec_already_done') {
+            $classification = self::TEMP_SPEC_ALREADY_DONE;
+            $severity = self::SEVERITY_LOW;
+            $reasons[] = 'brain_quota_stall_reason_temp_spec_already_done';
+        } elseif ($brainStatus !== '' && (int) ($brainQuota['active_brain_commands'] ?? -1) === 0) {
+            $classification = self::ZERO_ACTIVE_BRAIN_COMMANDS;
+            $severity = self::SEVERITY_LOW;
+            $reasons[] = 'brain_quota_active_brain_commands_zero';
         } elseif ((int) ($queue['depth'] ?? 0) === 0 && (int) ($queue['claimable_count'] ?? 0) === 0) {
             $classification = self::QUEUE_DRY;
             $severity = self::SEVERITY_LOW;

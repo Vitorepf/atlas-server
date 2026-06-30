@@ -132,6 +132,51 @@ class AtlasSelfConstructionUnattendedStallClassifierTest extends TestCase
         self::assertStringStartsWith('classifier_', $a['classifier_hash']);
     }
 
+    public function test_stale_brain_heartbeat_is_recoverable_not_unsafe_stop(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedStallClassifier)->classify(
+            $this->withOverride(['brain_quota' => ['stall_reason' => 'stale_brain_heartbeat', 'status' => 'running', 'active_brain_commands' => 1]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALE_BRAIN_HEARTBEAT, $verdict['classification']);
+        self::assertNotSame(AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP, $verdict['classification']);
+        self::assertTrue($verdict['recovery_needed']);
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::SEVERITY_MEDIUM, $verdict['severity']);
+    }
+
+    public function test_temp_spec_already_done_is_recoverable_not_unsafe_stop(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedStallClassifier)->classify(
+            $this->withOverride(['brain_quota' => ['stall_reason' => 'temp_spec_already_done', 'status' => 'running', 'active_brain_commands' => 1]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::TEMP_SPEC_ALREADY_DONE, $verdict['classification']);
+        self::assertNotSame(AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP, $verdict['classification']);
+        self::assertTrue($verdict['recovery_needed']);
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::SEVERITY_LOW, $verdict['severity']);
+    }
+
+    public function test_stalled_before_quota_classification(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedStallClassifier)->classify(
+            $this->withOverride(['brain_quota' => ['stall_reason' => 'stalled_before_quota', 'status' => 'running', 'active_brain_commands' => 1]]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::STALLED_BEFORE_QUOTA, $verdict['classification']);
+        self::assertTrue($verdict['recovery_needed']);
+    }
+
+    public function test_zero_active_brain_commands_classification(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedStallClassifier)->classify(
+            $this->withOverride(['brain_quota' => ['status' => 'running', 'active_brain_commands' => 0, 'stall_reason' => '']]),
+        );
+
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::ZERO_ACTIVE_BRAIN_COMMANDS, $verdict['classification']);
+        self::assertTrue($verdict['recovery_needed']);
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::SEVERITY_LOW, $verdict['severity']);
+    }
+
     public function test_severity_is_a_label_not_a_number(): void
     {
         $verdict = (new AtlasSelfConstructionUnattendedStallClassifier)->classify($this->healthySnapshot());
