@@ -135,6 +135,7 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
                 'schema'         => self::SCHEMA,
                 'no_op'          => true,
                 'packet_drafts'  => [],
+                'cycle_blockers' => [],
             ];
         }
 
@@ -199,11 +200,22 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
             }
         }
 
-        // Build packet drafts in wave order.
+        // Lanes never dequeued by Kahn's BFS (in-degree never reached 0) sit on a
+        // dependency cycle; they must never be silently assigned a fallback wave
+        // level and emitted as if their drafts were complete.
+        $cycleLanes = [];
+        foreach ($inDegree as $lane => $deg) {
+            if ($deg !== 0) {
+                $cycleLanes[] = $lane;
+            }
+        }
+        sort($cycleLanes);
+
+        // Build packet drafts in wave order, excluding cyclic lanes.
         $byLane = [];
         foreach ($gaps as $gap) {
             $lane = (string) ($gap['lane'] ?? '');
-            if (isset($laneToId[$lane])) {
+            if (isset($laneToId[$lane]) && ! in_array($lane, $cycleLanes, true)) {
                 $byLane[$lane] = $gap;
             }
         }
@@ -240,9 +252,10 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
             $a['wave_order'] <=> $b['wave_order'] ?: strcmp($a['lane'], $b['lane']));
 
         return [
-            'schema'        => self::SCHEMA,
-            'no_op'         => false,
-            'packet_drafts' => $drafts,
+            'schema'         => self::SCHEMA,
+            'no_op'          => false,
+            'packet_drafts'  => $drafts,
+            'cycle_blockers' => $cycleLanes,
         ];
     }
 
