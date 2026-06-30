@@ -63,6 +63,13 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
                 $writeOverlap = WriteSetOverlap::collidingPaths($leftAllowed, $rightAllowed); // A5/MF-12: prefix-aware dir-vs-file
                 $axisOverlap = $leftAxes !== [] && $rightAxes !== [];
 
+                $conflictReason = match (true) {
+                    $writeOverlap !== [] && $axisOverlap => 'write_set_overlap_and_forbidden_axis_overlap',
+                    $writeOverlap !== [] => 'write_set_overlap',
+                    $axisOverlap => 'forbidden_axis_overlap',
+                    default => null,
+                };
+
                 $entry = [
                     'left' => $leftId,
                     'right' => $rightId,
@@ -70,6 +77,7 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
                     'write_overlap_count' => count($writeOverlap),
                     'axis_overlap' => $axisOverlap,
                     'parallel_allowed' => $writeOverlap === [] && ! $axisOverlap,
+                    'conflict_reason' => $conflictReason,
                 ];
                 $conflictMatrix[] = $entry;
                 if (! $entry['parallel_allowed']) {
@@ -79,6 +87,24 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
         }
 
         $schedulingPlan = $this->scheduleParallelism($packets, $blockedPairs, $maxParallel);
+
+        $lanes = [];
+        foreach ($schedulingPlan['waves'] as $wave) {
+            $lanes[] = [
+                'lane_id' => 'lane-'.$wave['wave'],
+                'selected_tasks' => $wave['packets'],
+            ];
+        }
+
+        $blockedTasks = [];
+        foreach ($packets as $idx => $packet) {
+            if ((string) ($packet['status'] ?? 'unknown') !== 'planned') {
+                $blockedTasks[] = [
+                    'task_packet_id' => (string) ($packet['task_packet_id'] ?? 'packet-'.$idx),
+                    'conflict_reason' => 'not_planned',
+                ];
+            }
+        }
         $isolationPlan = [
             'isolation_strategy' => 'simulated_worktree_per_packet',
             'shared_workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
@@ -117,6 +143,8 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
             'task_packet_count' => $packetCount,
             'parallelism_allowed' => $parallelismAllowed,
             'conflict_matrix' => $conflictMatrix,
+            'lanes' => $lanes,
+            'blocked_tasks' => $blockedTasks,
             'lease_plan' => $leasePlan,
             'scheduling_plan' => $schedulingPlan,
             'isolation_plan' => $isolationPlan,
@@ -225,7 +253,7 @@ final class AgentControlPlaneMultiAgentParallelismPlanner
     private function normalizeForHash(array $payload): array
     {
         $clone = $payload;
-        unset($clone['parallelism_plan_id'], $clone['generated_at'], $clone['parallelism_hash'], $clone['human_summary']);
+        unset($clone['parallelism_plan_id'], $clone['generated_at'], $clone['parallelism_hash'], $clone['human_summary'], $clone['lanes']);
         if (isset($clone['lease_plan']) && is_array($clone['lease_plan'])) {
             $clone['lease_plan'] = array_map(static function ($entry) {
                 if (is_array($entry)) {

@@ -184,6 +184,63 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentParallelismPlanner
         $this->assertContains('multi_agent_parallelism_planner_does_not_write_ledger', $plan['non_execution_guarantees']);
     }
 
+    // ── lanes / blocked_tasks / conflict_reason ─────────────────────────────────
+
+    public function test_lanes_group_non_conflicting_tasks_into_a_single_wave(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertArrayHasKey('lanes', $plan);
+        $this->assertCount(1, $plan['lanes']);
+        $this->assertSame('lane-1', $plan['lanes'][0]['lane_id']);
+        $this->assertCount(2, $plan['lanes'][0]['selected_tasks']);
+    }
+
+    public function test_conflicting_tasks_are_serialized_into_separate_lanes(): void
+    {
+        $packets = [$this->packet(['shared.php']), $this->packet(['shared.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertGreaterThanOrEqual(2, count($plan['lanes']));
+    }
+
+    public function test_conflict_reason_present_on_write_overlap_pair(): void
+    {
+        $packets = [$this->packet(['shared.php']), $this->packet(['shared.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertSame('write_set_overlap', $plan['blocked_pairs'][0]['conflict_reason']);
+        $this->assertSame('write_set_overlap', $plan['conflict_matrix'][0]['conflict_reason']);
+    }
+
+    public function test_conflict_reason_is_null_for_non_conflicting_pair(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertNull($plan['conflict_matrix'][0]['conflict_reason']);
+    }
+
+    public function test_blocked_tasks_lists_not_planned_packets_with_reason(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $packets[1]['status'] = 'draft';
+
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertNotEmpty($plan['blocked_tasks']);
+        $this->assertSame('not_planned', $plan['blocked_tasks'][0]['conflict_reason']);
+    }
+
+    public function test_blocked_tasks_empty_when_all_packets_planned(): void
+    {
+        $packets = [$this->packet(['a.php']), $this->packet(['b.php'])];
+        $plan = (new AgentControlPlaneMultiAgentParallelismPlanner)->plan($packets);
+
+        $this->assertSame([], $plan['blocked_tasks']);
+    }
+
     /**
      * @param  array<int, string>  $allowed
      * @return array<string, mixed>
