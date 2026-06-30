@@ -281,4 +281,107 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
 
         $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
     }
+
+    // ── regression_facts gate ─────────────────────────────────────────────────
+
+    public function test_regression_not_passed_prevents_complete(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            [],
+            [],
+            ['status' => 'fail'],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('regression_not_passed:fail', $verdict['blockers']);
+        $this->assertContains('resolve_regression_failures_before_final_ready', $verdict['next_atlas_actions']);
+        $this->assertFalse($verdict['asks_for_human']);
+    }
+
+    public function test_regression_pending_prevents_complete(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            [],
+            [],
+            ['status' => 'pending'],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('regression_not_passed:pending', $verdict['blockers']);
+    }
+
+    public function test_regression_pass_allows_complete_verdict(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            [],
+            [],
+            ['status' => 'pass'],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_omitting_regression_facts_does_not_block_complete(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+    }
+
+    // ── next_evidence_demands ─────────────────────────────────────────────────
+
+    public function test_next_evidence_demands_present_in_output(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+        );
+
+        $this->assertArrayHasKey('next_evidence_demands', $verdict);
+        $this->assertIsArray($verdict['next_evidence_demands']);
+    }
+
+    public function test_regression_failure_surfaces_in_next_evidence_demands(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            [],
+            [],
+            ['status' => 'fail'],
+        );
+
+        $this->assertContains('provide_regression_test_results_with_status_pass', $verdict['next_evidence_demands']);
+    }
+
+    public function test_missing_lane_surfaces_in_next_evidence_demands(): void
+    {
+        $lanes = $this->allTrue();
+        $lanes['compounding'] = false;
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $lanes,
+        );
+
+        $this->assertContains('provision_capability_lane:compounding', $verdict['next_evidence_demands']);
+    }
 }

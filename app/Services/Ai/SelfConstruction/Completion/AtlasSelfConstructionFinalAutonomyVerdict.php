@@ -47,9 +47,10 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
      * @param  array<string,mixed>  $readinessPolicy
      * @param  array<string,bool>  $capabilityFacts     Keyed by REQUIRED_CAPABILITY_LANES names; omit to skip check.
      * @param  array<string,list<string>>  $capabilityEvidence  Lane → evidence refs; when non-empty, true booleans without refs are insufficient.
+     * @param  array<string,mixed>  $regressionFacts    {status:'pass'|'fail'|'pending', ...}. Omit to skip check (backward compat).
      * @return array<string,mixed>
      */
-    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = []): array
+    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = [], array $regressionFacts = []): array
     {
         $atlasNative = (bool) ($auditVerdict['atlas_native'] ?? false);
         $auditBlockers = array_values((array) ($auditVerdict['blockers'] ?? []));
@@ -71,6 +72,22 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $metCount = count(self::REQUIRED_CAPABILITY_LANES) - count($missingLanes);
             $score = (int) floor($metCount / count(self::REQUIRED_CAPABILITY_LANES) * 100);
+        }
+
+        $regressionBlockers = [];
+        $evidenceDemands = [];
+        if ($regressionFacts !== []) {
+            $regStatus = (string) ($regressionFacts['status'] ?? 'missing');
+            if ($regStatus !== 'pass') {
+                $regressionBlockers[] = 'regression_not_passed:'.($regStatus === '' ? 'missing' : $regStatus);
+                $evidenceDemands[] = 'provide_regression_test_results_with_status_pass';
+            }
+        }
+        foreach ($missingLanes as $lane) {
+            $evidenceDemands[] = 'provision_capability_lane:'.$lane;
+        }
+        foreach ($lanesWithoutEvidence as $lane) {
+            $evidenceDemands[] = 'collect_evidence_for_lane:'.$lane;
         }
 
         // Build readiness_95_blockers — emitted on every verdict for downstream consumers.
@@ -100,7 +117,7 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $nextActions[] = 'route_atlas_native_replacement_capabilities';
 
-            return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions, $score, $readiness95Blockers);
+            return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions, $score, $readiness95Blockers, $evidenceDemands);
         }
 
         // INCOMPLETE — missing capability lanes OR lanes lacking evidence refs.
@@ -116,7 +133,7 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $nextActions[] = $missingLanes !== [] ? 'provision_missing_capability_lanes' : 'collect_missing_lane_evidence';
 
-            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, $readiness95Blockers);
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, $readiness95Blockers, $evidenceDemands);
         }
 
         // INCOMPLETE — atlas_native AND not blocked, but untransitioned deps OR readiness not explicitly ready.
@@ -138,28 +155,38 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $nextActions[] = 'extend_transition_map_for_unknown_steps';
 
-            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score);
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, [], $evidenceDemands);
         }
 
-        return $this->envelope(self::VERDICT_COMPLETE, [], [], $score);
+        // INCOMPLETE — regression facts provided but not passing.
+        if ($regressionBlockers !== []) {
+            $blockers = $regressionBlockers;
+            $nextActions[] = 'resolve_regression_failures_before_final_ready';
+
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, [], $evidenceDemands);
+        }
+
+        return $this->envelope(self::VERDICT_COMPLETE, [], [], $score, [], $evidenceDemands);
     }
 
     /**
      * @param  list<string>  $blockers
      * @param  list<string>  $nextActions
      * @param  list<array{lane:string,type:string,next_action:string}>  $readiness95Blockers
+     * @param  list<string>  $evidenceDemands
      * @return array<string,mixed>
      */
-    private function envelope(string $verdict, array $blockers, array $nextActions, int $score = 0, array $readiness95Blockers = []): array
+    private function envelope(string $verdict, array $blockers, array $nextActions, int $score = 0, array $readiness95Blockers = [], array $evidenceDemands = []): array
     {
         return [
-            'schema_version' => self::SCHEMA,
-            'verdict' => $verdict,
-            'blockers' => array_values(array_unique($blockers)),
-            'next_atlas_actions' => array_values(array_unique(array_filter($nextActions, static fn (string $s): bool => $s !== ''))),
-            'asks_for_human' => false,
-            'score' => $score,
+            'schema_version'       => self::SCHEMA,
+            'verdict'              => $verdict,
+            'blockers'             => array_values(array_unique($blockers)),
+            'next_atlas_actions'   => array_values(array_unique(array_filter($nextActions, static fn (string $s): bool => $s !== ''))),
+            'asks_for_human'       => false,
+            'score'                => $score,
             'readiness_95_blockers' => $readiness95Blockers,
+            'next_evidence_demands' => array_values(array_unique($evidenceDemands)),
         ];
     }
 }
