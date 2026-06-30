@@ -130,6 +130,7 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             'lease_summary' => $leaseSummary,
             'runtime_safety' => $runtimeSafety,
             'probe_evidence' => $probes,
+            'probe_containment' => $probes['probe_containment'],
             'next_action' => $status === 'available' ? 'continue_runtime_pilot_observability' : 'investigate_violations',
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -173,6 +174,9 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
         $probeId = 'probe_'.(string) Str::uuid();
         $secondaryId = $probeId.'_b';
         $probeFile = 'app/Services/Ai/SelfConstruction/__task_queue_lease_certification__/'.$probeId.'.php';
+        $createdTaskPacketIds = [];
+        $createdLeaseIds = [];
+        $createdTags = [];
 
         $taskPacket = $this->builder->build([
             'task_packet_id' => $probeId,
@@ -184,6 +188,7 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             'required_evidence' => ['task_packet_created'],
             'risk_level' => 'low',
         ]);
+        $createdTaskPacketIds[] = $probeId;
         $validation = $this->validator->validate($taskPacket);
 
         $probes['scope_lock_runtime_validator_valid'] = (string) $validation['status'] === 'valid';
@@ -214,8 +219,12 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             'required_evidence' => ['task_packet_created'],
             'risk_level' => 'low',
         ]);
+        $createdTaskPacketIds[] = $probeId.'_tagged_full';
+        $createdTaskPacketIds[] = $probeId.'_tagged_partial';
         $certificationLaneTag = 'certification_lane_'.$probeId;
         $workerLaneTag = 'worker_lane_'.$probeId;
+        $createdTags[] = $certificationLaneTag;
+        $createdTags[] = $workerLaneTag;
         $this->queue->enqueue($taggedPartial, ['tags' => [$certificationLaneTag]]);
         $this->queue->enqueue($taggedFull, ['tags' => [$certificationLaneTag, $workerLaneTag]]);
         $taggedMatches = $this->queue->list([
@@ -232,6 +241,9 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
         ];
         $claimA = $this->leases->claim($probeId, 'agent-a', $scopeLock);
         $probes['claim_single_owner'] = (string) $claimA['status'] === 'ok';
+        if ((string) $claimA['status'] === 'ok' && ($claimA['lease_id'] ?? '') !== '') {
+            $createdLeaseIds[] = (string) $claimA['lease_id'];
+        }
 
         $claimDouble = $this->leases->claim($probeId, 'agent-b', $scopeLock);
         $probes['claim_double_blocked'] = (string) $claimDouble['status'] === 'blocked' && (string) $claimDouble['reason'] === 'task_already_claimed';
@@ -269,6 +281,7 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             'acceptance_criteria' => ['probe_ok'],
             'required_evidence' => ['task_packet_created'],
         ]);
+        $createdTaskPacketIds[] = $secondaryId;
         $this->queue->enqueue($secondaryPacket);
         $claimAOwner = $this->leases->claim($probeId, 'agent-a', $scopeLock);
         $claimSecondaryConflict = $this->leases->claim($secondaryId, 'agent-c', $scopeLock);
@@ -276,6 +289,9 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             && (string) $claimSecondaryConflict['reason'] === 'write_set_overlap';
 
         if ((string) $claimAOwner['status'] === 'ok') {
+            if (($claimAOwner['lease_id'] ?? '') !== '') {
+                $createdLeaseIds[] = (string) $claimAOwner['lease_id'];
+            }
             $this->leases->release((string) $claimAOwner['lease_id'], 'agent-a');
         }
 
@@ -324,6 +340,14 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             'probe_task_packet_id' => $probeId,
             'probe_secondary_task_packet_id' => $secondaryId,
             'probe_runtime_execution_allowed' => false,
+            'probe_containment' => [
+                'probe_task_packet_ids' => $createdTaskPacketIds,
+                'probe_lease_ids' => $createdLeaseIds,
+                'probe_tags' => $createdTags,
+                'created_task_count' => count($createdTaskPacketIds),
+                'created_lease_count' => count($createdLeaseIds),
+                'real_worker_lane_touched' => false,
+            ],
         ];
     }
 
@@ -357,6 +381,7 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
         if (isset($clone['probe_evidence']['probe_secondary_task_packet_id'])) {
             unset($clone['probe_evidence']['probe_secondary_task_packet_id']);
         }
+        unset($clone['probe_evidence']['probe_containment'], $clone['probe_containment']);
         if (isset($clone['queue_summary']['total_count'])) {
             // queue total grows during probes; exclude from hash so consecutive
             // certify() calls produce a stable digest for the safety invariants
