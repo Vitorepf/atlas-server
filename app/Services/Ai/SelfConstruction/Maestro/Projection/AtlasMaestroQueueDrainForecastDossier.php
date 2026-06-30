@@ -19,9 +19,15 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Projection;
  *   poison_risk         — high_risk_count, overall_risk ('low'|'medium'|'high')
  *
  * Outputs:
- *   drain_eta, productivity_risk, next_action, evidence_refs, effective_ready.
+ *   drain_eta, productivity_risk, next_action, evidence_refs, effective_ready,
+ *   productive_ready (alias of effective_ready), poison_blocked_ready,
+ *   eta_to_dry_by_worker_count (per-worker-count burn-down forecast).
  *
- * Pure: no I/O, no side effects.
+ * eta_to_dry_by_worker_count: throughput_per_hour_per_worker × worker_count drives a SEPARATE eta per
+ * worker count (default [1, 5]) — so five-muscle throughput always shows a shorter ETA than a single
+ * muscle, never confused with the flat single-throughput drain_eta above.
+ *
+ * Pure: no I/O, no side effects — never inspects the live queue directly; everything is supplied facts.
  */
 final class AtlasMaestroQueueDrainForecastDossier
 {
@@ -38,6 +44,8 @@ final class AtlasMaestroQueueDrainForecastDossier
     public const ACTION_DRAIN_POISON = 'drain_poison';
 
     private const REPLENISH_EFFECTIVE_THRESHOLD = 3;
+
+    private const DEFAULT_WORKER_COUNTS = [1, 5];
 
     /**
      * @param  array{
@@ -65,9 +73,19 @@ final class AtlasMaestroQueueDrainForecastDossier
         $overallPoison  = (string) ($poison['overall_risk'] ?? self::RISK_LOW);
         $throughput     = max(0.0, (float) ($projection['throughput_per_hour'] ?? 0.0));
         $projectionRisk = (string) ($projection['risk'] ?? 'healthy');
+        $throughputPerWorker = max(0.0, (float) ($projection['throughput_per_hour_per_worker'] ?? $throughput));
+        $workerCounts = array_values(array_filter(
+            array_map('intval', (array) ($projection['worker_counts'] ?? self::DEFAULT_WORKER_COUNTS)),
+            static fn (int $w): bool => $w > 0,
+        ));
+        if ($workerCounts === []) {
+            $workerCounts = self::DEFAULT_WORKER_COUNTS;
+        }
 
         // AC2: effective_ready excludes blocked and high-poison-risk packets.
         $effectiveReady = max(0, $readyCount - $blockedCount - $highPoisonCt);
+        // Ready packets specifically excluded because of poison risk (not other blockers).
+        $poisonBlockedReady = max(0, min($highPoisonCt, $readyCount - $blockedCount));
 
         // ── drain_eta ───────────────────────────────────────────────────────
         $drainEta = $this->computeDrainEta($effectiveReady, $throughput);
@@ -87,13 +105,22 @@ final class AtlasMaestroQueueDrainForecastDossier
             $readyCount, $blockedCount, $claimedCount, $highPoisonCt, $overallPoison, $throughput, $effectiveReady,
         );
 
+        // ── eta_to_dry_by_worker_count ───────────────────────────────────────
+        $etaByWorkerCount = [];
+        foreach ($workerCounts as $workerCount) {
+            $etaByWorkerCount[(string) $workerCount] = $this->computeDrainEta($effectiveReady, $throughputPerWorker * $workerCount);
+        }
+
         return [
-            'schema'            => self::SCHEMA,
-            'drain_eta'         => $drainEta,
-            'productivity_risk' => $productivityRisk,
-            'next_action'       => $nextAction,
-            'evidence_refs'     => $evidenceRefs,
-            'effective_ready'   => $effectiveReady,
+            'schema'                     => self::SCHEMA,
+            'drain_eta'                  => $drainEta,
+            'productivity_risk'          => $productivityRisk,
+            'next_action'                => $nextAction,
+            'evidence_refs'              => $evidenceRefs,
+            'effective_ready'            => $effectiveReady,
+            'productive_ready'           => $effectiveReady,
+            'poison_blocked_ready'       => $poisonBlockedReady,
+            'eta_to_dry_by_worker_count' => $etaByWorkerCount,
         ];
     }
 
