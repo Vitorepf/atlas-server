@@ -85,6 +85,46 @@ class AtlasSelfConstructionUnattendedLivenessSnapshotTest extends TestCase
         self::assertSame($a['snapshot_hash'], $b['snapshot_hash']);
     }
 
+    public function test_brain_quota_stall_facts_are_included_deterministically(): void
+    {
+        $facts = $this->healthyFacts();
+        $facts['brain_quota'] = [
+            'status' => 'stalled',
+            'actor' => 'atlas:brain:next',
+            'remaining' => 3,
+            'stall_reason' => 'quota_exhausted',
+            'must_run_now' => true,
+            'active_brain_commands' => 2,
+            'temp_spec_path' => '/tmp/brain-spec.json',
+        ];
+
+        $snapshot = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose($facts);
+        $bq = $snapshot['facts']['brain_quota'];
+
+        self::assertSame('stalled', $bq['status']);
+        self::assertSame('atlas:brain:next', $bq['actor']);
+        self::assertSame(3, $bq['remaining']);
+        self::assertSame('quota_exhausted', $bq['stall_reason']);
+        self::assertTrue($bq['must_run_now']);
+        self::assertSame(2, $bq['active_brain_commands']);
+        self::assertSame('/tmp/brain-spec.json', $bq['temp_spec_path']);
+        // Overall status unaffected by brain_quota presence — still healthy.
+        self::assertSame(AtlasSelfConstructionUnattendedLivenessSnapshot::STATUS_HEALTHY, $snapshot['status']);
+    }
+
+    public function test_brain_quota_emits_safe_defaults_when_absent(): void
+    {
+        $snapshot = (new AtlasSelfConstructionUnattendedLivenessSnapshot)->compose($this->healthyFacts());
+        $bq = $snapshot['facts']['brain_quota'];
+
+        self::assertArrayHasKey('brain_quota', $snapshot['facts']);
+        self::assertSame('', $bq['status']);
+        self::assertSame('', $bq['actor']);
+        self::assertNull($bq['remaining']);
+        self::assertFalse($bq['must_run_now']);
+        self::assertSame(0, $bq['active_brain_commands']);
+    }
+
     public function test_snapshot_source_does_not_call_io_or_provider(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/UnattendedRuntime/AtlasSelfConstructionUnattendedLivenessSnapshot.php'));

@@ -59,6 +59,7 @@ final class AtlasSelfConstructionUnattendedLivenessSnapshot
         $verification = $this->normalizeVerification($facts['verification'] ?? null);
         $merge = $this->normalizeMerge($facts['merge'] ?? null);
         $activeLeases = array_values((array) ($facts['active_leases'] ?? []));
+        $brainQuota = $this->normalizeBrainQuota($facts['brain_quota'] ?? null);
 
         $factsOut = [
             'queue' => $queue,
@@ -69,6 +70,7 @@ final class AtlasSelfConstructionUnattendedLivenessSnapshot
             'replenisher' => $replenisher,
             'verification' => $verification,
             'merge' => $merge,
+            'brain_quota' => $brainQuota,
         ];
 
         $status = $this->classify($factsOut, $missingSources);
@@ -190,6 +192,26 @@ final class AtlasSelfConstructionUnattendedLivenessSnapshot
         return [
             'last_decision' => (string) ($m['last_decision'] ?? ''),
             'blocked' => (bool) ($m['blocked'] ?? false),
+        ];
+    }
+
+    /**
+     * Optional brain quota stall facts from atlas:brain:state snapshot. No I/O — caller injects.
+     *
+     * @return array<string,mixed>
+     */
+    private function normalizeBrainQuota(mixed $brainQuota): array
+    {
+        $b = is_array($brainQuota) ? $brainQuota : [];
+
+        return [
+            'status' => (string) ($b['status'] ?? ''),
+            'actor' => (string) ($b['actor'] ?? ''),
+            'remaining' => isset($b['remaining']) ? (int) $b['remaining'] : null,
+            'stall_reason' => (string) ($b['stall_reason'] ?? ''),
+            'must_run_now' => (bool) ($b['must_run_now'] ?? false),
+            'active_brain_commands' => (int) ($b['active_brain_commands'] ?? 0),
+            'temp_spec_path' => (string) ($b['temp_spec_path'] ?? ''),
         ];
     }
 
