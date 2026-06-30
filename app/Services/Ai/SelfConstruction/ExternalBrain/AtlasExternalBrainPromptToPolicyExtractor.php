@@ -14,9 +14,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   cannot_be_enforced_by_atlas_native  — is_atlas_native_enforceable=false
  *   insufficient_occurrence_count       — occurrence_count < MIN_OCCURRENCE_COUNT
  *
- * Surviving observations are classified into an owner_dimension by keyword
- * match (first match wins), then enriched with evidence_requirement and
- * suggested_enforcement_point.
+ * Policy candidate output fields:
+ *   normalized_text, category, trigger, enforcement_check,
+ *   owner_dimension, evidence_requirement, suggested_enforcement_point,
+ *   occurrence_count, minimum_occurrences, rejection_reason (null for accepted)
  *
  * Pure: no I/O, no side effects.
  */
@@ -26,31 +27,52 @@ final class AtlasExternalBrainPromptToPolicyExtractor
 
     private const MIN_OCCURRENCE_COUNT = 2;
 
+    // keyword → [owner_dimension, evidence_requirement, enforcement_point]
     private const DIMENSION_MAP = [
-        // keywords (lowercase) → [owner_dimension, evidence_requirement, enforcement_point]
-        'proxy'      => ['loop_origination',  'origination_evidence',             'origination_classifier'],
-        'faxina'     => ['loop_origination',  'origination_evidence',             'origination_classifier'],
-        'cleanup'    => ['loop_origination',  'origination_evidence',             'origination_classifier'],
-        'template'   => ['loop_origination',  'origination_evidence',             'origination_classifier'],
-        'farm'       => ['loop_origination',  'origination_evidence',             'origination_classifier'],
-        'evidence'   => ['quality_gate',      'tests_or_gates_result',            'pre_commit_gate'],
-        'proof'      => ['quality_gate',      'tests_or_gates_result',            'pre_commit_gate'],
-        'gate'       => ['quality_gate',      'tests_or_gates_result',            'pre_commit_gate'],
-        'human'      => ['dependency_guard',  'autonomy_regression_scan',         'autonomy_regression_sentinel'],
-        'operator'   => ['dependency_guard',  'autonomy_regression_scan',         'autonomy_regression_sentinel'],
-        'provider'   => ['dependency_guard',  'autonomy_regression_scan',         'autonomy_regression_sentinel'],
-        'memory'     => ['memory_discipline', 'atlas_native_store_check',         'memory_write_interceptor'],
-        'prompt'     => ['memory_discipline', 'atlas_native_store_check',         'memory_write_interceptor'],
-        'context'    => ['memory_discipline', 'atlas_native_store_check',         'memory_write_interceptor'],
-        'macro'      => ['task_shape',        'macro_task_acceptance_criteria',   'task_packet_validator'],
-        'scope'      => ['task_shape',        'macro_task_acceptance_criteria',   'task_packet_validator'],
+        'proxy'    => ['loop_origination',  'origination_evidence',           'origination_classifier'],
+        'faxina'   => ['loop_origination',  'origination_evidence',           'origination_classifier'],
+        'cleanup'  => ['loop_origination',  'origination_evidence',           'origination_classifier'],
+        'template' => ['loop_origination',  'origination_evidence',           'origination_classifier'],
+        'farm'     => ['loop_origination',  'origination_evidence',           'origination_classifier'],
+        'evidence' => ['quality_gate',      'tests_or_gates_result',          'pre_commit_gate'],
+        'proof'    => ['quality_gate',      'tests_or_gates_result',          'pre_commit_gate'],
+        'gate'     => ['quality_gate',      'tests_or_gates_result',          'pre_commit_gate'],
+        'human'    => ['dependency_guard',  'autonomy_regression_scan',       'autonomy_regression_sentinel'],
+        'operator' => ['dependency_guard',  'autonomy_regression_scan',       'autonomy_regression_sentinel'],
+        'provider' => ['dependency_guard',  'autonomy_regression_scan',       'autonomy_regression_sentinel'],
+        'memory'   => ['memory_discipline', 'atlas_native_store_check',       'memory_write_interceptor'],
+        'prompt'   => ['memory_discipline', 'atlas_native_store_check',       'memory_write_interceptor'],
+        'context'  => ['memory_discipline', 'atlas_native_store_check',       'memory_write_interceptor'],
+        'macro'    => ['task_shape',        'macro_task_acceptance_criteria', 'task_packet_validator'],
+        'scope'    => ['task_shape',        'macro_task_acceptance_criteria', 'task_packet_validator'],
     ];
 
-    private const DEFAULT_DIMENSION   = ['general_policy', 'implementation_notes', 'policy_backlog'];
+    // keyword → [category, trigger, enforcement_check]
+    private const CATEGORY_MAP = [
+        'proxy'    => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup'],
+        'faxina'   => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup'],
+        'cleanup'  => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup'],
+        'template' => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_template_farm_detected'],
+        'farm'     => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_template_farm_detected'],
+        'evidence' => ['evidence_discipline',   'at_evidence_validation',     'reject_if_no_runnable_evidence'],
+        'proof'    => ['evidence_discipline',   'at_evidence_validation',     'reject_if_no_runnable_evidence'],
+        'gate'     => ['evidence_discipline',   'at_evidence_validation',     'reject_if_gate_check_absent'],
+        'human'    => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_requires_human_approval'],
+        'operator' => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_requires_operator_intervention'],
+        'provider' => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_provider_dependency_detected'],
+        'memory'   => ['memory_discipline',     'at_memory_write',            'reject_if_non_atlas_native_store'],
+        'prompt'   => ['memory_discipline',     'at_memory_write',            'reject_if_prompt_treated_as_memory'],
+        'context'  => ['memory_discipline',     'at_memory_write',            'reject_if_context_not_curated'],
+        'macro'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow'],
+        'scope'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow'],
+    ];
+
+    private const DEFAULT_DIMENSION = ['general_policy', 'implementation_notes', 'policy_backlog'];
+    private const DEFAULT_CATEGORY  = ['general_policy_rule', 'at_policy_evaluation', 'log_and_flag_for_review'];
 
     /**
      * @param  array{prompt_observations?: list<array<string,mixed>>}  $input
-     * @return array{schema:string, policy_candidates:list<array<string,string|int>>, rejected_observations:list<array<string,string>>}
+     * @return array<string,mixed>
      */
     public function extract(array $input): array
     {
@@ -66,12 +88,7 @@ final class AtlasExternalBrainPromptToPolicyExtractor
             $isRawProvider = (bool) ($obs['is_raw_provider_text']         ?? false);
             $enforceable   = (bool) ($obs['is_atlas_native_enforceable']  ?? true);
 
-            $rejectionReason = $this->rejectionReason(
-                $isEmotional,
-                $isRawProvider,
-                $enforceable,
-                $occurrences,
-            );
+            $rejectionReason = $this->rejectionReason($isEmotional, $isRawProvider, $enforceable, $occurrences);
 
             if ($rejectionReason !== null) {
                 $rejected[] = [
@@ -81,30 +98,32 @@ final class AtlasExternalBrainPromptToPolicyExtractor
                 continue;
             }
 
-            [$ownerDimension, $evidenceRequirement, $enforcementPoint] = $this->classify($text);
+            [$ownerDimension, $evidenceRequirement, $enforcementPoint] = $this->classifyDimension($text);
+            [$category, $trigger, $enforcementCheck]                   = $this->classifyCategory($text);
 
             $candidates[] = [
-                'normalized_text'          => $this->normalize($text),
-                'owner_dimension'          => $ownerDimension,
-                'evidence_requirement'     => $evidenceRequirement,
+                'normalized_text'             => $this->normalize($text),
+                'category'                    => $category,
+                'trigger'                     => $trigger,
+                'enforcement_check'           => $enforcementCheck,
+                'owner_dimension'             => $ownerDimension,
+                'evidence_requirement'        => $evidenceRequirement,
                 'suggested_enforcement_point' => $enforcementPoint,
-                'occurrence_count'         => $occurrences,
+                'occurrence_count'            => $occurrences,
+                'minimum_occurrences'         => self::MIN_OCCURRENCE_COUNT,
+                'rejection_reason'            => null,
             ];
         }
 
         return [
-            'schema'               => self::SCHEMA,
+            'schema'                => self::SCHEMA,
             'policy_candidates'    => $candidates,
             'rejected_observations' => $rejected,
         ];
     }
 
-    private function rejectionReason(
-        bool $isEmotional,
-        bool $isRawProvider,
-        bool $enforceable,
-        int  $occurrences,
-    ): ?string {
+    private function rejectionReason(bool $isEmotional, bool $isRawProvider, bool $enforceable, int $occurrences): ?string
+    {
         if ($isEmotional) {
             return 'one_off_emotional_wording';
         }
@@ -120,23 +139,32 @@ final class AtlasExternalBrainPromptToPolicyExtractor
         return null;
     }
 
-    /** @return array{string, string, string} */
-    private function classify(string $text): array
+    /** @return array{string,string,string} */
+    private function classifyDimension(string $text): array
     {
         $lower = strtolower($text);
-
-        foreach (self::DIMENSION_MAP as $keyword => [$dimension, $evidence, $point]) {
+        foreach (self::DIMENSION_MAP as $keyword => $attrs) {
             if (str_contains($lower, $keyword)) {
-                return [$dimension, $evidence, $point];
+                return $attrs;
             }
         }
-
         return self::DEFAULT_DIMENSION;
+    }
+
+    /** @return array{string,string,string} */
+    private function classifyCategory(string $text): array
+    {
+        $lower = strtolower($text);
+        foreach (self::CATEGORY_MAP as $keyword => $attrs) {
+            if (str_contains($lower, $keyword)) {
+                return $attrs;
+            }
+        }
+        return self::DEFAULT_CATEGORY;
     }
 
     private function normalize(string $text): string
     {
-        // Strip leading/trailing whitespace, collapse internal spaces, lowercase.
         return trim((string) preg_replace('/\s+/', ' ', $text));
     }
 }
