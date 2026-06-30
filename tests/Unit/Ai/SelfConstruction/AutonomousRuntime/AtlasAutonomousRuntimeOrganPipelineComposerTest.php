@@ -77,4 +77,52 @@ final class AtlasAutonomousRuntimeOrganPipelineComposerTest extends TestCase
         $this->assertSame(AtlasAutonomousRuntimeOrganPipelineComposer::STATUS_BLOCKED, $r['plan_status']);
         $this->assertCount(10, $r['missing_organs']);
     }
+
+    public function test_readiness_rows_covers_all_canonical_organs_even_when_some_are_missing(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['task_fabric']);
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $this->assertCount(10, $r['readiness_rows'], 'readiness_rows must have one row per canonical organ');
+        $rowOrgans = array_column($r['readiness_rows'], 'organ');
+        $this->assertSame(AtlasAutonomousRuntimeOrganPipelineComposer::ORGAN_ORDER, $rowOrgans);
+
+        $byOrgan = array_column($r['readiness_rows'], null, 'organ');
+        $this->assertFalse($byOrgan['task_fabric']['ready']);
+        $this->assertSame('missing_facts', $byOrgan['task_fabric']['reason']);
+        // Organs before the missing one are ready.
+        $this->assertTrue($byOrgan['control_plane']['ready']);
+    }
+
+    public function test_first_blocked_stage_is_first_non_ready_organ_in_canonical_order(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['strategy_council'], $organs['merge_governor']);
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        // strategy_council is earlier in the order than merge_governor.
+        $this->assertSame('strategy_council', $r['first_blocked_stage']);
+    }
+
+    public function test_unhealthy_organ_is_not_ready_and_blocks_downstream(): void
+    {
+        $organs = $this->allOrgans();
+        $organs['architecture_council']['healthy'] = false;
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $this->assertSame(AtlasAutonomousRuntimeOrganPipelineComposer::STATUS_BLOCKED, $r['plan_status']);
+        $this->assertSame('architecture_council', $r['first_blocked_stage']);
+
+        $byOrgan = array_column($r['readiness_rows'], null, 'organ');
+        $this->assertSame('unhealthy', $byOrgan['architecture_council']['reason']);
+        $this->assertSame('upstream_blocked', $byOrgan['task_fabric']['reason']);
+        $this->assertSame('upstream_blocked', $byOrgan['learning_transfer']['reason']);
+    }
+
+    public function test_complete_plan_has_null_first_blocked_stage(): void
+    {
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($this->allOrgans());
+        $this->assertNull($r['first_blocked_stage']);
+    }
 }

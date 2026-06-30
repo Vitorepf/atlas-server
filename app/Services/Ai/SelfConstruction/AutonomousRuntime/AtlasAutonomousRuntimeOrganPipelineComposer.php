@@ -46,20 +46,47 @@ final class AtlasAutonomousRuntimeOrganPipelineComposer
 
     /**
      * @param  array<string,array<string,mixed>>  $organFacts
-     * @return array{schema:string, plan_status:string, ordered_stages:list<array{organ:string, facts:array<string,mixed>}>, missing_organs:list<string>, blockers:list<string>}
+     * @return array{schema:string, plan_status:string, ordered_stages:list<array{organ:string, facts:array<string,mixed>, ready:bool, readiness_reason:string}>, readiness_rows:list<array{organ:string, ready:bool, reason:string}>, first_blocked_stage:?string, missing_organs:list<string>, blockers:list<string>}
      */
     public function compose(array $organFacts): array
     {
         $stages = [];
+        $readinessRows = [];
         $missing = [];
+        $firstBlockedStage = null;
+        $anyPriorBlocked = false;
+
         foreach (self::ORGAN_ORDER as $organ) {
             $facts = $organFacts[$organ] ?? null;
-            if (! is_array($facts)) {
-                $missing[] = $organ;
+            $isPresent = is_array($facts);
 
-                continue;
+            if (! $isPresent) {
+                $ready = false;
+                $reason = 'missing_facts';
+                $missing[] = $organ;
+            } elseif ($anyPriorBlocked) {
+                $ready = false;
+                $reason = 'upstream_blocked';
+            } elseif (($facts['healthy'] ?? true) === false) {
+                $ready = false;
+                $reason = 'unhealthy';
+            } else {
+                $ready = true;
+                $reason = 'ready';
             }
-            $stages[] = ['organ' => $organ, 'facts' => $facts];
+
+            if (! $ready) {
+                $anyPriorBlocked = true;
+                if ($firstBlockedStage === null) {
+                    $firstBlockedStage = $organ;
+                }
+            }
+
+            $readinessRows[] = ['organ' => $organ, 'ready' => $ready, 'reason' => $reason];
+
+            if ($isPresent) {
+                $stages[] = ['organ' => $organ, 'facts' => $facts, 'ready' => $ready, 'readiness_reason' => $reason];
+            }
         }
 
         $blockers = array_map(static fn (string $o): string => 'missing_organ:'.$o, $missing);
@@ -67,8 +94,10 @@ final class AtlasAutonomousRuntimeOrganPipelineComposer
 
         return [
             'schema' => self::SCHEMA,
-            'plan_status' => $blockers === [] ? self::STATUS_READY : self::STATUS_BLOCKED,
+            'plan_status' => $firstBlockedStage === null ? self::STATUS_READY : self::STATUS_BLOCKED,
             'ordered_stages' => $stages,
+            'readiness_rows' => $readinessRows,
+            'first_blocked_stage' => $firstBlockedStage,
             'missing_organs' => $missing,
             'blockers' => $blockers,
         ];
