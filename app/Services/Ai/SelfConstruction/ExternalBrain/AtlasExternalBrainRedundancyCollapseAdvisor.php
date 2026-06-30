@@ -106,6 +106,15 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
         $preserved = array_values(array_unique(array_merge($ownerBehaviors, $absorbedBehaviors)));
         sort($preserved, SORT_STRING);
 
+        // Refuse when no behaviors to preserve — no behavior-preservation tests can be generated.
+        if (empty($preserved)) {
+            return ['collapse_safe' => false, 'refusal' => [
+                'organ_pair'       => [$aId, $bId],
+                'reason'           => 'no_behavior_preservation_tests',
+                'shared_decisions' => $sharedDecisions,
+            ]];
+        }
+
         $deletedResponsibilities = array_values(array_diff($absorbedBehaviors, $ownerBehaviors));
         $absorbedId = (string) ($absorbed['organ_id'] ?? '');
         $ownerId = (string) ($owner['organ_id'] ?? '');
@@ -120,15 +129,31 @@ final class AtlasExternalBrainRedundancyCollapseAdvisor
             $preserved,
         ));
 
+        $deletionBlockers = [];
+        if ($absorbedExclusiveConsumers !== []) {
+            $deletionBlockers[] = 'exclusive_consumer_migration_required';
+        }
+        if ($deletedResponsibilities !== []) {
+            $deletionBlockers[] = 'behavior_gap_in_owner';
+        }
+
+        $evidenceDelta = abs($aEvidence - $bEvidence);
+        $overlapRatio  = $sharedCount / max(1, max(count($aDecisions), count($bDecisions)));
+        $collapseConfidence = round(min(1.0, ($evidenceDelta / 10.0) * 0.6 + $overlapRatio * 0.4), 3);
+
         return ['collapse_safe' => true, 'candidate' => [
-            'canonical_owner' => $ownerId,
-            'absorbed_organs' => [$absorbedId],
-            'shared_decisions' => $sharedDecisions,
-            'preserved_behaviors' => $preserved,
+            'canonical_owner'        => $ownerId,
+            'canonical_owner_reason' => 'higher_evidence_strength',
+            'absorbed_organs'        => [$absorbedId],
+            'shared_decisions'       => $sharedDecisions,
+            'preserved_behaviors'    => $preserved,
             'deleted_responsibilities' => $deletedResponsibilities,
-            'migration_notes' => "Route all {$absorbedId} callers to {$ownerId}",
-            'risk_level' => $this->riskLevel(count($deletedResponsibilities), count($absorbedExclusiveConsumers)),
-            'required_tests' => $requiredTests,
+            'migration_notes'        => "Route all {$absorbedId} callers to {$ownerId}",
+            'risk_level'             => $this->riskLevel(count($deletedResponsibilities), count($absorbedExclusiveConsumers)),
+            'required_tests'         => $requiredTests,
+            'required_behavior_tests' => $requiredTests,
+            'deletion_blockers'      => $deletionBlockers,
+            'collapse_confidence'    => $collapseConfidence,
         ]];
     }
 

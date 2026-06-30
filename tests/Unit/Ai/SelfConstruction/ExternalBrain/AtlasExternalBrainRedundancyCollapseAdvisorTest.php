@@ -30,8 +30,8 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
     public function test_overlapping_decisions_with_stronger_evidence_produces_candidate(): void
     {
         $maps = [
-            $this->organ('A', ['decide_routing', 'decide_dispatch'], 8.0),
-            $this->organ('B', ['decide_routing', 'decide_dispatch'], 4.0),
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 8.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 4.0, [], ['route_request']),
         ];
 
         $r = $this->svc()->advise($maps);
@@ -44,8 +44,8 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
     public function test_canonical_owner_is_the_organ_with_higher_evidence_strength(): void
     {
         $maps = [
-            $this->organ('weak', ['decide_routing', 'decide_dispatch'], 3.0),
-            $this->organ('strong', ['decide_routing', 'decide_dispatch'], 9.0),
+            $this->organ('weak', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request']),
+            $this->organ('strong', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
         ];
 
         $r = $this->svc()->advise($maps);
@@ -99,8 +99,8 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
     public function test_migration_notes_reference_absorbed_and_canonical_organs(): void
     {
         $maps = [
-            $this->organ('canonical', ['decide_routing', 'decide_dispatch'], 8.0),
-            $this->organ('absorbed', ['decide_routing', 'decide_dispatch'], 3.0),
+            $this->organ('canonical', ['decide_routing', 'decide_dispatch'], 8.0, [], ['route_request']),
+            $this->organ('absorbed', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request']),
         ];
 
         $r = $this->svc()->advise($maps);
@@ -169,8 +169,8 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
     public function test_risk_high_when_many_exclusive_consumers_in_absorbed_organ(): void
     {
         $maps = [
-            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, ['shared_consumer']),
-            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, ['shared_consumer', 'c1', 'c2', 'c3']),
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, ['shared_consumer'], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, ['shared_consumer', 'c1', 'c2', 'c3'], ['route_request']),
         ];
 
         $r = $this->svc()->advise($maps);
@@ -207,5 +207,83 @@ final class AtlasExternalBrainRedundancyCollapseAdvisorTest extends TestCase
 
         $this->assertSame(0, $r['candidate_count']);
         $this->assertSame([], $r['refused_collapses']);
+    }
+
+    // ── AC1: new canonical fields on candidate ────────────────────────────────
+
+    private function safeCollapseResult(): array
+    {
+        return $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['cache_response']),
+        ]);
+    }
+
+    public function test_candidate_has_collapse_confidence(): void
+    {
+        $r = $this->safeCollapseResult();
+
+        $c = $r['collapse_candidates'][0];
+        $this->assertArrayHasKey('collapse_confidence', $c);
+        $this->assertGreaterThan(0.0, $c['collapse_confidence']);
+        $this->assertLessThanOrEqual(1.0, $c['collapse_confidence']);
+    }
+
+    public function test_candidate_has_canonical_owner_reason(): void
+    {
+        $r = $this->safeCollapseResult();
+
+        $this->assertArrayHasKey('canonical_owner_reason', $r['collapse_candidates'][0]);
+        $this->assertSame('higher_evidence_strength', $r['collapse_candidates'][0]['canonical_owner_reason']);
+    }
+
+    public function test_candidate_has_required_behavior_tests(): void
+    {
+        $r = $this->safeCollapseResult();
+
+        $c = $r['collapse_candidates'][0];
+        $this->assertArrayHasKey('required_behavior_tests', $c);
+        $this->assertNotEmpty($c['required_behavior_tests']);
+    }
+
+    public function test_candidate_has_deletion_blockers(): void
+    {
+        $r = $this->safeCollapseResult();
+
+        $this->assertArrayHasKey('deletion_blockers', $r['collapse_candidates'][0]);
+        $this->assertIsArray($r['collapse_candidates'][0]['deletion_blockers']);
+    }
+
+    public function test_deletion_blockers_includes_behavior_gap_when_absorbed_has_unique_behaviors(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, [], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, [], ['route_request', 'legacy_passthrough']),
+        ]);
+
+        $this->assertContains('behavior_gap_in_owner', $r['collapse_candidates'][0]['deletion_blockers']);
+    }
+
+    public function test_deletion_blockers_includes_exclusive_consumer_migration_when_absorbed_has_unique_consumers(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0, ['shared'], ['route_request']),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0, ['shared', 'exclusive_b'], ['route_request']),
+        ]);
+
+        $this->assertContains('exclusive_consumer_migration_required', $r['collapse_candidates'][0]['deletion_blockers']);
+    }
+
+    // ── AC2: refuse without behavior-preservation tests ───────────────────────
+
+    public function test_collapse_refused_when_no_behaviors_defined(): void
+    {
+        $r = $this->svc()->advise([
+            $this->organ('A', ['decide_routing', 'decide_dispatch'], 9.0),
+            $this->organ('B', ['decide_routing', 'decide_dispatch'], 3.0),
+        ]);
+
+        $this->assertSame(0, $r['candidate_count']);
+        $this->assertSame('no_behavior_preservation_tests', $r['refused_collapses'][0]['reason']);
     }
 }
