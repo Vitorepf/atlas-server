@@ -157,4 +157,66 @@ final class AtlasKnowledgeSyncRequiredArtifactMapTest extends TestCase
         $this->assertSame(64, strlen($rA['map_hash']));
         $this->assertSame($rA['map_hash'], $rB['map_hash']);
     }
+
+    // ── post_merge event ──────────────────────────────────────────────────────
+
+    public function test_post_merge_includes_full_finality_baseline(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive(['changed_files' => [], 'event_type' => 'post_merge']);
+        $ids = array_column($r['required_artifacts'], 'artifact_id');
+
+        foreach (['code_index', 'docs', 'memory', 'receipt_chain', 'tests_or_gates'] as $required) {
+            $this->assertContains($required, $ids, "post_merge must include finality baseline: {$required}");
+        }
+    }
+
+    public function test_post_merge_also_emits_post_merge_receipt(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive(['changed_files' => [], 'event_type' => 'post_merge']);
+        $this->assertContains('post_merge_receipt', array_column($r['required_artifacts'], 'artifact_id'));
+    }
+
+    public function test_post_merge_receipt_is_atlas_native(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive(['changed_files' => [], 'event_type' => 'post_merge']);
+        $byId = array_column($r['required_artifacts'], 'category', 'artifact_id');
+        $this->assertSame(AtlasKnowledgeSyncRequiredArtifactMap::CATEGORY_ATLAS_NATIVE, $byId['post_merge_receipt']);
+    }
+
+    public function test_check_freshness_blocks_when_post_merge_receipt_missing(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive(['changed_files' => [], 'event_type' => 'post_merge']);
+        $withoutReceipt = array_values(array_filter(
+            array_column($r['required_artifacts'], 'artifact_id'),
+            static fn (string $id): bool => $id !== 'post_merge_receipt'
+        ));
+
+        $check = $svc->checkFreshness($r['required_artifacts'], $withoutReceipt);
+        $this->assertTrue($check['blocked']);
+        $this->assertContains('post_merge_receipt', $check['missing_artifacts']);
+    }
+
+    public function test_operator_visibility_artifact_does_not_substitute_for_post_merge_receipt(): void
+    {
+        $svc = new AtlasKnowledgeSyncRequiredArtifactMap;
+        $r = $svc->derive([
+            'changed_files' => ['app/Foo.php'],
+            'event_type' => 'post_merge',
+            'release_candidate' => ['requires_release_notes' => true],
+        ]);
+
+        $check = $svc->checkFreshness($r['required_artifacts'], ['release-notes-update']);
+        $this->assertTrue($check['blocked']);
+        $this->assertContains('post_merge_receipt', $check['missing_artifacts']);
+    }
+
+    public function test_post_merge_artifact_list_is_sorted_deterministically(): void
+    {
+        $r = (new AtlasKnowledgeSyncRequiredArtifactMap)->derive(['changed_files' => [], 'event_type' => 'post_merge']);
+        $ids = array_column($r['required_artifacts'], 'artifact_id');
+        $copy = $ids;
+        sort($copy, SORT_STRING);
+        $this->assertSame($copy, $ids);
+    }
 }

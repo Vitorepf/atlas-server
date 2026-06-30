@@ -57,8 +57,8 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
 
         $artifacts = [];
 
-        // Completion and promotion events always require the full finality baseline.
-        if (in_array($eventType, ['completion', 'promotion'], true)) {
+        // Completion, promotion, and post_merge events always require the full finality baseline.
+        if (in_array($eventType, ['completion', 'promotion', 'post_merge'], true)) {
             $hintMap = [
                 'code_index'    => 'atlas engineering knowledge index-code --prune',
                 'docs'          => 'atlas engineering documentation health',
@@ -68,6 +68,9 @@ final class AtlasKnowledgeSyncRequiredArtifactMap
             ];
             foreach (self::FINALITY_BASELINE as $id) {
                 $artifacts[] = $this->artifact($id, $hintMap[$id] ?? $id, 'required for '.$eventType.' finality', self::CATEGORY_ATLAS_NATIVE);
+            }
+            if ($eventType === 'post_merge') {
+                $artifacts[] = $this->artifact('post_merge_receipt', 'atlas:task:receipts post-merge-verify', 'post_merge event — receipt chain proof required', self::CATEGORY_ATLAS_NATIVE);
             }
         }
 
