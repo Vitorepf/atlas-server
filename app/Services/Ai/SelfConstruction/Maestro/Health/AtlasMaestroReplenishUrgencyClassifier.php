@@ -18,6 +18,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
         private readonly int $thresholdLowClaimableDepth = 5,
         private readonly int $thresholdMinActiveWorkers = 2,
         private readonly int $thresholdHighStuckLeases = 3,
+        private readonly float $thresholdWorkerRatioHigh = 2.0,
     ) {}
 
     /**
@@ -75,6 +76,12 @@ final class AtlasMaestroReplenishUrgencyClassifier
         if ($suspectedStuckLeases >= $this->thresholdHighStuckLeases) {
             $reasons[] = 'high_stuck_lease_threat';
         }
+        // Primary starvation signal: claimable supply per active worker. Even when the raw
+        // claimable_depth looks fine, near-1-per-worker means active muscles are about to run
+        // out of claimable work before any seconds_until_dry/p95-age signal catches up.
+        if ($activeClaimedWorkers > 0 && ($claimableDepth / $activeClaimedWorkers) < $this->thresholdWorkerRatioHigh) {
+            $reasons[] = 'claimable_depth_near_one_per_active_worker';
+        }
         if ($reasons !== []) {
             return $this->resultWithAction('HIGH', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure, $claimableDepth, $secondsUntilDry), $reasons, $inputs);
         }
@@ -118,6 +125,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
         }
         if (in_array('queue_dry', $reasons, true)
             || in_array('low_claimable_depth_with_active_worker_pressure', $reasons, true)
+            || in_array('claimable_depth_near_one_per_active_worker', $reasons, true)
             || in_array('seconds_until_dry_below_threshold_high', $reasons, true)
             || in_array('seconds_until_dry_below_threshold_mid', $reasons, true)) {
             return 'originate';
