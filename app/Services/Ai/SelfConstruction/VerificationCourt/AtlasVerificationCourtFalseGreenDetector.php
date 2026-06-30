@@ -137,6 +137,30 @@ final class AtlasVerificationCourtFalseGreenDetector
             }
         }
 
+        // 3b. worker-continuity claim must be backed by a matching, passed replay outcome — a
+        // task claiming claimable_per_active_worker / no_claimable_task continuity improvement
+        // can never pass green on the evidence contract alone.
+        $claimedWorkerContinuity = (bool) ($facts['claimed_worker_continuity'] ?? false);
+        if ($claimedWorkerContinuity) {
+            $hasWorkerContinuityReplay = false;
+            foreach ($outcomes as $o) {
+                if (! is_array($o)) {
+                    continue;
+                }
+                $name = strtolower((string) ($o['name'] ?? ''));
+                $topicMatch = str_contains($name, 'claimable_per_active_worker') || str_contains($name, 'no_claimable_task');
+                $passed = ($o['passed'] ?? null) === true;
+                $outputPresent = ! array_key_exists('output_present', $o) || $o['output_present'] !== false;
+                if ($topicMatch && $passed && $outputPresent) {
+                    $hasWorkerContinuityReplay = true;
+                    break;
+                }
+            }
+            if (! $hasWorkerContinuityReplay) {
+                $blockerReasons[] = 'worker_continuity_replay_missing';
+            }
+        }
+
         // 4. scope-clean check
         $allowed = is_array($facts['allowed_files'] ?? null) ? array_values(array_map('strval', $facts['allowed_files'])) : [];
         $changed = is_array($facts['changed_files'] ?? null) ? array_values(array_map('strval', $facts['changed_files'])) : [];
@@ -200,6 +224,9 @@ final class AtlasVerificationCourtFalseGreenDetector
                 }
             } elseif ($r === 'evidence_contract_not_accepted') {
                 $families[] = 'evidence_contract';
+            } elseif ($r === 'worker_continuity_replay_missing') {
+                $evidenceToReplay[] = 'claimable_per_active_worker_or_no_claimable_task';
+                $families[] = 'worker_continuity';
             } elseif (str_starts_with($r, 'replay_conflict:')) {
                 $evidenceToReplay[] = substr($r, strlen('replay_conflict:'));
                 $families[] = 'conflict';
@@ -234,7 +261,7 @@ final class AtlasVerificationCourtFalseGreenDetector
     /** @param list<string> $families */
     private function dominantFamily(array $families): ?string
     {
-        foreach (['task_fabric', 'evidence_contract', 'conflict', 'replay', 'scope', 'proxy'] as $fam) {
+        foreach (['task_fabric', 'evidence_contract', 'worker_continuity', 'conflict', 'replay', 'scope', 'proxy'] as $fam) {
             if (in_array($fam, $families, true)) {
                 return $fam;
             }
@@ -251,6 +278,7 @@ final class AtlasVerificationCourtFalseGreenDetector
         return match ($family) {
             'task_fabric'       => 'Task fabric blocked replay plan' . ($blockerReason ? ": {$blockerReason}" : '') . '. Fix the blocker before re-queuing.',
             'evidence_contract' => 'Evidence contract rejected. Re-run evidence collection with a valid contract before claiming completion.',
+            'worker_continuity' => 'Worker-continuity improvement was claimed but no passed replay outcome covers claimable_per_active_worker or no_claimable_task. Add and pass a replay command for that evidence before claiming completion.',
             'conflict'          => "Conflicting replay outcomes for: {$ids}. Re-run those commands and submit a single canonical outcome.",
             'replay'            => "Replay commands failed or missing output: {$ids}. Re-run and confirm they pass before claiming completion.",
             'scope'             => 'Scope violation: changed files outside allowed scope: ' . implode(', ', $scopeViolationFiles) . '. Revert or add to allowed_files.',
