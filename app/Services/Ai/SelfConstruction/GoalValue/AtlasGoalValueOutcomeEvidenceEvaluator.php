@@ -57,16 +57,30 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
         $gates = is_array($facts['gates'] ?? null) ? $facts['gates'] : [];
         $verification = is_array($facts['verification'] ?? null) ? $facts['verification'] : [];
         $learning = is_array($facts['learning'] ?? null) ? $facts['learning'] : [];
+        $regressionSignals = is_array($facts['regression_signals'] ?? null)
+            ? array_values(array_filter($facts['regression_signals'], 'is_array'))
+            : [];
+        $capabilityDelta = is_array($facts['capability_delta'] ?? null) ? $facts['capability_delta'] : [];
 
         $valueFacts = [];
 
-        $valueFacts[] = $this->classFact(
+        // capability_lift: receipt + verification + non-empty capability_delta (before+after).
+        $capLiftFact = $this->classFact(
             self::CLASS_CAPABILITY_LIFT,
             $this->findReceipt($receipts, 'new_capability'),
             (bool) ($verification['server_side_green'] ?? false),
             'verification ref absent or not server_side_green',
             (string) ($verification['ref'] ?? ''),
         );
+        if ($capLiftFact['status'] === self::STATUS_CONFIRMED) {
+            $before = trim((string) ($capabilityDelta['before'] ?? ''));
+            $after = trim((string) ($capabilityDelta['after'] ?? ''));
+            if ($before === '' || $after === '') {
+                $capLiftFact = ['class' => self::CLASS_CAPABILITY_LIFT, 'status' => self::STATUS_BLOCKED, 'reason' => 'capability_delta missing: before/after required', 'evidence_refs' => $capLiftFact['evidence_refs']];
+            }
+        }
+        $valueFacts[] = $capLiftFact;
+
         $valueFacts[] = $this->classFact(
             self::CLASS_FAILURE_REMOVAL,
             $this->findReceipt($receipts, 'fix_failure'),
@@ -95,6 +109,20 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             'code_index gate absent or not passing',
             $this->firstRef($gates, 'code_index'),
         );
+
+        // Regression signals block any confirmed verdict and preserve evidence_refs.
+        if ($regressionSignals !== []) {
+            $regRefs = array_values(array_filter(array_map(static fn (array $s): string => (string) ($s['ref'] ?? ''), $regressionSignals)));
+            $valueFacts = array_map(static function (array $fact) use ($regRefs): array {
+                if ($fact['status'] === self::STATUS_CONFIRMED) {
+                    $fact['status'] = self::STATUS_BLOCKED;
+                    $fact['reason'] = 'regression_signal_present';
+                    $fact['evidence_refs'] = array_values(array_unique(array_merge($fact['evidence_refs'], $regRefs)));
+                }
+
+                return $fact;
+            }, $valueFacts);
+        }
 
         usort($valueFacts, static fn (array $a, array $b): int => strcmp($a['class'], $b['class']));
 
