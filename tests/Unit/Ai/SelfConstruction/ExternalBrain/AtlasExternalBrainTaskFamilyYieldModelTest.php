@@ -161,4 +161,96 @@ final class AtlasExternalBrainTaskFamilyYieldModelTest extends TestCase
         $b = $this->model()->model($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC1: roi_score, confidence, recommended_action, reasons ──────────────
+
+    public function test_per_family_has_roi_score_confidence_action_reasons(): void
+    {
+        $r = $this->model()->model(['families' => [$this->family()]]);
+        $f = $r['family_yields'][0];
+
+        $this->assertArrayHasKey('roi_score', $f);
+        $this->assertArrayHasKey('confidence', $f);
+        $this->assertArrayHasKey('recommended_action', $f);
+        $this->assertArrayHasKey('reasons', $f);
+    }
+
+    public function test_invest_recommended_for_high_roi_family(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['accepted_specs' => 2, 'resolved_capability_deltas' => 5, 'architecture_unlocks' => 2]),
+        ]]);
+
+        $this->assertSame('invest', $r['family_yields'][0]['recommended_action']);
+    }
+
+    public function test_deprioritize_for_high_give_back_family(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['give_back_rate' => 0.40, 'resolved_capability_deltas' => 2]),
+        ]]);
+
+        $this->assertSame('deprioritize', $r['family_yields'][0]['recommended_action']);
+        $this->assertContains('high_give_back_rate', $r['family_yields'][0]['reasons']);
+    }
+
+    public function test_confidence_high_when_five_or_more_specs(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['accepted_specs' => 6, 'resolved_capability_deltas' => 3]),
+        ]]);
+
+        $this->assertSame('high', $r['family_yields'][0]['confidence']);
+    }
+
+    public function test_confidence_low_when_fewer_than_two_specs(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['accepted_specs' => 1, 'resolved_capability_deltas' => 1]),
+        ]]);
+
+        $this->assertSame('low', $r['family_yields'][0]['confidence']);
+    }
+
+    // ── AC2: high-spec/low-delta downranked below strong-delivery families ────
+
+    public function test_high_spec_low_delta_ranked_below_smaller_high_delivery(): void
+    {
+        $specHeavy = $this->family([
+            'family_id'                  => 'spec_heavy',
+            'accepted_specs'             => 10,
+            'resolved_capability_deltas' => 0,  // → zero_delta_penalty
+        ]);
+        $smallStrong = $this->family([
+            'family_id'                  => 'small_strong',
+            'accepted_specs'             => 2,
+            'resolved_capability_deltas' => 3,
+        ]);
+
+        $r = $this->model()->model(['families' => [$specHeavy, $smallStrong]]);
+
+        $this->assertSame('small_strong', $r['ranked_families'][0]);
+        $this->assertSame('spec_heavy',   $r['ranked_families'][1]);
+    }
+
+    public function test_give_back_rate_reduces_roi_score(): void
+    {
+        $noGiveBack   = $this->family(['family_id' => 'a', 'resolved_capability_deltas' => 3, 'give_back_rate' => 0.0]);
+        $highGiveBack = $this->family(['family_id' => 'b', 'resolved_capability_deltas' => 3, 'give_back_rate' => 0.8]);
+
+        $r = $this->model()->model(['families' => [$noGiveBack, $highGiveBack]]);
+
+        $byId = array_column($r['family_yields'], null, 'family_id');
+        $this->assertGreaterThan($byId['b']['roi_score'], $byId['a']['roi_score']);
+    }
+
+    public function test_roi_score_within_valid_range(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['give_back_rate' => 0.9, 'resolved_capability_deltas' => 0]),
+        ]]);
+
+        $this->assertGreaterThanOrEqual(0.0, $r['family_yields'][0]['roi_score']);
+        $this->assertLessThanOrEqual(1.0,   $r['family_yields'][0]['roi_score']);
+    }
 }
