@@ -421,4 +421,57 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStartEnvelopeG
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── validateProviderSafeEnvelope() ───────────────────────────────────────
+
+    private function envelope(array $overrides = []): array
+    {
+        return array_merge([
+            'task_id' => 'task-1',
+            'lease_id' => 'lease-1',
+            'allowed_files' => ['app/Foo.php'],
+            'proof_requirements' => ['test_output'],
+            'scoped_execution_data' => ['command' => 'php artisan test'],
+        ], $overrides);
+    }
+
+    public function test_envelope_valid_with_only_required_fields(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProcessStartEnvelopeGate::class);
+        $result = $gate->validateProviderSafeEnvelope($this->envelope());
+
+        $this->assertTrue($result['envelope_valid']);
+        $this->assertFalse($result['redaction_needed']);
+        $this->assertSame([], $result['missing_fields']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_envelope_invalid_when_required_field_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProcessStartEnvelopeGate::class);
+        $result = $gate->validateProviderSafeEnvelope($this->envelope(['proof_requirements' => []]));
+
+        $this->assertFalse($result['envelope_valid']);
+        $this->assertContains('proof_requirements', $result['missing_fields']);
+    }
+
+    public function test_envelope_flags_redaction_for_workspace_context(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProcessStartEnvelopeGate::class);
+        $result = $gate->validateProviderSafeEnvelope($this->envelope(['workspace_cwd' => '/secret']));
+
+        $this->assertFalse($result['envelope_valid']);
+        $this->assertTrue($result['redaction_needed']);
+        $this->assertContains('workspace_cwd', $result['forbidden_fields']);
+    }
+
+    public function test_envelope_flags_redaction_for_raw_prompt(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartProcessStartEnvelopeGate::class);
+        $result = $gate->validateProviderSafeEnvelope($this->envelope(['raw_system_prompt' => 'you are...']));
+
+        $this->assertFalse($result['envelope_valid']);
+        $this->assertTrue($result['redaction_needed']);
+        $this->assertContains('raw_system_prompt', $result['forbidden_fields']);
+    }
 }

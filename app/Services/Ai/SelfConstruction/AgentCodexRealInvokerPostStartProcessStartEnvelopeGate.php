@@ -142,6 +142,57 @@ class AgentCodexRealInvokerPostStartProcessStartEnvelopeGate
         private readonly AgentCodexRealInvokerProcessStartEnvelopeBuilder $envelopeBuilder,
     ) {}
 
+    private const REQUIRED_ENVELOPE_FIELDS = ['task_id', 'lease_id', 'allowed_files', 'proof_requirements', 'scoped_execution_data'];
+
+    private const FORBIDDEN_FIELD_KEYWORDS = ['workspace', 'cwd', 'prompt', 'system_prompt', 'raw_'];
+
+    /**
+     * Pure, provider-free validation that a final process-start envelope
+     * contains ONLY provider-safe task context, proof requirements and
+     * scoped execution data — never unrelated workspace context, raw
+     * prompts, or other forbidden fields, and never with a required field
+     * missing. Never starts a process; only judges the envelope shape.
+     *
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>
+     */
+    public function validateProviderSafeEnvelope(array $envelope): array
+    {
+        $missingFields = [];
+        foreach (self::REQUIRED_ENVELOPE_FIELDS as $field) {
+            $value = $envelope[$field] ?? null;
+            $isEmpty = $value === null || $value === '' || $value === [];
+            if ($isEmpty) {
+                $missingFields[] = $field;
+            }
+        }
+
+        $forbiddenFields = [];
+        foreach (array_keys($envelope) as $key) {
+            if (in_array($key, self::REQUIRED_ENVELOPE_FIELDS, true)) {
+                continue;
+            }
+            $lower = strtolower($key);
+            foreach (self::FORBIDDEN_FIELD_KEYWORDS as $keyword) {
+                if (str_contains($lower, $keyword)) {
+                    $forbiddenFields[] = $key;
+                    break;
+                }
+            }
+        }
+
+        return [
+            'envelope_valid' => $missingFields === [] && $forbiddenFields === [],
+            'redaction_needed' => $forbiddenFields !== [],
+            'missing_fields' => $missingFields,
+            'forbidden_fields' => $forbiddenFields,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
