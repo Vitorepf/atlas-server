@@ -241,4 +241,145 @@ class AtlasSelfConstructionTaskGraphCoverageAuditorTest extends TestCase
         self::assertSame($a['lanes']['compounding']['coverage_pct'], $b['lanes']['compounding']['coverage_pct']);
         self::assertEqualsWithDelta(2 / 3, $a['lanes']['compounding']['coverage_pct'], 0.001);
     }
+
+    // ── auditGaps tests ───────────────────────────────────────────────────────
+
+    private function organMeta(string $organId, string $lane = 'frontier', int $wave = 1, string $risk = 'high'): array
+    {
+        return [
+            'organ_id' => $organId,
+            'required_task_tags' => ['self_construction', $organId],
+            'lane' => $lane,
+            'dependency_wave' => $wave,
+            'maturity_risk' => $risk,
+        ];
+    }
+
+    public function test_audit_gaps_covered_organs_produce_no_gaps(): void
+    {
+        $meta = [$this->organMeta('cortex'), $this->organMeta('verification_court', 'lane-governor', 2, 'low')];
+        $records = [$this->fullRecord('cortex'), $this->fullRecord('verification_court')];
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps($records, $meta);
+
+        self::assertSame(0, $r['gap_count']);
+        self::assertSame([], $r['gaps']);
+        self::assertSame(AtlasSelfConstructionTaskGraphCoverageAuditor::GAPS_SCHEMA, $r['schema_version']);
+    }
+
+    public function test_audit_gaps_missing_organ_is_unimplemented(): void
+    {
+        $meta = [$this->organMeta('cortex')];
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([], $meta);
+
+        self::assertSame(1, $r['gap_count']);
+        self::assertSame('unimplemented', $r['gaps'][0]['reason']);
+        self::assertSame('cortex', $r['gaps'][0]['organ_id']);
+    }
+
+    public function test_audit_gaps_thin_organ_is_untested(): void
+    {
+        $meta = [$this->organMeta('cortex')];
+        $thin = $this->fullRecord('cortex');
+        $thin['task_packet']['evidence_classes'] = ['implementation']; // missing gate/receipt/cli_or_readiness
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([$thin], $meta);
+
+        self::assertSame('untested', $r['gaps'][0]['reason']);
+    }
+
+    public function test_audit_gaps_blocked_organ_has_blocked_reason(): void
+    {
+        $meta = [$this->organMeta('cortex')];
+        $blocked = $this->fullRecord('cortex', 'blocked');
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([$blocked], $meta);
+
+        self::assertSame('blocked', $r['gaps'][0]['reason']);
+    }
+
+    public function test_audit_gaps_stale_organ_has_stale_knowledge_reason(): void
+    {
+        $meta = [$this->organMeta('cortex')];
+        $stale = $this->fullRecord('cortex', 'completed_dry_run');
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([$stale], $meta);
+
+        self::assertSame('stale_knowledge', $r['gaps'][0]['reason']);
+    }
+
+    public function test_audit_gaps_groups_by_lane(): void
+    {
+        $meta = [
+            $this->organMeta('cortex', 'frontier'),
+            $this->organMeta('verification_court', 'frontier'),
+            $this->organMeta('task_fabric', 'task-fabric'),
+        ];
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([], $meta);
+
+        self::assertArrayHasKey('frontier', $r['by_lane']);
+        self::assertContains('cortex', $r['by_lane']['frontier']);
+        self::assertContains('verification_court', $r['by_lane']['frontier']);
+        self::assertArrayHasKey('task-fabric', $r['by_lane']);
+    }
+
+    public function test_audit_gaps_groups_by_dependency_wave(): void
+    {
+        $meta = [
+            $this->organMeta('cortex', 'frontier', 1),
+            $this->organMeta('verification_court', 'frontier', 2),
+        ];
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([], $meta);
+
+        self::assertArrayHasKey('1', $r['by_wave']);
+        self::assertArrayHasKey('2', $r['by_wave']);
+        self::assertContains('cortex', $r['by_wave']['1']);
+        self::assertContains('verification_court', $r['by_wave']['2']);
+    }
+
+    public function test_audit_gaps_groups_by_maturity_risk(): void
+    {
+        $meta = [
+            $this->organMeta('cortex', 'frontier', 1, 'high'),
+            $this->organMeta('verification_court', 'frontier', 1, 'low'),
+        ];
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([], $meta);
+
+        self::assertArrayHasKey('high', $r['by_maturity_risk']);
+        self::assertArrayHasKey('low', $r['by_maturity_risk']);
+    }
+
+    public function test_audit_gaps_latest_evidence_ref_extracted_from_matching_record(): void
+    {
+        $meta = [$this->organMeta('cortex')];
+        $rec = $this->fullRecord('cortex', 'blocked');
+        $rec['evidence_hash'] = 'hash-abc123';
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([$rec], $meta);
+
+        self::assertSame('hash-abc123', $r['gaps'][0]['latest_evidence_ref']);
+    }
+
+    public function test_audit_gaps_latest_evidence_ref_null_when_no_evidence(): void
+    {
+        $meta = [$this->organMeta('cortex')];
+        $auditor = new AtlasSelfConstructionTaskGraphCoverageAuditor;
+
+        $r = $auditor->auditGaps([], $meta);
+
+        self::assertNull($r['gaps'][0]['latest_evidence_ref']);
+    }
 }

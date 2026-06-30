@@ -31,6 +31,8 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
 {
     public const SCHEMA = 'atlas.self_construction.task_graph_coverage_auditor.v1';
 
+    public const GAPS_SCHEMA = 'atlas.self_construction.task_graph_coverage_auditor.gaps.v1';
+
     public const COVERAGE_COVERED = 'covered';
 
     public const COVERAGE_THIN = 'thin';
@@ -40,6 +42,14 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
     public const COVERAGE_MISSING = 'missing';
 
     public const COVERAGE_BLOCKED = 'blocked';
+
+    /** @var array<string,string> */
+    public const GAP_REASON_CODES = [
+        'missing' => 'unimplemented',
+        'thin'    => 'untested',
+        'blocked' => 'blocked',
+        'stale'   => 'stale_knowledge',
+    ];
 
     /** @var list<string> */
     private const REQUIRED_EVIDENCE_CLASSES = ['implementation', 'gate', 'receipt', 'cli_or_readiness'];
@@ -278,6 +288,108 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
     }
 
     /**
+     * Produce structured gap entries grouped by organ, lane, dependency wave, and maturity risk.
+     *
+     * Each gap includes a reason code: unimplemented (missing), untested (thin),
+     * blocked, or stale_knowledge (stale), plus the latest evidence ref from
+     * any matching record.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @param  list<array<string,mixed>>  $organMeta  organ entries with optional lane/dependency_wave/maturity_risk;
+     *                                                 if empty, falls back to organsOverride / organMap
+     * @return array<string,mixed>
+     */
+    public function auditGaps(array $records, array $organMeta = []): array
+    {
+        if ($organMeta !== []) {
+            $organs = $organMeta;
+        } elseif ($this->organsOverride !== null) {
+            $organs = $this->organsOverride;
+        } else {
+            $organMapData = ($this->organMap ?? new AtlasSelfConstructionFinalOrganMap)->describe();
+            $organs = (array) $organMapData['organs'];
+        }
+
+        $gaps = [];
+        foreach ($organs as $organ) {
+            $organId = (string) ($organ['organ_id'] ?? '');
+            if ($organId === '') {
+                continue;
+            }
+            $tags = array_values(array_map('strval', (array) ($organ['required_task_tags'] ?? [$organId])));
+            $matched = $this->matchesForOrgan($records, $organId, $tags);
+
+            if ($matched === []) {
+                $coverageStatus = self::COVERAGE_MISSING;
+            } else {
+                $selfSufficient = array_values(array_filter($matched, fn (array $r): bool => $this->isSelfSufficient($r)));
+                if ($selfSufficient === []) {
+                    $hasBlocked = array_filter(
+                        $matched,
+                        static fn (array $r): bool => in_array((string) ($r['status'] ?? ''), self::NON_SELF_SUFFICIENT_STATUSES, true),
+                    );
+                    $coverageStatus = $hasBlocked !== [] ? self::COVERAGE_BLOCKED : self::COVERAGE_STALE;
+                } else {
+                    $legacyOnly = array_filter($selfSufficient, fn (array $r): bool => $this->isLegacyOnly($r));
+                    if (count($legacyOnly) === count($selfSufficient)) {
+                        $coverageStatus = self::COVERAGE_STALE;
+                    } else {
+                        $liveRecords = array_values(array_diff_key($selfSufficient, $legacyOnly));
+                        $coverageStatus = $this->missingEvidenceClasses($liveRecords) !== [] ? self::COVERAGE_THIN : self::COVERAGE_COVERED;
+                    }
+                }
+            }
+
+            if ($coverageStatus === self::COVERAGE_COVERED) {
+                continue;
+            }
+
+            $lane = (string) ($organ['lane'] ?? '');
+            $dependencyWave = isset($organ['dependency_wave']) ? (int) $organ['dependency_wave'] : null;
+            $maturityRisk = (string) ($organ['maturity_risk'] ?? '');
+            $gaps[] = [
+                'organ_id' => $organId,
+                'reason' => self::GAP_REASON_CODES[$coverageStatus] ?? $coverageStatus,
+                'lane' => $lane,
+                'dependency_wave' => $dependencyWave,
+                'maturity_risk' => $maturityRisk,
+                'latest_evidence_ref' => $this->latestEvidenceRef($matched),
+            ];
+        }
+
+        $byLane = [];
+        $byWave = [];
+        $byMaturityRisk = [];
+        $reasonCodes = [];
+        foreach ($gaps as $gap) {
+            if ($gap['lane'] !== '') {
+                $byLane[$gap['lane']][] = $gap['organ_id'];
+            }
+            if ($gap['dependency_wave'] !== null) {
+                $byWave[(string) $gap['dependency_wave']][] = $gap['organ_id'];
+            }
+            if ($gap['maturity_risk'] !== '') {
+                $byMaturityRisk[$gap['maturity_risk']][] = $gap['organ_id'];
+            }
+            $reasonCodes[$gap['reason']][] = $gap['organ_id'];
+        }
+        ksort($byLane, SORT_STRING);
+        ksort($byWave, SORT_STRING);
+        ksort($byMaturityRisk, SORT_STRING);
+        ksort($reasonCodes, SORT_STRING);
+
+        return [
+            'schema_version' => self::GAPS_SCHEMA,
+            'gaps' => $gaps,
+            'gap_count' => count($gaps),
+            'by_lane' => $byLane,
+            'by_wave' => $byWave,
+            'by_maturity_risk' => $byMaturityRisk,
+            'reason_codes' => $reasonCodes,
+        ];
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $records
      * @param  list<string>  $tags
      * @return list<array<string,mixed>>
@@ -351,5 +463,27 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
         }
 
         return $missing;
+    }
+
+    /**
+     * Extract the latest non-empty evidence_hash or evidence_ref from matched records.
+     *
+     * @param  list<array<string,mixed>>  $records
+     */
+    private function latestEvidenceRef(array $records): ?string
+    {
+        foreach (array_reverse($records) as $rec) {
+            $ref = (string) ($rec['evidence_hash'] ?? $rec['evidence_ref'] ?? '');
+            if ($ref !== '') {
+                return $ref;
+            }
+            $packet = is_array($rec['task_packet'] ?? null) ? $rec['task_packet'] : [];
+            $ref = (string) ($packet['evidence_hash'] ?? $packet['evidence_ref'] ?? '');
+            if ($ref !== '') {
+                return $ref;
+            }
+        }
+
+        return null;
     }
 }
