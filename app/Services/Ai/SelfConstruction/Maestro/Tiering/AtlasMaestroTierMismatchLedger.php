@@ -53,6 +53,11 @@ final class AtlasMaestroTierMismatchLedger
         ksort($canonical);
         $row['content_hash'] = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
+        // Duplicate suppression — same content_hash already recorded → skip.
+        if ($this->contentHashExists($row['content_hash'])) {
+            return;
+        }
+
         $this->appendOnly($row);
     }
 
@@ -78,6 +83,73 @@ final class AtlasMaestroTierMismatchLedger
         $out = array_reverse($out); // newest-first
 
         return array_slice($out, 0, max(0, $limit));
+    }
+
+    /**
+     * All mismatch rows for a given worker (client_id), oldest-first.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forWorker(string $clientId): array
+    {
+        return array_values(array_filter($this->allRows(), static fn (array $r): bool => ($r['client_id'] ?? '') === $clientId));
+    }
+
+    /**
+     * All mismatch rows where packet_id starts with $family.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forFamily(string $family): array
+    {
+        return array_values(array_filter($this->allRows(), static fn (array $r): bool => str_starts_with((string) ($r['packet_id'] ?? ''), $family)));
+    }
+
+    /**
+     * Learning signal recommendation for a worker: which tiers to avoid assigning.
+     *
+     * @return array{client_id:string, avoid_tiers:list<string>, mismatch_count:int, signal:string}
+     */
+    public function recommend(string $clientId): array
+    {
+        $rows = $this->forWorker($clientId);
+        $tiers = array_values(array_unique(array_filter(array_map(static fn (array $r): string => (string) ($r['inferred_tier'] ?? ''), $rows))));
+        sort($tiers, SORT_STRING);
+
+        return [
+            'client_id'     => $clientId,
+            'avoid_tiers'   => $tiers,
+            'mismatch_count' => count($rows),
+            'signal'        => count($tiers) > 0 ? 'avoid_tiers:'.implode(',', $tiers) : 'no_mismatches',
+        ];
+    }
+
+    /** @return list<array<string,mixed>> oldest-first */
+    private function allRows(): array
+    {
+        if (! is_file($this->ledgerPath)) {
+            return [];
+        }
+        $out = [];
+        foreach (file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            $decoded = json_decode((string) $line, true);
+            if (is_array($decoded)) {
+                $out[] = $decoded;
+            }
+        }
+
+        return $out;
+    }
+
+    private function contentHashExists(string $hash): bool
+    {
+        foreach ($this->allRows() as $row) {
+            if (($row['content_hash'] ?? '') === $hash) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

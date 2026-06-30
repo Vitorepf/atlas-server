@@ -115,4 +115,57 @@ final class AtlasMaestroTierMismatchLedgerTest extends TestCase
         $lines = file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         $this->assertCount(2, $lines);
     }
+
+    public function test_duplicate_suppression_prevents_double_row(): void
+    {
+        $this->ledger->record($this->refusal(), ['packet_id' => 'p-dup']);
+        $this->ledger->record($this->refusal(), ['packet_id' => 'p-dup']); // identical → same content_hash
+
+        $lines = file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $this->assertCount(1, $lines);
+    }
+
+    public function test_for_worker_aggregates_all_rows_for_client(): void
+    {
+        $this->ledger->record($this->refusal('worker-a'), ['packet_id' => 'p1']);
+        $this->ledger->record($this->refusal('worker-b'), ['packet_id' => 'p2']);
+        $this->ledger->record($this->refusal('worker-a'), ['packet_id' => 'p3']);
+
+        $rows = $this->ledger->forWorker('worker-a');
+        $this->assertCount(2, $rows);
+        foreach ($rows as $r) {
+            $this->assertSame('worker-a', $r['client_id']);
+        }
+    }
+
+    public function test_for_family_aggregates_by_packet_id_prefix(): void
+    {
+        $this->ledger->record($this->refusal(), ['packet_id' => 'atlas-task-1']);
+        $this->ledger->record($this->refusal('w2'), ['packet_id' => 'atlas-task-2']);
+        $this->ledger->record($this->refusal('w3'), ['packet_id' => 'other-task-1']);
+
+        $this->assertCount(2, $this->ledger->forFamily('atlas-task'));
+        $this->assertCount(1, $this->ledger->forFamily('other-task'));
+        $this->assertCount(0, $this->ledger->forFamily('missing'));
+    }
+
+    public function test_recommend_returns_avoid_tiers_and_signal(): void
+    {
+        $this->ledger->record($this->refusal('learner'), ['packet_id' => 'p1']);
+        $rec = $this->ledger->recommend('learner');
+
+        $this->assertSame('learner', $rec['client_id']);
+        $this->assertContains('hardest', $rec['avoid_tiers']);
+        $this->assertSame(1, $rec['mismatch_count']);
+        $this->assertStringContainsString('avoid_tiers', $rec['signal']);
+    }
+
+    public function test_recommend_no_mismatches_returns_clean_signal(): void
+    {
+        $rec = $this->ledger->recommend('unknown-worker');
+
+        $this->assertSame([], $rec['avoid_tiers']);
+        $this->assertSame(0, $rec['mismatch_count']);
+        $this->assertSame('no_mismatches', $rec['signal']);
+    }
 }
