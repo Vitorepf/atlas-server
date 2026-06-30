@@ -244,4 +244,136 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
         $this->assertSame(0, $result['expected_line_delta']);
         $this->assertSame([], $result['first_safe_batch']);
     }
+
+    // ── AC3: rationale + risk_level on every entry ────────────────────────────
+
+    public function test_every_ranked_action_has_rationale_and_risk_level(): void
+    {
+        $result = $this->plan(
+            $this->organ('keep-me'),
+            $this->organ('blocked-r', ['evidence_strength' => 0.05]),
+        );
+
+        foreach ($result['ranked_actions'] as $entry) {
+            $this->assertArrayHasKey('rationale', $entry, "Missing rationale on {$entry['organ_id']}");
+            $this->assertArrayHasKey('risk_level', $entry, "Missing risk_level on {$entry['organ_id']}");
+            $this->assertIsString($entry['rationale']);
+            $this->assertIsString($entry['risk_level']);
+            $this->assertNotEmpty($entry['rationale']);
+            $this->assertNotEmpty($entry['risk_level']);
+        }
+    }
+
+    public function test_retire_blocked_has_high_risk_level(): void
+    {
+        $result = $this->plan($this->organ('rb', ['evidence_strength' => 0.05]));
+        $entry  = $this->findEntry($result, 'rb');
+
+        $this->assertSame('high', $entry['risk_level']);
+    }
+
+    public function test_merge_blocked_has_medium_risk_level(): void
+    {
+        $result = $this->plan($this->organ('mb', [
+            'overlap_organs'        => ['other'],
+            'has_replacement_owner' => false,
+            'has_test_coverage'     => true,
+        ]));
+        $entry = $this->findEntry($result, 'mb');
+
+        $this->assertSame('medium', $entry['risk_level']);
+    }
+
+    public function test_keep_and_retire_and_simplify_have_low_risk_level(): void
+    {
+        $result = $this->plan(
+            $this->organ('k', ['evidence_strength' => 0.90, 'consumer_count' => 5]),
+            $this->organ('r', ['evidence_strength' => 0.05, 'line_count' => 50, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
+            $this->organ('s', ['line_count' => 400, 'consumer_count' => 1]),
+        );
+
+        foreach (['k', 'r', 's'] as $id) {
+            $this->assertSame('low', $this->findEntry($result, $id)['risk_level'], "Expected low risk for $id");
+        }
+    }
+
+    // ── AC2: wrapper/template detection ──────────────────────────────────────
+
+    public function test_wrapper_organ_classified_as_simplify(): void
+    {
+        $result = $this->plan($this->organ('wrap-01', [
+            'organ_type' => 'wrapper',
+            'line_count' => 150,
+        ]));
+        $entry = $this->findEntry($result, 'wrap-01');
+
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_SIMPLIFY, $entry['action']);
+        $this->assertStringContainsString('consolidation_candidate', implode(' ', $entry['reasons']));
+        $this->assertStringContainsString('consolidate', $entry['rationale']);
+        $this->assertLessThan(0, $entry['line_delta']);
+    }
+
+    public function test_template_organ_classified_as_simplify(): void
+    {
+        $result = $this->plan($this->organ('tmpl-01', [
+            'organ_type' => 'template',
+            'line_count' => 200,
+        ]));
+        $entry = $this->findEntry($result, 'tmpl-01');
+
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_SIMPLIFY, $entry['action']);
+        $this->assertStringContainsString('consolidation_candidate', implode(' ', $entry['reasons']));
+    }
+
+    // ── AC2: capability_groups output ────────────────────────────────────────
+
+    public function test_plan_output_has_capability_groups_key(): void
+    {
+        $result = $this->plan($this->organ('o1'));
+        $this->assertArrayHasKey('capability_groups', $result);
+        $this->assertIsArray($result['capability_groups']);
+    }
+
+    public function test_organs_sharing_label_form_a_group(): void
+    {
+        $result = $this->plan(
+            $this->organ('a', ['capability_labels' => ['emit_tasks', 'score']]),
+            $this->organ('b', ['capability_labels' => ['emit_tasks', 'route']]),
+            $this->organ('c', ['capability_labels' => ['unrelated']]),
+        );
+
+        $groups = $result['capability_groups'];
+        $this->assertCount(1, $groups, 'Only one overlap group should form (a+b share emit_tasks)');
+
+        $group = $groups[0];
+        $this->assertContains('a', $group['organ_ids']);
+        $this->assertContains('b', $group['organ_ids']);
+        $this->assertNotContains('c', $group['organ_ids']);
+        $this->assertStringContainsString('emit_tasks', $group['capability_intent']);
+        $this->assertArrayHasKey('overlap_type', $group);
+        $this->assertArrayHasKey('consolidation_recommendation', $group);
+    }
+
+    public function test_wrapper_organ_in_group_produces_wrapper_overlap_type(): void
+    {
+        $result = $this->plan(
+            $this->organ('core', ['capability_labels' => ['process_task']]),
+            $this->organ('wrap', ['capability_labels' => ['process_task'], 'organ_type' => 'wrapper']),
+        );
+
+        $groups = $result['capability_groups'];
+        $this->assertCount(1, $groups);
+        $this->assertSame('wrapper', $groups[0]['overlap_type']);
+        $this->assertSame('consolidate_into_core_service', $groups[0]['consolidation_recommendation']);
+    }
+
+    public function test_no_overlap_produces_empty_capability_groups(): void
+    {
+        $result = $this->plan(
+            $this->organ('x', ['capability_labels' => ['label_x']]),
+            $this->organ('y', ['capability_labels' => ['label_y']]),
+        );
+
+        $this->assertSame([], $result['capability_groups']);
+    }
 }
