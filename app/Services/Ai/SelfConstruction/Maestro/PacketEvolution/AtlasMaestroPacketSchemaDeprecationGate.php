@@ -39,6 +39,61 @@ final class AtlasMaestroPacketSchemaDeprecationGate
     }
 
     /**
+     * Fail-closed policy check: returns a verdict with named blockers instead of throwing.
+     *
+     * servable=true  only when schema is active or preview, OR deprecated with a proven
+     * lossless upgrade path (successor schema exists and is not itself deprecated/retired).
+     * Retired schemas are never servable.
+     *
+     * Named blockers:
+     *   deprecated_schema_no_lossless_upgrade_proof:{schema_id}
+     *   retired_schema_not_servable:{schema_id}
+     *
+     * Pure — no network, no queue mutation, no provider calls.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array{servable: bool, blockers: list<string>, schema_status: string, schema_id: string}
+     */
+    public static function check(array $packet): array
+    {
+        $schemaId = (string) ($packet['schema_version'] ?? '');
+        if ($schemaId === '') {
+            return ['servable' => true, 'blockers' => [], 'schema_status' => 'unknown', 'schema_id' => ''];
+        }
+        $registry = self::$registryOverride ?? new AtlasMaestroPacketSchemaVersioning();
+        if (! $registry->supports($schemaId)) {
+            return ['servable' => true, 'blockers' => [], 'schema_status' => 'unknown', 'schema_id' => $schemaId];
+        }
+        $row = $registry->describe($schemaId);
+        $status = (string) ($row['status'] ?? '');
+
+        if (! in_array($status, [AtlasMaestroPacketSchemaVersioning::STATUS_DEPRECATED, AtlasMaestroPacketSchemaVersioning::STATUS_RETIRED], true)) {
+            return ['servable' => true, 'blockers' => [], 'schema_status' => $status, 'schema_id' => $schemaId];
+        }
+
+        $blockers = [];
+
+        if ($status === AtlasMaestroPacketSchemaVersioning::STATUS_RETIRED) {
+            $blockers[] = 'retired_schema_not_servable:'.$schemaId;
+        } else {
+            // deprecated — pass only when a lossless upgrade path is proven
+            $successor = (string) ($row['successor'] ?? '');
+            $hasLosslessUpgrade = $successor !== ''
+                && $registry->supports($successor)
+                && ! in_array(
+                    (string) ($registry->describe($successor)['status'] ?? ''),
+                    [AtlasMaestroPacketSchemaVersioning::STATUS_DEPRECATED, AtlasMaestroPacketSchemaVersioning::STATUS_RETIRED],
+                    true,
+                );
+            if (! $hasLosslessUpgrade) {
+                $blockers[] = 'deprecated_schema_no_lossless_upgrade_proof:'.$schemaId;
+            }
+        }
+
+        return ['servable' => $blockers === [], 'blockers' => $blockers, 'schema_status' => $status, 'schema_id' => $schemaId];
+    }
+
+    /**
      * @param  array<string,mixed>  $packet
      *
      * @throws DeprecatedSchemaRefusedException

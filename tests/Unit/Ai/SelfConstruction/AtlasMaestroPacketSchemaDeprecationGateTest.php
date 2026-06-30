@@ -122,4 +122,29 @@ final class AtlasMaestroPacketSchemaDeprecationGateTest extends TestCase
         $this->assertTrue(AtlasMaestroPacketSchemaDeprecationGate::shouldWarn(['schema_version' => 'atlas.preview.v2']));
         $this->assertFalse(AtlasMaestroPacketSchemaDeprecationGate::shouldWarn(['schema_version' => AtlasMaestroPacketSchemaVersioning::CANONICAL_V1]));
     }
+
+    public function test_check_returns_servable_false_with_named_blockers_for_deprecated_schema_without_lossless_upgrade(): void
+    {
+        $this->deprecateV1Registry(); // successor=null → no lossless upgrade path
+
+        $verdict = AtlasMaestroPacketSchemaDeprecationGate::check($this->packet());
+
+        $this->assertFalse($verdict['servable']);
+        $this->assertNotEmpty($verdict['blockers']);
+        $this->assertStringContainsString(
+            'deprecated_schema_no_lossless_upgrade_proof:'.AtlasMaestroPacketSchemaVersioning::CANONICAL_V1,
+            implode(',', $verdict['blockers']),
+        );
+        $this->assertSame(AtlasMaestroPacketSchemaVersioning::STATUS_DEPRECATED, $verdict['schema_status']);
+    }
+
+    public function test_check_returns_servable_true_for_current_active_schema(): void
+    {
+        // No registry override: CANONICAL_V1 is active by default.
+        $verdict = AtlasMaestroPacketSchemaDeprecationGate::check($this->packet());
+
+        $this->assertTrue($verdict['servable']);
+        $this->assertSame([], $verdict['blockers']);
+        $this->assertSame(AtlasMaestroPacketSchemaVersioning::STATUS_ACTIVE, $verdict['schema_status']);
+    }
 }
