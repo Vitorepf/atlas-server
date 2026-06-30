@@ -95,6 +95,18 @@ final class AtlasSelfConstructionOrganReadinessComposer
             }
         }
 
+        $total = count(self::CANONICAL_ORGANS);
+        $readinessRatio = $total > 0 ? round(count($ready) / $total, 4) : 0.0;
+
+        $topBlockers = [];
+        foreach ($blocked as $b) {
+            foreach ((array) $b['blockers'] as $blocker) {
+                $topBlockers[] = (string) $blocker;
+            }
+        }
+        $topBlockers = array_values(array_unique($topBlockers));
+        sort($topBlockers, SORT_STRING);
+
         return [
             'schema_version' => self::SCHEMA,
             'all_ready' => $blocked === [] && $missing === [] && $degraded === [],
@@ -103,6 +115,8 @@ final class AtlasSelfConstructionOrganReadinessComposer
             'degraded_organs' => $degraded,
             'missing_organs' => $missing,
             'next_required_organs' => array_values(array_unique($nextRequired)),
+            'readiness_ratio' => $readinessRatio,
+            'top_blockers' => $topBlockers,
         ];
     }
 }

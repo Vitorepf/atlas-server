@@ -91,6 +91,43 @@ final class AtlasSelfConstructionOrganReadinessComposerTest extends TestCase
         }
     }
 
+    public function test_weighted_readiness_ratio_reflects_ready_fraction(): void
+    {
+        $total = count(AtlasSelfConstructionOrganReadinessComposer::CANONICAL_ORGANS);
+        // Block 1 organ, leave rest ready.
+        $organs = $this->allReady();
+        $organs['cortex'] = [
+            'status' => AtlasSelfConstructionOrganReadinessComposer::STATUS_BLOCKED,
+            'reason' => 'boot_fail',
+            'blockers' => [],
+        ];
+        $verdict = (new AtlasSelfConstructionOrganReadinessComposer)->compose($organs);
+
+        $expected = round(($total - 1) / $total, 4);
+        $this->assertArrayHasKey('readiness_ratio', $verdict);
+        $this->assertEqualsWithDelta($expected, $verdict['readiness_ratio'], 0.0001);
+        $this->assertSame(1.0, (new AtlasSelfConstructionOrganReadinessComposer)->compose($this->allReady())['readiness_ratio']);
+    }
+
+    public function test_top_blocker_list_is_flat_sorted_and_deduplicated(): void
+    {
+        $organs = $this->allReady();
+        $organs['cortex'] = [
+            'status' => AtlasSelfConstructionOrganReadinessComposer::STATUS_BLOCKED,
+            'reason' => 'err',
+            'blockers' => ['gate:foo', 'gate:bar'],
+        ];
+        $organs['maestro'] = [
+            'status' => AtlasSelfConstructionOrganReadinessComposer::STATUS_BLOCKED,
+            'reason' => 'err2',
+            'blockers' => ['gate:bar', 'gate:zap'], // gate:bar is a duplicate across organs
+        ];
+        $verdict = (new AtlasSelfConstructionOrganReadinessComposer)->compose($organs);
+
+        $this->assertArrayHasKey('top_blockers', $verdict);
+        $this->assertSame(['gate:bar', 'gate:foo', 'gate:zap'], $verdict['top_blockers'], 'must be sorted and deduplicated');
+    }
+
     public function test_compose_is_deterministic_byte_identical(): void
     {
         $svc = new AtlasSelfConstructionOrganReadinessComposer;
