@@ -39,10 +39,11 @@ final class AtlasExternalBrainSpecConsolidationPlanner
 
         if ($pressure !== 'high' || count($candidates) === 0) {
             return [
-                'schema_version' => self::SCHEMA,
-                'consolidated_tasks' => [],
-                'unconsolidated' => array_values(array_column($candidates, 'task_id')),
-                'rejection_reasons' => [],
+                'schema_version'         => self::SCHEMA,
+                'consolidated_tasks'     => [],
+                'unconsolidated'         => array_values(array_column($candidates, 'task_id')),
+                'rejection_reasons'      => [],
+                'max_allowed_files_used' => $maxFiles,
             ];
         }
 
@@ -84,22 +85,29 @@ final class AtlasExternalBrainSpecConsolidationPlanner
                 $evidence = array_merge($evidence, is_array($c['required_evidence'] ?? null) ? $c['required_evidence'] : []);
             }
 
+            $fileCount = count($allFiles);
+            $taskCount = count($group);
+            $consolidationScore = round(min(1.0, $taskCount / max(1, $fileCount + 1)), 3);
+
             $consolidated[] = [
-                'macro_task_id' => 'consolidated_' . $theme,
-                'source_task_ids' => $taskIds,
-                'theme' => $theme,
-                'allowed_files' => $allFiles,
+                'macro_task_id'       => 'consolidated_' . $theme,
+                'source_task_ids'     => $taskIds,
+                'theme'               => $theme,
+                'shared_theme'        => $theme,
+                'consolidation_score' => $consolidationScore,
+                'allowed_files'       => $allFiles,
                 'acceptance_criteria' => $acceptance,
-                'dependencies' => array_values(array_unique($deps)),
-                'required_evidence' => array_values(array_unique($evidence)),
+                'dependencies'        => array_values(array_unique($deps)),
+                'required_evidence'   => array_values(array_unique($evidence)),
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA,
-            'consolidated_tasks' => $consolidated,
-            'unconsolidated' => $unconsolidated,
-            'rejection_reasons' => $rejectionReasons,
+            'schema_version'       => self::SCHEMA,
+            'consolidated_tasks'   => $consolidated,
+            'unconsolidated'       => $unconsolidated,
+            'rejection_reasons'    => $rejectionReasons,
+            'max_allowed_files_used' => $maxFiles,
         ];
     }
 

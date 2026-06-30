@@ -193,4 +193,105 @@ final class AtlasExternalBrainSpecConsolidationPlannerTest extends TestCase
         $r = $this->svc()->plan([]);
         $this->assertSame(AtlasExternalBrainSpecConsolidationPlanner::SCHEMA, $r['schema_version']);
     }
+
+    // ── AC1: consolidation_score ──────────────────────────────────────────────
+
+    public function test_macro_task_has_consolidation_score(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'brain', files: ['app/A.php']),
+            $this->candidate('t2', theme: 'brain', files: ['app/B.php']),
+        ]);
+
+        $this->assertArrayHasKey('consolidation_score', $r['consolidated_tasks'][0]);
+        $score = $r['consolidated_tasks'][0]['consolidation_score'];
+        $this->assertGreaterThan(0.0, $score);
+        $this->assertLessThanOrEqual(1.0, $score);
+    }
+
+    public function test_more_tasks_per_file_yields_higher_score(): void
+    {
+        // 4 tasks, 4 files → score = 4/5 = 0.8
+        $dense = $this->plan([
+            $this->candidate('t1', theme: 'b', files: ['a.php']),
+            $this->candidate('t2', theme: 'b', files: ['b.php']),
+            $this->candidate('t3', theme: 'b', files: ['c.php']),
+            $this->candidate('t4', theme: 'b', files: ['d.php']),
+        ]);
+
+        // 2 tasks, 4 files → score = 2/5 = 0.4
+        $sparse = $this->plan([
+            $this->candidate('t1', theme: 'b', files: ['a.php', 'b.php']),
+            $this->candidate('t2', theme: 'b', files: ['c.php', 'd.php']),
+        ]);
+
+        $this->assertGreaterThan(
+            $sparse['consolidated_tasks'][0]['consolidation_score'],
+            $dense['consolidated_tasks'][0]['consolidation_score'],
+        );
+    }
+
+    // ── AC1: shared_theme ─────────────────────────────────────────────────────
+
+    public function test_macro_task_has_shared_theme(): void
+    {
+        $r = $this->plan([
+            $this->candidate('t1', theme: 'payments'),
+            $this->candidate('t2', theme: 'payments'),
+        ]);
+
+        $this->assertArrayHasKey('shared_theme', $r['consolidated_tasks'][0]);
+        $this->assertSame('payments', $r['consolidated_tasks'][0]['shared_theme']);
+    }
+
+    // ── AC1: max_allowed_files guard in output ────────────────────────────────
+
+    public function test_output_contains_max_allowed_files_used(): void
+    {
+        $r = $this->plan(
+            [$this->candidate('t1'), $this->candidate('t2')],
+            maxFiles: 5,
+        );
+
+        $this->assertArrayHasKey('max_allowed_files_used', $r);
+        $this->assertSame(5, $r['max_allowed_files_used']);
+    }
+
+    public function test_max_allowed_files_used_present_on_normal_pressure(): void
+    {
+        $r = $this->plan(
+            [$this->candidate('t1'), $this->candidate('t2')],
+            pressure: 'normal',
+        );
+
+        $this->assertArrayHasKey('max_allowed_files_used', $r);
+    }
+
+    // ── AC2: dependency_compatibility + collision refusal reasons ─────────────
+
+    public function test_rejection_reasons_present_for_all_violations(): void
+    {
+        // collision case
+        $rCollision = $this->plan([
+            $this->candidate('t1', theme: 'x', files: ['app/Same.php']),
+            $this->candidate('t2', theme: 'x', files: ['app/Same.php']),
+        ]);
+        $this->assertArrayHasKey('t1', $rCollision['rejection_reasons']);
+        $this->assertArrayHasKey('t2', $rCollision['rejection_reasons']);
+        $this->assertSame('file_collision', $rCollision['rejection_reasons']['t1']);
+
+        // over-wide case
+        $rWide = $this->plan([
+            $this->candidate('t1', theme: 'y', files: ['a.php', 'b.php', 'c.php']),
+            $this->candidate('t2', theme: 'y', files: ['d.php', 'e.php', 'f.php']),
+        ], maxFiles: 4);
+        $this->assertSame('over_wide_task', $rWide['rejection_reasons']['t1']);
+
+        // dependency conflict
+        $rDep = $this->plan([
+            $this->candidate('t1', theme: 'z', files: ['a.php']),
+            $this->candidate('t2', theme: 'z', files: ['b.php'], deps: ['t1']),
+        ]);
+        $this->assertSame('incompatible_dependencies', $rDep['rejection_reasons']['t1']);
+    }
 }
