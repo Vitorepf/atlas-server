@@ -22,8 +22,8 @@ final class AtlasCortexSnapshotDiffSummaryTest extends TestCase
     private function emptyDiff(): array
     {
         return [
-            'from_snapshot_id' => 'snap-a',
-            'to_snapshot_id' => 'snap-b',
+            'left' => ['snapshot_id' => 'snap-a'],
+            'right' => ['snapshot_id' => 'snap-b'],
             'inventory' => ['added' => [], 'removed' => [], 'shape_changed' => []],
             'orphans' => ['appeared' => [], 'resolved' => []],
             'edges' => ['added' => [], 'removed' => []],
@@ -86,7 +86,7 @@ final class AtlasCortexSnapshotDiffSummaryTest extends TestCase
     public function test_prose_only_diff_does_not_alter_structural_categories(): void
     {
         $diff = $this->emptyDiff();
-        $diff['prose'] = ['added' => ['p1', 'p2', 'p3'], 'changed' => ['p4'], 'removed' => []];
+        $diff['doc_purposes_prose'] = ['added' => ['p1', 'p2', 'p3'], 'changed' => ['p4'], 'removed' => []];
 
         $verdict = (new AtlasCortexSnapshotDiffSummary)->summarize($diff);
 
@@ -108,6 +108,24 @@ final class AtlasCortexSnapshotDiffSummaryTest extends TestCase
         $this->assertSame(3, $verdict['prose']['added']);
         $this->assertSame(1, $verdict['prose']['changed']);
         $this->assertSame(0, $verdict['prose']['removed']);
+    }
+
+    public function test_real_engine_diff_shape_yields_prose_counts_and_snapshot_ids(): void
+    {
+        // Real engine shape: left/right.snapshot_id + doc_purposes_prose
+        $diff = array_merge($this->emptyDiff(), [
+            'left' => ['snapshot_id' => 'engine-snap-left'],
+            'right' => ['snapshot_id' => 'engine-snap-right'],
+            'doc_purposes_prose' => ['added' => ['d1', 'd2'], 'changed' => ['d3'], 'removed' => ['d4', 'd5', 'd6']],
+        ]);
+
+        $verdict = (new AtlasCortexSnapshotDiffSummary)->summarize($diff);
+
+        $this->assertSame('engine-snap-left', $verdict['from_snapshot_id'], 'from_snapshot_id must read left.snapshot_id');
+        $this->assertSame('engine-snap-right', $verdict['to_snapshot_id'], 'to_snapshot_id must read right.snapshot_id');
+        $this->assertSame(2, $verdict['prose']['added'], 'prose added count must be non-zero from doc_purposes_prose');
+        $this->assertSame(1, $verdict['prose']['changed']);
+        $this->assertSame(3, $verdict['prose']['removed']);
     }
 
     public function test_anchor_snapshot_ids_are_carried_through(): void

@@ -79,11 +79,11 @@ final class AtlasCortexSnapshotDiffSummary
         }
         sort($nonEmpty, SORT_STRING);
 
-        $prose = is_array($diff['prose'] ?? null) ? $diff['prose'] : [];
+        $prose = is_array($diff['doc_purposes_prose'] ?? null) ? $diff['doc_purposes_prose'] : [];
 
         return [
-            'from_snapshot_id' => (string) ($diff['from_snapshot_id'] ?? ''),
-            'to_snapshot_id' => (string) ($diff['to_snapshot_id'] ?? ''),
+            'from_snapshot_id' => (string) ($diff['left']['snapshot_id'] ?? ''),
+            'to_snapshot_id' => (string) ($diff['right']['snapshot_id'] ?? ''),
             'inventory_added' => $counts['inventory_added'],
             'inventory_removed' => $counts['inventory_removed'],
             'inventory_shape_changed' => $counts['inventory_shape_changed'],
