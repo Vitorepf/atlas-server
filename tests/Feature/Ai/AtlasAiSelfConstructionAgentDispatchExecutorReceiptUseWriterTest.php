@@ -147,6 +147,62 @@ class AtlasAiSelfConstructionAgentDispatchExecutorReceiptUseWriterTest extends T
         }
     }
 
+    public function test_learning_payload_extracts_outcome_proof_elapsed_failure_and_fit(): void
+    {
+        $result = app(AgentDispatchExecutorReceiptUseWriter::class)->learningPayloadFromReceipt([
+            'packet_id' => 'AP-001',
+            'worker_id' => 'worker-vipvtpwy',
+            'outcome_class' => 'success',
+            'proof_command' => 'php artisan test --filter=FooTest',
+            'started_at' => '2026-06-30T10:00:00Z',
+            'completed_at' => '2026-06-30T10:02:00Z',
+        ]);
+
+        $this->assertSame('learning_payload_built', $result['status']);
+        $payload = $result['learning_payload'];
+        $this->assertSame('success', $payload['task_outcome']);
+        $this->assertSame('proven', $payload['proof_status']);
+        $this->assertSame(120, $payload['elapsed_seconds']);
+        $this->assertNull($payload['failure_class']);
+        $this->assertSame('positive', $payload['worker_fit_signal']);
+        $this->assertSame(['runtime_registry', 'task_fabric'], $payload['destination']);
+    }
+
+    public function test_learning_payload_rejects_success_text_only_receipt(): void
+    {
+        $result = app(AgentDispatchExecutorReceiptUseWriter::class)->learningPayloadFromReceipt([
+            'outcome_text' => 'success',
+        ]);
+
+        $this->assertSame('rejected_success_text_only', $result['status']);
+        $this->assertSame('receipt_has_generic_success_text_without_proof_or_outcome_class', $result['reason']);
+        $this->assertNull($result['learning_payload']);
+    }
+
+    public function test_learning_payload_flags_unproven_success_claim_when_no_proof(): void
+    {
+        $result = app(AgentDispatchExecutorReceiptUseWriter::class)->learningPayloadFromReceipt([
+            'outcome_class' => 'success',
+        ]);
+
+        $this->assertSame('learning_payload_built', $result['status']);
+        $this->assertSame('unproven_success_claim', $result['learning_payload']['proof_status']);
+        $this->assertSame('untrusted', $result['learning_payload']['worker_fit_signal']);
+    }
+
+    public function test_learning_payload_captures_failure_class_and_negative_fit(): void
+    {
+        $result = app(AgentDispatchExecutorReceiptUseWriter::class)->learningPayloadFromReceipt([
+            'outcome_class' => 'failed',
+            'failure_class' => 'assertion_mismatch',
+            'proof_output' => 'FAILED: 1 assertion',
+        ]);
+
+        $this->assertSame('proven_failure', $result['learning_payload']['proof_status']);
+        $this->assertSame('negative', $result['learning_payload']['worker_fit_signal']);
+        $this->assertSame('assertion_mismatch', $result['learning_payload']['failure_class']);
+    }
+
     /**
      * @param  array<string,mixed>  $overrides
      */

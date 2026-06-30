@@ -107,6 +107,93 @@ class AgentDispatchExecutorReceiptUseWriter
         });
     }
 
+    private const GENERIC_SUCCESS_PHRASES = [
+        'success',
+        'done',
+        'completed',
+        'task completed',
+        'ok',
+        'finished',
+    ];
+
+    /**
+     * Converts a provider execution receipt into structured learning feedback
+     * for worker fit, task quality and future dispatch decisions.
+     *
+     * Rejects receipts that are success-text-only: a textual outcome of
+     * "success"/"done"/etc with no proof artifact and no machine-readable
+     * outcome_class is unusable signal and must not be turned into a
+     * learning_payload that downstream registries would trust.
+     *
+     * @param  array<string,mixed>  $receipt  { outcome_text?: string,
+     *   outcome_class?: string, proof_command?: string, proof_output?: string,
+     *   started_at?: string, completed_at?: string, failure_class?: string,
+     *   worker_id?: string, packet_id?: string }
+     * @return array<string,mixed>
+     */
+    public function learningPayloadFromReceipt(array $receipt): array
+    {
+        $outcomeClass = trim((string) ($receipt['outcome_class'] ?? ''));
+        $proofCommand = trim((string) ($receipt['proof_command'] ?? ''));
+        $proofOutput = trim((string) ($receipt['proof_output'] ?? ''));
+        $outcomeText = strtolower(trim((string) ($receipt['outcome_text'] ?? '')));
+
+        $hasProof = $proofCommand !== '' || $proofOutput !== '';
+        $isGenericSuccessText = in_array($outcomeText, self::GENERIC_SUCCESS_PHRASES, true);
+
+        if ($outcomeClass === '' && ! $hasProof) {
+            return [
+                'status' => 'rejected_success_text_only',
+                'reason' => $isGenericSuccessText
+                    ? 'receipt_has_generic_success_text_without_proof_or_outcome_class'
+                    : 'receipt_missing_proof_and_outcome_class',
+                'learning_payload' => null,
+            ];
+        }
+
+        $startedAt = $receipt['started_at'] ?? null;
+        $completedAt = $receipt['completed_at'] ?? null;
+        $elapsedSeconds = null;
+
+        if (is_string($startedAt) && is_string($completedAt) && $startedAt !== '' && $completedAt !== '') {
+            try {
+                $elapsedSeconds = (int) CarbonImmutable::parse($startedAt)->diffInSeconds(CarbonImmutable::parse($completedAt));
+            } catch (\Exception) {
+                $elapsedSeconds = null;
+            }
+        }
+
+        $failureClass = trim((string) ($receipt['failure_class'] ?? ''));
+        $proofStatus = match (true) {
+            $outcomeClass === 'success' && $hasProof => 'proven',
+            $outcomeClass === 'success' && ! $hasProof => 'unproven_success_claim',
+            $outcomeClass === 'failed' => 'proven_failure',
+            default => 'unknown',
+        };
+
+        $workerFitSignal = match (true) {
+            $proofStatus === 'proven' => 'positive',
+            $proofStatus === 'unproven_success_claim' => 'untrusted',
+            $proofStatus === 'proven_failure' => 'negative',
+            default => 'neutral',
+        };
+
+        return [
+            'status' => 'learning_payload_built',
+            'reason' => null,
+            'learning_payload' => [
+                'packet_id' => (string) ($receipt['packet_id'] ?? ''),
+                'worker_id' => (string) ($receipt['worker_id'] ?? ''),
+                'task_outcome' => $outcomeClass !== '' ? $outcomeClass : 'unknown',
+                'proof_status' => $proofStatus,
+                'elapsed_seconds' => $elapsedSeconds,
+                'failure_class' => $failureClass !== '' ? $failureClass : null,
+                'worker_fit_signal' => $workerFitSignal,
+                'destination' => ['runtime_registry', 'task_fabric'],
+            ],
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,string>
