@@ -55,7 +55,7 @@ final class AtlasMaestroReplenisherFeedbackTest extends TestCase
         $block = $this->feedback($this->minedFacts())->renderFactsBlock();
 
         $this->assertNotSame('', $block);
-        $this->assertStringContainsString('origin_kind=orphan: 14 delivered / 22 total (rate 0.64, support>=8)', $block);
+        $this->assertStringContainsString('origin_kind=orphan: 14 delivered / 22 total (rate 0.64, give_back 0.00, blocked 0.00, yield 0.64, support>=8)', $block);
         $this->assertStringNotContainsString('docgap', $block, 'insufficiently-supported bucket is suppressed');
 
         // FACT-only: no imperative tokens.
@@ -77,5 +77,44 @@ final class AtlasMaestroReplenisherFeedbackTest extends TestCase
         $facts = ['origin_kind' => ['docgap' => ['dimension' => 'origin_kind', 'bucket' => 'docgap', 'delivered' => 1, 'total' => 4, 'insufficient_support' => true, 'delivery_rate' => null]]];
 
         $this->assertSame('', $this->feedback($facts)->renderFactsBlock());
+    }
+
+    public function test_lanes_ranked_by_yield_descending_so_high_give_back_lane_appears_last(): void
+    {
+        config(['atlas.maestro.closed_loop.feedback_enabled' => true]);
+
+        // lane_a: 15/20 delivered, 0 give_back → yield = 0.75
+        // lane_b: 15/20 delivered, 8 give_back → yield = 0.75 - 0.40 = 0.35
+        $facts = [
+            'lane' => [
+                'lane_a' => ['dimension' => 'lane', 'bucket' => 'lane_a', 'delivered' => 15, 'total' => 20, 'insufficient_support' => false, 'delivery_rate' => 0.75, 'give_back_count' => 0, 'blocked_count' => 0],
+                'lane_b' => ['dimension' => 'lane', 'bucket' => 'lane_b', 'delivered' => 15, 'total' => 20, 'insufficient_support' => false, 'delivery_rate' => 0.75, 'give_back_count' => 8, 'blocked_count' => 0],
+            ],
+        ];
+
+        $block = $this->feedback($facts)->renderFactsBlock();
+        $lines = explode("\n", $block);
+
+        $this->assertCount(2, $lines, 'both supported lanes must be emitted');
+        $this->assertStringContainsString('lane_a', $lines[0], 'high-yield lane_a must be first');
+        $this->assertStringContainsString('lane_b', $lines[1], 'penalized lane_b must be last');
+    }
+
+    public function test_give_back_and_blocked_rates_reduce_yield_score_in_output(): void
+    {
+        config(['atlas.maestro.closed_loop.feedback_enabled' => true]);
+
+        // 10/20 delivered, 4 give_back, 2 blocked → yield = 0.50 - 0.20 - 0.10 = 0.20
+        $facts = [
+            'origin_kind' => [
+                'mixed' => ['dimension' => 'origin_kind', 'bucket' => 'mixed', 'delivered' => 10, 'total' => 20, 'insufficient_support' => false, 'delivery_rate' => 0.5, 'give_back_count' => 4, 'blocked_count' => 2],
+            ],
+        ];
+
+        $block = $this->feedback($facts)->renderFactsBlock();
+
+        $this->assertStringContainsString('give_back 0.20', $block);
+        $this->assertStringContainsString('blocked 0.10', $block);
+        $this->assertStringContainsString('yield 0.20', $block);
     }
 }

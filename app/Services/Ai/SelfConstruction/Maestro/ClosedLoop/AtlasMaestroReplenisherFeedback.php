@@ -34,7 +34,7 @@ final class AtlasMaestroReplenisherFeedback
         }
 
         $supported = [];
-        $lines = [];
+        $scored    = [];
         foreach ((array) $this->miner->mine() as $dimension => $buckets) {
             foreach ((array) $buckets as $bucket => $entry) {
                 if (! is_array($entry)) {
@@ -44,20 +44,33 @@ final class AtlasMaestroReplenisherFeedback
                 if (($entry['insufficient_support'] ?? true) === true || $total < AtlasMaestroOutcomePatternMiner::MIN_SUPPORT) {
                     continue; // not enough evidence ⇒ never emitted (no lucky-run facts)
                 }
-                $delivered = (int) ($entry['delivered'] ?? 0);
-                $rate = $entry['delivery_rate'] ?? ($total > 0 ? $delivered / $total : 0.0);
-                $supported[] = $entry;
-                $lines[] = sprintf(
-                    '%s=%s: %d delivered / %d total (rate %.2f, support>=%d)',
-                    (string) $dimension,
-                    (string) $bucket,
-                    $delivered,
-                    $total,
-                    (float) $rate,
-                    AtlasMaestroOutcomePatternMiner::MIN_SUPPORT,
-                );
+                $delivered       = (int) ($entry['delivered'] ?? 0);
+                $rate            = (float) ($entry['delivery_rate'] ?? ($total > 0 ? $delivered / $total : 0.0));
+                $giveBackRate    = $total > 0 ? (int) ($entry['give_back_count'] ?? 0) / $total : 0.0;
+                $blockedRate     = $total > 0 ? (int) ($entry['blocked_count'] ?? 0) / $total : 0.0;
+                $yieldScore      = max(0.0, $rate - $giveBackRate - $blockedRate);
+                $supported[]     = $entry;
+                $scored[]        = [
+                    'line' => sprintf(
+                        '%s=%s: %d delivered / %d total (rate %.2f, give_back %.2f, blocked %.2f, yield %.2f, support>=%d)',
+                        (string) $dimension,
+                        (string) $bucket,
+                        $delivered,
+                        $total,
+                        $rate,
+                        $giveBackRate,
+                        $blockedRate,
+                        $yieldScore,
+                        AtlasMaestroOutcomePatternMiner::MIN_SUPPORT,
+                    ),
+                    'yield_score' => $yieldScore,
+                ];
             }
         }
+
+        // Rank lanes by delivered yield descending so the Replenisher reads the most productive lane first.
+        usort($scored, static fn (array $a, array $b): int => $b['yield_score'] <=> $a['yield_score']);
+        $lines = array_column($scored, 'line');
 
         if ($lines === []) {
             $this->recordReceipt('', 0, 'reject', false, $flagEnabled);
