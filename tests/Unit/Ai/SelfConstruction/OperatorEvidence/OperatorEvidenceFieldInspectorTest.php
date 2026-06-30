@@ -120,4 +120,30 @@ class OperatorEvidenceFieldInspectorTest extends TestCase
 
         self::assertSame([], OperatorEvidenceFieldInspector::staleContextHashes($receipt, '', '', ''));
     }
+
+    public function test_contains_placeholder_or_secret_detects_flat_placeholder(): void
+    {
+        self::assertTrue(OperatorEvidenceFieldInspector::containsPlaceholderOrSecret(['<placeholder>', 'real-hash']));
+    }
+
+    public function test_contains_placeholder_or_secret_detects_nested_placeholder(): void
+    {
+        self::assertTrue(OperatorEvidenceFieldInspector::containsPlaceholderOrSecret([
+            'meta' => ['hash' => '__todo'],
+        ]));
+    }
+
+    public function test_contains_placeholder_or_secret_detects_secret_in_nested_value(): void
+    {
+        self::assertTrue(OperatorEvidenceFieldInspector::containsPlaceholderOrSecret([
+            'config' => ['nested' => 'TOKEN=abc123'],
+        ]));
+    }
+
+    public function test_contains_placeholder_or_secret_returns_false_for_clean_nested_array(): void
+    {
+        self::assertFalse(OperatorEvidenceFieldInspector::containsPlaceholderOrSecret([
+            'a' => ['b' => 'real-sha256-hash-abcdef123456'],
+        ]));
+    }
 }

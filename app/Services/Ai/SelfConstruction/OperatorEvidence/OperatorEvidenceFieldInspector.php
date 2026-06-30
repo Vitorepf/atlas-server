@@ -87,6 +87,27 @@ final class OperatorEvidenceFieldInspector
         return false;
     }
 
+    public static function isSecretLike(string $value): bool
+    {
+        return (bool) preg_match('/SECRET|TOKEN|API_KEY|PASSWORD/i', $value);
+    }
+
+    public static function containsPlaceholderOrSecret(mixed $value): bool
+    {
+        if (is_string($value)) {
+            return self::isPlaceholderValue($value) || self::isSecretLike($value);
+        }
+        if (is_array($value)) {
+            foreach ($value as $v) {
+                if (self::containsPlaceholderOrSecret($v)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param  array<string, mixed>  $options
      * @param  array<string, mixed>  $runtimeGapMatrix
