@@ -65,6 +65,14 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
         ],
     ];
 
+    /** Lower rank = higher priority. Missing outranks stale; contradictory/never_captured are unsafe. */
+    private const REASON_RANK = [
+        'missing'        => 0,
+        'contradictory'  => 1,
+        'never_captured' => 1,
+        'stale'          => 2,
+    ];
+
     /**
      * @param  array<string,mixed>  $audit
      * @return array<string,mixed>
@@ -81,19 +89,22 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
                 continue;
             }
 
-            $streamId   = (string) $stream['stream_id'];
+            $streamId    = (string) $stream['stream_id'];
             $hasEvidence = (bool) ($stream['has_evidence'] ?? false);
             $lastAt      = max(0, (int) ($stream['last_captured_at_unix'] ?? 0));
             $threshold   = max(1, (int) ($stream['freshness_threshold_seconds'] ?? self::DEFAULT_FRESHNESS_THRESHOLD));
+            $contradictory = (bool) ($stream['contradictory'] ?? false);
 
             $reason = null;
 
             if (! $hasEvidence) {
                 $reason = 'missing';
-            } elseif ($nowUnix > 0 && $lastAt > 0 && ($nowUnix - $lastAt) > $threshold) {
-                $reason = 'stale';
-            } elseif ($nowUnix > 0 && $lastAt === 0) {
-                // never captured but has_evidence claimed — treat as stale
+            } elseif ($contradictory) {
+                $reason = 'contradictory';
+            } elseif ($lastAt === 0) {
+                // claimed evidence but never actually captured — unsafe regardless of staleness window.
+                $reason = 'never_captured';
+            } elseif ($nowUnix > 0 && ($nowUnix - $lastAt) > $threshold) {
                 $reason = 'stale';
             }
 
@@ -104,23 +115,45 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
             [$captureTask, $proofCommand] = $this->catalogueLookup($streamId);
 
             $backfillTasks[] = [
-                'stream_id'                  => $streamId,
-                'capture_task'               => $captureTask,
+                'stream_id'                   => $streamId,
+                'capture_task'                => $captureTask,
                 'freshness_threshold_seconds' => $threshold,
-                'proof_command'              => $proofCommand,
-                'reason'                     => $reason,
-                'priority'                   => $reason === 'missing' ? 'high' : 'medium',
+                'proof_command'               => $proofCommand,
+                'reason'                      => $reason,
+                'priority'                    => $reason === 'missing' ? 'high' : (in_array($reason, ['contradictory', 'never_captured'], true) ? 'high' : 'medium'),
             ];
         }
 
-        $isNeeded        = $backfillTasks !== [];
+        // Missing evidence outranks stale; contradictory/never_captured are also unsafe (rank 1).
+        usort($backfillTasks, static fn (array $a, array $b): int => self::REASON_RANK[$a['reason']] <=> self::REASON_RANK[$b['reason']]);
+
+        $groupedByReason = [];
+        foreach ($backfillTasks as $task) {
+            $groupedByReason[$task['reason']][] = $task['stream_id'];
+        }
+
+        $isNeeded         = $backfillTasks !== [];
         $nextProofCommand = $isNeeded ? $backfillTasks[0]['proof_command'] : 'none';
+        $priorityOrder    = array_column($backfillTasks, 'stream_id');
+
+        $freshnessSummary = [
+            'total_streams'        => count($streams),
+            'needs_backfill_count' => count($backfillTasks),
+            'missing_count'        => count($groupedByReason['missing'] ?? []),
+            'stale_count'          => count($groupedByReason['stale'] ?? []),
+            'contradictory_count'  => count($groupedByReason['contradictory'] ?? []),
+            'never_captured_count' => count($groupedByReason['never_captured'] ?? []),
+            'is_backfill_needed'   => $isNeeded,
+        ];
 
         return [
             'schema'              => self::SCHEMA,
             'backfill_tasks'      => $backfillTasks,
+            'grouped_by_reason'   => $groupedByReason,
+            'priority_order'      => $priorityOrder,
             'is_backfill_needed'  => $isNeeded,
             'next_proof_command'  => $nextProofCommand,
+            'freshness_summary'   => $freshnessSummary,
         ];
     }
 

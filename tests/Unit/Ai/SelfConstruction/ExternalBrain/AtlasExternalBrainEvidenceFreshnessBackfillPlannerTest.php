@@ -295,4 +295,90 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlannerTest extends TestC
         $this->assertStringContainsString('artisan', $proof);
         $this->assertStringContainsString('my_custom_stream', $proof);
     }
+
+    // ── AC1: output shape ─────────────────────────────────────────────────────
+
+    public function test_output_has_new_ac1_keys(): void
+    {
+        $result = $this->planner()->plan(['evidence_streams' => []]);
+
+        foreach (['grouped_by_reason', 'priority_order', 'freshness_summary'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+        $this->assertSame('none', $result['next_proof_command']);
+    }
+
+    // ── AC2: missing outranks stale; contradictory + never_captured are unsafe ──
+
+    public function test_missing_evidence_outranks_stale_in_priority_order(): void
+    {
+        $result = $this->planner()->plan([
+            'now_unix' => 1000000,
+            'evidence_streams' => [
+                ['stream_id' => 'stale-one', 'has_evidence' => true, 'last_captured_at_unix' => 1, 'freshness_threshold_seconds' => 10],
+                ['stream_id' => 'missing-one', 'has_evidence' => false],
+            ],
+        ]);
+
+        $this->assertSame(['missing-one', 'stale-one'], $result['priority_order']);
+        $this->assertSame('missing', $result['backfill_tasks'][0]['reason']);
+    }
+
+    public function test_contradictory_stream_requires_backfill(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'bad-claim', 'has_evidence' => true, 'last_captured_at_unix' => 500, 'contradictory' => true],
+            ],
+        ]);
+
+        $this->assertTrue($result['is_backfill_needed']);
+        $this->assertSame('contradictory', $result['backfill_tasks'][0]['reason']);
+        $this->assertSame('high', $result['backfill_tasks'][0]['priority']);
+    }
+
+    public function test_has_evidence_true_with_zero_last_captured_is_unsafe_even_without_now_unix(): void
+    {
+        $result = $this->planner()->plan([
+            'evidence_streams' => [
+                ['stream_id' => 'phantom', 'has_evidence' => true, 'last_captured_at_unix' => 0],
+            ],
+        ]);
+
+        $this->assertTrue($result['is_backfill_needed']);
+        $this->assertSame('never_captured', $result['backfill_tasks'][0]['reason']);
+    }
+
+    // ── grouped_by_reason / freshness_summary ─────────────────────────────────
+
+    public function test_grouped_by_reason_buckets_streams_correctly(): void
+    {
+        $result = $this->planner()->plan([
+            'now_unix' => 1000000,
+            'evidence_streams' => [
+                ['stream_id' => 'm1', 'has_evidence' => false],
+                ['stream_id' => 's1', 'has_evidence' => true, 'last_captured_at_unix' => 1, 'freshness_threshold_seconds' => 10],
+                ['stream_id' => 'c1', 'has_evidence' => true, 'last_captured_at_unix' => 999999, 'contradictory' => true],
+            ],
+        ]);
+
+        $this->assertSame(['m1'], $result['grouped_by_reason']['missing']);
+        $this->assertSame(['s1'], $result['grouped_by_reason']['stale']);
+        $this->assertSame(['c1'], $result['grouped_by_reason']['contradictory']);
+        $this->assertSame(3, $result['freshness_summary']['needs_backfill_count']);
+        $this->assertSame(1, $result['freshness_summary']['missing_count']);
+    }
+
+    public function test_freshness_summary_is_backfill_needed_false_when_clean(): void
+    {
+        $result = $this->planner()->plan([
+            'now_unix' => 1000000,
+            'evidence_streams' => [
+                ['stream_id' => 'fresh', 'has_evidence' => true, 'last_captured_at_unix' => 999999, 'freshness_threshold_seconds' => 86400],
+            ],
+        ]);
+
+        $this->assertFalse($result['freshness_summary']['is_backfill_needed']);
+        $this->assertSame('none', $result['next_proof_command']);
+    }
 }
