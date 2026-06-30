@@ -291,6 +291,50 @@ final class AtlasSelfConstructionTerminalLoopCertifier
         return $invariants;
     }
 
+    public const CLOSED_CYCLE_SCHEMA = 'atlas.self_construction.terminal_loop_certifier.closed_cycle.v1';
+
+    /** @var list<string> */
+    public const CYCLE_EDGES = [
+        'replenishment',
+        'execution',
+        'verification',
+        'learning',
+        'documentation_feedback',
+    ];
+
+    /**
+     * Certify that the five cycle edges form a CLOSED loop.
+     *
+     * Each edge must supply a non-empty `ref` AND `feeds_next=true`.
+     * Missing ref or feeds_next=false means the edge is a snapshot only —
+     * the cycle is open and certification is refused with the missing edges listed.
+     *
+     * @param  array<string,mixed>  $evidence  keyed by edge name: {ref:string, feeds_next:bool}
+     * @return array<string,mixed>
+     */
+    public static function certifyClosedCycle(array $evidence): array
+    {
+        $openEdges = [];
+        $edgeSummary = [];
+        foreach (self::CYCLE_EDGES as $edge) {
+            $entry = is_array($evidence[$edge] ?? null) ? $evidence[$edge] : [];
+            $ref = trim((string) ($entry['ref'] ?? ''));
+            $feedsNext = (bool) ($entry['feeds_next'] ?? false);
+            $connected = $ref !== '' && $feedsNext;
+            $edgeSummary[$edge] = ['ref' => $ref, 'feeds_next' => $feedsNext, 'connected' => $connected];
+            if (! $connected) {
+                $openEdges[] = $edge;
+            }
+        }
+
+        return [
+            'schema_version' => self::CLOSED_CYCLE_SCHEMA,
+            'certified' => $openEdges === [],
+            'open_cycle_edges' => $openEdges,
+            'edge_summary' => $edgeSummary,
+        ];
+    }
+
     public const FINAL_BRAIN_LOOP_SCHEMA = 'atlas.self_construction.terminal_loop_certifier.final_brain.v1';
 
     /** @var list<string> */

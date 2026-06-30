@@ -364,4 +364,68 @@ class AtlasSelfConstructionTerminalLoopCertifierTest extends TestCase
 
         self::assertContains('post_cycle_claimed_tasks_not_zero', $result['validation_violations']);
     }
+
+    // ── certifyClosedCycle ────────────────────────────────────────────────────
+
+    private function allEdges(): array
+    {
+        $out = [];
+        foreach (AtlasSelfConstructionTerminalLoopCertifier::CYCLE_EDGES as $edge) {
+            $out[$edge] = ['ref' => $edge.'-ref', 'feeds_next' => true];
+        }
+
+        return $out;
+    }
+
+    public function test_certify_closed_cycle_certified_when_all_edges_connected(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyClosedCycle($this->allEdges());
+
+        self::assertTrue($result['certified']);
+        self::assertSame([], $result['open_cycle_edges']);
+        self::assertSame(AtlasSelfConstructionTerminalLoopCertifier::CLOSED_CYCLE_SCHEMA, $result['schema_version']);
+        self::assertCount(count(AtlasSelfConstructionTerminalLoopCertifier::CYCLE_EDGES), $result['edge_summary']);
+    }
+
+    public function test_certify_closed_cycle_uncertified_when_edge_absent(): void
+    {
+        $evidence = $this->allEdges();
+        unset($evidence['learning']);
+
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyClosedCycle($evidence);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('learning', $result['open_cycle_edges']);
+    }
+
+    public function test_certify_closed_cycle_uncertified_when_feeds_next_false(): void
+    {
+        // All refs present but documentation_feedback does not feed next — open loop (snapshot).
+        $evidence = $this->allEdges();
+        $evidence['documentation_feedback']['feeds_next'] = false;
+
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyClosedCycle($evidence);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('documentation_feedback', $result['open_cycle_edges']);
+    }
+
+    public function test_certify_closed_cycle_uncertified_when_ref_empty(): void
+    {
+        $evidence = $this->allEdges();
+        $evidence['execution']['ref'] = '';
+
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyClosedCycle($evidence);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('execution', $result['open_cycle_edges']);
+    }
+
+    public function test_certify_closed_cycle_all_edges_open_when_no_evidence(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyClosedCycle([]);
+
+        self::assertFalse($result['certified']);
+        self::assertSame(AtlasSelfConstructionTerminalLoopCertifier::CYCLE_EDGES, $result['open_cycle_edges']);
+    }
 }
