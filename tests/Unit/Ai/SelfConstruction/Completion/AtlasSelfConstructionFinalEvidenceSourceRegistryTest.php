@@ -625,6 +625,88 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistryTest extends TestCas
         }
     }
 
+    public function test_verify_observed_sources_missing_required_id_produces_blocker(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        // Supply every required source except 'rollback'.
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            if ($source['id'] !== 'rollback') {
+                $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+            }
+        }
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('source_missing:rollback', $result['blockers']);
+    }
+
+    public function test_verify_observed_sources_unknown_extra_id_produces_blocker(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+        }
+        $observed['ghost_source'] = ['evidence_kind' => 'ghost_kind'];
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('source_unknown:ghost_source', $result['blockers']);
+    }
+
+    public function test_verify_observed_sources_evidence_kind_mismatch_produces_blocker(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $kind = $source['id'] === 'rollback' ? 'wrong_kind_entirely' : $source['evidence_kinds'][0];
+            $observed[$source['id']] = ['evidence_kind' => $kind, 'stale' => false];
+        }
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertFalse($result['passed']);
+        $mismatch = array_values(array_filter($result['blockers'], static fn (string $b): bool => str_starts_with($b, 'evidence_kind_mismatch:rollback:')));
+        $this->assertNotEmpty($mismatch, 'expected evidence_kind_mismatch:rollback:... blocker');
+    }
+
+    public function test_verify_observed_sources_stale_refreshable_produces_blocker(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $stale = $source['id'] === 'docs_health'; // docs_health is refreshable
+            $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => $stale];
+        }
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('source_stale_refreshable:docs_health', $result['blockers']);
+    }
+
+    public function test_verify_observed_sources_complete_facts_produce_no_blockers(): void
+    {
+        $registry = new AtlasSelfConstructionFinalEvidenceSourceRegistry;
+        $description = $registry->describe();
+        $observed = [];
+        foreach ($description['required_sources'] as $source) {
+            $observed[$source['id']] = ['evidence_kind' => $source['evidence_kinds'][0], 'stale' => false];
+        }
+
+        $result = $registry->verifyObservedSources($observed);
+
+        $this->assertTrue($result['passed']);
+        $this->assertSame([], $result['blockers']);
+    }
+
     public function test_runtime_soak_is_serialized_after_runtime_daemon_and_replenisher(): void
     {
         $verdict = (new AtlasSelfConstructionFinalEvidenceSourceRegistry)->describe();

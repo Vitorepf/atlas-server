@@ -80,6 +80,59 @@ final class AtlasSelfConstructionFinalEvidenceSourceRegistry
     }
 
     /**
+     * Verify a caller-supplied map of observed source ids against the registry.
+     *
+     * $observed: map<source_id, {evidence_kind?:string, stale?:bool}>
+     *
+     * Blockers:
+     *   - source_missing:<id>                          — required id absent from $observed
+     *   - source_unknown:<id>                          — id in $observed not in registry
+     *   - evidence_kind_mismatch:<id>:<expected>:<got> — observed kind not in source's evidence_kinds
+     *   - source_stale_refreshable:<id>                — refreshable source flagged stale
+     *
+     * @param  array<string,array<string,mixed>>  $observed
+     * @return array{schema_version:string,passed:bool,blockers:list<string>}
+     */
+    public function verifyObservedSources(array $observed): array
+    {
+        $sources = $this->sources();
+        $sourceMap = [];
+        foreach ($sources as $s) {
+            $sourceMap[(string) $s['id']] = $s;
+        }
+
+        $blockers = [];
+
+        foreach (array_keys($sourceMap) as $id) {
+            if (! array_key_exists($id, $observed)) {
+                $blockers[] = 'source_missing:'.$id;
+            }
+        }
+
+        foreach ($observed as $id => $obs) {
+            $id = (string) $id;
+            if (! isset($sourceMap[$id])) {
+                $blockers[] = 'source_unknown:'.$id;
+
+                continue;
+            }
+            $source = $sourceMap[$id];
+            $observedKind = (string) ($obs['evidence_kind'] ?? '');
+            if ($observedKind !== '' && ! in_array($observedKind, (array) ($source['evidence_kinds'] ?? []), true)) {
+                $expected = implode('|', (array) ($source['evidence_kinds'] ?? []));
+                $blockers[] = 'evidence_kind_mismatch:'.$id.':'.$expected.':'.$observedKind;
+            }
+            if ((bool) ($obs['stale'] ?? false) && (bool) ($source['refreshable'] ?? false)) {
+                $blockers[] = 'source_stale_refreshable:'.$id;
+            }
+        }
+
+        sort($blockers, SORT_STRING);
+
+        return ['schema_version' => self::SCHEMA, 'passed' => $blockers === [], 'blockers' => $blockers];
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     private function sources(): array
