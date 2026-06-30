@@ -141,4 +141,82 @@ final class AtlasLoopSimulableTwinOrchestratorTest extends TestCase
             ],
         ];
     }
+
+    // ---------- rankCandidate() ----------
+
+    public function test_high_impact_low_collision_packet_ranks_above_proxy_packet(): void
+    {
+        $orch = new AtlasLoopSimulableTwinOrchestrator;
+
+        $highImpact = $orch->rankCandidate([
+            'allowed_files'    => ['app/Services/Ai/AutonomousEvolution/Twin/AtlasLoopSimulableTwinOrchestrator.php'],
+            'risk_level'       => 'low',
+            'objective'        => 'Add rankCandidate method so brain can pre-filter candidates before seeding.',
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $proxy = $orch->rankCandidate([
+            'allowed_files'    => ['app/Services/Ai/AutonomousEvolution/Twin/AtlasLoopSimulableTwinOrchestrator.php'],
+            'risk_level'       => 'low',
+            'objective'        => 'cleanup whitespace and fix indentation throughout file.',
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $this->assertGreaterThan($proxy['rank_score'], $highImpact['rank_score'], 'high-impact must outrank proxy');
+        $this->assertContains('proxy:objective_is_cleanup_or_rename', $proxy['reasons']);
+        $this->assertSame([], $highImpact['reasons'], 'clean packet emits no penalty reasons');
+    }
+
+    public function test_high_impact_low_collision_packet_ranks_above_high_collision_packet(): void
+    {
+        $orch = new AtlasLoopSimulableTwinOrchestrator;
+
+        $lowCollision = $orch->rankCandidate([
+            'allowed_files'    => ['app/Services/Ai/AutonomousEvolution/Twin/AtlasLoopSimulableTwinOrchestrator.php'],
+            'risk_level'       => 'low',
+            'objective'        => 'Seal manifest sha using file-content map scheme.',
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $highCollision = $orch->rankCandidate([
+            'allowed_files'    => ['a.php', 'b.php', 'c.php', 'd.php', 'e.php', 'f.php'],
+            'risk_level'       => 'low',
+            'objective'        => 'Seal manifest sha using file-content map scheme.',
+            'required_evidence'=> ['tests_or_gates_result'],
+        ]);
+
+        $this->assertGreaterThan($highCollision['rank_score'], $lowCollision['rank_score'], 'low-collision must outrank high-collision');
+        $this->assertStringStartsWith('collision_risk:high:', $highCollision['reasons'][0]);
+        $this->assertSame('high', $highCollision['collision_risk']);
+        $this->assertSame('low', $lowCollision['collision_risk']);
+    }
+
+    public function test_rank_candidate_is_deterministic_across_two_calls(): void
+    {
+        $orch = new AtlasLoopSimulableTwinOrchestrator;
+        $spec = [
+            'allowed_files'    => ['app/Foo.php', 'app/Bar.php'],
+            'risk_level'       => 'medium',
+            'objective'        => 'Add structural method to improve origination quality.',
+            'required_evidence'=> ['tests_or_gates_result', 'implementation_notes'],
+        ];
+
+        $this->assertSame(
+            json_encode($orch->rankCandidate($spec), JSON_UNESCAPED_SLASHES),
+            json_encode($orch->rankCandidate($spec), JSON_UNESCAPED_SLASHES),
+        );
+    }
+
+    public function test_rank_score_never_goes_below_zero(): void
+    {
+        $orch   = new AtlasLoopSimulableTwinOrchestrator;
+        $result = $orch->rankCandidate([
+            'allowed_files'    => array_fill(0, 10, 'app/Foo.php'),
+            'risk_level'       => 'high',
+            'objective'        => 'cleanup whitespace formatting dead code rename variable',
+            'required_evidence'=> array_fill(0, 5, 'item'),
+        ]);
+
+        $this->assertGreaterThanOrEqual(0, $result['rank_score']);
+    }
 }

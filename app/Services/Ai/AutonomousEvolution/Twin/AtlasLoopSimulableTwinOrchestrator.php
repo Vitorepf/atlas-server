@@ -28,6 +28,83 @@ final class AtlasLoopSimulableTwinOrchestrator
     }
 
     /**
+     * Rank a final-brain candidate spec for queue safety, collision risk, lane impact and proof cost
+     * BEFORE seeding — higher rank_score = better to seed first (max 100, penalty-based).
+     *
+     * Penalties: collision_risk high (>3 files) -30, medium (2-3) -10; risk_level high -20;
+     * proxy objective -40; proof_cost >3 evidence items -10.
+     *
+     * @param  array<string,mixed>  $spec  task-packet shaped payload
+     * @return array{rank_score:int, collision_risk:string, queue_safe:bool, lane_impact:string, proof_cost:int, reasons:list<string>}
+     */
+    public function rankCandidate(array $spec): array
+    {
+        $files = array_values(array_filter(
+            array_map('strval', (array) ($spec['allowed_files'] ?? [])),
+            static fn (string $f): bool => $f !== '',
+        ));
+        $fileCount = count($files);
+        $riskLevel = (string) ($spec['risk_level'] ?? 'low');
+        $objective = strtolower((string) ($spec['objective'] ?? ''));
+        $evidence  = array_values(array_filter(
+            array_map('strval', (array) ($spec['required_evidence'] ?? [])),
+            static fn (string $e): bool => $e !== '',
+        ));
+
+        $reasons = [];
+        $penalty = 0;
+
+        $collisionRisk = match (true) {
+            $fileCount <= 1 => 'low',
+            $fileCount <= 3 => 'medium',
+            default         => 'high',
+        };
+        if ($collisionRisk === 'high') {
+            $penalty  += 30;
+            $reasons[] = 'collision_risk:high:'.$fileCount.'_files';
+        } elseif ($collisionRisk === 'medium') {
+            $penalty  += 10;
+            $reasons[] = 'collision_risk:medium';
+        }
+
+        $queueSafe = $riskLevel !== 'high';
+        if (! $queueSafe) {
+            $penalty  += 20;
+            $reasons[] = 'queue_unsafe:risk_level_high';
+        }
+
+        // Proxy = zero behaviour delta; seeds that waste loop cycles.
+        foreach (['whitespace', 'trailing space', 'indent', 'cleanup', 'remove unused', 'dead code', 'rename variable', 'typo', 'formatting'] as $term) {
+            if (str_contains($objective, $term)) {
+                $penalty  += 40;
+                $reasons[] = 'proxy:objective_is_cleanup_or_rename';
+                break;
+            }
+        }
+
+        $laneImpact = match (true) {
+            $fileCount <= 1 => 'easy',
+            $fileCount <= 5 => 'hard',
+            default         => 'hardest',
+        };
+
+        $proofCost = count($evidence);
+        if ($proofCost > 3) {
+            $penalty  += 10;
+            $reasons[] = 'proof_cost:high:'.$proofCost.'_items';
+        }
+
+        return [
+            'rank_score'     => max(0, 100 - $penalty),
+            'collision_risk' => $collisionRisk,
+            'queue_safe'     => $queueSafe,
+            'lane_impact'    => $laneImpact,
+            'proof_cost'     => $proofCost,
+            'reasons'        => $reasons,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $candidateEdit
      * @param  callable(array<string,mixed>, array<string,mixed>):array<string,mixed>|null  $applyInMirror
      * @return array{schema:string, before_snapshot:array<string,mixed>, after_snapshot:array<string,mixed>, behavior_delta:array<string,mixed>, reverted:bool}
