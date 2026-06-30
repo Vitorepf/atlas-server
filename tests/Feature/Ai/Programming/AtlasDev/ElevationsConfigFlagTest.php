@@ -250,6 +250,29 @@ final class ElevationsConfigFlagTest extends TestCase
         $this->assertFalse($config->isOff());
     }
 
+    /**
+     * VAL-M2-015: the E3 (mutation-score) elevation is turned ON at
+     * `advisory` (promoted from the pre-M2 `off` default, NOT yet `hard`).
+     * A runtime read of the REAL config kernel (no env override, no in-test
+     * config mutation) classifies E3 as advisory:
+     * ElevationConfig::fromConfig('e3')->isAdvisory() === true (NOT hard,
+     * NOT off). This is the Feature-level complement to
+     * AtlasDevFeatureFlagsTest (which reads the config source directly with
+     * env unset).
+     */
+    public function test_e3_mode_default_is_advisory_via_real_config_kernel(): void
+    {
+        // Read the real, unmutated config block for e3 (no config() override).
+        $config = ElevationConfig::fromConfig('e3');
+
+        $this->assertTrue(
+            $config->isAdvisory(),
+            'VAL-M2-015: the real atlas_dev.elevations.e3 config must resolve to advisory by default (turned ON, not off, not hard).',
+        );
+        $this->assertFalse($config->isHard(), 'VAL-M2-015: e3 must NOT be hard by default (advisory-first rollout).');
+        $this->assertFalse($config->isOff(), 'VAL-M2-015: e3 must NOT be off by default (turned ON at advisory).');
+    }
+
     // -- VAL-M0-008 helper: the advisory flag, when appended, forces the
     //    sanctioned downgrade (passed -> needs_review), never green ---------
 

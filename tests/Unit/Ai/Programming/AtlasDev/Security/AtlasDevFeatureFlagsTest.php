@@ -235,6 +235,58 @@ final class AtlasDevFeatureFlagsTest extends TestCase
         $this->assertFalse($e5->isOff());
     }
 
+    /**
+     * VAL-M2-015: the E3 (mutation-score) elevation is turned ON at
+     * `advisory` (promoted from the pre-M2 `off` default, but NOT yet `hard`
+     * — E3 spawns a scoped infection subprocess and follows the
+     * advisory-first rollout). The canonical config source
+     * config/atlas_dev.php ships `elevations.e3.mode` with an env fallback of
+     * `advisory` (not `off`, not `hard`).
+     */
+    public function test_e3_mode_config_source_defaults_to_advisory(): void
+    {
+        $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
+
+        $this->assertStringContainsString(
+            "'mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'advisory')",
+            $configSource,
+            'VAL-M2-015: the e3.mode config source default must be advisory (turned ON, not off, not hard).',
+        );
+    }
+
+    /**
+     * VAL-M2-015: with no ATLAS_DEV_ELEVATION_E3_MODE env var set, a runtime
+     * read of the canonical config yields `elevations.e3.mode === 'advisory'`,
+     * and the elevation resolver classifies E3 as advisory
+     * (ElevationConfig::for('e3', $block)->isAdvisory() === true, NOT hard,
+     * NOT off). This proves E3 is live at the resolution layer (turned on at
+     * advisory), not just in the source.
+     */
+    public function test_e3_mode_resolves_advisory_when_env_unset(): void
+    {
+        $this->clearEnv('ATLAS_DEV_ELEVATION_E3_MODE');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertSame('advisory', $config['elevations']['e3']['mode']);
+
+        $e3 = ElevationConfig::for('e3', $config['elevations']['e3']);
+        $this->assertTrue($e3->isAdvisory(), 'VAL-M2-015: ElevationConfig must classify e3 as advisory by default.');
+        $this->assertFalse($e3->isHard(), 'VAL-M2-015: e3 must NOT be hard by default (advisory-first rollout).');
+        $this->assertFalse($e3->isOff(), 'VAL-M2-015: e3 must NOT be off by default (turned ON).');
+    }
+
+    /**
+     * VAL-M2-015: the e3 threshold is set in the config source (default
+     * 60.0 MSI percent). A runtime read with no env override yields 60.0.
+     */
+    public function test_e3_threshold_config_source_defaults_to_60(): void
+    {
+        $this->clearEnv('ATLAS_DEV_ELEVATION_E3_THRESHOLD');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertSame(60.0, (float) $config['elevations']['e3']['threshold']);
+    }
+
     public function test_plan_enabled_is_on_under_testing_environment(): void
     {
         $this->assertTrue((bool) $this->atlasDevConfig['efficient']['plan_enabled']);

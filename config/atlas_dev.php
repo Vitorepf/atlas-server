@@ -212,15 +212,20 @@ return [
         //     reported MSI is below this trips the gate. Boundary inclusive
         //     (MSI == threshold passes, VAL-E3-004).
         //
-        // DEFAULT is `off`: unlike E1/E2 (pure-PHP logic), E3 spawns a scoped
-        // infection subprocess that requires the pcov coverage driver
-        // (VAL-E3-011). Deployments without pcov installed must keep E3 off
-        // or the gate fail-closes on every run. Operators opt into advisory/
-        // hard explicitly via ATLAS_DEV_ELEVATION_E3_MODE once pcov is
-        // verified present (mission init.sh asserts pcov loaded).
-        //   - threshold: MSI percent floor (default 60.0). A patch whose real
-        //     reported MSI is below this trips the gate. Boundary inclusive
-        //     (MSI == threshold passes, VAL-E3-004).
+        // M2 (m2-e3-mutation): promoted off -> advisory (NOT hard — E3 spawns
+        //   a scoped infection subprocess and follows the advisory-first
+        //   rollout; hard is the later promotion once stable). The pcov
+        //   coverage driver is provisioned for infection (VAL-M2-014: the
+        //   mission init.sh asserts pcov loaded, and the adapter fail-closes
+        //   honestly on a missing driver — VAL-E3-011 — so a deployment
+        //   without pcov degrades to needs_review, never a silent green).
+        //   A patch with NO touched test files is a documented no-op
+        //   (MutationScope::isEmpty() — infection is never invoked over the
+        //   full suite, VAL-E3-008), so source-only patches are unaffected.
+        //   The advisory trip / honest-ceiling / boundary-inclusive / anti-
+        //   gaming behavior is proven by E3AdvisoryGateTest (executor-level)
+        //   + MutationScoreGateTest (gate-level). Operators can opt back down
+        //   to off or up to hard via ATLAS_DEV_ELEVATION_E3_MODE.
         //
         // m3-e3 scrutiny Defect 3: the env value is read WITHOUT a (float)
         // cast here. A (float) cast silently turns a non-numeric env value
@@ -231,7 +236,7 @@ return [
         // value here is kept raw (string|null) so the gate can distinguish
         // 'banana' (invalid) from '0' (operator choice).
         'e3' => [
-            'mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'off'),
+            'mode' => env('ATLAS_DEV_ELEVATION_E3_MODE', 'advisory'),
             'threshold' => env('ATLAS_DEV_ELEVATION_E3_THRESHOLD', 60.0),
         ],
 
