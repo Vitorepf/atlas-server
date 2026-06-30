@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+
 /**
  * Match a task packet against available agents and produce candidate
  * dispatch plans without claiming a lease or dispatching anything.
@@ -184,6 +186,104 @@ final class AgentRuntimeRegistryTaskMatcher
             'token_spend_allowed' => false,
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
+        ];
+    }
+
+    private const POOR_FIT_THRESHOLD = 0.30;
+
+    /**
+     * Ranks available agents by overall fit for a task rather than mere
+     * availability: capability fit, recent task-family experience, recent
+     * outcome quality, give_back risk, and active load. Pure, advisory
+     * only — never dispatches.
+     *
+     * fit_score = task_family_experience * 0.35
+     *           + recent_success_rate    * 0.35
+     *           + (1 - give_back_rate)   * 0.20
+     *           + load_score             * 0.10
+     *
+     * An agent that is otherwise status-eligible but scores below
+     * POOR_FIT_THRESHOLD (0.30) is suppressed from selection even though it
+     * is available — fit beats raw availability.
+     *
+     * @param  array<string, mixed>  $taskPacket  { task_family?: string }
+     * @param  array<int, array<string, mixed>>  $agents  each may carry
+     *   task_family_experience (map family=>score 0..1) or
+     *   family_experience_score (flat 0..1), recent_success_rate (0..1),
+     *   give_back_rate (0..1), current_task_count, max_parallel_tasks.
+     * @return array<string, mixed>
+     */
+    public function selectBestFit(array $taskPacket, array $agents): array
+    {
+        $taskFamily = (string) ($taskPacket['task_family'] ?? '');
+
+        $eligible = [];
+        $rejectedWorkers = [];
+
+        foreach ($agents as $agent) {
+            $agentId = (string) ($agent['agent_id'] ?? '');
+            if ($agentId === '') {
+                continue;
+            }
+            $status = (string) ($agent['status'] ?? '');
+
+            if (! in_array($status, ['available', 'registered'], true)) {
+                $rejectedWorkers[] = ['agent_id' => $agentId, 'reason' => 'status_not_eligible:'.$status];
+
+                continue;
+            }
+
+            $familyExperience = isset($agent['task_family_experience'][$taskFamily])
+                ? (float) $agent['task_family_experience'][$taskFamily]
+                : (float) ($agent['family_experience_score'] ?? 0.0);
+            $familyExperience = max(0.0, min(1.0, $familyExperience));
+
+            $recentSuccessRate = max(0.0, min(1.0, (float) ($agent['recent_success_rate'] ?? 0.5)));
+            $giveBackRate = max(0.0, min(1.0, (float) ($agent['give_back_rate'] ?? 0.0)));
+
+            $maxParallel = max(0, (int) ($agent['max_parallel_tasks'] ?? 0));
+            $currentTasks = max(0, (int) ($agent['current_task_count'] ?? 0));
+            $loadScore = $maxParallel > 0 ? round(max(0.0, 1 - ($currentTasks / $maxParallel)), 4) : 1.0;
+
+            $fitScore = round(
+                $familyExperience * 0.35
+                + $recentSuccessRate * 0.35
+                + (1 - $giveBackRate) * 0.20
+                + $loadScore * 0.10,
+                4,
+            );
+
+            if ($fitScore < self::POOR_FIT_THRESHOLD) {
+                $rejectedWorkers[] = ['agent_id' => $agentId, 'reason' => 'poor_fit_for_task_family', 'fit_score' => $fitScore];
+
+                continue;
+            }
+
+            $eligible[] = [
+                'agent_id' => $agentId,
+                'task_family_experience' => $familyExperience,
+                'recent_success_rate' => $recentSuccessRate,
+                'give_back_rate' => $giveBackRate,
+                'load_score' => $loadScore,
+                'fit_score' => $fitScore,
+            ];
+        }
+
+        usort($eligible, static fn (array $a, array $b): int => $b['fit_score'] <=> $a['fit_score'] ?: strcmp((string) $a['agent_id'], (string) $b['agent_id']));
+
+        $selectedWorker = $eligible[0] ?? null;
+        $rationale = $selectedWorker !== null
+            ? sprintf('selected_%s_for_highest_fit_score_%.4f_in_family_%s', $selectedWorker['agent_id'], $selectedWorker['fit_score'], $taskFamily !== '' ? $taskFamily : 'unspecified')
+            : 'no_eligible_worker_meets_fit_threshold';
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'task_family' => $taskFamily,
+            'selected_worker' => $selectedWorker,
+            'rejected_workers' => $rejectedWorkers,
+            'ranked_workers' => array_values($eligible),
+            'rationale' => $rationale,
+            'dispatch_allowed' => false,
         ];
     }
 

@@ -191,4 +191,99 @@ final class AgentRuntimeRegistryTaskMatcherTest extends TestCase
             'lease_supported' => true,
         ], $overrides);
     }
+
+    // ── selectBestFit ────────────────────────────────────────────────────────────
+
+    private function fitAgent(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'agent_id' => $id,
+            'status' => 'available',
+            'task_family_experience' => ['external_brain' => 0.8],
+            'recent_success_rate' => 0.8,
+            'give_back_rate' => 0.1,
+            'current_task_count' => 0,
+            'max_parallel_tasks' => 3,
+        ], $overrides);
+    }
+
+    public function test_selects_worker_with_highest_fit_score(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], [
+            $this->fitAgent('weak', ['task_family_experience' => ['external_brain' => 0.1], 'recent_success_rate' => 0.2]),
+            $this->fitAgent('strong', ['task_family_experience' => ['external_brain' => 0.9], 'recent_success_rate' => 0.9]),
+        ]);
+
+        $this->assertSame('strong', $result['selected_worker']['agent_id']);
+        $this->assertStringContainsString('strong', $result['rationale']);
+    }
+
+    public function test_unavailable_worker_is_rejected_with_status_reason(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], [
+            $this->fitAgent('offline', ['status' => 'offline']),
+        ]);
+
+        $this->assertNull($result['selected_worker']);
+        $this->assertSame('status_not_eligible:offline', $result['rejected_workers'][0]['reason']);
+    }
+
+    public function test_poor_fit_available_worker_is_suppressed_despite_availability(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], [
+            $this->fitAgent('poor-fit', [
+                'task_family_experience' => ['external_brain' => 0.0],
+                'recent_success_rate' => 0.0,
+                'give_back_rate' => 0.9,
+                'current_task_count' => 3,
+                'max_parallel_tasks' => 3,
+            ]),
+        ]);
+
+        $this->assertNull($result['selected_worker']);
+        $this->assertSame('poor_fit_for_task_family', $result['rejected_workers'][0]['reason']);
+        $this->assertSame('no_eligible_worker_meets_fit_threshold', $result['rationale']);
+    }
+
+    public function test_high_give_back_rate_reduces_fit_score(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], [
+            $this->fitAgent('risky', ['give_back_rate' => 0.9]),
+            $this->fitAgent('reliable', ['give_back_rate' => 0.0]),
+        ]);
+
+        $this->assertSame('reliable', $result['selected_worker']['agent_id']);
+    }
+
+    public function test_active_load_reduces_fit_score(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], [
+            $this->fitAgent('busy', ['current_task_count' => 3, 'max_parallel_tasks' => 3]),
+            $this->fitAgent('idle', ['current_task_count' => 0, 'max_parallel_tasks' => 3]),
+        ]);
+
+        $this->assertSame('idle', $result['selected_worker']['agent_id']);
+    }
+
+    public function test_no_agents_yields_no_selection(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], []);
+
+        $this->assertNull($result['selected_worker']);
+        $this->assertSame([], $result['ranked_workers']);
+    }
+
+    public function test_select_best_fit_never_allows_dispatch(): void
+    {
+        $matcher = new AgentRuntimeRegistryTaskMatcher;
+        $result = $matcher->selectBestFit(['task_family' => 'external_brain'], [$this->fitAgent('a')]);
+
+        $this->assertFalse($result['dispatch_allowed']);
+    }
 }
