@@ -100,4 +100,36 @@ class AtlasSelfConstructionHumanDependencyRegressionGateTest extends TestCase
         self::assertContains('final_runtime_owner_not_atlas_native:external_assistant', $verdict['blockers']);
         self::assertContains('steady_state_non_atlas_actor:path=init:actor=operator', $verdict['blockers']);
     }
+
+    public function test_ordinary_path_requiring_pasted_session_actor_is_blocked_with_specific_message(): void
+    {
+        $verdict = (new AtlasSelfConstructionHumanDependencyRegressionGate)->check([
+            'final_runtime_owner' => 'atlas_native',
+            'paths' => [
+                ['id' => 'cycle_recover', 'kind' => 'ordinary', 'steady_state_required' => ['pasted_session']],
+            ],
+        ]);
+
+        self::assertFalse($verdict['passed']);
+        self::assertContains(
+            'pasted_session_recovery_in_ordinary_path:path=cycle_recover:actor=pasted_session',
+            $verdict['blockers'],
+        );
+        foreach ($verdict['blockers'] as $b) {
+            self::assertStringNotContainsString('steady_state_non_atlas_actor', $b);
+        }
+    }
+
+    public function test_atlas_native_recovery_path_passes_gate(): void
+    {
+        $verdict = (new AtlasSelfConstructionHumanDependencyRegressionGate)->check([
+            'final_runtime_owner' => 'atlas_native',
+            'paths' => [
+                ['id' => 'recovery', 'kind' => 'ordinary', 'steady_state_required' => ['atlas_native']],
+            ],
+        ]);
+
+        self::assertTrue($verdict['passed']);
+        self::assertSame([], $verdict['blockers']);
+    }
 }

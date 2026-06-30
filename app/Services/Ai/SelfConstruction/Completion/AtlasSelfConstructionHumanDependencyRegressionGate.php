@@ -37,6 +37,23 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
     public const ATLAS_NATIVE_ACTORS = ['atlas_native', 'atlas_server'];
 
     /**
+     * Actors that indicate a pasted-session, manual-recovery, or non-Atlas-native execution
+     * workflow. These emit a named blocker distinct from generic non-atlas actors so operators
+     * and Maestro can distinguish "ordinary human dependency" from "pasted-session anti-pattern".
+     *
+     * @var list<string>
+     */
+    public const PASTED_SESSION_ANTIPATTERNS = [
+        'pasted_session',
+        'paste_session',
+        'session_paste',
+        'manual_recovery',
+        'non_atlas_native_execution',
+        'human_session_paste',
+        'pasted_context',
+    ];
+
+    /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
      */
@@ -83,7 +100,11 @@ final class AtlasSelfConstructionHumanDependencyRegressionGate
             }
 
             foreach ($nonAtlas as $actor) {
-                $blockers[] = sprintf('steady_state_non_atlas_actor:path=%s:actor=%s', $id, $actor);
+                if (in_array($actor, self::PASTED_SESSION_ANTIPATTERNS, true)) {
+                    $blockers[] = sprintf('pasted_session_recovery_in_ordinary_path:path=%s:actor=%s', $id, $actor);
+                } else {
+                    $blockers[] = sprintf('steady_state_non_atlas_actor:path=%s:actor=%s', $id, $actor);
+                }
             }
         }
 
