@@ -31,6 +31,8 @@ final class AtlasProjectLaneGovernanceDossier
         'autonomy_readiness',
     ];
 
+    public const FORBIDDEN_EVIDENCE_FIELDS = ['raw_prompt', 'provider_trace', 'operator_approval_receipt', 'human_approval'];
+
     /**
      * @param  array<string,array<string,mixed>>  $sections           per-section evidence map
      * @param  array<string,mixed>                $autonomyReadiness  output of AtlasProjectLaneAutonomyReadiness::compose()
@@ -38,17 +40,31 @@ final class AtlasProjectLaneGovernanceDossier
      */
     public function export(string $projectId, array $sections, array $autonomyReadiness): array
     {
-        // Always include every mandatory section key, defaulting absent ones to an empty payload so
-        // the dossier shape is deterministic across lanes.
         $normalizedSections = [];
+        $missingSections = [];
         foreach (self::MANDATORY_SECTIONS as $key) {
-            $normalizedSections[$key] = $key === 'autonomy_readiness'
+            $data = $key === 'autonomy_readiness'
                 ? $autonomyReadiness
                 : (array) ($sections[$key] ?? []);
+            foreach (self::FORBIDDEN_EVIDENCE_FIELDS as $f) {
+                unset($data[$f]);
+            }
+            if ($data !== []) {
+                $data['section_hash'] = hash('sha256', (string) json_encode(
+                    $this->canonicalize($data),
+                    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+                ));
+            } else {
+                $missingSections[] = 'missing_section:'.$key;
+            }
+            $normalizedSections[$key] = $data;
         }
 
         $state = (string) ($autonomyReadiness['state'] ?? 'unknown');
-        $blockers = array_values((array) ($autonomyReadiness['blockers'] ?? []));
+        $blockers = array_values(array_merge(
+            (array) ($autonomyReadiness['blockers'] ?? []),
+            $missingSections,
+        ));
         $holds = array_values((array) ($autonomyReadiness['holds'] ?? []));
 
         $proofSummary = [

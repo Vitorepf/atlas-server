@@ -109,4 +109,57 @@ final class AtlasProjectLaneGovernanceDossierTest extends TestCase
             $this->assertStringNotContainsString('score', strtolower((string) $key));
         }
     }
+
+    public function test_non_empty_sections_receive_deterministic_section_hash(): void
+    {
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $this->happySections(), $this->readyAutonomy());
+        foreach (AtlasProjectLaneGovernanceDossier::MANDATORY_SECTIONS as $key) {
+            $section = $dossier['sections'][$key];
+            if ($section !== []) {
+                $this->assertArrayHasKey('section_hash', $section, "section {$key} must have section_hash");
+                $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $section['section_hash']);
+            }
+        }
+    }
+
+    public function test_missing_section_is_surfaced_as_blocker(): void
+    {
+        $sections = $this->happySections();
+        unset($sections['isolation']);
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $sections, $this->readyAutonomy());
+
+        $this->assertSame([], $dossier['sections']['isolation']);
+        $this->assertContains('missing_section:isolation', $dossier['blockers']);
+    }
+
+    public function test_dossier_id_stable_across_section_key_order(): void
+    {
+        $svc = new AtlasProjectLaneGovernanceDossier;
+        $a = $svc->export('p', $this->happySections(), $this->readyAutonomy());
+        $sections = array_reverse($this->happySections(), true);
+        $b = $svc->export('p', $sections, $this->readyAutonomy());
+
+        $this->assertSame($a['dossier_id'], $b['dossier_id']);
+    }
+
+    public function test_forbidden_evidence_fields_stripped_from_sections(): void
+    {
+        $sections = $this->happySections();
+        $sections['admission']['raw_prompt'] = 'secret prompt text';
+        $sections['namespace']['provider_trace'] = ['private' => 'data'];
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $sections, $this->readyAutonomy());
+
+        $this->assertArrayNotHasKey('raw_prompt', $dossier['sections']['admission']);
+        $this->assertArrayNotHasKey('provider_trace', $dossier['sections']['namespace']);
+    }
+
+    public function test_section_with_only_forbidden_fields_treated_as_missing(): void
+    {
+        $sections = $this->happySections();
+        $sections['rollback_policy'] = ['raw_prompt' => 'only forbidden'];
+        $dossier = (new AtlasProjectLaneGovernanceDossier)->export('p', $sections, $this->readyAutonomy());
+
+        $this->assertSame([], $dossier['sections']['rollback_policy']);
+        $this->assertContains('missing_section:rollback_policy', $dossier['blockers']);
+    }
 }
