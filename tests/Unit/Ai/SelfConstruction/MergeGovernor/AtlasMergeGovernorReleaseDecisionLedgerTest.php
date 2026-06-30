@@ -34,15 +34,17 @@ final class AtlasMergeGovernorReleaseDecisionLedgerTest extends TestCase
         parent::tearDown();
     }
 
-    private function payload(string $taskId = 'pkt-1', string $decidedAt = '2026-06-25T00:00:00Z'): array
+    private function payload(string $taskId = 'pkt-1', string $decidedAt = '2026-06-25T00:00:00Z', array $overrides = []): array
     {
-        return [
+        return $overrides + [
             'task_packet_id' => $taskId,
             'candidate_hash' => 'cand-h-1',
             'decision' => AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED,
             'reasons' => ['service_or_test_change'],
+            'risk_level' => 'low',
             'verification_hash' => 'ver-h-1',
             'rollback_hash' => 'rb-h-1',
+            'changed_files_hash' => 'cfh-1',
             'project_lane' => ['project_id' => 'demo'],
             'decided_at' => $decidedAt,
         ];
@@ -83,6 +85,53 @@ final class AtlasMergeGovernorReleaseDecisionLedgerTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/missing verification_hash/');
         $this->ledger->append($p);
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('hashBindingProvider')]
+    public function test_decision_hash_changes_when_bound_field_changes(string $field, string $newValue): void
+    {
+        $base = $this->ledger->append($this->payload()  );
+        $mutated = $this->ledger->append($this->payload('pkt-1', '2026-06-25T00:00:00Z', [$field => $newValue]));
+        $this->assertNotSame($base['row']['decision_hash'], $mutated['row']['decision_hash']);
+    }
+
+    public static function hashBindingProvider(): array
+    {
+        return [
+            'task_packet_id' => ['task_packet_id', 'pkt-DIFFERENT'],
+            'risk_level' => ['risk_level', 'high'],
+            'verification_hash' => ['verification_hash', 'ver-h-DIFFERENT'],
+            'rollback_hash' => ['rollback_hash', 'rb-h-DIFFERENT'],
+            'changed_files_hash' => ['changed_files_hash', 'cfh-DIFFERENT'],
+        ];
+    }
+
+    public function test_replay_verifies_valid_ledger_sequence(): void
+    {
+        $this->ledger->append($this->payload('pkt-a', '2026-06-25T00:00:00Z'));
+        $this->ledger->append($this->payload('pkt-b', '2026-06-26T00:00:00Z'));
+
+        $result = $this->ledger->replay();
+
+        $this->assertTrue($result['valid']);
+        $this->assertSame(2, $result['entry_count']);
+        $this->assertSame([], $result['issues']);
+    }
+
+    public function test_replay_rejects_mutated_entry(): void
+    {
+        $this->ledger->append($this->payload());
+
+        $lines = file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $entry = json_decode((string) $lines[0], true);
+        $entry['risk_level'] = 'blocked'; // tamper
+        file_put_contents($this->ledgerPath, json_encode($entry)."\n");
+
+        $result = $this->ledger->replay();
+
+        $this->assertFalse($result['valid']);
+        $this->assertCount(1, $result['issues']);
+        $this->assertSame('hash_mismatch', $result['issues'][0]['reason']);
     }
 
     public function test_chronological_list_filters_and_sorts_newest_first(): void

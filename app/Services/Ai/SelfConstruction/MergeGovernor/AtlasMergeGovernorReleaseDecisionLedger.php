@@ -41,8 +41,10 @@ final class AtlasMergeGovernorReleaseDecisionLedger
      *     candidate_hash:string,
      *     decision:string,
      *     reasons:list<string>,
+     *     risk_level:string,
      *     verification_hash:string,
      *     rollback_hash:string,
+     *     changed_files_hash:string,
      *     project_lane:array{project_id:string},
      *     decided_at:string
      * }  $payload
@@ -54,8 +56,10 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         $candHash = (string) ($payload['candidate_hash'] ?? '');
         $decision = (string) ($payload['decision'] ?? '');
         $reasons = is_array($payload['reasons'] ?? null) ? array_values(array_map('strval', $payload['reasons'])) : null;
+        $riskLevel = (string) ($payload['risk_level'] ?? '');
         $verHash = (string) ($payload['verification_hash'] ?? '');
         $rollbackHash = (string) ($payload['rollback_hash'] ?? '');
+        $changedFilesHash = (string) ($payload['changed_files_hash'] ?? '');
         $lane = is_array($payload['project_lane'] ?? null) ? $payload['project_lane'] : null;
         $laneProj = (string) ($lane['project_id'] ?? '');
         $decidedAt = (string) ($payload['decided_at'] ?? '');
@@ -72,11 +76,17 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         if ($reasons === null) {
             throw new RuntimeException('release decision: missing reasons (use [] for none)');
         }
+        if ($riskLevel === '') {
+            throw new RuntimeException('release decision: missing risk_level');
+        }
         if ($verHash === '') {
             throw new RuntimeException('release decision: missing verification_hash');
         }
         if ($rollbackHash === '') {
             throw new RuntimeException('release decision: missing rollback_hash');
+        }
+        if ($changedFilesHash === '') {
+            throw new RuntimeException('release decision: missing changed_files_hash');
         }
         if ($lane === null || $laneProj === '') {
             throw new RuntimeException('release decision: missing project_lane.project_id');
@@ -86,18 +96,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         }
 
         sort($reasons, SORT_STRING);
-        $canonical = [
-            'task_packet_id' => $taskId,
-            'candidate_hash' => $candHash,
-            'decision' => $decision,
-            'reasons' => $reasons,
-            'verification_hash' => $verHash,
-            'rollback_hash' => $rollbackHash,
-            'project_lane_project_id' => $laneProj,
-            'decided_at' => $decidedAt,
-        ];
-        ksort($canonical);
-        $decisionHash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $decisionHash = $this->computeHash($taskId, $candHash, $decision, $reasons, $riskLevel, $verHash, $rollbackHash, $changedFilesHash, $laneProj, $decidedAt);
 
         if ($this->alreadyRecorded($decisionHash)) {
             return ['status' => self::STATUS_ALREADY];
@@ -109,8 +108,10 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             'candidate_hash' => $candHash,
             'decision' => $decision,
             'reasons' => $reasons,
+            'risk_level' => $riskLevel,
             'verification_hash' => $verHash,
             'rollback_hash' => $rollbackHash,
+            'changed_files_hash' => $changedFilesHash,
             'project_lane' => ['project_id' => $laneProj],
             'decided_at' => $decidedAt,
             'decision_hash' => $decisionHash,
@@ -118,6 +119,46 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         $this->appendOnly($row);
 
         return ['status' => self::STATUS_OK, 'row' => $row];
+    }
+
+    /**
+     * Replay the ledger: recompute each decision_hash from stored fields and report any mismatch.
+     *
+     * @return array{valid:bool, entry_count:int, issues:list<array<string,mixed>>}
+     */
+    public function replay(): array
+    {
+        $entries = $this->all();
+        $issues = [];
+        foreach ($entries as $i => $entry) {
+            $reasons = is_array($entry['reasons'] ?? null) ? array_values(array_map('strval', $entry['reasons'])) : [];
+            sort($reasons, SORT_STRING);
+            $recomputed = $this->computeHash(
+                (string) ($entry['task_packet_id'] ?? ''),
+                (string) ($entry['candidate_hash'] ?? ''),
+                (string) ($entry['decision'] ?? ''),
+                $reasons,
+                (string) ($entry['risk_level'] ?? ''),
+                (string) ($entry['verification_hash'] ?? ''),
+                (string) ($entry['rollback_hash'] ?? ''),
+                (string) ($entry['changed_files_hash'] ?? ''),
+                (string) ($entry['project_lane']['project_id'] ?? ''),
+                (string) ($entry['decided_at'] ?? ''),
+            );
+            if ($recomputed !== (string) ($entry['decision_hash'] ?? '')) {
+                $issues[] = [
+                    'index' => $i,
+                    'task_packet_id' => (string) ($entry['task_packet_id'] ?? ''),
+                    'reason' => 'hash_mismatch',
+                ];
+            }
+        }
+
+        return [
+            'valid' => $issues === [],
+            'entry_count' => count($entries),
+            'issues' => $issues,
+        ];
     }
 
     /**
@@ -154,6 +195,31 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         usort($rows, static fn (array $a, array $b): int => strcmp((string) ($b['decided_at'] ?? ''), (string) ($a['decided_at'] ?? '')));
 
         return $rows;
+    }
+
+    /**
+     * @param  list<string>  $reasons  already sorted
+     */
+    private function computeHash(
+        string $taskId, string $candHash, string $decision, array $reasons,
+        string $riskLevel, string $verHash, string $rollbackHash, string $changedFilesHash,
+        string $laneProj, string $decidedAt,
+    ): string {
+        $canonical = [
+            'candidate_hash' => $candHash,
+            'changed_files_hash' => $changedFilesHash,
+            'decided_at' => $decidedAt,
+            'decision' => $decision,
+            'project_lane_project_id' => $laneProj,
+            'reasons' => $reasons,
+            'risk_level' => $riskLevel,
+            'rollback_hash' => $rollbackHash,
+            'task_packet_id' => $taskId,
+            'verification_hash' => $verHash,
+        ];
+        ksort($canonical);
+
+        return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function alreadyRecorded(string $decisionHash): bool
