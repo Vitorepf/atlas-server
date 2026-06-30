@@ -266,4 +266,104 @@ final class AgentDispatchPlannerEligibilityEvaluatorTest extends TestCase
             'evidence_required' => true,
         ], $overrides);
     }
+
+    // ── evaluateTaskEligibility(): per-task safety floor before any agent matching ──
+
+    private function goodTask(array $overrides = []): array
+    {
+        return array_merge([
+            'task_packet_id' => 'task-1',
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'dependency_state' => 'ready',
+            'give_back_risk' => 0.1,
+            'is_stale_duplicate' => false,
+            'has_contradiction_risk' => false,
+        ], $overrides);
+    }
+
+    public function test_fully_specified_low_risk_task_is_eligible(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask());
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_ELIGIBLE, $result['status']);
+        $this->assertSame([], $result['reason_codes']);
+    }
+
+    public function test_high_give_back_risk_is_quarantined_not_repaired(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask(['give_back_risk' => 0.9]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_QUARANTINE_REQUIRED, $result['status']);
+        $this->assertContains('give_back_risk_above_quarantine_ceiling', $result['reason_codes']);
+    }
+
+    public function test_stale_duplicate_is_quarantined(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask(['is_stale_duplicate' => true]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_QUARANTINE_REQUIRED, $result['status']);
+        $this->assertContains('stale_duplicate_detected', $result['reason_codes']);
+    }
+
+    public function test_contradiction_risk_is_quarantined(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask(['has_contradiction_risk' => true]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_QUARANTINE_REQUIRED, $result['status']);
+        $this->assertContains('contradiction_risk_detected', $result['reason_codes']);
+    }
+
+    public function test_test_only_packet_requires_repair(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask([
+            'allowed_files' => ['tests/Unit/FooTest.php', 'tests/Unit/BarTest.php'],
+        ]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_REPAIR_REQUIRED, $result['status']);
+        $this->assertContains('test_only_packet', $result['reason_codes']);
+    }
+
+    public function test_missing_allowed_files_requires_repair(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask(['allowed_files' => []]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_REPAIR_REQUIRED, $result['status']);
+        $this->assertContains('missing_allowed_files', $result['reason_codes']);
+    }
+
+    public function test_missing_acceptance_proof_requires_repair(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask(['acceptance_criteria' => []]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_REPAIR_REQUIRED, $result['status']);
+        $this->assertContains('missing_acceptance_proof', $result['reason_codes']);
+    }
+
+    public function test_blocked_dependency_requires_repair(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask(['dependency_state' => 'blocked']));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_REPAIR_REQUIRED, $result['status']);
+        $this->assertContains('dependency_blocked', $result['reason_codes']);
+    }
+
+    public function test_quarantine_takes_priority_over_repair_reasons(): void
+    {
+        $evaluator = new AgentDispatchPlannerEligibilityEvaluator;
+        $result = $evaluator->evaluateTaskEligibility($this->goodTask([
+            'allowed_files' => [],
+            'is_stale_duplicate' => true,
+        ]));
+
+        $this->assertSame(AgentDispatchPlannerEligibilityEvaluator::TASK_STATUS_QUARANTINE_REQUIRED, $result['status']);
+    }
 }

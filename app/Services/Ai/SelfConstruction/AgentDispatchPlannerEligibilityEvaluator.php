@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+
 /**
  * Evaluate eligibility of each (task, agent) pair for a planned
  * dispatch under hard-law constraints.
@@ -18,6 +20,13 @@ final class AgentDispatchPlannerEligibilityEvaluator
     public const MODE = 'read_only_agent_dispatch_planner_eligibility';
 
     public const RISK_LEVELS = ['low', 'medium', 'high', 'critical'];
+
+    public const TASK_STATUS_ELIGIBLE = 'eligible';
+    public const TASK_STATUS_REPAIR_REQUIRED = 'repair_required';
+    public const TASK_STATUS_QUARANTINE_REQUIRED = 'quarantine_required';
+
+    /** A give_back_risk this high means the task is not safe to assign — quarantine, don't repair. */
+    private const GIVE_BACK_QUARANTINE_CEILING = 0.80;
 
     public function __construct(
         private readonly AgentRuntimeRegistryCapabilityCatalog $catalog = new AgentRuntimeRegistryCapabilityCatalog,
@@ -87,6 +96,81 @@ final class AgentDispatchPlannerEligibilityEvaluator
             'self_programming_allowed' => false,
             'ledger_write_allowed' => false,
             'claim_real_allowed' => false,
+        ];
+    }
+
+    /**
+     * Evaluates whether a single task is safe to assign to ANY muscle, before
+     * agent-specific matching even runs. A task with high give_back risk,
+     * stale duplication, or contradiction risk is quarantined outright —
+     * never silently routed through repair. A task that is merely
+     * underspecified (missing scope, no runnable proof, blocked dependency,
+     * or test-only) is repair_required instead.
+     *
+     * @param  array<string, mixed>  $task
+     * @return array<string, mixed>
+     */
+    public function evaluateTaskEligibility(array $task): array
+    {
+        $taskId = (string) ($task['task_packet_id'] ?? '');
+        $allowedFiles = array_values(array_map('strval', (array) ($task['allowed_files'] ?? [])));
+        $acceptanceCriteria = array_values((array) ($task['acceptance_criteria'] ?? []));
+        $dependencyState = strtolower(trim((string) ($task['dependency_state'] ?? 'ready')));
+        $giveBackRisk = max(0.0, min(1.0, (float) ($task['give_back_risk'] ?? 0.0)));
+        $isStaleDuplicate = (bool) ($task['is_stale_duplicate'] ?? false);
+        $hasContradictionRisk = (bool) ($task['has_contradiction_risk'] ?? false);
+
+        $isTestOnly = $allowedFiles !== [] && array_reduce(
+            $allowedFiles,
+            static fn (bool $carry, string $file): bool => $carry && str_contains(strtolower($file), 'test'),
+            true,
+        );
+
+        $quarantineReasons = [];
+        if ($giveBackRisk >= self::GIVE_BACK_QUARANTINE_CEILING) {
+            $quarantineReasons[] = 'give_back_risk_above_quarantine_ceiling';
+        }
+        if ($isStaleDuplicate) {
+            $quarantineReasons[] = 'stale_duplicate_detected';
+        }
+        if ($hasContradictionRisk) {
+            $quarantineReasons[] = 'contradiction_risk_detected';
+        }
+
+        if ($quarantineReasons !== []) {
+            return [
+                'task_packet_id' => $taskId,
+                'status' => self::TASK_STATUS_QUARANTINE_REQUIRED,
+                'reason_codes' => $quarantineReasons,
+            ];
+        }
+
+        $repairReasons = [];
+        if ($allowedFiles === []) {
+            $repairReasons[] = 'missing_allowed_files';
+        }
+        if ($isTestOnly) {
+            $repairReasons[] = 'test_only_packet';
+        }
+        if ($acceptanceCriteria === []) {
+            $repairReasons[] = 'missing_acceptance_proof';
+        }
+        if ($dependencyState === 'blocked') {
+            $repairReasons[] = 'dependency_blocked';
+        }
+
+        if ($repairReasons !== []) {
+            return [
+                'task_packet_id' => $taskId,
+                'status' => self::TASK_STATUS_REPAIR_REQUIRED,
+                'reason_codes' => $repairReasons,
+            ];
+        }
+
+        return [
+            'task_packet_id' => $taskId,
+            'status' => self::TASK_STATUS_ELIGIBLE,
+            'reason_codes' => [],
         ];
     }
 
