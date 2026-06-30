@@ -41,6 +41,8 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
         $laneRoots = is_array($lane['allowed_scope_roots'] ?? null) ? array_map('strval', $lane['allowed_scope_roots']) : [];
         $touched = is_array($facts['touched_paths'] ?? null) ? array_values(array_map('strval', $facts['touched_paths'])) : [];
         $outcome = is_array($facts['outcome_facts'] ?? null) ? $facts['outcome_facts'] : [];
+        $freshness = is_array($facts['freshness_facts'] ?? null) ? $facts['freshness_facts'] : [];
+        $staleArtifacts = is_array($freshness['stale'] ?? null) ? array_map('strval', $freshness['stale']) : [];
 
         $blockers = [];
         if ($projectId === '') {
@@ -48,6 +50,9 @@ final class AtlasProjectLaneKnowledgeSyncPolicy
         }
         if ($laneRoots === []) {
             $blockers[] = 'missing_allowed_scope_roots';
+        }
+        foreach ($staleArtifacts as $artifact) {
+            $blockers[] = 'stale_artifact:'.$artifact;
         }
 
         // Path containment check.

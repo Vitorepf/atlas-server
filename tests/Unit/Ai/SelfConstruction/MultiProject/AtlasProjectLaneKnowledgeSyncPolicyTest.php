@@ -74,4 +74,32 @@ final class AtlasProjectLaneKnowledgeSyncPolicyTest extends TestCase
         $this->assertContains('lane-receipts-export:atlas', $ids);
         $this->assertContains('lane-memory-export:atlas', $ids);
     }
+
+    public function test_stale_freshness_facts_return_conformant_false_with_named_stale_artifact_blockers(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest'   => $this->atlasLane(),
+            'touched_paths'   => ['app/Foo.php'],
+            'freshness_facts' => ['stale' => ['code_index', 'memory']],
+        ]);
+
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('stale_artifact:code_index', $r['blockers']);
+        $this->assertContains('stale_artifact:memory', $r['blockers']);
+    }
+
+    public function test_cross_project_paths_yield_empty_commands_and_cross_project_path_blocker(): void
+    {
+        $r = (new AtlasProjectLaneKnowledgeSyncPolicy)->plan([
+            'lane_manifest' => ['project_id' => 'lane-a', 'allowed_scope_roots' => ['/repo/lane-a/']],
+            'touched_paths' => ['/repo/lane-b/secret.php'],
+        ]);
+
+        $this->assertFalse($r['conformant']);
+        $this->assertContains('cross_project_path:/repo/lane-b/secret.php', $r['blockers']);
+        $this->assertSame([], $r['required_commands'], 'no commands must be emitted for cross-project paths');
+        foreach ($r['required_commands'] as $cmd) {
+            $this->assertStringNotContainsString('lane-b', $cmd['id'], 'cross-project path must not produce a command targeting the other lane');
+        }
+    }
 }
