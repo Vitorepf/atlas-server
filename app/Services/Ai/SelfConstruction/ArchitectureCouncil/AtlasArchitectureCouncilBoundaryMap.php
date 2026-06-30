@@ -192,6 +192,34 @@ final class AtlasArchitectureCouncilBoundaryMap
             ];
         }
 
+        // Duplicate/overlapping-organ detection: when two or more organs declare the SAME
+        // responsibility, that is a consolidation boundary risk — multiple organs claiming
+        // ownership over one concern. canonical_owner is the alphabetically-first organ (a
+        // simple, deterministic tie-break); the rest are collapse_candidate(s) that should be
+        // folded into the canonical owner before new task creation is allowed against them.
+        $responsibilityOwners = [];
+        foreach ($organs as $organ) {
+            foreach ($organProfiles[$organ]['responsibilities'] as $responsibility) {
+                $responsibilityOwners[$responsibility][] = $organ;
+            }
+        }
+
+        $responsibilityOverlaps = [];
+        foreach ($responsibilityOwners as $responsibility => $owningOrgans) {
+            $distinctOwners = array_values(array_unique($owningOrgans));
+            if (count($distinctOwners) < 2) {
+                continue;
+            }
+            sort($distinctOwners, SORT_STRING);
+            $responsibilityOverlaps[] = [
+                'responsibility' => $responsibility,
+                'organs' => $distinctOwners,
+                'canonical_owner' => $distinctOwners[0],
+                'collapse_candidate' => array_slice($distinctOwners, 1),
+            ];
+        }
+        usort($responsibilityOverlaps, static fn (array $a, array $b): int => strcmp($a['responsibility'], $b['responsibility']));
+
         return [
             'schema' => self::SCHEMA,
             'organs' => $organs,
@@ -200,6 +228,8 @@ final class AtlasArchitectureCouncilBoundaryMap
             'shared_artifacts' => self::SHARED_ARTIFACTS,
             'boundary_risks' => array_values(array_unique($risks)),
             'organ_profiles' => $organProfiles,
+            'responsibility_overlaps' => $responsibilityOverlaps,
+            'has_responsibility_overlaps' => $responsibilityOverlaps !== [],
         ];
     }
 }
