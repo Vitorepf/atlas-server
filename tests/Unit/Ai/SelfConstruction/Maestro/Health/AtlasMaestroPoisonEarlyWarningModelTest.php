@@ -156,4 +156,91 @@ final class AtlasMaestroPoisonEarlyWarningModelTest extends TestCase
         ]));
         $this->assertEqualsWithDelta(0.85, $r['confidence'], 0.001);
     }
+
+    // ── risk_family / repairability / safe_next_action ─────────────────────────
+
+    public function test_clean_packet_has_no_risk_family_and_is_not_applicable_repairability(): void
+    {
+        $r = $this->svc()->score($this->cleanPacket());
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_NONE, $r['risk_family']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_NOT_APPLICABLE, $r['repairability']);
+        $this->assertSame('serve', $r['safe_next_action']);
+    }
+
+    public function test_missing_implementation_file_is_repairable_structural(): void
+    {
+        $r = $this->svc()->score([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+            'give_back_count' => 0,
+        ]);
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_STRUCTURAL, $r['risk_family']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertSame('auto_rescope', $r['safe_next_action']);
+    }
+
+    public function test_schema_mismatch_is_repairable_contract(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), ['schema_mismatch' => true]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_CONTRACT, $r['risk_family']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertSame('auto_rescope', $r['safe_next_action']);
+    }
+
+    public function test_forbidden_self_target_is_retire_only_governance(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), [
+            'forbidden_self_target' => true,
+        ]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_GOVERNANCE, $r['risk_family']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_RETIRE_ONLY, $r['repairability']);
+        $this->assertSame('auto_retire', $r['safe_next_action']);
+    }
+
+    public function test_dormant_cli_arm_proxy_is_retire_only_governance(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), [
+            'quality_facts' => ['dormant_cli_arm_proxy' => true],
+        ]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_GOVERNANCE, $r['risk_family']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_RETIRE_ONLY, $r['repairability']);
+        $this->assertSame('auto_retire', $r['safe_next_action']);
+    }
+
+    public function test_repairable_and_retire_only_signals_combined_resolve_to_retire_only(): void
+    {
+        // forbidden_self_target (retire) co-occurs with schema_mismatch (repairable) — retire wins.
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), [
+            'forbidden_self_target' => true,
+            'schema_mismatch' => true,
+        ]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_RETIRE_ONLY, $r['repairability']);
+        $this->assertSame('auto_retire', $r['safe_next_action']);
+    }
+
+    public function test_medium_give_back_only_is_repairable_not_retire_only(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), ['give_back_count' => 5]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_RELIABILITY, $r['risk_family']);
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertSame('hold_for_review', $r['safe_next_action']);
+    }
+
+    public function test_risk_family_picks_the_heaviest_weighted_signal(): void
+    {
+        // missing_implementation_file (structural, weight 2) vs forbidden_self_target (governance, weight 3).
+        $r = $this->svc()->score([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+            'forbidden_self_target' => true,
+            'give_back_count' => 0,
+        ]);
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_GOVERNANCE, $r['risk_family']);
+    }
 }
