@@ -345,4 +345,101 @@ final class AtlasExternalBrainValueDensityQueueOptimizerTest extends TestCase
 
         $this->assertSame($this->optimizer()->optimize($input), $this->optimizer()->optimize($input));
     }
+
+    // ── rankCandidates(): saturated-queue value-density prioritization ────────
+
+    private function candidate(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'task_id' => $id,
+            'impact' => 0.5,
+            'dependency_unlocks' => 0,
+            'risk_reduction' => 0.0,
+            'implementation_size' => 30,
+            'is_critical_blocker_removal' => false,
+        ], $overrides);
+    }
+
+    public function test_rank_candidates_has_required_keys(): void
+    {
+        $result = $this->optimizer()->rankCandidates(['candidates' => [$this->candidate('a')]]);
+
+        foreach (['queue_pressure', 'cutoff', 'cutoff_explanation', 'ranked_candidates', 'enqueue_count', 'defer_count'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_high_impact_low_size_candidate_is_enqueued(): void
+    {
+        $result = $this->optimizer()->rankCandidates(['candidates' => [
+            $this->candidate('high-value', ['impact' => 1.0, 'risk_reduction' => 1.0, 'implementation_size' => 15]),
+        ]]);
+
+        $this->assertSame('enqueue', $result['ranked_candidates'][0]['decision']);
+    }
+
+    public function test_low_density_valid_task_is_deferred_not_enqueued(): void
+    {
+        $result = $this->optimizer()->rankCandidates(['candidates' => [
+            $this->candidate('low-value', ['impact' => 0.1, 'risk_reduction' => 0.0, 'implementation_size' => 180]),
+        ]]);
+
+        $this->assertSame('defer', $result['ranked_candidates'][0]['decision']);
+        $this->assertSame('value_density_below_cutoff_deferred', $result['ranked_candidates'][0]['decision_reason']);
+    }
+
+    public function test_critical_blocker_removal_is_preserved_even_when_small_and_low_density(): void
+    {
+        $result = $this->optimizer()->rankCandidates(['candidates' => [
+            $this->candidate('critical-small', [
+                'impact' => 0.05,
+                'implementation_size' => 200,
+                'is_critical_blocker_removal' => true,
+            ]),
+        ]]);
+
+        $this->assertSame('enqueue', $result['ranked_candidates'][0]['decision']);
+        $this->assertSame('critical_blocker_removal_preserved_despite_low_density', $result['ranked_candidates'][0]['decision_reason']);
+    }
+
+    public function test_candidates_are_ranked_by_value_density_descending(): void
+    {
+        $result = $this->optimizer()->rankCandidates(['candidates' => [
+            $this->candidate('low', ['impact' => 0.1]),
+            $this->candidate('high', ['impact' => 0.9, 'risk_reduction' => 0.9]),
+        ]]);
+
+        $this->assertSame('high', $result['ranked_candidates'][0]['task_id']);
+        $this->assertSame('low', $result['ranked_candidates'][1]['task_id']);
+    }
+
+    public function test_queue_pressure_raises_cutoff_for_saturated_queues(): void
+    {
+        $light = $this->optimizer()->rankCandidates(['candidates' => [], 'claimable_count' => 1, 'capacity' => 10]);
+        $heavy = $this->optimizer()->rankCandidates(['candidates' => [], 'claimable_count' => 20, 'capacity' => 10]);
+
+        $this->assertGreaterThan($light['cutoff'], $heavy['cutoff']);
+    }
+
+    public function test_dependency_unlocks_increase_value_density(): void
+    {
+        $withoutUnlocks = $this->optimizer()->rankCandidates(['candidates' => [$this->candidate('a', ['dependency_unlocks' => 0])]]);
+        $withUnlocks = $this->optimizer()->rankCandidates(['candidates' => [$this->candidate('a', ['dependency_unlocks' => 5])]]);
+
+        $this->assertGreaterThan(
+            $withoutUnlocks['ranked_candidates'][0]['value_density'],
+            $withUnlocks['ranked_candidates'][0]['value_density'],
+        );
+    }
+
+    public function test_enqueue_and_defer_counts_match_decisions(): void
+    {
+        $result = $this->optimizer()->rankCandidates(['candidates' => [
+            $this->candidate('a', ['impact' => 1.0, 'risk_reduction' => 1.0, 'implementation_size' => 10]),
+            $this->candidate('b', ['impact' => 0.05, 'implementation_size' => 200]),
+        ]]);
+
+        $this->assertSame(1, $result['enqueue_count']);
+        $this->assertSame(1, $result['defer_count']);
+    }
 }

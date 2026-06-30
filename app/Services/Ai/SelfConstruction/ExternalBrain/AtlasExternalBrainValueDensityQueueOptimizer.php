@@ -56,6 +56,89 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
     private const DEFAULT_RISK_TRIGGER_CEILING    = 0.50;
     private const TOP_N                           = 3;
 
+    private const DEFAULT_CANDIDATE_DENSITY_FLOOR = 0.50;
+    private const DEFAULT_IMPLEMENTATION_MINUTES  = 30.0;
+    private const PRESSURE_CUTOFF_RAISE_PER_UNIT  = 0.10;
+
+    public const DECISION_ENQUEUE = 'enqueue';
+    public const DECISION_DEFER   = 'defer';
+
+    /**
+     * Ranks candidate tasks by value_density (impact, dependency unlocks,
+     * risk reduction weighed against implementation size) and marks
+     * low-density tasks as defer rather than enqueue when the queue is
+     * saturated. A critical blocker-removal task is NEVER deferred, even
+     * if it scores low on size/impact alone — removing the blocker unlocks
+     * everything behind it.
+     *
+     * value_density = (impact*0.4 + unlock_score*0.3 + risk_reduction*0.3) / implementation_size_hours
+     *
+     * The cutoff rises with queue_pressure (claimable_count / capacity):
+     * a saturated queue must be pickier than an empty one.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function rankCandidates(array $input): array
+    {
+        $rawCandidates = array_values((array) ($input['candidates'] ?? []));
+        $densityFloor = (float) ($input['value_density_floor'] ?? self::DEFAULT_CANDIDATE_DENSITY_FLOOR);
+        $claimableCount = max(0, (int) ($input['claimable_count'] ?? 0));
+        $capacity = max(1, (int) ($input['capacity'] ?? 1));
+
+        $queuePressure = round($claimableCount / $capacity, 4);
+        $cutoff = round($densityFloor + max(0.0, $queuePressure - 1.0) * self::PRESSURE_CUTOFF_RAISE_PER_UNIT, 6);
+
+        $ranked = [];
+        foreach ($rawCandidates as $candidate) {
+            $candidate = (array) $candidate;
+            $taskId = (string) ($candidate['task_id'] ?? '');
+            if ($taskId === '') {
+                continue;
+            }
+            $impact = max(0.0, min(1.0, (float) ($candidate['impact'] ?? 0.0)));
+            $unlocks = max(0, (int) ($candidate['dependency_unlocks'] ?? 0));
+            $unlockScore = min(1.0, $unlocks / 3.0);
+            $riskReduction = max(0.0, min(1.0, (float) ($candidate['risk_reduction'] ?? 0.0)));
+            $implementationMinutes = max(1.0, (float) ($candidate['implementation_size'] ?? self::DEFAULT_IMPLEMENTATION_MINUTES));
+            $implementationHours = max(0.1, $implementationMinutes / 60.0);
+            $isCriticalBlockerRemoval = (bool) ($candidate['is_critical_blocker_removal'] ?? false);
+
+            $valueDensity = round(
+                ($impact * 0.4 + $unlockScore * 0.3 + $riskReduction * 0.3) / $implementationHours,
+                6,
+            );
+
+            $meetsCutoff = $valueDensity >= $cutoff;
+            $decision = ($meetsCutoff || $isCriticalBlockerRemoval) ? self::DECISION_ENQUEUE : self::DECISION_DEFER;
+            $decisionReason = match (true) {
+                $isCriticalBlockerRemoval && ! $meetsCutoff => 'critical_blocker_removal_preserved_despite_low_density',
+                $meetsCutoff => 'value_density_meets_cutoff',
+                default => 'value_density_below_cutoff_deferred',
+            };
+
+            $ranked[] = [
+                'task_id' => $taskId,
+                'value_density' => $valueDensity,
+                'decision' => $decision,
+                'decision_reason' => $decisionReason,
+                'is_critical_blocker_removal' => $isCriticalBlockerRemoval,
+            ];
+        }
+
+        usort($ranked, static fn (array $a, array $b): int => $b['value_density'] <=> $a['value_density']);
+
+        return [
+            'schema' => self::SCHEMA,
+            'queue_pressure' => $queuePressure,
+            'cutoff' => $cutoff,
+            'cutoff_explanation' => "value_density_floor={$densityFloor} adjusted by queue_pressure={$queuePressure} (raised by ".self::PRESSURE_CUTOFF_RAISE_PER_UNIT." per unit of pressure above 1.0)",
+            'ranked_candidates' => $ranked,
+            'enqueue_count' => count(array_filter($ranked, static fn (array $c): bool => $c['decision'] === self::DECISION_ENQUEUE)),
+            'defer_count' => count(array_filter($ranked, static fn (array $c): bool => $c['decision'] === self::DECISION_DEFER)),
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
