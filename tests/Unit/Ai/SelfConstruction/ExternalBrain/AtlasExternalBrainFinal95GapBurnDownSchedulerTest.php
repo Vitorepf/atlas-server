@@ -517,4 +517,107 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
             );
         }
     }
+
+    // ── Dependency-chain ordering ───────────────────────────────────────────
+
+    public function test_blocked_upstream_gap_ranks_before_higher_impact_downstream_gap(): void
+    {
+        $result = $this->scheduler()->schedule([
+            [
+                'organ_id'     => 'downstream-high-impact',
+                'gap_type'     => 'missing',
+                'depends_on'   => ['upstream-blocker'],
+                'impact_score' => 0.95,
+                'effort_score' => 0.1,
+            ],
+            [
+                'organ_id'     => 'upstream-blocker',
+                'gap_type'     => 'thin',
+                'impact_score' => 0.10,
+                'effort_score' => 0.5,
+            ],
+        ]);
+
+        $organsInOrder = array_column($result['burn_down_schedule'], 'organ_id');
+        $upstreamRank   = array_search('upstream-blocker', $organsInOrder, true);
+        $downstreamRank = array_search('downstream-high-impact', $organsInOrder, true);
+
+        $this->assertNotFalse($upstreamRank);
+        $this->assertNotFalse($downstreamRank);
+        $this->assertLessThan($downstreamRank, $upstreamRank, 'upstream blocker must rank before its higher-impact downstream dependent');
+    }
+
+    public function test_unlocks_field_also_forces_dependency_ordering(): void
+    {
+        $result = $this->scheduler()->schedule([
+            [
+                'organ_id'     => 'downstream',
+                'gap_type'     => 'missing',
+                'impact_score' => 0.99,
+            ],
+            [
+                'organ_id'     => 'upstream',
+                'gap_type'     => 'missing',
+                'unlocks'      => ['downstream'],
+                'impact_score' => 0.01,
+            ],
+        ]);
+
+        $organsInOrder = array_column($result['burn_down_schedule'], 'organ_id');
+        $this->assertSame(['upstream', 'downstream'], $organsInOrder);
+    }
+
+    public function test_dependency_chains_lists_entries_with_edges_only(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'missing', 'depends_on' => ['b']],
+            ['organ_id' => 'b', 'gap_type' => 'missing'],
+            ['organ_id' => 'c', 'gap_type' => 'missing'],
+        ]);
+
+        $this->assertArrayHasKey('dependency_chains', $result);
+        $chainOrganIds = array_column($result['dependency_chains'], 'organ_id');
+        $this->assertContains('a', $chainOrganIds);
+        $this->assertNotContains('c', $chainOrganIds);
+    }
+
+    public function test_schedule_entries_carry_new_fields(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id'           => 'a',
+            'gap_type'           => 'missing',
+            'depends_on'         => ['b'],
+            'unlocks'            => ['c'],
+            'impact_score'       => 0.7,
+            'effort_score'       => 0.3,
+            'evidence_age_hours' => 12.0,
+        ]]);
+
+        $entry = $result['burn_down_schedule'][0];
+        foreach (['depends_on', 'unlocks', 'impact_score', 'effort_score', 'evidence_age_hours'] as $key) {
+            $this->assertArrayHasKey($key, $entry);
+        }
+        $this->assertSame(['b'], $entry['depends_on']);
+        $this->assertSame(['c'], $entry['unlocks']);
+        $this->assertSame(0.7, $entry['impact_score']);
+        $this->assertSame(0.3, $entry['effort_score']);
+        $this->assertSame(12.0, $entry['evidence_age_hours']);
+    }
+
+    public function test_next_batch_recommendation_describes_top_ready_gap(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'blocked', 'can_evidence_backfill' => true],
+        ]);
+
+        $this->assertArrayHasKey('next_batch_recommendation', $result);
+        $this->assertStringContainsString('a', $result['next_batch_recommendation']);
+    }
+
+    public function test_next_batch_recommendation_with_no_gaps(): void
+    {
+        $result = $this->scheduler()->schedule([]);
+
+        $this->assertSame('no_gaps_to_schedule', $result['next_batch_recommendation']);
+    }
 }
