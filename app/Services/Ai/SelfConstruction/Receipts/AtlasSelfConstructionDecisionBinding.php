@@ -85,11 +85,26 @@ final class AtlasSelfConstructionDecisionBinding
             }
         }
 
+        // Surface unknown receipt kinds so callers cannot hide evidence in unexpected collections.
+        $knownKeys = array_merge(self::BINDING_KINDS, ['decision_receipts']);
+        foreach ($index as $kind => $rows) {
+            if (in_array($kind, $knownKeys, true) || ! is_array($rows)) {
+                continue;
+            }
+            foreach ($rows as $id => $row) {
+                $bindings[] = ['kind' => $kind, 'id' => (string) $id, 'status' => 'unknown_kind', 'reason' => 'kind_not_in_binding_kinds'];
+            }
+        }
+
         usort($bindings, static fn (array $a, array $b): int => strcmp($a['kind'], $b['kind']) ?: strcmp($a['id'], $b['id']));
+
+        $summary = array_count_values(array_column($bindings, 'status'));
+        ksort($summary, SORT_STRING);
 
         return [
             'schema' => self::SCHEMA,
             'bindings' => $bindings,
+            'summary' => $summary,
         ];
     }
 }

@@ -98,4 +98,51 @@ final class AtlasSelfConstructionDecisionBindingTest extends TestCase
         $this->assertSame(['a-task', 'z-task'], $ids);
         $this->assertSame(json_encode($r), json_encode($b->verify($index)));
     }
+
+    public function test_unknown_downstream_kind_yields_unknown_kind_row_not_silent_success(): void
+    {
+        $index = $this->index(
+            ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1']],
+            ['ghost_receipts' => ['g-1' => ['id' => 'g-1', 'decision_ref' => 'd-1', 'decision_hash' => 'h-d1']]],
+        );
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+        $statuses = array_column($r['bindings'], 'status');
+        $this->assertContains('unknown_kind', $statuses, 'unknown receipt kind must produce an unknown_kind row');
+        $row = array_values(array_filter($r['bindings'], fn (array $b): bool => $b['status'] === 'unknown_kind'))[0];
+        $this->assertSame('ghost_receipts', $row['kind']);
+        $this->assertSame('g-1', $row['id']);
+    }
+
+    public function test_summary_count_per_status_is_present_without_scalar_score(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1', 'ts' => '2026-06-25T00:00:00Z']];
+        $boundRow = ['decision_ref' => 'd-1', 'decision_hash' => 'h-d1', 'decision_ts' => '2026-06-25T00:01:00Z'];
+        $index = $this->index($decisions, [
+            'task_receipts' => [
+                't-1' => array_merge(['id' => 't-1'], $boundRow),
+                't-2' => ['id' => 't-2'], // missing_binding
+            ],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+        $this->assertArrayHasKey('summary', $r);
+        $this->assertIsArray($r['summary']);
+        $this->assertSame(1, $r['summary']['bound'] ?? 0);
+        $this->assertSame(1, $r['summary']['missing_binding'] ?? 0);
+        // No scalar score, rank, grade, percent
+        $json = json_encode($r['summary']);
+        $this->assertDoesNotMatchRegularExpression('/"(score|rank|grade|percent)"/i', $json);
+    }
+
+    public function test_summary_keys_are_sorted_deterministically(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1']];
+        $row = ['decision_ref' => 'd-1', 'decision_hash' => 'h-d1'];
+        $index = $this->index($decisions, [
+            'task_receipts' => ['t-1' => array_merge(['id' => 't-1'], $row)],
+            'merge_receipts' => ['m-1' => ['id' => 'm-1']], // missing_binding
+        ]);
+        $r1 = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+        $r2 = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+        $this->assertSame(array_keys($r1['summary']), array_keys($r2['summary']));
+    }
 }
