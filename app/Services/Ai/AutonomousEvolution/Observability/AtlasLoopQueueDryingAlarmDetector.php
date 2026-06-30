@@ -16,6 +16,10 @@ final class AtlasLoopQueueDryingAlarmDetector
 
     private const BUCKET_COUNT = 4;
 
+    public const DEFAULT_ACTIVE_WORKER_FLOOR = 4.0;
+
+    private const SLOPE_ACTIVE_WORKER_FLOOR_BREACH = 'active_worker_floor_breach';
+
     private readonly string $signalsDir;
 
     public function __construct(?string $signalsDir = null)
@@ -26,12 +30,35 @@ final class AtlasLoopQueueDryingAlarmDetector
     /**
      * @return array{schema_version:string,campaign_id:string,window_seconds:int,evaluated_at:string,drying:bool,slope_signal:string,fact_evidence:array<string,mixed>}
      */
-    public function evaluate(string $campaignId, int $windowSeconds = 7200): array
-    {
+    public function evaluate(
+        string $campaignId,
+        int $windowSeconds = 7200,
+        ?int $servableNow = null,
+        ?int $activeWorkers = null,
+        float $activeWorkerFloor = self::DEFAULT_ACTIVE_WORKER_FLOOR,
+    ): array {
         $windowSeconds = max(self::BUCKET_COUNT, $windowSeconds);
         $now = Carbon::now('UTC');
 
+        $workerFloorBreach = $activeWorkers !== null
+            && $activeWorkers > 0
+            && $servableNow !== null
+            && ($servableNow / $activeWorkers) < $activeWorkerFloor;
+
         if (! $this->tableReady()) {
+            if ($workerFloorBreach) {
+                return $this->result($campaignId, $windowSeconds, $now, true, self::SLOPE_ACTIVE_WORKER_FLOOR_BREACH, [
+                    'table_present' => false,
+                    'required_columns_present' => false,
+                    'buckets' => [0, 0, 0, 0],
+                    'decision_signals_in_window' => 0,
+                    'servable_now' => $servableNow,
+                    'active_workers' => $activeWorkers,
+                    'active_worker_floor' => $activeWorkerFloor,
+                    'active_worker_floor_breach' => true,
+                ]);
+            }
+
             return $this->result($campaignId, $windowSeconds, $now, false, 'indeterminate', [
                 'table_present' => false,
                 'required_columns_present' => false,
@@ -46,13 +73,27 @@ final class AtlasLoopQueueDryingAlarmDetector
         $drying = in_array($slopeSignal, ['empty_terminal', 'decreasing_halved', 'flat_empty'], true)
             && $decisionSignals > 0;
 
-        return $this->result($campaignId, $windowSeconds, $now, $drying, $slopeSignal, [
+        $factEvidence = [
             'table_present' => true,
             'required_columns_present' => true,
             'buckets' => $buckets,
             'bucket_seconds' => (int) floor($windowSeconds / self::BUCKET_COUNT),
             'decision_signals_in_window' => $decisionSignals,
-        ]);
+        ];
+
+        if ($activeWorkers !== null || $servableNow !== null) {
+            $factEvidence['servable_now'] = $servableNow;
+            $factEvidence['active_workers'] = $activeWorkers;
+            $factEvidence['active_worker_floor'] = $activeWorkerFloor;
+            $factEvidence['active_worker_floor_breach'] = $workerFloorBreach;
+        }
+
+        if (! $drying && $workerFloorBreach) {
+            $drying = true;
+            $slopeSignal = self::SLOPE_ACTIVE_WORKER_FLOOR_BREACH;
+        }
+
+        return $this->result($campaignId, $windowSeconds, $now, $drying, $slopeSignal, $factEvidence);
     }
 
     /**

@@ -113,6 +113,31 @@ final class AtlasLoopQueueDryingAlarmDetectorTest extends TestCase
         $this->assertSame(0, $result['fact_evidence']['decision_signals_in_window']);
     }
 
+    public function test_servable_per_active_worker_below_floor_is_drying_even_with_stable_buckets(): void
+    {
+        $this->seedBuckets([1, 2, 2, 3]);
+
+        $result = (new AtlasLoopQueueDryingAlarmDetector($this->signalsDir))
+            ->evaluate('camp-1', 400, 23, 6);
+
+        $this->assertTrue($result['drying']);
+        $this->assertSame('active_worker_floor_breach', $result['slope_signal']);
+        $this->assertTrue($result['fact_evidence']['active_worker_floor_breach']);
+        $this->assertSame(23, $result['fact_evidence']['servable_now']);
+        $this->assertSame(6, $result['fact_evidence']['active_workers']);
+    }
+
+    public function test_same_servable_depth_with_no_active_workers_stays_non_urgent(): void
+    {
+        $this->seedBuckets([1, 2, 2, 3]);
+
+        $result = (new AtlasLoopQueueDryingAlarmDetector($this->signalsDir))
+            ->evaluate('camp-1', 400, 23, 0);
+
+        $this->assertFalse($result['drying']);
+        $this->assertSame('stable_or_growing', $result['slope_signal']);
+    }
+
     /**
      * @param  list<int>  $counts
      */
