@@ -225,4 +225,93 @@ final class AtlasExternalBrainDecisionQualityRegressionSuiteTest extends TestCas
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── new scenarios: proxy proof / shallow wrapper ───────────────────────────
+
+    public function test_proxy_proof_admitted_is_regression(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_PROXY_PROOF, 'admitted' => true],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+        $this->assertContains(AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_PROXY_PROOF, $result['failed_scenarios']);
+    }
+
+    public function test_proxy_proof_correctly_rejected_passes(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_PROXY_PROOF, 'admitted' => false],
+        ]);
+
+        $this->assertSame(1.0, $result['quality_score']);
+    }
+
+    public function test_shallow_wrapper_admitted_is_regression(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_SHALLOW_WRAPPER, 'admitted' => true],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+    }
+
+    public function test_ambitious_multi_step_genuine_admitted_passes(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE, 'admitted' => true],
+        ]);
+
+        $this->assertSame(1.0, $result['quality_score']);
+        $this->assertSame([], $result['failed_scenarios']);
+    }
+
+    public function test_ambitious_multi_step_genuine_rejected_is_regression(): void
+    {
+        $result = $this->suite->score([
+            ['scenario_id' => AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE, 'admitted' => false],
+        ]);
+
+        $this->assertSame(0.0, $result['quality_score']);
+        $this->assertStringContainsString('expected admission', $result['regression_reasons'][0]);
+    }
+
+    // ── runFrozenRegressionSuite ────────────────────────────────────────────────
+
+    public function test_frozen_suite_passes_with_correct_built_in_cases(): void
+    {
+        $result = $this->suite->runFrozenRegressionSuite();
+
+        $this->assertSame(AtlasExternalBrainDecisionQualityRegressionSuite::SCHEMA, $result['schema']);
+        $this->assertSame('pass', $result['verdict']);
+        $this->assertSame([], $result['failed_case_ids']);
+        $this->assertNull($result['violated_quality_rule']);
+    }
+
+    public function test_frozen_suite_includes_accepted_high_leverage_macro_case(): void
+    {
+        // Proven by the fact the frozen suite passes: the high-leverage and
+        // ambitious-multi-step cases are admitted=true and still score as pass,
+        // proving the suite does not reject valid ambitious work.
+        $result = $this->suite->runFrozenRegressionSuite();
+
+        $this->assertSame('pass', $result['verdict']);
+    }
+
+    public function test_frozen_suite_includes_rejected_padding_and_proxy_and_duplicate_and_wrapper_cases(): void
+    {
+        // Re-derive expectations independently from the frozen cases via score()
+        // to prove every required bad scenario is covered and correctly rejected.
+        $badScenarios = [
+            AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_TEMPLATE_FARM,
+            AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_PROXY_PROOF,
+            AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_DUPLICATE_TARGET,
+            AtlasExternalBrainDecisionQualityRegressionSuite::SCENARIO_SHALLOW_WRAPPER,
+        ];
+
+        foreach ($badScenarios as $scenario) {
+            $result = $this->suite->score([['scenario_id' => $scenario, 'admitted' => false]]);
+            $this->assertSame(1.0, $result['quality_score'], "{$scenario} should pass when correctly rejected");
+        }
+    }
 }

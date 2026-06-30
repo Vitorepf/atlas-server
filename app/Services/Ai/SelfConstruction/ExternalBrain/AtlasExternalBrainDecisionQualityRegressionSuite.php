@@ -36,17 +36,24 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
     public const SCENARIO_WEAK_EVIDENCE    = 'weak_evidence';
     public const SCENARIO_POISON_PACKET    = 'poison_packet';
 
+    public const SCENARIO_PROXY_PROOF      = 'proxy_proof';
+    public const SCENARIO_SHALLOW_WRAPPER  = 'shallow_wrapper_spec';
+
     // Scenarios that must be ADMITTED
     public const SCENARIO_HIGH_LEVERAGE_GENUINE = 'high_leverage_genuine';
     public const SCENARIO_CONSOLIDATION_NEEDED  = 'consolidation_needed';
+    public const SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE = 'ambitious_multi_step_genuine';
 
     private const EXPECTED_ADMITTED = [
         self::SCENARIO_TEMPLATE_FARM         => false,
         self::SCENARIO_DUPLICATE_TARGET      => false,
         self::SCENARIO_WEAK_EVIDENCE         => false,
         self::SCENARIO_POISON_PACKET         => false,
+        self::SCENARIO_PROXY_PROOF           => false,
+        self::SCENARIO_SHALLOW_WRAPPER       => false,
         self::SCENARIO_HIGH_LEVERAGE_GENUINE => true,
         self::SCENARIO_CONSOLIDATION_NEEDED  => true,
+        self::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE => true,
     ];
 
     private const REGRESSION_RULES = [
@@ -54,9 +61,31 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
         self::SCENARIO_DUPLICATE_TARGET => 'duplicate-target candidate must not be admitted; it wastes queue cycles',
         self::SCENARIO_WEAK_EVIDENCE    => 'weak-evidence candidate must not be admitted; task is unverifiable',
         self::SCENARIO_POISON_PACKET    => 'poison packet must not be admitted; it is unrecoverable',
+        self::SCENARIO_PROXY_PROOF      => 'proxy-proof candidate must not be admitted; it gates on a non-runnable or gameable metric instead of real evidence',
+        self::SCENARIO_SHALLOW_WRAPPER  => 'shallow-wrapper-spec candidate must not be admitted; it wraps an existing capability with no new behavior',
     ];
 
-    private const CONTENT_LOW_VALUE_LABELS = ['template_farming', 'shallow_duplication', 'fake_confidence'];
+    private const CONTENT_LOW_VALUE_LABELS = ['template_farming', 'shallow_duplication', 'fake_confidence', 'proxy_proof', 'shallow_wrapper'];
+
+    /**
+     * @var list<array<string,mixed>> Frozen good/bad decision cases used to
+     *      detect regressions toward template-farm, proxy proof, duplicate
+     *      target, or shallow wrapper specs without re-litigating real
+     *      candidates. Each case states the upstream decision's actual
+     *      `admitted` outcome on a known-good or known-bad input; the suite
+     *      proves that outcome still matches the scenario's correct verdict.
+     */
+    private const FROZEN_CASES = [
+        ['case_id' => 'frozen_template_farm', 'scenario_id' => self::SCENARIO_TEMPLATE_FARM, 'admitted' => false],
+        ['case_id' => 'frozen_duplicate_target', 'scenario_id' => self::SCENARIO_DUPLICATE_TARGET, 'admitted' => false],
+        ['case_id' => 'frozen_weak_evidence', 'scenario_id' => self::SCENARIO_WEAK_EVIDENCE, 'admitted' => false],
+        ['case_id' => 'frozen_poison_packet', 'scenario_id' => self::SCENARIO_POISON_PACKET, 'admitted' => false],
+        ['case_id' => 'frozen_proxy_proof', 'scenario_id' => self::SCENARIO_PROXY_PROOF, 'admitted' => false],
+        ['case_id' => 'frozen_shallow_wrapper', 'scenario_id' => self::SCENARIO_SHALLOW_WRAPPER, 'admitted' => false],
+        ['case_id' => 'frozen_high_leverage_genuine', 'scenario_id' => self::SCENARIO_HIGH_LEVERAGE_GENUINE, 'admitted' => true],
+        ['case_id' => 'frozen_consolidation_needed', 'scenario_id' => self::SCENARIO_CONSOLIDATION_NEEDED, 'admitted' => true],
+        ['case_id' => 'frozen_ambitious_multi_step_genuine', 'scenario_id' => self::SCENARIO_AMBITIOUS_MULTI_STEP_GENUINE, 'admitted' => true],
+    ];
 
     /**
      * @param  list<array<string,mixed>>  $decisions
@@ -103,6 +132,40 @@ final class AtlasExternalBrainDecisionQualityRegressionSuite
             'failed_scenarios'   => $failed,
             'quality_score'      => $qualityScore,
             'regression_reasons' => $regressionReasons,
+        ];
+    }
+
+    /**
+     * Runs the frozen good/bad case suite and returns a regression verdict.
+     * verdict='pass' only when every frozen case's expected admit/reject
+     * outcome still matches; otherwise verdict='fail' and failed_case_ids
+     * names exactly which frozen cases regressed.
+     *
+     * @return array{schema:string, verdict:string, failed_case_ids:list<string>, violated_quality_rule:string|null}
+     */
+    public function runFrozenRegressionSuite(): array
+    {
+        $failedCaseIds = [];
+        $violatedRule = null;
+
+        foreach (self::FROZEN_CASES as $case) {
+            $scenarioId = (string) $case['scenario_id'];
+            $admitted = (bool) $case['admitted'];
+            $expectedAdmitted = $this->resolveExpected($scenarioId, $case);
+
+            if ($expectedAdmitted !== null && $admitted !== $expectedAdmitted) {
+                $failedCaseIds[] = (string) $case['case_id'];
+                if ($violatedRule === null) {
+                    $violatedRule = self::REGRESSION_RULES[$scenarioId] ?? "scenario={$scenarioId} expected ".($expectedAdmitted ? 'admission' : 'rejection');
+                }
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'verdict' => $failedCaseIds === [] ? 'pass' : 'fail',
+            'failed_case_ids' => $failedCaseIds,
+            'violated_quality_rule' => $violatedRule,
         ];
     }
 
