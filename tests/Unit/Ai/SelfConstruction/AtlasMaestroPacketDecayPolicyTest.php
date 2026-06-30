@@ -89,4 +89,59 @@ final class AtlasMaestroPacketDecayPolicyTest extends TestCase
         );
         $this->assertSame([], $policy->propose());
     }
+
+    public function test_dependency_critical_packet_proposes_keep_not_park_when_aged(): void
+    {
+        // 9h old, threshold 6h, dependency_critical=true → must propose keep, not park
+        $packets = [
+            [
+                'task_packet_id' => 'critical-old',
+                'enqueued_at' => '2026-06-25T06:00:00Z',
+                'queue_status' => 'waiting',
+                'dependency_critical' => true,
+            ],
+        ];
+        $byId = array_column($packets, null, 'task_packet_id');
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter($packets),
+            fn () => 21600, // 6h
+            fn () => true,
+            fn (string $id) => $byId[$id] ?? [],
+        );
+
+        $proposals = $policy->propose();
+        $this->assertCount(1, $proposals);
+        $p = $proposals[0];
+        $this->assertSame('critical-old', $p['task_packet_id']);
+        $this->assertSame('keep', $p['proposed_action']);
+        $this->assertSame('keep_due_to_critical_dependency', $p['reason']);
+    }
+
+    public function test_poison_family_packet_parks_below_normal_threshold_with_named_reason(): void
+    {
+        // give_back_count=2, age=4h, normal threshold=6h → poison threshold=3h (50%) → must park
+        $packets = [
+            [
+                'task_packet_id' => 'poison-packet',
+                'enqueued_at' => '2026-06-25T11:00:00Z', // 4h before observedAt 15:00
+                'queue_status' => 'waiting',
+                'give_back_count' => 2,
+            ],
+        ];
+        $byId = array_column($packets, null, 'task_packet_id');
+        $policy = new AtlasMaestroPacketDecayPolicy(
+            $this->reporter($packets),
+            fn () => 21600, // 6h normal
+            fn () => true,
+            fn (string $id) => $byId[$id] ?? [],
+        );
+
+        $proposals = $policy->propose();
+        $this->assertCount(1, $proposals);
+        $p = $proposals[0];
+        $this->assertSame('poison-packet', $p['task_packet_id']);
+        $this->assertSame('park', $p['proposed_action']);
+        $this->assertStringContainsString('park_due_to_poison_age', $p['reason']);
+        $this->assertStringContainsString('poison_threshold_seconds=10800', $p['reason']); // 21600 * 0.5
+    }
 }
