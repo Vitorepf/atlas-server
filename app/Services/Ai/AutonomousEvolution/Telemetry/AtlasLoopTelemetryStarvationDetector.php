@@ -64,7 +64,7 @@ final class AtlasLoopTelemetryStarvationDetector
         }
 
         return [
-            'starved' => $counts['claim'] > 0 && $pairedClaimToServe === 0,
+            'starved' => $counts['claim'] > 0 && $counts['serve'] === 0 && $pairedClaimToServe === 0,
             'window' => [
                 'from_iso' => $cutoff->format(DATE_ATOM),
                 'to_iso' => $now->format(DATE_ATOM),

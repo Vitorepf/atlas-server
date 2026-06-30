@@ -58,6 +58,19 @@ final class AtlasLoopTelemetryStarvationDetectorTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/"[^"]*(score|rank|grade|quality|severity|recommendation)[^"]*"\s*:/i', $encoded);
     }
 
+    public function test_cross_window_claim_with_in_window_serve_is_not_starved(): void
+    {
+        $result = (new AtlasLoopTelemetryStarvationDetector)->detect([
+            $this->fact('cycle-x', 'claim', '2026-06-24T00:20:00+00:00'),
+            $this->fact('cycle-x', 'serve', '2026-06-24T00:45:00+00:00'),
+        ], '2026-06-24T01:00:00+00:00', 30);
+
+        $this->assertFalse($result['starved'], 'in-window serve must prevent starvation even when its claim is outside the window');
+        $this->assertSame(0, $result['counts']['claim']);
+        $this->assertSame(1, $result['counts']['serve']);
+        $this->assertSame(0, $result['evidence']['paired_claim_to_serve']);
+    }
+
     /**
      * @return array<string, mixed>
      */
