@@ -72,7 +72,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
             $reasons[] = 'high_stuck_lease_threat';
         }
         if ($reasons !== []) {
-            return $this->result('HIGH', $reasons, $inputs);
+            return $this->resultWithAction('HIGH', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure), $reasons, $inputs);
         }
 
         if ($secondsUntilDry !== null && $secondsUntilDry < $this->thresholdMidSeconds) {
@@ -89,22 +89,43 @@ final class AtlasMaestroReplenishUrgencyClassifier
             $reasons[] = 'poison_pressure_detected';
         }
         if ($reasons !== []) {
-            return $this->result('MID', $reasons, $inputs);
+            return $this->resultWithAction('MID', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure), $reasons, $inputs);
         }
 
-        return $this->result('LOW', ['no_replenish_pressure'], $inputs);
+        return $this->resultWithAction('LOW', 'wait', ['no_replenish_pressure'], $inputs);
+    }
+
+    /**
+     * Determine the recommended next action from the collected reasons and facts.
+     *
+     * Priority: drain_poison → unblock → originate → wait.
+     */
+    private function nextAction(array $reasons, int $stuckLeases, int $poisonPressure): string
+    {
+        if ($poisonPressure > 0 && (in_array('poison_pressure_detected', $reasons, true) || $poisonPressure >= 3)) {
+            return 'drain_poison';
+        }
+        if ($stuckLeases > 0 || in_array('high_stuck_lease_threat', $reasons, true) || in_array('suspected_stuck_leases_threaten_throughput', $reasons, true)) {
+            return 'unblock';
+        }
+        if (in_array('queue_dry', $reasons, true) || in_array('low_claimable_depth_with_active_worker_pressure', $reasons, true) || in_array('seconds_until_dry_below_threshold_high', $reasons, true)) {
+            return 'originate';
+        }
+
+        return 'originate';
     }
 
     /**
      * @param  list<string>  $reasons
      * @param  array<string,int|float|null>  $inputs
-     * @return array{schema:string, urgency:string, reasons:list<string>, inputs:array<string,int|float|null>}
+     * @return array{schema:string, urgency:string, next_action:string, reasons:list<string>, inputs:array<string,int|float|null>}
      */
-    private function result(string $urgency, array $reasons, array $inputs): array
+    private function resultWithAction(string $urgency, string $nextAction, array $reasons, array $inputs): array
     {
         return [
             'schema' => self::SCHEMA,
             'urgency' => $urgency,
+            'next_action' => $nextAction,
             'reasons' => array_values($reasons),
             'inputs' => $inputs,
         ];

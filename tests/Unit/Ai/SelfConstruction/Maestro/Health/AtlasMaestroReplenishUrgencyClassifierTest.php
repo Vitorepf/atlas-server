@@ -196,4 +196,66 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
             $thresholdHighStuckLeases,
         );
     }
+
+    // ── next_action classification ───────────────────────────────────────────
+
+    public function test_low_depth_with_active_workers_recommends_originate(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 3, 'active_claimed_workers' => 3, 'seconds_until_dry' => 900, 'serve_rate_per_minute' => 2.0],
+        )->classify();
+
+        $this->assertSame('originate', $result['next_action']);
+    }
+
+    public function test_poison_pressure_recommends_drain_poison(): void
+    {
+        $result = $this->classifier(
+            queue: ['p95_seconds' => 0],
+            lease: ['p95_seconds' => 0, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 10, 'poison_pressure' => 5, 'serve_rate_per_minute' => 1.0],
+        )->classify();
+
+        $this->assertContains('poison_pressure_detected', $result['reasons']);
+        $this->assertSame('drain_poison', $result['next_action']);
+    }
+
+    public function test_stuck_leases_recommends_unblock(): void
+    {
+        $result = $this->classifier(
+            queue: ['p95_seconds' => 0],
+            lease: ['p95_seconds' => 0, 'suspected_stuck_count' => 4],
+            idle: ['claimable_depth' => 10, 'poison_pressure' => 0],
+        )->classify();
+
+        $this->assertSame('unblock', $result['next_action']);
+    }
+
+    public function test_healthy_depth_recommends_wait(): void
+    {
+        $result = $this->classifier(
+            queue: ['p95_seconds' => 10],
+            lease: ['p95_seconds' => 10, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 50, 'seconds_until_dry' => 7200, 'serve_rate_per_minute' => 5.0],
+        )->classify();
+
+        $this->assertSame('LOW', $result['urgency']);
+        $this->assertSame('wait', $result['next_action']);
+    }
+
+    public function test_result_includes_next_action_urgency_reasons_and_inputs(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 0, 'p95_seconds' => 0],
+            lease: ['p95_seconds' => 0, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 0, 'seconds_until_dry' => 900],
+        )->classify();
+
+        $this->assertArrayHasKey('next_action', $result);
+        $this->assertArrayHasKey('urgency', $result);
+        $this->assertArrayHasKey('reasons', $result);
+        $this->assertArrayHasKey('inputs', $result);
+    }
 }
