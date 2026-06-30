@@ -23,8 +23,32 @@ final class AtlasMaestroSemanticSymbolResolver
     /** @var array<string,string>|null basename(no .php) => repo-relative path */
     private ?array $index = null;
 
+    /** @var array<string,list<string>>|null basename => all matching paths (sorted) */
+    private ?array $allPaths = null;
+
     public function __construct(private readonly ?string $repoRoot = null)
     {
+    }
+
+    /**
+     * Resolve and check whether the resolved file is in the given allowed_files list.
+     * Adds `grounded` (file in list) and `wrong_sibling` (file NOT in list but exists) to the result.
+     *
+     * @param  list<string>  $allowedFiles  repo-relative paths from the task packet
+     * @return array<string,mixed>
+     */
+    public function resolveGrounded(string $fqSymbol, array $allowedFiles): array
+    {
+        $result = $this->resolve($fqSymbol);
+        if (! $result['exists']) {
+            return array_merge($result, ['grounded' => false, 'wrong_sibling' => false]);
+        }
+        $inAllowed = in_array($result['file'] ?? '', $allowedFiles, true);
+
+        return array_merge($result, [
+            'grounded'      => $inAllowed,
+            'wrong_sibling' => ! $inAllowed,
+        ]);
     }
 
     /**
@@ -76,7 +100,17 @@ final class AtlasMaestroSemanticSymbolResolver
             return ['symbol' => $symbol, 'exists' => false, 'candidates' => $this->candidates($short, $repoRoot)];
         }
 
-        return ['symbol' => $symbol, 'file' => $relFile, 'line' => $line, 'kind' => 'class', 'exists' => true];
+        $result = ['symbol' => $symbol, 'file' => $relFile, 'line' => $line, 'kind' => 'class', 'exists' => true];
+        $this->fileIndex($repoRoot); // ensure allPaths is populated even when PSR-4 path skips it
+        $siblings = array_values(array_filter(
+            $this->allPaths[$short] ?? [],
+            static fn (string $p): bool => $p !== $relFile,
+        ));
+        if ($siblings !== []) {
+            $result['ambiguous_paths'] = $siblings;
+        }
+
+        return $result;
     }
 
     private function locate(string $class, string $short, string $repoRoot): ?string
@@ -173,6 +207,7 @@ final class AtlasMaestroSemanticSymbolResolver
         }
 
         $index = [];
+        $all = [];
         foreach (['app', 'tests'] as $dir) {
             $base = $repoRoot.'/'.$dir;
             if (! is_dir($base)) {
@@ -189,11 +224,17 @@ final class AtlasMaestroSemanticSymbolResolver
                     if (! isset($index[$name]) || strcmp($rel, $index[$name]) < 0) {
                         $index[$name] = $rel; // deterministic: lexicographically-first path wins
                     }
+                    $all[$name][] = $rel;
                 }
             } catch (Throwable) {
                 // best-effort scan
             }
         }
+
+        foreach ($all as $name => $paths) {
+            sort($all[$name]);
+        }
+        $this->allPaths = $all;
 
         return $this->index = $index;
     }
