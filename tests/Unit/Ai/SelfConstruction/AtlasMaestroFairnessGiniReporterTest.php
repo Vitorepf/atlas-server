@@ -79,6 +79,70 @@ final class AtlasMaestroFairnessGiniReporterTest extends TestCase
         $this->assertSame('maestro', $report['max_task_class_share_id']);
     }
 
+    public function test_known_families_group_as_stable_multi_segment_labels(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'w1', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 3, 'median_lease_duration_seconds' => 0.0],
+        ]);
+        $tasks = [
+            ['task_packet_id' => 'external-brain-task-001', 'outcome' => 'success'],
+            ['task_packet_id' => 'codex-meta-xyz-001', 'outcome' => 'success'],
+            ['task_packet_id' => 'final-brain-task-001', 'outcome' => 'success'],
+        ];
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertArrayHasKey('external-brain', $report['task_class_share_histogram']);
+        $this->assertArrayHasKey('codex-meta', $report['task_class_share_histogram']);
+        $this->assertArrayHasKey('final-brain', $report['task_class_share_histogram']);
+        $this->assertArrayNotHasKey('external', $report['task_class_share_histogram']);
+        $this->assertArrayNotHasKey('codex', $report['task_class_share_histogram']);
+        $this->assertArrayNotHasKey('final', $report['task_class_share_histogram']);
+    }
+
+    public function test_concentration_warning_fires_when_one_worker_dominates(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'heavy', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 100, 'median_lease_duration_seconds' => 0.0],
+            ['client_id' => 'light', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 1, 'median_lease_duration_seconds' => 0.0],
+        ]);
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => []))->report();
+
+        $this->assertContains('worker_dominant:heavy', $report['concentration_warnings']);
+    }
+
+    public function test_concentration_warning_fires_when_one_task_class_dominates(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'w1', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 1, 'median_lease_duration_seconds' => 0.0],
+        ]);
+        $tasks = [];
+        for ($i = 0; $i < 97; $i++) {
+            $tasks[] = ['task_packet_id' => 'maestro-task-'.$i, 'outcome' => 'success'];
+        }
+        $tasks[] = ['task_packet_id' => 'loop-task-0', 'outcome' => 'success'];
+        $tasks[] = ['task_packet_id' => 'cortex-task-0', 'outcome' => 'success'];
+        $tasks[] = ['task_packet_id' => 'self-task-0', 'outcome' => 'success'];
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertContains('task_class_dominant:maestro', $report['concentration_warnings']);
+    }
+
+    public function test_no_concentration_warning_when_balanced(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'a', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 25, 'median_lease_duration_seconds' => 0.0],
+            ['client_id' => 'b', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 25, 'median_lease_duration_seconds' => 0.0],
+        ]);
+        $tasks = [];
+        for ($i = 0; $i < 25; $i++) {
+            $tasks[] = ['task_packet_id' => 'maestro-task-'.$i, 'outcome' => 'success'];
+            $tasks[] = ['task_packet_id' => 'loop-task-'.$i, 'outcome' => 'success'];
+        }
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertSame([], $report['concentration_warnings']);
+    }
+
     public function test_zero_completed_tasks_returns_zero_not_nan(): void
     {
         $probe = $this->probe([]);

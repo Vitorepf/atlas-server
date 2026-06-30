@@ -26,6 +26,10 @@ final class AtlasMaestroFairnessGiniReporter
 {
     public const SCHEMA = 'atlas.maestro.fairness_gini.v1';
 
+    public const KNOWN_FAMILIES = ['codex-meta', 'external-brain', 'final-brain'];
+
+    private const CONCENTRATION_THRESHOLD = 0.6;
+
     /** @var callable(): iterable<array<string,mixed>> */
     private $completedTaskSource;
 
@@ -67,6 +71,7 @@ final class AtlasMaestroFairnessGiniReporter
             'task_class_share_histogram' => $taskClassHist,
             'max_worker_share_id' => $this->maxKey($workerHist),
             'max_task_class_share_id' => $this->maxKey($taskClassHist),
+            'concentration_warnings' => $this->concentrationWarnings($workerHist, $taskClassHist),
         ];
     }
 
@@ -123,9 +128,32 @@ final class AtlasMaestroFairnessGiniReporter
 
     private function taskClassOf(string $packetId): string
     {
+        foreach (self::KNOWN_FAMILIES as $family) {
+            if ($packetId === $family || str_starts_with($packetId, $family.'-')) {
+                return $family;
+            }
+        }
         $dashAt = strpos($packetId, '-');
 
         return $dashAt === false ? $packetId : substr($packetId, 0, $dashAt);
+    }
+
+    /**
+     * @param  array<string,float>  $workerHist
+     * @param  array<string,float>  $taskClassHist
+     * @return list<string>
+     */
+    private function concentrationWarnings(array $workerHist, array $taskClassHist): array
+    {
+        $warnings = [];
+        if ($workerHist !== [] && max($workerHist) > self::CONCENTRATION_THRESHOLD) {
+            $warnings[] = 'worker_dominant:'.$this->maxKey($workerHist);
+        }
+        if ($taskClassHist !== [] && max($taskClassHist) > self::CONCENTRATION_THRESHOLD) {
+            $warnings[] = 'task_class_dominant:'.$this->maxKey($taskClassHist);
+        }
+
+        return $warnings;
     }
 
     /**
