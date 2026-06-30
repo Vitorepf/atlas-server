@@ -31,6 +31,13 @@ final class AtlasSelfConstructionAutonomyPromotionGate
         'knowledge_sync_green',
     ];
 
+    /** Additional facts required when promoting to atlas_native_24_7. */
+    public const REQUIRED_FACT_KEYS_24_7 = [
+        'unattended_liveness_green',
+        'recovery_action_green',
+        'no_human_dependency_green',
+    ];
+
     /** @var \Closure(string):array<string,mixed> */
     private \Closure $describeLevel;
 
@@ -73,9 +80,13 @@ final class AtlasSelfConstructionAutonomyPromotionGate
             }
         }
 
+        $keysToCheck = $toLevel === AtlasSelfConstructionAutonomyLevelLadder::LEVEL_ATLAS_NATIVE_24_7
+            ? array_merge(self::REQUIRED_FACT_KEYS, self::REQUIRED_FACT_KEYS_24_7)
+            : self::REQUIRED_FACT_KEYS;
+
         $missing = [];
         $failing = [];
-        foreach (self::REQUIRED_FACT_KEYS as $key) {
+        foreach ($keysToCheck as $key) {
             if (! array_key_exists($key, $facts)) {
                 $missing[] = $key;
 
@@ -94,7 +105,7 @@ final class AtlasSelfConstructionAutonomyPromotionGate
         }
 
         return $this->envelope(self::VERDICT_PROMOTE, $fromLevel, $toLevel, [
-            'satisfied_fact_keys' => self::REQUIRED_FACT_KEYS,
+            'satisfied_fact_keys' => $keysToCheck,
         ]);
     }
 
