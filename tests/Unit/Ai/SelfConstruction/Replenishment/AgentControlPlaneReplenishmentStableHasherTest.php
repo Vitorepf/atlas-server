@@ -163,4 +163,37 @@ final class AgentControlPlaneReplenishmentStableHasherTest extends TestCase
 
         $this->assertSame($h1, $h2, 'normalized hash must ignore generated_at + auto_replenishment_hash');
     }
+
+    public function test_semantic_packet_fields_change_the_normalized_hash(): void
+    {
+        $base = [
+            'objective' => 'implement feature X',
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
+            'acceptance_criteria' => ['tests pass', 'coverage >80'],
+            'depends_on' => [],
+            'generated_at' => '2026-06-30T00:00:00Z',
+            'auto_replenishment_hash' => 'old-hash',
+        ];
+
+        $h0 = $this->hasher->stableHash($this->hasher->normalizeForHash($base));
+
+        // Only volatile fields differ — hash must stay the same.
+        $sameLogic = array_merge($base, ['generated_at' => 'T2', 'auto_replenishment_hash' => 'new-hash']);
+        $this->assertSame($h0, $this->hasher->stableHash($this->hasher->normalizeForHash($sameLogic)));
+
+        // Each semantic field individually changes the hash.
+        foreach ([
+            'objective' => 'implement feature Y',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['tests pass'],
+            'depends_on' => ['task-1'],
+        ] as $field => $changedValue) {
+            $mutated = array_merge($base, [$field => $changedValue]);
+            $this->assertNotSame(
+                $h0,
+                $this->hasher->stableHash($this->hasher->normalizeForHash($mutated)),
+                "semantic field '{$field}' must change the normalized hash",
+            );
+        }
+    }
 }
