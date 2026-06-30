@@ -19,12 +19,14 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
     private function good(array $overrides = []): array
     {
         return array_merge([
-            'failure_id'       => 'f-001',
-            'root_cause_label' => 'missing_acceptance_command',
-            'task_count'       => 3,
-            'description'      => 'Tasks repeatedly lack runnable acceptance criteria',
-            'prevention_rule'  => 'require at least one artisan/phpunit command in acceptance_criteria',
-            'enforcement_hook' => 'AtlasExternalBrainAcceptanceReplayCoverageMatrix::audit',
+            'failure_id'           => 'f-001',
+            'root_cause_label'     => 'missing_acceptance_command',
+            'task_count'           => 3,
+            'description'          => 'Tasks repeatedly lack runnable acceptance criteria',
+            'prevention_rule'      => 'require at least one artisan/phpunit command in acceptance_criteria',
+            'enforcement_hook'     => 'AtlasExternalBrainAcceptanceReplayCoverageMatrix::audit',
+            'affected_task_family' => 'task_fabric:origination_quality',
+            'falsification_check'  => 'passes_if_all_tasks_have_acceptance_command',
         ], $overrides);
     }
 
@@ -39,15 +41,15 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
     {
         $result = $this->miner->mine($this->input($this->good()));
 
-        foreach (['schema', 'promoted_patterns', 'rejected_candidates', 'enforcement_hooks', 'confidence_reasons'] as $k) {
+        foreach (['schema', 'promoted_patterns', 'rejected_candidates', 'enforcement_hooks', 'confidence_reasons', 'task_fabric_patch_hints'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainPatternDesignFailureModeMiner::SCHEMA, $result['schema']);
     }
 
-    // ── AC2: promote when ≥2 failures share root cause + prevention rule ──────
+    // ── AC2: promote when all six conditions pass ─────────────────────────────
 
-    public function test_candidate_with_two_or_more_failures_and_prevention_rule_is_promoted(): void
+    public function test_candidate_with_two_or_more_failures_and_all_fields_is_promoted(): void
     {
         $result = $this->miner->mine($this->input($this->good(['task_count' => 2])));
 
@@ -60,12 +62,28 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         $result = $this->miner->mine($this->input($this->good()));
         $pattern = $result['promoted_patterns'][0];
 
-        foreach (['failure_id', 'root_cause_label', 'task_count', 'description', 'prevention_rule', 'enforcement_hook', 'confidence'] as $k) {
+        foreach ([
+            'failure_id', 'root_cause_label', 'task_count', 'description',
+            'prevention_rule', 'enforcement_hook', 'affected_task_family',
+            'falsification_check', 'confidence',
+        ] as $k) {
             $this->assertArrayHasKey($k, $pattern, "Promoted pattern missing: {$k}");
         }
     }
 
-    // ── AC3: reject one-off anecdotes (task_count < 2) ───────────────────────
+    public function test_promoted_pattern_stores_affected_task_family(): void
+    {
+        $result = $this->miner->mine($this->input($this->good(['affected_task_family' => 'task_fabric:give_back_prevention'])));
+        $this->assertSame('task_fabric:give_back_prevention', $result['promoted_patterns'][0]['affected_task_family']);
+    }
+
+    public function test_promoted_pattern_stores_falsification_check(): void
+    {
+        $result = $this->miner->mine($this->input($this->good(['falsification_check' => 'fails_if_any_task_has_no_allowed_files'])));
+        $this->assertSame('fails_if_any_task_has_no_allowed_files', $result['promoted_patterns'][0]['falsification_check']);
+    }
+
+    // ── AC3: rejection — one_off_anecdote ─────────────────────────────────────
 
     public function test_rejects_one_off_anecdote_when_task_count_is_one(): void
     {
@@ -89,13 +107,13 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         );
     }
 
-    // ── AC3: reject duplicate labels ──────────────────────────────────────────
+    // ── AC3: rejection — duplicate_label ──────────────────────────────────────
 
     public function test_rejects_second_candidate_with_same_root_cause_label(): void
     {
         $result = $this->miner->mine($this->input(
             $this->good(['failure_id' => 'f-001']),
-            $this->good(['failure_id' => 'f-002']),  // same root_cause_label
+            $this->good(['failure_id' => 'f-002']),
         ));
 
         $this->assertCount(1, $result['promoted_patterns']);
@@ -106,7 +124,7 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         );
     }
 
-    // ── AC3: reject no prevention rule ────────────────────────────────────────
+    // ── AC3: rejection — no_prevention_rule ──────────────────────────────────
 
     public function test_rejects_candidate_with_no_prevention_rule(): void
     {
@@ -118,7 +136,7 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         );
     }
 
-    // ── AC3: reject no enforcement hook ──────────────────────────────────────
+    // ── AC3: rejection — no_enforcement_hook ─────────────────────────────────
 
     public function test_rejects_candidate_with_no_enforcement_hook(): void
     {
@@ -130,7 +148,31 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         );
     }
 
-    // ── AC4: enforcement_hooks list populated ─────────────────────────────────
+    // ── AC3: rejection — no_affected_family ──────────────────────────────────
+
+    public function test_rejects_candidate_with_no_affected_family(): void
+    {
+        $result = $this->miner->mine($this->input($this->good(['affected_task_family' => ''])));
+
+        $this->assertSame(
+            AtlasExternalBrainPatternDesignFailureModeMiner::REJECTION_NO_AFFECTED_FAMILY,
+            $result['rejected_candidates'][0]['rejection_reason'],
+        );
+    }
+
+    // ── AC3: rejection — no_falsification_check ──────────────────────────────
+
+    public function test_rejects_candidate_with_no_falsification_check(): void
+    {
+        $result = $this->miner->mine($this->input($this->good(['falsification_check' => ''])));
+
+        $this->assertSame(
+            AtlasExternalBrainPatternDesignFailureModeMiner::REJECTION_NO_FALSIFICATION_CHECK,
+            $result['rejected_candidates'][0]['rejection_reason'],
+        );
+    }
+
+    // ── AC4: enforcement_hooks list ───────────────────────────────────────────
 
     public function test_enforcement_hooks_collected_from_promoted_patterns(): void
     {
@@ -153,7 +195,37 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         $this->assertCount(1, $result['enforcement_hooks']);
     }
 
-    // ── AC4: confidence_reasons populated ─────────────────────────────────────
+    // ── AC4: task_fabric_patch_hints ─────────────────────────────────────────
+
+    public function test_task_fabric_patch_hints_populated_for_each_promoted(): void
+    {
+        $result = $this->miner->mine($this->input($this->good()));
+
+        $this->assertCount(1, $result['task_fabric_patch_hints']);
+        $hint = $result['task_fabric_patch_hints'][0];
+
+        foreach (['family', 'hook', 'prevention_rule', 'failure_id'] as $k) {
+            $this->assertArrayHasKey($k, $hint, "Patch hint missing: {$k}");
+        }
+    }
+
+    public function test_patch_hint_family_matches_affected_task_family(): void
+    {
+        $result = $this->miner->mine($this->input(
+            $this->good(['affected_task_family' => 'task_fabric:poison_packet_guard']),
+        ));
+
+        $this->assertSame('task_fabric:poison_packet_guard', $result['task_fabric_patch_hints'][0]['family']);
+    }
+
+    public function test_patch_hints_empty_when_nothing_promoted(): void
+    {
+        $result = $this->miner->mine($this->input($this->good(['task_count' => 1])));
+
+        $this->assertSame([], $result['task_fabric_patch_hints']);
+    }
+
+    // ── confidence_reasons ────────────────────────────────────────────────────
 
     public function test_confidence_high_for_task_count_at_least_five(): void
     {
@@ -197,5 +269,6 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         $this->assertSame([], $result['rejected_candidates']);
         $this->assertSame([], $result['enforcement_hooks']);
         $this->assertSame([], $result['confidence_reasons']);
+        $this->assertSame([], $result['task_fabric_patch_hints']);
     }
 }
