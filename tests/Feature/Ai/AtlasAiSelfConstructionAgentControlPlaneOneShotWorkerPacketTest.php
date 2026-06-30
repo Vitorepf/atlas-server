@@ -84,6 +84,26 @@ final class AtlasAiSelfConstructionAgentControlPlaneOneShotWorkerPacketTest exte
         $this->assertSame('lease_not_active', $result['reason']);
     }
 
+    public function test_blocks_when_lease_is_active_but_wall_clock_expired(): void
+    {
+        [$queue, $leases] = $this->wirings();
+        $packet = $this->seedTaskPacket($queue, 'AIP-expired-wall');
+        $lease = $leases->claim($packet['task_packet_id'], 'agent-exp', $this->scope(['app/Exp.php']));
+        $this->assertSame('ok', $lease['status']);
+
+        $service = new AgentControlPlaneOneShotWorkerPacketService($leases, $queue);
+        $result = $service->generate([
+            'task_packet_id' => $packet['task_packet_id'],
+            'lease_id' => $lease['lease_id'],
+            'actor' => 'agent-exp',
+            'now_unix' => PHP_INT_MAX, // simulate wall clock far past any lease TTL
+        ]);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('lease_expired', $result['reason'],
+            'an active-but-wall-clock-expired lease must be blocked with lease_expired, not issued a packet');
+    }
+
     public function test_blocks_when_actor_is_not_lease_owner(): void
     {
         [$queue, $leases] = $this->wirings();

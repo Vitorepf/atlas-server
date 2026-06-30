@@ -69,6 +69,7 @@ final class AgentControlPlaneOneShotWorkerPacketService
         $leaseId = trim((string) ($input['lease_id'] ?? ''));
         $actor = trim((string) ($input['actor'] ?? ''));
         $mode = trim((string) ($input['mode'] ?? self::MODE_CLAIMED_TASK));
+        $nowUnix = (int) ($input['now_unix'] ?? 0) ?: time();
         if ($mode === '') {
             $mode = self::MODE_CLAIMED_TASK;
         }
@@ -95,6 +96,10 @@ final class AgentControlPlaneOneShotWorkerPacketService
                 'lease_not_active',
                 'lease status is '.((string) ($lease['lease_status'] ?? 'unknown')).' (must be active)',
             );
+        }
+        $expiresAtUnix = (int) ($lease['expires_at_unix'] ?? 0);
+        if ($expiresAtUnix > 0 && $nowUnix > $expiresAtUnix) {
+            return $this->blocked('lease_expired', 'lease '.$leaseId.' wall-clock expired at unix '.$expiresAtUnix);
         }
         if ($actor !== '' && (string) ($lease['agent_id'] ?? '') !== $actor) {
             return $this->blocked(
