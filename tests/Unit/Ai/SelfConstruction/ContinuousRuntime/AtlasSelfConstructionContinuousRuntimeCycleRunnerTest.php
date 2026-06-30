@@ -107,8 +107,8 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
         $this->assertFalse($verdict['stopped']);
         $this->assertNull($verdict['stop_reason']);
         $this->assertSame('cyc-1', $verdict['cycle_id']);
-        $this->assertSame('merge_approved', $verdict['merge']['decision']);
-        $this->assertTrue($verdict['learning']['learning']['recorded']);
+        $this->assertSame('merge_approved', $verdict['verify_merge']['merge']['decision']);
+        $this->assertTrue($verdict['learn']['learning']['recorded']);
     }
 
     public function test_replenish_only_cycle_when_no_claimable_packet(): void
@@ -130,8 +130,8 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
 
         $this->assertTrue($verdict['stopped']);
         $this->assertSame('no_claimable_task', $verdict['stop_reason']);
-        $this->assertSame('top_up', $verdict['replenisher']['action']);
-        $this->assertSame(4, $verdict['replenisher']['target_new_packet_count']);
+        $this->assertSame('top_up', $verdict['replenish']['action']);
+        $this->assertSame(4, $verdict['replenish']['target_new_packet_count']);
     }
 
     public function test_repair_first_stop_when_malformed_packets_present(): void
@@ -153,7 +153,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
 
         $this->assertTrue($verdict['stopped']);
         $this->assertSame('repair_first', $verdict['stop_reason']);
-        $this->assertSame('repair_first', $verdict['replenisher']['action']);
+        $this->assertSame('repair_first', $verdict['replenish']['action']);
     }
 
     public function test_verification_failure_stops_cycle_with_exact_reason(): void
@@ -175,7 +175,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
 
         $this->assertTrue($verdict['stopped']);
         $this->assertSame('verification_failed', $verdict['stop_reason']);
-        $this->assertSame(['phpunit_red'], $verdict['verification']['reasons']);
+        $this->assertSame(['phpunit_red'], $verdict['verify_merge']['verification']['reasons']);
     }
 
     private function happyRunner(): AtlasSelfConstructionContinuousRuntimeCycleRunner
@@ -253,6 +253,77 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
 
         $this->assertSame('hold', $verdict['scope_expansion']['status']);
         $this->assertContains('scope_expansion_requires_non_atlas_actor', $verdict['scope_expansion']['blockers']);
+    }
+
+    public function test_successful_cycle_includes_all_required_sections(): void
+    {
+        $verdict = $this->happyRunner()->run('cyc-sections');
+
+        foreach (['replenish', 'worker', 'verify_merge', 'learn', 'unattended_supervisor', 'stop_reason', 'cycle_receipt_hash'] as $key) {
+            $this->assertArrayHasKey($key, $verdict, "cycle receipt must include section '{$key}'");
+        }
+        $this->assertStringStartsWith('cycle_receipt_', $verdict['cycle_receipt_hash']);
+    }
+
+    public function test_cycle_receipt_hash_is_deterministic(): void
+    {
+        $a = $this->happyRunner()->run('cyc-det');
+        $b = $this->happyRunner()->run('cyc-det');
+
+        $this->assertSame($a['cycle_receipt_hash'], $b['cycle_receipt_hash'], 'cycle_receipt_hash must be deterministic');
+    }
+
+    public function test_injected_supervisor_result_appears_in_unattended_supervisor_section(): void
+    {
+        $supervisor = new class
+        {
+            public function tick(array $facts): array
+            {
+                return ['status' => 'ok', 'classification' => 'healthy', 'from_supervisor' => true];
+            }
+        };
+
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5],
+                'claimable_packet' => ['task_packet_id' => 'pkt-sup', 'lease_id' => 'lease-sup'],
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => [], 'blockers' => []]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'merge_approved']),
+            $this->learner(['learning' => []]),
+            $supervisor,
+        );
+
+        $verdict = $runner->run('cyc-sup');
+
+        $this->assertTrue($verdict['unattended_supervisor']['from_supervisor'] ?? false,
+            'injected supervisor result must appear in unattended_supervisor section');
+    }
+
+    public function test_stopped_cycle_includes_unattended_supervisor_and_cycle_receipt_hash(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 0],
+                'claimable_packet' => null,
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => false, 'request' => null, 'blockers' => []]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'unused']),
+            $this->learner(['learning' => []]),
+        );
+
+        $verdict = $runner->run('cyc-stop-sections');
+
+        $this->assertTrue($verdict['stopped']);
+        $this->assertArrayHasKey('unattended_supervisor', $verdict);
+        $this->assertArrayHasKey('cycle_receipt_hash', $verdict);
+        $this->assertStringStartsWith('cycle_receipt_', $verdict['cycle_receipt_hash']);
     }
 
     public function test_safety_stop_short_circuits_before_replenisher_or_worker(): void

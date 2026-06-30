@@ -8,12 +8,13 @@ namespace App\Services\Ai\SelfConstruction\ContinuousRuntime;
  * Bounded continuous Self-Construction cycle runner.
  *
  * Executes ONE cycle over injected collaborators (duck-typed):
- *   - healthInspector   ->inspect():     {queue_health:{...}, safety_stop:bool, claimable_packet:?array}
- *   - replenisher       ->replenish($facts): array (native replenisher integration verdict)
- *   - workerIntegration ->integrate($packet):  {accepted:bool, request:?array, blockers:list}
- *   - verifier          ->verify($request):    {verified:bool, reasons:list}
- *   - mergeDecider      ->decide($verification): {decision:string, ...}
- *   - learner           ->record($facts):       {learning:array, ...}
+ *   - healthInspector      ->inspect():     {queue_health:{...}, safety_stop:bool, claimable_packet:?array}
+ *   - replenisher          ->replenish($facts): array (native replenisher integration verdict)
+ *   - workerIntegration    ->integrate($packet):  {accepted:bool, request:?array, blockers:list}
+ *   - verifier             ->verify($request):    {verified:bool, reasons:list}
+ *   - mergeDecider         ->decide($verification): {decision:string, ...}
+ *   - learner              ->record($facts):       {learning:array, ...}
+ *   - unattendedSupervisor ->tick($facts): array (optional — supervisor cycle snapshot for the receipt)
  *
  * STOP conditions (cycle ends with stopped=true, stop_reason set):
  *   - safety_stop                — inspector reported safety_stop
@@ -41,23 +42,24 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
         private object $verifier,
         private object $mergeDecider,
         private object $learner,
+        private ?object $unattendedSupervisor = null,
     ) {}
 
     /**
-     * @return array<string,mixed>
-     */
-    /**
      * @param  array<string,mixed>  $scopeExpansion {facts?:array, options?:array{apply?:bool,action_callbacks?:array}}
      *                              When `facts` is empty the runner skips scope expansion entirely (back-compat).
+     * @return array<string,mixed>
      */
     public function run(string $cycleId, array $scopeExpansion = []): array
     {
         $health = (array) $this->healthInspector->inspect();
+        $supervisorResult = $this->runUnattendedSupervisor($health);
 
         if ((bool) ($health['safety_stop'] ?? false)) {
             return $this->stop($cycleId, self::STOP_SAFETY, [
                 'health' => $health,
                 'safety_reasons' => array_values((array) ($health['safety_reasons'] ?? [])),
+                'unattended_supervisor' => $supervisorResult,
             ]);
         }
 
@@ -68,7 +70,8 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
 
             return $this->stop($cycleId, self::STOP_REPAIR_FIRST, [
                 'health' => $health,
-                'replenisher' => $repl,
+                'replenish' => $repl,
+                'unattended_supervisor' => $supervisorResult,
             ]);
         }
 
@@ -79,36 +82,44 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
 
             return $this->stop($cycleId, self::STOP_NO_CLAIMABLE, [
                 'health' => $health,
-                'replenisher' => $repl,
+                'replenish' => $repl,
+                'unattended_supervisor' => $supervisorResult,
             ]);
         }
 
-        $workerVerdict = (array) $this->workerIntegration->integrate($packet);
-        if (! (bool) ($workerVerdict['accepted'] ?? false)) {
+        $worker = (array) $this->workerIntegration->integrate($packet);
+        if (! (bool) ($worker['accepted'] ?? false)) {
             return $this->stop($cycleId, self::STOP_WORKER_REJECTED, [
                 'health' => $health,
-                'worker_integration' => $workerVerdict,
+                'worker' => $worker,
+                'unattended_supervisor' => $supervisorResult,
             ]);
         }
 
-        $request = is_array($workerVerdict['request'] ?? null) ? $workerVerdict['request'] : [];
+        $request = is_array($worker['request'] ?? null) ? $worker['request'] : [];
         $verification = (array) $this->verifier->verify($request);
         if (! (bool) ($verification['verified'] ?? false)) {
             return $this->stop($cycleId, self::STOP_VERIFICATION_FAILED, [
                 'health' => $health,
-                'worker_integration' => $workerVerdict,
-                'verification' => $verification,
+                'worker' => $worker,
+                'verify_merge' => ['verification' => $verification, 'merge' => null],
+                'unattended_supervisor' => $supervisorResult,
             ]);
         }
 
         $merge = (array) $this->mergeDecider->decide($verification);
-        $learning = (array) $this->learner->record([
+        $learn = (array) $this->learner->record([
             'cycle_id' => $cycleId,
             'verification' => $verification,
             'merge' => $merge,
         ]);
 
+        $verifyMerge = ['verification' => $verification, 'merge' => $merge];
         $scopeExpansionResult = $this->runScopeExpansion($scopeExpansion);
+
+        $receiptHash = $this->cycleReceiptHash(
+            $cycleId, false, '', [], $worker, $verifyMerge, $learn, $supervisorResult,
+        );
 
         return [
             'schema_version' => self::SCHEMA,
@@ -116,11 +127,13 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             'stopped' => false,
             'stop_reason' => null,
             'health' => $health,
-            'worker_integration' => $workerVerdict,
-            'verification' => $verification,
-            'merge' => $merge,
-            'learning' => $learning,
+            'replenish' => null,
+            'worker' => $worker,
+            'verify_merge' => $verifyMerge,
+            'learn' => $learn,
+            'unattended_supervisor' => $supervisorResult,
             'scope_expansion' => $scopeExpansionResult,
+            'cycle_receipt_hash' => $receiptHash,
         ];
     }
 
@@ -194,11 +207,58 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
      */
     private function stop(string $cycleId, string $reason, array $extra): array
     {
-        return [
+        $base = [
             'schema_version' => self::SCHEMA,
             'cycle_id' => $cycleId,
             'stopped' => true,
             'stop_reason' => $reason,
-        ] + $extra;
+        ];
+        $combined = $base + $extra;
+        $combined['cycle_receipt_hash'] = $this->cycleReceiptHash(
+            $cycleId,
+            true,
+            $reason,
+            (array) ($combined['replenish'] ?? []),
+            (array) ($combined['worker'] ?? []),
+            (array) ($combined['verify_merge'] ?? []),
+            (array) ($combined['learn'] ?? []),
+            (array) ($combined['unattended_supervisor'] ?? []),
+        );
+
+        return $combined;
+    }
+
+    /** @return array<string,mixed> */
+    private function runUnattendedSupervisor(array $health): array
+    {
+        if ($this->unattendedSupervisor === null) {
+            return ['status' => 'skipped', 'reason' => 'no_supervisor_injected'];
+        }
+
+        return (array) $this->unattendedSupervisor->tick($health);
+    }
+
+    private function cycleReceiptHash(
+        string $cycleId,
+        bool $stopped,
+        string $stopReason,
+        array $replenish,
+        array $worker,
+        array $verifyMerge,
+        array $learn,
+        array $unattendedSupervisor,
+    ): string {
+        $canonical = json_encode([
+            'cycle_id' => $cycleId,
+            'stopped' => $stopped,
+            'stop_reason' => $stopReason,
+            'replenish' => $replenish,
+            'worker' => $worker,
+            'verify_merge' => $verifyMerge,
+            'learn' => $learn,
+            'unattended_supervisor' => $unattendedSupervisor,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return 'cycle_receipt_'.substr(hash('sha256', (string) $canonical), 0, 32);
     }
 }
