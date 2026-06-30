@@ -294,4 +294,128 @@ final class AtlasExternalBrainModelAmplifierOperatingLoopTest extends TestCase
 
         $this->assertSame($this->svc()->decide($input), $this->svc()->decide($input));
     }
+
+    // ── runOperatingLoop: closed loop ──────────────────────────────────────────
+
+    private function candidate(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'id' => $id,
+            'lift_evidence_present' => true,
+            'lift_evidence_self_declared' => false,
+            'observed_lift' => 0.2,
+        ], $overrides);
+    }
+
+    public function test_operating_loop_has_five_deterministic_steps(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [$this->candidate('s1')], 'benchmark_score' => 0.5]);
+
+        $names = array_column($r['steps'], 'step');
+        $this->assertSame(['select_scaffold', 'benchmark', 'evaluate_lift', 'lifecycle_decision', 'routing_feedback'], $names);
+        $this->assertSame(AtlasExternalBrainModelAmplifierOperatingLoop::SCHEMA, $r['schema_version']);
+    }
+
+    public function test_select_scaffold_picks_highest_lift_among_evidenced_candidates(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('low', ['observed_lift' => 0.1]),
+            $this->candidate('high', ['observed_lift' => 0.3]),
+        ]]);
+
+        $this->assertSame('high', $r['selected_scaffold_id']);
+    }
+
+    public function test_candidate_without_evidence_is_never_selected(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('no-evidence', ['lift_evidence_present' => false, 'observed_lift' => 0.9]),
+            $this->candidate('evidenced', ['observed_lift' => 0.2]),
+        ]]);
+
+        $this->assertSame('evidenced', $r['selected_scaffold_id']);
+    }
+
+    public function test_no_evidenced_candidates_blocks_promotion(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('no-evidence', ['lift_evidence_present' => false]),
+        ]]);
+
+        $this->assertNull($r['selected_scaffold_id']);
+        $this->assertTrue($r['promotion_blocked']);
+        $this->assertSame('keep_testing', $r['lifecycle_decision']);
+    }
+
+    public function test_self_declared_lift_evidence_blocks_promotion(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('self-declared', ['lift_evidence_self_declared' => true, 'observed_lift' => 0.9]),
+        ]]);
+
+        $this->assertTrue($r['promotion_blocked']);
+        $this->assertSame('keep_testing', $r['lifecycle_decision']);
+        $this->assertSame('collect_runtime_confirmed_lift_evidence_before_promoting', $r['next_action']);
+    }
+
+    public function test_verified_high_lift_promotes(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('strong', ['observed_lift' => 0.3]),
+        ]]);
+
+        $this->assertSame('promote', $r['lifecycle_decision']);
+        $this->assertFalse($r['promotion_blocked']);
+        $this->assertSame('promote_scaffold:strong', $r['next_action']);
+    }
+
+    public function test_verified_negative_lift_retires(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('weak', ['observed_lift' => -0.1]),
+        ]]);
+
+        $this->assertSame('retire', $r['lifecycle_decision']);
+        $this->assertSame('retire_scaffold:weak', $r['next_action']);
+    }
+
+    public function test_verified_low_positive_lift_keeps_testing(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('moderate', ['observed_lift' => 0.05]),
+        ]]);
+
+        $this->assertSame('keep_testing', $r['lifecycle_decision']);
+        $this->assertFalse($r['promotion_blocked']);
+    }
+
+    public function test_feedback_payload_feeds_tiered_cognition_router(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('strong', ['observed_lift' => 0.3]),
+        ]]);
+
+        $this->assertArrayHasKey('scaffold_evidence_strength', $r['feedback_payload']);
+        $this->assertArrayHasKey('requires_critique_arena', $r['feedback_payload']);
+        $this->assertFalse($r['feedback_payload']['requires_critique_arena']);
+        $this->assertSame($r['feedback_payload'], $r['steps'][4]['feedback_payload']);
+    }
+
+    public function test_keep_testing_sets_requires_critique_arena_true(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => [
+            $this->candidate('weak', ['lift_evidence_self_declared' => true]),
+        ]]);
+
+        $this->assertTrue($r['feedback_payload']['requires_critique_arena']);
+    }
+
+    public function test_no_candidates_at_all_does_not_promote(): void
+    {
+        $r = $this->svc()->runOperatingLoop(['candidate_scaffolds' => []]);
+
+        $this->assertNull($r['selected_scaffold_id']);
+        $this->assertSame('keep_testing', $r['lifecycle_decision']);
+        $this->assertTrue($r['promotion_blocked']);
+    }
 }

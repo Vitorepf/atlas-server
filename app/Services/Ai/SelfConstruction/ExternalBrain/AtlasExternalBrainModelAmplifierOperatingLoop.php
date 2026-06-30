@@ -108,4 +108,102 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
             ],
         ];
     }
+
+    public const PROMOTE_LIFT_THRESHOLD = 0.15;
+
+    /**
+     * Runs model amplification as a closed loop with five deterministic
+     * steps: select_scaffold, benchmark, evaluate_lift, lifecycle_decision,
+     * routing_feedback. Promotion is blocked whenever the selected
+     * scaffold's lift evidence is missing or self-declared (no runtime
+     * confirmation) — never promote on an unverified claim.
+     *
+     * STEP 1 select_scaffold: chooses the candidate with the highest
+     *   observed_lift among candidates whose lift_evidence_present=true.
+     *   Candidates with no evidence are never selectable.
+     * STEP 2 benchmark: records the supplied benchmark_score as-is.
+     * STEP 3 evaluate_lift: evidence_ok = lift_evidence_present AND NOT
+     *   lift_evidence_self_declared. lift is the selected scaffold's
+     *   observed_lift (0.0 if nothing was selectable).
+     * STEP 4 lifecycle_decision:
+     *   !evidence_ok                          -> keep_testing (promotion_blocked=true)
+     *   lift <= 0.0                           -> retire
+     *   lift >= PROMOTE_LIFT_THRESHOLD (0.15)  -> promote
+     *   otherwise                              -> keep_testing
+     * STEP 5 routing_feedback: feeds the outcome back into
+     *   AtlasExternalBrainTieredCognitionRouter as a scaffold_evidence_strength
+     *   signal (capped to [0,1]) plus a requires_critique_arena hint when the
+     *   loop could not reach a confident decision.
+     *
+     * @param  array<string,mixed>  $input  { candidate_scaffolds: list<{id,
+     *   lift_evidence_present?, lift_evidence_self_declared?, observed_lift?}>,
+     *   benchmark_score? }
+     * @return array<string,mixed>
+     */
+    public function runOperatingLoop(array $input): array
+    {
+        $candidates = is_array($input['candidate_scaffolds'] ?? null) ? $input['candidate_scaffolds'] : [];
+        $benchmarkScore = (float) ($input['benchmark_score'] ?? 0.0);
+
+        // STEP 1: select_scaffold.
+        $selected = null;
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate) || ! ($candidate['lift_evidence_present'] ?? false)) {
+                continue;
+            }
+            $observedLift = (float) ($candidate['observed_lift'] ?? 0.0);
+            if ($selected === null || $observedLift > (float) ($selected['observed_lift'] ?? 0.0)) {
+                $selected = $candidate;
+            }
+        }
+        $selectedId = $selected !== null ? (string) ($selected['id'] ?? '') : null;
+
+        // STEP 2: benchmark.
+        $benchmarkStep = ['step' => 'benchmark', 'benchmark_score' => $benchmarkScore];
+
+        // STEP 3: evaluate_lift.
+        $evidencePresent = $selected !== null && (bool) ($selected['lift_evidence_present'] ?? false);
+        $evidenceSelfDeclared = $selected !== null && (bool) ($selected['lift_evidence_self_declared'] ?? false);
+        $evidenceOk = $evidencePresent && ! $evidenceSelfDeclared;
+        $lift = $selected !== null ? (float) ($selected['observed_lift'] ?? 0.0) : 0.0;
+
+        // STEP 4: lifecycle_decision.
+        $lifecycleDecision = match (true) {
+            ! $evidenceOk => 'keep_testing',
+            $lift <= 0.0 => 'retire',
+            $lift >= self::PROMOTE_LIFT_THRESHOLD => 'promote',
+            default => 'keep_testing',
+        };
+        $promotionBlocked = ! $evidenceOk;
+
+        // STEP 5: routing_feedback.
+        $feedbackPayload = [
+            'scaffold_evidence_strength' => max(0.0, min(1.0, $lift)),
+            'requires_critique_arena' => $lifecycleDecision === 'keep_testing',
+        ];
+
+        $nextAction = match ($lifecycleDecision) {
+            'promote' => "promote_scaffold:{$selectedId}",
+            'retire' => $selectedId !== null ? "retire_scaffold:{$selectedId}" : 'no_candidate_with_lift_evidence_author_one',
+            default => 'collect_runtime_confirmed_lift_evidence_before_promoting',
+        };
+
+        $steps = [
+            ['step' => 'select_scaffold', 'selected_scaffold_id' => $selectedId],
+            $benchmarkStep,
+            ['step' => 'evaluate_lift', 'lift' => $lift, 'evidence_present' => $evidencePresent, 'evidence_self_declared' => $evidenceSelfDeclared, 'evidence_ok' => $evidenceOk],
+            ['step' => 'lifecycle_decision', 'decision' => $lifecycleDecision, 'promotion_blocked' => $promotionBlocked],
+            ['step' => 'routing_feedback', 'feedback_payload' => $feedbackPayload],
+        ];
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'selected_scaffold_id' => $selectedId,
+            'steps' => $steps,
+            'lifecycle_decision' => $lifecycleDecision,
+            'promotion_blocked' => $promotionBlocked,
+            'next_action' => $nextAction,
+            'feedback_payload' => $feedbackPayload,
+        ];
+    }
 }
