@@ -144,6 +144,65 @@ class AgentControlPlaneCompletionAuditReader
         };
     }
 
+    /**
+     * Summarize repeated give_back reasons into poison_family facts for the replenisher.
+     * Only give_back records count; success outcomes are ignored.
+     * Families with fewer than $minCount occurrences are not reported.
+     * Output is deterministically ordered by reason ASC.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array{poison_families:list<array{reason:string,count:int,exemplar_packet_id:string,repair_hint:string}>}
+     */
+    public function poisonFamilies(array $records, int $minCount = 2): array
+    {
+        $groups = [];
+        foreach ($records as $record) {
+            if (! is_array($record)) {
+                continue;
+            }
+            if ((string) ($record['outcome'] ?? '') !== 'give_back') {
+                continue;
+            }
+            $reason = (string) ($record['give_back_reason'] ?? $record['reason'] ?? 'unknown');
+            if (! isset($groups[$reason])) {
+                $groups[$reason] = ['count' => 0, 'exemplar_packet_id' => (string) ($record['task_packet_id'] ?? '')];
+            }
+            $groups[$reason]['count']++;
+        }
+
+        $families = [];
+        foreach ($groups as $reason => $data) {
+            if ($data['count'] < $minCount) {
+                continue;
+            }
+            $families[] = [
+                'reason' => $reason,
+                'count' => $data['count'],
+                'exemplar_packet_id' => $data['exemplar_packet_id'],
+                'repair_hint' => $this->repairHintFor($reason),
+            ];
+        }
+
+        usort($families, static fn (array $a, array $b): int => strcmp($a['reason'], $b['reason']));
+
+        return ['poison_families' => array_values($families)];
+    }
+
+    private function repairHintFor(string $reason): string
+    {
+        if (str_contains($reason, 'test_only')) {
+            return 'remove_or_rewire_test_only_survivors';
+        }
+        if (str_contains($reason, 'forbidden')) {
+            return 'resolve_forbidden_file_conflict';
+        }
+        if (str_contains($reason, 'scope')) {
+            return 'run_atlas_task_repair_blocked';
+        }
+
+        return 'review_and_repair_or_retire_family';
+    }
+
     public function operatorHandoffNextAction(string $criterion): string
     {
         return match ($criterion) {

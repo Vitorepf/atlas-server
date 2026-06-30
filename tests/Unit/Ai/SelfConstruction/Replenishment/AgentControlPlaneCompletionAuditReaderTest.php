@@ -271,6 +271,75 @@ final class AgentControlPlaneCompletionAuditReaderTest extends TestCase
         );
     }
 
+    // --- poisonFamilies -------------------------------------------
+
+    public function test_repeated_give_back_reasons_produce_poison_family_with_required_fields(): void
+    {
+        $records = [
+            ['outcome' => 'give_back', 'give_back_reason' => 'scope_repair_doomed', 'task_packet_id' => 'pkt-1'],
+            ['outcome' => 'give_back', 'give_back_reason' => 'scope_repair_doomed', 'task_packet_id' => 'pkt-2'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records);
+
+        $this->assertCount(1, $result['poison_families']);
+        $family = $result['poison_families'][0];
+        $this->assertArrayHasKey('reason', $family);
+        $this->assertArrayHasKey('count', $family);
+        $this->assertArrayHasKey('exemplar_packet_id', $family);
+        $this->assertArrayHasKey('repair_hint', $family);
+        $this->assertSame('scope_repair_doomed', $family['reason']);
+        $this->assertSame(2, $family['count']);
+    }
+
+    public function test_poison_family_count_reflects_all_occurrences(): void
+    {
+        $records = array_fill(0, 5, ['outcome' => 'give_back', 'give_back_reason' => 'test_only_survivors', 'task_packet_id' => 'p1']);
+
+        $result = $this->reader->poisonFamilies($records);
+
+        $this->assertSame(5, $result['poison_families'][0]['count']);
+    }
+
+    public function test_successful_tasks_are_not_counted_as_poison_families(): void
+    {
+        $records = [
+            ['outcome' => 'success', 'give_back_reason' => 'scope_repair_doomed', 'task_packet_id' => 'pkt-ok-1'],
+            ['outcome' => 'success', 'give_back_reason' => 'scope_repair_doomed', 'task_packet_id' => 'pkt-ok-2'],
+            ['outcome' => 'success', 'give_back_reason' => 'scope_repair_doomed', 'task_packet_id' => 'pkt-ok-3'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records);
+
+        $this->assertSame([], $result['poison_families']);
+    }
+
+    public function test_single_give_back_does_not_form_a_family_below_threshold(): void
+    {
+        $records = [
+            ['outcome' => 'give_back', 'give_back_reason' => 'lone_wolf', 'task_packet_id' => 'pkt-lone'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records);
+
+        $this->assertSame([], $result['poison_families']);
+    }
+
+    public function test_poison_families_are_ordered_deterministically_by_reason(): void
+    {
+        $records = [
+            ['outcome' => 'give_back', 'give_back_reason' => 'zzz_reason', 'task_packet_id' => 'p1'],
+            ['outcome' => 'give_back', 'give_back_reason' => 'zzz_reason', 'task_packet_id' => 'p2'],
+            ['outcome' => 'give_back', 'give_back_reason' => 'aaa_reason', 'task_packet_id' => 'p3'],
+            ['outcome' => 'give_back', 'give_back_reason' => 'aaa_reason', 'task_packet_id' => 'p4'],
+        ];
+
+        $result = $this->reader->poisonFamilies($records);
+        $reasons = array_column($result['poison_families'], 'reason');
+
+        $this->assertSame(['aaa_reason', 'zzz_reason'], $reasons);
+    }
+
     // --- OPERATOR_ONLY_CRITERIA constant ----------------------------
 
     public function test_operator_only_criteria_constant_lists_exactly_three_known_criteria(): void
