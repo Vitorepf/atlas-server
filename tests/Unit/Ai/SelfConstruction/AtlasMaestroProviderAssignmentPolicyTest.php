@@ -62,6 +62,45 @@ final class AtlasMaestroProviderAssignmentPolicyTest extends TestCase
         });
     }
 
+    public function test_queue_repair_and_learning_loop_primary_is_atlas_native(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+
+        $this->assertSame(
+            AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE,
+            $policy->assignmentFor(AtlasMaestroPacketClassifier::QUEUE_REPAIR)['primary'],
+        );
+        $this->assertSame(
+            AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE,
+            $policy->assignmentFor(AtlasMaestroPacketClassifier::LEARNING_LOOP)['primary'],
+        );
+    }
+
+    public function test_decide_returns_native_first_reason_when_no_unavailability(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+        $decision = $policy->decide(AtlasMaestroPacketClassifier::QUEUE_REPAIR);
+
+        $this->assertSame(AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE, $decision['provider']);
+        $this->assertSame('native-first', $decision['reason']);
+        $this->assertFalse($decision['failover']);
+        $this->assertSame([], $decision['tried']);
+    }
+
+    public function test_decide_falls_back_with_failover_reason_when_native_unavailable(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+        $decision = $policy->decide(
+            AtlasMaestroPacketClassifier::QUEUE_REPAIR,
+            [AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE],
+        );
+
+        $this->assertNotSame(AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE, $decision['provider']);
+        $this->assertSame('failover:preferred-unavailable', $decision['reason']);
+        $this->assertTrue($decision['failover']);
+        $this->assertContains(AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE, $decision['tried']);
+    }
+
     public function test_every_class_has_non_empty_fallback(): void
     {
         $policy = new AtlasMaestroProviderAssignmentPolicy;
@@ -71,6 +110,8 @@ final class AtlasMaestroProviderAssignmentPolicyTest extends TestCase
             AtlasMaestroPacketClassifier::MULTI_FILE,
             AtlasMaestroPacketClassifier::GRIND,
             AtlasMaestroPacketClassifier::DOC,
+            AtlasMaestroPacketClassifier::QUEUE_REPAIR,
+            AtlasMaestroPacketClassifier::LEARNING_LOOP,
         ] as $class) {
             $assignment = $policy->assignmentFor($class);
             $this->assertNotSame('', $assignment['primary']);
