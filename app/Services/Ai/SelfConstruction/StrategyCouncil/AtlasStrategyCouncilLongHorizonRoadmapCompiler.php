@@ -47,7 +47,7 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
         $pressureCapped = $currentPressure > self::PRESSURE_CAP;
         $nearTermCap    = $pressureCapped ? max(1, (int) floor($nearTermBase * self::PRESSURE_REDUCTION_FACTOR)) : $nearTermBase;
 
-        $ordered = $this->orderByDependencies($gapIndex, $impactMap);
+        [$ordered, $unscheduledIds] = $this->orderByDependencies($gapIndex, $impactMap);
 
         [$nearIds, $midIds, $longIds] = $this->assignPhases($ordered, $nearTermCap, $midTermBase);
 
@@ -58,8 +58,10 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
                 'mid_term'  => $this->phaseEnvelope($midIds, false, $gapIndex, $compressionIds),
                 'long_term' => $this->phaseEnvelope($longIds, false, $gapIndex, $compressionIds),
             ],
-            'prerequisite_chains_respected' => true,
+            'prerequisite_chains_respected' => $unscheduledIds === [],
             'total_gaps_scheduled'          => count($ordered),
+            'unscheduled_gap_ids'           => $unscheduledIds,
+            'dependency_blockers'           => $unscheduledIds,
             'near_term_capacity_used'       => $nearTermCap,
             'queue_pressure_capped'         => $pressureCapped,
         ];
@@ -117,9 +119,15 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
     /**
      * BFS level assignment, then sort by (level asc, impact desc) within level.
      *
+     * Gaps that never become ready — because they sit in a dependency
+     * cycle, or depend (directly or transitively) on a missing/cyclic id —
+     * are NEVER silently scheduled with a guessed level. They are excluded
+     * from the returned ordering and reported separately so callers can
+     * never mistake "scheduled" for "claimed scheduled".
+     *
      * @param  list<array<string,mixed>>  $gaps
      * @param  array<string,float>        $impactMap
-     * @return list<array<string,mixed>>
+     * @return array{0:list<array<string,mixed>>,1:list<string>}
      */
     private function orderByDependencies(array $gaps, array $impactMap): array
     {
@@ -133,6 +141,7 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
         $maxIter  = count($gaps) + 1;
 
         while (count($assigned) < count($gaps) && $maxIter-- > 0) {
+            $progressed = false;
             foreach ($gaps as $gap) {
                 $id = (string) ($gap['id'] ?? '');
                 if (isset($assigned[$id])) {
@@ -152,12 +161,21 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
                     }
                     $levels[$id]   = $level;
                     $assigned[$id] = true;
+                    $progressed    = true;
                 }
+            }
+            if (! $progressed) {
+                break;
             }
         }
 
-        $sorted = $gaps;
-        usort($sorted, static function (array $a, array $b) use ($levels, $impactMap): int {
+        $scheduled   = array_values(array_filter($gaps, static fn (array $g): bool => isset($assigned[(string) ($g['id'] ?? '')])));
+        $unscheduled = array_values(array_filter(
+            array_map(static fn (array $g): string => (string) ($g['id'] ?? ''), $gaps),
+            static fn (string $id): bool => ! isset($assigned[$id]),
+        ));
+
+        usort($scheduled, static function (array $a, array $b) use ($levels, $impactMap): int {
             $la = $levels[(string) ($a['id'] ?? '')] ?? 0;
             $lb = $levels[(string) ($b['id'] ?? '')] ?? 0;
             if ($la !== $lb) {
@@ -167,6 +185,6 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompiler
             return ((float) ($impactMap[(string) ($b['id'] ?? '')] ?? 0.0)) <=> ((float) ($impactMap[(string) ($a['id'] ?? '')] ?? 0.0));
         });
 
-        return $sorted;
+        return [$scheduled, $unscheduled];
     }
 }

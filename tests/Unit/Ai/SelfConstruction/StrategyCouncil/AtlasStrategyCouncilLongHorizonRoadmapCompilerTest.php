@@ -160,6 +160,42 @@ final class AtlasStrategyCouncilLongHorizonRoadmapCompilerTest extends TestCase
         $this->assertTrue($r['prerequisite_chains_respected']);
     }
 
+    public function test_cyclic_gap_index_reports_dependency_blockers_and_unscheduled_gaps(): void
+    {
+        $r = $this->compiler()->compile([
+            'gap_index'       => [$this->gap('g1', ['g2']), $this->gap('g2', ['g1']), $this->gap('g3')],
+            'worker_capacity' => ['near_term' => 5, 'mid_term' => 5],
+        ]);
+
+        $this->assertFalse($r['prerequisite_chains_respected']);
+        $this->assertSame(1, $r['total_gaps_scheduled']);
+        $this->assertContains('g1', $r['dependency_blockers']);
+        $this->assertContains('g2', $r['dependency_blockers']);
+        $this->assertContains('g1', $r['unscheduled_gap_ids']);
+        $this->assertContains('g2', $r['unscheduled_gap_ids']);
+        $this->assertNotContains('g3', $r['dependency_blockers']);
+
+        $allScheduled = array_merge(
+            $r['phases']['near_term']['gaps'],
+            $r['phases']['mid_term']['gaps'],
+            $r['phases']['long_term']['gaps'],
+        );
+        $this->assertSame(['g3'], $allScheduled);
+    }
+
+    public function test_normal_dependency_chain_still_schedules_every_gap_and_respects_chains(): void
+    {
+        $r = $this->compiler()->compile([
+            'gap_index'       => [$this->gap('g1'), $this->gap('g2', ['g1']), $this->gap('g3', ['g2'])],
+            'worker_capacity' => ['near_term' => 5, 'mid_term' => 5],
+        ]);
+
+        $this->assertTrue($r['prerequisite_chains_respected']);
+        $this->assertSame(3, $r['total_gaps_scheduled']);
+        $this->assertSame([], $r['dependency_blockers']);
+        $this->assertSame([], $r['unscheduled_gap_ids']);
+    }
+
     public function test_output_is_deterministic(): void
     {
         $facts = [
