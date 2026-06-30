@@ -142,4 +142,45 @@ class AtlasMaestroCostAggregatorTest extends TestCase
         self::assertSame('2026-06-25T00:00:01Z', $verdict['x']['first_recorded_at']);
         self::assertSame('2026-06-25T00:00:03Z', $verdict['x']['last_recorded_at']);
     }
+
+    public function test_malformed_row_increments_rejected_count(): void
+    {
+        $rows = [
+            ['task_class' => 'x', 'tokens_in' => 10, 'tokens_out' => 5, 'cost_cents' => 3, 'recorded_at' => '2026-06-25T00:00:00Z'],
+            ['task_class' => 'x', 'tokens_in' => 'BAD', 'tokens_out' => 5, 'cost_cents' => 3, 'recorded_at' => '2026-06-25T00:00:01Z'],
+            ['task_class' => 'x', 'tokens_in' => 10, 'tokens_out' => 5, 'cost_cents' => null, 'recorded_at' => '2026-06-25T00:00:02Z'],
+        ];
+        $verdict = AtlasMaestroCostAggregator::fromRowsByGroup($rows, 'task_class');
+
+        self::assertSame(1, $verdict['x']['count_records'], 'only valid row counted');
+        self::assertSame(2, $verdict['x']['rejected_count'], 'two malformed rows must be counted as rejected');
+    }
+
+    public function test_atlas_native_bucket_is_flagged_as_zero_cost_provider(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $ledger->append($this->fact(['provider' => 'atlas_native', 'model' => 'n1', 'cost_cents' => 0]));
+        $ledger->append($this->fact(['provider' => 'codex', 'model' => 'm1', 'cost_cents' => 50]));
+
+        $verdict = (new AtlasMaestroCostAggregator($ledger))->aggregateByProvider();
+
+        self::assertTrue($verdict['atlas_native:n1']['is_zero_cost_provider'], 'atlas_native must be flagged as zero-cost');
+        self::assertFalse($verdict['codex:m1']['is_zero_cost_provider'], 'paid provider must not be flagged as zero-cost');
+    }
+
+    public function test_aggregate_by_window_separates_different_days(): void
+    {
+        $ledger = new AtlasMaestroCostLedger($this->ledgerPath);
+        $ledger->append($this->fact(['recorded_at' => '2026-06-24T23:59:59Z', 'cost_cents' => 5]));
+        $ledger->append($this->fact(['recorded_at' => '2026-06-25T00:00:00Z', 'cost_cents' => 7]));
+        $ledger->append($this->fact(['recorded_at' => '2026-06-25T12:00:00Z', 'cost_cents' => 3]));
+
+        $verdict = (new AtlasMaestroCostAggregator($ledger))->aggregateByWindow('day');
+
+        self::assertArrayHasKey('2026-06-24', $verdict);
+        self::assertArrayHasKey('2026-06-25', $verdict);
+        self::assertSame(5, $verdict['2026-06-24']['sum_cost_cents'], 'day 24 must not mix with day 25');
+        self::assertSame(10, $verdict['2026-06-25']['sum_cost_cents'], 'day 25 aggregates both its records');
+        self::assertSame(2, $verdict['2026-06-25']['count_records']);
+    }
 }

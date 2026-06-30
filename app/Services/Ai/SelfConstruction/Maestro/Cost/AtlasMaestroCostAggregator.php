@@ -7,19 +7,24 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Cost;
 /**
  * Pure, deterministic, FACTS-only aggregator over {@see AtlasMaestroCostLedger} rows.
  *
- * Three frozen-schema views:
+ * Four frozen-schema views:
  *   - aggregateByTaskClass(?cycleId)
- *   - aggregateByProvider(?cycleId)   — grouped by `provider:model`
+ *   - aggregateByProvider(?cycleId)   — grouped by `provider:model`; atlas_native flagged as zero-cost
  *   - aggregateByCycle(?cycleId)
+ *   - aggregateByWindow($windowSize, ?cycleId) — 'day' or 'hour'; prevents cross-window cost mixing
  *
  * Each group row carries:
- *   { sum_cost_cents, sum_tokens_in, sum_tokens_out, count_records, first_recorded_at,
- *     last_recorded_at }.
+ *   { sum_cost_cents, sum_tokens_in, sum_tokens_out, count_records, rejected_count,
+ *     first_recorded_at, last_recorded_at }.
  *
  * NEVER emits a single scalar quality / score / rating. Fail-OPEN: empty ledger ⇒ [].
+ *
+ * Malformed rows (non-numeric cost/token fields) are counted in `rejected_count`, never summed.
  */
 final class AtlasMaestroCostAggregator
 {
+    public const ZERO_COST_PROVIDER = 'atlas_native';
+
     public function __construct(private readonly ?AtlasMaestroCostLedger $ledger = null) {}
 
     /**
@@ -36,7 +41,6 @@ final class AtlasMaestroCostAggregator
     public function aggregateByProvider(?string $cycleId = null): array
     {
         $rows = $this->loadRows($cycleId);
-        // Compound group key: provider:model.
         $tagged = [];
         foreach ($rows as $r) {
             if (! is_array($r)) {
@@ -46,7 +50,15 @@ final class AtlasMaestroCostAggregator
             $tagged[] = $r;
         }
 
-        return self::fromRowsByGroup($tagged, '__provider_model__');
+        $groups = self::fromRowsByGroup($tagged, '__provider_model__');
+
+        // Annotate atlas_native buckets as zero-cost providers (no provider spend).
+        foreach ($groups as $key => $group) {
+            $provider = explode(':', $key, 2)[0] ?? '';
+            $groups[$key]['is_zero_cost_provider'] = $provider === self::ZERO_COST_PROVIDER;
+        }
+
+        return $groups;
     }
 
     /**
@@ -58,7 +70,31 @@ final class AtlasMaestroCostAggregator
     }
 
     /**
+     * Aggregates costs bucketed by time window to prevent cross-day/cross-hour mixing.
+     *
+     * @param  string  $windowSize  'day' (default) or 'hour'
+     * @return array<string, array<string,mixed>>
+     */
+    public function aggregateByWindow(string $windowSize = 'day', ?string $cycleId = null): array
+    {
+        $rows = $this->loadRows($cycleId);
+        $prefixLen = $windowSize === 'hour' ? 13 : 10; // 'YYYY-MM-DDTHH' or 'YYYY-MM-DD'
+        $tagged = [];
+        foreach ($rows as $r) {
+            if (! is_array($r)) {
+                continue;
+            }
+            $recordedAt = (string) ($r['recorded_at'] ?? '');
+            $r['__window__'] = $recordedAt !== '' ? substr($recordedAt, 0, $prefixLen) : 'unknown';
+            $tagged[] = $r;
+        }
+
+        return self::fromRowsByGroup($tagged, '__window__');
+    }
+
+    /**
      * Pure aggregation primitive. Takes row arrays and groups them by `$groupKey`.
+     * Malformed rows (non-numeric cost/token fields) are tallied in `rejected_count`.
      *
      * @param  list<array<string,mixed>>  $rows
      * @return array<string, array<string,mixed>>
@@ -77,12 +113,14 @@ final class AtlasMaestroCostAggregator
                     'sum_tokens_in' => 0,
                     'sum_tokens_out' => 0,
                     'count_records' => 0,
+                    'rejected_count' => 0,
                     'first_recorded_at' => null,
                     'last_recorded_at' => null,
                 ];
             }
-            // A row counts ONLY if every cost field is numeric — malformed rows skipped silently.
+            // Malformed row: count as rejected, do not sum.
             if (! is_numeric($row['cost_cents'] ?? null) || ! is_numeric($row['tokens_in'] ?? null) || ! is_numeric($row['tokens_out'] ?? null)) {
+                $groups[$key]['rejected_count']++;
                 continue;
             }
             $groups[$key]['sum_cost_cents'] += (int) $row['cost_cents'];
