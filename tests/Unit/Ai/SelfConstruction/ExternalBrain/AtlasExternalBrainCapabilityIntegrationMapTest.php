@@ -273,4 +273,136 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         $this->assertArrayHasKey('dormant_implemented', $r['debt_summary']);
         $this->assertArrayHasKey('contract_missing',    $r['debt_summary']);
     }
+
+    // ── AC: circuits, isolated_organs, circuit_recommendations in output ──────
+
+    public function test_output_has_circuit_and_recommendation_keys(): void
+    {
+        $r = $this->mapper()->map([]);
+
+        $this->assertArrayHasKey('circuits',                $r);
+        $this->assertArrayHasKey('isolated_organs',         $r);
+        $this->assertArrayHasKey('circuit_recommendations', $r);
+    }
+
+    public function test_organs_sharing_integration_point_grouped_in_same_circuit(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'a', 'integration_points' => ['orchestrator'], 'connected_to' => ['orchestrator']]),
+            $this->cap(['id' => 'b', 'integration_points' => ['orchestrator'], 'connected_to' => ['orchestrator']]),
+        ]]);
+
+        $this->assertCount(1, $r['circuits']);
+        $this->assertSame('orchestrator', $r['circuits'][0]['circuit_id']);
+        $this->assertContains('a', $r['circuits'][0]['member_organ_ids']);
+        $this->assertContains('b', $r['circuits'][0]['member_organ_ids']);
+    }
+
+    public function test_circuit_accumulates_missing_edges_from_all_members(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'a', 'connected_to' => ['orchestrator']]),            // task_fabric missing
+            $this->cap(['id' => 'b', 'integration_points' => ['orchestrator', 'task_fabric'], 'connected_to' => ['orchestrator']]),
+        ]]);
+
+        $circuit = $r['circuits'][0];
+        $this->assertContains('task_fabric', $circuit['missing_edges']);
+    }
+
+    public function test_explicit_circuit_field_overrides_inferred_circuit(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'a', 'circuit' => 'my_circuit', 'integration_points' => ['orchestrator']]),
+            $this->cap(['id' => 'b', 'circuit' => 'my_circuit', 'integration_points' => ['task_fabric']]),
+        ]]);
+
+        $circuitIds = array_column($r['circuits'], 'circuit_id');
+        $this->assertContains('my_circuit', $circuitIds);
+        $idx = array_search('my_circuit', $circuitIds, true);
+        $this->assertContains('a', $r['circuits'][$idx]['member_organ_ids']);
+        $this->assertContains('b', $r['circuits'][$idx]['member_organ_ids']);
+    }
+
+    public function test_organ_with_no_connections_or_integration_points_is_isolated(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'floating',
+                'integration_points' => [],
+                'connected_to'       => [],
+                'consumer_count'     => 0,
+            ]),
+        ]]);
+
+        $this->assertContains('floating', $r['isolated_organs']);
+        $this->assertEmpty($r['circuits']);
+    }
+
+    public function test_retire_recommendation_for_isolated_organ_has_high_leverage_false(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'dead',
+                'integration_points' => [],
+                'connected_to'       => [],
+                'consumer_count'     => 0,
+            ]),
+        ]]);
+
+        $retireRecs = array_filter($r['circuit_recommendations'], fn(array $rec): bool => $rec['action'] === 'retire');
+        $this->assertNotEmpty($retireRecs);
+        foreach ($retireRecs as $rec) {
+            $this->assertFalse($rec['high_leverage'], 'retire must not be high_leverage');
+        }
+    }
+
+    public function test_connect_recommendation_for_missing_edges_is_high_leverage(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap([
+                'id'           => 'partial',
+                'connected_to' => ['orchestrator'],   // task_fabric still missing
+            ]),
+        ]]);
+
+        $connectRecs = array_filter($r['circuit_recommendations'], fn(array $rec): bool => $rec['action'] === 'connect');
+        $this->assertNotEmpty($connectRecs, 'expected at least one connect recommendation');
+        foreach ($connectRecs as $rec) {
+            $this->assertTrue($rec['high_leverage'], 'connect with named targets must be high_leverage');
+        }
+    }
+
+    public function test_merge_recommendation_for_redundant_circuit_is_high_leverage(): void
+    {
+        // Two fully-connected organs on same circuit but zero consumers → merge
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'a', 'integration_points' => ['orchestrator'], 'connected_to' => ['orchestrator'], 'consumer_count' => 0]),
+            $this->cap(['id' => 'b', 'integration_points' => ['orchestrator'], 'connected_to' => ['orchestrator'], 'consumer_count' => 0]),
+        ]]);
+
+        $mergeRecs = array_filter($r['circuit_recommendations'], fn(array $rec): bool => $rec['action'] === 'merge');
+        $this->assertNotEmpty($mergeRecs);
+        foreach ($mergeRecs as $rec) {
+            $this->assertTrue($rec['high_leverage']);
+        }
+    }
+
+    public function test_wrapper_only_debt_organ_does_not_produce_high_leverage_connect(): void
+    {
+        // Organ is integration_debt (is_wired=false) but all integration_points are already connected_to
+        // → missing_connections=[] → no connect recommendation → AC4 satisfied
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap([
+                'id'                 => 'unwired_but_connected',
+                'is_wired'           => false,
+                'integration_points' => ['orchestrator', 'task_fabric'],
+                'connected_to'       => ['orchestrator', 'task_fabric'],
+                'consumer_count'     => 0,
+            ]),
+        ]]);
+
+        $highLeverageRecs = array_filter(
+            $r['circuit_recommendations'],
+            fn(array $rec): bool => ($rec['high_leverage'] ?? false) === true,
+        );
+        $this->assertEmpty($highLeverageRecs, 'wrapper-only debt must not generate high_leverage recommendations');
+    }
 }

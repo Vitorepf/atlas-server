@@ -124,6 +124,11 @@ final class AtlasExternalBrainCapabilityIntegrationMap
             ];
         }
 
+        $capabilities    = array_values($capabilities); // ensure 0-indexed for circuit pass
+        $circuits        = $this->buildCircuits($capabilities, $capabilityMap);
+        $isolatedOrgans  = $this->findIsolatedOrgans($capabilities);
+        $recommendations = $this->buildRecommendations($circuits, $isolatedOrgans);
+
         return [
             'schema_version'          => self::SCHEMA,
             'capability_map'          => $capabilityMap,
@@ -138,6 +143,9 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 'contract_missing'    => $totalContractMissing,
                 'not_implemented'     => $totalNotImplemented,
             ],
+            'circuits'                => $circuits,
+            'isolated_organs'         => $isolatedOrgans,
+            'circuit_recommendations' => $recommendations,
         ];
     }
 
@@ -159,6 +167,136 @@ final class AtlasExternalBrainCapabilityIntegrationMap
         }
 
         return $actions;
+    }
+
+    /**
+     * Group organs into named circuits. Circuit ID = explicit `circuit` field or first integration_point.
+     * Organs with no integration_points and no circuit field are excluded (they are isolated).
+     *
+     * @param  array<int,array<string,mixed>>  $capabilities
+     * @param  array<int,array<string,mixed>>  $capabilityMap
+     * @return list<array{circuit_id:string, member_organ_ids:list<string>, upstream_inputs:list<string>, downstream_consumers:int, missing_edges:list<string>}>
+     */
+    private function buildCircuits(array $capabilities, array $capabilityMap): array
+    {
+        $buckets = [];
+
+        foreach ($capabilities as $i => $cap) {
+            $id          = (string) ($cap['id'] ?? '');
+            $integPoints = is_array($cap['integration_points'] ?? null) ? $cap['integration_points'] : [];
+            $connectedTo = is_array($cap['connected_to']       ?? null) ? $cap['connected_to']       : [];
+            $circuitName = (string) ($cap['circuit']           ?? '');
+
+            if ($circuitName === '' && $integPoints === []) {
+                continue; // isolated — handled separately
+            }
+            if ($circuitName === '') {
+                $circuitName = $integPoints[0];
+            }
+
+            if (! array_key_exists($circuitName, $buckets)) {
+                $buckets[$circuitName] = [
+                    'circuit_id'           => $circuitName,
+                    'member_organ_ids'     => [],
+                    'upstream_inputs'      => [],
+                    'downstream_consumers' => 0,
+                    'missing_edges'        => [],
+                ];
+            }
+
+            $buckets[$circuitName]['member_organ_ids'][] = $id;
+
+            foreach ($connectedTo as $input) {
+                if (! in_array($input, $buckets[$circuitName]['upstream_inputs'], true)) {
+                    $buckets[$circuitName]['upstream_inputs'][] = $input;
+                }
+            }
+
+            $consumerCount = array_key_exists('consumer_count', $cap) ? (int) $cap['consumer_count'] : 0;
+            $buckets[$circuitName]['downstream_consumers'] += $consumerCount;
+
+            $mapEntry = $capabilityMap[$i] ?? [];
+            foreach ((array) ($mapEntry['missing_connections'] ?? []) as $edge) {
+                if (! in_array($edge, $buckets[$circuitName]['missing_edges'], true)) {
+                    $buckets[$circuitName]['missing_edges'][] = $edge;
+                }
+            }
+        }
+
+        return array_values($buckets);
+    }
+
+    /**
+     * Find organs that have no integration_points, no connected_to, no consumers, and no circuit field.
+     *
+     * @param  array<int,array<string,mixed>>  $capabilities
+     * @return list<string>
+     */
+    private function findIsolatedOrgans(array $capabilities): array
+    {
+        $isolated = [];
+        foreach ($capabilities as $cap) {
+            $integPoints   = is_array($cap['integration_points'] ?? null) ? $cap['integration_points'] : [];
+            $connectedTo   = is_array($cap['connected_to']       ?? null) ? $cap['connected_to']       : [];
+            $consumerCount = array_key_exists('consumer_count', $cap) ? (int) $cap['consumer_count'] : null;
+            $circuit       = (string) ($cap['circuit']           ?? '');
+
+            if ($integPoints === [] && $connectedTo === [] && ($consumerCount === null || $consumerCount === 0) && $circuit === '') {
+                $isolated[] = (string) ($cap['id'] ?? '');
+            }
+        }
+        return $isolated;
+    }
+
+    /**
+     * Build recommendations from circuit analysis.
+     * Rules:
+     *   connect  — circuit has named missing_edges (specific targets → high_leverage:true)
+     *   merge    — circuit has ≥2 members with zero downstream_consumers (redundancy → high_leverage:true)
+     *   retire   — isolated organ with no integration path (no targets → high_leverage:false)
+     *
+     * AC4: wrapper-only recommendations (no named targets) must NOT be high_leverage.
+     *
+     * @param  list<array<string,mixed>>  $circuits
+     * @param  list<string>               $isolatedOrgans
+     * @return list<array{action:string, rationale:string, high_leverage:bool}>
+     */
+    private function buildRecommendations(array $circuits, array $isolatedOrgans): array
+    {
+        $recommendations = [];
+
+        foreach ($isolatedOrgans as $organId) {
+            $recommendations[] = [
+                'organ_id'      => $organId,
+                'action'        => 'retire',
+                'rationale'     => 'organ has no integration_points, no connections, and no consumers; it adds no value',
+                'high_leverage' => false,  // no named integration targets → wrapper-only ceiling
+            ];
+        }
+
+        foreach ($circuits as $circuit) {
+            if ($circuit['missing_edges'] !== []) {
+                $edges = implode(', ', $circuit['missing_edges']);
+                $recommendations[] = [
+                    'circuit_id'    => $circuit['circuit_id'],
+                    'action'        => 'connect',
+                    'rationale'     => "circuit missing named edges: {$edges}; connecting increases autonomy",
+                    'high_leverage' => true,  // specific targets named → real integration
+                ];
+            }
+
+            if (count($circuit['member_organ_ids']) >= 2 && $circuit['downstream_consumers'] === 0) {
+                $memberCount = count($circuit['member_organ_ids']);
+                $recommendations[] = [
+                    'circuit_id'    => $circuit['circuit_id'],
+                    'action'        => 'merge',
+                    'rationale'     => "circuit has {$memberCount} organs with zero downstream consumers; merging eliminates redundancy without adding wrapper classes",
+                    'high_leverage' => true,
+                ];
+            }
+        }
+
+        return $recommendations;
     }
 
     private function coverage(string $status, array $integPoints, array $connectedTo): float
