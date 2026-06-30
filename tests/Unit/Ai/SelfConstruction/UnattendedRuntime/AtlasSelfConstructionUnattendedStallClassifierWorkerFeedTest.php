@@ -92,4 +92,73 @@ class AtlasSelfConstructionUnattendedStallClassifierWorkerFeedTest extends TestC
 
         $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::WORKER_UNAVAILABLE, $result['classification']);
     }
+
+    // ── AC1: lease_leak_detected / leases_match_claimed=false yield a reap/recover action ──
+
+    public function test_lease_leak_detected_yields_reap_leases_action_before_wait(): void
+    {
+        $result = $this->classifier()->classify($this->snapshot([
+            'lease_leak_detected' => true,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK, $result['classification']);
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::ACTION_REAP_LEASES, $result['recommended_action']);
+        $this->assertTrue($result['recovery_needed']);
+    }
+
+    public function test_leases_match_claimed_false_yields_reap_leases_action(): void
+    {
+        $result = $this->classifier()->classify($this->snapshot([
+            'leases_match_claimed' => false,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK, $result['classification']);
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::ACTION_REAP_LEASES, $result['recommended_action']);
+    }
+
+    public function test_lease_leak_takes_precedence_over_feed_starvation_and_waiting_states(): void
+    {
+        $result = $this->classifier()->classify($this->snapshot([
+            'lease_leak_detected' => true,
+            'claimable_count' => 0,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK, $result['classification']);
+        $this->assertNotSame(AtlasSelfConstructionUnattendedStallClassifier::WAITING_ON_DEPENDENCIES, $result['classification']);
+        $this->assertNotSame(AtlasSelfConstructionUnattendedStallClassifier::QUEUE_DRY, $result['classification']);
+    }
+
+    public function test_worker_unavailable_still_takes_precedence_over_lease_leak(): void
+    {
+        $snapshot = $this->snapshot(['lease_leak_detected' => true]);
+        $snapshot['facts']['native_worker'] = ['ready' => false];
+
+        $result = $this->classifier()->classify($snapshot);
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::WORKER_UNAVAILABLE, $result['classification']);
+    }
+
+    public function test_clean_lease_state_does_not_trigger_lease_leak(): void
+    {
+        $result = $this->classifier()->classify($this->snapshot([
+            'lease_leak_detected' => false,
+            'leases_match_claimed' => true,
+        ]));
+
+        $this->assertNotSame(AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK, $result['classification']);
+        $this->assertNull($result['recommended_action']);
+    }
+
+    public function test_healthy_snapshot_with_comfortable_worker_feed_has_no_recommended_action(): void
+    {
+        $result = $this->classifier()->classify($this->snapshot([
+            'active_leases' => 2,
+            'claimable_count' => 20,
+            'recent_no_claimable_count' => 0,
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, $result['classification']);
+        $this->assertFalse($result['recovery_needed']);
+        $this->assertNull($result['recommended_action']);
+    }
 }

@@ -58,6 +58,10 @@ final class AtlasSelfConstructionUnattendedStallClassifier
 
     public const FEED_STARVATION_RISK = 'feed_starvation_risk';
 
+    public const LEASE_LEAK = 'lease_leak';
+
+    public const ACTION_REAP_LEASES = 'atlas:acp:reap-leases';
+
     /** claimable_count / active_leases at or below this ratio is a thin buffer. */
     private const FEED_STARVATION_RATIO_CEILING = 2.0;
 
@@ -91,6 +95,7 @@ final class AtlasSelfConstructionUnattendedStallClassifier
         $reasons = [];
         $classification = self::HEALTHY;
         $severity = self::SEVERITY_NONE;
+        $recommendedAction = null;
 
         if ((bool) ($queue['safety_stop'] ?? false)) {
             $classification = self::UNSAFE_STOP;
@@ -116,6 +121,11 @@ final class AtlasSelfConstructionUnattendedStallClassifier
             $classification = self::WORKER_UNAVAILABLE;
             $severity = self::SEVERITY_HIGH;
             $reasons[] = 'native_worker_not_ready';
+        } elseif ($this->leaseLeakDetected($queue)) {
+            $classification = self::LEASE_LEAK;
+            $severity = self::SEVERITY_MEDIUM;
+            $recommendedAction = self::ACTION_REAP_LEASES;
+            $reasons[] = (bool) ($queue['lease_leak_detected'] ?? false) ? 'lease_leak_detected' : 'leases_match_claimed_false';
         } elseif ($this->feedStarvationRisk($queue)) {
             $classification = self::FEED_STARVATION_RISK;
             $severity = self::SEVERITY_MEDIUM;
@@ -157,8 +167,23 @@ final class AtlasSelfConstructionUnattendedStallClassifier
             'severity' => $severity,
             'reasons' => $reasons,
             'recovery_needed' => $recoveryNeeded,
+            'recommended_action' => $recommendedAction,
             'classifier_hash' => $classifierHash,
         ];
+    }
+
+    /**
+     * Detects a recoverable lease/claim mismatch — the same cheap, safe signal
+     * {@see \App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskServingLeaseMismatchRepairPlan}
+     * resolves via `atlas:acp:reap-leases` — so an unattended runtime never idles on a stall that a
+     * single safe normalization command would clear.
+     *
+     * @param  array<string,mixed>  $queue
+     */
+    private function leaseLeakDetected(array $queue): bool
+    {
+        return (bool) ($queue['lease_leak_detected'] ?? false)
+            || ($queue['leases_match_claimed'] ?? true) === false;
     }
 
     /**
