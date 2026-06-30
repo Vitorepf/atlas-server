@@ -79,9 +79,10 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
         ksort($classCounts);
 
         return [
-            'schema' => self::SCHEMA,
-            'recommendations' => $recommendations,
-            'grouped_by_class' => $classCounts,
+            'schema'                => self::SCHEMA,
+            'recommendations'       => $recommendations,
+            'grouped_by_class'      => $classCounts,
+            'worker_shape_learning' => $this->buildWorkerShapeLearning($events),
         ];
     }
 
@@ -169,6 +170,50 @@ final class AtlasTaskFabricGiveBackLearningIntegrator
             'respec_contract_draft' => $respecContractDraft,
             'do_not_requeue_reason' => $doNotRequeueReason,
         ];
+    }
+
+    /**
+     * Group events by (task_shape, worker_client_id) and emit deterministic learning facts.
+     * Skips events where both task_shape and worker_client_id are absent.
+     *
+     * @param  list<array<string,mixed>>  $events
+     * @return list<array{task_shape:string, worker_client_id:string, give_back_count:int, quarantine_count:int, success_count:int}>
+     */
+    private function buildWorkerShapeLearning(array $events): array
+    {
+        $groups = [];
+        foreach ($events as $ev) {
+            if (! is_array($ev)) {
+                continue;
+            }
+            $taskShape = (string) ($ev['task_shape'] ?? '');
+            $workerId = (string) ($ev['worker_client_id'] ?? '');
+            if ($taskShape === '' && $workerId === '') {
+                continue;
+            }
+            $key = $taskShape.'||'.$workerId;
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'task_shape'       => $taskShape,
+                    'worker_client_id' => $workerId,
+                    'give_back_count'  => 0,
+                    'quarantine_count' => 0,
+                    'success_count'    => 0,
+                ];
+            }
+            $outcome = (string) ($ev['outcome'] ?? 'give_back');
+            if ($outcome === 'success') {
+                $groups[$key]['success_count']++;
+            } else {
+                $groups[$key]['give_back_count']++;
+                if ((int) ($ev['give_back_count'] ?? 1) >= self::QUARANTINE_THRESHOLD) {
+                    $groups[$key]['quarantine_count']++;
+                }
+            }
+        }
+        ksort($groups);
+
+        return array_values($groups);
     }
 
     /**

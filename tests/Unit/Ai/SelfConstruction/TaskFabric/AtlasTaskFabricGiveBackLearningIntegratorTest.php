@@ -186,4 +186,67 @@ final class AtlasTaskFabricGiveBackLearningIntegratorTest extends TestCase
 
         $this->assertNull($r['recommendations'][0]['do_not_requeue_reason']);
     }
+
+    // ── worker_shape_learning ─────────────────────────────────────────────────
+
+    public function test_worker_shape_learning_key_exists_in_output(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-1', 'reason' => 'generic'],
+        ]);
+        $this->assertArrayHasKey('worker_shape_learning', $r);
+        $this->assertIsArray($r['worker_shape_learning']);
+    }
+
+    public function test_worker_shape_learning_empty_when_no_shape_metadata(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-1', 'reason' => 'generic'],
+            ['task_packet_id' => 'pkt-2', 'reason' => 'cli_clobber'],
+        ]);
+        $this->assertSame([], $r['worker_shape_learning']);
+    }
+
+    public function test_worker_shape_learning_groups_by_task_shape_and_worker_client_id(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-1', 'reason' => 'generic', 'task_shape' => 'test_authoring', 'worker_client_id' => 'w-1'],
+            ['task_packet_id' => 'pkt-2', 'reason' => 'generic', 'task_shape' => 'test_authoring', 'worker_client_id' => 'w-1'],
+            ['task_packet_id' => 'pkt-3', 'reason' => 'generic', 'task_shape' => 'implementation',  'worker_client_id' => 'w-2'],
+        ]);
+
+        $groups = $r['worker_shape_learning'];
+        $this->assertCount(2, $groups);
+        // deterministic order by key (shape||worker)
+        $byKey = array_column($groups, null, 'task_shape');
+        $this->assertSame(2, $byKey['test_authoring']['give_back_count']);
+        $this->assertSame(1, $byKey['implementation']['give_back_count']);
+        $this->assertSame('w-1', $byKey['test_authoring']['worker_client_id']);
+    }
+
+    public function test_worker_shape_learning_counts_quarantine_separately(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-1', 'reason' => 'generic', 'task_shape' => 'impl', 'worker_client_id' => 'w-1', 'give_back_count' => 8],
+            ['task_packet_id' => 'pkt-2', 'reason' => 'generic', 'task_shape' => 'impl', 'worker_client_id' => 'w-1', 'give_back_count' => 2],
+        ]);
+
+        $groups = $r['worker_shape_learning'];
+        $this->assertCount(1, $groups);
+        $this->assertSame(2, $groups[0]['give_back_count']);
+        $this->assertSame(1, $groups[0]['quarantine_count']);
+        $this->assertSame(0, $groups[0]['success_count']);
+    }
+
+    public function test_worker_shape_learning_counts_success_outcome(): void
+    {
+        $r = (new AtlasTaskFabricGiveBackLearningIntegrator)->integrate([
+            ['task_packet_id' => 'pkt-1', 'reason' => 'generic', 'task_shape' => 'impl', 'worker_client_id' => 'w-1', 'outcome' => 'success'],
+            ['task_packet_id' => 'pkt-2', 'reason' => 'generic', 'task_shape' => 'impl', 'worker_client_id' => 'w-1'],
+        ]);
+
+        $groups = $r['worker_shape_learning'];
+        $this->assertSame(1, $groups[0]['success_count']);
+        $this->assertSame(1, $groups[0]['give_back_count']);
+    }
 }
