@@ -118,4 +118,58 @@ final class AtlasMaestroProviderAssignmentPolicyTest extends TestCase
             $this->assertNotEmpty($assignment['fallback']);
         }
     }
+
+    public function test_decide_ignores_recommendation_below_minimum_sample(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+        $decision = $policy->decide(AtlasMaestroPacketClassifier::QUEUE_REPAIR, [], [
+            'recommended_provider' => 'glm-5-2',
+            'sample_count' => AtlasMaestroProviderAssignmentPolicy::MIN_RECOMMENDATION_SAMPLE - 1,
+        ]);
+
+        $this->assertSame(AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE, $decision['provider']);
+        $this->assertSame('native-first', $decision['reason']);
+    }
+
+    public function test_decide_applies_learned_outcome_override_with_sufficient_sample(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+        $decision = $policy->decide(AtlasMaestroPacketClassifier::QUEUE_REPAIR, [], [
+            'recommended_provider' => 'glm-5-2',
+            'sample_count' => AtlasMaestroProviderAssignmentPolicy::MIN_RECOMMENDATION_SAMPLE,
+        ]);
+
+        $this->assertSame('glm-5-2', $decision['provider']);
+        $this->assertSame('learned-outcome', $decision['reason']);
+        $this->assertFalse($decision['failover']);
+    }
+
+    public function test_decide_ignores_recommendation_for_unknown_provider(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+        $decision = $policy->decide(AtlasMaestroPacketClassifier::QUEUE_REPAIR, [], [
+            'recommended_provider' => 'totally-unvalidated-provider',
+            'sample_count' => 999,
+        ]);
+
+        $this->assertSame(AtlasMaestroProviderAssignmentPolicy::ATLAS_NATIVE, $decision['provider']);
+        $this->assertSame('native-first', $decision['reason']);
+    }
+
+    public function test_decide_learned_override_still_fails_over_when_recommended_unavailable(): void
+    {
+        $policy = new AtlasMaestroProviderAssignmentPolicy;
+        $decision = $policy->decide(
+            AtlasMaestroPacketClassifier::QUEUE_REPAIR,
+            ['glm-5-2'],
+            [
+                'recommended_provider' => 'glm-5-2',
+                'sample_count' => AtlasMaestroProviderAssignmentPolicy::MIN_RECOMMENDATION_SAMPLE,
+            ],
+        );
+
+        $this->assertNotSame('glm-5-2', $decision['provider']);
+        $this->assertTrue($decision['failover']);
+        $this->assertContains('glm-5-2', $decision['tried']);
+    }
 }

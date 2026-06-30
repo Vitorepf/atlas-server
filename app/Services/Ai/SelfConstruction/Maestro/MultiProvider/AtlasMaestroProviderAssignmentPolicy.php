@@ -11,6 +11,10 @@ final class AtlasMaestroProviderAssignmentPolicy
     // Built-in logical name for local Atlas runtime; exempt from external registry validation.
     public const ATLAS_NATIVE = 'atlas_native';
 
+    // Minimum sample_count in a recommendation fact before learned outcomes can reorder a
+    // class's static assignment (incl. overriding atlas_native's default primacy).
+    public const MIN_RECOMMENDATION_SAMPLE = 5;
+
     /**
      * @var array<string,array{primary:string,fallback:list<string>}>
      */
@@ -66,12 +70,27 @@ final class AtlasMaestroProviderAssignmentPolicy
      * Returns an auditable decision with reason code and failover flag.
      *
      * @param  list<string>  $unavailable  provider ids known to be down/busy right now
+     * @param  array{recommended_provider?:string,sample_count?:int}  $recommendation  optional
+     *         learned-outcome fact; only reorders the static assignment when sample_count meets
+     *         {@see self::MIN_RECOMMENDATION_SAMPLE} AND the recommended provider is already a
+     *         known option for this class (never introduces an unvalidated provider).
      * @return array{provider:string,reason:string,failover:bool,tried:list<string>}
      */
-    public function decide(string $class, array $unavailable = []): array
+    public function decide(string $class, array $unavailable = [], array $recommendation = []): array
     {
         $assignment = $this->assignmentFor($class);
         $ordered = [$assignment['primary'], ...$assignment['fallback']];
+
+        $recommendedProvider = isset($recommendation['recommended_provider']) ? (string) $recommendation['recommended_provider'] : '';
+        $sampleCount = (int) ($recommendation['sample_count'] ?? 0);
+        $learnedOverride = $recommendedProvider !== ''
+            && $sampleCount >= self::MIN_RECOMMENDATION_SAMPLE
+            && in_array($recommendedProvider, $ordered, true);
+
+        if ($learnedOverride) {
+            $ordered = [$recommendedProvider, ...array_values(array_diff($ordered, [$recommendedProvider]))];
+        }
+
         $skip = array_fill_keys($unavailable, true);
         $tried = [];
 
@@ -83,7 +102,9 @@ final class AtlasMaestroProviderAssignmentPolicy
 
             return [
                 'provider' => $provider,
-                'reason' => $tried === [] ? 'native-first' : 'failover:preferred-unavailable',
+                'reason' => $tried === []
+                    ? ($learnedOverride ? 'learned-outcome' : 'native-first')
+                    : 'failover:preferred-unavailable',
                 'failover' => $tried !== [],
                 'tried' => $tried,
             ];
