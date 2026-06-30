@@ -44,6 +44,23 @@ final class OperatorEvidenceCanonicalizer
         ];
     }
 
+    /**
+     * Normalize operator-supplied evidence as a visibility-only audit snapshot.
+     * Stamps visibility_only=true and steady_state_proof=false so downstream consumers
+     * cannot treat operator attestations as native completion proof.
+     *
+     * @param  array<string, mixed>  $evidence
+     * @return array<string, mixed>
+     */
+    public static function canonicalize(array $evidence): array
+    {
+        unset($evidence['raw_prompt'], $evidence['provider_trace'], $evidence['raw_secret'], $evidence['secret']);
+        $evidence['visibility_only'] = true;
+        $evidence['steady_state_proof'] = false;
+
+        return $evidence;
+    }
+
     /** @param array<string, mixed> $payload */
     public static function stableHash(array $payload): string
     {

@@ -121,4 +121,46 @@ class OperatorEvidenceCanonicalizerTest extends TestCase
     {
         self::assertSame([3, 1, 2], OperatorEvidenceCanonicalizer::ksortRecursive([3, 1, 2]));
     }
+
+    public function test_canonicalize_sets_visibility_only_true(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize(['source' => 'operator', 'value' => 'ok']);
+        self::assertTrue($result['visibility_only']);
+    }
+
+    public function test_canonicalize_sets_steady_state_proof_false(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize(['source' => 'operator']);
+        self::assertFalse($result['steady_state_proof']);
+    }
+
+    public function test_canonicalize_strips_raw_prompt(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize(['raw_prompt' => 'secret text', 'x' => 1]);
+        self::assertArrayNotHasKey('raw_prompt', $result);
+        self::assertSame(1, $result['x']);
+    }
+
+    public function test_canonicalize_strips_provider_trace(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize(['provider_trace' => ['model' => 'opus'], 'x' => 1]);
+        self::assertArrayNotHasKey('provider_trace', $result);
+    }
+
+    public function test_canonicalize_strips_raw_secret_and_secret(): void
+    {
+        $result = OperatorEvidenceCanonicalizer::canonicalize(['raw_secret' => 'sk-xxx', 'secret' => 'tok', 'x' => 1]);
+        self::assertArrayNotHasKey('raw_secret', $result);
+        self::assertArrayNotHasKey('secret', $result);
+        self::assertSame(1, $result['x']);
+    }
+
+    public function test_canonicalize_is_deterministic(): void
+    {
+        $input = ['b' => 2, 'a' => 1, 'raw_prompt' => 'p'];
+        self::assertSame(
+            OperatorEvidenceCanonicalizer::canonicalize($input),
+            OperatorEvidenceCanonicalizer::canonicalize($input),
+        );
+    }
 }
