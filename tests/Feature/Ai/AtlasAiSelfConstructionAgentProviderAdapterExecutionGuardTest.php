@@ -235,4 +235,109 @@ class AtlasAiSelfConstructionAgentProviderAdapterExecutionGuardTest extends Test
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── AC1/AC2/AC3: evaluateExecutionStart — pure pre-flight evaluator ────────
+
+    public function test_all_checks_passing_allows_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([]);
+
+        $this->assertTrue($result['allow_start']);
+        $this->assertNull($result['block_reason']);
+        $this->assertSame([], $result['block_reasons']);
+        $this->assertNull($result['required_repair_hint']);
+    }
+
+    public function test_adapter_not_ready_blocks_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'adapter_ready' => false,
+        ]);
+
+        $this->assertFalse($result['allow_start']);
+        $this->assertSame(AgentProviderAdapterExecutionGuard::BLOCK_REASON_ADAPTER_NOT_READY, $result['block_reason']);
+        $this->assertNotEmpty($result['required_repair_hint']);
+    }
+
+    public function test_unsupported_task_family_blocks_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'task_family' => 'unknown_family',
+            'supported_task_families' => ['known_family'],
+        ]);
+
+        $this->assertFalse($result['allow_start']);
+        $this->assertSame(AgentProviderAdapterExecutionGuard::BLOCK_REASON_TASK_FAMILY_UNSUPPORTED, $result['block_reason']);
+    }
+
+    public function test_supported_task_family_does_not_block_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'task_family' => 'known_family',
+            'supported_task_families' => ['known_family'],
+        ]);
+
+        $this->assertTrue($result['allow_start']);
+    }
+
+    public function test_empty_supported_task_families_does_not_block(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'task_family' => 'anything',
+            'supported_task_families' => [],
+        ]);
+
+        $this->assertTrue($result['allow_start']);
+    }
+
+    public function test_unsafe_scope_blocks_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'scope_safe' => false,
+        ]);
+
+        $this->assertFalse($result['allow_start']);
+        $this->assertSame(AgentProviderAdapterExecutionGuard::BLOCK_REASON_SCOPE_UNSAFE, $result['block_reason']);
+    }
+
+    public function test_unsatisfied_evidence_policy_blocks_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'evidence_policy_satisfied' => false,
+        ]);
+
+        $this->assertFalse($result['allow_start']);
+        $this->assertSame(AgentProviderAdapterExecutionGuard::BLOCK_REASON_EVIDENCE_POLICY_NOT_SATISFIED, $result['block_reason']);
+    }
+
+    public function test_unavailable_fallback_blocks_start(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'fallback_available' => false,
+        ]);
+
+        $this->assertFalse($result['allow_start']);
+        $this->assertSame(AgentProviderAdapterExecutionGuard::BLOCK_REASON_FALLBACK_UNAVAILABLE, $result['block_reason']);
+    }
+
+    public function test_multiple_failures_all_recorded_but_first_is_primary(): void
+    {
+        $result = app(AgentProviderAdapterExecutionGuard::class)->evaluateExecutionStart([
+            'adapter_ready' => false,
+            'scope_safe' => false,
+        ]);
+
+        $this->assertFalse($result['allow_start']);
+        $this->assertSame(AgentProviderAdapterExecutionGuard::BLOCK_REASON_ADAPTER_NOT_READY, $result['block_reason']);
+        $this->assertContains(AgentProviderAdapterExecutionGuard::BLOCK_REASON_ADAPTER_NOT_READY, $result['block_reasons']);
+        $this->assertContains(AgentProviderAdapterExecutionGuard::BLOCK_REASON_SCOPE_UNSAFE, $result['block_reasons']);
+    }
+
+    public function test_evaluate_execution_start_is_deterministic(): void
+    {
+        $guard = app(AgentProviderAdapterExecutionGuard::class);
+        $input = ['adapter_ready' => false, 'fallback_available' => false];
+
+        $this->assertSame($guard->evaluateExecutionStart($input), $guard->evaluateExecutionStart($input));
+    }
 }

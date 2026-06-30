@@ -14,10 +14,93 @@ class AgentProviderAdapterExecutionGuard
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
 
+    public const BLOCK_REASON_ADAPTER_NOT_READY = 'adapter_not_ready';
+    public const BLOCK_REASON_TASK_FAMILY_UNSUPPORTED = 'task_family_unsupported';
+    public const BLOCK_REASON_SCOPE_UNSAFE = 'scope_unsafe';
+    public const BLOCK_REASON_EVIDENCE_POLICY_NOT_SATISFIED = 'evidence_policy_not_satisfied';
+    public const BLOCK_REASON_FALLBACK_UNAVAILABLE = 'fallback_unavailable';
+
+    private const REPAIR_HINTS = [
+        self::BLOCK_REASON_ADAPTER_NOT_READY => 'wait_for_adapter_capability_check_to_pass_before_retrying',
+        self::BLOCK_REASON_TASK_FAMILY_UNSUPPORTED => 'route_to_an_adapter_that_supports_this_task_family_or_extend_its_supported_list',
+        self::BLOCK_REASON_SCOPE_UNSAFE => 'narrow_or_repair_scope_to_clear_forbidden_axis_or_overlap_hits_before_retrying',
+        self::BLOCK_REASON_EVIDENCE_POLICY_NOT_SATISFIED => 'attach_the_required_evidence_before_allowing_start',
+        self::BLOCK_REASON_FALLBACK_UNAVAILABLE => 'configure_a_fallback_route_before_allowing_an_unsafe_primary_start',
+    ];
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
         private readonly AgentProviderAdapterRegistry $adapterRegistry,
     ) {}
+
+    /**
+     * Pure pre-flight evaluator: decides whether external provider execution is safe to start,
+     * checking adapter readiness, task-family fit, scope safety, evidence policy and fallback
+     * availability — BEFORE any process is started, rather than relying on runtime failure to
+     * surface the problem. Does not touch the database or the ledger.
+     *
+     * Block-reason priority (first failing check wins for block_reason/required_repair_hint, but
+     * every failing check is recorded in block_reasons):
+     *   1. adapter_not_ready
+     *   2. task_family_unsupported   — only checked when supported_task_families is non-empty
+     *   3. scope_unsafe
+     *   4. evidence_policy_not_satisfied
+     *   5. fallback_unavailable
+     *
+     * INPUT:
+     *   adapter_ready?: bool (default true)
+     *   task_family?: string
+     *   supported_task_families?: list<string>
+     *   scope_safe?: bool (default true)
+     *   evidence_policy_satisfied?: bool (default true)
+     *   fallback_available?: bool (default true)
+     *
+     * OUTPUT:
+     *   { allow_start, block_reason, block_reasons, required_repair_hint }
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluateExecutionStart(array $input): array
+    {
+        $adapterReady = (bool) ($input['adapter_ready'] ?? true);
+        $taskFamily = (string) ($input['task_family'] ?? '');
+        $supportedTaskFamilies = array_values(array_map('strval', (array) ($input['supported_task_families'] ?? [])));
+        $scopeSafe = (bool) ($input['scope_safe'] ?? true);
+        $evidencePolicySatisfied = (bool) ($input['evidence_policy_satisfied'] ?? true);
+        $fallbackAvailable = (bool) ($input['fallback_available'] ?? true);
+
+        $blockReasons = [];
+
+        if (! $adapterReady) {
+            $blockReasons[] = self::BLOCK_REASON_ADAPTER_NOT_READY;
+        }
+
+        if ($supportedTaskFamilies !== [] && ! in_array($taskFamily, $supportedTaskFamilies, true)) {
+            $blockReasons[] = self::BLOCK_REASON_TASK_FAMILY_UNSUPPORTED;
+        }
+
+        if (! $scopeSafe) {
+            $blockReasons[] = self::BLOCK_REASON_SCOPE_UNSAFE;
+        }
+
+        if (! $evidencePolicySatisfied) {
+            $blockReasons[] = self::BLOCK_REASON_EVIDENCE_POLICY_NOT_SATISFIED;
+        }
+
+        if (! $fallbackAvailable) {
+            $blockReasons[] = self::BLOCK_REASON_FALLBACK_UNAVAILABLE;
+        }
+
+        $primaryReason = $blockReasons[0] ?? null;
+
+        return [
+            'allow_start' => $blockReasons === [],
+            'block_reason' => $primaryReason,
+            'block_reasons' => $blockReasons,
+            'required_repair_hint' => $primaryReason !== null ? self::REPAIR_HINTS[$primaryReason] : null,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input
