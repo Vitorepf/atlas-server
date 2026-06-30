@@ -411,6 +411,84 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartFinalProcessStartAuth
         ];
     }
 
+    // ── AC1/AC2/AC3: revalidateAuthorization — pure post-start drift check ─────
+
+    public function test_matching_context_is_authorized(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)->revalidateAuthorization([
+            'approved_task_id' => 't1', 'current_task_id' => 't1',
+            'approved_lease_id' => 'l1', 'current_lease_id' => 'l1',
+            'approved_scope_hash' => 's1', 'current_scope_hash' => 's1',
+            'approved_worker_id' => 'w1', 'current_worker_id' => 'w1',
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::AUTHORIZATION_STATUS_AUTHORIZED, $result['authorization_status']);
+        $this->assertNull($result['drift_reason']);
+        $this->assertFalse($result['required_reauthorization']);
+    }
+
+    public function test_task_drift_rejects_authorization(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)->revalidateAuthorization([
+            'approved_task_id' => 't1', 'current_task_id' => 't2',
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::AUTHORIZATION_STATUS_REJECTED, $result['authorization_status']);
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::DRIFT_REASON_TASK_CONTEXT, $result['drift_reason']);
+        $this->assertTrue($result['required_reauthorization']);
+    }
+
+    public function test_lease_drift_rejects_authorization(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)->revalidateAuthorization([
+            'approved_task_id' => 't1', 'current_task_id' => 't1',
+            'approved_lease_id' => 'l1', 'current_lease_id' => 'l2',
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::DRIFT_REASON_LEASE_CONTEXT, $result['drift_reason']);
+    }
+
+    public function test_scope_drift_rejects_authorization(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)->revalidateAuthorization([
+            'approved_task_id' => 't1', 'current_task_id' => 't1',
+            'approved_lease_id' => 'l1', 'current_lease_id' => 'l1',
+            'approved_scope_hash' => 's1', 'current_scope_hash' => 's2',
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::DRIFT_REASON_SCOPE_CONTEXT, $result['drift_reason']);
+    }
+
+    public function test_worker_drift_rejects_authorization(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)->revalidateAuthorization([
+            'approved_task_id' => 't1', 'current_task_id' => 't1',
+            'approved_lease_id' => 'l1', 'current_lease_id' => 'l1',
+            'approved_scope_hash' => 's1', 'current_scope_hash' => 's1',
+            'approved_worker_id' => 'w1', 'current_worker_id' => 'w2',
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::DRIFT_REASON_WORKER_CONTEXT, $result['drift_reason']);
+    }
+
+    public function test_task_drift_takes_priority_over_other_drifts(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class)->revalidateAuthorization([
+            'approved_task_id' => 't1', 'current_task_id' => 't2',
+            'approved_lease_id' => 'l1', 'current_lease_id' => 'l2',
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::DRIFT_REASON_TASK_CONTEXT, $result['drift_reason']);
+    }
+
+    public function test_revalidate_authorization_is_deterministic(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate::class);
+        $input = ['approved_task_id' => 't1', 'current_task_id' => 't2'];
+
+        $this->assertSame($gate->revalidateAuthorization($input), $gate->revalidateAuthorization($input));
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');

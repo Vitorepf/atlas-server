@@ -134,9 +134,68 @@ class AgentCodexRealInvokerPostStartFinalProcessStartAuthorizationGate
         'final_start_kill_switch_hash',
     ];
 
+    public const AUTHORIZATION_STATUS_AUTHORIZED = 'authorized';
+    public const AUTHORIZATION_STATUS_REJECTED = 'rejected';
+
+    public const DRIFT_REASON_TASK_CONTEXT = 'task_context_drift';
+    public const DRIFT_REASON_LEASE_CONTEXT = 'lease_context_drift';
+    public const DRIFT_REASON_SCOPE_CONTEXT = 'scope_context_drift';
+    public const DRIFT_REASON_WORKER_CONTEXT = 'worker_context_drift';
+
     public function __construct(
         private readonly AgentCodexRealInvokerFinalProcessStartAuthorizationGate $authorizationGate,
     ) {}
+
+    /**
+     * Pure post-start revalidation (AC1/AC2/AC3): prior approval is never trusted blindly — final
+     * process start authorization is revalidated against the CURRENT task, lease, scope and worker
+     * context. Any drift between what was approved and what is true right now invalidates the
+     * prior approval and forces reauthorization. Does not touch the database; this check runs
+     * before `authorizePostStartFinalProcessStart()` is ever called.
+     *
+     * Drift-reason priority (first mismatch wins):
+     *   1. task_context_drift   — current_task_id !== approved_task_id
+     *   2. lease_context_drift  — current_lease_id !== approved_lease_id
+     *   3. scope_context_drift  — current_scope_hash !== approved_scope_hash
+     *   4. worker_context_drift — current_worker_id !== approved_worker_id
+     *
+     * INPUT:
+     *   approved_task_id / current_task_id
+     *   approved_lease_id / current_lease_id
+     *   approved_scope_hash / current_scope_hash
+     *   approved_worker_id / current_worker_id
+     *
+     * OUTPUT:
+     *   { authorization_status, drift_reason, required_reauthorization }
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function revalidateAuthorization(array $input): array
+    {
+        $pairs = [
+            self::DRIFT_REASON_TASK_CONTEXT => ['approved_task_id', 'current_task_id'],
+            self::DRIFT_REASON_LEASE_CONTEXT => ['approved_lease_id', 'current_lease_id'],
+            self::DRIFT_REASON_SCOPE_CONTEXT => ['approved_scope_hash', 'current_scope_hash'],
+            self::DRIFT_REASON_WORKER_CONTEXT => ['approved_worker_id', 'current_worker_id'],
+        ];
+
+        $driftReason = null;
+        foreach ($pairs as $reason => [$approvedKey, $currentKey]) {
+            $approved = (string) ($input[$approvedKey] ?? '');
+            $current = (string) ($input[$currentKey] ?? '');
+            if ($approved !== $current) {
+                $driftReason = $reason;
+                break;
+            }
+        }
+
+        return [
+            'authorization_status' => $driftReason === null ? self::AUTHORIZATION_STATUS_AUTHORIZED : self::AUTHORIZATION_STATUS_REJECTED,
+            'drift_reason' => $driftReason,
+            'required_reauthorization' => $driftReason !== null,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input
