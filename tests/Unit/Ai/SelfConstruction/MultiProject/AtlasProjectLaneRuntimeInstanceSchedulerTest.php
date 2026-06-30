@@ -140,6 +140,73 @@ final class AtlasProjectLaneRuntimeInstanceSchedulerTest extends TestCase
         $this->assertSame(0, $verdict['budget_facts']['budget_remaining']);
     }
 
+    public function test_fair_project_lane_scheduling_orders_by_urgency_across_projects(): void
+    {
+        // Two projects — higher urgency project schedules first regardless of input order.
+        $instances = [
+            $this->laneInstance('beta', 'proj-B'),
+            $this->laneInstance('alpha', 'proj-A'),
+        ];
+        $verdict = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan($instances, [
+            'max_parallel_lanes' => 2,
+            'lane_health' => [
+                'beta' => ['urgency' => 3],
+                'alpha' => ['urgency' => 9],
+            ],
+        ]);
+
+        $this->assertCount(2, $verdict['tick_now']);
+        $this->assertSame('alpha', $verdict['tick_now'][0]['lane_id'], 'higher-urgency lane must tick first');
+        $this->assertSame('beta', $verdict['tick_now'][1]['lane_id']);
+    }
+
+    public function test_stale_context_is_rejected_and_lane_held(): void
+    {
+        $instances = [$this->laneInstance('a')];
+        $verdict = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan($instances, [
+            'max_parallel_lanes' => 5,
+            'lane_health' => ['a' => ['context_freshness_stale' => true]],
+        ]);
+
+        $this->assertSame([], $verdict['tick_now']);
+        $this->assertContains(AtlasProjectLaneRuntimeInstanceScheduler::HOLD_STALE_CONTEXT, $verdict['held_lanes'][0]['reasons']);
+    }
+
+    public function test_max_concurrent_instance_cap_allows_exactly_n_instances(): void
+    {
+        $instances = [
+            $this->laneInstance('a', 'p1'),
+            $this->laneInstance('b', 'p2'),
+            $this->laneInstance('c', 'p3'),
+            $this->laneInstance('d', 'p4'),
+        ];
+        $cap = 2;
+        $verdict = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan($instances, ['max_parallel_lanes' => $cap]);
+
+        $this->assertCount($cap, $verdict['tick_now'], 'exactly the cap number of instances must tick');
+        $this->assertCount(count($instances) - $cap, $verdict['blocked_lanes']);
+        foreach ($verdict['blocked_lanes'] as $blocked) {
+            $this->assertContains(AtlasProjectLaneRuntimeInstanceScheduler::HOLD_MAX_PARALLEL_REACHED, $blocked['reasons']);
+        }
+    }
+
+    public function test_cross_project_leak_is_explicitly_blocked_with_named_hold(): void
+    {
+        // Two different projects claim the same write root → second one must be explicitly blocked.
+        $verdict = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('lane-x', 'project-1', ['allowed_roots' => ['shared/atlas/src']]),
+            $this->laneInstance('lane-y', 'project-2', ['allowed_roots' => ['shared/atlas/src']]),
+        ], ['max_parallel_lanes' => 5]);
+
+        $this->assertSame('lane-x', $verdict['tick_now'][0]['lane_id']);
+        $this->assertSame('lane-y', $verdict['held_lanes'][0]['lane_id']);
+        $this->assertContains(
+            AtlasProjectLaneRuntimeInstanceScheduler::HOLD_WRITE_ROOT_LEAK,
+            $verdict['held_lanes'][0]['reasons'],
+            'second project claiming the same write root must be held with cross_project_write_root_leak',
+        );
+    }
+
     public function test_scheduler_hash_is_deterministic_for_identical_input(): void
     {
         $instances = [$this->laneInstance('a'), $this->laneInstance('b')];

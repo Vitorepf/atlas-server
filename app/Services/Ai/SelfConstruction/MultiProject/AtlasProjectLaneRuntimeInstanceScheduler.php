@@ -39,6 +39,8 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
 
     public const HOLD_MAX_PARALLEL_REACHED = 'max_parallel_lanes_reached';
 
+    public const HOLD_STALE_CONTEXT = 'stale_context';
+
     /**
      * @param  list<array<string,mixed>>  $instances output of {@see AtlasProjectLaneRuntimeInstanceRegistry::build}.instances
      * @param  array<string,mixed>  $facts {max_parallel_lanes?, lane_health?, budget?}
@@ -78,6 +80,9 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
             }
             if ((bool) ($laneFacts['stale_knowledge_sync'] ?? false)) {
                 $reasons[] = self::HOLD_STALE_KNOWLEDGE_SYNC;
+            }
+            if ((bool) ($laneFacts['context_freshness_stale'] ?? false)) {
+                $reasons[] = self::HOLD_STALE_CONTEXT;
             }
             foreach ((array) ($laneFacts['steady_state_dependencies'] ?? []) as $dep) {
                 $depStr = (string) $dep;
