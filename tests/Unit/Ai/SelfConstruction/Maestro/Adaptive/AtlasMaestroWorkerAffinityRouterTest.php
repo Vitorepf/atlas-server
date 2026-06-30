@@ -94,4 +94,117 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
         $this->assertContains($out['worker'], $eligible, 'router never picks outside the eligible set');
         $this->assertEmpty(array_diff($out['ordered'], $eligible), 'ordered ⊆ eligible');
     }
+
+    // ── routePacket(): lane affinity ───────────────────────────────────────────
+
+    public function test_route_packet_prefers_worker_with_proven_lane_affinity(): void
+    {
+        // claude-1 has lane:final-brain affinity; codex-1 has only task_class success.
+        for ($i = 0; $i < 5; $i++) {
+            $this->ledger->record('success', 'claude-1', 'lane:final-brain');
+        }
+        for ($i = 0; $i < 10; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'lane' => 'final-brain', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('claude-1', $out['worker'], 'worker with lane affinity must win over higher task_class success');
+        $this->assertSame('lane:final-brain', $out['routing_key']);
+    }
+
+    public function test_route_packet_falls_back_to_task_class_when_no_lane_evidence(): void
+    {
+        // No lane evidence; codex-1 has task_class success.
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'lane' => 'final-brain', 'allowed_files' => []],
+            ['codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker']);
+        $this->assertSame('wiring', $out['routing_key']);
+    }
+
+    // ── routePacket(): allowed_files conflict guard ───────────────────────────
+
+    public function test_route_packet_refuses_worker_with_conflicting_active_claim(): void
+    {
+        for ($i = 0; $i < 5; $i++) {
+            $this->ledger->record('success', 'claude-1', 'lane:final-brain');
+        }
+
+        $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'lane' => 'final-brain', 'allowed_files' => [$conflictFile]],
+            ['claude-1'],
+            [['worker_id' => 'claude-1', 'claimed_files' => [$conflictFile]]],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_CONFLICT, $out['status']);
+        $this->assertContains('claude-1', $out['conflict_workers']);
+    }
+
+    public function test_route_packet_excludes_conflicting_worker_but_routes_to_clean_worker(): void
+    {
+        $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
+
+        // claude-1 has a conflict; codex-1 does not.
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => [$conflictFile]],
+            ['claude-1', 'codex-1'],
+            [['worker_id' => 'claude-1', 'claimed_files' => [$conflictFile]]],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker'], 'conflicting worker must be excluded; clean worker routed');
+        $this->assertContains('claude-1', $out['conflict_workers']);
+    }
+
+    public function test_route_packet_route_conflict_when_all_workers_have_conflict(): void
+    {
+        $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php';
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => [$conflictFile]],
+            ['claude-1', 'codex-1'],
+            [
+                ['worker_id' => 'claude-1', 'claimed_files' => [$conflictFile]],
+                ['worker_id' => 'codex-1',  'claimed_files' => [$conflictFile]],
+            ],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_CONFLICT, $out['status']);
+        $this->assertCount(2, $out['conflict_workers']);
+    }
+
+    public function test_route_packet_no_conflict_when_claimed_files_do_not_overlap(): void
+    {
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'claude-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => ['app/Services/Foo.php']],
+            ['claude-1'],
+            [['worker_id' => 'claude-1', 'claimed_files' => ['app/Services/Bar.php']]],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('claude-1', $out['worker']);
+        $this->assertSame([], $out['conflict_workers']);
+    }
 }

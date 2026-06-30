@@ -14,12 +14,18 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Adaptive;
  * ABSTAINS (ROUTE_ABSTAIN, reason=insufficient_success_evidence) when no eligible worker has at least
  * router_min_success (default 3) successes for the class, so serving falls back to the existing eligibility
  * ordering. FACTS-only, no scalar score.
+ *
+ * routePacket() extends routing with lane, risk, file-family, and active-claim conflict detection:
+ * workers whose active claims overlap the packet's allowed_files are excluded before scoring (ROUTE_CONFLICT
+ * when all eligible workers are excluded).
  */
 final class AtlasMaestroWorkerAffinityRouter
 {
     public const ROUTE_ABSTAIN = 'route_abstain';
 
     public const ROUTED = 'routed';
+
+    public const ROUTE_CONFLICT = 'route_conflict';
 
     public function __construct(private readonly ?AtlasMaestroWorkerBehaviorLedger $ledger = null)
     {
@@ -67,6 +73,88 @@ final class AtlasMaestroWorkerAffinityRouter
             'facts' => ['success_count' => $candidates[0]['success_count'], 'give_back_count' => $candidates[0]['give_back_count']],
             'task_class' => $taskClass,
             'min_success' => $minSuccess,
+        ];
+    }
+
+    /**
+     * Extended routing for final-brain packets: filters by allowed_files conflict first, then routes
+     * by lane affinity (using 'lane:{lane}' as the ledger key), falling back to task_class routing.
+     *
+     * @param  array{task_class?:string, lane?:string, risk_level?:string, allowed_files?:list<string>}  $packet
+     * @param  list<string>  $eligibleWorkers  client_ids already certified eligible
+     * @param  list<array{worker_id:string, claimed_files:list<string>}>  $activeClaims  live lease snapshots
+     * @return array{status:string, worker?:string, reason?:string, conflict_workers?:list<string>, routing_key?:string}
+     */
+    public function routePacket(array $packet, array $eligibleWorkers, array $activeClaims = []): array
+    {
+        $allowedFiles = is_array($packet['allowed_files'] ?? null)
+            ? array_values(array_filter(array_map('strval', $packet['allowed_files']), static fn (string $f): bool => $f !== ''))
+            : [];
+
+        // Build map: worker_id → claimed files.
+        $claimedByWorker = [];
+        foreach ($activeClaims as $claim) {
+            $wid = (string) ($claim['worker_id'] ?? '');
+            $files = is_array($claim['claimed_files'] ?? null) ? $claim['claimed_files'] : [];
+            if ($wid !== '') {
+                $claimedByWorker[$wid] = $files;
+            }
+        }
+
+        // Remove workers whose claimed files overlap the packet's allowed_files.
+        $conflictWorkers = [];
+        $nonConflict = [];
+        foreach ($eligibleWorkers as $worker) {
+            $worker = (string) $worker;
+            if ($worker === '') {
+                continue;
+            }
+            $claimed = $claimedByWorker[$worker] ?? [];
+            if ($allowedFiles !== [] && array_intersect($allowedFiles, $claimed) !== []) {
+                $conflictWorkers[] = $worker;
+            } else {
+                $nonConflict[] = $worker;
+            }
+        }
+
+        if ($nonConflict === []) {
+            return [
+                'status' => self::ROUTE_CONFLICT,
+                'reason' => 'all_eligible_workers_have_allowed_files_conflict',
+                'conflict_workers' => $conflictWorkers,
+            ];
+        }
+
+        $taskClass = (string) ($packet['task_class'] ?? '');
+        $lane = trim((string) ($packet['lane'] ?? ''));
+
+        // Try lane-affinity routing first.
+        if ($lane !== '') {
+            $laneResult = $this->route('lane:'.$lane, $nonConflict);
+            if ($laneResult['status'] === self::ROUTED) {
+                $laneResult['routing_key'] = 'lane:'.$lane;
+                $laneResult['conflict_workers'] = $conflictWorkers;
+
+                return $laneResult;
+            }
+        }
+
+        // Fall back to task_class routing.
+        if ($taskClass !== '') {
+            $classResult = $this->route($taskClass, $nonConflict);
+            if ($classResult['status'] === self::ROUTED) {
+                $classResult['routing_key'] = $taskClass;
+                $classResult['conflict_workers'] = $conflictWorkers;
+
+                return $classResult;
+            }
+        }
+
+        return [
+            'status' => self::ROUTE_ABSTAIN,
+            'reason' => 'insufficient_success_evidence',
+            'conflict_workers' => $conflictWorkers,
+            'routing_key' => $lane !== '' ? 'lane:'.$lane : $taskClass,
         ];
     }
 }
