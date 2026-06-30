@@ -230,6 +230,22 @@ final class AtlasSelfConstructionSubsystemBuilderService
         ];
         $proposal['proposal_hash'] = $this->proposalHash($proposal);
 
+        $implRelativePath = str_replace(['App\\', '\\'], ['app/', '/'], $serviceClass).'.php';
+        $testRelativePath = 'tests/Unit/'.str_replace('\\', '/', str_replace('App\\Services\\', '', $serviceClass)).'Test.php';
+        $proposal['task_fabric_contract'] = [
+            'allowed_files' => [$implRelativePath, $testRelativePath],
+            'doc_path' => $docPath,
+            'acceptance_criteria' => [
+                "/opt/homebrew/bin/php artisan test {$testRelativePath} passes green.",
+                "Service class {$serviceClass} exists and emits a real schema_version (not scaffold placeholder).",
+                "Doc at {$docPath} filled with real invariants (not scaffold placeholder).",
+            ],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'scaffold_only' => true,
+            'directly_enqueueable' => false,
+            'enqueue_blocker' => 'Proposal is scaffold-only: implementation and test paths must contain real logic before enqueueing.',
+        ];
+
         return $proposal;
     }
 

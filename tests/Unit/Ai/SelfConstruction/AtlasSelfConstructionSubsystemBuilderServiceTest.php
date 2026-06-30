@@ -172,4 +172,60 @@ class AtlasSelfConstructionSubsystemBuilderServiceTest extends TestCase
             'action' => 'whatever',
         ]);
     }
+
+    public function test_proposal_contains_task_fabric_contract_with_required_fields(): void
+    {
+        $p = $this->svc->propose([
+            'gap_kind' => AtlasSelfConstructionSubsystemBuilderService::GAP_OPERATOR_REQUEST,
+            'subsystem_acronym' => 'NEWX',
+            'group' => 'self_construction',
+        ]);
+        $this->assertArrayHasKey('task_fabric_contract', $p);
+        $c = $p['task_fabric_contract'];
+        $this->assertArrayHasKey('allowed_files', $c);
+        $this->assertArrayHasKey('doc_path', $c);
+        $this->assertArrayHasKey('acceptance_criteria', $c);
+        $this->assertArrayHasKey('required_evidence', $c);
+        $this->assertContains('tests_or_gates_result', $c['required_evidence']);
+        $this->assertContains('implementation_notes', $c['required_evidence']);
+    }
+
+    public function test_task_fabric_contract_allowed_files_include_impl_and_test_paths(): void
+    {
+        $p = $this->svc->propose([
+            'gap_kind' => AtlasSelfConstructionSubsystemBuilderService::GAP_OPERATOR_REQUEST,
+            'subsystem_acronym' => 'NEWX',
+            'group' => 'self_construction',
+        ]);
+        $files = $p['task_fabric_contract']['allowed_files'];
+        $this->assertCount(2, $files);
+        $this->assertStringEndsWith('.php', $files[0]);
+        $this->assertStringEndsWith('Test.php', $files[1]);
+        $this->assertStringStartsWith('app/', $files[0]);
+        $this->assertStringStartsWith('tests/', $files[1]);
+    }
+
+    public function test_task_fabric_contract_acceptance_criteria_contains_artisan_test_command(): void
+    {
+        $p = $this->svc->propose([
+            'gap_kind' => AtlasSelfConstructionSubsystemBuilderService::GAP_OPERATOR_REQUEST,
+            'subsystem_acronym' => 'NEWX',
+            'group' => 'self_construction',
+        ]);
+        $criteria = implode(' ', $p['task_fabric_contract']['acceptance_criteria']);
+        $this->assertStringContainsString('/opt/homebrew/bin/php artisan test', $criteria);
+    }
+
+    public function test_task_fabric_contract_marks_scaffold_not_directly_enqueueable(): void
+    {
+        $p = $this->svc->propose([
+            'gap_kind' => AtlasSelfConstructionSubsystemBuilderService::GAP_OPERATOR_REQUEST,
+            'subsystem_acronym' => 'NEWX',
+            'group' => 'self_construction',
+        ]);
+        $c = $p['task_fabric_contract'];
+        $this->assertTrue($c['scaffold_only']);
+        $this->assertFalse($c['directly_enqueueable']);
+        $this->assertNotEmpty($c['enqueue_blocker']);
+    }
 }
