@@ -22,29 +22,43 @@ final class AtlasLoopProviderRouter
     /**
      * @param  array<string,mixed>  $routing  atlas.loop.provider_routing config
      * @param  callable(string):bool  $isConfigured  provider-key configured probe
-     * @return array{provider:string, model:?string, tier:string}
+     * @param  array<string,array{failure_rate?:float,give_back_rate?:float}>  $providerStats  optional observed stats keyed by provider name
+     * @return array{provider:string, model:?string, tier:string, reason:string, observed_fit:array<string,float>|null}
      */
-    public function route(string $objectiveKind, string $defaultProvider, ?string $defaultModel, array $routing, callable $isConfigured): array
+    public function route(string $objectiveKind, string $defaultProvider, ?string $defaultModel, array $routing, callable $isConfigured, array $providerStats = []): array
     {
-        $strong = ['provider' => $defaultProvider, 'model' => $defaultModel, 'tier' => 'strong'];
+        $strong = static fn (string $reason): array => ['provider' => $defaultProvider, 'model' => $defaultModel, 'tier' => 'strong', 'reason' => $reason, 'observed_fit' => null];
 
         if (! (bool) ($routing['enabled'] ?? false)) {
-            return $strong;
+            return $strong('routing_disabled');
         }
 
         $cheapClasses = array_map('strval', (array) ($routing['cheap_classes'] ?? []));
         if (! in_array($objectiveKind, $cheapClasses, true)) {
-            return $strong; // load-bearing class => strong tier
+            return $strong('load_bearing_class');
         }
 
         $cheapProvider = trim((string) ($routing['cheap_provider'] ?? ''));
         if ($cheapProvider === '' || ! $isConfigured($cheapProvider)) {
-            return $strong; // fail-safe: cheap tier unconfigured => fall back to strong (never block)
+            return $strong('cheap_provider_unconfigured');
+        }
+
+        $stats = is_array($providerStats[$cheapProvider] ?? null) ? $providerStats[$cheapProvider] : [];
+        $failureRate = isset($stats['failure_rate']) ? max(0.0, min(1.0, (float) $stats['failure_rate'])) : null;
+        $giveBackRate = isset($stats['give_back_rate']) ? max(0.0, min(1.0, (float) $stats['give_back_rate'])) : null;
+        $threshold = max(0.0, min(1.0, (float) ($routing['cheap_failure_threshold'] ?? 0.4)));
+
+        $observedFit = ($failureRate !== null || $giveBackRate !== null)
+            ? ['failure_rate' => $failureRate ?? 0.0, 'give_back_rate' => $giveBackRate ?? 0.0]
+            : null;
+
+        if (($failureRate !== null && $failureRate > $threshold) || ($giveBackRate !== null && $giveBackRate > $threshold)) {
+            return array_merge($strong('cheap_provider_stats_breach'), ['observed_fit' => $observedFit]);
         }
 
         $cheapModel = trim((string) ($routing['cheap_model'] ?? ''));
 
-        return ['provider' => $cheapProvider, 'model' => $cheapModel !== '' ? $cheapModel : null, 'tier' => 'cheap'];
+        return ['provider' => $cheapProvider, 'model' => $cheapModel !== '' ? $cheapModel : null, 'tier' => 'cheap', 'reason' => 'cheap_class_fit', 'observed_fit' => $observedFit];
     }
 
     /**
