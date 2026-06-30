@@ -163,4 +163,128 @@ final class AtlasExternalBrainOrganMeshOrchestratorTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainOrganMeshOrchestrator::SCHEMA, $r['schema_version']);
     }
+
+    // ── buildMesh(): typed organ circuits ─────────────────────────────────────
+
+    private function organ(string $id, array $inputs, array $outputs): array
+    {
+        return ['organ_id' => $id, 'input_contracts' => $inputs, 'output_contracts' => $outputs];
+    }
+
+    public function test_build_mesh_has_required_keys(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [$this->organ('a', [], ['x'])],
+            'edges' => [],
+        ]);
+
+        foreach (['organs', 'execution_order', 'cycle_detected', 'feedback_edges', 'orphan_organs', 'mesh_status', 'invalid_edges', 'next_integration_task'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_valid_chain_produces_execution_order_and_valid_status(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [
+                $this->organ('a', [], ['evidence']),
+                $this->organ('b', ['evidence'], ['candidates']),
+                $this->organ('c', ['candidates'], ['decision']),
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+                ['from' => 'b', 'to' => 'c', 'type' => 'data'],
+            ],
+        ]);
+
+        $this->assertSame('valid', $result['mesh_status']);
+        $this->assertSame(['a', 'b', 'c'], $result['execution_order']);
+        $this->assertSame([], $result['invalid_edges']);
+        $this->assertSame([], $result['orphan_organs']);
+        $this->assertFalse($result['cycle_detected']);
+        $this->assertNull($result['next_integration_task']);
+    }
+
+    public function test_missing_contract_match_is_flagged_invalid(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [
+                $this->organ('a', [], ['evidence']),
+                $this->organ('b', ['candidates'], ['decision']),
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+            ],
+        ]);
+
+        $this->assertSame('invalid', $result['mesh_status']);
+        $this->assertCount(1, $result['invalid_edges']);
+        $this->assertSame('missing_contract_match', $result['invalid_edges'][0]['reason']);
+        $this->assertNotNull($result['next_integration_task']);
+    }
+
+    public function test_cycle_without_termination_is_detected(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [
+                $this->organ('a', ['z'], ['x']),
+                $this->organ('b', ['x'], ['z']),
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+                ['from' => 'b', 'to' => 'a', 'type' => 'data'],
+            ],
+        ]);
+
+        $this->assertTrue($result['cycle_detected']);
+        $this->assertSame('invalid', $result['mesh_status']);
+        $this->assertSame([], $result['execution_order']);
+    }
+
+    public function test_feedback_edges_do_not_count_as_data_cycles(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [
+                $this->organ('a', ['z'], ['x']),
+                $this->organ('b', ['x'], ['z']),
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+                ['from' => 'b', 'to' => 'a', 'type' => 'feedback'],
+            ],
+        ]);
+
+        $this->assertFalse($result['cycle_detected']);
+        $this->assertSame('valid', $result['mesh_status']);
+        $this->assertCount(1, $result['feedback_edges']);
+        $this->assertSame(['a', 'b'], $result['execution_order']);
+    }
+
+    public function test_orphan_organ_with_no_edges_is_flagged(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [
+                $this->organ('a', [], ['x']),
+                $this->organ('b', ['x'], ['y']),
+                $this->organ('orphan', [], ['unused']),
+            ],
+            'edges' => [
+                ['from' => 'a', 'to' => 'b', 'type' => 'data'],
+            ],
+        ]);
+
+        $this->assertContains('orphan', $result['orphan_organs']);
+        $this->assertSame('orphan', $result['orphan_organs'][0]);
+    }
+
+    public function test_unknown_organ_in_edge_is_invalid(): void
+    {
+        $result = $this->svc()->buildMesh([
+            'organs' => [$this->organ('a', [], ['x'])],
+            'edges' => [['from' => 'a', 'to' => 'ghost', 'type' => 'data']],
+        ]);
+
+        $this->assertSame('invalid', $result['mesh_status']);
+        $this->assertSame('unknown_organ_in_edge', $result['invalid_edges'][0]['reason']);
+    }
 }

@@ -27,6 +27,134 @@ final class AtlasExternalBrainOrganMeshOrchestrator
 
     public const PHASES = ['context', 'proposal', 'critique', 'value', 'readiness', 'queue_decision'];
 
+    public const MESH_STATUS_VALID = 'valid';
+    public const MESH_STATUS_INVALID = 'invalid';
+
+    /**
+     * Builds an organ mesh from typed organs (input/output contracts) and
+     * edges (data or feedback), instead of treating organs as isolated
+     * callable classes. Flags missing contract matches, data-edge cycles
+     * (which would never terminate), and orphan organs with no wiring at all.
+     *
+     * @param  array{organs?: list<array<string,mixed>>, edges?: list<array<string,mixed>>}  $input
+     * @return array<string,mixed>
+     */
+    public function buildMesh(array $input): array
+    {
+        $organs = array_values((array) ($input['organs'] ?? []));
+        $edges = array_values((array) ($input['edges'] ?? []));
+
+        $organsById = [];
+        foreach ($organs as $organ) {
+            $organ = (array) $organ;
+            $organId = (string) ($organ['organ_id'] ?? '');
+            if ($organId === '') {
+                continue;
+            }
+            $organsById[$organId] = [
+                'input_contracts' => array_values(array_map('strval', (array) ($organ['input_contracts'] ?? []))),
+                'output_contracts' => array_values(array_map('strval', (array) ($organ['output_contracts'] ?? []))),
+            ];
+        }
+
+        $invalidEdges = [];
+        $dataAdjacency = [];
+        $feedbackEdges = [];
+        $connected = [];
+
+        foreach ($edges as $edge) {
+            $edge = (array) $edge;
+            $from = (string) ($edge['from'] ?? '');
+            $to = (string) ($edge['to'] ?? '');
+            $type = (string) ($edge['type'] ?? 'data');
+
+            if (! isset($organsById[$from]) || ! isset($organsById[$to])) {
+                $invalidEdges[] = ['from' => $from, 'to' => $to, 'reason' => 'unknown_organ_in_edge'];
+                continue;
+            }
+
+            $sharesContract = array_intersect($organsById[$from]['output_contracts'], $organsById[$to]['input_contracts']) !== [];
+            if (! $sharesContract) {
+                $invalidEdges[] = ['from' => $from, 'to' => $to, 'reason' => 'missing_contract_match'];
+                continue;
+            }
+
+            $connected[$from] = true;
+            $connected[$to] = true;
+
+            if ($type === 'feedback') {
+                $feedbackEdges[] = ['from' => $from, 'to' => $to];
+
+                continue;
+            }
+
+            $dataAdjacency[$from][] = $to;
+        }
+
+        [$executionOrder, $cycleDetected] = $this->topologicalSort(array_keys($organsById), $dataAdjacency);
+
+        $orphanOrgans = array_values(array_filter(
+            array_keys($organsById),
+            static fn (string $organId): bool => ! isset($connected[$organId]),
+        ));
+
+        $meshStatus = ($invalidEdges === [] && ! $cycleDetected) ? self::MESH_STATUS_VALID : self::MESH_STATUS_INVALID;
+
+        $nextIntegrationTask = match (true) {
+            $invalidEdges !== [] => "fix edge {$invalidEdges[0]['from']}->{$invalidEdges[0]['to']}: {$invalidEdges[0]['reason']}",
+            $cycleDetected => 'break the data-edge cycle so the mesh terminates',
+            $orphanOrgans !== [] => "wire orphan organ '{$orphanOrgans[0]}' into the mesh",
+            default => null,
+        };
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'organs' => $organsById,
+            'execution_order' => $executionOrder,
+            'cycle_detected' => $cycleDetected,
+            'feedback_edges' => $feedbackEdges,
+            'orphan_organs' => $orphanOrgans,
+            'mesh_status' => $meshStatus,
+            'invalid_edges' => $invalidEdges,
+            'next_integration_task' => $nextIntegrationTask,
+        ];
+    }
+
+    /**
+     * Kahn's algorithm. Returns [execution_order, cycle_detected].
+     *
+     * @param  list<string>  $organIds
+     * @param  array<string, list<string>>  $adjacency
+     * @return array{0: list<string>, 1: bool}
+     */
+    private function topologicalSort(array $organIds, array $adjacency): array
+    {
+        $inDegree = array_fill_keys($organIds, 0);
+        foreach ($adjacency as $from => $targets) {
+            foreach ($targets as $to) {
+                $inDegree[$to] = ($inDegree[$to] ?? 0) + 1;
+            }
+        }
+
+        $queue = array_values(array_filter($organIds, static fn (string $id): bool => $inDegree[$id] === 0));
+        $order = [];
+
+        while ($queue !== []) {
+            $current = array_shift($queue);
+            $order[] = $current;
+            foreach ($adjacency[$current] ?? [] as $next) {
+                $inDegree[$next]--;
+                if ($inDegree[$next] === 0) {
+                    $queue[] = $next;
+                }
+            }
+        }
+
+        $cycleDetected = count($order) !== count($organIds);
+
+        return [$order, $cycleDetected];
+    }
+
     /**
      * @param  array<string,mixed>  $input  organ_results keyed by phase name
      * @return array<string,mixed>
