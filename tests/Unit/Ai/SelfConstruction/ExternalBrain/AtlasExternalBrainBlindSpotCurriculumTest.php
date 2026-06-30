@@ -255,4 +255,73 @@ final class AtlasExternalBrainBlindSpotCurriculumTest extends TestCase
         $item = $r['curriculum_items'][0];
         $this->assertContains('output_is_provider_safe', $item['preflight_checks']);
     }
+
+    // ── rankLearningItems ────────────────────────────────────────────────────────
+
+    private function blindSpot(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'blind_spot_id' => $id,
+            'group' => 'missed_evidence',
+            'recurrence_count' => 2,
+            'future_quality_lift_estimate' => 0.5,
+        ], $overrides);
+    }
+
+    public function test_ranked_item_has_required_fields(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [$this->blindSpot('bs1')]]);
+
+        $item = $r['ranked_learning_items'][0];
+        foreach (['blind_spot_id', 'lesson', 'practice_case', 'required_evidence', 'stop_repeating_rule'] as $k) {
+            $this->assertArrayHasKey($k, $item);
+            $this->assertNotEmpty($item[$k]);
+        }
+    }
+
+    public function test_all_five_groups_have_catalog_entries(): void
+    {
+        foreach (AtlasExternalBrainBlindSpotCurriculum::GROUPS as $group) {
+            $r = $this->svc()->rankLearningItems(['blind_spots' => [$this->blindSpot("bs-{$group}", ['group' => $group])]]);
+            $item = $r['ranked_learning_items'][0];
+            $this->assertSame($group, $item['group']);
+            $this->assertNotEmpty($item['lesson']);
+        }
+    }
+
+    public function test_unrecognized_group_falls_back_to_generic_item(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [$this->blindSpot('bs1', ['group' => 'totally_unknown'])]]);
+
+        $item = $r['ranked_learning_items'][0];
+        $this->assertNotEmpty($item['lesson']);
+        $this->assertNotEmpty($item['stop_repeating_rule']);
+    }
+
+    public function test_higher_future_quality_lift_ranks_above_lower(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [
+            $this->blindSpot('low-lift', ['future_quality_lift_estimate' => 0.1, 'recurrence_count' => 0]),
+            $this->blindSpot('high-lift', ['future_quality_lift_estimate' => 0.9, 'recurrence_count' => 0]),
+        ]]);
+
+        $this->assertSame('high-lift', $r['ranked_learning_items'][0]['blind_spot_id']);
+    }
+
+    public function test_higher_recurrence_ranks_above_lower_at_equal_lift(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => [
+            $this->blindSpot('rare', ['future_quality_lift_estimate' => 0.5, 'recurrence_count' => 0]),
+            $this->blindSpot('frequent', ['future_quality_lift_estimate' => 0.5, 'recurrence_count' => 5]),
+        ]]);
+
+        $this->assertSame('frequent', $r['ranked_learning_items'][0]['blind_spot_id']);
+    }
+
+    public function test_empty_blind_spots_returns_empty_ranking(): void
+    {
+        $r = $this->svc()->rankLearningItems(['blind_spots' => []]);
+
+        $this->assertSame([], $r['ranked_learning_items']);
+    }
 }

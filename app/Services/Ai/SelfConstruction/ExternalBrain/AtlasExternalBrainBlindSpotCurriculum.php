@@ -149,6 +149,47 @@ final class AtlasExternalBrainBlindSpotCurriculum
         ],
     ];
 
+    public const GROUPS = [
+        'missed_evidence',
+        'bad_scope',
+        'weak_acceptance',
+        'duplicate_target',
+        'low_impact_reasoning',
+    ];
+
+    private const GROUP_CATALOG = [
+        'missed_evidence' => [
+            'lesson' => 'A claim without runnable evidence is not proof — collect the evidence before trusting the claim',
+            'practice_case' => 'Given a give_back with no tests_or_gates_result attached, identify the missing evidence and name the exact command that would produce it',
+            'required_evidence' => 'tests_or_gates_result',
+            'stop_repeating_rule' => 'never_admit_a_decision_without_a_runnable_evidence_reference',
+        ],
+        'bad_scope' => [
+            'lesson' => 'Scope that does not cover every file the implementation actually needs guarantees a give_back',
+            'practice_case' => 'Given an objective and an allowed_files list, identify the caller files missing from scope before claiming the task is implementable',
+            'required_evidence' => 'allowed_files_cover_all_required_callers',
+            'stop_repeating_rule' => 'never_author_a_task_whose_allowed_files_excludes_a_required_caller',
+        ],
+        'weak_acceptance' => [
+            'lesson' => 'Acceptance criteria that only check exit codes let a regression slip through unnoticed',
+            'practice_case' => 'Given an acceptance criterion that only says "tests pass", rewrite it to assert the specific behavior being proven',
+            'required_evidence' => 'acceptance_criteria_assert_specific_behavior',
+            'stop_repeating_rule' => 'never_accept_acceptance_criteria_that_are_exit_code_only',
+        ],
+        'duplicate_target' => [
+            'lesson' => 'Originating a task for a capability that already exists wastes a full cycle on a guaranteed give_back',
+            'practice_case' => 'Given a proposed class name and objective, search the codebase for an existing equivalent before authoring the task',
+            'required_evidence' => 'capability_registry_search_performed',
+            'stop_repeating_rule' => 'never_originate_a_task_without_a_dedup_search_against_existing_capabilities',
+        ],
+        'low_impact_reasoning' => [
+            'lesson' => 'A task justified only by curiosity or ease, not by measured impact on quality or autonomy, is queue padding',
+            'practice_case' => 'Given two candidate tasks, one easy and low-impact, one harder and high-impact, justify selecting the high-impact one',
+            'required_evidence' => 'impact_on_quality_or_autonomy_is_quantified',
+            'stop_repeating_rule' => 'never_originate_a_task_whose_only_justification_is_ease_of_implementation',
+        ],
+    ];
+
     private const GENERIC = [
         'challenge_cases' => [
             'Repeated failure in unclassified context',
@@ -234,6 +275,70 @@ final class AtlasExternalBrainBlindSpotCurriculum
                 'checks'        => array_values(array_keys($allChecks)),
                 'applied_types' => array_column($promotedBlindSpots, 'type'),
             ],
+        ];
+    }
+
+    private const RECURRENCE_NORMALIZATION_CAP = 5;
+
+    /**
+     * Groups blind spots by missed_evidence, bad_scope, weak_acceptance,
+     * duplicate_target, and low_impact_reasoning, then ranks each one by
+     * future task-quality lift and recurrence — not by ease of fixing.
+     *
+     * score = future_quality_lift_estimate * 0.6
+     *       + min(1, recurrence_count / 5) * 0.4
+     *
+     * Each ranked item emits lesson, practice_case, required_evidence, and
+     * stop_repeating_rule from the canonical group catalog. Unrecognized
+     * groups fall back to a generic learning item rather than being dropped.
+     *
+     * @param  array<string,mixed>  $input  { blind_spots: list<{blind_spot_id,
+     *   group, recurrence_count?, future_quality_lift_estimate?}> }
+     * @return array<string,mixed>
+     */
+    public function rankLearningItems(array $input): array
+    {
+        $blindSpots = is_array($input['blind_spots'] ?? null) ? $input['blind_spots'] : [];
+
+        $rankedItems = [];
+        foreach ($blindSpots as $spot) {
+            if (! is_array($spot) || ! isset($spot['blind_spot_id'])) {
+                continue;
+            }
+
+            $blindSpotId = (string) $spot['blind_spot_id'];
+            $group = (string) ($spot['group'] ?? 'unknown');
+            $recurrenceCount = max(0, (int) ($spot['recurrence_count'] ?? 0));
+            $futureQualityLiftEstimate = max(0.0, min(1.0, (float) ($spot['future_quality_lift_estimate'] ?? 0.0)));
+
+            $normalizedRecurrence = min(1.0, $recurrenceCount / self::RECURRENCE_NORMALIZATION_CAP);
+            $score = round($futureQualityLiftEstimate * 0.6 + $normalizedRecurrence * 0.4, 4);
+
+            $catalogEntry = self::GROUP_CATALOG[$group] ?? [
+                'lesson' => self::GENERIC['challenge_cases'][0],
+                'practice_case' => self::GENERIC['runbook_reminders'][0],
+                'required_evidence' => self::GENERIC['preflight_checks'][0],
+                'stop_repeating_rule' => 'investigate_root_cause_before_next_run',
+            ];
+
+            $rankedItems[] = [
+                'blind_spot_id' => $blindSpotId,
+                'group' => $group,
+                'recurrence_count' => $recurrenceCount,
+                'future_quality_lift_estimate' => $futureQualityLiftEstimate,
+                'score' => $score,
+                'lesson' => $catalogEntry['lesson'],
+                'practice_case' => $catalogEntry['practice_case'],
+                'required_evidence' => $catalogEntry['required_evidence'],
+                'stop_repeating_rule' => $catalogEntry['stop_repeating_rule'],
+            ];
+        }
+
+        usort($rankedItems, static fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['blind_spot_id'], $b['blind_spot_id']));
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'ranked_learning_items' => array_values($rankedItems),
         ];
     }
 }
