@@ -62,10 +62,17 @@ final class AtlasExternalBrainSpecImpactTrace
      */
     public function trace(array $input): array
     {
-        $taskId     = trim((string) ($input['task_id'] ?? ''));
-        $thesis     = trim((string) ($input['thesis'] ?? ''));
-        $capDelta   = trim((string) ($input['capability_delta'] ?? ''));
-        $acceptance = trim((string) ($input['acceptance_proof'] ?? ''));
+        $taskId             = trim((string) ($input['task_id'] ?? ''));
+        $thesis             = trim((string) ($input['thesis'] ?? ''));
+        $capDelta           = trim((string) ($input['capability_delta'] ?? ''));
+        $acceptance         = trim((string) ($input['acceptance_proof'] ?? ''));
+        $evidenceAfterCommit = trim((string) ($input['evidence_after_commit'] ?? ''));
+        $riskReduction      = trim((string) ($input['risk_reduction'] ?? ''));
+        $falsificationSignal = trim((string) ($input['falsification_signal'] ?? ''));
+        $downstreamUnlocks  = array_values(array_filter(
+            array_map('trim', (array) ($input['downstream_unlocks'] ?? [])),
+            static fn (string $u): bool => $u !== '',
+        ));
 
         $evidenceRefs = array_values(array_filter(
             array_map('trim', (array) ($input['evidence_refs'] ?? [])),
@@ -77,19 +84,26 @@ final class AtlasExternalBrainSpecImpactTrace
             ? (float) $input['leverage_score']
             : $this->averageDimensions($dimensions);
 
-        $unverifiableReasons = $this->computeUnverifiableReasons($evidenceRefs, $capDelta, $acceptance);
+        $cosmeticOnly = (bool) ($input['cosmetic_only'] ?? false);
+        $metricOnly   = (bool) ($input['metric_only'] ?? false);
+
+        $unverifiableReasons = $this->computeUnverifiableReasons($evidenceRefs, $capDelta, $acceptance, $evidenceAfterCommit, $cosmeticOnly, $metricOnly);
 
         return [
-            'schema'               => self::SCHEMA,
-            'task_id'              => $taskId,
-            'verifiable'           => $unverifiableReasons === [],
-            'unverifiable_reasons' => $unverifiableReasons,
-            'evidence_refs'        => $evidenceRefs,
-            'thesis'               => $thesis,
-            'leverage_dimensions'  => $dimensions,
-            'leverage_score'       => round($leverageScore, 4),
-            'capability_delta'     => $capDelta,
-            'acceptance_proof'     => $acceptance,
+            'schema'                => self::SCHEMA,
+            'task_id'               => $taskId,
+            'verifiable'            => $unverifiableReasons === [],
+            'unverifiable_reasons'  => $unverifiableReasons,
+            'evidence_refs'         => $evidenceRefs,
+            'thesis'                => $thesis,
+            'leverage_dimensions'   => $dimensions,
+            'leverage_score'        => round($leverageScore, 4),
+            'capability_delta'      => $capDelta,
+            'acceptance_proof'      => $acceptance,
+            'downstream_unlocks'    => $downstreamUnlocks,
+            'risk_reduction'        => $riskReduction,
+            'evidence_after_commit' => $evidenceAfterCommit,
+            'falsification_signal'  => $falsificationSignal,
         ];
     }
 
@@ -133,8 +147,14 @@ final class AtlasExternalBrainSpecImpactTrace
      * @param  string[]  $evidenceRefs
      * @return list<string>
      */
-    private function computeUnverifiableReasons(array $evidenceRefs, string $capDelta, string $acceptance): array
-    {
+    private function computeUnverifiableReasons(
+        array $evidenceRefs,
+        string $capDelta,
+        string $acceptance,
+        string $evidenceAfterCommit,
+        bool $cosmeticOnly,
+        bool $metricOnly,
+    ): array {
         $reasons = [];
 
         if ($evidenceRefs === []) {
@@ -147,6 +167,18 @@ final class AtlasExternalBrainSpecImpactTrace
 
         if (mb_strlen($acceptance) < self::MIN_ACCEPTANCE_LENGTH) {
             $reasons[] = 'no_falsifiable_acceptance';
+        }
+
+        if ($evidenceAfterCommit === '') {
+            $reasons[] = 'no_evidence_after_commit';
+        }
+
+        if ($cosmeticOnly) {
+            $reasons[] = 'cosmetic_only_impact';
+        }
+
+        if ($metricOnly) {
+            $reasons[] = 'metric_only_impact';
         }
 
         return $reasons;

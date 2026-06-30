@@ -17,12 +17,16 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
     private function fullInput(array $overrides = []): array
     {
         return array_merge([
-            'task_id'            => 'task-abc-123',
-            'evidence_refs'      => ['scan:orphan-scan-2026-06-30', 'doc:engineering-kb/gap-analysis.md'],
-            'thesis'             => 'Wiring AtlasExternalBrainLeverageScorer into the pipeline unblocks 3 downstream organs.',
-            'leverage_dimensions' => ['capability_unlock' => 0.8, 'dependency_unblock' => 0.7, 'implementation_evidence' => 0.9],
-            'capability_delta'   => 'LeverageScorer can be called by the SelfImprovementCycle to rank origination candidates.',
-            'acceptance_proof'   => 'The runnable test AtlasExternalBrainLeverageScorerTest passes 14/14 green with no mocks.',
+            'task_id'              => 'task-abc-123',
+            'evidence_refs'        => ['scan:orphan-scan-2026-06-30', 'doc:engineering-kb/gap-analysis.md'],
+            'thesis'               => 'Wiring AtlasExternalBrainLeverageScorer into the pipeline unblocks 3 downstream organs.',
+            'leverage_dimensions'  => ['capability_unlock' => 0.8, 'dependency_unblock' => 0.7, 'implementation_evidence' => 0.9],
+            'capability_delta'     => 'LeverageScorer can be called by the SelfImprovementCycle to rank origination candidates.',
+            'acceptance_proof'     => 'The runnable test AtlasExternalBrainLeverageScorerTest passes 14/14 green with no mocks.',
+            'downstream_unlocks'   => ['SelfImprovementCycle', 'OriginationRanker'],
+            'risk_reduction'       => 'Eliminates blind dispatch of unproven origination tasks.',
+            'evidence_after_commit'=> 'AtlasExternalBrainSpecImpactTraceTest green with no mocks after commit.',
+            'falsification_signal' => 'If LeverageScorer returns an empty ranked list post-ship, the hypothesis fails.',
         ], $overrides);
     }
 
@@ -178,5 +182,62 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
         $this->assertSame(0, $result['stats']['total']);
         $this->assertSame([], $result['verifiable']);
         $this->assertSame([], $result['unverifiable']);
+    }
+
+    // ── new impact-trace fields ───────────────────────────────────────────────
+
+    public function test_trace_output_includes_all_four_new_impact_fields(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        foreach (['downstream_unlocks', 'risk_reduction', 'evidence_after_commit', 'falsification_signal'] as $key) {
+            $this->assertArrayHasKey($key, $result, "trace output missing key: $key");
+        }
+    }
+
+    public function test_downstream_unlocks_passed_through_in_output(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        $this->assertContains('SelfImprovementCycle', $result['downstream_unlocks']);
+        $this->assertContains('OriginationRanker',    $result['downstream_unlocks']);
+    }
+
+    public function test_absent_downstream_unlocks_yields_empty_list(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['downstream_unlocks' => []]));
+
+        $this->assertSame([], $result['downstream_unlocks']);
+    }
+
+    public function test_missing_evidence_after_commit_marks_unverifiable(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['evidence_after_commit' => '']));
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertContains('no_evidence_after_commit', $result['unverifiable_reasons']);
+    }
+
+    public function test_cosmetic_only_true_marks_unverifiable_with_reason(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['cosmetic_only' => true]));
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertContains('cosmetic_only_impact', $result['unverifiable_reasons']);
+    }
+
+    public function test_metric_only_true_marks_unverifiable_with_reason(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['metric_only' => true]));
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertContains('metric_only_impact', $result['unverifiable_reasons']);
+    }
+
+    public function test_falsification_signal_passed_through_in_output(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput());
+
+        $this->assertStringContainsString('LeverageScorer', $result['falsification_signal']);
     }
 }
