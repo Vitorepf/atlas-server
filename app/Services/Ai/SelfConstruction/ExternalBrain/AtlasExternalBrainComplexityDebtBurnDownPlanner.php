@@ -56,7 +56,9 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
     public const SCHEMA = 'atlas.external_brain.complexity_debt_burn_down_planner.v1';
 
     public const ACTION_DELETE      = 'delete';
+    public const ACTION_MERGE       = 'merge';
     public const ACTION_CONSOLIDATE = 'consolidate';
+    public const ACTION_INLINE      = 'inline';
     public const ACTION_SIMPLIFY    = 'simplify';
     public const ACTION_KEEP        = 'keep';
 
@@ -67,6 +69,7 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
     private const DEFAULT_COMPOUNDING_FLOOR = 0.20;
     private const DEFAULT_MAINT_CEILING     = 0.70;
     private const EVIDENCE_SATURATION       = 10;
+    private const INLINE_LINE_THRESHOLD     = 50;
 
     /**
      * @param  array<string,mixed>  $input
@@ -109,13 +112,16 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 + (1.0 - $compounding) * 30.0
                 + (1.0 - $evidenceRatio) * 10.0;
 
-            // Recommended action (priority: delete > consolidate > simplify > keep).
+            // Recommended action (priority: delete > merge > consolidate > inline > simplify > keep).
             $action    = null;
             $riskNotes = [];
             if ($evidenceCount === 0 && $similarOrgans !== [] && $compounding < $compoundingFloor) {
                 $action      = self::ACTION_DELETE;
                 $riskNotes[] = sprintf('zero usage evidence and compounding_value=%.2f < floor=%.2f', $compounding, $compoundingFloor);
                 $riskNotes[] = sprintf('similar organs: %s', implode(', ', array_slice($similarOrgans, 0, 3)));
+            } elseif ($sameDecision !== [] && $similarOrgans === [] && $evidenceCount === 0 && $compounding < $compoundingFloor) {
+                $action      = self::ACTION_MERGE;
+                $riskNotes[] = sprintf('zero evidence; absorb shared decision surface into: %s', implode(', ', array_slice($sameDecision, 0, 3)));
             } elseif ($similarOrgans !== [] || $sameDecision !== []) {
                 $action      = self::ACTION_CONSOLIDATE;
                 if ($similarOrgans !== []) {
@@ -124,6 +130,9 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 if ($sameDecision !== []) {
                     $riskNotes[] = sprintf('same decision surface as: %s', implode(', ', array_slice($sameDecision, 0, 3)));
                 }
+            } elseif ($evidenceCount === 0 && $estimatedLineDelta > 0 && $estimatedLineDelta <= self::INLINE_LINE_THRESHOLD) {
+                $action      = self::ACTION_INLINE;
+                $riskNotes[] = sprintf('small organ (%d lines) with zero evidence: safe to inline into callers', $estimatedLineDelta);
             } elseif ($maintCost > $maintCeiling) {
                 $action      = self::ACTION_SIMPLIFY;
                 $riskNotes[] = sprintf('maintenance_cost=%.2f > ceiling=%.2f', $maintCost, $maintCeiling);
@@ -131,7 +140,7 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 $action = self::ACTION_KEEP;
             }
 
-            $isDeletive = in_array($action, [self::ACTION_DELETE, self::ACTION_CONSOLIDATE], true);
+            $isDeletive = in_array($action, [self::ACTION_DELETE, self::ACTION_MERGE, self::ACTION_CONSOLIDATE], true);
 
             // AC3: active consumers block deletion/consolidation.
             $isBlocked = $isDeletive && $hasActiveConsumers;
@@ -146,7 +155,9 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
 
             $preserved = match ($action) {
                 self::ACTION_DELETE      => 'none (purpose absorbed by similar organs)',
+                self::ACTION_MERGE       => sprintf('merged into: %s', implode(', ', array_slice($sameDecision, 0, 2))),
                 self::ACTION_CONSOLIDATE => sprintf('merged into: %s', implode(', ', array_slice($similarOrgans ?: $sameDecision, 0, 2))),
+                self::ACTION_INLINE      => sprintf('inlined into callers of: %s (%d lines)', $purpose, $estimatedLineDelta),
                 self::ACTION_SIMPLIFY    => sprintf('core logic of: %s (reduced surface)', $purpose),
                 default                  => sprintf('full capability of: %s', $purpose),
             };
@@ -157,6 +168,7 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 '_line_delta'                    => $estimatedLineDelta,
                 '_blocked'                       => $isBlocked,
                 'recommended_action'             => $action,
+                'line_reduction'                 => max(0, $estimatedLineDelta),
                 'preserved_capability'           => $preserved,
                 'risk_notes'                     => $riskNotes,
                 'proof_required_before_deletion' => $proof,

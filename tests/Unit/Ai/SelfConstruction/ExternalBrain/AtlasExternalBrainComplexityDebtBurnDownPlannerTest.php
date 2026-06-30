@@ -50,7 +50,7 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
         $result = $this->planner()->plan(['candidates' => [$this->keepCandidate()]]);
 
         $entry = $result['ranked_candidates'][0];
-        foreach (['rank', 'organ_id', 'recommended_action', 'preserved_capability', 'risk_notes', 'proof_required_before_deletion'] as $f) {
+        foreach (['rank', 'organ_id', 'recommended_action', 'line_reduction', 'preserved_capability', 'risk_notes', 'proof_required_before_deletion'] as $f) {
             $this->assertArrayHasKey($f, $entry);
         }
     }
@@ -264,6 +264,99 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
         $result = $this->planner()->plan(['candidates' => [$this->keepCandidate('K2')]]);
 
         $this->assertSame([], $result['ranked_candidates'][0]['risk_notes']);
+    }
+
+    // ── recommended_action: merge ────────────────────────────────────────────
+
+    public function test_merge_when_same_decision_surface_zero_evidence_low_compounding(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'                        => 'M1',
+            'similar_organs'                  => [],
+            'usage_evidence_count'            => 0,
+            'compounding_value'               => 0.05,
+            'maintenance_cost'                => 0.30,
+            'covers_same_decision_surface_as' => ['OverlapOrgan'],
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MERGE, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_merge_requires_proof_before_deletion(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'                        => 'M2',
+            'similar_organs'                  => [],
+            'usage_evidence_count'            => 0,
+            'compounding_value'               => 0.05,
+            'covers_same_decision_surface_as' => ['Other'],
+        ]]]);
+
+        $this->assertNotNull($r['ranked_candidates'][0]['proof_required_before_deletion']);
+        $this->assertStringContainsString('M2', $r['ranked_candidates'][0]['proof_required_before_deletion']);
+    }
+
+    // ── recommended_action: inline ────────────────────────────────────────────
+
+    public function test_inline_when_small_organ_zero_evidence_no_overlap(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'                        => 'I1',
+            'similar_organs'                  => [],
+            'usage_evidence_count'            => 0,
+            'compounding_value'               => 0.50,
+            'maintenance_cost'                => 0.20,
+            'covers_same_decision_surface_as' => [],
+            'estimated_line_delta'            => 30,
+        ]]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_INLINE, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_inline_not_triggered_above_line_threshold(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'I2',
+            'similar_organs'       => [],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.50,
+            'maintenance_cost'     => 0.20,
+            'estimated_line_delta' => 100,  // above INLINE_LINE_THRESHOLD
+        ]]]);
+
+        $this->assertNotSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_INLINE, $r['ranked_candidates'][0]['recommended_action']);
+    }
+
+    public function test_inline_proof_is_null(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [[
+            'organ_id'             => 'I3',
+            'similar_organs'       => [],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.50,
+            'maintenance_cost'     => 0.20,
+            'estimated_line_delta' => 25,
+        ]]]);
+
+        $this->assertNull($r['ranked_candidates'][0]['proof_required_before_deletion']);
+    }
+
+    // ── line_reduction per candidate ──────────────────────────────────────────
+
+    public function test_line_reduction_reflects_estimated_line_delta(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            array_merge($this->keepCandidate('LR1'), ['estimated_line_delta' => 75]),
+        ]]);
+
+        $this->assertSame(75, $r['ranked_candidates'][0]['line_reduction']);
+    }
+
+    public function test_line_reduction_zero_when_no_delta_given(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [$this->keepCandidate()]]);
+
+        $this->assertSame(0, $r['ranked_candidates'][0]['line_reduction']);
     }
 
     // ── determinism ──────────────────────────────────────────────────────────
