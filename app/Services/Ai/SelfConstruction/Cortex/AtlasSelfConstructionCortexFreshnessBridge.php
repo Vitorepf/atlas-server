@@ -92,7 +92,7 @@ final class AtlasSelfConstructionCortexFreshnessBridge
             }
             $age = $now > 0 ? ($now - $lastUnix) : 0;
             if ($now > 0 && $age > $window) {
-                $rows[] = ['source_id' => $sourceId, 'readiness' => self::STALE, 'reason' => 'age_'.$age.'s_exceeds_window_'.$window.'s'];
+                $rows[] = ['source_id' => $sourceId, 'readiness' => self::STALE, 'reason' => 'age_'.$age.'s_exceeds_window_'.$window.'s', 'age_seconds' => $age];
 
                 continue;
             }
@@ -102,19 +102,21 @@ final class AtlasSelfConstructionCortexFreshnessBridge
         usort($rows, static fn (array $a, array $b): int => strcmp($a['source_id'], $b['source_id']));
 
         $allFresh = ! array_filter($rows, static fn (array $r): bool => $r['readiness'] !== self::FRESH);
-        $fullPlan = $this->buildRefreshPlan($rows);
+        $maxStaleOriginSeconds = array_key_exists('max_stale_origin_seconds', $facts) ? (int) $facts['max_stale_origin_seconds'] : null;
+        $fullPlan = $this->buildRefreshPlan($rows, $maxStaleOriginSeconds);
 
-        // Split the refresh plan into blocking (unknown/blocked) and advisory (stale).
+        // Split the refresh plan into blocking (unknown/blocked/over-bound-stale) and advisory (stale within bound).
         $blockingPlan = array_values(array_filter($fullPlan, static fn (array $p): bool => ! $p['safe_to_origin_tasks']));
         $advisoryPlan = array_values(array_filter($fullPlan, static fn (array $p): bool => $p['safe_to_origin_tasks']));
 
-        // stale_but_usable: stale sources with hash present can still be read (with caveats).
+        // stale_but_usable: stale sources with hash present, still within the bound, can still be read (with caveats).
         $staleButUsable = ! empty($advisoryPlan) && ! $allFresh;
+        $hasOverBoundStale = ! empty(array_filter($fullPlan, static fn (array $p): bool => ($p['over_max_stale_origin_bound'] ?? false) === true));
 
         return [
             'schema'                          => self::SCHEMA,
             'all_fresh'                       => $allFresh,
-            'safe_to_origin_tasks'            => $allFresh,
+            'safe_to_origin_tasks'            => $allFresh && ! $hasOverBoundStale,
             'stale_but_usable'                => $staleButUsable,
             'rows'                            => $rows,
             'blocking_refresh_plan'           => $blockingPlan,
@@ -134,10 +136,15 @@ final class AtlasSelfConstructionCortexFreshnessBridge
      *   required_receipt   string  — token the caller must obtain after the action
      *   safe_to_origin_tasks bool  — stale=true (data old but present), unknown/blocked=false
      *
-     * @param  list<array{source_id:string, readiness:string, reason:string}>  $rows
+     * Stale rows beyond `$maxStaleOriginSeconds` (when given) are escalated
+     * from advisory to blocking — their age makes the underlying facts too
+     * old for the originator to safely rely on, even though the data is
+     * technically present.
+     *
+     * @param  list<array{source_id:string, readiness:string, reason:string, age_seconds?:int}>  $rows
      * @return list<array<string,mixed>>
      */
-    private function buildRefreshPlan(array $rows): array
+    private function buildRefreshPlan(array $rows, ?int $maxStaleOriginSeconds = null): array
     {
         $plan = [];
         foreach ($rows as $row) {
@@ -158,12 +165,17 @@ final class AtlasSelfConstructionCortexFreshnessBridge
                 default => 'inspect_and_repair',
             };
 
+            $overBound = $row['readiness'] === self::STALE
+                && $maxStaleOriginSeconds !== null
+                && ($row['age_seconds'] ?? 0) > $maxStaleOriginSeconds;
+
             $plan[] = [
                 'source_id'            => $row['source_id'],
                 'refresh_action'       => $action,
-                'blocking_reason'      => $row['reason'],
+                'blocking_reason'      => $overBound ? $row['reason'].'_exceeds_max_stale_origin_seconds_'.$maxStaleOriginSeconds : $row['reason'],
                 'required_receipt'     => 'receipt:'.$row['source_id'].':'.$action,
-                'safe_to_origin_tasks' => $row['readiness'] === self::STALE,
+                'safe_to_origin_tasks' => $row['readiness'] === self::STALE && ! $overBound,
+                'over_max_stale_origin_bound' => $overBound,
             ];
         }
 
