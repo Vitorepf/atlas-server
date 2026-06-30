@@ -55,11 +55,49 @@ class TerminalLoopOperationalProofCommandFactoryTest extends TestCase
         );
     }
 
-    public function test_all_commands_contain_php_artisan(): void
+    public function test_all_commands_start_with_homebrew_php_artisan(): void
     {
-        self::assertStringContainsString('php artisan', TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofCommand());
-        self::assertStringContainsString('php artisan', TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofBindingPersistCommand());
-        self::assertStringContainsString('php artisan', TerminalLoopOperationalProofCommandFactory::completionAuditWithTerminalLoopOperationalProofCommand());
-        self::assertStringContainsString('php artisan', TerminalLoopOperationalProofCommandFactory::completionAuditWithCanonicalTerminalLoopOperationalProofCommand());
+        $prefix = TerminalLoopOperationalProofCommandFactory::PHP_BIN.' artisan';
+        self::assertStringStartsWith($prefix, TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofCommand());
+        self::assertStringStartsWith($prefix, TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofBindingPersistCommand());
+        self::assertStringStartsWith($prefix, TerminalLoopOperationalProofCommandFactory::completionAuditWithTerminalLoopOperationalProofCommand());
+        self::assertStringStartsWith($prefix, TerminalLoopOperationalProofCommandFactory::completionAuditWithCanonicalTerminalLoopOperationalProofCommand());
+    }
+
+    public function test_proof_commands_returns_four_deterministic_entries(): void
+    {
+        $cmds = TerminalLoopOperationalProofCommandFactory::proofCommands();
+        self::assertCount(4, $cmds);
+        $labels = array_column($cmds, 'label');
+        self::assertContains('status', $labels);
+        self::assertContains('persist_binding', $labels);
+        self::assertContains('audit_with_placeholder', $labels);
+        self::assertContains('audit_with_canonical_path', $labels);
+    }
+
+    public function test_proof_commands_every_command_starts_with_homebrew_php(): void
+    {
+        $prefix = TerminalLoopOperationalProofCommandFactory::PHP_BIN.' artisan';
+        foreach (TerminalLoopOperationalProofCommandFactory::proofCommands() as $entry) {
+            self::assertStringStartsWith($prefix, $entry['command'], "command '{$entry['label']}' must use homebrew php");
+        }
+    }
+
+    public function test_proof_commands_artifact_entries_reference_canonical_path(): void
+    {
+        $canonicalPath = TerminalLoopOperationalProofCommandFactory::terminalLoopOperationalProofBindingArtifactPath();
+        foreach (TerminalLoopOperationalProofCommandFactory::proofCommands() as $entry) {
+            if (isset($entry['artifact'])) {
+                self::assertSame($canonicalPath, $entry['artifact']);
+            }
+        }
+    }
+
+    public function test_proof_commands_is_deterministic(): void
+    {
+        self::assertSame(
+            TerminalLoopOperationalProofCommandFactory::proofCommands(),
+            TerminalLoopOperationalProofCommandFactory::proofCommands(),
+        );
     }
 }
