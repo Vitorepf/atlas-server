@@ -87,6 +87,20 @@ final class AtlasMaestroAdaptiveDecisionReceipt
     }
 
     /**
+     * Returns a copy of $row safe to pass to external providers: strips internal analytics fields.
+     *
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>
+     */
+    public function providerSafeExport(array $row): array
+    {
+        $safe = $row;
+        unset($safe['miner_facts_used'], $safe['eligible_workers_snapshot']);
+
+        return $safe;
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
@@ -97,17 +111,32 @@ final class AtlasMaestroAdaptiveDecisionReceipt
             $kind = self::ROUTE_ABSTAIN;
         }
 
+        $packetId = (string) ($payload['packet_id'] ?? 'unknown');
+        $originalHash = (string) ($payload['original_hash'] ?? '');
+        $outcomeHash = (string) ($payload['outcome_hash'] ?? $payload['reshaped_hash'] ?? '');
+        $confidenceBand = in_array((string) ($payload['confidence_band'] ?? ''), ['high', 'medium', 'low'], true)
+            ? (string) $payload['confidence_band']
+            : 'medium';
+
+        $recordHash = hash('sha256', (string) json_encode(
+            [$kind, $packetId, $originalHash, $outcomeHash, $confidenceBand],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ));
+
         return [
             'schema' => self::SCHEMA,
             'decision_id' => $decisionId,
             'decision_kind' => $kind,
-            'packet_id' => (string) ($payload['packet_id'] ?? 'unknown'),
-            'original_hash' => (string) ($payload['original_hash'] ?? ''),
-            'outcome_hash' => (string) ($payload['outcome_hash'] ?? $payload['reshaped_hash'] ?? ''),
+            'packet_id' => $packetId,
+            'original_hash' => $originalHash,
+            'outcome_hash' => $outcomeHash,
             'miner_facts_used' => array_values((array) ($payload['miner_facts_used'] ?? [])),
             'eligible_workers_snapshot' => array_values((array) ($payload['eligible_workers_snapshot'] ?? [])),
             'chosen_worker_or_null' => isset($payload['chosen_worker_or_null']) ? (string) $payload['chosen_worker_or_null'] : null,
             'abstain_reason_or_null' => isset($payload['abstain_reason_or_null']) ? (string) $payload['abstain_reason_or_null'] : null,
+            'rejected_alternatives' => array_values(array_map('strval', (array) ($payload['rejected_alternatives'] ?? []))),
+            'confidence_band' => $confidenceBand,
+            'record_hash' => $recordHash,
         ];
     }
 

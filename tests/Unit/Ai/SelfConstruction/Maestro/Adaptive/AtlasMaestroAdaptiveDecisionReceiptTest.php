@@ -97,6 +97,60 @@ final class AtlasMaestroAdaptiveDecisionReceiptTest extends TestCase
         $this->assertSame([], $store->receiptsSince(0));
     }
 
+    public function test_rejected_alternatives_are_captured_in_record(): void
+    {
+        $store = $this->store();
+        $payload = $this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'worker-a');
+        $payload['rejected_alternatives'] = ['worker-b', 'worker-c'];
+
+        $row = $store->record($payload);
+
+        $this->assertSame(['worker-b', 'worker-c'], $row['rejected_alternatives']);
+    }
+
+    public function test_confidence_band_defaults_to_medium_and_accepts_valid_values(): void
+    {
+        $store = $this->store();
+
+        $default = $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_ABSTAIN));
+        $this->assertSame('medium', $default['confidence_band']);
+
+        $payload = $this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'w');
+        $payload['confidence_band'] = 'high';
+        $high = $store->record($payload);
+        $this->assertSame('high', $high['confidence_band']);
+    }
+
+    public function test_record_hash_is_stable_across_identical_payloads(): void
+    {
+        $pathB = sys_get_temp_dir().'/atlas-receipt-b-'.bin2hex(random_bytes(5)).'.jsonl';
+        $storeB = new AtlasMaestroAdaptiveDecisionReceipt($pathB);
+
+        $payload = $this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'worker-x');
+        $rowA = $this->store()->record($payload);
+        $rowB = $storeB->record($payload);
+
+        if (is_file($pathB)) {
+            unlink($pathB);
+        }
+
+        $this->assertArrayHasKey('record_hash', $rowA);
+        $this->assertSame($rowA['record_hash'], $rowB['record_hash'], 'record_hash must be deterministic');
+    }
+
+    public function test_provider_safe_export_strips_internal_fields(): void
+    {
+        $store = $this->store();
+        $row = $store->record($this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'worker-a'));
+
+        $safe = $store->providerSafeExport($row);
+
+        $this->assertArrayNotHasKey('miner_facts_used', $safe);
+        $this->assertArrayNotHasKey('eligible_workers_snapshot', $safe);
+        $this->assertArrayHasKey('decision_kind', $safe);
+        $this->assertArrayHasKey('record_hash', $safe);
+    }
+
     private function store(): AtlasMaestroAdaptiveDecisionReceipt
     {
         return new AtlasMaestroAdaptiveDecisionReceipt($this->path);
