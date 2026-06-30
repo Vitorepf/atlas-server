@@ -79,6 +79,23 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         $topUpRequired = $targetWorkers > 0 && $netClaimable < $targetWorkers;
         $workerNeed = $targetWorkers > 0 ? max(0, $targetWorkers - $netClaimable) : 0;
 
+        // Worker-floor hysteresis: replenish BEFORE the queue actually reaches
+        // no_claimable_task. claimable_per_active_worker <= 2 or an explicit
+        // replenish_soon recommendation are both leading indicators — wait for
+        // them at face value instead of waiting for claimable_depth to fall
+        // below the (much later) low_water_mark.
+        $claimablePerActiveWorker = $facts['claimable_per_active_worker'] ?? null;
+        $replenishRecommendation = (string) ($facts['replenish_recommendation'] ?? '');
+        $workerFloorHysteresisTrigger = ($claimablePerActiveWorker !== null && (float) $claimablePerActiveWorker <= 2.0)
+            || $replenishRecommendation === 'replenish_soon';
+        if ($workerFloorHysteresisTrigger) {
+            $topUpRequired = true;
+        }
+        $activeLeasesForHysteresis = (int) ($facts['active_leases'] ?? 0);
+        $hysteresisNeed = $workerFloorHysteresisTrigger
+            ? max(0, $activeLeasesForHysteresis - $netClaimable, $workerNeed)
+            : 0;
+
         // Stale-claimable backlog signal: raw claimable_depth overstates real supply when a
         // chunk of it has sat unclaimed long enough to be effectively dead.
         $activeLeases = (int) ($facts['active_leases'] ?? 0);
@@ -103,29 +120,31 @@ final class AtlasSelfConstructionQueueTopUpPolicy
             return $this->envelope(self::OUTCOME_REPAIR_FIRST, 0, $topUpRequired, 0, ['repair_first:malformed_count:'.$malformed]);
         }
 
-        // Decide if any top-up is warranted (low-water, worker-count, or stale-backlog path).
+        // Decide if any top-up is warranted (low-water, worker-count, stale-backlog, or hysteresis path).
         $belowLowWater = $claimable < $lowWater;
         if (! $belowLowWater && ! $topUpRequired && ! $belowEffectiveLowWater) {
-            return $this->envelope(self::OUTCOME_WAIT, 0, false, 0, ['wait:claimable_above_low_water_mark:'.$claimable.'>='.$lowWater]);
+            return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:claimable_above_low_water_mark:'.$claimable.'>='.$lowWater]);
         }
         if ($accepted <= 0) {
             return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:no_accepted_frontiers']);
         }
 
         $byBudget = intdiv($budgetRem, $perPacket);
-        // Use the largest of the three needs (low-water gap, worker-count gap, stale-backlog gap).
+        // Use the largest of the four needs (low-water gap, worker-count gap, stale-backlog gap, hysteresis gap).
         $lowWaterNeed = $belowLowWater ? $lowWater - $claimable : 0;
         $staleBacklogNeed = $belowEffectiveLowWater ? $lowWater - $effectiveClaimable : 0;
-        $need = max($lowWaterNeed, $workerNeed, $staleBacklogNeed);
+        $need = max($lowWaterNeed, $workerNeed, $staleBacklogNeed, $hysteresisNeed);
         $newCount = max(0, min($batchCap, $accepted, $byBudget, $need));
 
         if ($newCount === 0) {
             return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:no_room_after_caps']);
         }
 
-        $reason = ($belowEffectiveLowWater && ! $belowLowWater && ! $topUpRequired)
-            ? 'allow:stale_backlog_effective_low_water:'.$newCount
-            : 'allow:topping_up:'.$newCount;
+        $reason = match (true) {
+            $workerFloorHysteresisTrigger && ! $belowLowWater && ! $belowEffectiveLowWater => 'allow:worker_floor_hysteresis:'.$newCount,
+            $belowEffectiveLowWater && ! $belowLowWater && ! $topUpRequired => 'allow:stale_backlog_effective_low_water:'.$newCount,
+            default => 'allow:topping_up:'.$newCount,
+        };
 
         return $this->envelope(self::OUTCOME_ALLOW, $newCount, $topUpRequired, $newCount, [$reason]);
     }
