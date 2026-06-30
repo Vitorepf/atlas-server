@@ -128,9 +128,9 @@ final class AtlasCortexLocalityIntersectionEmitter
     {
         $by = [];
         foreach ($rows as $row) {
-            $fqcn = (string) ($row['fqcn'] ?? '');
+            $fqcn = (string) ($row['fqcn'] ?? $row['file_path'] ?? '');
             $depth = (int) ($row['depth'] ?? 0);
-            $neighbors = array_values(array_map('strval', (array) ($row['neighbors'] ?? [])));
+            $neighbors = array_values(array_map('strval', (array) ($row['neighbors'] ?? $row['neighbor_fqcns'] ?? [])));
             $by[$fqcn][$depth] = $neighbors;
         }
 

@@ -96,6 +96,26 @@ class AtlasCortexLocalityIntersectionEmitterTest extends TestCase
         self::assertFileDoesNotExist($this->outPath);
     }
 
+    public function test_fs_rows_with_real_producer_keys_file_path_neighbor_fqcns_yield_nonempty_intersection(): void
+    {
+        $this->writeRows($this->fsPath, [
+            ['schema' => 'atlas.cortex.fs_locality.v1', 'file_path' => 'A', 'depth' => 1, 'neighbor_fqcns' => ['B', 'C']],
+        ]);
+        $this->writeRows($this->cgPath, [
+            ['schema' => 'atlas.cortex.callgraph_locality.v1', 'fqcn' => 'A', 'depth' => 1, 'neighbors' => ['B', 'D']],
+        ]);
+
+        $emitter = new AtlasCortexLocalityIntersectionEmitter($this->fsPath, $this->cgPath, $this->outPath, static fn (): bool => true);
+        $emitter->emit();
+
+        $bytes = (string) file_get_contents($this->outPath);
+        $rows = array_map(static fn (string $l): array => json_decode($l, true), array_values(array_filter(explode("\n", trim($bytes)))));
+        self::assertNotEmpty($rows);
+        $row = $rows[0];
+        self::assertSame('A', $row['fqcn']);
+        self::assertSame(['B'], $row['intersection'], 'fs rows using file_path/neighbor_fqcns must produce non-empty intersection');
+    }
+
     public function test_master_switch_off_is_byte_identical_noop_and_does_not_open_inputs(): void
     {
         $opened = ['fs' => false, 'cg' => false];
