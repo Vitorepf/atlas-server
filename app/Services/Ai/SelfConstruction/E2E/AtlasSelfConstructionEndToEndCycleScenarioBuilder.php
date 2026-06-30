@@ -93,12 +93,36 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
             }
             $spec = self::STEP_SPEC[$organ];
             $next = $i + 1 < $stepCount ? self::STEP_ORDER[$i + 1] : null;
+            $evidenceKey = $spec['evidence'];
+            $isReadOnly = str_starts_with($spec['rollback'], 'none_required');
+
+            $evidencePresent = $orgFacts !== null
+                && isset($orgFacts[$evidenceKey])
+                && $orgFacts[$evidenceKey] !== ''
+                && $orgFacts[$evidenceKey] !== null;
+
+            $rollbackPresent = $isReadOnly
+                || ($orgFacts !== null && ! empty($orgFacts['rollback_artifact']));
+
+            $stepBlockers = [];
+            if (! $evidencePresent && $orgFacts !== null) {
+                $stepBlockers[] = 'missing_step_evidence:'.$organ.':'.$evidenceKey;
+                $blockers[] = 'missing_step_evidence:'.$organ.':'.$evidenceKey;
+            }
+            if (! $rollbackPresent && $orgFacts !== null) {
+                $stepBlockers[] = 'rollback_gap:'.$organ;
+                $blockers[] = 'rollback_gap:'.$organ;
+            }
+
             $steps[] = [
                 'organ' => $organ,
                 'owner' => self::REQUIRED_AUTONOMY_OWNER,
-                'input_facts' => $orgFacts ?? null,
-                'output_evidence' => $spec['evidence'],
+                'input_facts' => $orgFacts,
+                'output_evidence' => $evidenceKey,
+                'evidence_present' => $evidencePresent,
                 'rollback_expectation' => $spec['rollback'],
+                'rollback_present' => $rollbackPresent,
+                'blockers' => $stepBlockers,
                 'next_step_dependency' => $next,
             ];
         }

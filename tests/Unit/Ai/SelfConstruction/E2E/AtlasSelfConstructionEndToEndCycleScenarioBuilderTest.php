@@ -19,7 +19,12 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilderTest extends TestCa
     {
         $out = [];
         foreach (AtlasSelfConstructionEndToEndCycleScenarioBuilder::STEP_ORDER as $organ) {
-            $out[$organ] = ['observed_at_unix' => 1];
+            $spec = AtlasSelfConstructionEndToEndCycleScenarioBuilder::STEP_SPEC[$organ];
+            $facts = [$spec['evidence'] => 'test-value-'.$organ];
+            if (! str_starts_with($spec['rollback'], 'none_required')) {
+                $facts['rollback_artifact'] = 'rollback-plan-'.$organ;
+            }
+            $out[$organ] = $facts;
         }
 
         return $out;
@@ -47,12 +52,63 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilderTest extends TestCa
         $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($this->allOrgans());
         foreach ($r['steps'] as $i => $s) {
             $this->assertArrayHasKey('output_evidence', $s);
+            $this->assertArrayHasKey('evidence_present', $s);
             $this->assertArrayHasKey('rollback_expectation', $s);
+            $this->assertArrayHasKey('rollback_present', $s);
+            $this->assertArrayHasKey('blockers', $s);
             $this->assertArrayHasKey('next_step_dependency', $s);
-            // last step has no next
+            $this->assertTrue($s['evidence_present'], "step {$s['organ']} must have evidence_present=true");
+            $this->assertTrue($s['rollback_present'], "step {$s['organ']} must have rollback_present=true");
+            $this->assertSame([], $s['blockers'], "step {$s['organ']} must have no blockers");
             if ($i === count($r['steps']) - 1) {
                 $this->assertNull($s['next_step_dependency']);
             }
+        }
+    }
+
+    public function test_missing_evidence_keys_block_with_missing_step_evidence_reason(): void
+    {
+        $organs = $this->allOrgans();
+        // Remove the expected evidence key from strategy so it's missing
+        unset($organs['strategy']['decision_hash']);
+
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($organs);
+        $this->assertSame(AtlasSelfConstructionEndToEndCycleScenarioBuilder::STATUS_BLOCKED, $r['status']);
+        $this->assertContains('missing_step_evidence:strategy:decision_hash', $r['blockers']);
+
+        $strategyStep = array_values(array_filter($r['steps'], static fn ($s) => $s['organ'] === 'strategy'))[0];
+        $this->assertFalse($strategyStep['evidence_present']);
+        $this->assertContains('missing_step_evidence:strategy:decision_hash', $strategyStep['blockers']);
+    }
+
+    public function test_rollback_gap_blocks_mutation_capable_but_not_read_only_steps(): void
+    {
+        $organs = $this->allOrgans();
+        // Remove rollback_artifact from a mutation-capable step (worker_swarm)
+        unset($organs['worker_swarm']['rollback_artifact']);
+
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($organs);
+        $this->assertSame(AtlasSelfConstructionEndToEndCycleScenarioBuilder::STATUS_BLOCKED, $r['status']);
+        $this->assertContains('rollback_gap:worker_swarm', $r['blockers']);
+
+        // Read-only steps (cortex, goal_value, receipts) should still have rollback_present=true
+        foreach ($r['steps'] as $s) {
+            if (str_starts_with((string) ($s['rollback_expectation'] ?? ''), 'none_required')) {
+                $this->assertTrue($s['rollback_present'], "read-only step {$s['organ']} must never have rollback gap");
+                $this->assertNotContains('rollback_gap:'.$s['organ'], $r['blockers']);
+            }
+        }
+    }
+
+    public function test_no_numeric_readiness_score_is_emitted(): void
+    {
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($this->allOrgans());
+        $this->assertArrayNotHasKey('score', $r);
+        $this->assertArrayNotHasKey('readiness_score', $r);
+        $this->assertArrayNotHasKey('readiness_pct', $r);
+        foreach ($r['steps'] as $s) {
+            $this->assertArrayNotHasKey('score', $s);
+            $this->assertArrayNotHasKey('readiness_score', $s);
         }
     }
 
