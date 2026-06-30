@@ -146,9 +146,55 @@ class AgentCodexRealInvokerPostStartStartExecutionGate
         'max_runtime_policy_hash',
     ];
 
+    private const REQUIRED_WIRING = [
+        'observable_start',
+        'liveness_monitor',
+        'receipt_contract',
+    ];
+
     public function __construct(
         private readonly AgentCodexRealInvokerStartExecutionGate $startExecutionGate,
     ) {}
+
+    /**
+     * Pure decision: final start execution is accepted only when observable
+     * start, a liveness monitor and a receipt contract are all wired and
+     * present. An evidence-free or unobservable start (any of the three
+     * missing) is rejected and never produces a proof_digest.
+     *
+     * @param  array<string,mixed>  $wiring  { observable_start_present?: bool,
+     *   liveness_monitor_present?: bool, receipt_contract_present?: bool,
+     *   observable_start_id?: string, liveness_monitor_id?: string,
+     *   receipt_contract_id?: string }
+     * @return array<string,mixed>
+     */
+    public function evaluateStartExecution(array $wiring): array
+    {
+        $missingWiring = [];
+        foreach (self::REQUIRED_WIRING as $component) {
+            if (! (bool) ($wiring[$component.'_present'] ?? false)) {
+                $missingWiring[] = $component;
+            }
+        }
+
+        if ($missingWiring !== []) {
+            return [
+                'start_execution_allowed' => false,
+                'missing_wiring' => $missingWiring,
+                'proof_digest' => null,
+            ];
+        }
+
+        return [
+            'start_execution_allowed' => true,
+            'missing_wiring' => [],
+            'proof_digest' => hash('sha256', implode('|', [
+                (string) ($wiring['observable_start_id'] ?? ''),
+                (string) ($wiring['liveness_monitor_id'] ?? ''),
+                (string) ($wiring['receipt_contract_id'] ?? ''),
+            ])),
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input

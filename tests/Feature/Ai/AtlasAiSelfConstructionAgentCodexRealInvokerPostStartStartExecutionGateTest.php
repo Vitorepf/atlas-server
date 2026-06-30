@@ -408,6 +408,44 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartStartExecutionGateTes
         ];
     }
 
+    public function test_start_execution_allowed_when_fully_wired(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartStartExecutionGate::class)->evaluateStartExecution([
+            'observable_start_present' => true,
+            'liveness_monitor_present' => true,
+            'receipt_contract_present' => true,
+            'observable_start_id' => 'obs-1',
+            'liveness_monitor_id' => 'live-1',
+            'receipt_contract_id' => 'receipt-1',
+        ]);
+
+        $this->assertTrue($result['start_execution_allowed']);
+        $this->assertSame([], $result['missing_wiring']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result['proof_digest']);
+    }
+
+    public function test_start_execution_blocked_when_evidence_free(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartStartExecutionGate::class)->evaluateStartExecution([]);
+
+        $this->assertFalse($result['start_execution_allowed']);
+        $this->assertSame(['observable_start', 'liveness_monitor', 'receipt_contract'], $result['missing_wiring']);
+        $this->assertNull($result['proof_digest']);
+    }
+
+    public function test_start_execution_blocked_when_partially_unobservable(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartStartExecutionGate::class)->evaluateStartExecution([
+            'observable_start_present' => true,
+            'liveness_monitor_present' => false,
+            'receipt_contract_present' => true,
+        ]);
+
+        $this->assertFalse($result['start_execution_allowed']);
+        $this->assertSame(['liveness_monitor'], $result['missing_wiring']);
+        $this->assertNull($result['proof_digest']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
