@@ -110,6 +110,58 @@ final class AtlasTaskQueuePreServeSelfHealingGate
         return $this->result('serve', [], [], []);
     }
 
+    private const WORKER_FEED_FLOOR = 2.0;
+
+    /**
+     * Pure, READ-ONLY queue-level pre-serve check (no packet writes, no lease
+     * changes): when the queue is about to starve workers, it must emit a
+     * repair/top-up recommendation BEFORE serving falls through to
+     * no_claimable_task — never after.
+     *
+     * Precedence (first match wins): malformed packets and blocked packets
+     * are queue corruption — worse than impending starvation — and keep
+     * precedence over the worker-floor top-up recommendation.
+     *
+     * @param  array<string,mixed>  $facts  { malformed_count?: int,
+     *   blocked_count?: int, claimable_per_active_worker?: float }
+     * @return array<string,mixed>
+     */
+    public function evaluateQueueHealth(array $facts): array
+    {
+        $malformedCount = max(0, (int) ($facts['malformed_count'] ?? 0));
+        $blockedCount = max(0, (int) ($facts['blocked_count'] ?? 0));
+        $claimablePerActiveWorker = $facts['claimable_per_active_worker'] ?? null;
+
+        if ($malformedCount > 0) {
+            return $this->queueHealthResult('repair_malformed_before_serve', ['malformed_packets_present:'.$malformedCount]);
+        }
+
+        if ($blockedCount > 0) {
+            return $this->queueHealthResult('unblock_before_serve', ['blocked_packets_present:'.$blockedCount]);
+        }
+
+        if ($claimablePerActiveWorker !== null && (float) $claimablePerActiveWorker <= self::WORKER_FEED_FLOOR) {
+            return $this->queueHealthResult('top_up_before_serve_starvation', [
+                'claimable_per_active_worker_at_or_below_floor:'.$claimablePerActiveWorker,
+            ]);
+        }
+
+        return $this->queueHealthResult('serve_clean', []);
+    }
+
+    /**
+     * @param  list<string>  $reasons
+     * @return array<string,mixed>
+     */
+    private function queueHealthResult(string $recommendation, array $reasons): array
+    {
+        return [
+            'schema_version' => self::SCHEMA,
+            'recommendation' => $recommendation,
+            'reasons' => $reasons,
+        ];
+    }
+
     private function isTestPath(string $path): bool
     {
         $norm = ltrim(str_replace('\\', '/', trim($path)), '/');
