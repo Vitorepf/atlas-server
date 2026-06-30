@@ -280,4 +280,101 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
         $this->assertFalse($r['accepted']);
         $this->assertNull($r['draft']);
     }
+
+    // ── AC1: adoption_score + minimum rejection ───────────────────────────────
+
+    public function test_draft_includes_adoption_score_in_range(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'allowed_files_hint' => ['app/Services/Ai/AtlasWiringAdapter.php'],
+        ]));
+
+        $this->assertTrue($r['accepted']);
+        $this->assertArrayHasKey('adoption_score', $r['draft']);
+        $score = $r['draft']['adoption_score'];
+        $this->assertGreaterThanOrEqual(0.0, $score);
+        $this->assertLessThanOrEqual(1.0, $score);
+    }
+
+    public function test_entry_below_minimum_adoption_score_is_rejected(): void
+    {
+        // no trusted prefix → -0.20; vague hypothesis (<30 chars) → -0.25; no files hint → -0.15 = 0.40
+        $r = $this->planner->toTaskOpportunity([
+            'provenance'                  => 'some-old-source-without-prefix',
+            'comparison_summary'          => 'A is better than B',
+            'atlas_adaptation_hypothesis' => 'use it',
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertSame('below_minimum_adoption_score', $r['rejection_reason']);
+        $this->assertNull($r['draft']);
+        $this->assertLessThan(0.50, $r['adoption_score']);
+    }
+
+    public function test_adoption_score_is_deterministic(): void
+    {
+        $entry = $this->acceptedEntry();
+        $a = $this->planner->toTaskOpportunity($entry);
+        $b = $this->planner->toTaskOpportunity($entry);
+
+        $this->assertSame($a['draft']['adoption_score'], $b['draft']['adoption_score']);
+    }
+
+    // ── AC2: score explanations for each penalty ──────────────────────────────
+
+    public function test_stale_provenance_lowers_score(): void
+    {
+        $trusted = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $stale   = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'provenance' => 'some-old-book-without-prefix',
+        ]));
+
+        $this->assertLessThan(
+            $trusted['draft']['adoption_score'],
+            $stale['draft']['adoption_score'],
+        );
+        $this->assertContains(
+            'stale_or_unverifiable_provenance:-0.20',
+            $stale['draft']['score_explanation'],
+        );
+    }
+
+    public function test_hype_wording_lowers_score(): void
+    {
+        $clean = $this->planner->toTaskOpportunity($this->acceptedEntry());
+        $hyped = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'atlas_adaptation_hypothesis' => 'Wrap pattern A behind AtlasWiringAdapter, keeping it revolutionary for unlimited gains',
+        ]));
+
+        $this->assertLessThan(
+            $clean['draft']['adoption_score'],
+            $hyped['draft']['adoption_score'],
+        );
+        $explanationStr = implode(' ', $hyped['draft']['score_explanation']);
+        $this->assertStringContainsString('hype_wording', $explanationStr);
+    }
+
+    public function test_missing_allowed_files_hint_lowers_score(): void
+    {
+        $withHint    = $this->planner->toTaskOpportunity($this->acceptedEntry(['allowed_files_hint' => ['app/A.php']]));
+        $withoutHint = $this->planner->toTaskOpportunity($this->acceptedEntry());
+
+        $this->assertGreaterThan(
+            $withoutHint['draft']['adoption_score'],
+            $withHint['draft']['adoption_score'],
+        );
+        $this->assertContains('missing_allowed_files_hint:-0.15', $withoutHint['draft']['score_explanation']);
+    }
+
+    public function test_score_explanation_is_empty_for_ideal_entry(): void
+    {
+        $r = $this->planner->toTaskOpportunity($this->acceptedEntry([
+            'atlas_adaptation_hypothesis' => 'Wrap pattern A behind AtlasWiringAdapter to close the self-wiring gap',
+            'allowed_files_hint'          => ['app/Services/Ai/AtlasWiringAdapter.php'],
+        ]));
+
+        $this->assertTrue($r['accepted']);
+        $this->assertSame([], $r['draft']['score_explanation']);
+        $this->assertSame(1.0, $r['draft']['adoption_score']);
+    }
 }

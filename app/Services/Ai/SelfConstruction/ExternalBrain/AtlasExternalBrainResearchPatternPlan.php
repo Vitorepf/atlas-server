@@ -21,6 +21,12 @@ final class AtlasExternalBrainResearchPatternPlan
 {
     public const SCHEMA = 'atlas.external_brain.research_pattern_plan.v1';
 
+    /** Entries scoring below this threshold are rejected even with valid text fields. */
+    private const MIN_ADOPTION_SCORE = 0.50;
+
+    /** Source prefixes recognised as verifiable provenance. */
+    private const TRUSTED_PROVENANCE_PREFIXES = ['atlas:', 'github:', 'arxiv:', 'doi:', 'http://', 'https://', 'oss:'];
+
     private const SOURCE_CATEGORIES = [
         'atlas_journals'        => 'Prior Atlas loop journals and evidence ledger entries',
         'internal_patterns'     => 'Existing Atlas services, traits, and design patterns in the codebase',
@@ -78,6 +84,18 @@ final class AtlasExternalBrainResearchPatternPlan
             return ['accepted' => false, 'rejection_reason' => $this->rejectionReason($entry), 'draft' => null];
         }
 
+        // AC1: score-gate — reject even valid entries that score below the adoption floor.
+        [$adoptionScore, $scoreExplanation] = $this->computeAdoptionScore($entry);
+        if ($adoptionScore < self::MIN_ADOPTION_SCORE) {
+            return [
+                'accepted'          => false,
+                'rejection_reason'  => 'below_minimum_adoption_score',
+                'adoption_score'    => $adoptionScore,
+                'score_explanation' => $scoreExplanation,
+                'draft'             => null,
+            ];
+        }
+
         $provenance = (string) $entry['provenance'];
         $adaptationHypothesis = (string) $entry['atlas_adaptation_hypothesis'];
         $comparisonSummary = (string) $entry['comparison_summary'];
@@ -95,19 +113,80 @@ final class AtlasExternalBrainResearchPatternPlan
         }
 
         return [
-            'accepted' => true,
+            'accepted'         => true,
             'rejection_reason' => null,
-            'draft' => [
-                'source_provenance' => $provenance,
-                'adaptation_hypothesis' => $adaptationHypothesis,
-                'implementability_notes' => "Comparison basis: {$comparisonSummary}. "
+            'draft'            => [
+                'source_provenance'       => $provenance,
+                'adaptation_hypothesis'   => $adaptationHypothesis,
+                'implementability_notes'  => "Comparison basis: {$comparisonSummary}. "
                     ."Atlas adaptation path: {$adaptationHypothesis}. "
                     .'Verify against existing AtlasTaskServingStack primitives before introducing new abstractions.',
-                'anti_hype_risks' => $this->buildAntiHypeRisks($adaptationHypothesis, $comparisonSummary),
-                'allowed_files_hint' => $allowedFilesHint,
+                'anti_hype_risks'         => $this->buildAntiHypeRisks($adaptationHypothesis, $comparisonSummary),
+                'allowed_files_hint'      => $allowedFilesHint,
                 'runnable_acceptance_hint' => $runnableHint,
+                'adoption_score'          => $adoptionScore,
+                'score_explanation'       => $scoreExplanation,
             ],
         ];
+    }
+
+    /**
+     * AC1+AC2: deterministic scoring — penalises stale provenance, vague hypothesis,
+     * hype wording, and missing allowed_files_hint.
+     *
+     * @return array{float, list<string>}  [score, penalty_explanation]
+     */
+    private function computeAdoptionScore(array $entry): array
+    {
+        $score      = 1.0;
+        $penalties  = [];
+
+        // Penalty: hype wording in hypothesis or comparison.
+        $combined = strtolower(
+            (string) ($entry['atlas_adaptation_hypothesis'] ?? '') . ' ' .
+            (string) ($entry['comparison_summary'] ?? '')
+        );
+        $hypeSignals = ['completely transforms', 'revolutionary', 'game changer', 'unlimited', '10x'];
+        $hypeCount = 0;
+        foreach ($hypeSignals as $signal) {
+            if (str_contains($combined, $signal)) {
+                $hypeCount++;
+            }
+        }
+        if ($hypeCount > 0) {
+            $deduction = min(0.40, $hypeCount * 0.15);
+            $score    -= $deduction;
+            $penalties[] = "hype_wording:-{$deduction}";
+        }
+
+        // Penalty: vague adaptation hypothesis (< 30 chars).
+        if (strlen(trim((string) ($entry['atlas_adaptation_hypothesis'] ?? ''))) < 30) {
+            $score      -= 0.25;
+            $penalties[] = 'vague_adaptation_hypothesis:-0.25';
+        }
+
+        // Penalty: missing allowed_files_hint.
+        $filesHint = is_array($entry['allowed_files_hint'] ?? null) ? array_filter($entry['allowed_files_hint']) : [];
+        if (empty($filesHint)) {
+            $score      -= 0.15;
+            $penalties[] = 'missing_allowed_files_hint:-0.15';
+        }
+
+        // Penalty: stale/unverifiable provenance (no recognised source prefix).
+        $provenance = trim((string) ($entry['provenance'] ?? ''));
+        $trusted = false;
+        foreach (self::TRUSTED_PROVENANCE_PREFIXES as $prefix) {
+            if (str_starts_with($provenance, $prefix)) {
+                $trusted = true;
+                break;
+            }
+        }
+        if (! $trusted) {
+            $score      -= 0.20;
+            $penalties[] = 'stale_or_unverifiable_provenance:-0.20';
+        }
+
+        return [round(max(0.0, min(1.0, $score)), 3), $penalties];
     }
 
     /** @param  array<string,mixed>  $entry */
