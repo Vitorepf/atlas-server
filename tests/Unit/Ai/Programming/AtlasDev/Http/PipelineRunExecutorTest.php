@@ -337,7 +337,17 @@ DIFF;
         $this->assertSame([], $gateway->requests, 'deterministic fast path must not call the provider');
         $this->assertSame(0, $result->providerCallSummary['provider_calls']);
         $this->assertSame('atlas_deterministic', $result->providerCallSummary['provider']);
-        $this->assertSame('passed', $result->completionState);
+        // M1 critic-provider-agnostic: the senior critic now runs for ANY
+        // locked provider after a passed gate (not only hermes). The
+        // deterministic fast path produces a claude_cli diff for
+        // src/SmokeSubject.php with no matching test, so the critic flags a
+        // test_gap (STATUS_REVIEWED) and CompletionStateGate honestly
+        // downgrades PASSED -> needs_review. The pre-M1 `passed` assertion
+        // relied on the critic being skipped for non-hermes (the hole this
+        // feature closes). The fast-path's primary contract (no provider
+        // call + patch applied) still holds.
+        $this->assertSame('needs_review', $result->completionState);
+        $this->assertSame('reviewed', $result->providerCallSummary['critic_status']);
         $this->assertStringContainsString("return 'hello atlas';", (string) file_get_contents($target));
     }
 
@@ -425,7 +435,14 @@ DIFF;
         $this->assertSame([], $gateway->requests, 'deterministic frontend fast path must not call the provider');
         $this->assertSame(0, $result->providerCallSummary['provider_calls']);
         $this->assertSame('atlas_deterministic', $result->providerCallSummary['provider']);
-        $this->assertSame('passed', $result->completionState);
+        // M1 critic-provider-agnostic: the critic now runs for the non-hermes
+        // deterministic diff. resources/views/status-card.blade.php is a .php
+        // code file with no matching test, so the critic flags a test_gap
+        // (STATUS_REVIEWED) and completion honestly downgrades to
+        // needs_review. The pre-M1 `passed` assertion relied on the critic
+        // being skipped for non-hermes (the hole this feature closes).
+        $this->assertSame('needs_review', $result->completionState);
+        $this->assertSame('reviewed', $result->providerCallSummary['critic_status']);
         $this->assertStringContainsString('status-card compact elevated', (string) file_get_contents($target));
     }
 

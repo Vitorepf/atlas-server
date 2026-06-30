@@ -739,12 +739,20 @@ final class PipelineRunExecutor implements RunExecutor
         }
 
         // M3: Senior critic — invoke ReviewIntelligenceService after the gate
-        // passes and before CompletionStateGate promotes a completion, on the
-        // default hermes_cli path only. A blocker/critical finding forces
-        // completion to non-completed even when tests are green; a clean diff
-        // is NOT falsely blocked; a critic exception degrades to non-passed
-        // (never silently swallowed to green). REUSE ReviewIntelligenceService
-        // (do not rebuild).
+        // passes and before CompletionStateGate promotes a completion, for ANY
+        // locked provider. A blocker/critical finding forces completion to
+        // non-completed even when tests are green; a clean diff is NOT falsely
+        // blocked; a critic exception degrades to non-passed (never silently
+        // swallowed to green). REUSE ReviewIntelligenceService (do not rebuild).
+        //
+        // M1 (provider-agnostic closeout, VAL-M1-010/011/012/013/016/018):
+        // the former `$isHermesCli` clause is gone — the critic now fires for
+        // every locked provider (claude/codex/cursor/gemini/hermes) after a
+        // passed gate, including a run repaired-to-green (the repair loop and
+        // this block compose: a passed gate reached via repair still invokes
+        // the critic before `passed`). Quality must not depend on a specific
+        // provider (invariant 4). The only remaining `isHermesCli` usages in
+        // this executor are the best-of-N block (M4-exempt), NOT the critic.
         //
         // CONTRACT GUARD (VAL-M3-001): the critic runs EXACTLY ONCE after a
         // PASSED gate, NOT merely a not-failed gate. VerificationGateResult's
@@ -761,7 +769,7 @@ final class PipelineRunExecutor implements RunExecutor
         $reviewReceipt = null;
         $criticException = null;
         $criticAnalysed = false;
-        if ($isHermesCli && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
+        if ($verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
             try {
                 // Resolve from container (allows test bindings) or create fresh.
                 /** @var object $criticService */
