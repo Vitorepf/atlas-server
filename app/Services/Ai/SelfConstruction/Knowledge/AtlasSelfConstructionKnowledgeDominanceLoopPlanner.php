@@ -58,6 +58,9 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
     private const CONTEXT_PACK_STALE_THRESHOLD  = 3600;  // seconds
     private const GIVE_BACK_THRESHOLD           = 2;
 
+    /** Action ids that are advisory-only — they never block next_originator_context_ready. */
+    private const ADVISORY_ACTIONS = [self::ACTION_REFRESH_CONTEXT_PACK];
+
     private const COMMANDS = [
         self::ACTION_REFRESH_CODE_INDEX      => 'atlas engineering knowledge index-code --prune',
         self::ACTION_SYNC_DOCS               => 'atlas engineering knowledge sync --prune',
@@ -223,12 +226,24 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
             ];
         }
 
+        $blockingRefreshActions = array_values(array_filter(
+            $refreshActions,
+            static fn (array $a): bool => ! in_array($a['action_id'], self::ADVISORY_ACTIONS, true),
+        ));
+        $advisoryRefreshActions = array_values(array_filter(
+            $refreshActions,
+            static fn (array $a): bool => in_array($a['action_id'], self::ADVISORY_ACTIONS, true),
+        ));
+
         return [
             'schema'                          => self::SCHEMA,
             'refresh_actions'                 => $refreshActions,
+            'blocking_refresh_actions'        => $blockingRefreshActions,
+            'advisory_refresh_actions'        => $advisoryRefreshActions,
             'skipped_actions'                 => $skippedActions,
             'next_originator_context_ready'   => $notReadyReasons === [],
             'not_ready_reasons'               => $notReadyReasons,
+            'stop_go'                         => $notReadyReasons === [] ? 'go' : 'stop',
         ];
     }
 }

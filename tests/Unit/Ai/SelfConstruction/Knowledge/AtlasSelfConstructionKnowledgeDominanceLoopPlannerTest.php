@@ -27,7 +27,7 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlannerTest extends TestC
     {
         $result = $this->planner()->plan([]);
 
-        foreach (['schema', 'refresh_actions', 'skipped_actions', 'next_originator_context_ready', 'not_ready_reasons'] as $k) {
+        foreach (['schema', 'refresh_actions', 'blocking_refresh_actions', 'advisory_refresh_actions', 'skipped_actions', 'next_originator_context_ready', 'not_ready_reasons', 'stop_go'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
     }
@@ -365,5 +365,44 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlannerTest extends TestC
         ];
 
         $this->assertSame($this->planner()->plan($input), $this->planner()->plan($input));
+    }
+
+    // ── stop_go + blocking/advisory split ──────────────────────────────────────
+
+    public function test_stop_go_is_go_when_ready(): void
+    {
+        $result = $this->planner()->plan([]);
+
+        $this->assertSame('go', $result['stop_go']);
+    }
+
+    public function test_stop_go_is_stop_when_not_ready(): void
+    {
+        $result = $this->planner()->plan(['uncaptured_outcome_count' => 1]);
+
+        $this->assertSame('stop', $result['stop_go']);
+    }
+
+    public function test_context_pack_action_is_advisory_not_blocking(): void
+    {
+        $result = $this->planner()->plan(['context_pack_age_seconds' => 9999]);
+
+        $blockingIds = array_column($result['blocking_refresh_actions'], 'action_id');
+        $advisoryIds = array_column($result['advisory_refresh_actions'], 'action_id');
+        $this->assertNotContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_CONTEXT_PACK, $blockingIds);
+        $this->assertContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_CONTEXT_PACK, $advisoryIds);
+    }
+
+    public function test_code_index_action_is_blocking_not_advisory(): void
+    {
+        $result = $this->planner()->plan([
+            'changed_files'                => ['Foo.php'],
+            'code_index_freshness_seconds' => 999,
+        ]);
+
+        $blockingIds = array_column($result['blocking_refresh_actions'], 'action_id');
+        $advisoryIds = array_column($result['advisory_refresh_actions'], 'action_id');
+        $this->assertContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_CODE_INDEX, $blockingIds);
+        $this->assertNotContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_CODE_INDEX, $advisoryIds);
     }
 }
