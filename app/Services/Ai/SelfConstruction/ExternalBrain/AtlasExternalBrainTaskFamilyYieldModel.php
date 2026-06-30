@@ -244,6 +244,65 @@ final class AtlasExternalBrainTaskFamilyYieldModel
         ];
     }
 
+    /**
+     * Worker-floor-aware adjustment over model(): when the worker floor is low
+     * (workers near starvation), families with recent blocked/give_back/
+     * no_claimable evidence are penalized further — they would just burn the
+     * scarce worker capacity on more failures — while families with fresh
+     * claimable-conversion evidence are promoted, since they are proven to
+     * reliably turn into real, servable work right now.
+     *
+     * @param  array<string,mixed>  $facts  same as model() plus, per family,
+     *   recent_blocked_count?, recent_give_back_count?, recent_no_claimable_count?,
+     *   recent_claimable_conversions?; and top-level worker_floor_low?: bool
+     * @return array<string,mixed>
+     */
+    public function modelWithWorkerFloorPressure(array $facts): array
+    {
+        $result = $this->model($facts);
+        $workerFloorLow = (bool) ($facts['worker_floor_low'] ?? false);
+
+        if (! $workerFloorLow) {
+            return $result;
+        }
+
+        $rawFamiliesById = [];
+        foreach ((array) ($facts['families'] ?? []) as $raw) {
+            if (is_array($raw) && isset($raw['family_id'])) {
+                $rawFamiliesById[(string) $raw['family_id']] = $raw;
+            }
+        }
+
+        $adjustedYields = [];
+        foreach ($result['family_yields'] as $entry) {
+            $raw = $rawFamiliesById[$entry['family_id']] ?? [];
+            $recentNegative = max(0, (int) ($raw['recent_blocked_count'] ?? 0))
+                + max(0, (int) ($raw['recent_give_back_count'] ?? 0))
+                + max(0, (int) ($raw['recent_no_claimable_count'] ?? 0));
+            $recentConversions = max(0, (int) ($raw['recent_claimable_conversions'] ?? 0));
+
+            if ($recentConversions > 0) {
+                $entry['recommended_action'] = 'promote_for_replenishment';
+                $entry['recommended_family_action'] = 'promote_for_replenishment';
+                $entry['reasons'][] = 'worker_floor_pressure_reliable_claimable_conversion';
+            } elseif ($recentNegative > 0) {
+                $entry['recommended_action'] = 'deprioritize_worker_floor_pressure';
+                $entry['recommended_family_action'] = 'deprioritize_worker_floor_pressure';
+                $entry['reasons'][] = 'worker_floor_pressure_recent_negative_outcomes';
+            }
+
+            $adjustedYields[] = $entry;
+        }
+
+        $result['family_yields'] = $adjustedYields;
+        $result['recommended_family_actions'] = array_map(static fn (array $f): array => [
+            'family_id' => $f['family_id'],
+            'action' => $f['recommended_family_action'],
+        ], $adjustedYields);
+
+        return $result;
+    }
+
     private function classify(float $yield): string
     {
         if ($yield >= self::HIGH_THRESHOLD) {

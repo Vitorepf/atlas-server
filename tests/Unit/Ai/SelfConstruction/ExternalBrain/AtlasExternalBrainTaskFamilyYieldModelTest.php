@@ -253,4 +253,43 @@ final class AtlasExternalBrainTaskFamilyYieldModelTest extends TestCase
         $this->assertGreaterThanOrEqual(0.0, $r['family_yields'][0]['roi_score']);
         $this->assertLessThanOrEqual(1.0,   $r['family_yields'][0]['roi_score']);
     }
+
+    public function test_worker_floor_pressure_deprioritizes_family_with_recent_negative_outcomes(): void
+    {
+        $r = $this->model()->modelWithWorkerFloorPressure([
+            'worker_floor_low' => true,
+            'families' => [
+                $this->family(['family_id' => 'flaky', 'recent_blocked_count' => 2, 'recent_give_back_count' => 1]),
+            ],
+        ]);
+
+        $entry = $r['family_yields'][0];
+        $this->assertSame('deprioritize_worker_floor_pressure', $entry['recommended_action']);
+        $this->assertContains('worker_floor_pressure_recent_negative_outcomes', $entry['reasons']);
+        $this->assertSame('deprioritize_worker_floor_pressure', $r['recommended_family_actions'][0]['action']);
+    }
+
+    public function test_worker_floor_pressure_promotes_family_with_recent_claimable_conversions(): void
+    {
+        $r = $this->model()->modelWithWorkerFloorPressure([
+            'worker_floor_low' => true,
+            'families' => [
+                $this->family(['family_id' => 'reliable', 'recent_claimable_conversions' => 3]),
+            ],
+        ]);
+
+        $entry = $r['family_yields'][0];
+        $this->assertSame('promote_for_replenishment', $entry['recommended_action']);
+        $this->assertContains('worker_floor_pressure_reliable_claimable_conversion', $entry['reasons']);
+    }
+
+    public function test_worker_floor_pressure_inactive_preserves_baseline_model_output(): void
+    {
+        $facts = ['families' => [$this->family(['family_id' => 'plain'])]];
+
+        $baseline = $this->model()->model($facts);
+        $withPressure = $this->model()->modelWithWorkerFloorPressure($facts);
+
+        $this->assertSame($baseline, $withPressure);
+    }
 }
