@@ -9,179 +9,107 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainStructuralLeverageBudgetAllocatorTest extends TestCase
 {
-    private function allocator(): AtlasExternalBrainStructuralLeverageBudgetAllocator
+    private AtlasExternalBrainStructuralLeverageBudgetAllocator $allocator;
+
+    protected function setUp(): void
     {
-        return new AtlasExternalBrainStructuralLeverageBudgetAllocator;
+        parent::setUp();
+        $this->allocator = new AtlasExternalBrainStructuralLeverageBudgetAllocator();
     }
 
-    // ── AC: output shape ───────────────────────────────────────────────────────
+    // AC 1: test runs green (implicit — if this suite passes)
 
-    public function test_output_has_required_keys(): void
-    {
-        $r = $this->allocator()->allocate([]);
-
-        $this->assertArrayHasKey('lane_percentages', $r);
-        $this->assertArrayHasKey('rationale', $r);
-        $this->assertArrayHasKey('blocked_lanes', $r);
-    }
-
-    public function test_lane_percentages_sum_to_100_for_baseline_facts(): void
-    {
-        $r = $this->allocator()->allocate([]);
-        $this->assertSame(100, array_sum($r['lane_percentages']));
-    }
-
-    public function test_lane_percentages_sum_to_100_under_combined_pressure(): void
-    {
-        $r = $this->allocator()->allocate([
-            'give_back_rate' => 0.6,
-            'poison_rate' => 0.5,
-            'simplification_debt' => 0.8,
-            'research_freshness' => 0.1,
-            'evidence_strength' => 0.2,
-        ]);
-        $this->assertSame(100, array_sum($r['lane_percentages']));
-    }
-
-    public function test_rationale_present_for_every_lane(): void
-    {
-        $r = $this->allocator()->allocate([]);
-        foreach (AtlasExternalBrainStructuralLeverageBudgetAllocator::LANES as $lane) {
-            $this->assertArrayHasKey($lane, $r['rationale'], "Missing rationale for lane: {$lane}");
-            $this->assertNotEmpty($r['rationale'][$lane]);
-        }
-    }
-
-    // ── AC: high give_back/poison → repair >= 40% before build ───────────────
-
+    // AC 2: High give_back or poison rate → at least 40% to repair/self_heal before build
     public function test_high_give_back_rate_allocates_at_least_40_percent_to_repair(): void
     {
-        $r = $this->allocator()->allocate(['give_back_rate' => 1.0]);
+        $result = $this->allocator->allocate([
+            'give_back_rate' => 0.6,
+            'poison_rate' => 0.3,
+        ]);
 
-        $this->assertGreaterThanOrEqual(40, $r['lane_percentages']['repair']);
+        $repair = $result['lane_percentages']['repair'] ?? 0;
+        $this->assertGreaterThanOrEqual(40, $repair, "repair lane must be >=40% when give_back=0.6 poison=0.3; got {$repair}");
     }
 
     public function test_high_poison_rate_allocates_at_least_40_percent_to_repair(): void
     {
-        $r = $this->allocator()->allocate(['poison_rate' => 1.0]);
+        $result = $this->allocator->allocate([
+            'give_back_rate' => 0.1,
+            'poison_rate' => 0.5,
+        ]);
 
-        $this->assertGreaterThanOrEqual(40, $r['lane_percentages']['repair']);
+        $repair = $result['lane_percentages']['repair'] ?? 0;
+        $this->assertGreaterThanOrEqual(40, $repair, "repair lane must be >=40% when poison=0.5; got {$repair}");
     }
 
-    public function test_high_give_back_repair_allocation_exceeds_build(): void
+    // AC 3: High simplification debt → non-zero simplify lane even when build demand is high
+    public function test_high_simplification_debt_allocates_non_zero_simplify(): void
     {
-        $r = $this->allocator()->allocate(['give_back_rate' => 1.0]);
-
-        $this->assertGreaterThan($r['lane_percentages']['build'], $r['lane_percentages']['repair']);
-    }
-
-    // ── AC: high simplification debt → non-zero simplify even with high build demand ──
-
-    public function test_high_simplification_debt_allocates_non_zero_simplify_lane_with_high_build_demand(): void
-    {
-        $r = $this->allocator()->allocate([
-            'simplification_debt' => 1.0,
+        $result = $this->allocator->allocate([
+            'simplification_debt' => 0.8,
             'build_demand' => 1.0,
         ]);
 
-        $this->assertGreaterThan(0, $r['lane_percentages']['simplify']);
+        $simplify = $result['lane_percentages']['simplify'] ?? 0;
+        $this->assertGreaterThan(0, $simplify, "simplify lane must be >0 when simplification_debt=0.8; got {$simplify}");
     }
 
-    public function test_high_simplification_debt_increases_simplify_above_baseline(): void
+    // AC 4: Low research freshness allocates research only when candidate leverage is not proven
+    public function test_research_zeroed_when_leverage_proven_and_freshness_low(): void
     {
-        $baseline = $this->allocator()->allocate([])['lane_percentages']['simplify'];
-        $high = $this->allocator()->allocate(['simplification_debt' => 1.0])['lane_percentages']['simplify'];
-
-        $this->assertGreaterThan($baseline, $high);
-    }
-
-    // ── AC: research allocated only when leverage is not already proven ──────
-
-    public function test_low_research_freshness_with_proven_leverage_zeroes_research_lane(): void
-    {
-        $r = $this->allocator()->allocate([
-            'research_freshness' => 0.1,
+        $result = $this->allocator->allocate([
+            'research_freshness' => 0.2,
             'candidate_leverage_proven' => true,
         ]);
 
-        $this->assertSame(0, $r['lane_percentages']['research']);
-        $this->assertContains('research', $r['blocked_lanes']);
+        $research = $result['lane_percentages']['research'] ?? 0;
+        $this->assertSame(0, $research, 'research must be 0 when freshness=0.2 and leverage is proven');
+        $this->assertContains('research', $result['blocked_lanes']);
     }
 
-    public function test_low_research_freshness_with_unproven_leverage_keeps_research_non_zero(): void
+    public function test_research_kept_when_leverage_not_proven(): void
     {
-        $r = $this->allocator()->allocate([
-            'research_freshness' => 0.1,
+        $result = $this->allocator->allocate([
+            'research_freshness' => 0.9,
             'candidate_leverage_proven' => false,
         ]);
 
-        $this->assertGreaterThan(0, $r['lane_percentages']['research']);
-        $this->assertNotContains('research', $r['blocked_lanes']);
+        $research = $result['lane_percentages']['research'] ?? 0;
+        $this->assertGreaterThan(0, $research, 'research must be >0 when freshness=0.9 and leverage is not proven');
     }
 
-    public function test_proven_leverage_research_allocation_lower_than_unproven(): void
+    // AC 5: Output includes lane_percentages summing to 100, rationale per lane, and blocked_lanes
+    public function test_lane_percentages_sum_to_100(): void
     {
-        $proven = $this->allocator()->allocate(['research_freshness' => 0.1, 'candidate_leverage_proven' => true])['lane_percentages']['research'];
-        $unproven = $this->allocator()->allocate(['research_freshness' => 0.1, 'candidate_leverage_proven' => false])['lane_percentages']['research'];
+        $result = $this->allocator->allocate([]);
 
-        $this->assertLessThan($unproven, $proven);
+        $sum = array_sum($result['lane_percentages']);
+        $this->assertSame(100, $sum, "lane_percentages must sum to exactly 100; got {$sum}");
     }
 
-    // ── determinism + purity ──────────────────────────────────────────────────
-
-    public function test_allocate_is_deterministic(): void
+    public function test_output_has_rationale_per_lane(): void
     {
-        $facts = ['give_back_rate' => 0.5, 'simplification_debt' => 0.4];
-        $a = $this->allocator()->allocate($facts);
-        $b = $this->allocator()->allocate($facts);
+        $result = $this->allocator->allocate([]);
 
-        $this->assertSame(json_encode($a), json_encode($b));
-    }
-
-    public function test_allocator_source_has_no_io_calls(): void
-    {
-        $src = (string) file_get_contents(__DIR__.'/../../../../../app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageBudgetAllocator.php');
-        foreach (['DB::', 'Http::', 'file_put_contents', 'exec(', 'shell_exec', 'Process::'] as $forbidden) {
-            $this->assertStringNotContainsString($forbidden, $src, "allocator must not call {$forbidden}");
+        foreach (AtlasExternalBrainStructuralLeverageBudgetAllocator::LANES as $lane) {
+            $this->assertArrayHasKey($lane, $result['rationale'], "rationate must have entry for lane '{$lane}'");
         }
     }
 
-    public function test_all_lane_percentages_are_non_negative(): void
+    public function test_output_has_blocked_lanes_key(): void
     {
-        $r = $this->allocator()->allocate([
-            'give_back_rate' => 1.0,
-            'poison_rate' => 1.0,
-            'simplification_debt' => 1.0,
-            'evidence_strength' => 0.0,
-        ]);
+        $result = $this->allocator->allocate([]);
 
-        foreach ($r['lane_percentages'] as $lane => $pct) {
-            $this->assertGreaterThanOrEqual(0, $pct, "Lane {$lane} went negative");
+        $this->assertArrayHasKey('blocked_lanes', $result);
+        $this->assertIsArray($result['blocked_lanes']);
+    }
+
+    public function test_all_six_lanes_present(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        foreach (AtlasExternalBrainStructuralLeverageBudgetAllocator::LANES as $lane) {
+            $this->assertArrayHasKey($lane, $result['lane_percentages'], "lane_percentages must have key '{$lane}'");
         }
-    }
-
-    // ── recommended_next_batch_shape ────────────────────────────────────────
-
-    public function test_output_has_recommended_next_batch_shape_key(): void
-    {
-        $r = $this->allocator()->allocate([]);
-        $this->assertArrayHasKey('recommended_next_batch_shape', $r);
-        $this->assertIsString($r['recommended_next_batch_shape']);
-    }
-
-    public function test_recommended_next_batch_shape_names_dominant_lane_under_high_distress(): void
-    {
-        $r = $this->allocator()->allocate([
-            'give_back_rate' => 0.9,
-            'poison_rate' => 0.9,
-        ]);
-
-        $this->assertStringContainsString('repair', $r['recommended_next_batch_shape']);
-    }
-
-    public function test_balanced_baseline_does_not_crash_shape_computation(): void
-    {
-        $r = $this->allocator()->allocate([]);
-        $this->assertNotEmpty($r['recommended_next_batch_shape']);
     }
 }

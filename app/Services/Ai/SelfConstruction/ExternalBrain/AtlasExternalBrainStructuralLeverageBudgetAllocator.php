@@ -63,7 +63,7 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
         // ── High give_back or poison → shift to repair ─────────────────────
         $distress = max($giveBackRate, $poisonRate);
         if ($distress > 0.2) {
-            $shift = min(30, (int) round($distress * 50));
+            $shift = min(40, (int) round($distress * 60));
             $lanes['build'] -= $shift;
             $lanes['repair'] += $shift;
             $rationale['repair'] = "give_back_rate={$giveBackRate} poison_rate={$poisonRate} → allocate {$shift}% from build to repair";
