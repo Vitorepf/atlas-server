@@ -97,6 +97,30 @@ final class AtlasTaskBlockedRespecPlanCommandTest extends TestCase
         $this->assertArrayHasKey('replacement_drafts', $output);
     }
 
+    public function test_json_output_contains_actionability_metrics_preserving_existing_fields(): void
+    {
+        $this->seedBlocked('dup-met-001', ['already_done' => true]);
+        $this->seedBlocked('respec-met-001', [], ['vague_objective']);
+
+        $output = $this->exec();
+
+        $this->assertArrayHasKey('blocked_counts', $output);
+        $this->assertArrayHasKey('retire_only_ids', $output);
+        $this->assertArrayHasKey('replacement_drafts', $output);
+        $this->assertArrayHasKey('actionability_metrics', $output);
+
+        $metrics = $output['actionability_metrics'];
+        $this->assertArrayHasKey('actionable_family_count', $metrics);
+        $this->assertArrayHasKey('unknown_count', $metrics);
+        $this->assertArrayHasKey('submittable_replacement_count', $metrics);
+        $this->assertArrayHasKey('top_refusal_reasons', $metrics);
+        $this->assertIsInt($metrics['actionable_family_count']);
+        $this->assertIsInt($metrics['unknown_count']);
+        $this->assertIsInt($metrics['submittable_replacement_count']);
+        $this->assertIsArray($metrics['top_refusal_reasons']);
+        $this->assertGreaterThanOrEqual(2, $metrics['actionable_family_count']);
+    }
+
     public function test_retire_only_ids_contains_duplicate_already_done_packets(): void
     {
         $this->seedBlocked('dup-777', ['already_done' => true]);

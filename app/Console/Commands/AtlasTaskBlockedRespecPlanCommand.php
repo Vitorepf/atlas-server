@@ -139,6 +139,35 @@ final class AtlasTaskBlockedRespecPlanCommand extends Command
             $draftResult['drafts'],
         );
 
+        // ACTIONABILITY METRICS — a direct signal for whether the blocked backlog is
+        // improving, derived purely from the classification + completed drafts above.
+        // Never enqueues/retires/mutates; read-only like the rest of this command.
+        $unknownCount = (int) ($blockedCounts[AtlasTaskBlockedPacketFamilyClassifier::FAMILY_UNKNOWN] ?? 0);
+        $actionableFamilyCount = count(array_filter(
+            array_keys($blockedCounts),
+            static fn (string $family): bool => $family !== AtlasTaskBlockedPacketFamilyClassifier::FAMILY_UNKNOWN,
+        ));
+        $submittableReplacementCount = count(array_filter(
+            $annotatedDrafts,
+            static fn (array $draft): bool => (bool) ($draft['can_submit'] ?? false),
+        ));
+
+        $refusalReasonCounts = [];
+        foreach ($annotatedDrafts as $draft) {
+            foreach ((array) ($draft['refusal_reasons'] ?? []) as $reason) {
+                $reason = (string) $reason;
+                if ($reason === '') {
+                    continue;
+                }
+                $refusalReasonCounts[$reason] = ($refusalReasonCounts[$reason] ?? 0) + 1;
+            }
+        }
+        arsort($refusalReasonCounts);
+        $topRefusalReasons = [];
+        foreach (array_slice($refusalReasonCounts, 0, 5, true) as $reason => $count) {
+            $topRefusalReasons[] = ['reason' => $reason, 'count' => $count];
+        }
+
         $payload = [
             'schema'              => self::SCHEMA,
             'blocked_count'       => count($blockedRecords),
@@ -146,6 +175,12 @@ final class AtlasTaskBlockedRespecPlanCommand extends Command
             'retire_only_ids'     => $retireOnlyIds,
             'replacement_drafts'  => $annotatedDrafts,
             'draft_summary'       => $draftResult['summary'],
+            'actionability_metrics' => [
+                'actionable_family_count' => $actionableFamilyCount,
+                'unknown_count' => $unknownCount,
+                'submittable_replacement_count' => $submittableReplacementCount,
+                'top_refusal_reasons' => $topRefusalReasons,
+            ],
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
