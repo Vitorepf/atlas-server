@@ -80,4 +80,47 @@ final class AtlasSelfConstructionLeverageDeltaReporterTest extends TestCase
         $after = ['capability_coverage' => 8];
         $this->assertSame(json_encode($svc->report($before, $after)), json_encode($svc->report($before, $after)));
     }
+
+    public function test_real_delivered_deltas_score_higher_than_raw_seed_volume(): void
+    {
+        // 1 implemented outcome (weight 10) must outweigh 1 raw seed (weight 1).
+        $real = (new AtlasSelfConstructionLeverageDeltaReporter)->report(
+            ['implemented_outcomes' => 0, 'seed_volume' => 0],
+            ['implemented_outcomes' => 1, 'seed_volume' => 0],
+        );
+        $seed = (new AtlasSelfConstructionLeverageDeltaReporter)->report(
+            ['implemented_outcomes' => 0, 'seed_volume' => 0],
+            ['implemented_outcomes' => 0, 'seed_volume' => 1],
+        );
+
+        $this->assertGreaterThan(
+            $seed['score']['components']['raw_seed_volume']['contribution'],
+            $real['score']['components']['implemented_outcomes']['contribution'],
+            'one implemented outcome must score higher than one raw seed',
+        );
+    }
+
+    public function test_score_includes_evidence_fields_per_component(): void
+    {
+        $report = (new AtlasSelfConstructionLeverageDeltaReporter)->report(
+            ['implemented_outcomes' => 2, 'give_back_rate' => 0.3, 'autonomous_recovery_coverage' => 5, 'seed_volume' => 10, 'queue_health' => 4],
+            ['implemented_outcomes' => 5, 'give_back_rate' => 0.1, 'autonomous_recovery_coverage' => 8, 'seed_volume' => 12, 'queue_health' => 7],
+        );
+
+        $this->assertArrayHasKey('score', $report);
+        $this->assertArrayHasKey('total', $report['score']);
+        $components = $report['score']['components'];
+        foreach (['implemented_outcomes', 'queue_health', 'give_back_reduction', 'autonomous_recovery', 'raw_seed_volume'] as $key) {
+            $this->assertArrayHasKey($key, $components, "missing component: {$key}");
+            $this->assertArrayHasKey('value', $components[$key]);
+            $this->assertArrayHasKey('weight', $components[$key]);
+            $this->assertArrayHasKey('contribution', $components[$key]);
+        }
+        // 3 implemented outcomes × weight 10 = 30
+        $this->assertEqualsWithDelta(30.0, $components['implemented_outcomes']['contribution'], 0.0001);
+        // give_back improved by 0.2 → give_back_reduction value = 0.2 × weight 5 = 1.0
+        $this->assertEqualsWithDelta(1.0, $components['give_back_reduction']['contribution'], 0.0001);
+        // 2 raw seeds × weight 1 = 2
+        $this->assertEqualsWithDelta(2.0, $components['raw_seed_volume']['contribution'], 0.0001);
+    }
 }
