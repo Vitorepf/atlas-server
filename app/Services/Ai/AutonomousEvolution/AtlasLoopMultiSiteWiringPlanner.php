@@ -61,7 +61,7 @@ final class AtlasLoopMultiSiteWiringPlanner
             foreach ((array) ($primitive['intended_consumer_paths'] ?? []) as $consumerPath) {
                 $consumerPath = (string) $consumerPath;
                 $source = (string) @file_get_contents($repoRoot.'/'.ltrim($consumerPath, '/'));
-                $wired = $className !== '' && $source !== '' && str_contains($source, $className);
+                $wired = $className !== '' && $source !== '' && preg_match('/\b'.preg_quote($className, '/').'\b/', $source) === 1;
 
                 $records[] = [
                     'primitive_id' => $primitiveId,

@@ -75,6 +75,33 @@ final class AtlasLoopMultiSiteWiringPlannerTest extends TestCase
         $this->assertSame($json, json_encode($run2), 'deterministic (read-only, no DB/provider)');
     }
 
+    public function test_longer_identifier_embedding_basename_is_not_wired(): void
+    {
+        config(['atlas.loop.multi_site_wiring_planner_enabled' => true]);
+
+        $root = sys_get_temp_dir().'/atlas-wiring-'.bin2hex(random_bytes(4));
+        @mkdir($root.'/app', 0o775, true);
+        // Consumer mentions only the compound name, NOT the exact class as a standalone token.
+        file_put_contents($root.'/app/Consumer.php', "<?php\n// uses AtlasLoopLeverageSelectorFactory\n");
+
+        $manifest = static fn (): array => [[
+            'primitive_id' => 'sel',
+            'file_path' => 'app/AtlasLoopLeverageSelector.php',
+            'status' => 'intended',
+            'intended_consumer_paths' => ['app/Consumer.php'],
+        ]];
+
+        try {
+            $plan = (new AtlasLoopMultiSiteWiringPlanner(null, $manifest, $root))->plan();
+            $this->assertSame('intended', $plan[0]['status'],
+                'a longer identifier embedding the class basename must not be reported as wired');
+        } finally {
+            @unlink($root.'/app/Consumer.php');
+            @rmdir($root.'/app');
+            @rmdir($root);
+        }
+    }
+
     public function test_default_registry_path_is_gated_by_the_registry_flag(): void
     {
         // No resolver ⇒ uses the REAL registry. With the planner ON but the registry OFF, the registry yields
