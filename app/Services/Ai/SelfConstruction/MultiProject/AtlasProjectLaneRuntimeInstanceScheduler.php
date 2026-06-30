@@ -161,6 +161,32 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
             $remainingBudget--;
         }
 
+        // ── fairness / starvation facts ──────────────────────────────────────
+        $perProjectTicks = [];
+        foreach ($tickNow as $inst) {
+            $pid = (string) ($inst['project_id'] ?? '');
+            $perProjectTicks[$pid] = ($perProjectTicks[$pid] ?? 0) + 1;
+        }
+        ksort($perProjectTicks);
+
+        $starvationRiskLanes = [];
+        foreach ($blocked as $b) {
+            if (array_intersect($b['reasons'], [self::HOLD_MAX_PARALLEL_REACHED, self::HOLD_BUDGET_EXHAUSTED]) !== []) {
+                $starvationRiskLanes[] = $b['lane_id'];
+            }
+        }
+
+        $heldDurationHints = [];
+        foreach ($held as $h) {
+            $heldDurationHints[$h['lane_id']] = $this->heldDurationHint($h['reasons']);
+        }
+
+        $tickCount = count($tickNow);
+        $readyCount = count($ready); // includes capped lanes
+        $fairnessReason = "{$tickCount} lane(s) scheduled from {$readyCount} ready; "
+            . count($held) . ' held by isolation/safety holds; '
+            . count($starvationRiskLanes) . ' capacity-blocked (starvation risk).';
+
         $payload = [
             'schema_version' => self::SCHEMA,
             'status' => 'ok',
@@ -172,10 +198,35 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
                 'budget_remaining' => $remainingBudget === PHP_INT_MAX ? null : $remainingBudget,
                 'heartbeat_staleness_seconds' => $stalenessSeconds,
             ],
+            'fairness_facts' => [
+                'per_project_tick_allocation' => $perProjectTicks,
+                'held_duration_hint'          => $heldDurationHints,
+                'starvation_risk_lanes'       => $starvationRiskLanes,
+                'fairness_reason'             => $fairnessReason,
+                'next_lane_to_unblock'        => $starvationRiskLanes[0] ?? null,
+            ],
         ];
         $payload['scheduler_hash'] = $this->hash($payload);
 
         return $payload;
+    }
+
+    /** @param list<string> $reasons */
+    private function heldDurationHint(array $reasons): string
+    {
+        $persistent = [
+            self::HOLD_SAFETY_STOP,
+            self::HOLD_HUMAN_DEPENDENCY,
+            self::HOLD_EXTERNAL_PROVIDER,
+            self::HOLD_MISSING_ISOLATION_EVIDENCE,
+        ];
+        foreach ($reasons as $r) {
+            if (in_array($r, $persistent, true)) {
+                return 'persistent_until_resolved';
+            }
+        }
+
+        return 'transient_resolves_when_condition_clears';
     }
 
     /**

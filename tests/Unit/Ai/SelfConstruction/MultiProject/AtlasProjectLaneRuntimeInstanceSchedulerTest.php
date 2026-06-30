@@ -215,4 +215,117 @@ final class AtlasProjectLaneRuntimeInstanceSchedulerTest extends TestCase
 
         $this->assertSame($a['scheduler_hash'], $b['scheduler_hash']);
     }
+
+    // ── fairness_facts ────────────────────────────────────────────────────────
+
+    public function test_fairness_facts_key_exists_with_required_fields(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan(
+            [$this->laneInstance('a', 'p1'), $this->laneInstance('b', 'p2')],
+            ['max_parallel_lanes' => 2],
+        );
+
+        $this->assertArrayHasKey('fairness_facts', $r);
+        foreach (['per_project_tick_allocation', 'held_duration_hint', 'starvation_risk_lanes',
+                  'fairness_reason', 'next_lane_to_unblock'] as $key) {
+            $this->assertArrayHasKey($key, $r['fairness_facts'], "fairness_facts must contain {$key}");
+        }
+    }
+
+    public function test_per_project_tick_allocation_counts_ticks_per_project(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('a', 'proj-A'),
+            $this->laneInstance('b', 'proj-A'),
+            $this->laneInstance('c', 'proj-B'),
+        ], ['max_parallel_lanes' => 3]);
+
+        $alloc = $r['fairness_facts']['per_project_tick_allocation'];
+        $this->assertSame(2, $alloc['proj-A']);
+        $this->assertSame(1, $alloc['proj-B']);
+    }
+
+    public function test_starvation_risk_lanes_are_those_blocked_by_capacity(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('a', 'p1'),
+            $this->laneInstance('b', 'p2'),
+            $this->laneInstance('c', 'p3'),
+        ], ['max_parallel_lanes' => 2]);
+
+        // lane 'c' is blocked by max_parallel_reached → starvation risk.
+        $this->assertContains('c', $r['fairness_facts']['starvation_risk_lanes']);
+        $this->assertCount(1, $r['fairness_facts']['starvation_risk_lanes']);
+    }
+
+    public function test_next_lane_to_unblock_is_first_starvation_risk_lane(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('a', 'p1'),
+            $this->laneInstance('b', 'p2'),
+            $this->laneInstance('c', 'p3'),
+        ], ['max_parallel_lanes' => 2]);
+
+        $this->assertSame('c', $r['fairness_facts']['next_lane_to_unblock']);
+    }
+
+    public function test_next_lane_to_unblock_is_null_when_no_starvation_risk(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan(
+            [$this->laneInstance('a', 'p1'), $this->laneInstance('b', 'p2')],
+            ['max_parallel_lanes' => 5],
+        );
+
+        $this->assertNull($r['fairness_facts']['next_lane_to_unblock']);
+        $this->assertSame([], $r['fairness_facts']['starvation_risk_lanes']);
+    }
+
+    public function test_held_duration_hint_is_persistent_for_safety_stop(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan(
+            [$this->laneInstance('a')],
+            ['max_parallel_lanes' => 5, 'lane_health' => ['a' => ['safety_stop' => true]]],
+        );
+
+        $hints = $r['fairness_facts']['held_duration_hint'];
+        $this->assertArrayHasKey('a', $hints);
+        $this->assertSame('persistent_until_resolved', $hints['a']);
+    }
+
+    public function test_held_duration_hint_is_transient_for_stale_heartbeat(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan(
+            [$this->laneInstance('a')],
+            ['max_parallel_lanes' => 5, 'heartbeat_staleness_seconds' => 60,
+             'lane_health' => ['a' => ['heartbeat_age_seconds' => 600]]],
+        );
+
+        $hints = $r['fairness_facts']['held_duration_hint'];
+        $this->assertArrayHasKey('a', $hints);
+        $this->assertSame('transient_resolves_when_condition_clears', $hints['a']);
+    }
+
+    public function test_fairness_reason_is_non_empty_and_mentions_scheduled_count(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('a', 'p1'),
+            $this->laneInstance('b', 'p2'),
+            $this->laneInstance('c', 'p3'),
+        ], ['max_parallel_lanes' => 2]);
+
+        $reason = $r['fairness_facts']['fairness_reason'];
+        $this->assertIsString($reason);
+        $this->assertNotEmpty($reason);
+        $this->assertStringContainsString('2', $reason); // 2 scheduled
+    }
+
+    public function test_fairness_facts_included_in_deterministic_hash(): void
+    {
+        $instances = [$this->laneInstance('x', 'p1'), $this->laneInstance('y', 'p2')];
+        $r1 = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan($instances, ['max_parallel_lanes' => 2]);
+        $r2 = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan($instances, ['max_parallel_lanes' => 2]);
+
+        $this->assertSame($r1['scheduler_hash'], $r2['scheduler_hash'],
+            'hash must remain deterministic with fairness_facts included');
+    }
 }
