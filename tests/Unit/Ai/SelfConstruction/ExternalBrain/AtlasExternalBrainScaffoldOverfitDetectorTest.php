@@ -25,6 +25,7 @@ final class AtlasExternalBrainScaffoldOverfitDetectorTest extends TestCase
             'value_proof_rate'         => 0.80,
             'diversity_score'          => 0.70,
             'compounding_impact'       => 0.70,
+            'structural_leverage_score' => 0.70,
             'give_back_rate'           => 0.10,
             'poison_rate'              => 0.03,
             'benchmark_pass_rate'      => 0.80,
@@ -88,6 +89,26 @@ final class AtlasExternalBrainScaffoldOverfitDetectorTest extends TestCase
         ]));
 
         $this->assertTrue($result['overfit_detected']);
+    }
+
+    public function test_high_gate_with_low_structural_leverage_is_suspect(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'            => 0.90,
+            'structural_leverage_score' => 0.20,
+        ]));
+
+        $this->assertTrue($result['overfit_detected']);
+        $suspect = $result['suspect_scaffolds'][0];
+        $this->assertContains('structural_leverage_score', $suspect['declining_metrics']);
+        $this->assertContains('high_gate_low_real_quality', $suspect['reasons']);
+    }
+
+    public function test_healthy_structural_leverage_does_not_trigger_decline(): void
+    {
+        $result = $this->detect($this->metric('v1', ['gate_pass_rate' => 0.90]));
+
+        $this->assertFalse($result['overfit_detected']);
     }
 
     // ── AC2: clean scaffold ───────────────────────────────────────────────────

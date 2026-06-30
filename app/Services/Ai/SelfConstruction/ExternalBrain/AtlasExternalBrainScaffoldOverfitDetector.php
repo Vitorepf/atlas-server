@@ -38,6 +38,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
     public const REAL_QUALITY_THRESHOLD           = 0.70;
     public const DIVERSITY_THRESHOLD              = 0.50;
     public const COMPOUNDING_THRESHOLD            = 0.50;
+    public const STRUCTURAL_LEVERAGE_THRESHOLD    = 0.50;
     public const HELDOUT_GAP_THRESHOLD            = 0.25;
     public const GIVE_BACK_THRESHOLD              = 0.25;
     public const POISON_THRESHOLD                 = 0.10;
@@ -67,6 +68,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
             $valueRate       = (float)   ($m['value_proof_rate']        ?? 0.0);
             $diversity       = (float)   ($m['diversity_score']         ?? 0.0);
             $compounding     = (float)   ($m['compounding_impact']      ?? 0.0);
+            $structuralLeverage = (float) ($m['structural_leverage_score'] ?? 0.0);
             $giveBackRate    = (float)   ($m['give_back_rate']          ?? 0.0);
             $poisonRate      = (float)   ($m['poison_rate']             ?? 0.0);
             $benchmarkRate   = (float)   ($m['benchmark_pass_rate']     ?? 0.0);
@@ -94,6 +96,9 @@ final class AtlasExternalBrainScaffoldOverfitDetector
             }
             if ($compounding  < self::COMPOUNDING_THRESHOLD) {
                 $decliningMetrics[] = 'compounding_impact';
+            }
+            if ($structuralLeverage < self::STRUCTURAL_LEVERAGE_THRESHOLD) {
+                $decliningMetrics[] = 'structural_leverage_score';
             }
             if ($giveBackRate > self::GIVE_BACK_THRESHOLD) {
                 $decliningMetrics[] = 'give_back_rate';
