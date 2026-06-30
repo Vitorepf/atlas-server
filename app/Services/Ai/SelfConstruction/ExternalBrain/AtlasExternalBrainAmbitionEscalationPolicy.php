@@ -92,11 +92,13 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
         }
 
         // If all modes are attempted but not all carry evidence, re-run the first mode lacking evidence.
+        $missingEvidenceRequeue = false;
         if ($next === null) {
             foreach (self::LADDER as $mode) {
                 $refs = is_array($evidenceMap[$mode] ?? null) ? array_values($evidenceMap[$mode]) : [];
                 if ($refs === []) {
                     $next = $mode;
+                    $missingEvidenceRequeue = true;
                     break;
                 }
             }
@@ -105,9 +107,13 @@ final class AtlasExternalBrainAmbitionEscalationPolicy
         // Fallback (should not occur, but keeps the type system happy).
         $next ??= self::LADDER[0];
 
+        $rationale = $missingEvidenceRequeue
+            ? "mode_lacks_evidence:{$next}:re_run_required_before_honest_exhausted_is_allowed"
+            : $this->rationale($next);
+
         $remaining = array_values(array_filter(self::LADDER, static fn (string $m): bool => ! in_array($m, $attempted, true) && $m !== $next));
 
-        return $this->envelope($next, $this->rationale($next), $remaining, $withEvidence, false, $dossier);
+        return $this->envelope($next, $rationale, $remaining, $withEvidence, false, $dossier);
     }
 
     /** @param list<string> $remaining @param list<string> $withEvidence @param list<array<string,mixed>> $dossier */
