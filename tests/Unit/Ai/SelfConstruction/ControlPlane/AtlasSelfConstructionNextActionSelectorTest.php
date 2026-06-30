@@ -135,4 +135,75 @@ final class AtlasSelfConstructionNextActionSelectorTest extends TestCase
         $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
         $this->assertContains('queue_idle', $verdict['reasons']);
     }
+
+    public function test_malformed_count_triggers_repair_queue_over_schedule_workers(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['malformed_count'] = 3;
+        $queue['tasks_pending_workers'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+        $this->assertContains('malformed_queue_packets:3', $verdict['reasons']);
+    }
+
+    public function test_poison_packets_triggers_repair_queue_over_verify_candidates(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['poison_packets'] = 1;
+        $queue['open_verifications'] = 4;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+        $this->assertContains('poison_queue_packets:1', $verdict['reasons']);
+    }
+
+    public function test_repair_queue_beats_create_task_packets_and_prepare_merge(): void
+    {
+        $queue = ['open_verifications' => 0, 'ready_to_promote' => 2, 'tasks_pending_workers' => 0, 'backlog_acceptance_items' => 5, 'malformed_count' => 1, 'poison_packets' => 0];
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+    }
+
+    public function test_autonomy_off_still_holds_position_even_with_malformed_queue(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['malformed_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), $this->scopeAllowed(), ['mode' => 'off'], $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
+        $this->assertContains('autonomy_mode_off', $verdict['reasons']);
+    }
+
+    public function test_scope_gate_blocks_even_with_poison_packets(): void
+    {
+        $queue = $this->emptyQueue();
+        $queue['poison_packets'] = 2;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($this->readyOrgans(), ['allowed' => false], $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
+        $this->assertContains('scope_gate_not_allowed', $verdict['reasons']);
+    }
+
+    public function test_missing_organ_beats_queue_repair(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['missing_organs'] = ['native_worker'];
+        $queue = $this->emptyQueue();
+        $queue['malformed_count'] = 5;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_ORGANS, $verdict['action']);
+    }
+
+    public function test_knowledge_sync_degraded_runs_before_execution_work_when_no_queue_poison(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['degraded_organs'] = [['organ' => 'knowledge_sync', 'reason' => 'stale']];
+        $queue = ['open_verifications' => 5, 'ready_to_promote' => 5, 'tasks_pending_workers' => 5, 'backlog_acceptance_items' => 5];
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_RUN_KNOWLEDGE_SYNC, $verdict['action']);
+    }
 }

@@ -20,13 +20,14 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
  *   0. autonomy_mode = 'off'                                ⇒ hold_position
  *   1. scope gate not allowed                               ⇒ hold_position
  *   2. critical organs missing/blocked                      ⇒ repair_organs
- *   3. knowledge_sync degraded but rest ready                ⇒ run_knowledge_sync
- *   4. autonomy_mode = 'observe' (never executes)           ⇒ hold_position
- *   5. open verifications exist                              ⇒ verify_candidates
- *   6. candidates ready to promote                           ⇒ prepare_merge
- *   7. tasks pending workers                                 ⇒ schedule_workers
- *   8. backlog has acceptance work but no tasks              ⇒ create_task_packets
- *   9. otherwise                                             ⇒ hold_position
+ *   3. malformed_count > 0 or poison_packets > 0            ⇒ repair_queue
+ *   4. knowledge_sync degraded but rest ready                ⇒ run_knowledge_sync
+ *   5. autonomy_mode = 'observe' (never executes)           ⇒ hold_position
+ *   6. open verifications exist                              ⇒ verify_candidates
+ *   7. candidates ready to promote                           ⇒ prepare_merge
+ *   8. tasks pending workers                                 ⇒ schedule_workers
+ *   9. backlog has acceptance work but no tasks              ⇒ create_task_packets
+ *  10. otherwise                                             ⇒ hold_position
  *
  * Pure: NEVER enqueues, dispatches, executes, merges, or writes ledgers.
  */
@@ -45,6 +46,8 @@ final class AtlasSelfConstructionNextActionSelector
     public const ACTION_PREPARE_MERGE = 'prepare_merge';
 
     public const ACTION_RUN_KNOWLEDGE_SYNC = 'run_knowledge_sync';
+
+    public const ACTION_REPAIR_QUEUE = 'repair_queue';
 
     public const ACTION_HOLD_POSITION = 'hold_position';
 
@@ -92,7 +95,22 @@ final class AtlasSelfConstructionNextActionSelector
             return $this->envelope(self::ACTION_REPAIR_ORGANS, $reasons, $scopeGate);
         }
 
-        // 3. KNOWLEDGE-SYNC DEGRADED — refresh before anything else continues.
+        // 3. QUEUE HYGIENE — repair malformed or poison packets before scheduling more work.
+        $malformed = (int) ($workQueue['malformed_count'] ?? 0);
+        $poison = (int) ($workQueue['poison_packets'] ?? 0);
+        if ($malformed > 0 || $poison > 0) {
+            $reasons = [];
+            if ($malformed > 0) {
+                $reasons[] = 'malformed_queue_packets:'.$malformed;
+            }
+            if ($poison > 0) {
+                $reasons[] = 'poison_queue_packets:'.$poison;
+            }
+
+            return $this->envelope(self::ACTION_REPAIR_QUEUE, $reasons, $scopeGate);
+        }
+
+        // 4. KNOWLEDGE-SYNC DEGRADED — refresh before anything else continues.
         foreach ($degraded as $row) {
             $organ = is_array($row) ? (string) ($row['organ'] ?? '') : (string) $row;
             if ($organ === 'knowledge_sync') {
@@ -100,12 +118,12 @@ final class AtlasSelfConstructionNextActionSelector
             }
         }
 
-        // 4. OBSERVE MODE — never executes; the cycle observes only.
+        // 5. OBSERVE MODE — never executes; the cycle observes only.
         if ($mode === 'observe') {
             return $this->envelope(self::ACTION_HOLD_POSITION, ['autonomy_mode_observe_only'], $scopeGate);
         }
 
-        // 5..8 — work-queue driven (execute mode).
+        // 6..9 — work-queue driven (execute mode).
         if ((int) ($workQueue['open_verifications'] ?? 0) > 0) {
             return $this->envelope(self::ACTION_VERIFY_CANDIDATES, ['open_verifications_present'], $scopeGate);
         }
