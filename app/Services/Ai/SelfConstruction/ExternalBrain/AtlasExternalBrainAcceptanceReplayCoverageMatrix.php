@@ -43,6 +43,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         'learning_loop'    => ['learning-loop', 'learning loop', 'outcome learning', 'closed loop', 'closed-loop'],
         'anti_goodhart'    => ['anti-goodhart', 'anti goodhart', 'goodhart', 'proxy detection'],
         'queue_health'     => ['queue-health', 'queue health', 'queue integrity', 'task fabric', 'origination cycle'],
+        'autonomy'         => ['autonomy', 'autonomous', 'steady-state', 'no human dependency', 'human dependency'],
     ];
 
     private const DIMENSION_EVIDENCE_KEYS = [
@@ -50,6 +51,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         'learning_loop'    => ['learning_outcome', 'outcome_learning', 'learning_loop_proof'],
         'anti_goodhart'    => ['anti_goodhart', 'goodhart_proof', 'anti_proxy'],
         'queue_health'     => ['queue_health', 'queue_integrity', 'queue_proof'],
+        'autonomy'         => ['autonomy_proof', 'autonomy_assessment', 'autonomy_steady_state', 'autonomy_coverage'],
     ];
 
     /**
@@ -93,6 +95,13 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
             $rejections[] = [
                 'reason'    => 'no_evidence_refs',
                 'dimension' => self::DIM_EVIDENCE_REFS,
+            ];
+        }
+        if ($claimedLeverageGaps !== []) {
+            $rejections[] = [
+                'reason'    => 'claimed_leverage_without_coverage',
+                'dimension' => self::DIM_CLAIMED_LEVERAGE,
+                'gaps'      => $claimedLeverageGaps,
             ];
         }
 
