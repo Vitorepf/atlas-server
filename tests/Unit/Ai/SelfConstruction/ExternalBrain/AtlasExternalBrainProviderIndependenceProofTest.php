@@ -5,234 +5,225 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProviderIndependenceProof;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
 {
-    private function proof(): AtlasExternalBrainProviderIndependenceProof
+    private AtlasExternalBrainProviderIndependenceProof $proof;
+
+    protected function setUp(): void
     {
-        return new AtlasExternalBrainProviderIndependenceProof();
+        $this->proof = new AtlasExternalBrainProviderIndependenceProof;
     }
 
-    private function fullyCoveredPhase(string $phase, array $overrides = []): array
+    private function fullPhase(string $phase, array $overrides = []): array
     {
         return array_merge([
-            'phase'                    => $phase,
-            'has_local_evidence_path'  => true,
-            'has_scaffold_fallback'    => true,
-            'has_benchmark_coverage'   => true,
-            'has_rollback_path'        => true,
+            'phase'                   => $phase,
+            'has_local_evidence_path' => true,
+            'has_scaffold_fallback'   => true,
+            'has_benchmark_coverage'  => true,
+            'has_rollback_path'       => true,
         ], $overrides);
     }
 
-    // ── schema + structure ────────────────────────────────────────────────────
-
-    public function test_schema_present(): void
+    /** Returns all 7 mandatory phases fully covered. */
+    private function allMandatory(array $overridesByPhase = []): array
     {
-        $result = $this->proof()->prove([]);
+        return array_map(
+            fn ($p) => $this->fullPhase($p, $overridesByPhase[$p] ?? []),
+            AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES,
+        );
+    }
 
+    // ── Schema / required keys ────────────────────────────────────────────────
+
+    public function test_result_has_required_keys(): void
+    {
+        $result = $this->proof->prove([]);
+
+        foreach (['schema', 'independent', 'provider_required_phases', 'fallback_coverage', 'optional_frontier_accelerators', 'missing_proofs'] as $k) {
+            $this->assertArrayHasKey($k, $result);
+        }
         $this->assertSame(AtlasExternalBrainProviderIndependenceProof::SCHEMA, $result['schema']);
     }
 
-    public function test_output_has_required_keys(): void
+    // ── AC3: all 7 mandatory phases present and fully covered → independent ───
+
+    public function test_all_mandatory_phases_fully_covered_returns_independent(): void
     {
-        $result = $this->proof()->prove([]);
-
-        foreach (['schema', 'independent', 'provider_required_phases',
-                  'fallback_coverage', 'optional_frontier_accelerators', 'missing_proofs'] as $k) {
-            $this->assertArrayHasKey($k, $result);
-        }
-    }
-
-    // ── independent = true ───────────────────────────────────────────────────
-
-    public function test_independent_when_all_phases_fully_covered(): void
-    {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                $this->fullyCoveredPhase('task_origination'),
-                $this->fullyCoveredPhase('task_validation'),
-                $this->fullyCoveredPhase('rollback'),
-                $this->fullyCoveredPhase('learning'),
-            ],
-        ]);
+        $result = $this->proof->prove(['proof_claims' => $this->allMandatory()]);
 
         $this->assertTrue($result['independent']);
         $this->assertEmpty($result['provider_required_phases']);
         $this->assertEmpty($result['missing_proofs']);
     }
 
-    // ── independent = false when provider required ────────────────────────────
+    // ── AC3: missing any mandatory phase → not independent ───────────────────
 
-    public function test_not_independent_when_requires_live_provider(): void
+    public function test_missing_mandatory_phase_blocks_independence(): void
     {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                $this->fullyCoveredPhase('task_origination', ['requires_live_provider' => true]),
-            ],
+        // Only 6 of 7 — omit queue_self_healing
+        $phases = array_filter(
+            AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES,
+            fn ($p) => $p !== 'queue_self_healing',
+        );
+        $result = $this->proof->prove([
+            'proof_claims' => array_map(fn ($p) => $this->fullPhase($p), array_values($phases)),
         ]);
 
         $this->assertFalse($result['independent']);
-        $phases = array_column($result['provider_required_phases'], 'phase');
-        $this->assertContains('task_origination', $phases);
+        $missingPhases = array_column($result['missing_proofs'], 'phase');
+        $this->assertContains('queue_self_healing', $missingPhases);
     }
 
-    public function test_not_independent_when_requires_manual_provider_selection(): void
+    // ── AC3: all 7 mandatory phase names wired ────────────────────────────────
+
+    public function test_mandatory_phases_constant_has_all_seven(): void
     {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                $this->fullyCoveredPhase('rollback', ['requires_manual_provider_selection' => true]),
-            ],
-        ]);
+        $this->assertCount(7, AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES);
+        foreach (['task_origination', 'task_validation', 'outcome_learning', 'queue_self_healing', 'scaffold_promotion', 'rollback', 'autonomy_stop_go'] as $p) {
+            $this->assertContains($p, AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES);
+        }
+    }
+
+    // ── AC2: reject requires_live_provider ───────────────────────────────────
+
+    public function test_requires_live_provider_blocks_independence(): void
+    {
+        $claims = $this->allMandatory(['task_origination' => ['requires_live_provider' => true]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
 
         $this->assertFalse($result['independent']);
-        $phases = array_column($result['provider_required_phases'], 'phase');
-        $this->assertContains('rollback', $phases);
+        $reasons = $this->reasonsForPhase($result, 'task_origination');
+        $this->assertContains('requires_live_provider', $reasons);
     }
 
-    public function test_not_independent_when_has_provider_specific_traces(): void
+    // ── AC2: reject requires_manual_provider_selection ───────────────────────
+
+    public function test_requires_manual_provider_selection_blocks_independence(): void
     {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                $this->fullyCoveredPhase('learning', ['has_provider_specific_traces' => true]),
-            ],
-        ]);
+        $claims = $this->allMandatory(['task_validation' => ['requires_manual_provider_selection' => true]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
 
         $this->assertFalse($result['independent']);
-        $phases = array_column($result['provider_required_phases'], 'phase');
-        $this->assertContains('learning', $phases);
+        $this->assertContains('requires_manual_provider_selection', $this->reasonsForPhase($result, 'task_validation'));
     }
 
-    // ── provider_required_phases reasons ─────────────────────────────────────
+    // ── AC2: reject has_provider_specific_traces ──────────────────────────────
 
-    public function test_reasons_list_all_failures_for_a_phase(): void
+    public function test_provider_specific_traces_blocks_independence(): void
     {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                $this->fullyCoveredPhase('task_validation', [
-                    'requires_live_provider'             => true,
-                    'requires_manual_provider_selection' => true,
-                ]),
-            ],
-        ]);
-
-        $phaseEntry = current(array_filter(
-            $result['provider_required_phases'],
-            fn ($p) => $p['phase'] === 'task_validation',
-        ));
-        $this->assertContains('requires_live_provider', $phaseEntry['reasons']);
-        $this->assertContains('requires_manual_provider_selection', $phaseEntry['reasons']);
-    }
-
-    // ── missing_proofs ────────────────────────────────────────────────────────
-
-    public function test_not_independent_when_coverage_missing(): void
-    {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                [
-                    'phase'                   => 'task_origination',
-                    'has_local_evidence_path' => false,
-                    'has_scaffold_fallback'   => true,
-                    'has_benchmark_coverage'  => true,
-                    'has_rollback_path'       => true,
-                ],
-            ],
-        ]);
+        $claims = $this->allMandatory(['rollback' => ['has_provider_specific_traces' => true]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
 
         $this->assertFalse($result['independent']);
-        $this->assertNotEmpty($result['missing_proofs']);
+        $this->assertContains('has_provider_specific_traces', $this->reasonsForPhase($result, 'rollback'));
     }
 
-    public function test_missing_proofs_lists_absent_coverage_keys(): void
+    // ── AC2: reject requires_operator_intervention ────────────────────────────
+
+    public function test_operator_intervention_blocks_independence(): void
     {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                [
-                    'phase'                   => 'rollback',
-                    'has_local_evidence_path' => false,
-                    'has_scaffold_fallback'   => false,
-                    'has_benchmark_coverage'  => true,
-                    'has_rollback_path'       => true,
-                ],
+        $claims = $this->allMandatory(['autonomy_stop_go' => ['requires_operator_intervention' => true]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $this->assertFalse($result['independent']);
+        $this->assertContains('requires_operator_intervention', $this->reasonsForPhase($result, 'autonomy_stop_go'));
+    }
+
+    // ── AC2: reject requires_frontier_only_judgement ──────────────────────────
+
+    public function test_frontier_only_judgement_blocks_independence(): void
+    {
+        $claims = $this->allMandatory(['outcome_learning' => ['requires_frontier_only_judgement' => true]]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $this->assertFalse($result['independent']);
+        $this->assertContains('requires_frontier_only_judgement', $this->reasonsForPhase($result, 'outcome_learning'));
+    }
+
+    // ── AC2: missing coverage types flagged in missing_proofs ─────────────────
+
+    public function test_missing_coverage_flagged_per_phase(): void
+    {
+        $claims = $this->allMandatory([
+            'scaffold_promotion' => [
+                'has_local_evidence_path' => false,
+                'has_scaffold_fallback'   => false,
             ],
         ]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
 
-        $entry = current(array_filter($result['missing_proofs'], fn ($m) => $m['phase'] === 'rollback'));
+        $this->assertFalse($result['independent']);
+        $entry = $this->missingProofForPhase($result, 'scaffold_promotion');
         $this->assertContains('has_local_evidence_path', $entry['missing_coverage']);
         $this->assertContains('has_scaffold_fallback', $entry['missing_coverage']);
         $this->assertNotContains('has_benchmark_coverage', $entry['missing_coverage']);
     }
 
-    // ── fallback_coverage ─────────────────────────────────────────────────────
+    // ── AC4: optional frontier accelerators preserved separately ─────────────
 
-    public function test_fallback_coverage_reflects_input_flags(): void
+    public function test_optional_accelerators_preserved_and_do_not_affect_independence(): void
     {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                [
-                    'phase'                   => 'task_validation',
-                    'has_local_evidence_path' => true,
-                    'has_scaffold_fallback'   => false,
-                    'has_benchmark_coverage'  => true,
-                    'has_rollback_path'       => false,
-                ],
-            ],
+        $claims = $this->allMandatory([
+            'task_origination' => ['optional_frontier_accelerators' => ['gpt-5', 'claude-fable']],
         ]);
-
-        $coverage = $result['fallback_coverage']['task_validation'];
-        $this->assertTrue($coverage['local_evidence']);
-        $this->assertFalse($coverage['scaffold']);
-        $this->assertTrue($coverage['benchmark']);
-        $this->assertFalse($coverage['rollback']);
-    }
-
-    // ── optional_frontier_accelerators ───────────────────────────────────────
-
-    public function test_optional_accelerators_preserved_per_phase(): void
-    {
-        $result = $this->proof()->prove([
-            'proof_claims' => [
-                $this->fullyCoveredPhase('learning', [
-                    'optional_frontier_accelerators' => ['gpt-5', 'claude-fable'],
-                ]),
-            ],
-        ]);
-
-        $this->assertSame(['gpt-5', 'claude-fable'], $result['optional_frontier_accelerators']['learning']);
-    }
-
-    public function test_optional_accelerators_empty_by_default(): void
-    {
-        $result = $this->proof()->prove([
-            'proof_claims' => [$this->fullyCoveredPhase('rollback')],
-        ]);
-
-        $this->assertSame([], $result['optional_frontier_accelerators']['rollback']);
-    }
-
-    // ── empty input ───────────────────────────────────────────────────────────
-
-    public function test_empty_claims_yields_independent_true(): void
-    {
-        $result = $this->proof()->prove(['proof_claims' => []]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
 
         $this->assertTrue($result['independent']);
-        $this->assertEmpty($result['provider_required_phases']);
-        $this->assertEmpty($result['missing_proofs']);
+        $this->assertSame(['gpt-5', 'claude-fable'], $result['optional_frontier_accelerators']['task_origination']);
     }
 
-    // ── determinism ──────────────────────────────────────────────────────────
+    // ── Fallback_coverage reflects input flags ────────────────────────────────
+
+    public function test_fallback_coverage_reflects_input(): void
+    {
+        $claims = $this->allMandatory([
+            'queue_self_healing' => [
+                'has_local_evidence_path' => true,
+                'has_scaffold_fallback'   => false,
+                'has_benchmark_coverage'  => true,
+                'has_rollback_path'       => false,
+            ],
+        ]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $cov = $result['fallback_coverage']['queue_self_healing'];
+        $this->assertTrue($cov['local_evidence']);
+        $this->assertFalse($cov['scaffold']);
+        $this->assertTrue($cov['benchmark']);
+        $this->assertFalse($cov['rollback']);
+    }
+
+    // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_identical_input_yields_identical_output(): void
     {
-        $input = [
-            'proof_claims' => [
-                $this->fullyCoveredPhase('task_origination'),
-                $this->fullyCoveredPhase('task_validation', ['requires_live_provider' => true]),
-            ],
-        ];
+        $input = ['proof_claims' => $this->allMandatory()];
 
-        $this->assertSame($this->proof()->prove($input), $this->proof()->prove($input));
+        $this->assertSame($this->proof->prove($input), $this->proof->prove($input));
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    private function reasonsForPhase(array $result, string $phase): array
+    {
+        foreach ($result['provider_required_phases'] as $entry) {
+            if ($entry['phase'] === $phase) {
+                return $entry['reasons'];
+            }
+        }
+        return [];
+    }
+
+    private function missingProofForPhase(array $result, string $phase): array
+    {
+        foreach ($result['missing_proofs'] as $entry) {
+            if ($entry['phase'] === $phase) {
+                return $entry;
+            }
+        }
+        $this->fail("No missing_proof entry for phase '{$phase}'.");
     }
 }
