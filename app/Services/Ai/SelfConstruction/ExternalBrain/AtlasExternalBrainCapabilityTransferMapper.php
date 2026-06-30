@@ -10,15 +10,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   - REJECT     — emit rejected_transfer with a stable rejection reason code
  *
  * Rejection precedence (first match wins):
- *   1. circular_dependency        : source.area === destination.area
- *   2. lacks_source_evidence      : evidence_refs empty AND strength <= 0
- *   3. name_only_similarity       : word overlap >= NAME_OVERLAP_MIN AND strength < EVIDENCE_THRESHOLD
- *   4. low_destination_fit        : destination_fit_score < DESTINATION_FIT_THRESHOLD
- *   5. missing_behavior_proof     : strength < EVIDENCE_THRESHOLD AND refs non-empty AND no behavior-proof prefix
- *   6. adaptation_risk_too_high   : pair risk count > ADAPTATION_RISK_CEILING
+ *   1. circular_dependency           : source.area === destination.area
+ *   2. lacks_source_evidence         : evidence_refs empty AND strength <= 0
+ *   3. lacks_destination_context     : destination_gap.has_required_context === false
+ *   4. lacks_destination_evidence    : destination_gap.has_required_evidence === false
+ *   5. name_only_similarity          : word overlap >= NAME_OVERLAP_MIN AND strength < EVIDENCE_THRESHOLD
+ *   6. low_destination_fit           : destination_fit_score < DESTINATION_FIT_THRESHOLD
+ *   7. missing_behavior_proof        : strength < EVIDENCE_THRESHOLD AND refs non-empty AND no behavior-proof prefix
+ *   8. adaptation_risk_too_high      : pair risk count > ADAPTATION_RISK_CEILING
  *
  * Each recommendation includes: priority_score, required_adaptations, proof_requirements,
- *   destination_fit_score, risk_penalty, transfer_type.
+ *   destination_fit_score, risk_penalty, transfer_type, transfer_value, adaptation_risk,
+ *   first_safe_task.
  *
  * transfer_type:
  *   direct_transfer    — evidence_strength >= HIGH_EVIDENCE_THRESHOLD
@@ -67,10 +70,12 @@ final class AtlasExternalBrainCapabilityTransferMapper
                 $dstName     = (string) ($dst['name']                  ?? '');
                 $dstArea     = (string) ($dst['area']                  ?? '');
                 $dstFitScore = (float)  ($dst['destination_fit_score'] ?? 1.0);
+                $dstHasContext  = (bool) ($dst['has_required_context']  ?? true);
+                $dstHasEvidence = (bool) ($dst['has_required_evidence'] ?? true);
 
                 $reason = $this->rejectionReason(
                     $srcName, $srcArea, $srcEvidence, $srcStrength,
-                    $dstArea, $dstName, $dstFitScore,
+                    $dstArea, $dstName, $dstFitScore, $dstHasContext, $dstHasEvidence,
                 );
                 if ($reason !== null) {
                     $rejected[] = ['source_id' => $srcId, 'destination_id' => $dstId, 'rejection_reason' => $reason];
@@ -98,6 +103,12 @@ final class AtlasExternalBrainCapabilityTransferMapper
                 $proofReqs = ['tests_or_gates_result', 'behavior_observable_in_destination'];
                 $proofReqs[] = $srcStrength >= self::HIGH_EVIDENCE_THRESHOLD ? 'direct_transfer_test' : 'adaptation_proof';
 
+                $firstSafeTask = $transferType === 'direct_transfer'
+                    ? "prove_direct_transfer:{$srcId}->{$dstId}:direct_transfer_test"
+                    : ($pairRisks !== []
+                        ? "resolve_adaptation_risk:{$srcId}->{$dstId}:{$pairRisks[0]}"
+                        : "implement_adaptation_proof:{$srcId}->{$dstId}");
+
                 $recommendations[] = [
                     'source_id'              => $srcId,
                     'destination_id'         => $dstId,
@@ -107,6 +118,13 @@ final class AtlasExternalBrainCapabilityTransferMapper
                     'destination_fit_score'  => $dstFitScore,
                     'risk_penalty'           => $riskPenalty,
                     'transfer_type'          => $transferType,
+                    'transfer_value'         => $priorityScore,
+                    'adaptation_risk'        => [
+                        'count'   => count($pairRisks),
+                        'items'   => $pairRisks,
+                        'penalty' => $riskPenalty,
+                    ],
+                    'first_safe_task'        => $firstSafeTask,
                 ];
             }
         }
@@ -124,12 +142,19 @@ final class AtlasExternalBrainCapabilityTransferMapper
         string $srcName, string $srcArea,
         array $srcEvidence, float $srcStrength,
         string $dstArea, string $dstName, float $dstFitScore,
+        bool $dstHasContext, bool $dstHasEvidence,
     ): ?string {
         if ($srcArea !== '' && $srcArea === $dstArea) {
             return 'circular_dependency';
         }
         if ($srcEvidence === [] && $srcStrength <= 0.0) {
             return 'lacks_source_evidence';
+        }
+        if (! $dstHasContext) {
+            return 'lacks_destination_context';
+        }
+        if (! $dstHasEvidence) {
+            return 'lacks_destination_evidence';
         }
         if ($srcStrength < self::EVIDENCE_THRESHOLD && $this->wordOverlap($srcName, $dstName) >= self::NAME_OVERLAP_MIN) {
             return 'name_only_similarity';

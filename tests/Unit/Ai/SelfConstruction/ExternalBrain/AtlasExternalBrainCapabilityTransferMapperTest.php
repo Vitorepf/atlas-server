@@ -259,6 +259,64 @@ final class AtlasExternalBrainCapabilityTransferMapperTest extends TestCase
         $this->assertArrayHasKey('rejected_transfers', $r);
     }
 
+    // ── AC4: transfer_value, adaptation_risk, first_safe_task ──────────────────
+
+    public function test_recommendation_emits_transfer_value_adaptation_risk_and_first_safe_task(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [$this->dst('gap-1', 'Health integration', 'maestro')],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $rec = $r['transfer_recommendations'][0];
+        $this->assertSame($rec['priority_score'], $rec['transfer_value']);
+        $this->assertSame(0, $rec['adaptation_risk']['count']);
+        $this->assertSame([], $rec['adaptation_risk']['items']);
+        $this->assertSame('prove_direct_transfer:cap-1->gap-1:direct_transfer_test', $rec['first_safe_task']);
+    }
+
+    public function test_first_safe_task_targets_first_adaptation_risk_when_present(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Foo service helper', 'loop')],
+            'destination_gaps'    => [$this->dst('gap-1', 'Foo integration wrapper', 'maestro')],
+            'evidence_strength'   => ['cap-1' => 0.5],
+            'adaptation_risks'    => [['source_id' => 'cap-1', 'destination_id' => 'gap-1', 'risk' => 'api_surface_mismatch']],
+        ]);
+
+        $rec = $r['transfer_recommendations'][0];
+        $this->assertSame('resolve_adaptation_risk:cap-1->gap-1:api_surface_mismatch', $rec['first_safe_task']);
+        $this->assertSame(1, $rec['adaptation_risk']['count']);
+        $this->assertContains('api_surface_mismatch', $rec['adaptation_risk']['items']);
+    }
+
+    // ── AC3: rejection — destination lacks required context/evidence ──────────
+
+    public function test_destination_lacking_required_context_is_rejected(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [array_merge($this->dst('gap-1', 'Health integration', 'maestro'), ['has_required_context' => false])],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertEmpty($r['transfer_recommendations']);
+        $this->assertSame('lacks_destination_context', $r['rejected_transfers'][0]['rejection_reason']);
+    }
+
+    public function test_destination_lacking_required_evidence_is_rejected(): void
+    {
+        $r = $this->mapper->map([
+            'source_capabilities' => [$this->src('cap-1', 'Health monitor', 'loop')],
+            'destination_gaps'    => [array_merge($this->dst('gap-1', 'Health integration', 'maestro'), ['has_required_evidence' => false])],
+            'evidence_strength'   => ['cap-1' => 0.8],
+        ]);
+
+        $this->assertEmpty($r['transfer_recommendations']);
+        $this->assertSame('lacks_destination_evidence', $r['rejected_transfers'][0]['rejection_reason']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void
