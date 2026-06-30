@@ -92,6 +92,31 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflightTest extend
         $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
     }
 
+    public function test_empty_changed_files_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight($this->happyProposal([
+            'changed_files' => [],
+            'rollback_preimage' => [],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('empty_changed_files', $verdict['blockers']);
+    }
+
+    public function test_forbidden_target_alias_is_rejected(): void
+    {
+        // ./config/atlas.php is an alias of config/atlas.php — must still be caught.
+        $verdict = (new AtlasSelfConstructionNativeImplementationReleasePreflight)->preflight($this->happyProposal([
+            'changed_files' => ['./config/atlas.php'],
+            'allowed_files' => ['./config/atlas.php'],
+            'forbidden_targets' => ['config/atlas.php'],
+            'rollback_preimage' => ['./config/atlas.php' => 'sha-prev'],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationReleasePreflight::DECISION_REJECT, $verdict['decision']);
+        $this->assertContains('change_in_forbidden_targets:./config/atlas.php', $verdict['blockers']);
+    }
+
     public function test_preflight_does_not_apply_diff(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionNativeImplementationReleasePreflight.php'));

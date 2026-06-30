@@ -51,12 +51,18 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflight
         $rejectBlockers = [];
         $needsMoreBlockers = [];
 
-        // REJECT — out-of-scope or forbidden changes.
+        // REJECT — empty change set carries no evidence and must not be auto-allowed.
+        if ($changed === []) {
+            $rejectBlockers[] = 'empty_changed_files';
+        }
+
+        // REJECT — out-of-scope or forbidden changes (with alias normalization).
+        $normalizedForbidden = array_map($this->normalizePath(...), $forbidden);
         foreach ($changed as $c) {
             if (! in_array($c, $allowed, true)) {
                 $rejectBlockers[] = 'change_outside_allowed_files:'.$c;
             }
-            if (in_array($c, $forbidden, true)) {
+            if (in_array($this->normalizePath($c), $normalizedForbidden, true)) {
                 $rejectBlockers[] = 'change_in_forbidden_targets:'.$c;
             }
         }
@@ -106,6 +112,12 @@ final class AtlasSelfConstructionNativeImplementationReleasePreflight
         }
 
         return $this->envelope(self::DECISION_ALLOW, []);
+    }
+
+    private function normalizePath(string $path): string
+    {
+        // Strip leading ./ and collapse repeated slashes for alias-safe comparison.
+        return ltrim(preg_replace('#/+#', '/', $path) ?? $path, './');
     }
 
     /**
