@@ -86,14 +86,45 @@ final class AtlasLoopAntiGoodhartUnifiedRefusal
     }
 
     /**
+     * Deterministic template fingerprint for a task context. Stable hash + normalized family facts so callers
+     * can detect repeated task families (template farms) without fabricating examples.
+     *
+     * @param  array<string,mixed>  $taskContext
+     * @return array{hash:string, normalized_objective:string, allowed_files_shape:string, acceptance_pattern:string}
+     */
+    public static function templateFingerprint(array $taskContext): array
+    {
+        $objective = (string) preg_replace('/\s+/', ' ', trim((string) preg_replace('/[0-9]+/', '', strtolower(trim((string) ($taskContext['objective'] ?? ''))))));
+
+        $files = is_array($taskContext['allowed_files'] ?? null) ? array_map('strval', (array) $taskContext['allowed_files']) : [];
+        sort($files, SORT_STRING);
+        $filesShape = implode(',', array_map(static fn (string $f): string => pathinfo($f, PATHINFO_EXTENSION) ?: 'dir', $files));
+
+        $criteria = is_array($taskContext['acceptance_criteria'] ?? null) ? (array) $taskContext['acceptance_criteria'] : [];
+        $acceptPattern = (string) preg_replace('/[0-9]+/', '', strtolower(trim((string) ($criteria[0] ?? ''))));
+
+        $family = ['objective' => $objective, 'files_shape' => $filesShape, 'accept_pattern' => $acceptPattern];
+        $hash = hash('sha256', (string) json_encode($family, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+
+        return [
+            'hash' => $hash,
+            'normalized_objective' => $objective,
+            'allowed_files_shape' => $filesShape,
+            'acceptance_pattern' => $acceptPattern,
+        ];
+    }
+
+    /**
      * High-level entry point: runs the 3-voter {@see AtlasLoopRefusalCriticPanel} over $taskContext and
      * merges every panel vote into the unified verdict's reasons[] (NO vote is silently dropped). Direct
-     * service-detected signals can be appended via $extraFacts.
+     * service-detected signals can be appended via $extraFacts. When $previousFingerprints is supplied,
+     * appends a farm refusal fact if the current task's fingerprint repeats >= $farmThreshold times.
      *
      * @param  array<string,mixed>  $taskContext
      * @param  list<array<string,mixed>>  $extraFacts  optional direct service-detected refusal facts
+     * @param  list<array{hash:string,...}>  $previousFingerprints  prior templateFingerprint() results
      */
-    public static function evaluate(array $taskContext, array $extraFacts = []): AtlasLoopAntiGoodhartRefusalVerdict
+    public static function evaluate(array $taskContext, array $extraFacts = [], array $previousFingerprints = [], int $farmThreshold = 3): AtlasLoopAntiGoodhartRefusalVerdict
     {
         $panel = app(AtlasLoopRefusalCriticPanel::class)->deliberate($taskContext);
 
@@ -118,6 +149,25 @@ final class AtlasLoopAntiGoodhartUnifiedRefusal
                 'severity' => $severity,
                 'evidence_refs' => [],
             ];
+        }
+
+        if ($previousFingerprints !== []) {
+            $fp = self::templateFingerprint($taskContext);
+            $matchCount = count(array_filter($previousFingerprints, static fn (array $prev): bool => ($prev['hash'] ?? '') === $fp['hash']));
+            if ($matchCount >= $farmThreshold) {
+                $candidate[] = [
+                    'source' => self::SOURCE_FARM,
+                    'pattern_id' => 'template-farm-repeat',
+                    'fact' => [
+                        'family_hash' => $fp['hash'],
+                        'repeat_count' => $matchCount,
+                        'threshold' => $farmThreshold,
+                        'normalized_objective' => $fp['normalized_objective'],
+                    ],
+                    'severity' => self::SEVERITY_HIGH,
+                    'evidence_refs' => ['template_fingerprint', 'previous_fingerprints'],
+                ];
+            }
         }
 
         foreach ($extraFacts as $extra) {
