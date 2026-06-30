@@ -162,6 +162,142 @@ final class AtlasExternalBrainPostCommitLearningFeedbackRouterTest extends TestC
         $this->assertNotEmpty($r['promoted_lessons']);
     }
 
+    // ── AC1: positive_lessons (AC2 suppression) ──────────────────────────────
+
+    public function test_positive_lessons_populated_for_clean_commit(): void
+    {
+        $r = $this->route([$this->commit('clean', ['compounding_value' => 8, 'test_strength' => 9])]);
+
+        $this->assertNotEmpty($r['positive_lessons']);
+        $lessons = array_column($r['positive_lessons'], 'lesson');
+        $this->assertContains('high_compounding_value', $lessons);
+    }
+
+    public function test_positive_lessons_empty_when_weak_tests(): void
+    {
+        // AC2: weak_tests blocks positive_lessons even if compounding is high.
+        $r = $this->route([$this->commit('fragile', ['test_strength' => 2, 'compounding_value' => 9])]);
+
+        $this->assertSame([], $r['positive_lessons']);
+        // promoted_lessons still has the lesson (backward compat).
+        $this->assertNotEmpty($r['promoted_lessons']);
+    }
+
+    public function test_positive_lessons_empty_when_capability_delta_zero(): void
+    {
+        // AC2: explicit capability_delta=0 blocks positive_lessons.
+        $r = $this->route([$this->commit('noop', ['capability_delta' => 0, 'compounding_value' => 8, 'test_strength' => 9])]);
+
+        $this->assertSame([], $r['positive_lessons']);
+        $this->assertNotEmpty($r['promoted_lessons']);
+    }
+
+    public function test_capability_delta_warning_when_zero(): void
+    {
+        $r = $this->route([$this->commit('noop', ['capability_delta' => 0])]);
+
+        $warnTypes = array_column($r['warnings'], 'warning');
+        $this->assertContains('no_capability_delta', $warnTypes);
+    }
+
+    public function test_no_capability_delta_warning_when_field_absent(): void
+    {
+        // Field absent → no warning (opt-in, backward compat).
+        $r = $this->route([$this->commit('real-cap')]);
+
+        $warnTypes = array_column($r['warnings'], 'warning');
+        $this->assertNotContains('no_capability_delta', $warnTypes);
+    }
+
+    public function test_positive_lessons_not_blocked_by_nonzero_capability_delta(): void
+    {
+        $r = $this->route([$this->commit('good', ['capability_delta' => 1, 'compounding_value' => 8, 'test_strength' => 9])]);
+
+        $this->assertNotEmpty($r['positive_lessons']);
+    }
+
+    // ── AC1: negative_constraints ─────────────────────────────────────────────
+
+    public function test_negative_constraints_mirrors_next_batch_constraints(): void
+    {
+        $r = $this->route([$this->commit('cap', ['scope_size' => 5])]);
+
+        $this->assertSame($r['next_batch_constraints'], $r['negative_constraints']);
+    }
+
+    public function test_negative_constraints_empty_for_clean_commit(): void
+    {
+        $r = $this->route([$this->commit('clean', ['compounding_value' => 8, 'test_strength' => 9])]);
+
+        $this->assertSame([], $r['negative_constraints']);
+    }
+
+    // ── AC1: worker_affinity_updates ──────────────────────────────────────────
+
+    public function test_worker_affinity_boost_for_high_compounding_and_strong_tests(): void
+    {
+        $r = $this->route([$this->commit('cap', ['worker_id' => 'w-001', 'compounding_value' => 8, 'test_strength' => 9])]);
+
+        $this->assertCount(1, $r['worker_affinity_updates']);
+        $this->assertSame('boost', $r['worker_affinity_updates'][0]['affinity']);
+        $this->assertSame('w-001', $r['worker_affinity_updates'][0]['worker_id']);
+    }
+
+    public function test_worker_affinity_suppress_for_low_compounding(): void
+    {
+        $r = $this->route([$this->commit('cap', ['worker_id' => 'w-002', 'compounding_value' => 2])]);
+
+        $this->assertCount(1, $r['worker_affinity_updates']);
+        $this->assertSame('suppress', $r['worker_affinity_updates'][0]['affinity']);
+    }
+
+    public function test_worker_affinity_empty_when_no_worker_id(): void
+    {
+        $r = $this->route([$this->commit('cap')]);
+
+        $this->assertSame([], $r['worker_affinity_updates']);
+    }
+
+    // ── AC1: task_family_policy_updates ───────────────────────────────────────
+
+    public function test_task_family_policy_promote_for_high_compounding(): void
+    {
+        $r = $this->route([$this->commit('cap', ['task_family' => 'refactor', 'compounding_value' => 8])]);
+
+        $this->assertCount(1, $r['task_family_policy_updates']);
+        $this->assertSame('promote', $r['task_family_policy_updates'][0]['policy']);
+        $this->assertSame('refactor', $r['task_family_policy_updates'][0]['task_family']);
+    }
+
+    public function test_task_family_policy_deprioritize_for_duplicate(): void
+    {
+        $r = $this->route([$this->commit('cap', ['task_family' => 'test-add', 'duplicate_detected' => true])]);
+
+        $this->assertSame('deprioritize', $r['task_family_policy_updates'][0]['policy']);
+    }
+
+    public function test_task_family_policy_deprioritize_for_low_compounding(): void
+    {
+        $r = $this->route([$this->commit('cap', ['task_family' => 'cleanup', 'compounding_value' => 1])]);
+
+        $this->assertSame('deprioritize', $r['task_family_policy_updates'][0]['policy']);
+    }
+
+    public function test_task_family_policy_watch_for_moderate_commit(): void
+    {
+        // compounding=5 (< HIGH, >= LOW), no duplicate → watch.
+        $r = $this->route([$this->commit('cap', ['task_family' => 'misc', 'compounding_value' => 5])]);
+
+        $this->assertSame('watch', $r['task_family_policy_updates'][0]['policy']);
+    }
+
+    public function test_task_family_policy_empty_when_no_task_family(): void
+    {
+        $r = $this->route([$this->commit('cap')]);
+
+        $this->assertSame([], $r['task_family_policy_updates']);
+    }
+
     // ── schema + empty ────────────────────────────────────────────────────────
 
     public function test_schema_version_present(): void
