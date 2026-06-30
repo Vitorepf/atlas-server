@@ -84,10 +84,19 @@ final class AtlasExternalBrainImpactForecastCalibrator
                 $repeatedOverclaimFlags = array_merge($repeatedOverclaimFlags, $familyOverclaimFlags);
             }
 
+            [$overclaim, $underclaim, $multiplier] = $this->perFamilyRates(
+                $familyForecasts,
+                $familyOutcomes,
+            );
+
             $calibrations[] = [
                 'task_family'              => $family,
                 'forecast_error'           => $forecastError,
                 'confidence_adjustment'    => $confidenceAdj,
+                'calibration_bias'         => round(-$confidenceAdj, 4),
+                'overclaim_rate'           => $overclaim,
+                'underclaim_rate'          => $underclaim,
+                'next_forecast_multiplier' => $multiplier,
                 'repeated_overclaim_flags' => $familyOverclaimFlags,
                 'next_ranking_hint'        => $nextRankingHint,
             ];
@@ -160,8 +169,10 @@ final class AtlasExternalBrainImpactForecastCalibrator
         $unlocks = max(0, (int) ($outcome['downstream_unlocks'] ?? 0));
         $unlockBonus = min(0.2, $unlocks * 0.05);
 
-        // Durable green evidence bonus.
-        $greenBonus = (bool) ($outcome['green_evidence'] ?? false) ? 0.05 : 0.0;
+        // Green evidence bonus — suppressed for proxy outcomes and no-delta deliveries (AC2):
+        // green tests on a proxy/no-delta commit do not indicate real capability gain.
+        $suppressGreen = ($kind === self::OUTCOME_PROXY) || ($kind === self::OUTCOME_DELIVERED && $delta === 'none');
+        $greenBonus = (! $suppressGreen && (bool) ($outcome['green_evidence'] ?? false)) ? 0.05 : 0.0;
 
         // Give-back churn penalty (applies even to "delivered" tasks with high churn).
         $churn   = max(0, (int) ($outcome['give_back_churn'] ?? 0));
@@ -221,6 +232,52 @@ final class AtlasExternalBrainImpactForecastCalibrator
         }
 
         return $flags;
+    }
+
+    /**
+     * Returns [overclaim_rate, underclaim_rate, next_forecast_multiplier] for a family.
+     * Pairs forecasts to outcomes by index (up to min of both counts).
+     *
+     * next_forecast_multiplier = clamp(1.0 − calibration_bias, 0.5, 1.5)
+     * where calibration_bias = avg(predicted_score − actual_score) per pair.
+     *
+     * @param  list<array<string,mixed>>  $forecasts
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return array{float, float, float}
+     */
+    private function perFamilyRates(array $forecasts, array $outcomes): array
+    {
+        $pairs = min(count($forecasts), count($outcomes));
+
+        if ($pairs === 0) {
+            $bias       = $this->averagePredictedScore($forecasts) - $this->averageActualScore($outcomes);
+            $multiplier = round(max(0.5, min(1.5, 1.0 - $bias)), 4);
+            return [0.0, 0.0, $multiplier];
+        }
+
+        $overclaims  = 0;
+        $underclaims = 0;
+        $totalBias   = 0.0;
+
+        for ($i = 0; $i < $pairs; $i++) {
+            $predicted = $this->leverageScore((string) ($forecasts[$i]['predicted_leverage'] ?? ''));
+            $actual    = $this->actualLeverageScore($outcomes[$i]);
+            $diff      = $predicted - $actual;
+            $totalBias += $diff;
+
+            if ($diff >= self::OVERCLAIM_THRESHOLD) {
+                $overclaims++;
+            } elseif ($diff <= -self::OVERCLAIM_THRESHOLD) {
+                $underclaims++;
+            }
+        }
+
+        $overclaim_rate  = round($overclaims / $pairs, 4);
+        $underclaim_rate = round($underclaims / $pairs, 4);
+        $bias            = round($totalBias / $pairs, 4);
+        $multiplier      = round(max(0.5, min(1.5, 1.0 - $bias)), 4);
+
+        return [$overclaim_rate, $underclaim_rate, $multiplier];
     }
 
     /**

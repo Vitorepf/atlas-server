@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainImpactForecastCalibrator;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
 {
@@ -44,11 +44,152 @@ final class AtlasExternalBrainImpactForecastCalibratorTest extends TestCase
 
         $this->assertCount(1, $result['calibrations']);
         $cal = $result['calibrations'][0];
-        $this->assertArrayHasKey('task_family', $cal);
-        $this->assertArrayHasKey('forecast_error', $cal);
-        $this->assertArrayHasKey('confidence_adjustment', $cal);
-        $this->assertArrayHasKey('repeated_overclaim_flags', $cal);
-        $this->assertArrayHasKey('next_ranking_hint', $cal);
+        foreach ([
+            'task_family', 'forecast_error', 'confidence_adjustment',
+            'calibration_bias', 'overclaim_rate', 'underclaim_rate',
+            'next_forecast_multiplier', 'repeated_overclaim_flags', 'next_ranking_hint',
+        ] as $key) {
+            $this->assertArrayHasKey($key, $cal, "Missing key: {$key}");
+        }
+    }
+
+    // ── AC1: calibration_bias, overclaim_rate, underclaim_rate ───────────────
+
+    public function test_overclaim_rate_one_when_every_observation_is_overclaim(): void
+    {
+        // predicted=high (0.9), actual=give_back (0.0) — gap 0.9 > threshold
+        $result = $this->calibrator()->calibrate(
+            [
+                ['task_family' => 'x', 'predicted_leverage' => 'high'],
+                ['task_family' => 'x', 'predicted_leverage' => 'high'],
+            ],
+            [
+                ['task_family' => 'x', 'actual_outcome' => 'give_back'],
+                ['task_family' => 'x', 'actual_outcome' => 'give_back'],
+            ],
+        );
+
+        $cal = $result['calibrations'][0];
+        $this->assertEqualsWithDelta(1.0, $cal['overclaim_rate'], 0.01);
+        $this->assertEqualsWithDelta(0.0, $cal['underclaim_rate'], 0.01);
+        $this->assertGreaterThan(0.0, $cal['calibration_bias']);
+    }
+
+    public function test_underclaim_rate_one_when_every_observation_is_underclaim(): void
+    {
+        // predicted=low (0.1), actual=delivered+high+unlocks → well above
+        $result = $this->calibrator()->calibrate(
+            [
+                ['task_family' => 'x', 'predicted_leverage' => 'low'],
+                ['task_family' => 'x', 'predicted_leverage' => 'low'],
+            ],
+            [
+                ['task_family' => 'x', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4],
+                ['task_family' => 'x', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4],
+            ],
+        );
+
+        $cal = $result['calibrations'][0];
+        $this->assertEqualsWithDelta(0.0, $cal['overclaim_rate'], 0.01);
+        $this->assertEqualsWithDelta(1.0, $cal['underclaim_rate'], 0.01);
+        $this->assertLessThan(0.0, $cal['calibration_bias']);
+    }
+
+    // ── AC1: next_forecast_multiplier ────────────────────────────────────────
+
+    public function test_overclaiming_reduces_next_forecast_multiplier_below_one(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'high']],
+            [['task_family' => 'x', 'actual_outcome' => 'give_back']],
+        );
+
+        $this->assertLessThan(1.0, $result['calibrations'][0]['next_forecast_multiplier']);
+    }
+
+    public function test_underclaiming_raises_next_forecast_multiplier_above_one(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'low']],
+            [['task_family' => 'x', 'actual_outcome' => 'delivered', 'capability_delta' => 'high', 'downstream_unlocks' => 4]],
+        );
+
+        $this->assertGreaterThan(1.0, $result['calibrations'][0]['next_forecast_multiplier']);
+    }
+
+    public function test_accurate_prediction_keeps_multiplier_near_one(): void
+    {
+        $result = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'medium']],
+            [['task_family' => 'x', 'actual_outcome' => 'delivered', 'capability_delta' => 'medium']],
+        );
+
+        $multiplier = $result['calibrations'][0]['next_forecast_multiplier'];
+        $this->assertGreaterThanOrEqual(0.9, $multiplier);
+        $this->assertLessThanOrEqual(1.1, $multiplier);
+    }
+
+    public function test_next_forecast_multiplier_clamped_between_0_5_and_1_5(): void
+    {
+        // extreme overclaim: predicted=high, actual=give_back multiple times
+        $result = $this->calibrator()->calibrate(
+            [
+                ['task_family' => 'x', 'predicted_leverage' => 'high'],
+                ['task_family' => 'x', 'predicted_leverage' => 'high'],
+                ['task_family' => 'x', 'predicted_leverage' => 'high'],
+            ],
+            [
+                ['task_family' => 'x', 'actual_outcome' => 'give_back'],
+                ['task_family' => 'x', 'actual_outcome' => 'give_back'],
+                ['task_family' => 'x', 'actual_outcome' => 'give_back'],
+            ],
+        );
+
+        $m = $result['calibrations'][0]['next_forecast_multiplier'];
+        $this->assertGreaterThanOrEqual(0.5, $m);
+        $this->assertLessThanOrEqual(1.5, $m);
+    }
+
+    // ── AC2: proxy and no-delta reduce multiplier even with green_evidence ────
+
+    public function test_proxy_with_green_evidence_still_reduces_multiplier(): void
+    {
+        $withGreen = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'high']],
+            [['task_family' => 'x', 'actual_outcome' => 'proxy', 'green_evidence' => true]],
+        );
+        $noGreen = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'high']],
+            [['task_family' => 'x', 'actual_outcome' => 'proxy', 'green_evidence' => false]],
+        );
+
+        // multiplier must be less than 1.0 even with green tests
+        $this->assertLessThan(1.0, $withGreen['calibrations'][0]['next_forecast_multiplier']);
+        // green_evidence must NOT improve the score for proxy (both should be equal)
+        $this->assertEqualsWithDelta(
+            $noGreen['calibrations'][0]['next_forecast_multiplier'],
+            $withGreen['calibrations'][0]['next_forecast_multiplier'],
+            0.001,
+        );
+    }
+
+    public function test_no_delta_delivered_with_green_evidence_still_reduces_multiplier(): void
+    {
+        $withGreen = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'high']],
+            [['task_family' => 'x', 'actual_outcome' => 'delivered', 'capability_delta' => 'none', 'green_evidence' => true]],
+        );
+        $noGreen = $this->calibrator()->calibrate(
+            [['task_family' => 'x', 'predicted_leverage' => 'high']],
+            [['task_family' => 'x', 'actual_outcome' => 'delivered', 'capability_delta' => 'none', 'green_evidence' => false]],
+        );
+
+        $this->assertLessThan(1.0, $withGreen['calibrations'][0]['next_forecast_multiplier']);
+        $this->assertEqualsWithDelta(
+            $noGreen['calibrations'][0]['next_forecast_multiplier'],
+            $withGreen['calibrations'][0]['next_forecast_multiplier'],
+            0.001,
+        );
     }
 
     // ── forecast_error ────────────────────────────────────────────────────────
