@@ -36,6 +36,8 @@ final class AtlasVerificationCourtGateReplayPlan
 
     public const STATUS_BLOCKED = 'blocked';
 
+    public const BROAD_SCOPE_THRESHOLD = 5;
+
     /**
      * @param  array{
      *     packet_facts?:array{declared_gates?:list<string>},
@@ -58,33 +60,39 @@ final class AtlasVerificationCourtGateReplayPlan
         $declared = is_array($facts['packet_facts']['declared_gates'] ?? null) ? array_values(array_map('strval', $facts['packet_facts']['declared_gates'])) : [];
         $lane = is_array($facts['project_lane'] ?? null) ? $facts['project_lane'] : null;
 
+        $riskLevel = (string) ($facts['risk_level'] ?? 'low');
         $commands = [];
 
         // docs-health
-        $hasDocs = $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'docs/') || str_ends_with(strtolower($p), '.md'));
-        if ($hasDocs) {
-            $commands[] = $this->command('docs-health', 'docs_health_check', 'changed_files include docs/ or .md');
+        $docFiles = array_values(array_filter($changed, static fn (string $p): bool => str_starts_with($p, 'docs/') || str_ends_with(strtolower($p), '.md')));
+        if ($docFiles !== []) {
+            $commands[] = $this->command('docs-health', 'docs_health_check', 'changed_files include docs/ or .md', $docFiles);
         }
 
         // phpunit-scoped — when changed PHP under app/
-        $hasImpl = $this->anyMatches($changed, static fn (string $p): bool => str_starts_with($p, 'app/') && str_ends_with($p, '.php'));
-        if ($hasImpl) {
-            $commands[] = $this->command('phpunit-scoped', 'phpunit_scoped', 'changed_files include app/*.php');
+        $implFiles = array_values(array_filter($changed, static fn (string $p): bool => str_starts_with($p, 'app/') && str_ends_with($p, '.php')));
+        if ($implFiles !== []) {
+            $commands[] = $this->command('phpunit-scoped', 'phpunit_scoped', 'changed_files include app/*.php', $implFiles);
         }
 
         // declared gates
         foreach ($declared as $g) {
-            $commands[] = $this->command('declared:'.$g, $g, 'declared by packet');
+            $commands[] = $this->command('declared:'.$g, $g, 'declared by packet', $changed);
         }
 
         // diff-check — always when something changed
         if ($changed !== []) {
-            $commands[] = $this->command('diff-check', 'diff_style_check', 'changed_files present');
+            $commands[] = $this->command('diff-check', 'diff_style_check', 'changed_files present', $changed);
+        }
+
+        // false_green_guard — high risk or broad scope
+        if ($riskLevel === 'high' || count($changed) >= self::BROAD_SCOPE_THRESHOLD) {
+            $commands[] = $this->command('false-green-guard', 'false_green_guard', 'high_risk_or_broad_scope', $changed);
         }
 
         // lane-freshness — when project_lane carries a project_id
         if ($lane !== null && (string) ($lane['project_id'] ?? '') !== '') {
-            $commands[] = $this->command('lane-freshness:'.$lane['project_id'], 'lane_freshness_check', 'project_lane attached');
+            $commands[] = $this->command('lane-freshness:'.$lane['project_id'], 'lane_freshness_check', 'project_lane attached', $changed);
         }
 
         if ($commands === [] && $blockers === []) {
@@ -102,14 +110,17 @@ final class AtlasVerificationCourtGateReplayPlan
     }
 
     /**
-     * @return array{id:string, name:string, reason:string}
+     * @param  list<string>  $filteredFiles
+     * @return array{id:string, name:string, reason:string, changed_file_filter:list<string>, evidence_hash:string|null}
      */
-    private function command(string $category, string $name, string $reason): array
+    private function command(string $category, string $name, string $reason, array $filteredFiles = []): array
     {
         return [
             'id' => substr(hash('sha256', $category.'|'.$name), 0, 12),
             'name' => $name,
             'reason' => $reason,
+            'changed_file_filter' => $filteredFiles,
+            'evidence_hash' => $filteredFiles !== [] ? substr(hash('sha256', implode('|', $filteredFiles)), 0, 16) : null,
         ];
     }
 

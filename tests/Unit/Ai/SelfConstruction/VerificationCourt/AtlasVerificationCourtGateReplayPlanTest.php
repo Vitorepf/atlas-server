@@ -84,6 +84,52 @@ final class AtlasVerificationCourtGateReplayPlanTest extends TestCase
         $this->assertSame($a, $b);
     }
 
+    public function test_high_risk_change_requires_false_green_guard_command(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/Foo.php'],
+            'risk_level' => 'high',
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('false_green_guard', $names);
+        $this->assertSame(AtlasVerificationCourtGateReplayPlan::STATUS_READY, $r['plan_status']);
+    }
+
+    public function test_commands_carry_changed_file_filter_and_evidence_hash(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/Foo.php'],
+            'risk_level' => 'low',
+        ]);
+
+        foreach ($r['commands'] as $cmd) {
+            $this->assertArrayHasKey('changed_file_filter', $cmd);
+            $this->assertArrayHasKey('evidence_hash', $cmd);
+            $this->assertIsArray($cmd['changed_file_filter']);
+            // every command with files must have a non-null hash
+            if ($cmd['changed_file_filter'] !== []) {
+                $this->assertIsString($cmd['evidence_hash']);
+                $this->assertNotEmpty($cmd['evidence_hash']);
+            }
+        }
+    }
+
+    public function test_broad_scope_triggers_false_green_guard_regardless_of_risk_level(): void
+    {
+        $manyFiles = array_map(static fn (int $i): string => "app/Services/File{$i}.php", range(1, AtlasVerificationCourtGateReplayPlan::BROAD_SCOPE_THRESHOLD));
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => $manyFiles,
+            'risk_level' => 'low',
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('false_green_guard', $names);
+    }
+
     public function test_declared_gates_appear_as_commands(): void
     {
         $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
