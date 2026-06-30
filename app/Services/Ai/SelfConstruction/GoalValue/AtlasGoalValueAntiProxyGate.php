@@ -26,6 +26,11 @@ final class AtlasGoalValueAntiProxyGate
         'line_churn',
         'rename_only',
         'self_reported_success',
+        'wrapper_only',
+        'scaffold_only_test',
+        'command_surface_only',
+        'doc_only_claim',
+        'template_farm_batch',
     ];
 
     /**

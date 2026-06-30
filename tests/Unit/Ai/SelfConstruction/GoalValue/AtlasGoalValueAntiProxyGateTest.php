@@ -113,4 +113,65 @@ final class AtlasGoalValueAntiProxyGateTest extends TestCase
         $this->assertSame(['capability_lift'], $verdict['real_lever_families']);
         $this->assertFalse($verdict['blocked']);
     }
+
+    public function test_all_five_new_proxy_categories_exist_in_const(): void
+    {
+        foreach (['wrapper_only', 'scaffold_only_test', 'command_surface_only', 'doc_only_claim', 'template_farm_batch'] as $cat) {
+            $this->assertContains($cat, AtlasGoalValueAntiProxyGate::PROXY_CATEGORIES, "$cat must be in PROXY_CATEGORIES");
+        }
+    }
+
+    public function test_wrapper_only_blocks_without_real_lever(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['wrapper_only' => true], []);
+        $this->assertTrue($verdict['blocked']);
+        $this->assertContains('wrapper_only', $verdict['blocked_proxy_categories']);
+    }
+
+    public function test_scaffold_only_test_blocks_without_real_lever(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['scaffold_only_test' => true], []);
+        $this->assertTrue($verdict['blocked']);
+        $this->assertContains('scaffold_only_test', $verdict['blocked_proxy_categories']);
+    }
+
+    public function test_command_surface_only_blocks_without_real_lever(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['command_surface_only' => true], []);
+        $this->assertTrue($verdict['blocked']);
+        $this->assertContains('command_surface_only', $verdict['blocked_proxy_categories']);
+    }
+
+    public function test_doc_only_claim_blocks_without_real_lever(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['doc_only_claim' => true], []);
+        $this->assertTrue($verdict['blocked']);
+        $this->assertContains('doc_only_claim', $verdict['blocked_proxy_categories']);
+    }
+
+    public function test_template_farm_batch_blocks_without_real_lever(): void
+    {
+        $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate(['template_farm_batch' => true], []);
+        $this->assertTrue($verdict['blocked']);
+        $this->assertContains('template_farm_batch', $verdict['blocked_proxy_categories']);
+    }
+
+    public function test_new_proxy_categories_allowed_when_paired_with_capability_lift(): void
+    {
+        $levers = ['capability_lift_refs' => ['cap:real-feature-shipped']];
+        foreach (['wrapper_only', 'scaffold_only_test', 'command_surface_only', 'doc_only_claim', 'template_farm_batch'] as $cat) {
+            $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate([$cat => true], $levers);
+            $this->assertFalse($verdict['blocked'], "$cat must be allowed when paired with capability_lift_refs");
+            $this->assertSame([], $verdict['blocked_proxy_categories']);
+        }
+    }
+
+    public function test_new_proxy_categories_allowed_when_paired_with_failure_removal(): void
+    {
+        $levers = ['failure_removal_refs' => ['red-test:eliminated-flake']];
+        foreach (['wrapper_only', 'scaffold_only_test', 'command_surface_only', 'doc_only_claim', 'template_farm_batch'] as $cat) {
+            $verdict = (new AtlasGoalValueAntiProxyGate)->evaluate([$cat => true], $levers);
+            $this->assertFalse($verdict['blocked'], "$cat must be allowed when paired with failure_removal_refs");
+        }
+    }
 }
