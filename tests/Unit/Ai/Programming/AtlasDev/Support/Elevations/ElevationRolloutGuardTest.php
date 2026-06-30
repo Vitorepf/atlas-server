@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Tests\Unit\Ai\Programming\AtlasDev\Probe\E1HardGateTest;
 use Tests\Unit\Ai\Programming\AtlasDev\Probe\E2HardGateTest;
 use Tests\Unit\Ai\Programming\AtlasDev\Probe\E4HardGateTest;
+use Tests\Unit\Ai\Programming\AtlasDev\Probe\E5HardGateTest;
 
 /**
  * VAL-M2-028: Rollout guard — each elevation's trip condition must be verified
@@ -107,6 +108,24 @@ final class ElevationRolloutGuardTest extends TestCase
         'e4' => [
             'trip' => [E4HardGateTest::class, 'test_e4_hard_trip_produces_failed_on_pure_function_divergence_despite_green_tests'],
             'clear' => [E4HardGateTest::class, 'test_e4_hard_does_not_false_fail_on_behavior_preserving_pure_refactor'],
+        ],
+
+        // m2-e5-hard: E5 (pre-patch regression baseline) promoted
+        // advisory -> hard. The hard branch already exists in
+        // PipelineRunExecutor (precondition). The trip condition (a scoped
+        // test that passed in the pre-patch baseline fails after the patch =
+        // a passed-before/fails-after regression forces STATUS_FAILED ->
+        // `failed`, flag retained, regressing test named) and the
+        // does-not-false-fail condition (a pre-existing failure:
+        // failed-before + fails-after is NOT a regression -> E5 does not
+        // trip, no regression_detected flag) are proven on a fixture pair in
+        // E5HardGateTest, which drives a real PipelineRunExecutor with
+        // e5.mode=hard and a scripted RegressionBaselineRunner. Registered
+        // BEFORE the config default flipped to hard, per the VAL-M2-028
+        // rollout discipline.
+        'e5' => [
+            'trip' => [E5HardGateTest::class, 'test_e5_hard_trip_produces_failed_on_passed_before_fails_after_regression'],
+            'clear' => [E5HardGateTest::class, 'test_e5_hard_does_not_false_fail_on_pre_existing_failure'],
         ],
     ];
 

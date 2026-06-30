@@ -252,7 +252,21 @@ return [
         'e4' => ['mode' => env('ATLAS_DEV_ELEVATION_E4_MODE', 'hard')],
 
         // E5: Pre-Patch Regression Baseline + Caller-Test Selection (M4 milestone).
-        'e5' => ['mode' => env('ATLAS_DEV_ELEVATION_E5_MODE', 'advisory')],
+        //   - M2 (m2-e5-hard): promoted advisory -> hard. The trip condition
+        //     (a scoped test that passed in the pre-patch baseline fails
+        //     after the patch = a passed-before/fails-after regression) was
+        //     verified on a fixture pair (E5HardGateTest: trip -> failed +
+        //     flag retained + regressing test named; clear -> no false-fail
+        //     on a pre-existing failure that is not a regression) BEFORE the
+        //     config default flipped, per the VAL-M2-028 rollout guard. A
+        //     hard E5 trip forces STATUS_FAILED (completion `failed`, NOT
+        //     the advisory `needs_review`) while preserving the
+        //     `regression_detected` honesty flag for auditability
+        //     (VAL-M2-012). A pre-existing failure (failed-before +
+        //     fails-after) is NOT classified as a regression, so E5 hard
+        //     does not trip and does not false-fail (VAL-M2-013). Operators
+        //     can opt back down to advisory/off via ATLAS_DEV_ELEVATION_E5_MODE.
+        'e5' => ['mode' => env('ATLAS_DEV_ELEVATION_E5_MODE', 'hard')],
 
         // E6: Spec-Driven Constitution Gate (M6 milestone).
         'e6' => ['mode' => env('ATLAS_DEV_ELEVATION_E6_MODE', 'advisory')],

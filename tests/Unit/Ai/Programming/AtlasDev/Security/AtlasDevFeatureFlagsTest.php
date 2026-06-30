@@ -195,6 +195,46 @@ final class AtlasDevFeatureFlagsTest extends TestCase
         $this->assertFalse($e4->isOff());
     }
 
+    /**
+     * VAL-M2-011: the E5 (pre-patch regression baseline) elevation is
+     * promoted advisory -> hard. The canonical config source
+     * config/atlas_dev.php ships `elevations.e5.mode` with an env fallback of
+     * `hard` (not `advisory`). This is the single switch that makes the E5
+     * hard branch live by default: a hard E5 trip on a
+     * passed-before/fails-after regression produces a `failed` completion
+     * (not `needs_review`).
+     */
+    public function test_e5_mode_config_source_defaults_to_hard(): void
+    {
+        $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
+
+        $this->assertStringContainsString(
+            "'mode' => env('ATLAS_DEV_ELEVATION_E5_MODE', 'hard')",
+            $configSource,
+            'VAL-M2-011: the e5.mode config source default must be hard (promoted from advisory).',
+        );
+    }
+
+    /**
+     * VAL-M2-011: with no ATLAS_DEV_ELEVATION_E5_MODE env var set, a runtime
+     * read of the canonical config yields `elevations.e5.mode === 'hard'`, and
+     * the elevation resolver classifies E5 as hard
+     * (ElevationConfig::for('e5', $block)->isHard() === true). This proves the
+     * hard default is live at the resolution layer, not just in the source.
+     */
+    public function test_e5_mode_resolves_hard_when_env_unset(): void
+    {
+        $this->clearEnv('ATLAS_DEV_ELEVATION_E5_MODE');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertSame('hard', $config['elevations']['e5']['mode']);
+
+        $e5 = ElevationConfig::for('e5', $config['elevations']['e5']);
+        $this->assertTrue($e5->isHard(), 'VAL-M2-011: ElevationConfig must classify e5 as hard by default.');
+        $this->assertFalse($e5->isAdvisory());
+        $this->assertFalse($e5->isOff());
+    }
+
     public function test_plan_enabled_is_on_under_testing_environment(): void
     {
         $this->assertTrue((bool) $this->atlasDevConfig['efficient']['plan_enabled']);
