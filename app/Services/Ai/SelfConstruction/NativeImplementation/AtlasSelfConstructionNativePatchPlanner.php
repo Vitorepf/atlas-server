@@ -53,16 +53,28 @@ final class AtlasSelfConstructionNativePatchPlanner
         if ($allowed === []) {
             throw new RuntimeException('planner refuses: allowed_files empty');
         }
+        $forbidden = is_array($packet['forbidden_files'] ?? null) ? array_values(array_map('strval', $packet['forbidden_files'])) : [];
         foreach ($scope as $f) {
             if (! in_array($f, $allowed, true)) {
                 throw new RuntimeException('planner refuses: scope_file_outside_allowed:'.$f);
             }
+            if (in_array($f, $forbidden, true)) {
+                throw new RuntimeException('planner refuses: forbidden_path:'.$f);
+            }
         }
         $taskShape = is_array($packet['task_shape'] ?? null) ? $packet['task_shape'] : [];
-        $matches = $this->library->supports($taskShape)['matches'];
+        if ((bool) ($taskShape['speculative_abstraction'] ?? false)) {
+            throw new RuntimeException('planner refuses: speculative_abstraction_in_task_shape');
+        }
+        $explicitCandidates = is_array($packet['candidate_template_ids'] ?? null)
+            ? array_values(array_map('strval', $packet['candidate_template_ids']))
+            : null;
+        $matches = $explicitCandidates ?? $this->library->supports($taskShape)['matches'];
         if ($matches === []) {
             throw new RuntimeException('planner refuses: no_matching_template_for_task_shape');
         }
+        // Prefer minimal plan: fewest required_imports.
+        usort($matches, fn (string $a, string $b): int => count($this->deriveImports($a)) <=> count($this->deriveImports($b)));
         $primary = $matches[0];
 
         $context = is_array($packet['context'] ?? null) ? array_map('strval', $packet['context']) : [];

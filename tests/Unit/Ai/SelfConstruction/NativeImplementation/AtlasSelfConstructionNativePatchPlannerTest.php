@@ -73,6 +73,38 @@ final class AtlasSelfConstructionNativePatchPlannerTest extends TestCase
         (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
     }
 
+    public function test_forbidden_path_in_scope_files_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['forbidden_files'] = ['app/Demo/Foo.php'];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/forbidden_path/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_speculative_abstraction_task_shape_throws(): void
+    {
+        $p = $this->purePacket();
+        $p['task_shape']['speculative_abstraction'] = true;
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/speculative_abstraction_in_task_shape/');
+        (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+    }
+
+    public function test_minimal_plan_selected_from_multiple_candidate_template_ids(): void
+    {
+        // pure_service has 0 imports; cli_wrapper has 1 (Command).
+        // Planner must pick pure_service (minimal).
+        $p = $this->purePacket();
+        $p['candidate_template_ids'] = ['cli_wrapper', 'pure_service'];
+
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+
+        $this->assertSame('pure_service', $r['template_ids'][0]);
+    }
+
     public function test_plan_id_is_byte_identical_for_same_input(): void
     {
         $pp = new AtlasSelfConstructionNativePatchPlanner;
