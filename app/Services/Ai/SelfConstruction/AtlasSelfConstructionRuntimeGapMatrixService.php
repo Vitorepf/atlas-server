@@ -103,6 +103,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
         $runtimeRows = array_values(array_filter($rows, static fn (array $row): bool => ! (bool) ($row['runtime_y'] ?? false)));
         $graduationRows = array_values(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_y_candidate'] ?? false)));
         $allRuntimeY = $runtimeRows === [];
+        $nextPromotionOrder = $this->nextPromotionOrder($runtimeRows, $nextRequiredSlice);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -114,6 +115,7 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
             'not_yet_runtime_capable' => $notYet,
             'next_required_slice' => $nextRequiredSlice,
             'rows' => $rows,
+            'next_promotion_order' => $nextPromotionOrder,
             'runtime_promotion_basis_hash' => $runtimePromotionBasisHash,
             'runtime_promotion_closure_basis_hash' => $runtimePromotionClosureBasisHash,
             'expected_runtime_gap_matrix_hash_for_promotion_receipt' => $expectedRuntimeGapMatrixHash,
@@ -216,6 +218,49 @@ final class AtlasSelfConstructionRuntimeGapMatrixService
                 'runtime_enabled_count' => count(array_filter($rows, static fn (array $row): bool => (bool) ($row['runtime_enabled'] ?? false))),
             ],
         ]);
+    }
+
+    /**
+     * Ranks blocked (non-runtime_y) gap rows so the external brain can
+     * originate the next promotion task in a coherent order: the gap the
+     * current pointer is targeting first, then graduation-ready candidates,
+     * then colder blocked gaps — ties broken by fewest blockers.
+     *
+     * @param  array<int, array<string, mixed>>  $runtimeRows
+     * @return list<array<string, mixed>>
+     */
+    private function nextPromotionOrder(array $runtimeRows, string $nextRequiredSlice): array
+    {
+        $entries = array_map(function (array $row) use ($nextRequiredSlice): array {
+            $gapId = (string) ($row['gap_id'] ?? '');
+            $isCurrentPointer = $gapId !== '' && $nextRequiredSlice !== '' && str_contains($nextRequiredSlice, $gapId);
+            $isCandidate = (bool) ($row['runtime_y_candidate'] ?? false);
+            $blockers = array_values((array) ($row['blockers'] ?? []));
+            $priorityReason = match (true) {
+                $isCurrentPointer => 'current_pointer_target',
+                $isCandidate => 'runtime_y_candidate_ready_for_promotion',
+                default => 'blocked_colder_gap',
+            };
+
+            return [
+                'gap_id' => $gapId,
+                'priority_reason' => $priorityReason,
+                'required_promotion' => (string) ($row['required_promotion'] ?? ''),
+                'runtime_y_candidate' => $isCandidate,
+                'is_current_pointer' => $isCurrentPointer,
+                'blocker_count' => count($blockers),
+                'blockers' => $blockers,
+            ];
+        }, $runtimeRows);
+
+        usort($entries, static function (array $a, array $b): int {
+            $rank = static fn (array $entry): int => $entry['is_current_pointer'] ? 0 : ($entry['runtime_y_candidate'] ? 1 : 2);
+            $comparison = $rank($a) <=> $rank($b);
+
+            return $comparison !== 0 ? $comparison : ($a['blocker_count'] <=> $b['blocker_count']);
+        });
+
+        return array_values($entries);
     }
 
     /** @return array<string, mixed> */
