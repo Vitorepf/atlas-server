@@ -21,7 +21,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   }>
  *
  * INPUT controlPlaneSnapshot:
- *   { proven_evidence:list<string>, queue_counts?:array<string,int> }
+ *   { proven_evidence:list<string>, queue_counts?:array<string,int>,
+ *     dependencies?:array<string,list<string>> }
  *
  * OUTPUT:
  *   { schema, gaps:list<Gap>, complete_dimensions:list<string> }
@@ -56,8 +57,11 @@ final class AtlasExternalBrainMaturityGapIndex
             ? $controlPlaneSnapshot['proven_evidence']
             : []);
 
-        $queueCounts = is_array($controlPlaneSnapshot['queue_counts'] ?? null)
+        $queueCounts  = is_array($controlPlaneSnapshot['queue_counts'] ?? null)
             ? $controlPlaneSnapshot['queue_counts']
+            : [];
+        $dependencies = is_array($controlPlaneSnapshot['dependencies'] ?? null)
+            ? $controlPlaneSnapshot['dependencies']
             : [];
 
         $gaps = [];
@@ -87,14 +91,24 @@ final class AtlasExternalBrainMaturityGapIndex
             $proofGap = $total > 0 ? count($missing) / $total : 1.0;
             $hasQueueActivity = ($queueCounts[$name] ?? 0) > 0;
 
+            // evidence_source: required signals already proven for this dimension.
+            $evidenceSource = array_values(array_filter($required, static fn (string $s): bool => isset($proven[$s])));
+
+            // dependency_chain: upstream dimensions this gap depends on (from control-plane).
+            $dependencyChain = array_values(array_filter(
+                (array) ($dependencies[$name] ?? []),
+                static fn ($v): bool => is_string($v) && $v !== '',
+            ));
+
             $gaps[] = array_merge([
                 'dimension'             => $name,
                 'leverage'              => $leverage,
                 'proof_gap'             => $proofGap,
                 'missing_evidence'      => $missing,
+                'evidence_source'       => $evidenceSource,
                 'has_queue_activity'    => $hasQueueActivity,
                 'suggested_task_family' => $taskFamily,
-            ], $this->blockerMap($dim, $missing, $proofGap, $leverage, $taskFamily, $hasQueueActivity));
+            ], $this->blockerMap($dim, $missing, $proofGap, $leverage, $taskFamily, $hasQueueActivity, $dependencyChain));
         }
 
         // Sort: leverage DESC, proof_gap DESC (most critical unproven gap first).
@@ -122,6 +136,7 @@ final class AtlasExternalBrainMaturityGapIndex
         float $leverage,
         string $taskFamily,
         bool $hasQueueActivity,
+        array $dependencyChain = [],
     ): array {
         $blockerClass = match (true) {
             $proofGap >= 1.0 && ! $hasQueueActivity => 'no_evidence_yet',
@@ -161,6 +176,10 @@ final class AtlasExternalBrainMaturityGapIndex
             },
         ];
 
+        $unblockHint = $dependencyChain !== []
+            ? 'Unblock ['.implode(', ', $dependencyChain).'] first; this dimension depends on their proven signals.'
+            : '';
+
         return [
             'blocker_class'         => $blockerClass,
             'next_best_task_family' => $nextBestTaskFamily,
@@ -168,6 +187,9 @@ final class AtlasExternalBrainMaturityGapIndex
             'autonomy_blocker'      => $autonomyBlocker,
             'simplification_needed' => $simplificationNeeded,
             'readiness_tier'        => $readinessTier,
+            'next_leverage'         => $nextChainStep['why_this_unblocks_autonomy'],
+            'dependency_chain'      => $dependencyChain,
+            'unblock_hint'          => $unblockHint,
             'next_chain_step'       => $nextChainStep,
         ];
     }
