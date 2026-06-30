@@ -185,4 +185,121 @@ final class AtlasExternalBrainValueProofSamplerTest extends TestCase
         $this->assertSame(2, $result['count']);
         $this->assertCount(2, $result['samples']);
     }
+
+    // ── admit() — schema / envelope ──────────────────────────────────────────
+
+    public function test_admit_result_has_required_keys(): void
+    {
+        $result = $this->sampler->admit(['unlocks_task_count' => 3]);
+
+        foreach (['schema', 'admitted', 'max_dimension_score', 'dimension_scores', 'admission_evidence', 'rejection_reason'] as $key) {
+            $this->assertArrayHasKey($key, $result, "admit() missing key: {$key}");
+        }
+        $this->assertSame(AtlasExternalBrainValueProofSampler::SCHEMA_ADMIT, $result['schema']);
+    }
+
+    public function test_admit_dimension_scores_has_all_five_dimensions(): void
+    {
+        $result = $this->sampler->admit([]);
+
+        foreach (['unlock', 'risk_reduction', 'simplification', 'autonomy_gain', 'certification_strength'] as $dim) {
+            $this->assertArrayHasKey($dim, $result['dimension_scores'], "dimension_scores missing: {$dim}");
+        }
+    }
+
+    // ── admit() — unlock dimension ───────────────────────────────────────────
+
+    public function test_high_unlock_count_is_admitted(): void
+    {
+        $result = $this->sampler->admit(['unlocks_task_count' => 5]);
+
+        $this->assertTrue($result['admitted']);
+        $this->assertSame(1.0, $result['dimension_scores']['unlock']);
+    }
+
+    public function test_partial_unlock_score_normalized_correctly(): void
+    {
+        $result = $this->sampler->admit(['unlocks_task_count' => 2]);
+
+        $this->assertEqualsWithDelta(0.4, $result['dimension_scores']['unlock'], 0.001);
+        $this->assertTrue($result['admitted']); // 0.4 >= 0.30
+    }
+
+    // ── admit() — risk_reduction dimension ───────────────────────────────────
+
+    public function test_high_risk_reduction_is_admitted(): void
+    {
+        $result = $this->sampler->admit(['give_back_risk_delta' => 0.50]);
+
+        $this->assertTrue($result['admitted']);
+        $this->assertSame(0.5, $result['dimension_scores']['risk_reduction']);
+    }
+
+    public function test_negative_risk_delta_is_clamped_to_zero(): void
+    {
+        $result = $this->sampler->admit(['give_back_risk_delta' => -0.5]);
+
+        $this->assertSame(0.0, $result['dimension_scores']['risk_reduction']);
+    }
+
+    // ── admit() — runnable but low-impact → rejected ─────────────────────────
+
+    public function test_all_dimensions_zero_is_rejected(): void
+    {
+        $result = $this->sampler->admit([]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertNotNull($result['rejection_reason']);
+        $this->assertStringContainsString('no_dimension_above_min', $result['rejection_reason']);
+        $this->assertSame([], $result['admission_evidence']);
+    }
+
+    public function test_all_dimensions_below_min_is_rejected_even_with_tests(): void
+    {
+        $result = $this->sampler->admit([
+            'unlocks_task_count'           => 1,   // 0.20 — below 0.30
+            'give_back_risk_delta'         => 0.1,
+            'simplification_score'         => 0.1,
+            'autonomy_gain_score'          => 0.1,
+            'certification_strength_score' => 0.1,
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertNotNull($result['rejection_reason']);
+    }
+
+    // ── admit() — admission_evidence ─────────────────────────────────────────
+
+    public function test_admission_evidence_lists_only_passing_dimensions(): void
+    {
+        $result = $this->sampler->admit([
+            'autonomy_gain_score'  => 0.80,
+            'simplification_score' => 0.10,
+        ]);
+
+        $this->assertTrue($result['admitted']);
+        $evidence = implode(' ', $result['admission_evidence']);
+        $this->assertStringContainsString('autonomy_gain', $evidence);
+        $this->assertStringNotContainsString('simplification', $evidence);
+    }
+
+    public function test_rejection_reason_is_null_when_admitted(): void
+    {
+        $result = $this->sampler->admit(['autonomy_gain_score' => 0.80]);
+
+        $this->assertTrue($result['admitted']);
+        $this->assertNull($result['rejection_reason']);
+    }
+
+    // ── admit() — configurable threshold ─────────────────────────────────────
+
+    public function test_custom_min_dimension_score_via_config(): void
+    {
+        $result = $this->sampler->admit(
+            ['unlocks_task_count' => 1],           // unlock = 0.20
+            ['min_dimension_score' => 0.10],
+        );
+
+        $this->assertTrue($result['admitted'], '0.20 >= 0.10 → admitted');
+    }
 }

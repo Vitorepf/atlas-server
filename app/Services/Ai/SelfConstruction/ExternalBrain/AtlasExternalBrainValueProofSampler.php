@@ -31,7 +31,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  */
 final class AtlasExternalBrainValueProofSampler
 {
-    public const SCHEMA = 'atlas.external_brain.value_proof_sampler.v1';
+    public const SCHEMA       = 'atlas.external_brain.value_proof_sampler.v1';
+    public const SCHEMA_ADMIT = 'atlas.external_brain.value_proof_sampler.admit.v1';
 
     public const CLASS_REAL_CAPABILITY = 'real_capability';
     public const CLASS_OBSERVABILITY   = 'observability';
@@ -47,6 +48,10 @@ final class AtlasExternalBrainValueProofSampler
     private const OBSERVABILITY_KEYWORDS   = ['log', 'monitor', 'report', 'metric', 'telemetry', 'trace', 'audit', 'ledger', 'health'];
     private const CONSOLIDATION_KEYWORDS   = ['consolidat', 'merge', 'dedup', 'duplicate', 'compress', 'cleanup', 'refactor', 'simplif'];
     private const SCAFFOLDING_KEYWORDS     = ['stub', 'scaffold', 'placeholder', 'todo', 'fixme', 'dummy', 'noop', 'empty'];
+
+    /** Admission scoring. 5 unlocked tasks = score 1.0 on the unlock dimension. */
+    private const DEFAULT_MIN_DIMENSION_SCORE = 0.30;
+    private const UNLOCK_NORMALIZATION_FACTOR  = 5;
 
     /**
      * @param  array{
@@ -146,6 +151,57 @@ final class AtlasExternalBrainValueProofSampler
         $results = array_map(fn (array $r): array => $this->sample($r), $records);
 
         return ['schema' => self::SCHEMA, 'samples' => $results, 'count' => count($results)];
+    }
+
+    /**
+     * Score a candidate task spec across 5 impact dimensions and decide admission.
+     *
+     * Input fields:
+     *   unlocks_task_count          int   — downstream tasks unblocked (0..N)
+     *   give_back_risk_delta        float — reduction in give_back risk (0..1; negative ignored)
+     *   simplification_score        float — 0..1
+     *   autonomy_gain_score         float — 0..1
+     *   certification_strength_score float — 0..1
+     *   min_dimension_score         float — override admission threshold (default 0.30)
+     *
+     * Returns: schema, admitted, max_dimension_score, dimension_scores, admission_evidence, rejection_reason
+     */
+    public function admit(array $candidate, array $config = []): array
+    {
+        $minScore = (float) ($config['min_dimension_score'] ?? $candidate['min_dimension_score'] ?? self::DEFAULT_MIN_DIMENSION_SCORE);
+
+        $unlockCount = max(0, (int)   ($candidate['unlocks_task_count']           ?? 0));
+        $gbDelta     = max(0.0, min(1.0, (float) ($candidate['give_back_risk_delta']         ?? 0.0)));
+        $simplScore  = max(0.0, min(1.0, (float) ($candidate['simplification_score']         ?? 0.0)));
+        $autScore    = max(0.0, min(1.0, (float) ($candidate['autonomy_gain_score']          ?? 0.0)));
+        $certScore   = max(0.0, min(1.0, (float) ($candidate['certification_strength_score'] ?? 0.0)));
+
+        $dimensionScores = [
+            'unlock'                 => round(min(1.0, $unlockCount / self::UNLOCK_NORMALIZATION_FACTOR), 4),
+            'risk_reduction'         => round($gbDelta,    4),
+            'simplification'         => round($simplScore, 4),
+            'autonomy_gain'          => round($autScore,   4),
+            'certification_strength' => round($certScore,  4),
+        ];
+
+        $maxScore = max($dimensionScores);
+        $admitted = $maxScore >= $minScore;
+
+        $admissionEvidence = [];
+        foreach ($dimensionScores as $dim => $score) {
+            if ($score >= $minScore) {
+                $admissionEvidence[] = "{$dim}:{$score}";
+            }
+        }
+
+        return [
+            'schema'              => self::SCHEMA_ADMIT,
+            'admitted'            => $admitted,
+            'max_dimension_score' => round($maxScore, 4),
+            'dimension_scores'    => $dimensionScores,
+            'admission_evidence'  => $admissionEvidence,
+            'rejection_reason'    => $admitted ? null : "no_dimension_above_min:{$minScore}",
+        ];
     }
 
     private function allFilesMatchKeywords(array $files, array $keywords): bool
