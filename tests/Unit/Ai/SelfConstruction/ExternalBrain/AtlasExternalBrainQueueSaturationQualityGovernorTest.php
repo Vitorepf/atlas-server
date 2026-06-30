@@ -193,4 +193,62 @@ final class AtlasExternalBrainQueueSaturationQualityGovernorTest extends TestCas
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    // ── AC1: required output keys ─────────────────────────────────────────────
+
+    public function test_output_has_new_ac1_keys(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts());
+
+        foreach (['queue_pressure', 'diversity_warning', 'stop_go_decision'] as $key) {
+            $this->assertArrayHasKey($key, $r);
+        }
+    }
+
+    // ── AC2: high collision risk forces repair regardless of depth ───────────
+
+    public function test_high_collision_risk_forces_repair_specs_before_creation(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['collision_risk' => 0.50]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $r['decision']);
+        $this->assertSame(0, $r['max_new_tasks']);
+        $this->assertSame('stop', $r['stop_go_decision']);
+    }
+
+    // ── AC3: leverage evidence density floor gates create_high_value_batch ───
+
+    public function test_low_leverage_evidence_density_blocks_creation_even_when_queue_healthy(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['leverage_evidence_density' => 0.10]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_QUALITY_REVIEW_OR_PAUSE, $r['decision']);
+        $this->assertSame(0, $r['max_new_tasks']);
+    }
+
+    public function test_high_leverage_evidence_density_permits_creation(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['leverage_evidence_density' => 0.90]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $r['decision']);
+        $this->assertGreaterThan(0, $r['max_new_tasks']);
+        $this->assertSame('go', $r['stop_go_decision']);
+    }
+
+    // ── diversity_warning / queue_pressure ────────────────────────────────────
+
+    public function test_diversity_warning_true_when_target_diversity_low(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['target_diversity' => 0.1, 'servable_depth' => 50, 'active_workers' => 2]));
+
+        $this->assertTrue($r['diversity_warning']);
+    }
+
+    public function test_queue_pressure_is_between_zero_and_one(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts(['servable_depth' => 1000, 'active_workers' => 1]));
+
+        $this->assertGreaterThanOrEqual(0.0, $r['queue_pressure']);
+        $this->assertLessThanOrEqual(1.0, $r['queue_pressure']);
+    }
 }

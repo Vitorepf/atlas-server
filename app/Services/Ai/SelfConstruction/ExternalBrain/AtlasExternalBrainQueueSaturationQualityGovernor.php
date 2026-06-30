@@ -39,11 +39,15 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
 
     private const HIGH_GIVE_BACK_THRESHOLD = 0.25;
 
+    private const HIGH_COLLISION_RISK_THRESHOLD = 0.30;
+
+    private const LEVERAGE_EVIDENCE_DENSITY_FLOOR = 0.40;
+
     private const MAX_NEW_TASKS_CAP = 10;
 
     /**
      * @param  array<string,mixed>  $facts
-     * @return array{schema:string, decision:string, reason:string, required_next_evidence:list<string>, max_new_tasks:int}
+     * @return array{schema:string, decision:string, reason:string, required_next_evidence:list<string>, max_new_tasks:int, queue_pressure:float, diversity_warning:bool, stop_go_decision:string}
      */
     public function decide(array $facts): array
     {
@@ -52,29 +56,42 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
         $malformedRate = max(0.0, min(1.0, (float) ($facts['malformed_rate'] ?? 0.0)));
         $giveBackRate = max(0.0, min(1.0, (float) ($facts['give_back_rate'] ?? 0.0)));
         $targetDiversity = max(0.0, min(1.0, (float) ($facts['target_diversity'] ?? 1.0)));
+        $collisionRisk = max(0.0, min(1.0, (float) ($facts['collision_risk'] ?? 0.0)));
+        $leverageDensity = max(0.0, min(1.0, (float) ($facts['leverage_evidence_density'] ?? 1.0)));
 
         $depthPerWorker = $activeWorkers > 0
             ? $servableDepth / $activeWorkers
             : ($servableDepth > 0 ? (float) $servableDepth : 0.0);
+        $queuePressure = round(min(1.0, $depthPerWorker / self::DEEP_QUEUE_DEPTH_PER_WORKER), 4);
 
         $highMalformed = $malformedRate >= self::HIGH_MALFORMED_THRESHOLD;
         $highGiveBack = $giveBackRate >= self::HIGH_GIVE_BACK_THRESHOLD;
+        $highCollisionRisk = $collisionRisk >= self::HIGH_COLLISION_RISK_THRESHOLD;
         $isDeep = $depthPerWorker >= self::DEEP_QUEUE_DEPTH_PER_WORKER;
         $lowDiversity = $targetDiversity < self::LOW_DIVERSITY_THRESHOLD;
+        $leverageInsufficient = $leverageDensity < self::LEVERAGE_EVIDENCE_DENSITY_FLOOR;
 
-        if ($highMalformed || $highGiveBack) {
-            $cause = $highMalformed && $highGiveBack
-                ? sprintf('malformed_rate=%.2f and give_back_rate=%.2f both above threshold', $malformedRate, $giveBackRate)
-                : ($highMalformed
-                    ? sprintf('malformed_rate=%.2f above threshold', $malformedRate)
-                    : sprintf('give_back_rate=%.2f above threshold', $giveBackRate));
+        if ($highMalformed || $highGiveBack || $highCollisionRisk) {
+            $causes = [];
+            if ($highMalformed) {
+                $causes[] = sprintf('malformed_rate=%.2f above threshold', $malformedRate);
+            }
+            if ($highGiveBack) {
+                $causes[] = sprintf('give_back_rate=%.2f above threshold', $giveBackRate);
+            }
+            if ($highCollisionRisk) {
+                $causes[] = sprintf('collision_risk=%.2f above threshold', $collisionRisk);
+            }
 
             return [
                 'schema' => self::SCHEMA,
                 'decision' => self::DECISION_REPAIR_SPECS_BEFORE_CREATION,
-                'reason' => 'queue health is sick: '.$cause.'; creating more work would compound the problem',
-                'required_next_evidence' => ['malformed_rate_below_threshold', 'give_back_rate_below_threshold'],
+                'reason' => 'queue health is sick: '.implode(' and ', $causes).'; creating more work would compound the problem',
+                'required_next_evidence' => ['malformed_rate_below_threshold', 'give_back_rate_below_threshold', 'collision_risk_below_threshold'],
                 'max_new_tasks' => 0,
+                'queue_pressure' => $queuePressure,
+                'diversity_warning' => $lowDiversity,
+                'stop_go_decision' => 'stop',
             ];
         }
 
@@ -89,6 +106,28 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
                 ),
                 'required_next_evidence' => ['target_diversity_above_threshold', 'servable_depth_per_worker_below_threshold'],
                 'max_new_tasks' => 0,
+                'queue_pressure' => $queuePressure,
+                'diversity_warning' => true,
+                'stop_go_decision' => 'review',
+            ];
+        }
+
+        // AC3: even a healthy shallow queue only earns create_high_value_batch when there is
+        // enough proven leverage evidence backing the new batch — otherwise pause for review.
+        if ($leverageInsufficient) {
+            return [
+                'schema' => self::SCHEMA,
+                'decision' => self::DECISION_QUALITY_REVIEW_OR_PAUSE,
+                'reason' => sprintf(
+                    'queue is shallow/healthy but leverage_evidence_density=%.2f is below floor=%.2f; creating more would not be evidence-backed',
+                    $leverageDensity,
+                    self::LEVERAGE_EVIDENCE_DENSITY_FLOOR,
+                ),
+                'required_next_evidence' => ['leverage_evidence_density_above_floor'],
+                'max_new_tasks' => 0,
+                'queue_pressure' => $queuePressure,
+                'diversity_warning' => $lowDiversity,
+                'stop_go_decision' => 'review',
             ];
         }
 
@@ -99,13 +138,17 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
             'schema' => self::SCHEMA,
             'decision' => self::DECISION_CREATE_HIGH_VALUE_BATCH,
             'reason' => sprintf(
-                'queue is shallow/healthy (%.2f servable per active worker, malformed_rate=%.2f, give_back_rate=%.2f); room for new high-value work',
+                'queue is shallow/healthy (%.2f servable per active worker, malformed_rate=%.2f, give_back_rate=%.2f, leverage_evidence_density=%.2f); room for new high-value work',
                 $depthPerWorker,
                 $malformedRate,
                 $giveBackRate,
+                $leverageDensity,
             ),
             'required_next_evidence' => ['leverage_evidence_per_new_task'],
             'max_new_tasks' => $maxNewTasks,
+            'queue_pressure' => $queuePressure,
+            'diversity_warning' => $lowDiversity,
+            'stop_go_decision' => 'go',
         ];
     }
 }
