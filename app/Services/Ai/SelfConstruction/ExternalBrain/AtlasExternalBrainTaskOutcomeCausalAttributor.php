@@ -47,6 +47,15 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
     public const ROUTING_SIGNAL_NEGATIVE = 'negative';
     public const ROUTING_SIGNAL_NEUTRAL  = 'neutral';
 
+    public const ADJUSTMENT_BLOCK_CHAIN          = 'block_chain';
+    public const ADJUSTMENT_RESPEC_BEFORE_RETRY  = 'respec_before_retry';
+    public const ADJUSTMENT_SPLIT_BEFORE_RETRY   = 'split_before_retry';
+    public const ADJUSTMENT_REROUTE_WORKER       = 'reroute_worker';
+    public const ADJUSTMENT_STRENGTHEN_EVIDENCE  = 'strengthen_evidence';
+    public const ADJUSTMENT_CONTINUE_CHAIN       = 'continue_chain';
+    public const ADJUSTMENT_PROMOTE_FAMILY       = 'promote_family';
+    public const ADJUSTMENT_INVESTIGATE          = 'investigate';
+
     private const SPEC_QUALITY_THRESHOLD       = 0.4;
     private const EVIDENCE_WEAK_THRESHOLD      = 0.4;
     private const WORKER_QUALITY_THRESHOLD     = 0.5;
@@ -214,6 +223,9 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
         $adjustment  = $this->recommendedAdjustment($primaryCause);
         $attributionId = hash('sha256', $primaryCause.'|'.implode(',', $contributing));
 
+        $taskPacketId = isset($input['task_packet_id']) ? (string) $input['task_packet_id'] : null;
+        $family = isset($input['family']) ? (string) $input['family'] : ($taskClass !== '' ? $taskClass : null);
+
         return [
             'schema'                          => self::SCHEMA,
             'primary_cause'                   => $primaryCause,
@@ -222,7 +234,34 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributor
             'routing_signal'                  => $routingSignal,
             'recommended_originator_adjustment' => $adjustment,
             'attribution_id'                  => $attributionId,
+            'graph_adjustment'                => [
+                'action'         => $this->graphAdjustmentAction($primaryCause, $repeatedSuccess, $successThreshold),
+                'task_packet_id' => $taskPacketId,
+                'family'         => $family,
+                'reason'         => $primaryCause,
+            ],
         ];
+    }
+
+    /**
+     * Task-graph/Task-fabric-ready action: tells the planner whether to block_chain,
+     * respec_before_retry, split_before_retry, reroute_worker, strengthen_evidence, continue_chain,
+     * promote_family, or investigate. worker_mismatch / routing_family_mismatch ALWAYS resolve to
+     * reroute_worker — a worker/routing problem must never be mislabelled as a spec-quality issue.
+     */
+    private function graphAdjustmentAction(string $primaryCause, int $repeatedSuccess, int $successThreshold): string
+    {
+        return match ($primaryCause) {
+            self::CAUSE_SCOPE_FAILURE => self::ADJUSTMENT_BLOCK_CHAIN,
+            self::CAUSE_POISONED_ACCEPTANCE => self::ADJUSTMENT_RESPEC_BEFORE_RETRY,
+            self::CAUSE_POOR_SPEC, self::CAUSE_COMPLEXITY => self::ADJUSTMENT_SPLIT_BEFORE_RETRY,
+            self::CAUSE_WORKER_MISMATCH, self::CAUSE_ROUTING_FAMILY_MISMATCH, self::CAUSE_WORKER_CAPABILITY_GAP => self::ADJUSTMENT_REROUTE_WORKER,
+            self::CAUSE_SHALLOW_EVIDENCE => self::ADJUSTMENT_STRENGTHEN_EVIDENCE,
+            self::CAUSE_GOOD_EXECUTION => $repeatedSuccess >= $successThreshold
+                ? self::ADJUSTMENT_PROMOTE_FAMILY
+                : self::ADJUSTMENT_CONTINUE_CHAIN,
+            default => self::ADJUSTMENT_INVESTIGATE,
+        };
     }
 
     private function computeConfidence(string $primaryCause, bool $poorSpec, bool $workerMismatch, bool $isSuccess): string

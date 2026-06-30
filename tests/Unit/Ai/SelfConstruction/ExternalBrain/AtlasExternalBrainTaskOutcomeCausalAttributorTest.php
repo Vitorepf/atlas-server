@@ -256,4 +256,139 @@ final class AtlasExternalBrainTaskOutcomeCausalAttributorTest extends TestCase
 
         $this->assertArrayHasKey('routing_signal', $r);
     }
+
+    // ── graph_adjustment ──────────────────────────────────────────────────────
+
+    public function test_result_has_graph_adjustment_key(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution());
+
+        $this->assertArrayHasKey('graph_adjustment', $r);
+        foreach (['action', 'task_packet_id', 'family', 'reason'] as $k) {
+            $this->assertArrayHasKey($k, $r['graph_adjustment'], "missing graph_adjustment key: {$k}");
+        }
+    }
+
+    // ── AC1: scope_failure / poisoned_acceptance → block_chain or respec_before_retry ──
+
+    public function test_scope_failure_graph_adjustment_is_block_chain(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec' => ['forbidden_files_detected' => true, 'quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'task_packet_id' => 'pkt-scope',
+            'family' => 'fam-scope',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_SCOPE_FAILURE, $r['primary_cause']);
+        $this->assertContains($r['graph_adjustment']['action'], [
+            AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_BLOCK_CHAIN,
+            AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_RESPEC_BEFORE_RETRY,
+        ]);
+        $this->assertSame('pkt-scope', $r['graph_adjustment']['task_packet_id']);
+        $this->assertSame('fam-scope', $r['graph_adjustment']['family']);
+    }
+
+    public function test_poisoned_acceptance_graph_adjustment_is_block_chain_or_respec(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true, 'contradictory_acceptance' => true],
+            'outcome' => ['result' => 'give_back'],
+            'task_packet_id' => 'pkt-poison',
+            'family' => 'fam-poison',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_POISONED_ACCEPTANCE, $r['primary_cause']);
+        $this->assertContains($r['graph_adjustment']['action'], [
+            AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_BLOCK_CHAIN,
+            AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_RESPEC_BEFORE_RETRY,
+        ]);
+        $this->assertSame('pkt-poison', $r['graph_adjustment']['task_packet_id']);
+        $this->assertSame('fam-poison', $r['graph_adjustment']['family']);
+    }
+
+    public function test_graph_adjustment_refs_are_null_when_not_supplied(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec' => ['forbidden_files_detected' => true, 'quality_score' => 0.9, 'has_acceptance_criteria' => true],
+        ]);
+
+        $this->assertNull($r['graph_adjustment']['task_packet_id']);
+        $this->assertNull($r['graph_adjustment']['family']);
+    }
+
+    // ── AC2: good_execution → continue_chain or promote_family with positive routing signal ──
+
+    public function test_good_execution_graph_adjustment_is_continue_chain_or_promote_family(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution());
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_GOOD_EXECUTION, $r['primary_cause']);
+        $this->assertContains($r['graph_adjustment']['action'], [
+            AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_CONTINUE_CHAIN,
+            AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_PROMOTE_FAMILY,
+        ]);
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ROUTING_SIGNAL_POSITIVE, $r['routing_signal']);
+    }
+
+    public function test_good_execution_with_repeated_success_promotes_family(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution([
+            'worker' => ['repeated_success_count' => 5, 'success_threshold' => 2],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_PROMOTE_FAMILY, $r['graph_adjustment']['action']);
+    }
+
+    public function test_good_execution_without_repeated_success_continues_chain(): void
+    {
+        $r = $this->attributor->attribute($this->goodExecution());
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_CONTINUE_CHAIN, $r['graph_adjustment']['action']);
+    }
+
+    // ── AC3: worker_mismatch / routing_family_mismatch → reroute_worker, never spec-quality ──
+
+    public function test_worker_mismatch_graph_adjustment_is_reroute_worker(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'worker'  => ['quality_score' => 0.85, 'task_class' => 'risky_refactor', 'avoid_task_classes' => ['risky_refactor']],
+            'outcome' => ['result' => 'give_back'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_WORKER_MISMATCH, $r['primary_cause']);
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_REROUTE_WORKER, $r['graph_adjustment']['action']);
+        $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_SPLIT_BEFORE_RETRY, $r['graph_adjustment']['action']);
+    }
+
+    public function test_routing_family_mismatch_graph_adjustment_is_reroute_worker(): void
+    {
+        $r = $this->attributor->attribute([
+            'spec'    => ['quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'worker'  => ['quality_score' => 0.8, 'task_class' => 'frontend', 'avoid_task_classes' => [], 'repeated_give_back_count' => 3, 'give_back_threshold' => 2],
+            'outcome' => ['result' => 'give_back'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_ROUTING_FAMILY_MISMATCH, $r['primary_cause']);
+        $this->assertSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_REROUTE_WORKER, $r['graph_adjustment']['action']);
+        // Must NOT be labelled as a spec-quality problem.
+        $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_SPLIT_BEFORE_RETRY, $r['graph_adjustment']['action']);
+        $this->assertNotSame(AtlasExternalBrainTaskOutcomeCausalAttributor::ADJUSTMENT_RESPEC_BEFORE_RETRY, $r['graph_adjustment']['action']);
+    }
+
+    public function test_attribute_is_deterministic_with_graph_adjustment(): void
+    {
+        $input = [
+            'spec'           => ['quality_score' => 0.9, 'has_acceptance_criteria' => true],
+            'worker'         => ['quality_score' => 0.85, 'task_class' => 'risky', 'avoid_task_classes' => ['risky']],
+            'outcome'        => ['result' => 'give_back'],
+            'task_packet_id' => 'pkt-det',
+            'family'         => 'fam-det',
+        ];
+
+        $a = $this->attributor->attribute($input);
+        $b = $this->attributor->attribute($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
