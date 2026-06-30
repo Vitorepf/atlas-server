@@ -69,6 +69,46 @@ final class AtlasSelfConstructionOperatorDependencyRegressionGateTest extends Te
         $this->assertTrue($r['allowed']);
     }
 
+    public function test_manual_sign_off_phrase_is_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionOperatorDependencyRegressionGate)->evaluate([
+            'plan_id' => 'p-7',
+            'description' => 'This plan requires a manual sign-off before proceeding.',
+        ]);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('dependency_regression:requires_operator_approval', array_column($r['blocking_facts'], 'kind'));
+    }
+
+    public function test_wait_for_operator_phrase_is_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionOperatorDependencyRegressionGate)->evaluate([
+            'plan_id' => 'p-8',
+            'description' => 'Execution pauses while waiting for operator.',
+        ]);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('dependency_regression:requires_operator_approval', array_column($r['blocking_facts'], 'kind'));
+    }
+
+    public function test_human_confirmation_phrase_is_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionOperatorDependencyRegressionGate)->evaluate([
+            'plan_id' => 'p-9',
+            'description' => 'Human confirmation is required at each stage.',
+        ]);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('dependency_regression:requires_operator_approval', array_column($r['blocking_facts'], 'kind'));
+    }
+
+    public function test_external_assistant_dependency_phrase_is_blocked(): void
+    {
+        $r = (new AtlasSelfConstructionOperatorDependencyRegressionGate)->evaluate([
+            'plan_id' => 'p-10',
+            'description' => 'Each merge requires Claude Code to review the diff.',
+        ]);
+        $this->assertFalse($r['allowed']);
+        $this->assertContains('dependency_regression:external_assistant_dependency', array_column($r['blocking_facts'], 'kind'));
+    }
+
     public function test_blocking_facts_are_deterministically_sorted(): void
     {
         $r = (new AtlasSelfConstructionOperatorDependencyRegressionGate)->evaluate([

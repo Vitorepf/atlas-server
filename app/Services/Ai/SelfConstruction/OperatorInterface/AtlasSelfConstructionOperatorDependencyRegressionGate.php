@@ -31,9 +31,10 @@ final class AtlasSelfConstructionOperatorDependencyRegressionGate
 
     /** Pattern => blocker kind. */
     public const PATTERN_TO_KIND = [
-        '/requires?\s+operator\s+approval|await\s+human|human[- ]?in[- ]?the[- ]?loop|operator\s+must\s+approve/i' => 'dependency_regression:requires_operator_approval',
+        '/requires?\s+operator\s+approval|await\s+human|human[- ]?in[- ]?the[- ]?loop|operator\s+must\s+approve|manual\s+sign[- ]?off|sign[- ]?off\s+required|wait(?:ing)?\s+for\s+operator|human\s+confirmation|approval\s+button|approve\s+button/i' => 'dependency_regression:requires_operator_approval',
         '/(each|every|per)\s+cycle.*operator\s+review|manual\s+review\s+per\s+cycle/i' => 'dependency_regression:cycle_requires_operator_review',
         '/emergency\s+stop|kill\s+switch|emergency\s+button/i' => 'dependency_regression:emergency_button_as_normal_path',
+        '/requires?\s+(?:claude\s+code|codex|cursor|gemini)|(?:claude\s+code|codex|cursor)\s+(?:reviews?|edits?|approves?)|depends?\s+on\s+(?:an?\s+)?external\s+(?:ai\s+)?(?:assistant|provider)/i' => 'dependency_regression:external_assistant_dependency',
     ];
 
     /**
