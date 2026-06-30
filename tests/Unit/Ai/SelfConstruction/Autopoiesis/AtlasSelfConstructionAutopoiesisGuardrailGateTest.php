@@ -121,4 +121,30 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGateTest extends TestCase
         $this->assertTrue($verdict['accepted']);
         $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_REVERSIBLE, $verdict['allowed_class']);
     }
+
+    public function test_multiple_bypass_flags_all_accumulate_as_blockers(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'bypasses_kernel' => true,
+            'bypasses_verification_court' => true,
+            'bypasses_allowed_files' => true,
+            'read_only' => true,
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('experiment_bypasses_kernel', $verdict['blockers']);
+        $this->assertContains('experiment_bypasses_verification_court', $verdict['blockers']);
+        $this->assertContains('experiment_bypasses_allowed_files', $verdict['blockers']);
+        $this->assertCount(3, $verdict['blockers']);
+    }
+
+    public function test_non_array_rollback_plan_treated_as_missing(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([
+            'reversible' => true,
+            'rollback_plan' => 'revert_commit',
+            'evidence_refs' => ['receipt:r1'],
+        ]);
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_missing_rollback_plan', $verdict['blockers']);
+    }
 }
