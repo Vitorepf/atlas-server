@@ -121,4 +121,49 @@ class AgentControlPlaneDeepChainCatalogTest extends TestCase
             self::assertStringStartsWith('App\\Services\\Ai\\SelfConstruction\\', $entry['invoker_class']);
         }
     }
+
+    public function test_audit_is_clean_for_canonical_deep_chain(): void
+    {
+        $result = AgentControlPlaneDeepChainCatalog::audit(AgentControlPlaneDeepChainCatalog::canonicalDeepChain());
+
+        self::assertTrue($result['clean'], 'canonical chain must pass audit; blockers: '.implode(', ', $result['blockers']));
+        self::assertSame([], $result['blockers']);
+    }
+
+    public function test_audit_reports_duplicate_slice_key(): void
+    {
+        $chain = [
+            ['slice_key' => 'key_a', 'method_prefix' => 'mp1', 'invoker_class' => 'IC1', 'prepare_method' => 'pm1', 'doc_bullet' => 'b1'],
+            ['slice_key' => 'key_a', 'method_prefix' => 'mp2', 'invoker_class' => 'IC2', 'prepare_method' => 'pm2', 'doc_bullet' => 'b2'],
+        ];
+        $result = AgentControlPlaneDeepChainCatalog::audit($chain);
+
+        self::assertFalse($result['clean']);
+        self::assertContains('duplicate_slice_key:key_a', $result['blockers']);
+    }
+
+    public function test_audit_reports_duplicate_method_prefix(): void
+    {
+        $chain = [
+            ['slice_key' => 'key_a', 'method_prefix' => 'sharedPrefix', 'invoker_class' => 'IC1', 'prepare_method' => 'pm1', 'doc_bullet' => 'b1'],
+            ['slice_key' => 'key_b', 'method_prefix' => 'sharedPrefix', 'invoker_class' => 'IC2', 'prepare_method' => 'pm2', 'doc_bullet' => 'b2'],
+        ];
+        $result = AgentControlPlaneDeepChainCatalog::audit($chain);
+
+        self::assertFalse($result['clean']);
+        self::assertContains('duplicate_method_prefix:sharedPrefix', $result['blockers']);
+    }
+
+    public function test_audit_reports_empty_invoker_class_prepare_method_and_doc_bullet(): void
+    {
+        $chain = [
+            ['slice_key' => 'key_x', 'method_prefix' => 'mp1', 'invoker_class' => '', 'prepare_method' => '', 'doc_bullet' => ''],
+        ];
+        $result = AgentControlPlaneDeepChainCatalog::audit($chain);
+
+        self::assertFalse($result['clean']);
+        self::assertContains('empty_invoker_class:key_x', $result['blockers']);
+        self::assertContains('empty_prepare_method:key_x', $result['blockers']);
+        self::assertContains('empty_doc_bullet:key_x', $result['blockers']);
+    }
 }

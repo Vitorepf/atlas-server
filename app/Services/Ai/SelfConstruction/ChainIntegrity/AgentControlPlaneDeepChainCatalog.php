@@ -318,6 +318,54 @@ final class AgentControlPlaneDeepChainCatalog
         return $normalized;
     }
 
+    /**
+     * Pure canonical audit: scans a chain for structural defects without touching I/O.
+     *
+     * @param  list<array<string,mixed>>  $chain
+     * @return array{clean:bool, blockers:list<string>}
+     */
+    public static function audit(array $chain): array
+    {
+        $blockers = [];
+        $seenSliceKeys = [];
+        $seenMethodPrefixes = [];
+
+        foreach ($chain as $i => $entry) {
+            $sliceKey = (string) ($entry['slice_key'] ?? '');
+            $methodPrefix = (string) ($entry['method_prefix'] ?? '');
+            $invokerClass = (string) ($entry['invoker_class'] ?? '');
+            $prepareMethod = (string) ($entry['prepare_method'] ?? '');
+            $docBullet = (string) ($entry['doc_bullet'] ?? '');
+            $label = $sliceKey !== '' ? $sliceKey : 'index_'.$i;
+
+            if ($sliceKey !== '' && isset($seenSliceKeys[$sliceKey])) {
+                $blockers[] = 'duplicate_slice_key:'.$sliceKey;
+            }
+            if ($sliceKey !== '') {
+                $seenSliceKeys[$sliceKey] = true;
+            }
+
+            if ($methodPrefix !== '' && isset($seenMethodPrefixes[$methodPrefix])) {
+                $blockers[] = 'duplicate_method_prefix:'.$methodPrefix;
+            }
+            if ($methodPrefix !== '') {
+                $seenMethodPrefixes[$methodPrefix] = true;
+            }
+
+            if ($invokerClass === '') {
+                $blockers[] = 'empty_invoker_class:'.$label;
+            }
+            if ($prepareMethod === '') {
+                $blockers[] = 'empty_prepare_method:'.$label;
+            }
+            if ($docBullet === '') {
+                $blockers[] = 'empty_doc_bullet:'.$label;
+            }
+        }
+
+        return ['clean' => $blockers === [], 'blockers' => array_values($blockers)];
+    }
+
     public static function deriveActivateKeyFromRuntime(string $runtimeKey): string
     {
         if ($runtimeKey === '') {
