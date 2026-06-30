@@ -37,6 +37,16 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
 
     public const STALE_AGE_THRESHOLD_DAYS = 30;
 
+    /** Maturity bands that imply "done" — contradicted by a recent run of bad outcomes. */
+    private const ADVANCED_MATURITY_BANDS = ['advanced', 'autonomous'];
+
+    private const BAD_OUTCOME_RESULTS = ['failure', 'give_back', 'poison'];
+
+    /** Minimum bad-outcome count + majority-over-success required to flag a contradiction. */
+    private const OUTCOME_CONTRADICTION_MIN_BAD_COUNT = 2;
+
+    private const CONFIDENCE_BOOST = ['low' => 'medium', 'medium' => 'high', 'high' => 'high'];
+
     private const IMPACT_ORDER = ['high' => 0, 'medium' => 1, 'low' => 2];
 
     private const MATURITY_BAND_ORDER = [
@@ -71,6 +81,20 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
             array_map('strval', (array) ($input['queued_areas'] ?? [])),
             static fn (string $a): bool => $a !== '',
         ));
+        $outcomes = is_array($input['outcomes'] ?? null) ? $input['outcomes'] : [];
+
+        // Group outcomes by area_id for O(1) lookup below.
+        $outcomesByArea = [];
+        foreach ($outcomes as $o) {
+            if (! is_array($o)) {
+                continue;
+            }
+            $oArea = (string) ($o['area_id'] ?? '');
+            if ($oArea === '') {
+                continue;
+            }
+            $outcomesByArea[$oArea][] = (string) ($o['result'] ?? '');
+        }
 
         $findings    = [];
         $mappedIds   = [];
@@ -98,10 +122,27 @@ final class AtlasExternalBrainCapabilityMapDriftDetector
                 default                                        => 'high',
             };
 
-            if ($state === 'integrated' && ! $hasEvidence) {
-                $findings[] = $this->finding($areaId, self::DRIFT_CONTRADICTORY, 'high', $confidence);
+            // Recent successful outcome evidence boosts confidence for COMPLETION-class drift only
+            // (stale / contradictory) — stale_owner_evidence below intentionally keeps the unboosted
+            // $confidence, so stale ownership is never hidden by an unrelated successful run.
+            $areaOutcomes = $outcomesByArea[$areaId] ?? [];
+            $successCount = count(array_filter($areaOutcomes, static fn (string $r): bool => $r === 'success'));
+            $badCount = count(array_filter($areaOutcomes, static fn (string $r): bool => in_array($r, self::BAD_OUTCOME_RESULTS, true)));
+            $completionConfidence = $successCount > 0 ? self::CONFIDENCE_BOOST[$confidence] : $confidence;
+
+            $contradictoryFlagged = $state === 'integrated' && ! $hasEvidence;
+            if ($contradictoryFlagged) {
+                $findings[] = $this->finding($areaId, self::DRIFT_CONTRADICTORY, 'high', $completionConfidence);
             } elseif ($ageDays > self::STALE_AGE_THRESHOLD_DAYS) {
-                $findings[] = $this->finding($areaId, self::DRIFT_STALE, 'medium', $confidence);
+                $findings[] = $this->finding($areaId, self::DRIFT_STALE, 'medium', $completionConfidence);
+            }
+
+            // AC2: recent failed/give_back/poison outcomes contradict a claimed advanced/integrated
+            // maturity — flag even when the map state itself looks healthy.
+            $claimsAdvanced = $state === 'integrated' || in_array($maturityBand, self::ADVANCED_MATURITY_BANDS, true);
+            if (! $contradictoryFlagged && $claimsAdvanced && $badCount >= self::OUTCOME_CONTRADICTION_MIN_BAD_COUNT && $badCount > $successCount) {
+                $outcomeDrift = $state === 'integrated' ? self::DRIFT_CONTRADICTORY : self::DRIFT_MATURITY_REGRESSION;
+                $findings[] = $this->finding($areaId, $outcomeDrift, 'high', 'high');
             }
 
             if ($owner === '') {

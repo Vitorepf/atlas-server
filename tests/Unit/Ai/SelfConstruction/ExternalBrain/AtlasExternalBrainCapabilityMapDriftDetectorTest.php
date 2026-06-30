@@ -29,6 +29,7 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
             'has_completion_evidence' => $evidence,
             'owner'                   => $owner,
             'maturity_band'           => $maturityBand,
+            'next_leverage'           => 'default-next-leverage',
         ];
     }
 
@@ -364,5 +365,127 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
                 "state={$state} should not trigger retired_blocked_queue_conflict",
             );
         }
+    }
+
+    // ── AC1: missing_next_leverage ──────────────────────────────────────────────
+
+    public function test_missing_next_leverage_on_active_area_flagged_with_evidence_needed(): void
+    {
+        $entry = array_merge($this->entry('discovery'), ['next_leverage' => '']);
+
+        $r = $this->svc()->detect(['map_entries' => [$entry], 'queued_areas' => []]);
+
+        $f = $this->findingFor($r, 'discovery');
+        $this->assertNotNull($f);
+        $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_NEXT_LEVERAGE, $f['drift_type']);
+        $this->assertContains('leverage_assessment', $f['evidence_needed']);
+        $this->assertContains('next_opportunity_scan', $f['evidence_needed']);
+    }
+
+    public function test_present_next_leverage_not_flagged(): void
+    {
+        $r = $this->svc()->detect(['map_entries' => [$this->entry('discovery')], 'queued_areas' => []]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertNotContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_NEXT_LEVERAGE, $driftTypes);
+    }
+
+    // ── AC2: recent bad outcomes contradict claimed advanced/integrated maturity ──
+
+    public function test_failed_outcomes_flag_contradictory_even_when_state_is_integrated(): void
+    {
+        $entry = $this->entry('payments', 'integrated', 5, true);
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [
+                ['area_id' => 'payments', 'result' => 'failure'],
+                ['area_id' => 'payments', 'result' => 'give_back'],
+            ],
+        ]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_CONTRADICTORY, $driftTypes);
+    }
+
+    public function test_failed_outcomes_flag_maturity_regression_when_band_is_advanced_but_state_not_integrated(): void
+    {
+        $entry = $this->entry('billing', 'known', 5, true, 'team-a', 'advanced');
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [
+                ['area_id' => 'billing', 'result' => 'poison'],
+                ['area_id' => 'billing', 'result' => 'failure'],
+            ],
+        ]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MATURITY_REGRESSION, $driftTypes);
+    }
+
+    public function test_mostly_successful_outcomes_do_not_contradict_advanced_maturity(): void
+    {
+        $entry = $this->entry('reporting', 'integrated', 5, true);
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [
+                ['area_id' => 'reporting', 'result' => 'success'],
+                ['area_id' => 'reporting', 'result' => 'success'],
+                ['area_id' => 'reporting', 'result' => 'failure'],
+            ],
+        ]);
+
+        $this->assertNull($this->findingFor($r, 'reporting'));
+    }
+
+    // ── AC3: successful evidence improves completion-drift confidence, owner staleness unaffected ──
+
+    public function test_successful_outcomes_boost_stale_finding_confidence(): void
+    {
+        $threshold = AtlasExternalBrainCapabilityMapDriftDetector::STALE_AGE_THRESHOLD_DAYS;
+        $entryNoOutcome = $this->entry('search', 'known', $threshold + 1, true);
+        $entryWithSuccess = $this->entry('search-2', 'known', $threshold + 1, true);
+
+        $rNoOutcome = $this->svc()->detect(['map_entries' => [$entryNoOutcome], 'queued_areas' => []]);
+        $rWithSuccess = $this->svc()->detect([
+            'map_entries' => [$entryWithSuccess],
+            'queued_areas' => [],
+            'outcomes' => [['area_id' => 'search-2', 'result' => 'success']],
+        ]);
+
+        $baseConfidence = $this->findingFor($rNoOutcome, 'search')['confidence'];
+        $boostedConfidence = $this->findingFor($rWithSuccess, 'search-2')['confidence'];
+
+        $this->assertSame('medium', $baseConfidence);
+        $this->assertSame('high', $boostedConfidence);
+    }
+
+    public function test_stale_owner_evidence_confidence_is_not_boosted_by_successful_outcomes(): void
+    {
+        $threshold = AtlasExternalBrainCapabilityMapDriftDetector::STALE_AGE_THRESHOLD_DAYS;
+        $entry = array_merge(
+            $this->entry('billing', 'known', $threshold + 1, true),
+            ['owner_evidence_age_days' => $threshold + 1],
+        );
+
+        $r = $this->svc()->detect([
+            'map_entries' => [$entry],
+            'queued_areas' => [],
+            'outcomes' => [['area_id' => 'billing', 'result' => 'success']],
+        ]);
+
+        $ownerFinding = array_values(array_filter(
+            $r['findings'],
+            static fn (array $f): bool => $f['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE_OWNER_EVIDENCE,
+        ))[0];
+
+        // Owner staleness is still reported, and its confidence reflects the raw age, NOT
+        // boosted by the unrelated successful outcome — stale ownership is never hidden.
+        $this->assertSame('medium', $ownerFinding['confidence']);
     }
 }
