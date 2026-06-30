@@ -69,4 +69,21 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegrationTest ext
         $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([]);
         $this->assertSame('atlas.continuous_runtime.replenisher_integration.v1', $verdict['schema_version']);
     }
+
+    public function test_receipt_fields_schema_request_and_payload_hash_are_all_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-receipt'],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 0, 'depth_floor' => 3],
+        ]);
+
+        $this->assertArrayHasKey('schema_version', $verdict);
+        $this->assertArrayHasKey('request', $verdict);
+        $this->assertArrayHasKey('payload_hash', $verdict);
+        $this->assertSame(AtlasSelfConstructionContinuousRuntimeReplenisherIntegration::SCHEMA, $verdict['schema_version']);
+        $this->assertIsArray($verdict['request']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $verdict['payload_hash']);
+        $this->assertArrayHasKey('action', $verdict['request']);
+        $this->assertArrayHasKey('target_new_packet_count', $verdict['request']);
+    }
 }
