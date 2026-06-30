@@ -19,8 +19,8 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
                 'objective' => 'noop',
                 'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
                 'scope_in' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
-                'acceptance_criteria' => ['noop'],
-                'required_evidence' => ['tests_or_gates_result'],
+                'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+                'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
                 'simplicity_contract' => [
                     'final_runtime_owner' => 'atlas_native',
                     'steady_state_runtime_owner' => 'atlas_server',
