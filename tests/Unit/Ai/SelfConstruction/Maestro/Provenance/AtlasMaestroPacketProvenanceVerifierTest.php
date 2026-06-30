@@ -153,6 +153,37 @@ class AtlasMaestroPacketProvenanceVerifierTest extends TestCase
         self::assertSame($before, $after);
     }
 
+    public function test_missing_author_when_author_key_present_but_empty(): void
+    {
+        $record = $this->repairedChain();
+        $record['author'] = '';
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verify($record);
+
+        self::assertFalse($verdict['ok']);
+        self::assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_MISSING_AUTHOR, $verdict['reason_code']);
+    }
+
+    public function test_allowed_files_hash_mismatch(): void
+    {
+        $record = $this->repairedChain();
+        $record['allowed_files'] = ['app/foo.php', 'app/bar.php'];
+        $record['allowed_files_hash'] = str_repeat('a', 64);
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verify($record);
+
+        self::assertFalse($verdict['ok']);
+        self::assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_ALLOWED_FILES_MISMATCH, $verdict['reason_code']);
+    }
+
+    public function test_stale_critic_receipt_predating_genesis_link(): void
+    {
+        $record = $this->repairedChain();
+        $record['critic_receipt'] = ['captured_at' => '2020-01-01T00:00:00Z'];
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verify($record);
+
+        self::assertFalse($verdict['ok']);
+        self::assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_STALE_CRITIC_RECEIPT, $verdict['reason_code']);
+    }
+
     public function test_calling_verify_twice_returns_equal_verdicts(): void
     {
         $record = $this->repairedChain();

@@ -34,6 +34,12 @@ final class AtlasMaestroPacketProvenanceVerifier
 
     public const REASON_TIMESTAMP_REGRESSION = 'TIMESTAMP_REGRESSION';
 
+    public const REASON_MISSING_AUTHOR = 'MISSING_AUTHOR';
+
+    public const REASON_ALLOWED_FILES_MISMATCH = 'ALLOWED_FILES_MISMATCH';
+
+    public const REASON_STALE_CRITIC_RECEIPT = 'STALE_CRITIC_RECEIPT';
+
     /**
      * @param  array<string,mixed>  $record
      * @return array{ok:bool, reason_code:string, broken_link_id?:string}
@@ -43,6 +49,18 @@ final class AtlasMaestroPacketProvenanceVerifier
         $chain = is_array($record['chain'] ?? null) ? array_values($record['chain']) : [];
         if ($chain === []) {
             return $this->verdict(false, self::REASON_CHAIN_EMPTY);
+        }
+
+        if (array_key_exists('author', $record) && trim((string) ($record['author'] ?? '')) === '') {
+            return $this->verdict(false, self::REASON_MISSING_AUTHOR);
+        }
+
+        if (isset($record['allowed_files_hash'], $record['allowed_files']) && is_array($record['allowed_files'])) {
+            $files = $record['allowed_files'];
+            sort($files, SORT_STRING);
+            if ((string) $record['allowed_files_hash'] !== hash('sha256', $this->canonicalJson($files))) {
+                return $this->verdict(false, self::REASON_ALLOWED_FILES_MISMATCH);
+            }
         }
 
         // Genesis link MUST match origin_kind/origin_id.
@@ -103,6 +121,14 @@ final class AtlasMaestroPacketProvenanceVerifier
 
             $knownIds[$linkId] = true;
             $prevCaptured = $capturedAt;
+        }
+
+        if (isset($record['critic_receipt']) && is_array($record['critic_receipt'])) {
+            $criticAt = (string) ($record['critic_receipt']['captured_at'] ?? '');
+            $genesisAt = (string) ($chain[0]['captured_at'] ?? '');
+            if ($criticAt !== '' && $genesisAt !== '' && strcmp($criticAt, $genesisAt) < 0) {
+                return $this->verdict(false, self::REASON_STALE_CRITIC_RECEIPT);
+            }
         }
 
         return $this->verdict(true, self::REASON_OK);
