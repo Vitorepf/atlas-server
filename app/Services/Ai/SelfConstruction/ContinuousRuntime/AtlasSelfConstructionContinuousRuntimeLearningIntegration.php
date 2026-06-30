@@ -33,6 +33,14 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
 
     public const OUTCOME_QUARANTINE = 'quarantine';
 
+    private const KNOWN_OUTCOME_KINDS = [
+        self::OUTCOME_VERIFICATION,
+        self::OUTCOME_MERGE,
+        self::OUTCOME_GIVE_BACK,
+        self::OUTCOME_QUEUE_REPAIR,
+        self::OUTCOME_QUARANTINE,
+    ];
+
     /**
      * @param  list<array<string,mixed>>  $outcomes  list of {kind, task_packet_id, lease_id, evidence_hash,
      *                                                          organ, task_class, cycle_id, class?, occurrence_count?,
@@ -65,14 +73,28 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
             $learningRequired = (bool) ($o['learning_required'] ?? false);
             $outcome = (string) ($o['outcome'] ?? '');
 
-            $reusable = $class !== '' && ($learningRequired || $occurrenceCount >= 2);
+            $poisonSignature = (bool) ($o['poison_signature'] ?? false);
+            $unknownKind = $kind !== '' && ! in_array($kind, self::KNOWN_OUTCOME_KINDS, true);
+            $reusable = $class !== '' && ($learningRequired || $occurrenceCount >= 2)
+                && $evidenceHash !== '' && ! $unknownKind && ! $poisonSignature;
 
             if ($class !== '') {
+                $promotionBlockers = [];
+                if ($evidenceHash === '') {
+                    $promotionBlockers[] = 'empty_evidence_hash';
+                }
+                if ($unknownKind) {
+                    $promotionBlockers[] = 'unknown_outcome_kind:'.$kind;
+                }
+                if ($poisonSignature) {
+                    $promotionBlockers[] = 'poison_signature';
+                }
                 $learning[] = [
-                    'class' => $class,
-                    'outcome_kind' => $kind,
-                    'evidence_hash' => $evidenceHash,
-                    'reusable' => $reusable,
+                    'class'              => $class,
+                    'outcome_kind'       => $kind,
+                    'evidence_hash'      => $evidenceHash,
+                    'reusable'           => $reusable,
+                    'promotion_blockers' => $promotionBlockers,
                 ];
             }
 
@@ -83,12 +105,14 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
                 'evidence_hash' => $evidenceHash,
             ];
 
+            $workerQuality = is_array($o['worker_quality'] ?? null) ? $o['worker_quality'] : null;
             $compounding[] = [
-                'organ' => $organ,
-                'task_class' => $taskClass,
-                'cycle_id' => $cycleId,
-                'evidence_hash' => $evidenceHash,
-                'outcome' => $outcome,
+                'organ'          => $organ,
+                'task_class'     => $taskClass,
+                'cycle_id'       => $cycleId,
+                'evidence_hash'  => $evidenceHash,
+                'outcome'        => $outcome,
+                'worker_quality' => $workerQuality,
             ];
 
             if ($kind === self::OUTCOME_MERGE && $evidenceHash !== '') {

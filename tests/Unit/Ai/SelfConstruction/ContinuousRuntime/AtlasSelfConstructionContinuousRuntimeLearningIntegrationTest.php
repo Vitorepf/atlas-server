@@ -126,4 +126,88 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegrationTest extend
         $this->assertSame([], $verdict['compounding_inputs']);
         $this->assertSame([], $verdict['required_promotion_evidence_hashes']);
     }
+
+    // --- evidence quality + promotion_blockers ---
+
+    public function test_empty_evidence_hash_makes_not_reusable_with_promotion_blocker(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => 'verification', 'task_packet_id' => 'p', 'lease_id' => 'l',
+                'evidence_hash' => '',  // empty
+                'class' => 'gate_pattern', 'occurrence_count' => 5, 'outcome' => 'passed',
+            ],
+        ]);
+
+        $li = $verdict['learning_inputs'][0];
+        $this->assertFalse($li['reusable']);
+        $this->assertContains('empty_evidence_hash', $li['promotion_blockers']);
+    }
+
+    public function test_unknown_outcome_kind_makes_not_reusable_with_promotion_blocker(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => 'alien_outcome', 'task_packet_id' => 'p', 'lease_id' => 'l',
+                'evidence_hash' => 'eh1',
+                'class' => 'gate_pattern', 'occurrence_count' => 5, 'outcome' => 'alien',
+            ],
+        ]);
+
+        $li = $verdict['learning_inputs'][0];
+        $this->assertFalse($li['reusable']);
+        $this->assertContains('unknown_outcome_kind:alien_outcome', $li['promotion_blockers']);
+    }
+
+    public function test_poison_signature_never_reusable_even_with_high_occurrence_count(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => 'quarantine', 'task_packet_id' => 'p', 'lease_id' => 'l',
+                'evidence_hash' => 'eh2', 'poison_signature' => true,
+                'class' => 'quarantine_blast_radius', 'occurrence_count' => 99, 'learning_required' => true,
+            ],
+        ]);
+
+        $li = $verdict['learning_inputs'][0];
+        $this->assertFalse($li['reusable']);
+        $this->assertContains('poison_signature', $li['promotion_blockers']);
+    }
+
+    public function test_clean_input_has_empty_promotion_blockers(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => 'verification', 'task_packet_id' => 'p', 'lease_id' => 'l',
+                'evidence_hash' => 'eh3',
+                'class' => 'gate_pattern', 'occurrence_count' => 3, 'outcome' => 'passed',
+            ],
+        ]);
+
+        $li = $verdict['learning_inputs'][0];
+        $this->assertTrue($li['reusable']);
+        $this->assertSame([], $li['promotion_blockers']);
+    }
+
+    public function test_worker_quality_propagated_into_compounding_inputs(): void
+    {
+        $wq = ['client_id' => 'w-1', 'success_rate' => 0.9];
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            [
+                'kind' => 'merge', 'task_packet_id' => 'p', 'lease_id' => 'l',
+                'evidence_hash' => 'eh4', 'worker_quality' => $wq,
+            ],
+        ]);
+
+        $this->assertSame($wq, $verdict['compounding_inputs'][0]['worker_quality']);
+    }
+
+    public function test_worker_quality_null_when_absent(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'merge', 'task_packet_id' => 'p', 'lease_id' => 'l', 'evidence_hash' => 'eh5'],
+        ]);
+
+        $this->assertNull($verdict['compounding_inputs'][0]['worker_quality']);
+    }
 }
