@@ -77,6 +77,8 @@ final class AgentControlPlaneCorridorProjector
         $providerStartReadyNext = $evidenceOk && $dispatchOk && $receiptUseOk
             && $currentNextRequiredSlice === 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_provider_start_driver_gate_contract';
 
+        $bottleneck = self::bottleneckSummary(array_keys($corridor), $sliceStatus);
+
         return [
             'evidence_to_dispatch_chain_ok' => $evidenceOk,
             'dispatch_authorization_chain_ok' => $dispatchOk,
@@ -87,6 +89,9 @@ final class AgentControlPlaneCorridorProjector
             'violations' => $violations,
             'corridor_ok_count' => $okCount,
             'corridor_total_count' => count($corridor),
+            'first_bottleneck' => $bottleneck['first_bottleneck'],
+            'missing_artifact_kinds' => $bottleneck['missing_artifact_kinds'],
+            'next_repair_hint' => $bottleneck['next_repair_hint'],
         ];
     }
 
@@ -196,6 +201,8 @@ final class AgentControlPlaneCorridorProjector
             'signed_real_release_chain_gap' => ! $signedReleaseOk,
         ];
 
+        $bottleneck = self::bottleneckSummary(array_keys($corridor), $sliceStatus);
+
         return [
             'provider_to_runtime_chain_ok' => $providerToRuntimeOk,
             'adapter_boundary_chain_ok' => $adapterOk,
@@ -213,6 +220,9 @@ final class AgentControlPlaneCorridorProjector
             'violations' => $violations,
             'corridor_ok_count' => $okCount,
             'corridor_total_count' => count($corridor),
+            'first_bottleneck' => $bottleneck['first_bottleneck'],
+            'missing_artifact_kinds' => $bottleneck['missing_artifact_kinds'],
+            'next_repair_hint' => $bottleneck['next_repair_hint'],
         ];
     }
 
@@ -330,6 +340,8 @@ final class AgentControlPlaneCorridorProjector
             'manual_start_to_operator_handoff_chain_gap' => ! $manualHandoffOk,
         ];
 
+        $bottleneck = self::bottleneckSummary(array_keys($corridor), $sliceStatus);
+
         return [
             'implementation_to_operator_handoff_chain_ok' => $allOk,
             'implementation_boundary_chain_ok' => $boundaryOk,
@@ -350,7 +362,49 @@ final class AgentControlPlaneCorridorProjector
             'violations' => $violations,
             'corridor_ok_count' => $okCount,
             'corridor_total_count' => count($corridor),
+            'first_bottleneck' => $bottleneck['first_bottleneck'],
+            'missing_artifact_kinds' => $bottleneck['missing_artifact_kinds'],
+            'next_repair_hint' => $bottleneck['next_repair_hint'],
         ];
+    }
+
+    /**
+     * @param  list<string>  $corridorOrder  logical names in corridor order
+     * @param  array<string, array<string, mixed>>  $sliceStatus
+     * @return array{first_bottleneck: string, missing_artifact_kinds: list<string>, next_repair_hint: string}
+     */
+    private static function bottleneckSummary(array $corridorOrder, array $sliceStatus): array
+    {
+        $artifactKinds = [
+            'contract_method_exists',
+            'preflight_method_exists',
+            'implementation_packet_method_exists',
+            'status_method_exists',
+            'invoker_class_exists',
+            'invoker_prepare_method_exists',
+        ];
+
+        foreach ($corridorOrder as $logicalName) {
+            $entry = $sliceStatus[$logicalName] ?? null;
+            if ($entry === null || ($entry['all_artifacts_ok'] ?? false) !== true) {
+                if ($entry === null || ! ($entry['present_in_deep_chain'] ?? false)) {
+                    return [
+                        'first_bottleneck' => $logicalName,
+                        'missing_artifact_kinds' => $artifactKinds,
+                        'next_repair_hint' => 'implement_slice_and_register_all_artifact_kinds',
+                    ];
+                }
+                $missing = array_values(array_filter($artifactKinds, static fn (string $k): bool => ! ($entry[$k] ?? false)));
+
+                return [
+                    'first_bottleneck' => $logicalName,
+                    'missing_artifact_kinds' => $missing,
+                    'next_repair_hint' => $missing !== [] ? 'add_missing_artifact_kinds:'.implode(',', $missing) : 'recheck_slice_ok_flag',
+                ];
+            }
+        }
+
+        return ['first_bottleneck' => '', 'missing_artifact_kinds' => [], 'next_repair_hint' => ''];
     }
 
     /**

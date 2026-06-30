@@ -114,6 +114,58 @@ class AgentControlPlaneCorridorProjectorTest extends TestCase
         self::assertSame($e, $f);
     }
 
+    public function test_first_bottleneck_is_first_missing_slice_when_all_absent(): void
+    {
+        $result = AgentControlPlaneCorridorProjector::postStartEvidenceCorridor([], 'x');
+
+        $this->assertSame('post_start_receipt_contract', $result['first_bottleneck']);
+        $this->assertNotEmpty($result['missing_artifact_kinds']);
+        $this->assertNotEmpty($result['next_repair_hint']);
+    }
+
+    public function test_bottleneck_fields_are_empty_when_all_slices_ok(): void
+    {
+        $keys = [
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff',
+            'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor',
+        ];
+        $reports = array_map(fn (string $k): array => ['slice_key' => $k, 'ok' => true, 'checks' => []], $keys);
+        $result = AgentControlPlaneCorridorProjector::postStartEvidenceCorridor($reports, 'test');
+
+        $this->assertSame('', $result['first_bottleneck']);
+        $this->assertSame([], $result['missing_artifact_kinds']);
+        $this->assertSame('', $result['next_repair_hint']);
+    }
+
+    public function test_first_bottleneck_exposes_only_false_artifact_checks(): void
+    {
+        $sliceKey = 'automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract';
+        $reports = [
+            ['slice_key' => $sliceKey, 'ok' => false, 'checks' => ['contract_method_exists' => true]],
+        ];
+        $result = AgentControlPlaneCorridorProjector::postStartEvidenceCorridor($reports, 'x');
+
+        $this->assertSame('post_start_receipt_contract', $result['first_bottleneck']);
+        $this->assertNotContains('contract_method_exists', $result['missing_artifact_kinds']);
+        $this->assertContains('preflight_method_exists', $result['missing_artifact_kinds']);
+        $this->assertNotEmpty($result['next_repair_hint']);
+    }
+
+    public function test_bottleneck_fields_are_deterministic(): void
+    {
+        $a = AgentControlPlaneCorridorProjector::postStartEvidenceCorridor([], 'x');
+        $b = AgentControlPlaneCorridorProjector::postStartEvidenceCorridor([], 'x');
+        $this->assertSame($a['first_bottleneck'], $b['first_bottleneck']);
+        $this->assertSame($a['missing_artifact_kinds'], $b['missing_artifact_kinds']);
+        $this->assertSame($a['next_repair_hint'], $b['next_repair_hint']);
+    }
+
     public function test_post_start_evidence_corridor_slice_status_has_check_fields(): void
     {
         $reports = [
