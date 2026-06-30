@@ -80,6 +80,13 @@ final class AtlasSelfConstructionNativePatchPlanner
         $context = is_array($packet['context'] ?? null) ? array_map('strval', $packet['context']) : [];
         $testFiles = is_array($packet['test_files'] ?? null) ? array_values(array_map('strval', $packet['test_files'])) : [];
 
+        // minimal_template_reason: explain why the selected template beats the next candidate.
+        $minimalTemplateReason = null;
+        if (count($matches) > 1) {
+            $winnerImports = count($this->deriveImports($primary));
+            $minimalTemplateReason = 'fewest_imports:'.$primary.'='.$winnerImports;
+        }
+
         $variables = $context;
         $templateIds = [$primary];
         $requiredImports = $this->deriveImports($primary);
@@ -88,6 +95,12 @@ final class AtlasSelfConstructionNativePatchPlanner
             'gates' => ['phpunit'],
         ];
         $riskNotes = $this->riskNotesFor($primary, $allowed);
+
+        // missing_test_plan risk note: test files must exist and be within allowed scope.
+        $hasAllowedTestPath = $testFiles !== [] && array_intersect($testFiles, $allowed) !== [];
+        if (! $hasAllowedTestPath) {
+            $riskNotes[] = 'missing_test_plan';
+        }
 
         $canonical = [
             'allowed_files' => $allowed,
@@ -106,6 +119,7 @@ final class AtlasSelfConstructionNativePatchPlanner
             'required_imports' => $requiredImports,
             'test_plan' => $testPlan,
             'risk_notes' => $riskNotes,
+            'minimal_template_reason' => $minimalTemplateReason,
         ];
     }
 

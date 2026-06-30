@@ -122,4 +122,66 @@ final class AtlasSelfConstructionNativePatchPlannerTest extends TestCase
         $this->expectExceptionMessageMatches('/allowed_files empty/');
         (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
     }
+
+    // ── missing_test_plan risk note ───────────────────────────────────────────
+
+    public function test_absent_test_files_adds_missing_test_plan_risk_note(): void
+    {
+        $p = $this->purePacket();
+        unset($p['test_files']);
+
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+
+        $this->assertContains('missing_test_plan', $r['risk_notes']);
+    }
+
+    public function test_empty_test_files_adds_missing_test_plan_risk_note(): void
+    {
+        $p = $this->purePacket();
+        $p['test_files'] = [];
+
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+
+        $this->assertContains('missing_test_plan', $r['risk_notes']);
+    }
+
+    public function test_test_files_outside_allowed_scope_adds_missing_test_plan_risk_note(): void
+    {
+        $p = $this->purePacket();
+        $p['test_files'] = ['/outside/the/scope/SomeTest.php']; // not in allowed_files
+
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+
+        $this->assertContains('missing_test_plan', $r['risk_notes']);
+    }
+
+    public function test_test_files_within_allowed_scope_omits_missing_test_plan_risk_note(): void
+    {
+        // purePacket has test_files=['tests/Unit/Demo/FooTest.php'] which IS in allowed_files
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($this->purePacket());
+
+        $this->assertNotContains('missing_test_plan', $r['risk_notes']);
+    }
+
+    // ── minimal_template_reason ───────────────────────────────────────────────
+
+    public function test_multiple_candidates_exposes_minimal_template_reason(): void
+    {
+        $p = $this->purePacket();
+        $p['candidate_template_ids'] = ['cli_wrapper', 'pure_service'];
+
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($p);
+
+        $this->assertArrayHasKey('minimal_template_reason', $r);
+        $this->assertNotNull($r['minimal_template_reason']);
+        $this->assertStringContainsString('pure_service', $r['minimal_template_reason']);
+    }
+
+    public function test_single_candidate_minimal_template_reason_is_null(): void
+    {
+        $r = (new AtlasSelfConstructionNativePatchPlanner)->plan($this->purePacket());
+
+        $this->assertArrayHasKey('minimal_template_reason', $r);
+        $this->assertNull($r['minimal_template_reason']);
+    }
 }
