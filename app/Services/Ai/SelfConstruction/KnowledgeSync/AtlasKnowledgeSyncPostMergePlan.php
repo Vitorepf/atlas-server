@@ -171,6 +171,10 @@ final class AtlasKnowledgeSyncPostMergePlan
             if ($codeTargets !== [] && ! $codeBypassed) {
                 $actions[] = ['action' => self::ACTION_INDEX_CODE, 'target' => $codeTargets];
                 $commandHints[] = 'atlas engineering knowledge index-code --prune';
+                // Implementation changes that require a code index update also require an
+                // evidence ledger record — mirrors the mandatory pairing in planFromChangedFiles().
+                $actions[] = ['action' => self::ACTION_RECORD_EVIDENCE_LEDGER, 'target' => $codeTargets];
+                $commandHints[] = 'atlas evidence-ledger record --source=post_merge';
             }
             foreach ($projectIds as $pid) {
                 $actions[] = ['action' => self::ACTION_REFRESH_CONTEXT_PACK, 'project_id' => $pid];

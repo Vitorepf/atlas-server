@@ -116,6 +116,25 @@ final class AtlasKnowledgeSyncPostMergePlanTest extends TestCase
         $actions = array_column($plan['actions'], 'action');
         $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_SYNC_DOCS, $actions);
         $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $actions);
+        $this->assertNotContains(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $actions);
+    }
+
+    public function test_plan_requires_evidence_ledger_when_code_index_action_emitted(): void
+    {
+        $plan = (new AtlasKnowledgeSyncPostMergePlan)->plan(
+            $this->artifactMap(),
+            $this->docsOk(),
+            $this->codeReady(),
+            $this->certifiedCandidate(),
+        );
+
+        $actions = array_column($plan['actions'], 'action');
+        $this->assertContains(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $actions);
+
+        // stable ordering: index_code before record_evidence_ledger
+        $idxIndex = array_search(AtlasKnowledgeSyncPostMergePlan::ACTION_INDEX_CODE, $actions, true);
+        $idxEvidence = array_search(AtlasKnowledgeSyncPostMergePlan::ACTION_RECORD_EVIDENCE_LEDGER, $actions, true);
+        $this->assertLessThan($idxEvidence, $idxIndex, 'index_code must precede record_evidence_ledger');
     }
 
     public function test_impl_file_change_yields_mandatory_index_code_and_evidence_ledger_in_stable_order(): void
