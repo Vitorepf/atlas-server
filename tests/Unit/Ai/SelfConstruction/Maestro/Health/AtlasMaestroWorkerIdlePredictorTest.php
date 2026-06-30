@@ -109,6 +109,111 @@ final class AtlasMaestroWorkerIdlePredictorTest extends TestCase
         $this->assertSame('2026-06-24T12:00:00+00:00', $high['projected_idle_at_iso8601']);
     }
 
+    public function test_active_leases_from_health_snapshot_included_in_projection(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 8, 'active_leases' => 3];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 10, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame(3, $projection['active_workers']);
+    }
+
+    public function test_claimed_count_from_health_snapshot_included_in_projection(): void
+    {
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 5, 'claimed' => 7];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 10, 'window_elapsed_seconds' => 60];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame(7, $projection['active_workers']);
+    }
+
+    public function test_tiny_window_produces_low_confidence_and_no_eta(): void
+    {
+        // 20s window < 30s MIN_WINDOW_SECONDS — rate unreliable during swarm ramp
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 10];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 5, 'window_elapsed_seconds' => 20];
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertSame('low', $projection['confidence']);
+        $this->assertNull($projection['seconds_until_dry']);
+        $this->assertNull($projection['projected_idle_at_iso8601']);
+        $this->assertSame('window_too_small', $projection['reason']);
+    }
+
+    public function test_stale_window_produces_low_confidence_and_no_eta(): void
+    {
+        // No timing data at all in serving status → window is estimated (fallback)
+        $health = new class
+        {
+            /** @return array<string,mixed> */
+            public function snapshot(): array
+            {
+                return ['claimable_depth' => 10];
+            }
+        };
+        $sentinel = new class
+        {
+            /** @return array<string,mixed> */
+            public function status(): array
+            {
+                return ['serve_total' => 8]; // no window timing keys
+            }
+        };
+
+        $projection = (new AtlasMaestroWorkerIdlePredictor($health, $sentinel))->project();
+
+        $this->assertTrue($projection['window_estimated']);
+        $this->assertSame('low', $projection['confidence']);
+        $this->assertNull($projection['seconds_until_dry']);
+        $this->assertNull($projection['projected_idle_at_iso8601']);
+        $this->assertSame('window_stale', $projection['reason']);
+    }
+
     /** @return array<string,mixed> */
     private function project(int $depth, int $serveTotal, int $elapsedSeconds, DateTimeImmutable $now): array
     {

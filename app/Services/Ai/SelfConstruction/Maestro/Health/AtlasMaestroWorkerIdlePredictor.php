@@ -15,6 +15,8 @@ final class AtlasMaestroWorkerIdlePredictor
 {
     public const SCHEMA = 'atlas.maestro.health.worker_idle_predictor.v1';
 
+    private const MIN_WINDOW_SECONDS = 30;
+
     private Closure $clock;
 
     /**
@@ -51,25 +53,40 @@ final class AtlasMaestroWorkerIdlePredictor
         $serving = $this->servingStatus();
 
         $claimableDepth = $this->claimableDepth($health);
+        $activeWorkers = $this->activeWorkers($health);
         $serveTotal = max(0, (int) ($serving['serve_total'] ?? 0));
         $elapsedSeconds = $this->windowElapsedSeconds($serving, $now);
+        $windowEstimated = $this->windowIsEstimated($serving);
+        $windowTooSmall = $elapsedSeconds < self::MIN_WINDOW_SECONDS;
+
         $serveRatePerMinute = $elapsedSeconds > 0
             ? round($serveTotal / ($elapsedSeconds / 60), 6)
             : 0.0;
 
+        $degradedWindow = $windowEstimated || $windowTooSmall;
+        $confidence = $degradedWindow ? 'low' : $this->confidence($serveTotal);
+
         $projection = [
             'schema' => self::SCHEMA,
             'claimable_depth' => $claimableDepth,
+            'active_workers' => $activeWorkers,
             'serve_total' => $serveTotal,
             'window_elapsed_seconds' => $elapsedSeconds,
+            'window_estimated' => $windowEstimated,
             'serve_rate_per_minute' => $serveRatePerMinute,
             'seconds_until_dry' => null,
             'projected_idle_at_iso8601' => null,
-            'confidence' => $this->confidence($serveTotal),
+            'confidence' => $confidence,
         ];
 
         if ($serveRatePerMinute <= 0.0) {
             $projection['reason'] = 'no_consumption_observed';
+
+            return $projection;
+        }
+
+        if ($degradedWindow) {
+            $projection['reason'] = $windowEstimated ? 'window_stale' : 'window_too_small';
 
             return $projection;
         }
@@ -100,6 +117,35 @@ final class AtlasMaestroWorkerIdlePredictor
         $sentinel = $this->sentinel ?? new AtlasTaskServingSentinel;
 
         return method_exists($sentinel, 'status') ? (array) $sentinel->status() : [];
+    }
+
+    /** @param array<string,mixed> $health */
+    private function activeWorkers(array $health): int
+    {
+        foreach (['active_leases', 'claimed', 'active_workers', 'workers_active'] as $key) {
+            if (isset($health[$key]) && is_numeric($health[$key])) {
+                return max(0, (int) $health[$key]);
+            }
+        }
+
+        return 0;
+    }
+
+    /** @param array<string,mixed> $serving */
+    private function windowIsEstimated(array $serving): bool
+    {
+        foreach (['window_elapsed_seconds', 'serve_window_elapsed_seconds', 'elapsed_seconds', 'tail_window_seconds', 'window_seconds'] as $key) {
+            if (isset($serving[$key]) && is_numeric($serving[$key])) {
+                return false;
+            }
+        }
+        foreach (['window_started_at', 'window_started_at_iso8601', 'first_serve_at', 'first_serve_at_iso8601'] as $key) {
+            if (isset($serving[$key])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param array<string,mixed> $health */
