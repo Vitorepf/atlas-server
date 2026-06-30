@@ -80,11 +80,22 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
         if ($packet === null) {
             $repl = (array) $this->replenisher->replenish($health);
 
-            return $this->stop($cycleId, self::STOP_NO_CLAIMABLE, [
+            $extra = [
                 'health' => $health,
                 'replenish' => $repl,
                 'unattended_supervisor' => $supervisorResult,
-            ]);
+            ];
+
+            if (((int) ($queueHealth['claimable_depth'] ?? -1)) === 0) {
+                $replAction = (string) ($repl['action'] ?? 'unknown');
+                $extra['queue_low_autotopup_reason'] = 'claimable_depth_zero:replenisher_action:'.$replAction;
+                $extra['replenisher_request_digest'] = 'replenish_'.substr(
+                    hash('sha256', (string) json_encode($repl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+                    0, 24
+                );
+            }
+
+            return $this->stop($cycleId, self::STOP_NO_CLAIMABLE, $extra);
         }
 
         $worker = (array) $this->workerIntegration->integrate($packet);

@@ -134,6 +134,49 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
         $this->assertSame(4, $verdict['replenish']['target_new_packet_count']);
     }
 
+    public function test_low_queue_depth_includes_autotopup_reason_and_digest(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 0],
+                'claimable_packet' => null,
+            ]),
+            $this->replenisher(['action' => 'top_up', 'target_new_packet_count' => 3]),
+            $this->workerIntegration(['accepted' => false, 'request' => null, 'blockers' => []]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'unused']),
+            $this->learner(['learning' => []]),
+        );
+
+        $verdict = $runner->run('cyc-low');
+
+        $this->assertTrue($verdict['stopped']);
+        $this->assertSame('no_claimable_task', $verdict['stop_reason']);
+        $this->assertArrayHasKey('queue_low_autotopup_reason', $verdict);
+        $this->assertArrayHasKey('replenisher_request_digest', $verdict);
+        $this->assertStringContainsString('claimable_depth_zero', $verdict['queue_low_autotopup_reason']);
+        $this->assertStringContainsString('top_up', $verdict['queue_low_autotopup_reason']);
+        $this->assertStringStartsWith('replenish_', $verdict['replenisher_request_digest']);
+    }
+
+    public function test_safety_stop_does_not_include_autotopup_reason(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector(['safety_stop' => true, 'safety_reasons' => ['master_switch_off']]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => []]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'unused']),
+            $this->learner(['learning' => []]),
+        );
+
+        $verdict = $runner->run('cyc-safe');
+
+        $this->assertArrayNotHasKey('queue_low_autotopup_reason', $verdict);
+        $this->assertArrayNotHasKey('replenisher_request_digest', $verdict);
+    }
+
     public function test_repair_first_stop_when_malformed_packets_present(): void
     {
         $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
