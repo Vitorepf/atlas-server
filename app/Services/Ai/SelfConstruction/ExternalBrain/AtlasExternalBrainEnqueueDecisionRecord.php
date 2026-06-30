@@ -11,16 +11,19 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Valid decisions: enqueue | defer | consolidate | reject
  *
- * AC2: enqueue is refused when:
- *   - validation_evidence does NOT include 'target_uniqueness'
- *   - validation_evidence includes 'malformed_sweep'
- *   - validation_evidence does NOT include 'collision_check'
+ * ENQUEUE REQUIRED EVIDENCE (all must be present):
+ *   target_uniqueness, collision_check, malformed_sweep_clean,
+ *   allowed_files_exist, runnable_acceptance_present
+ *
+ * ENQUEUE FORBIDDEN EVIDENCE (any triggers rejection):
+ *   malformed_sweep, malformed_sweep_failed, collision_detected,
+ *   duplicate_target, missing_allowed_files, no_runnable_acceptance
  *
  * Non-enqueue decisions (defer/consolidate/reject) are always accepted because
  * they are conservative actions that reduce queue pressure, not increase it.
  *
- * AC1: every accepted record includes queue_snapshot, leverage_rationale,
- *      risk, and validation_evidence.
+ * Every accepted record includes: queue_snapshot, leverage_rationale,
+ * expected_downstream_value, risk, validation_evidence, decision_reason, batch_id.
  *
  * Pure: no I/O, no side effects.
  */
@@ -33,32 +36,39 @@ final class AtlasExternalBrainEnqueueDecisionRecord
     public const DECISION_CONSOLIDATE = 'consolidate';
     public const DECISION_REJECT      = 'reject';
 
-    private const REQUIRED_ENQUEUE_EVIDENCE   = ['target_uniqueness', 'collision_check'];
-    private const FORBIDDEN_ENQUEUE_EVIDENCE  = ['malformed_sweep'];
+    private const REQUIRED_ENQUEUE_EVIDENCE = [
+        'target_uniqueness',
+        'collision_check',
+        'malformed_sweep_clean',
+        'allowed_files_exist',
+        'runnable_acceptance_present',
+    ];
+
+    private const FORBIDDEN_ENQUEUE_EVIDENCE = [
+        'malformed_sweep',
+        'malformed_sweep_failed',
+        'collision_detected',
+        'duplicate_target',
+        'missing_allowed_files',
+        'no_runnable_acceptance',
+    ];
 
     /**
-     * @param  array{
-     *   decision?: string,
-     *   batch_id?: string,
-     *   candidate_count?: int,
-     *   queue_depth?: int,
-     *   queue_pressure?: string,
-     *   leverage_rationale?: string,
-     *   risk_level?: string,
-     *   validation_evidence?: list<string>,
-     * }  $input
-     * @return array{schema:string, accepted:bool, decision:string, rejection_reason:string|null, record:array<string,mixed>|null}
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
      */
     public function record(array $input): array
     {
-        $decision          = (string) ($input['decision']           ?? '');
-        $batchId           = (string) ($input['batch_id']           ?? 'unknown');
-        $candidateCount    = max(0, (int) ($input['candidate_count'] ?? 0));
-        $queueDepth        = max(0, (int) ($input['queue_depth']    ?? 0));
-        $queuePressure     = (string) ($input['queue_pressure']     ?? 'low');
-        $leverageRationale = (string) ($input['leverage_rationale'] ?? '');
-        $riskLevel         = (string) ($input['risk_level']         ?? 'low');
-        $evidence          = (array)  ($input['validation_evidence'] ?? []);
+        $decision               = (string) ($input['decision']                ?? '');
+        $batchId                = (string) ($input['batch_id']                ?? 'unknown');
+        $candidateCount         = max(0, (int) ($input['candidate_count']     ?? 0));
+        $queueDepth             = max(0, (int) ($input['queue_depth']         ?? 0));
+        $queuePressure          = (string) ($input['queue_pressure']          ?? 'low');
+        $leverageRationale      = (string) ($input['leverage_rationale']      ?? '');
+        $expectedDownstreamValue = (string) ($input['expected_downstream_value'] ?? '');
+        $riskLevel              = (string) ($input['risk_level']              ?? 'low');
+        $decisionReason         = (string) ($input['decision_reason']         ?? '');
+        $evidence               = (array)  ($input['validation_evidence']     ?? []);
 
         $rejectionReason = $this->validateDecision($decision, $evidence);
 
@@ -73,16 +83,18 @@ final class AtlasExternalBrainEnqueueDecisionRecord
         }
 
         $record = [
-            'batch_id'           => $batchId,
-            'decision'           => $decision,
-            'candidate_count'    => $candidateCount,
-            'queue_snapshot'     => [
+            'batch_id'                 => $batchId,
+            'decision'                 => $decision,
+            'candidate_count'          => $candidateCount,
+            'queue_snapshot'           => [
                 'queue_depth'    => $queueDepth,
                 'queue_pressure' => $queuePressure,
             ],
-            'leverage_rationale' => $leverageRationale,
-            'risk'               => $riskLevel,
-            'validation_evidence' => $evidence,
+            'leverage_rationale'       => $leverageRationale,
+            'expected_downstream_value' => $expectedDownstreamValue,
+            'risk'                     => $riskLevel,
+            'validation_evidence'      => $evidence,
+            'decision_reason'          => $decisionReason,
         ];
 
         return [
@@ -97,7 +109,6 @@ final class AtlasExternalBrainEnqueueDecisionRecord
     private function validateDecision(string $decision, array $evidence): ?string
     {
         if ($decision !== self::DECISION_ENQUEUE) {
-            // Conservative decisions are always accepted.
             return null;
         }
 

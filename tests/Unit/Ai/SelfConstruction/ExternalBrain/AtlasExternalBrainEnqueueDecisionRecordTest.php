@@ -19,14 +19,22 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
     private function validEnqueue(array $overrides = []): array
     {
         return array_merge([
-            'decision'           => 'enqueue',
-            'batch_id'           => 'batch-001',
-            'candidate_count'    => 3,
-            'queue_depth'        => 10,
-            'queue_pressure'     => 'low',
-            'leverage_rationale' => 'High-leverage unimplemented organ found in scan.',
-            'risk_level'         => 'low',
-            'validation_evidence' => ['target_uniqueness', 'collision_check'],
+            'decision'                 => 'enqueue',
+            'batch_id'                 => 'batch-001',
+            'candidate_count'          => 3,
+            'queue_depth'              => 10,
+            'queue_pressure'           => 'low',
+            'leverage_rationale'       => 'High-leverage unimplemented organ found in scan.',
+            'expected_downstream_value' => 'Wires AtlasOriginator to real task pipeline.',
+            'risk_level'               => 'low',
+            'decision_reason'          => 'target unique, evidence clean, acceptance tests present',
+            'validation_evidence'      => [
+                'target_uniqueness',
+                'collision_check',
+                'malformed_sweep_clean',
+                'allowed_files_exist',
+                'runnable_acceptance_present',
+            ],
         ], $overrides);
     }
 
@@ -74,6 +82,18 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
         $this->assertSame('Fills critical gap in replay court.', $result['record']['leverage_rationale']);
     }
 
+    public function test_accepted_record_has_expected_downstream_value(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'expected_downstream_value' => 'Enables task origination without operator seed.',
+        ]));
+
+        $this->assertSame(
+            'Enables task origination without operator seed.',
+            $result['record']['expected_downstream_value'],
+        );
+    }
+
     public function test_accepted_record_has_risk(): void
     {
         $result = $this->recorder->record($this->validEnqueue(['risk_level' => 'medium']));
@@ -81,20 +101,41 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
         $this->assertSame('medium', $result['record']['risk']);
     }
 
+    public function test_accepted_record_has_decision_reason(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'decision_reason' => 'clean sweep, unique target, acceptance test present',
+        ]));
+
+        $this->assertSame(
+            'clean sweep, unique target, acceptance test present',
+            $result['record']['decision_reason'],
+        );
+    }
+
     public function test_accepted_record_has_validation_evidence(): void
     {
-        $evidence = ['target_uniqueness', 'collision_check'];
-        $result   = $this->recorder->record($this->validEnqueue(['validation_evidence' => $evidence]));
+        $evidence = [
+            'target_uniqueness', 'collision_check', 'malformed_sweep_clean',
+            'allowed_files_exist', 'runnable_acceptance_present',
+        ];
+        $result = $this->recorder->record($this->validEnqueue(['validation_evidence' => $evidence]));
 
         $this->assertSame($evidence, $result['record']['validation_evidence']);
     }
 
-    // ── AC2: enqueue refused when target_uniqueness missing ───────────────────
+    public function test_accepted_record_has_batch_id(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue(['batch_id' => 'batch-xyz']));
+        $this->assertSame('batch-xyz', $result['record']['batch_id']);
+    }
+
+    // ── AC2: enqueue refused — missing required evidence ──────────────────────
 
     public function test_enqueue_refused_when_target_uniqueness_missing(): void
     {
         $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['collision_check'], // missing target_uniqueness
+            'validation_evidence' => ['collision_check'],
         ]));
 
         $this->assertFalse($result['accepted']);
@@ -102,19 +143,51 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
         $this->assertNull($result['record']);
     }
 
-    // ── AC2: enqueue refused when collision_check missing ─────────────────────
-
     public function test_enqueue_refused_when_collision_check_missing(): void
     {
         $result = $this->recorder->record($this->validEnqueue([
-            'validation_evidence' => ['target_uniqueness'], // missing collision_check
+            'validation_evidence' => ['target_uniqueness'],
         ]));
 
         $this->assertFalse($result['accepted']);
         $this->assertStringContainsString('collision_check', $result['rejection_reason']);
     }
 
-    // ── AC2: enqueue refused when malformed_sweep present ────────────────────
+    public function test_enqueue_refused_when_malformed_sweep_clean_missing(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => ['target_uniqueness', 'collision_check'],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('malformed_sweep_clean', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_allowed_files_exist_missing(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => [
+                'target_uniqueness', 'collision_check', 'malformed_sweep_clean',
+            ],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('allowed_files_exist', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_runnable_acceptance_present_missing(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => [
+                'target_uniqueness', 'collision_check', 'malformed_sweep_clean', 'allowed_files_exist',
+            ],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('runnable_acceptance_present', $result['rejection_reason']);
+    }
+
+    // ── AC2: enqueue refused — forbidden evidence present ─────────────────────
 
     public function test_enqueue_refused_when_malformed_sweep_present(): void
     {
@@ -124,6 +197,56 @@ final class AtlasExternalBrainEnqueueDecisionRecordTest extends TestCase
 
         $this->assertFalse($result['accepted']);
         $this->assertStringContainsString('malformed_sweep', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_malformed_sweep_failed_present(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => ['target_uniqueness', 'collision_check', 'malformed_sweep_failed'],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('malformed_sweep_failed', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_collision_detected(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => ['target_uniqueness', 'collision_check', 'collision_detected'],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('collision_detected', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_duplicate_target(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => ['target_uniqueness', 'collision_check', 'duplicate_target'],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('duplicate_target', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_missing_allowed_files(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => ['target_uniqueness', 'collision_check', 'missing_allowed_files'],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('missing_allowed_files', $result['rejection_reason']);
+    }
+
+    public function test_enqueue_refused_when_no_runnable_acceptance(): void
+    {
+        $result = $this->recorder->record($this->validEnqueue([
+            'validation_evidence' => ['target_uniqueness', 'collision_check', 'no_runnable_acceptance'],
+        ]));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertStringContainsString('no_runnable_acceptance', $result['rejection_reason']);
     }
 
     // ── AC1: defer, consolidate, reject always accepted ───────────────────────
