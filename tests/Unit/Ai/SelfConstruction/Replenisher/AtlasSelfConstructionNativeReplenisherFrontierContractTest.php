@@ -73,6 +73,22 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContractTest extends T
         $this->assertContains('proxy_only_kind', $r['rejected'][0]['blockers']);
     }
 
+    public function test_missing_allowed_files_is_rejected(): void
+    {
+        $f = $this->valid();
+        $f['allowed_file_candidates'] = [];
+        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
+        $this->assertContains('missing_allowed_files', $r['rejected'][0]['blockers']);
+    }
+
+    public function test_missing_acceptance_is_rejected(): void
+    {
+        $f = $this->valid();
+        $f['acceptance_obligations'] = [];
+        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
+        $this->assertContains('missing_acceptance', $r['rejected'][0]['blockers']);
+    }
+
     public function test_accepted_and_rejected_are_sorted_by_frontier_id(): void
     {
         $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([

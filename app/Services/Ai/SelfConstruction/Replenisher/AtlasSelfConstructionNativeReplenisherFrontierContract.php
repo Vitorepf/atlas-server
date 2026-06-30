@@ -64,7 +64,16 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
                 $blockers[] = 'missing_target_scope';
             }
 
-            $allowed = is_array($f['allowed_file_candidates'] ?? null) ? array_values(array_map('strval', $f['allowed_file_candidates'])) : [];
+            $allowed = is_array($f['allowed_file_candidates'] ?? null) ? array_values(array_filter(array_map('strval', $f['allowed_file_candidates']), static fn (string $s): bool => $s !== '')) : [];
+            if ($allowed === []) {
+                $blockers[] = 'missing_allowed_files';
+            }
+
+            $acceptance = is_array($f['acceptance_obligations'] ?? null) ? array_values(array_filter(array_map('strval', $f['acceptance_obligations']), static fn (string $s): bool => $s !== '')) : [];
+            if ($acceptance === []) {
+                $blockers[] = 'missing_acceptance';
+            }
+
             $projectIds = [];
             foreach ($allowed as $p) {
                 $pid = $this->detectProjectId($p);
@@ -89,7 +98,7 @@ final class AtlasSelfConstructionNativeReplenisherFrontierContract
                 'target_scope' => $targetScope,
                 'capability_gap' => (string) ($f['capability_gap'] ?? ''),
                 'allowed_file_candidates' => $allowed,
-                'acceptance_obligations' => is_array($f['acceptance_obligations'] ?? null) ? array_values(array_map('strval', $f['acceptance_obligations'])) : [],
+                'acceptance_obligations' => $acceptance,
                 'evidence_obligations' => is_array($f['evidence_obligations'] ?? null) ? array_values(array_map('strval', $f['evidence_obligations'])) : [],
                 'risk_class' => (string) ($f['risk_class'] ?? self::RISK_DEFAULT),
             ];
