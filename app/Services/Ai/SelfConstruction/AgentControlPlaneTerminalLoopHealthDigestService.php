@@ -93,6 +93,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             $queueTags,
         );
         $recoverableCount = $recoverableExpiredCount + $recoverableOrphanCount + $recoverableReleasedCount;
+        $blockedCount = $this->countQueueRecords($queue, 'blocked', $queueTags);
         $terminalCount = (int) ($statusCounts['completed_dry_run'] ?? 0) + (int) ($statusCounts['cancelled'] ?? 0);
         $hiddenClaimableOutsideRequestedTags = $queueTags === []
             ? 0
@@ -110,6 +111,15 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         );
 
         $commands = $this->commands($actor, $targetMinClaimable, $maxNewTasks, $queueTags);
+        $muscleSupplyState = $this->muscleSupplyState(
+            claimableCount: $claimableCount,
+            claimedCount: $claimedCount,
+            recoverableCount: $recoverableCount,
+            blockedCount: $blockedCount,
+            hiddenClaimableOutsideRequestedTags: $hiddenClaimableOutsideRequestedTags,
+            workerEligibilityBlocked: $workerEligibilityBlocked,
+            targetMinClaimable: $targetMinClaimable,
+        );
         $status = $recommendedAction === 'continue_or_start_terminal_workers' ? 'ready' : 'action_required';
         $safeToStartNewWorker = $recoverableCount === 0
             && $claimableCount >= $targetMinClaimable
@@ -234,6 +244,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
                 'can_loop_without_chat_history' => true,
                 'one_terminal_one_packet_at_a_time' => true,
             ],
+            'muscle_supply_state' => $muscleSupplyState,
             'terminal_loop_fleet_launch_plan' => $fleetLaunchPlan,
             'terminal_loop_fleet_replenishment_plan' => $fleetReplenishmentPlan,
             'terminal_loop_fleet_resume_rollup' => $fleetResumeRollup,
@@ -1314,6 +1325,41 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         }
 
         return 'inspect_canonical_sources';
+    }
+
+    /**
+     * Compact decision surface for multi-muscle terminal loops: counts plus
+     * one of pull_now/wait_for_workers/reap_recoverable/replenish/blocked_by_eligibility
+     * so a muscle can decide without parsing the rest of the digest.
+     *
+     * @return array<string, mixed>
+     */
+    private function muscleSupplyState(
+        int $claimableCount,
+        int $claimedCount,
+        int $recoverableCount,
+        int $blockedCount,
+        int $hiddenClaimableOutsideRequestedTags,
+        bool $workerEligibilityBlocked,
+        int $targetMinClaimable,
+    ): array {
+        $nextSafeAction = match (true) {
+            $workerEligibilityBlocked => 'blocked_by_eligibility',
+            $recoverableCount > 0 => 'reap_recoverable',
+            $claimableCount > 0 => 'pull_now',
+            $claimableCount < $targetMinClaimable && $hiddenClaimableOutsideRequestedTags === 0 => 'replenish',
+            $claimedCount > 0 => 'wait_for_workers',
+            default => 'replenish',
+        };
+
+        return [
+            'claimable_count' => $claimableCount,
+            'claimed_count' => $claimedCount,
+            'recoverable_count' => $recoverableCount,
+            'blocked_count' => $blockedCount,
+            'hidden_claimable_outside_requested_tags' => $hiddenClaimableOutsideRequestedTags,
+            'next_safe_action' => $nextSafeAction,
+        ];
     }
 
     /**
