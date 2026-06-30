@@ -137,4 +137,123 @@ final class AgentRuntimeRegistryCertificationServiceTest extends TestCase
         $this->assertFalse($result['self_programming_allowed']);
         $this->assertFalse($result['ledger_write_allowed']);
     }
+
+    // ── certifyWorkerReadiness ──────────────────────────────────────────────
+
+    private function workerFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'agent_id' => 'worker-1',
+            'capabilities' => ['code_edit', 'evidence_collection'],
+            'task_families' => [
+                ['family' => 'service_layer', 'required_capabilities' => ['code_edit']],
+            ],
+            'evidence' => ['age_days' => 1, 'self_declared' => false],
+            'recent_outcomes' => [],
+            'known_failure_modes' => [],
+        ], $overrides);
+    }
+
+    public function test_worker_readiness_certified_when_capability_and_evidence_are_clean(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts());
+
+        $this->assertSame('certified', $result['readiness_status']);
+        $this->assertContains('service_layer', $result['allowed_task_families']);
+        $this->assertSame([], $result['blocked_task_families']);
+    }
+
+    public function test_worker_readiness_blocked_when_evidence_self_declared(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness(
+            $this->workerFacts(['evidence' => ['age_days' => 1, 'self_declared' => true]]),
+        );
+
+        $this->assertSame('blocked', $result['readiness_status']);
+        $this->assertSame([], $result['allowed_task_families']);
+        $this->assertTrue($result['global_evidence_failure']);
+        $blocker = $result['blocked_task_families'][0];
+        $this->assertContains('self_declared_evidence_not_verified', $blocker['reasons']);
+    }
+
+    public function test_worker_readiness_blocked_when_evidence_stale(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness(
+            $this->workerFacts(['evidence' => ['age_days' => 30, 'self_declared' => false], 'max_evidence_age_days' => 14]),
+        );
+
+        $this->assertSame('blocked', $result['readiness_status']);
+        $this->assertTrue($result['evidence_freshness']['is_stale']);
+    }
+
+    public function test_worker_readiness_blocked_for_family_missing_required_capability(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts([
+            'capabilities' => ['code_edit'],
+            'task_families' => [
+                ['family' => 'doc_writer', 'required_capabilities' => ['doc_generation']],
+            ],
+        ]));
+
+        $this->assertSame('blocked', $result['readiness_status']);
+        $this->assertContains('missing_capability:doc_generation', $result['blocked_task_families'][0]['reasons']);
+    }
+
+    public function test_worker_readiness_blocked_for_family_with_high_give_back_rate(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts([
+            'recent_outcomes' => [
+                ['family' => 'service_layer', 'outcome' => 'give_back'],
+                ['family' => 'service_layer', 'outcome' => 'give_back'],
+                ['family' => 'service_layer', 'outcome' => 'success'],
+            ],
+        ]));
+
+        $this->assertContains('high_give_back_rate', $result['blocked_task_families'][0]['reasons']);
+    }
+
+    public function test_worker_readiness_not_blocked_by_give_back_rate_below_sample_floor(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts([
+            'recent_outcomes' => [
+                ['family' => 'service_layer', 'outcome' => 'give_back'],
+                ['family' => 'service_layer', 'outcome' => 'give_back'],
+            ],
+        ]));
+
+        $this->assertSame('certified', $result['readiness_status']);
+    }
+
+    public function test_worker_readiness_blocked_for_known_failure_mode_family(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts([
+            'known_failure_modes' => ['service_layer'],
+        ]));
+
+        $this->assertContains('known_failure_mode', $result['blocked_task_families'][0]['reasons']);
+    }
+
+    public function test_worker_readiness_partial_when_some_families_allowed_and_some_blocked(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts([
+            'capabilities' => ['code_edit'],
+            'task_families' => [
+                ['family' => 'service_layer', 'required_capabilities' => ['code_edit']],
+                ['family' => 'doc_writer', 'required_capabilities' => ['doc_generation']],
+            ],
+        ]));
+
+        $this->assertSame('partial', $result['readiness_status']);
+        $this->assertContains('service_layer', $result['allowed_task_families']);
+        $this->assertSame('doc_writer', $result['blocked_task_families'][0]['family']);
+    }
+
+    public function test_worker_readiness_runtime_flags_all_false(): void
+    {
+        $result = (new AgentRuntimeRegistryCertificationService)->certifyWorkerReadiness($this->workerFacts());
+
+        foreach (['runtime_execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'self_programming_allowed', 'ledger_write_allowed'] as $flag) {
+            $this->assertFalse($result[$flag]);
+        }
+    }
 }

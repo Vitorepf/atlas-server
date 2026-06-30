@@ -153,6 +153,129 @@ final class AgentRuntimeRegistryCertificationService
         ];
     }
 
+    private const DEFAULT_MAX_EVIDENCE_AGE_DAYS = 14;
+
+    private const DEFAULT_HIGH_GIVE_BACK_RATE_CEILING = 0.50;
+
+    private const MIN_OUTCOME_SAMPLE_FOR_GIVE_BACK_RATE = 3;
+
+    /**
+     * Certifies whether a SPECIFIC worker is ready for critical tasks, per
+     * task family — never on a self-declared or stale claim alone.
+     *
+     * Fails closed (every family blocked) when the worker's readiness
+     * evidence is self_declared=true or older than max_evidence_age_days:
+     * a worker cannot certify itself, and old evidence may no longer
+     * reflect current behavior.
+     *
+     * Per-family blockers (any one excludes that family from
+     * allowed_task_families):
+     *   missing_capability:<name>   — worker lacks a capability the family requires
+     *   high_give_back_rate         — give_back_rate > ceiling with enough samples
+     *   known_failure_mode          — family listed in the worker's known_failure_modes
+     *
+     * readiness_status:
+     *   certified — at least one family allowed, no global evidence failure
+     *   partial   — some families allowed, some blocked
+     *   blocked   — no family allowed (including the global self-declared/stale case)
+     *
+     * @param  array<string, mixed>  $workerFacts
+     * @return array<string, mixed>
+     */
+    public function certifyWorkerReadiness(array $workerFacts): array
+    {
+        $agentId = (string) ($workerFacts['agent_id'] ?? 'unknown');
+        $capabilities = array_map('strval', (array) ($workerFacts['capabilities'] ?? []));
+        $taskFamilies = (array) ($workerFacts['task_families'] ?? []);
+        $evidence = (array) ($workerFacts['evidence'] ?? []);
+        $recentOutcomes = (array) ($workerFacts['recent_outcomes'] ?? []);
+        $knownFailureModes = array_map('strval', (array) ($workerFacts['known_failure_modes'] ?? []));
+        $maxEvidenceAgeDays = (int) ($workerFacts['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
+
+        $selfDeclared = (bool) ($evidence['self_declared'] ?? false);
+        $evidenceAgeDays = (int) ($evidence['age_days'] ?? 0);
+        $evidenceStale = $evidenceAgeDays > $maxEvidenceAgeDays;
+        $globalEvidenceFailure = $selfDeclared || $evidenceStale;
+
+        $allowed = [];
+        $blocked = [];
+
+        foreach ($taskFamilies as $familyFacts) {
+            if (! is_array($familyFacts) || ! isset($familyFacts['family'])) {
+                continue;
+            }
+            $family = (string) $familyFacts['family'];
+            $requiredCapabilities = array_map('strval', (array) ($familyFacts['required_capabilities'] ?? []));
+
+            $reasons = [];
+
+            if ($selfDeclared) {
+                $reasons[] = 'self_declared_evidence_not_verified';
+            }
+            if ($evidenceStale) {
+                $reasons[] = sprintf('stale_evidence_age_days_%d_exceeds_max_%d', $evidenceAgeDays, $maxEvidenceAgeDays);
+            }
+
+            $missingCapabilities = array_values(array_diff($requiredCapabilities, $capabilities));
+            foreach ($missingCapabilities as $missing) {
+                $reasons[] = "missing_capability:{$missing}";
+            }
+
+            $familyOutcomes = array_values(array_filter(
+                $recentOutcomes,
+                static fn ($o): bool => is_array($o) && (string) ($o['family'] ?? '') === $family,
+            ));
+            $sampleSize = count($familyOutcomes);
+            $giveBackCount = count(array_filter(
+                $familyOutcomes,
+                static fn (array $o): bool => (string) ($o['outcome'] ?? '') === 'give_back',
+            ));
+            $giveBackRate = $sampleSize > 0 ? round($giveBackCount / $sampleSize, 4) : 0.0;
+            if ($sampleSize >= self::MIN_OUTCOME_SAMPLE_FOR_GIVE_BACK_RATE && $giveBackRate > self::DEFAULT_HIGH_GIVE_BACK_RATE_CEILING) {
+                $reasons[] = 'high_give_back_rate';
+            }
+
+            if (in_array($family, $knownFailureModes, true)) {
+                $reasons[] = 'known_failure_mode';
+            }
+
+            if ($reasons === []) {
+                $allowed[] = $family;
+            } else {
+                $blocked[] = ['family' => $family, 'reasons' => $reasons];
+            }
+        }
+
+        $readinessStatus = match (true) {
+            $allowed === [] => 'blocked',
+            $blocked === [] => 'certified',
+            default => 'partial',
+        };
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'agent_id' => $agentId,
+            'readiness_status' => $readinessStatus,
+            'capability_coverage' => $capabilities,
+            'evidence_freshness' => [
+                'age_days' => $evidenceAgeDays,
+                'max_age_days' => $maxEvidenceAgeDays,
+                'is_stale' => $evidenceStale,
+                'self_declared' => $selfDeclared,
+            ],
+            'allowed_task_families' => $allowed,
+            'blocked_task_families' => $blocked,
+            'global_evidence_failure' => $globalEvidenceFailure,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
+    }
+
     /**
      * @return array<string, bool>
      */
