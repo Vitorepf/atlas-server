@@ -137,15 +137,17 @@ final class AtlasExternalBrainQueuePressureGovernor
         return $this->result(self::DECISION_ENQUEUE_NOW, "queue pressure nominal; leverage={$leverageScore}");
     }
 
-    /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,batch_budget:array<string,mixed>} */
+    /** @return array{schema:string,decision:string,reason:string,urgent_override:bool,under_pressure:bool,live_ratio_reason:?string,batch_budget:array<string,mixed>} */
     private function result(string $decision, string $reason, bool $urgentOverride = false, bool $underPressure = false, ?string $liveRatioReason = null): array
     {
         return [
-            'schema'          => self::SCHEMA,
-            'decision'        => $decision,
-            'reason'          => $reason,
-            'urgent_override' => $urgentOverride,
-            'batch_budget'    => $this->buildBatchBudget($decision, $urgentOverride, $underPressure, $liveRatioReason),
+            'schema'             => self::SCHEMA,
+            'decision'           => $decision,
+            'reason'             => $reason,
+            'urgent_override'    => $urgentOverride,
+            'under_pressure'     => $underPressure,
+            'live_ratio_reason'  => $liveRatioReason,
+            'batch_budget'       => $this->buildBatchBudget($decision, $urgentOverride, $underPressure, $liveRatioReason),
         ];
     }
 

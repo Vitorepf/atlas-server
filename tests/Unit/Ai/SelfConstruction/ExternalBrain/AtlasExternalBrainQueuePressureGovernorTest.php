@@ -35,7 +35,7 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
     {
         $result = $this->governor()->decide($this->input());
 
-        foreach (['schema', 'decision', 'reason', 'urgent_override', 'batch_budget'] as $key) {
+        foreach (['schema', 'decision', 'reason', 'urgent_override', 'under_pressure', 'live_ratio_reason', 'batch_budget'] as $key) {
             $this->assertArrayHasKey($key, $result);
         }
         $this->assertSame(AtlasExternalBrainQueuePressureGovernor::SCHEMA, $result['schema']);
@@ -323,6 +323,39 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
         $budget = $result['batch_budget'];
         $this->assertSame(1, $budget['max_tasks'], 'batch budget must shrink to 1 under elevated live-ratio pressure');
         $this->assertStringContainsString('servable_per_worker_ratio', $budget['reason']);
+    }
+
+    public function test_deep_servable_ratio_sets_under_pressure_and_live_ratio_reason(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 20, 'active_leases' => 10, 'servable_depth' => 100],
+            candidate:  ['leverage_score' => 0.40, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_DEFER, $result['decision']);
+        $this->assertTrue($result['under_pressure']);
+        $this->assertSame('10', $result['live_ratio_reason']);
+    }
+
+    public function test_healthy_queue_has_no_live_ratio_reason(): void
+    {
+        $result = $this->governor()->decide($this->input());
+
+        $this->assertFalse($result['under_pressure']);
+        $this->assertNull($result['live_ratio_reason']);
+    }
+
+    public function test_urgent_repair_classes_bypass_pressure_for_malformed_collision_and_lease_leak(): void
+    {
+        foreach (['malformed', 'collision', 'lease_leak'] as $taskClass) {
+            $result = $this->governor()->decide($this->input(
+                queueState: ['claimable_depth' => 99, 'active_leases' => 99, 'servable_depth' => 999],
+                candidate:  ['leverage_score' => 0.0, 'task_class' => $taskClass],
+            ));
+
+            $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision'], "task_class={$taskClass} must enqueue_now");
+            $this->assertTrue($result['urgent_override'], "task_class={$taskClass} must set urgent_override");
+        }
     }
 
     public function test_urgent_repair_budget_has_no_floors(): void
