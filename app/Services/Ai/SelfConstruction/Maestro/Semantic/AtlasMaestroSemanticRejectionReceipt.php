@@ -35,7 +35,29 @@ final class AtlasMaestroSemanticRejectionReceipt
             $receipt['offending_symbol'] = 'unknown';
         }
 
+        $receipt['respec_suggestion'] = $this->respecSuggestion($receipt['rejected_voters']);
+
         return $this->encode($receipt);
+    }
+
+    /**
+     * @param  array<string,string>  $rejectedVoters
+     */
+    private function respecSuggestion(array $rejectedVoters): string
+    {
+        $map = [
+            'allowed_files_intent' => 'widen_allowed_files',
+            'orphan_caller'        => 'fix_wiring',
+            'acceptance_symbol'    => 'fix_symbol_resolution',
+        ];
+        $suggestions = [];
+        foreach ($map as $voter => $suggestion) {
+            if (isset($rejectedVoters[$voter])) {
+                $suggestions[] = $suggestion;
+            }
+        }
+
+        return $suggestions !== [] ? implode('+', $suggestions) : 'respec_not_determined';
     }
 
     /**

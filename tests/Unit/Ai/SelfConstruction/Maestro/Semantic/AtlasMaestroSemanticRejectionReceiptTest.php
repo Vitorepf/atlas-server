@@ -21,6 +21,7 @@ final class AtlasMaestroSemanticRejectionReceiptTest extends TestCase
             'packet_id',
             'panel_votes',
             'rejected_voters',
+            'respec_suggestion',
             'sibling_observed',
             'ts_utc',
         ], array_keys($decoded));
@@ -51,6 +52,64 @@ final class AtlasMaestroSemanticRejectionReceiptTest extends TestCase
 
         $this->assertSame('semantic_rejection_receipt_requires_failed_panel', $decoded['error']);
         $this->assertSame('packet-2', $decoded['packet_id']);
+    }
+
+    public function test_unresolved_symbol_is_captured_in_offending_symbol_field(): void
+    {
+        $panel = $this->panelResult();
+        $panel['offending_symbol'] = 'UnresolvedServiceClass';
+        $decoded = json_decode($this->composer()->compose('pkt-u', $panel), true);
+
+        $this->assertSame('UnresolvedServiceClass', $decoded['offending_symbol']);
+    }
+
+    public function test_wrong_sibling_is_captured_in_sibling_observed_field(): void
+    {
+        $panel = $this->panelResult();
+        $panel['sibling_observed'] = 'WrongSiblingClass';
+        $decoded = json_decode($this->composer()->compose('pkt-s', $panel), true);
+
+        $this->assertSame('WrongSiblingClass', $decoded['sibling_observed']);
+    }
+
+    public function test_orphan_caller_is_captured_in_rejected_voters(): void
+    {
+        $panel = $this->panelResult();
+        $panel['voter_reasons']['orphan_caller'] = 'caller_has_no_consumer';
+        $decoded = json_decode($this->composer()->compose('pkt-o', $panel), true);
+
+        $this->assertArrayHasKey('orphan_caller', $decoded['rejected_voters']);
+        $this->assertSame('caller_has_no_consumer', $decoded['rejected_voters']['orphan_caller']);
+    }
+
+    public function test_allowed_files_mismatch_is_captured_in_rejected_voters(): void
+    {
+        $panel = $this->panelResult();
+        $panel['voter_reasons']['allowed_files_intent'] = 'file_outside_scope';
+        $decoded = json_decode($this->composer()->compose('pkt-af', $panel), true);
+
+        $this->assertSame('file_outside_scope', $decoded['rejected_voters']['allowed_files_intent']);
+    }
+
+    public function test_respec_suggestion_derived_from_rejected_voters(): void
+    {
+        // allowed_files_intent rejected only
+        $panel = array_merge($this->panelResult(), ['voter_reasons' => ['allowed_files_intent' => 'x'], 'votes' => [false, true, true]]);
+        $d = json_decode($this->composer()->compose('pkt-r', $panel), true);
+        $this->assertStringContainsString('widen_allowed_files', $d['respec_suggestion']);
+
+        // both rejected
+        $panel2 = $this->panelResult(); // both allowed_files_intent and orphan_caller rejected
+        $d2 = json_decode($this->composer()->compose('pkt-r2', $panel2), true);
+        $this->assertStringContainsString('widen_allowed_files', $d2['respec_suggestion']);
+        $this->assertStringContainsString('fix_wiring', $d2['respec_suggestion']);
+    }
+
+    public function test_stable_receipt_hash_same_inputs_yield_identical_json(): void
+    {
+        $a = $this->composer()->compose('pkt-hash', $this->panelResult());
+        $b = $this->composer()->compose('pkt-hash', $this->panelResult());
+        $this->assertSame($a, $b);
     }
 
     private function composer(): AtlasMaestroSemanticRejectionReceipt
