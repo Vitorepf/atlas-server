@@ -228,4 +228,106 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSetTest extends TestCase
 
         $this->assertSame($this->benchmarkSet()->load($input), $this->benchmarkSet()->load($input));
     }
+
+    // ── task family / difficulty / ambiguity grouping ─────────────────────────
+
+    public function test_every_case_carries_task_family_difficulty_and_ambiguity(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        foreach ($result['challenge_cases'] as $case) {
+            $this->assertArrayHasKey('task_family', $case);
+            $this->assertArrayHasKey('difficulty', $case);
+            $this->assertArrayHasKey('ambiguity', $case);
+            $this->assertNotEmpty($case['task_family']);
+        }
+    }
+
+    public function test_cases_by_family_groups_every_case_without_naming_providers(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        $this->assertArrayHasKey('cases_by_family', $result);
+        $totalIndexed = array_sum(array_map('count', $result['cases_by_family']));
+        $this->assertSame(count($result['challenge_cases']), $totalIndexed);
+    }
+
+    // ── pass criteria ──────────────────────────────────────────────────────────
+
+    public function test_pass_criteria_covers_leverage_implementability_anti_proxy_and_evidence_quality(): void
+    {
+        $result = $this->benchmarkSet()->load();
+
+        foreach (['leverage', 'implementability', 'anti_proxy_behavior', 'evidence_quality'] as $dimension) {
+            $this->assertArrayHasKey($dimension, $result['pass_criteria']);
+            $this->assertNotEmpty($result['pass_criteria'][$dimension]);
+        }
+    }
+
+    // ── rejection of invalid benchmark input ──────────────────────────────────
+
+    public function test_empty_custom_case_set_is_rejected_as_invalid(): void
+    {
+        $result = $this->benchmarkSet()->load(['cases' => []]);
+
+        $this->assertSame('invalid', $result['validation_status']);
+        $this->assertContains('empty_case_set', $result['invalid_reasons']);
+        $this->assertFalse($result['provider_safe_status']['is_safe']);
+    }
+
+    public function test_provider_labeled_custom_case_is_rejected_as_invalid(): void
+    {
+        $result = $this->benchmarkSet()->load(['cases' => [
+            [
+                'case_id' => 'cc-claude-only',
+                'description' => 'This case only works with Claude models.',
+                'input' => [],
+                'provider_safe' => true,
+            ],
+        ]]);
+
+        $this->assertSame('invalid', $result['validation_status']);
+        $this->assertNotEmpty($result['invalid_reasons']);
+    }
+
+    public function test_provider_name_inside_case_input_is_also_rejected(): void
+    {
+        $result = $this->benchmarkSet()->load(['cases' => [
+            [
+                'case_id' => 'cc-hidden-provider',
+                'description' => 'Generic looking case.',
+                'input' => ['target_model' => 'gpt-5'],
+                'provider_safe' => true,
+            ],
+        ]]);
+
+        $this->assertSame('invalid', $result['validation_status']);
+    }
+
+    public function test_neutral_custom_case_is_accepted_and_taxonomized(): void
+    {
+        $result = $this->benchmarkSet()->load(['cases' => [
+            [
+                'case_id' => 'cc-custom-neutral',
+                'description' => 'A neutral custom benchmark case.',
+                'input' => ['foo' => 'bar'],
+                'evidence_requirements' => ['must check foo'],
+                'provider_safe' => true,
+            ],
+        ]]);
+
+        $this->assertSame('valid', $result['validation_status']);
+        $this->assertCount(1, $result['challenge_cases']);
+        $this->assertSame('uncategorized', $result['challenge_cases'][0]['task_family']);
+    }
+
+    public function test_default_cases_never_name_a_specific_provider(): void
+    {
+        $result = $this->benchmarkSet()->load();
+        $blob = strtolower((string) json_encode($result['challenge_cases']));
+
+        foreach (['claude', 'gpt-', 'gemini', 'anthropic', 'openai', 'cursor', 'codex'] as $providerName) {
+            $this->assertStringNotContainsString($providerName, $blob, "default cases must not mention provider: {$providerName}");
+        }
+    }
 }

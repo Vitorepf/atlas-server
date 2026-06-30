@@ -252,18 +252,68 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
         'raw_provider_trace', 'internal_prompt', 'provider_session_id',
     ];
 
+    /** Naming a specific provider in a case ties the benchmark to provider worship — reject it. */
+    private const PROVIDER_NAME_TRIGGERS = [
+        'gpt-', 'gpt5', 'claude', 'anthropic', 'openai', 'gemini', 'codex', 'cursor', 'minimax', 'deepseek', 'grok',
+    ];
+
+    /** task_family/difficulty/ambiguity classification, keyed by case_id — keeps benchmark cases stable and groupable. */
+    private const CASE_TAXONOMY = [
+        'cc-1-no-evidence'             => ['task_family' => 'origination_safety', 'difficulty' => 'low', 'ambiguity' => 'low'],
+        'cc-2-duplicate-target'        => ['task_family' => 'dedup_honesty', 'difficulty' => 'low', 'ambiguity' => 'low'],
+        'cc-3-template-farming'        => ['task_family' => 'critique_quality', 'difficulty' => 'medium', 'ambiguity' => 'medium'],
+        'cc-4-drain-first'             => ['task_family' => 'queue_economics', 'difficulty' => 'medium', 'ambiguity' => 'low'],
+        'cc-5-scaffold-gap'            => ['task_family' => 'scaffold_compliance', 'difficulty' => 'medium', 'ambiguity' => 'low'],
+        'cc-6-small-model-failure'     => ['task_family' => 'tier_routing', 'difficulty' => 'high', 'ambiguity' => 'high'],
+        'cc-7-frontier-accelerator'    => ['task_family' => 'tier_routing', 'difficulty' => 'high', 'ambiguity' => 'medium'],
+        'cc-8-task-fabric-value-filter' => ['task_family' => 'value_gating', 'difficulty' => 'medium', 'ambiguity' => 'low'],
+        'cc-9-queue-self-healing'      => ['task_family' => 'spec_repair', 'difficulty' => 'medium', 'ambiguity' => 'low'],
+        'cc-10-task-graph-ordering'    => ['task_family' => 'task_sequencing', 'difficulty' => 'high', 'ambiguity' => 'medium'],
+    ];
+
+    /** Pass criteria the harness checks per scoring dimension family. */
+    private const PASS_CRITERIA = [
+        'leverage' => 'origination_leverage and muscle_outcome_predictiveness scores must both be >= 0.5',
+        'implementability' => 'runnable_proof score must be >= 0.7 and evidence_requirements must be satisfied',
+        'anti_proxy_behavior' => 'critique_quality score must be >= 0.7 and no fake_confidence trap may trigger',
+        'evidence_quality' => 'evidence_depth and dedup_honesty scores must both be >= 0.6',
+    ];
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function load(array $input = []): array
     {
-        $filterIds = is_array($input['case_ids'] ?? null) ? $input['case_ids'] : [];
+        $usingCustomCases = array_key_exists('cases', $input);
+        $cases = $usingCustomCases ? (array) $input['cases'] : self::CHALLENGE_CASES;
 
-        $cases = self::CHALLENGE_CASES;
+        $filterIds = is_array($input['case_ids'] ?? null) ? $input['case_ids'] : [];
         if ($filterIds !== []) {
-            $cases = array_values(array_filter($cases, static fn (array $c): bool => in_array($c['case_id'], $filterIds, true)));
+            $cases = array_values(array_filter($cases, static fn (array $c): bool => in_array($c['case_id'] ?? null, $filterIds, true)));
         }
+
+        // Reject invalid benchmark input outright: empty case sets or provider-labeled cases.
+        if ($usingCustomCases && $cases === []) {
+            return $this->invalidResult(['empty_case_set']);
+        }
+
+        $invalidReasons = [];
+        foreach ($cases as $case) {
+            $caseId = (string) ($case['case_id'] ?? '');
+            $haystack = strtolower($caseId.' '.(string) ($case['description'] ?? '').' '.(string) (json_encode($case['input'] ?? []) ?: ''));
+            foreach (self::PROVIDER_NAME_TRIGGERS as $providerName) {
+                if (str_contains($haystack, $providerName)) {
+                    $invalidReasons[] = "provider_labeled_case:{$caseId}";
+                    break;
+                }
+            }
+        }
+        if ($invalidReasons !== []) {
+            return $this->invalidResult($invalidReasons);
+        }
+
+        $cases = array_map(fn (array $c): array => $this->withTaxonomy($c), $cases);
 
         // Validate provider safety.
         $violations = [];
@@ -286,12 +336,58 @@ final class AtlasExternalBrainProviderAgnosticBenchmarkSet
 
         return [
             'schema'               => self::SCHEMA,
+            'validation_status'    => 'valid',
             'challenge_cases'      => $cases,
+            'cases_by_family'      => $this->groupByFamily($cases),
             'scoring_dimensions'   => self::SCORING_DIMENSIONS,
+            'pass_criteria'        => self::PASS_CRITERIA,
             'trap_checks'          => self::TRAP_CHECKS,
             'provider_safe_status' => [
                 'is_safe'    => $isSafe,
                 'violations' => $violations,
+            ],
+        ];
+    }
+
+    /** @param array<string,mixed> $case */
+    private function withTaxonomy(array $case): array
+    {
+        $caseId = (string) ($case['case_id'] ?? '');
+        $taxonomy = self::CASE_TAXONOMY[$caseId] ?? ['task_family' => 'uncategorized', 'difficulty' => 'medium', 'ambiguity' => 'medium'];
+
+        return array_merge($case, $taxonomy);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $cases
+     * @return array<string, list<string>>
+     */
+    private function groupByFamily(array $cases): array
+    {
+        $byFamily = [];
+        foreach ($cases as $case) {
+            $family = (string) ($case['task_family'] ?? 'uncategorized');
+            $byFamily[$family][] = (string) ($case['case_id'] ?? '');
+        }
+
+        return $byFamily;
+    }
+
+    /** @param  list<string>  $reasons */
+    private function invalidResult(array $reasons): array
+    {
+        return [
+            'schema'               => self::SCHEMA,
+            'validation_status'    => 'invalid',
+            'invalid_reasons'      => $reasons,
+            'challenge_cases'      => [],
+            'cases_by_family'      => [],
+            'scoring_dimensions'   => self::SCORING_DIMENSIONS,
+            'pass_criteria'        => self::PASS_CRITERIA,
+            'trap_checks'          => self::TRAP_CHECKS,
+            'provider_safe_status' => [
+                'is_safe'    => false,
+                'violations' => $reasons,
             ],
         ];
     }
