@@ -153,9 +153,53 @@ final class AtlasMaestroReplenishUrgencyClassifier
             'schema' => self::SCHEMA,
             'urgency' => $urgency,
             'next_action' => $nextAction,
+            'replenish_action' => $this->replenishAction($urgency),
             'reasons' => array_values($reasons),
             'inputs' => $inputs,
         ];
+    }
+
+    /**
+     * Normalize the internal HIGH/MID/LOW urgency tier into the worker-floor vocabulary
+     * (replenish_urgently / replenish_soon / wait) used by feed-continuity consumers.
+     */
+    private function replenishAction(string $urgency): string
+    {
+        return match ($urgency) {
+            'HIGH' => 'replenish_urgently',
+            'MID' => 'replenish_soon',
+            default => 'wait',
+        };
+    }
+
+    /** Claimable-per-active-lease floor: at or below this, wait can never be returned. */
+    public const WORKER_FLOOR_THRESHOLD = 2.0;
+
+    public const REASON_WORKER_FLOOR = 'worker_floor';
+
+    /**
+     * Pure, facts-only worker-floor override: wait can never be returned when active
+     * leases exist and the claimable supply per active lease is at or below the worker
+     * safety floor — workers holding those leases risk draining to no_claimable_task.
+     * With zero active leases the existing wait/hold behavior is fully preserved.
+     *
+     * @param  array{active_leases?: int, claimable_per_active_worker?: float}  $facts
+     * @return array{schema:string, replenish_action:string, reason:?string}
+     */
+    public function classifyWorkerFloor(array $facts): array
+    {
+        $activeLeases = max(0, (int) ($facts['active_leases'] ?? 0));
+        $claimablePerActiveWorker = isset($facts['claimable_per_active_worker'])
+            ? (float) $facts['claimable_per_active_worker']
+            : PHP_FLOAT_MAX;
+
+        if ($activeLeases > 0 && $claimablePerActiveWorker <= self::WORKER_FLOOR_THRESHOLD) {
+            $replenishAction = $claimablePerActiveWorker <= 0.0 ? 'replenish_urgently' : 'replenish_soon';
+
+            return ['schema' => self::SCHEMA, 'replenish_action' => $replenishAction, 'reason' => self::REASON_WORKER_FLOOR];
+        }
+
+        return ['schema' => self::SCHEMA, 'replenish_action' => 'wait', 'reason' => null];
     }
 
     /** @return array<string,mixed> */
