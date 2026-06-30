@@ -125,6 +125,18 @@ final class AtlasSelfConstructionCortexSnapshotComposerTest extends TestCase
         $this->assertSame([], $r['stale_sources']);
     }
 
+    public function test_queue_summary_is_extracted_from_queue_state_section(): void
+    {
+        $sections = $this->completeSections();
+        $sections['queue_state'] = ['pending_count' => 5, 'locked_count' => 2, 'dry' => false];
+        $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($sections);
+
+        $this->assertArrayHasKey('queue_summary', $r);
+        $this->assertSame(5, $r['queue_summary']['pending']);
+        $this->assertSame(2, $r['queue_summary']['locked']);
+        $this->assertFalse($r['queue_summary']['dry']);
+    }
+
     public function test_snapshot_is_bounded_to_required_sections_only(): void
     {
         $r = (new AtlasSelfConstructionCortexSnapshotComposer)->compose($this->completeSections());

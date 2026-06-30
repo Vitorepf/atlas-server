@@ -73,6 +73,15 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             }
         }
 
+        // Extract a compact queue summary so originators don't need to drill into the section.
+        $queueSummary = ['pending' => null, 'locked' => null, 'dry' => null];
+        if (is_array($snapshot['queue_state'] ?? null)) {
+            $qs = $snapshot['queue_state'];
+            $queueSummary['pending'] = isset($qs['pending_count']) ? (int) $qs['pending_count'] : (isset($qs['pending']) ? (int) $qs['pending'] : null);
+            $queueSummary['locked']  = isset($qs['locked_count'])  ? (int) $qs['locked_count']  : (isset($qs['locked'])  ? (int) $qs['locked']  : null);
+            $queueSummary['dry']     = isset($qs['dry']) ? (bool) $qs['dry'] : null;
+        }
+
         $canonical = $snapshot;
         ksort($canonical);
         $hash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -85,6 +94,7 @@ final class AtlasSelfConstructionCortexSnapshotComposer
             'snapshot_hash'   => $hash,
             'stale_sources'   => $staleSources,
             'missing_sources' => $missingSources,
+            'queue_summary'   => $queueSummary,
         ];
     }
 }
