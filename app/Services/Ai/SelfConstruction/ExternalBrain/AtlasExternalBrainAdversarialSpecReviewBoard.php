@@ -62,13 +62,14 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         $allowedFiles = is_array($spec['allowed_files'] ?? null) ? array_values($spec['allowed_files']) : [];
         $criteria = is_array($spec['acceptance_criteria'] ?? null) ? $spec['acceptance_criteria'] : [];
         $evidence = is_array($spec['required_evidence'] ?? null) ? $spec['required_evidence'] : [];
-        $liveQueuedTargets = is_array($spec['live_queued_targets'] ?? null) ? array_values($spec['live_queued_targets']) : [];
+        $liveQueuedTargets   = is_array($spec['live_queued_targets']   ?? null) ? array_values($spec['live_queued_targets'])   : [];
+        $knownSpecObjectives = is_array($spec['known_spec_objectives'] ?? null) ? array_values($spec['known_spec_objectives']) : [];
 
         $lenses = [
             $this->implementability($allowedFiles, $criteria, $evidence),
             $this->leverage($objective, $criteria, $allowedFiles),
             $this->antiProxy($objective, $allowedFiles, $criteria),
-            $this->collisionSafety($allowedFiles, $liveQueuedTargets),
+            $this->collisionSafety($allowedFiles, $liveQueuedTargets, $objective, $knownSpecObjectives),
             $this->steadyStateAutonomy($objective, $criteria),
         ];
 
@@ -121,6 +122,17 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         $reasons = [];
         $hints = [];
         $lower = strtolower($objective);
+
+        // Template-placeholder detection: generic scaffolding text signals an uninstantiated template.
+        $templateSignals = ['[service_name]', '[class_name]', '[placeholder]', '{{', '}}',
+            'your_class_name', 'example_task', 'todo: fill', 'your service here'];
+        foreach ($templateSignals as $tmpl) {
+            if (str_contains($lower, $tmpl)) {
+                $reasons[] = 'objective_contains_template_placeholder:' . $tmpl;
+                $hints[] = 'replace_template_placeholder_with_concrete_atlas_specific_implementation_target';
+                break;
+            }
+        }
 
         $proxyOnlyVerbs = ['remove whitespace', 'fix typo', 'rename variable', 'sort imports', 'reformat'];
         foreach ($proxyOnlyVerbs as $proxy) {
@@ -239,11 +251,23 @@ final class AtlasExternalBrainAdversarialSpecReviewBoard
         return $this->lens(self::LENS_ANTI_PROXY, $reasons, $hints);
     }
 
-    /** @param list<string> $allowedFiles @param list<string> $liveQueuedTargets */
-    private function collisionSafety(array $allowedFiles, array $liveQueuedTargets = []): array
+    /** @param list<string> $allowedFiles @param list<string> $liveQueuedTargets @param list<string> $knownSpecObjectives */
+    private function collisionSafety(array $allowedFiles, array $liveQueuedTargets = [], string $objective = '', array $knownSpecObjectives = []): array
     {
         $reasons = [];
         $hints = [];
+
+        // Duplicate-objective detection: same objective already queued → block to avoid twin tasks.
+        if ($objective !== '' && $knownSpecObjectives !== []) {
+            $normalizedObjective = strtolower(trim($objective));
+            foreach ($knownSpecObjectives as $known) {
+                if (strtolower(trim((string) $known)) === $normalizedObjective) {
+                    $reasons[] = 'duplicate_objective_already_in_queue';
+                    $hints[] = 'differentiate_objective_from_existing_queued_task_or_merge_with_it';
+                    break;
+                }
+            }
+        }
 
         foreach ($allowedFiles as $f) {
             $f = (string) $f;
