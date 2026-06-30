@@ -53,6 +53,8 @@ final class AtlasTaskHighLeverageBatchAuditor
         'remove trailing', 'fix whitespace', 'add blank line', 'add null check',
     ];
 
+    private const RUNNABLE_ACCEPTANCE_TOKENS = ['test', 'artisan', 'php ', 'runs ', 'executes '];
+
     /**
      * @param  list<array<string,mixed>>  $specs  raw task packet arrays
      * @return array{schema:string, creditable:bool, anti_proxy_facts:list<array<string,mixed>>, remediation_hints:list<string>}
@@ -168,6 +170,71 @@ final class AtlasTaskHighLeverageBatchAuditor
             }
         }
 
+        // 7. Semantic near-duplicate objectives / template-farm variants — fires even when allowed_files
+        // differ, since the template-farm trick is renaming files/classes while reusing the same skeleton.
+        $bySkeleton = [];
+        foreach ($specs as $s) {
+            $skeleton = $this->skeleton((string) ($s['objective'] ?? ''));
+            if ($skeleton === '') {
+                continue;
+            }
+            $bySkeleton[$skeleton][] = (string) ($s['task_packet_id'] ?? '');
+        }
+        foreach ($bySkeleton as $skeleton => $ids) {
+            if (count($ids) >= 2) {
+                $antiProxy[] = [
+                    'pattern' => 'semantic_near_duplicate_template_farm',
+                    'shared_skeleton' => $skeleton,
+                    'spec_ids' => $ids,
+                ];
+                $hints[] = 'Specs '.implode(', ', $ids)." share the same objective template (\"{$skeleton}\") with only names/paths changed; give each spec a genuinely distinct objective.";
+            }
+        }
+
+        // 8. Low implementability: missing implementation+test pair, no runnable acceptance, or no
+        // required evidence — a spec a worker cannot actually prove.
+        foreach ($specs as $s) {
+            $files = is_array($s['allowed_files'] ?? null) ? array_map('strval', (array) $s['allowed_files']) : [];
+            $isDocOnly = $files !== [] && count($files) === count(array_filter($files, static fn (string $f): bool => str_starts_with($f, 'docs/')));
+            $hasTestFile = (bool) array_filter($files, static fn (string $f): bool => str_starts_with($f, 'tests/') || str_ends_with($f, 'Test.php'));
+            $hasImplFile = (bool) array_filter($files, static fn (string $f): bool => ! str_starts_with($f, 'tests/') && ! str_ends_with($f, 'Test.php'));
+            $criteria = is_array($s['acceptance_criteria'] ?? null) ? array_map('strval', (array) $s['acceptance_criteria']) : [];
+            $hasRunnable = $this->hasRunnableAcceptance($criteria);
+            $requiredEvidence = is_array($s['required_evidence'] ?? null) ? (array) $s['required_evidence'] : [];
+
+            $reasons = [];
+            if (! $isDocOnly && (! $hasTestFile || ! $hasImplFile)) {
+                $reasons[] = 'missing_implementation_or_test_pair';
+            }
+            if (! $hasRunnable) {
+                $reasons[] = 'no_runnable_acceptance_criterion';
+            }
+            if ($requiredEvidence === []) {
+                $reasons[] = 'no_required_evidence';
+            }
+
+            if ($reasons !== []) {
+                $antiProxy[] = [
+                    'pattern' => 'low_implementability_spec',
+                    'spec_id' => (string) ($s['task_packet_id'] ?? ''),
+                    'reasons' => $reasons,
+                ];
+                $hints[] = 'Spec '.((string) ($s['task_packet_id'] ?? '')).' is not implementable as written: '.implode(', ', $reasons).'.';
+            }
+        }
+
+        // 9. Weak acceptance criteria — empty, or every criterion is exit-code-only with no behavior assertion.
+        foreach ($specs as $s) {
+            $criteria = is_array($s['acceptance_criteria'] ?? null) ? array_map('strval', (array) $s['acceptance_criteria']) : [];
+            if ($criteria === [] || $this->allCriteriaWeak($criteria)) {
+                $antiProxy[] = [
+                    'pattern' => 'weak_acceptance_criteria',
+                    'spec_id' => (string) ($s['task_packet_id'] ?? ''),
+                ];
+                $hints[] = 'Spec '.((string) ($s['task_packet_id'] ?? '')).' has only exit-code-only or empty acceptance criteria; add a concrete behavior assertion.';
+            }
+        }
+
         return $this->result($antiProxy === [], $antiProxy, $hints);
     }
 
@@ -184,6 +251,52 @@ final class AtlasTaskHighLeverageBatchAuditor
             'anti_proxy_facts' => array_values($antiProxy),
             'remediation_hints' => array_values($hints),
         ];
+    }
+
+    /**
+     * Lowercases and replaces concrete class-name-looking tokens and numbers with placeholders, so two
+     * objectives that differ only by a class name or a number collapse to the same template skeleton.
+     */
+    private function skeleton(string $text): string
+    {
+        $withoutIdentifiers = preg_replace('/\b[A-Z][A-Za-z0-9]{2,}\b/', '<ID>', $text) ?? $text;
+        $withoutNumbers = preg_replace('/\b\d+\b/', '<NUM>', $withoutIdentifiers) ?? $withoutIdentifiers;
+
+        return trim(preg_replace('/\s+/', ' ', strtolower($withoutNumbers)) ?? '');
+    }
+
+    /**
+     * @param  list<string>  $criteria
+     */
+    private function hasRunnableAcceptance(array $criteria): bool
+    {
+        foreach ($criteria as $criterion) {
+            $haystack = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_TOKENS as $token) {
+                if (str_contains($haystack, $token)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $criteria
+     */
+    private function allCriteriaWeak(array $criteria): bool
+    {
+        foreach ($criteria as $criterion) {
+            $haystack = strtolower($criterion);
+            $isExitCodeOnly = (bool) preg_match('/\bexit(s|ed)?\s*(code\s*)?0\b/', $haystack);
+            $hasBehaviorWord = (bool) preg_match('/\b(returns|produces|contains|rejects|blocks|throws|fails|admits|denies|refuses)\b/', $haystack);
+            if (! $isExitCodeOnly || $hasBehaviorWord) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function leverageClass(string $objective): string

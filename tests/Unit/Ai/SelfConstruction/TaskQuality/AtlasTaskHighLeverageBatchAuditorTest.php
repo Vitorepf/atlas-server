@@ -14,17 +14,19 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
         return new AtlasTaskHighLeverageBatchAuditor;
     }
 
-    private function spec(string $id, string $objective, array $files, array $qualityOverrides = []): array
+    private function spec(string $id, string $objective, array $files, array $qualityOverrides = [], array $overrides = []): array
     {
-        return [
+        return array_merge([
             'task_packet_id' => $id,
             'objective' => $objective,
             'allowed_files' => $files,
+            'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test '.$id.'Test exits 0 and returns the expected result'],
+            'required_evidence' => ['tests_or_gates_result'],
             'packet_quality' => array_merge(
                 ['self_sufficient' => true, 'facts' => ['dormant_cli_arm_proxy' => false, 'test_only_has_contract' => false]],
                 $qualityOverrides,
             ),
-        ];
+        ], $overrides);
     }
 
     public function test_homogeneous_dormant_cli_arm_batch_is_not_creditable(): void
@@ -70,9 +72,9 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
     public function test_diverse_self_sufficient_batch_is_creditable(): void
     {
         $specs = [
-            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php']),
-            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass', ['app/Services/Gate/CertGate.php']),
-            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing', ['app/Services/Runtime/RuntimeAdapter.php']),
+            $this->spec('d-1', 'Fix the null pointer bug in the user authentication flow service', ['app/Services/Auth/UserService.php', 'tests/Unit/Auth/UserServiceTest.php']),
+            $this->spec('d-2', 'Harden the certification gate against malformed edge case inputs to prevent bypass', ['app/Services/Gate/CertGate.php', 'tests/Unit/Gate/CertGateTest.php']),
+            $this->spec('d-3', 'Wire the runtime adapter into the provider registry to complete integration plumbing', ['app/Services/Runtime/RuntimeAdapter.php', 'tests/Unit/Runtime/RuntimeAdapterTest.php']),
             $this->spec('d-4', 'Synchronise the canonical documentation and wiki for the evolution loop subsystem', ['docs/evolution-loop.md']),
         ];
 
@@ -148,5 +150,77 @@ final class AtlasTaskHighLeverageBatchAuditorTest extends TestCase
 
         $this->assertTrue($result['creditable']);
         $this->assertSame([], $result['anti_proxy_facts']);
+    }
+
+    public function test_semantic_near_duplicate_objectives_fire_even_with_different_allowed_files(): void
+    {
+        $specs = [
+            $this->spec('farm-1', 'Upgrade AlphaGateService so the gate validates input deterministically', ['app/Services/Gate/AlphaGateService.php', 'tests/Unit/Gate/AlphaGateServiceTest.php']),
+            $this->spec('farm-2', 'Upgrade BetaGateService so the gate validates input deterministically', ['app/Services/Gate/BetaGateService.php', 'tests/Unit/Gate/BetaGateServiceTest.php']),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertFalse($result['creditable']);
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertContains('semantic_near_duplicate_template_farm', $patterns);
+        $fact = $result['anti_proxy_facts'][array_search('semantic_near_duplicate_template_farm', $patterns)];
+        $this->assertContains('farm-1', $fact['spec_ids']);
+        $this->assertContains('farm-2', $fact['spec_ids']);
+    }
+
+    public function test_spec_missing_implementation_test_pair_runnable_acceptance_or_evidence_is_low_implementability(): void
+    {
+        $specs = [
+            $this->spec('li-1', 'Implement a comprehensive validation service for incoming requests', ['app/Services/Validation/Service.php'],
+                [], ['acceptance_criteria' => [], 'required_evidence' => []]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertFalse($result['creditable']);
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertContains('low_implementability_spec', $patterns);
+        $fact = $result['anti_proxy_facts'][array_search('low_implementability_spec', $patterns)];
+        $this->assertContains('missing_implementation_or_test_pair', $fact['reasons']);
+        $this->assertContains('no_runnable_acceptance_criterion', $fact['reasons']);
+        $this->assertContains('no_required_evidence', $fact['reasons']);
+    }
+
+    public function test_doc_only_spec_is_exempt_from_implementation_test_pair_requirement(): void
+    {
+        $specs = [
+            $this->spec('doc-1', 'Synchronise the canonical engineering documentation for the gate subsystem', ['docs/gate-subsystem.md']),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $allReasons = array_merge([], ...array_map(
+            static fn (array $f): array => (array) ($f['reasons'] ?? []),
+            $result['anti_proxy_facts'],
+        ));
+        $this->assertNotContains('missing_implementation_or_test_pair', $allReasons, 'a doc-only spec must never be flagged for lacking an implementation/test pair');
+    }
+
+    public function test_exit_code_only_acceptance_criteria_is_weak(): void
+    {
+        $specs = [
+            $this->spec('weak-1', 'Implement a comprehensive validation service for incoming requests', ['app/Services/Validation/Service.php', 'tests/Unit/Validation/ServiceTest.php'],
+                [], ['acceptance_criteria' => ['/opt/homebrew/bin/php artisan test ServiceTest exits 0']]),
+        ];
+
+        $result = $this->svc()->audit($specs);
+
+        $this->assertFalse($result['creditable']);
+        $patterns = array_column($result['anti_proxy_facts'], 'pattern');
+        $this->assertContains('weak_acceptance_criteria', $patterns);
+    }
+
+    public function test_no_provider_call_queue_mutation_or_db_table_in_source(): void
+    {
+        $src = (string) file_get_contents(__DIR__.'/../../../../../app/Services/Ai/SelfConstruction/TaskQuality/AtlasTaskHighLeverageBatchAuditor.php');
+        foreach (['Http::', '->enqueue(', 'DB::table(', 'Schema::', 'Artisan::call('] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $src, "auditor must not perform {$forbidden}");
+        }
     }
 }
