@@ -62,6 +62,18 @@ final class AtlasProjectLaneRuntimeInstanceRegistry
         $instances = [];
         $blockers = $manifestBlockers;
 
+        // Cross-lane duplicate namespace check.
+        $seenNamespaces = [];
+        foreach ($lanes as $lane) {
+            $ns = (string) ($lane['queue_namespace'] ?? '');
+            if ($ns !== '') {
+                if (isset($seenNamespaces[$ns])) {
+                    $blockers[] = 'duplicate_queue_namespace:'.$ns;
+                }
+                $seenNamespaces[$ns] = true;
+            }
+        }
+
         foreach ($lanes as $lane) {
             $verdict = $this->buildInstance($lane, $daemonManifest);
             if ($verdict['blockers'] !== []) {
@@ -138,6 +150,27 @@ final class AtlasProjectLaneRuntimeInstanceRegistry
                     $blockers[] = 'allowed_root_outside_lane_boundary:'.$root;
                 }
             }
+        }
+
+        // Forbidden roots must not overlap allowed roots.
+        foreach ($forbiddenRoots as $fr) {
+            foreach ($allowedRoots as $ar) {
+                if ($fr !== '' && $ar !== '' && ($this->rootInside($fr, $ar) || $this->rootInside($ar, $fr))) {
+                    $blockers[] = 'forbidden_root_overlaps_allowed:'.$fr;
+                    break;
+                }
+            }
+        }
+
+        // runtime_owner and steady_state_owner must be atlas_native or atlas_server.
+        $allowedOwners = ['atlas_native', 'atlas_server'];
+        $runtimeOwner = (string) ($lane['runtime_owner'] ?? 'atlas_native');
+        $steadyStateOwner = (string) ($lane['steady_state_owner'] ?? 'atlas_server');
+        if (! in_array($runtimeOwner, $allowedOwners, true)) {
+            $blockers[] = 'runtime_owner_not_atlas:'.$runtimeOwner;
+        }
+        if (! in_array($steadyStateOwner, $allowedOwners, true)) {
+            $blockers[] = 'steady_state_owner_not_atlas:'.$steadyStateOwner;
         }
 
         $topology = (string) ($lane['execution_topology'] ?? self::REQUIRED_EXECUTION_TOPOLOGY);

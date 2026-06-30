@@ -133,4 +133,61 @@ final class AtlasProjectLaneRuntimeInstanceRegistryTest extends TestCase
 
         $this->assertSame($a['registry_hash'], $b['registry_hash']);
     }
+
+    public function test_duplicate_queue_namespace_across_lanes_is_rejected(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build([
+            'lanes' => [
+                $this->lane(['lane_id' => 'lane-1', 'project_id' => 'a', 'queue_namespace' => 'shared.ns', 'allowed_roots' => ['projects/a/src'], 'lane_boundary_root' => 'projects/a']),
+                $this->lane(['lane_id' => 'lane-2', 'project_id' => 'b', 'queue_namespace' => 'shared.ns', 'allowed_roots' => ['projects/b/src'], 'lane_boundary_root' => 'projects/b']),
+            ],
+        ], $this->manifest());
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('duplicate_queue_namespace:shared.ns', $verdict['blockers']);
+    }
+
+    public function test_forbidden_roots_that_overlap_allowed_roots_are_rejected(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['allowed_roots' => ['projects/demo/src'], 'forbidden_roots' => ['projects/demo/src/sensitive']]),
+            $this->manifest(),
+        );
+
+        $this->assertSame('rejected', $verdict['status']);
+        $this->assertContains('lane-x:forbidden_root_overlaps_allowed:projects/demo/src/sensitive', $verdict['blockers']);
+    }
+
+    public function test_runtime_owner_and_steady_state_owner_must_be_atlas_native_or_atlas_server(): void
+    {
+        foreach (['operator', 'human', 'claude_code', 'codex', 'cursor', 'external_provider'] as $forbidden) {
+            $verdict = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+                $this->lane(['runtime_owner' => $forbidden]),
+                $this->manifest(),
+            );
+            $this->assertSame('rejected', $verdict['status'], "runtime_owner=$forbidden must be rejected");
+            $this->assertContains('lane-x:runtime_owner_not_atlas:'.$forbidden, $verdict['blockers']);
+        }
+
+        $verdict2 = (new AtlasProjectLaneRuntimeInstanceRegistry)->build(
+            $this->lane(['steady_state_owner' => 'operator']),
+            $this->manifest(),
+        );
+        $this->assertSame('rejected', $verdict2['status']);
+        $this->assertContains('lane-x:steady_state_owner_not_atlas:operator', $verdict2['blockers']);
+    }
+
+    public function test_registry_hash_is_stable_when_lane_input_key_order_differs(): void
+    {
+        $laneA = $this->lane();
+        $laneB = array_merge(
+            ['allowed_roots' => $laneA['allowed_roots'], 'lane_id' => $laneA['lane_id']],
+            array_diff_key($laneA, ['allowed_roots' => null, 'lane_id' => null]),
+        );
+
+        $hashA = (new AtlasProjectLaneRuntimeInstanceRegistry)->build($laneA, $this->manifest())['registry_hash'];
+        $hashB = (new AtlasProjectLaneRuntimeInstanceRegistry)->build($laneB, $this->manifest())['registry_hash'];
+
+        $this->assertSame($hashA, $hashB, 'registry_hash must be stable regardless of input key order');
+    }
 }
