@@ -128,6 +128,12 @@ final class AgentControlPlaneScopeRepairInputRebuilder
         )));
         sort($forbidden);
 
+        $allTestOnly = $allowed !== [] && array_reduce(
+            $allowed,
+            static fn (bool $carry, string $p): bool => $carry && self::isTestPath($p),
+            true,
+        );
+
         $objective = trim((string) data_get($packet, 'objective', ''));
         $removed = implode(', ', $forbiddenAllowed);
         $repairNote = " Scope repair: {$removed} was removed from allowed_files because Atlas cannot safely commit forbidden self-targets. Implement only the remaining allowed_files and do not edit the removed path(s).";
@@ -151,6 +157,7 @@ final class AgentControlPlaneScopeRepairInputRebuilder
             'continuation_context' => (array) data_get($packet, 'continuation_context', []),
             'lease_ttl_seconds' => (int) data_get($packet, 'lease_requirements.lease_ttl_seconds', 1800),
             'rollback_strategy' => (string) data_get($packet, 'rollback_requirements.rollback_strategy', 'plan_only'),
+            'repair_blocked_reason' => $allTestOnly ? 'test_only_survivors_after_forbidden_removal' : null,
         ];
     }
 }

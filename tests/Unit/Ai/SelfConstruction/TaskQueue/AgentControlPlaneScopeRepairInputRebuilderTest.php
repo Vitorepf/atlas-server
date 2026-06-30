@@ -128,6 +128,32 @@ class AgentControlPlaneScopeRepairInputRebuilderTest extends TestCase
         self::assertStringContainsString('Scope repair', $result['objective']);
     }
 
+    public function test_repair_input_without_forbidden_targets_blocks_when_only_test_paths_remain(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        // Remove the only impl file → only the test path survives
+        $result = AgentControlPlaneScopeRepairInputRebuilder::repairInputWithoutForbiddenTargets($packet, ['app/Foo.php']);
+
+        self::assertSame(['tests/Unit/FooTest.php'], $result['allowed_files']);
+        self::assertSame('test_only_survivors_after_forbidden_removal', $result['repair_blocked_reason']);
+    }
+
+    public function test_repair_input_without_forbidden_targets_has_no_blocked_reason_for_normal_packet(): void
+    {
+        $packet = $this->basePacket([
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        // Remove one app file — app/Bar.php + test remain, so not test-only
+        $result = AgentControlPlaneScopeRepairInputRebuilder::repairInputWithoutForbiddenTargets($packet, ['app/Foo.php']);
+
+        self::assertContains('app/Bar.php', $result['allowed_files']);
+        self::assertNull($result['repair_blocked_reason']);
+    }
+
     public function test_repair_input_methods_are_deterministic(): void
     {
         $packet = $this->basePacket();
