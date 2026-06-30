@@ -88,4 +88,42 @@ final class AtlasMaestroPacketProvenanceReceiptLedgerTest extends TestCase
         $this->assertNotNull($ledger->getReceipt(hash('sha256', 'a:0:h-a')));
         $this->assertNull($ledger->getReceipt('no-such-id'));
     }
+
+    public function test_receipt_id_hash_is_stable_for_same_inputs(): void
+    {
+        $path2 = sys_get_temp_dir().'/maestro-prov2-'.bin2hex(random_bytes(6)).'.jsonl';
+        $ledger1 = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger2 = new AtlasMaestroPacketProvenanceReceiptLedger($path2);
+
+        $a = $ledger1->append('pkt-stable', 0, 'hash-stable', [], '2026-06-25T06:00:00+00:00');
+        $b = $ledger2->append('pkt-stable', 0, 'hash-stable', [], '2026-06-25T07:00:00+00:00');
+        @unlink($path2);
+
+        $this->assertSame($a['receipt_id'], $b['receipt_id']);
+        $this->assertSame(64, strlen($a['receipt_id']));
+    }
+
+    public function test_for_family_filters_by_packet_id_prefix(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger->append('atlas-task-1', 0, 'h1', [], '2026-06-25T05:00:00+00:00');
+        $ledger->append('atlas-task-2', 0, 'h2', [], '2026-06-25T05:01:00+00:00');
+        $ledger->append('other-task-1', 0, 'h3', [], '2026-06-25T05:02:00+00:00');
+
+        $this->assertCount(2, $ledger->forFamily('atlas-task'));
+        $this->assertCount(1, $ledger->forFamily('other-task'));
+        $this->assertCount(0, $ledger->forFamily('nonexistent'));
+    }
+
+    public function test_for_source_filters_by_verdict_source_field(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger->append('pkt-a', 0, 'ha', ['source' => 'autopoiesis'], '2026-06-25T05:00:00+00:00');
+        $ledger->append('pkt-b', 0, 'hb', ['source' => 'task_fabric'], '2026-06-25T05:01:00+00:00');
+        $ledger->append('pkt-c', 0, 'hc', ['source' => 'autopoiesis'], '2026-06-25T05:02:00+00:00');
+
+        $this->assertCount(2, $ledger->forSource('autopoiesis'));
+        $this->assertCount(1, $ledger->forSource('task_fabric'));
+        $this->assertCount(0, $ledger->forSource('unknown'));
+    }
 }

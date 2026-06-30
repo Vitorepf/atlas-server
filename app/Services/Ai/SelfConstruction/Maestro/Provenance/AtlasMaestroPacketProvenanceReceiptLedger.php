@@ -118,6 +118,32 @@ final class AtlasMaestroPacketProvenanceReceiptLedger
     }
 
     /**
+     * Query by family: all receipts whose packet_id starts with $familyPrefix.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forFamily(string $familyPrefix): array
+    {
+        return array_values(array_filter(
+            $this->readAll(),
+            static fn (array $r): bool => str_starts_with((string) ($r['packet_id'] ?? ''), $familyPrefix),
+        ));
+    }
+
+    /**
+     * Query by source: all receipts where verdict['source'] matches $source.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function forSource(string $source): array
+    {
+        return array_values(array_filter(
+            $this->readAll(),
+            static fn (array $r): bool => (string) (($r['verdict'] ?? [])['source'] ?? '') === $source,
+        ));
+    }
+
+    /**
      * @return list<array<string,mixed>>
      */
     private function readAll(): array
