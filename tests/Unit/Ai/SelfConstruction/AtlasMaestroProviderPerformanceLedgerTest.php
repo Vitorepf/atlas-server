@@ -127,4 +127,74 @@ final class AtlasMaestroProviderPerformanceLedgerTest extends TestCase
         $blob2 = (string) file_get_contents($b->snapshotPath());
         $this->assertSame($blob1, $blob2, 'on-disk snapshot is unchanged after read-only access');
     }
+
+    // ── task_family, model_tier, token_cost_estimate, has_required_evidence ──
+
+    public function test_record_outcome_with_family_tier_cost_and_evidence_tracks_all_fields(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, 'refactor-family', 'opus', 500, true);
+        $ledger->recordOutcome('codex', 'refactor', 'give_back', 500, 1700000010, 'refactor-family', 'opus', 200, false);
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame('refactor-family', $facts['codex']['task_family']);
+        $this->assertSame('opus', $facts['codex']['model_tier']);
+        $this->assertSame(700, $facts['codex']['token_cost_sum']);
+        $this->assertSame(1, $facts['codex']['has_required_evidence_count']);
+    }
+
+    public function test_facts_for_family_returns_aggregates(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'class-a', 'success', 1000, 1700000000, 'family-x', 'opus', null, null);
+        $ledger->recordOutcome('codex', 'class-b', 'success', 2000, 1700000010, 'family-x', 'opus', null, null);
+        $ledger->recordOutcome('claude', 'class-a', 'give_back', 500, 1700000020, 'family-x', 'sonnet', null, null);
+
+        $facts = $ledger->factsForFamily('family-x');
+        $this->assertArrayHasKey('codex', $facts);
+        $this->assertArrayHasKey('claude', $facts);
+        $this->assertSame(2, $facts['codex']['success_count']);
+        $this->assertSame(1500, $facts['codex']['avg_duration_ms']);
+        $this->assertSame(1, $facts['claude']['give_back_count']);
+    }
+
+    public function test_facts_for_family_unknown_returns_empty(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $this->assertSame([], $ledger->factsForFamily('nonexistent'));
+    }
+
+    public function test_backward_compatible_call_without_new_params(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000);
+
+        $facts = $ledger->factsForClass('refactor');
+        $this->assertSame(1, $facts['codex']['success_count']);
+        $this->assertSame(0, $facts['codex']['token_cost_sum']);
+        $this->assertSame(0, $facts['codex']['has_required_evidence_count']);
+    }
+
+    public function test_deterministic_canonical_json_ordering_preserved_with_new_fields(): void
+    {
+        $ledger = new AtlasMaestroProviderPerformanceLedger();
+        $ledger->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, 'fam', 'opus', 500, true);
+        $ledger->recordOutcome('claude', 'docs', 'give_back', 400, 1700000010, 'fam', 'sonnet', 100, false);
+
+        $blob1 = (string) file_get_contents($ledger->snapshotPath());
+
+        // Re-run on fresh root
+        $freshRoot = $this->root.'-det';
+        @mkdir($freshRoot, 0o755, true);
+        AtlasMaestroProviderPerformanceLedger::setRootForTesting($freshRoot);
+        $ledger2 = new AtlasMaestroProviderPerformanceLedger();
+        $ledger2->recordOutcome('codex', 'refactor', 'success', 1000, 1700000000, 'fam', 'opus', 500, true);
+        $ledger2->recordOutcome('claude', 'docs', 'give_back', 400, 1700000010, 'fam', 'sonnet', 100, false);
+        $blob2 = (string) file_get_contents($ledger2->snapshotPath());
+        @unlink($ledger2->snapshotPath());
+        @rmdir($freshRoot);
+        AtlasMaestroProviderPerformanceLedger::setRootForTesting($this->root);
+
+        $this->assertSame($blob1, $blob2, 'new fields must not break deterministic ordering');
+    }
 }

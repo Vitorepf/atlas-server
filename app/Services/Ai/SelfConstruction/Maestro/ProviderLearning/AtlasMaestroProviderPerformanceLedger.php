@@ -29,9 +29,18 @@ final class AtlasMaestroProviderPerformanceLedger
         self::$rootOverride = $root;
     }
 
-    public function recordOutcome(string $provider, string $taskClass, string $outcome, int $durationMs, int $lastOutcomeAt): void
-    {
-        $this->withLockedFile(function (array $state) use ($provider, $taskClass, $outcome, $durationMs, $lastOutcomeAt): array {
+    public function recordOutcome(
+        string $provider,
+        string $taskClass,
+        string $outcome,
+        int $durationMs,
+        int $lastOutcomeAt,
+        ?string $taskFamily = null,
+        ?string $modelTier = null,
+        ?int $tokenCostEstimate = null,
+        ?bool $hasRequiredEvidence = null,
+    ): void {
+        $this->withLockedFile(function (array $state) use ($provider, $taskClass, $outcome, $durationMs, $lastOutcomeAt, $taskFamily, $modelTier, $tokenCostEstimate, $hasRequiredEvidence): array {
             $facts = $state['facts'] ?? [];
             $facts[$taskClass] ??= [];
             $row = $facts[$taskClass][$provider] ?? [
@@ -40,6 +49,8 @@ final class AtlasMaestroProviderPerformanceLedger
                 'duration_ms_sum' => 0,
                 'duration_ms_count' => 0,
                 'last_outcome_at' => 0,
+                'token_cost_sum' => 0,
+                'has_required_evidence_count' => 0,
             ];
             $knownOutcome = false;
             if ($outcome === self::OUTCOME_SUCCESS) {
@@ -56,8 +67,45 @@ final class AtlasMaestroProviderPerformanceLedger
             if ($lastOutcomeAt > (int) $row['last_outcome_at']) {
                 $row['last_outcome_at'] = $lastOutcomeAt;
             }
+            if ($taskFamily !== null) {
+                $row['task_family'] = $taskFamily;
+            }
+            if ($modelTier !== null) {
+                $row['model_tier'] = $modelTier;
+            }
+            if ($tokenCostEstimate !== null && $tokenCostEstimate >= 0) {
+                $row['token_cost_sum'] = (int) ($row['token_cost_sum'] ?? 0) + $tokenCostEstimate;
+            }
+            if ($hasRequiredEvidence === true) {
+                $row['has_required_evidence_count'] = (int) ($row['has_required_evidence_count'] ?? 0) + 1;
+            }
             ksort($row);
             $facts[$taskClass][$provider] = $row;
+
+            // family-level index
+            if ($taskFamily !== null) {
+                $familyFacts = (array) ($state['family_facts'] ?? []);
+                $familyFacts[$taskFamily] ??= [];
+                $frow = $familyFacts[$taskFamily][$provider] ?? [
+                    'success_count' => 0,
+                    'give_back_count' => 0,
+                    'duration_ms_sum' => 0,
+                    'duration_ms_count' => 0,
+                ];
+                if ($outcome === self::OUTCOME_SUCCESS) {
+                    $frow['success_count']++;
+                } elseif ($outcome === self::OUTCOME_GIVE_BACK) {
+                    $frow['give_back_count']++;
+                }
+                if ($knownOutcome && $durationMs >= 0) {
+                    $frow['duration_ms_sum'] += $durationMs;
+                    $frow['duration_ms_count']++;
+                }
+                ksort($frow);
+                $familyFacts[$taskFamily][$provider] = $frow;
+                $state['family_facts'] = $familyFacts;
+            }
+
             $state['facts'] = $facts;
 
             return $state;
@@ -100,6 +148,28 @@ final class AtlasMaestroProviderPerformanceLedger
                 ? (int) round(((int) $row['duration_ms_sum']) / ((int) $row['duration_ms_count']))
                 : 0;
             $out[(string) $taskClass] = $row;
+        }
+        ksort($out);
+
+        return $out;
+    }
+
+    /**
+     * Family-level read surface: aggregate facts by task_family.
+     *
+     * @return array<string, array<string,mixed>>
+     */
+    public function factsForFamily(string $taskFamily): array
+    {
+        $state = $this->load();
+        $familyFacts = (array) ($state['family_facts'][$taskFamily] ?? []);
+        $out = [];
+        foreach ($familyFacts as $provider => $row) {
+            $row = (array) $row;
+            $row['avg_duration_ms'] = ((int) ($row['duration_ms_count'] ?? 0)) > 0
+                ? (int) round(((int) ($row['duration_ms_sum'] ?? 0)) / ((int) ($row['duration_ms_count'] ?? 0)))
+                : 0;
+            $out[(string) $provider] = $row;
         }
         ksort($out);
 
