@@ -47,6 +47,10 @@ final class AtlasMaestroMuscleThroughputContinuityModel
     /** Blocked-fraction threshold above which capacity is considered dependency-blocked. */
     private const BLOCKED_FRACTION_THRESHOLD = 0.5;
 
+    public const THROUGHPUT_MODE_DIRECT = 'direct';
+    public const THROUGHPUT_MODE_ESTIMATED = 'estimated';
+    public const THROUGHPUT_MODE_BLIND = 'blind';
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -59,11 +63,24 @@ final class AtlasMaestroMuscleThroughputContinuityModel
         $blockedCount      = max(0, (int) ($input['blocked_count'] ?? 0));
         $recentCompletions = max(0, (int) ($input['recent_completions'] ?? 0));
         $burnRateFloor     = max(1, (int) ($input['burn_rate_floor'] ?? self::DEFAULT_BURN_RATE_FLOOR));
+        $serveTotal        = max(0, (int) ($input['serve_total'] ?? 0));
+        $projectionHistory = is_array($input['projection_history'] ?? null) ? $input['projection_history'] : [];
+
+        $projectionEstimatedBurn = $this->projectionEstimatedBurn($projectionHistory);
 
         // Burn rate: prefer observed completions, fall back to lease count, then 1.0.
         $burnRate = $recentCompletions > 0
             ? (float) $recentCompletions
             : ($activeLeases > 0 ? (float) $activeLeases : 1.0);
+
+        // Throughput mode labels WHERE the burn-rate signal actually came from, so an originator
+        // never reads zero direct telemetry as "zero real work happened" — a projection-derived
+        // estimate, or an outright blind spot, must never be silently presented as a hard zero.
+        $throughputMode = match (true) {
+            $recentCompletions > 0 || $serveTotal > 0 => self::THROUGHPUT_MODE_DIRECT,
+            $projectionEstimatedBurn > 0 => self::THROUGHPUT_MODE_ESTIMATED,
+            default => self::THROUGHPUT_MODE_BLIND,
+        };
 
         $hoursToDry = $burnRate > 0
             ? round($servableNow / $burnRate, 2)
@@ -77,6 +94,12 @@ final class AtlasMaestroMuscleThroughputContinuityModel
             $burnRate, $recentCompletions, $activeLeases, $replenishNow,
         );
 
+        if ($throughputMode === self::THROUGHPUT_MODE_BLIND) {
+            $reasons[] = 'caution:zero_telemetry_does_not_mean_zero_real_work';
+        } elseif ($throughputMode === self::THROUGHPUT_MODE_ESTIMATED) {
+            $reasons[] = sprintf('throughput_mode_estimated_from_projection_history:burn=%.2f', $projectionEstimatedBurn);
+        }
+
         return [
             'schema'          => self::SCHEMA,
             'hours_to_dry'    => $hoursToDry,
@@ -84,7 +107,30 @@ final class AtlasMaestroMuscleThroughputContinuityModel
             'capacity_status' => $capacityStatus,
             'replenish_now'   => $replenishNow,
             'reasons'         => array_values($reasons),
+            'throughput_mode' => $throughputMode,
         ];
+    }
+
+    /**
+     * Sums completion (or, absent that, claim) deltas across a projection fact history to derive a
+     * burn-rate estimate when no direct serve telemetry exists. Never invents a positive estimate
+     * from an empty or malformed history.
+     *
+     * @param  list<array<string,mixed>>  $projectionHistory
+     */
+    private function projectionEstimatedBurn(array $projectionHistory): float
+    {
+        $completionSum = 0.0;
+        $claimSum = 0.0;
+        foreach ($projectionHistory as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $completionSum += max(0, (float) ($entry['completion_delta'] ?? 0));
+            $claimSum += max(0, (float) ($entry['claim_delta'] ?? 0));
+        }
+
+        return $completionSum > 0 ? $completionSum : $claimSum;
     }
 
     private function capacityStatus(int $servableNow, int $floor, int $blocked, int $claimable): string
