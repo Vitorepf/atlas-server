@@ -22,6 +22,8 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
 
     public const KIND_MERGE = 'merge';
 
+    public const BLOCKER_MISSING_WORKER_CONTINUITY_SAFETY_EVIDENCE = 'missing_worker_continuity_safety_evidence';
+
     /**
      * @param  array<string, mixed>  $candidate
      * @return array<string, mixed>
@@ -70,6 +72,17 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             $blockers[] = 'missing_rollback_notes';
         }
 
+        // Candidates touching queue-serving organs must prove worker-continuity safety —
+        // line-count reduction alone (no matter how large) never justifies this on its own.
+        $touchesQueueServingOrgan = (bool) ($candidate['touches_queue_serving_organ'] ?? false);
+        $workerContinuitySafe = false;
+        if ($touchesQueueServingOrgan) {
+            $workerContinuitySafe = $this->workerContinuitySafe((array) ($candidate['worker_continuity_evidence'] ?? []));
+            if (! $workerContinuitySafe) {
+                $blockers[] = self::BLOCKER_MISSING_WORKER_CONTINUITY_SAFETY_EVIDENCE;
+            }
+        }
+
         $approved = $blockers === [];
 
         $rollbackRequirement = $rollbackNotes !== ''
@@ -102,6 +115,33 @@ final class AtlasExternalBrainSimplificationCandidateVerifier
             'rollback_requirement' => $rollbackRequirement,
             'behavior_proof_status' => $behaviorProofStatus,
             'consumer_migration_status' => $consumerMigrationStatus,
+            'touches_queue_serving_organ' => $touchesQueueServingOrgan,
+            'worker_continuity_safe' => $touchesQueueServingOrgan ? $workerContinuitySafe : null,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence  may contain claimable_per_active_worker_before/_after
+     *   and/or no_claimable_task_incidents_before/_after; both numeric pairs must be PRESENT and
+     *   show no regression (never inferred from absence).
+     */
+    private function workerContinuitySafe(array $evidence): bool
+    {
+        $claimableBefore = $evidence['claimable_per_active_worker_before'] ?? null;
+        $claimableAfter = $evidence['claimable_per_active_worker_after'] ?? null;
+        $incidentsBefore = $evidence['no_claimable_task_incidents_before'] ?? null;
+        $incidentsAfter = $evidence['no_claimable_task_incidents_after'] ?? null;
+
+        if (! is_numeric($claimableBefore) || ! is_numeric($claimableAfter)) {
+            return false;
+        }
+        if (! is_numeric($incidentsBefore) || ! is_numeric($incidentsAfter)) {
+            return false;
+        }
+
+        $noClaimableDrop = (float) $claimableAfter >= (float) $claimableBefore;
+        $noIncidentIncrease = (float) $incidentsAfter <= (float) $incidentsBefore;
+
+        return $noClaimableDrop && $noIncidentIncrease;
     }
 }
