@@ -126,4 +126,75 @@ final class AtlasTaskRetireCommandTest extends TestCase
         $record = $queue->get('retire-doomed-2');
         self::assertSame('blocked', $record['status']);
     }
+
+    // --- dormant_cli_arm_proxy quarantine tests --------------------------------
+
+    public function test_dormant_cli_arm_proxy_dry_run_reports_packet_as_doomed(): void
+    {
+        $queue = AtlasTaskServingStack::queueRepo();
+
+        $this->enqueue('retire-proxy-dry-1');
+        $queue->updateStatus('retire-proxy-dry-1', 'blocked', [
+            'reason' => 'dormant_cli_arm_proxy',
+            'blocking_deficiencies' => ['dormant_cli_arm_proxy'],
+        ]);
+
+        // Unrelated blocked packet — must remain blocked.
+        $this->enqueue('retire-proxy-other-1');
+        $queue->updateStatus('retire-proxy-other-1', 'blocked', [
+            'reason' => 'scope_repair_failed',
+            'blocking_deficiencies' => ['some_other_deficiency'],
+        ]);
+
+        $exit = Artisan::call('atlas:task:retire', ['--dry-run' => true, '--json' => true]);
+        self::assertSame(0, $exit);
+
+        $payload = json_decode(trim(Artisan::output()), true);
+        self::assertIsArray($payload);
+        self::assertTrue((bool) ($payload['dry_run'] ?? false));
+        self::assertGreaterThanOrEqual(1, (int) ($payload['doomed_count'] ?? 0));
+
+        // dry-run must not mutate.
+        self::assertSame('blocked', $queue->get('retire-proxy-dry-1')['status']);
+        self::assertSame('blocked', $queue->get('retire-proxy-other-1')['status']);
+    }
+
+    public function test_dormant_cli_arm_proxy_packet_is_cancelled_with_distinct_receipt(): void
+    {
+        $queue = AtlasTaskServingStack::queueRepo();
+
+        $this->enqueue('retire-proxy-1');
+        $queue->updateStatus('retire-proxy-1', 'blocked', [
+            'reason' => 'dormant_cli_arm_proxy',
+            'blocking_deficiencies' => ['dormant_cli_arm_proxy'],
+        ]);
+
+        // Unrelated blocked packet — must remain blocked.
+        $this->enqueue('retire-proxy-other-2');
+        $queue->updateStatus('retire-proxy-other-2', 'blocked', [
+            'reason' => 'scope_repair_failed',
+            'blocking_deficiencies' => ['some_other_deficiency'],
+        ]);
+
+        $exit = Artisan::call('atlas:task:retire', ['--json' => true]);
+        self::assertSame(0, $exit);
+
+        $payload = json_decode(trim(Artisan::output()), true);
+        self::assertIsArray($payload);
+        self::assertGreaterThanOrEqual(1, (int) ($payload['retired_count'] ?? 0));
+
+        // Proxy packet is cancelled.
+        $proxyAfter = $queue->get('retire-proxy-1');
+        self::assertSame('cancelled', $proxyAfter['status']);
+
+        // It carries the DISTINCT receipt kind.
+        $receipts = array_values(array_filter(
+            (array) ($proxyAfter['receipts'] ?? []),
+            fn ($r): bool => (string) ($r['receipt_kind'] ?? '') === 'blocked_packet_retired_dormant_cli_arm_proxy',
+        ));
+        self::assertNotEmpty($receipts, 'dormant_cli_arm_proxy packet must have the distinct retirement receipt');
+
+        // Unrelated blocked packet is still blocked.
+        self::assertSame('blocked', $queue->get('retire-proxy-other-2')['status']);
+    }
 }

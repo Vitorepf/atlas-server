@@ -44,13 +44,14 @@ class AtlasTaskRetireCommand extends Command
                 continue;
             }
 
-            if (! $this->isRepeatedGiveBackQuarantine($record)) {
+            if ($this->isRepeatedGiveBackQuarantine($record)) {
+                $doomed[] = ['record' => $record, 'doom_kind' => 'repeated_give_back'];
+            } elseif ($this->isDormantCliArmProxy($record)) {
+                $doomed[] = ['record' => $record, 'doom_kind' => 'dormant_cli_arm_proxy'];
+            } else {
                 $skipped[] = $taskPacketId;
-
-                continue;
             }
 
-            $doomed[] = $record;
             if ($limit > 0 && count($doomed) >= $limit) {
                 break;
             }
@@ -58,27 +59,33 @@ class AtlasTaskRetireCommand extends Command
 
         $retired = [];
         $failed = [];
-        foreach ($doomed as $record) {
+        foreach ($doomed as $doomedEntry) {
+            $record = $doomedEntry['record'];
+            $doomKind = (string) $doomedEntry['doom_kind'];
             $taskPacketId = (string) ($record['task_packet_id'] ?? '');
 
+            $isDormantProxy = $doomKind === 'dormant_cli_arm_proxy';
+            $retireReason = $isDormantProxy ? 'retired_dormant_cli_arm_proxy_doomed' : 'retired_repeated_give_back_doomed';
+            $receiptKind = $isDormantProxy ? 'blocked_packet_retired_dormant_cli_arm_proxy' : 'blocked_packet_retired_repeated_give_back';
+
             if ($dryRun) {
-                $retired[] = ['task_packet_id' => $taskPacketId, 'action' => 'retire_plan'];
+                $retired[] = ['task_packet_id' => $taskPacketId, 'action' => 'retire_plan', 'doom_kind' => $doomKind];
 
                 continue;
             }
 
             $t = $queue->updateStatus($taskPacketId, 'cancelled', [
-                'reason' => 'retired_repeated_give_back_doomed',
+                'reason' => $retireReason,
                 'agent_id' => $actor,
             ]);
 
             if ((string) ($t['status'] ?? '') === 'ok') {
                 $queue->appendReceipt($taskPacketId, [
-                    'receipt_kind' => 'blocked_packet_retired_repeated_give_back',
+                    'receipt_kind' => $receiptKind,
                     'agent_id' => $actor,
-                    'reason' => 'retired_repeated_give_back_doomed',
+                    'reason' => $retireReason,
                 ]);
-                $retired[] = ['task_packet_id' => $taskPacketId, 'action' => 'retired'];
+                $retired[] = ['task_packet_id' => $taskPacketId, 'action' => 'retired', 'doom_kind' => $doomKind];
             } else {
                 $failed[] = ['task_packet_id' => $taskPacketId, 'status' => (string) ($t['status'] ?? 'unknown'), 'reason' => (string) ($t['reason'] ?? '')];
             }
@@ -127,5 +134,15 @@ class AtlasTaskRetireCommand extends Command
 
         return $giveBackCount >= 7
             && ($reason === 'packet_not_self_sufficient' || in_array('repeated_give_back_8', $deficiencies, true));
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    private function isDormantCliArmProxy(array $record): bool
+    {
+        $deficiencies = array_map('strval', (array) data_get($record, 'metadata.blocking_deficiencies', []));
+
+        return in_array('dormant_cli_arm_proxy', $deficiencies, true);
     }
 }
