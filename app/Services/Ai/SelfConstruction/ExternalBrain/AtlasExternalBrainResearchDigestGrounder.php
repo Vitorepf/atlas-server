@@ -11,10 +11,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Rejection hierarchy per idea (first match wins):
  *   hype_only_no_local_symbol        — local_symbols is empty; no concrete code anchor
- *   no_runnable_evidence_path        — runnable_evidence_path has no artisan/phpunit/vendor command
- *   no_local_owner                   — has_local_owner is false
+ *   missing_allowed_files_candidate  — allowed_files_candidate is empty
+ *   no_runnable_evidence_path        — runnable_evidence_path lacks /opt/homebrew/bin/php, phpunit, artisan, or vendor/bin
+ *   no_local_owner                   — owner_files empty AND has_local_owner=false
  *   forbidden_scope                  — forbidden_scope is true
  *   provider_steady_state_dependency — provider_steady_state_dep is true
+ *
+ * Promoted candidate fields: idea_id, local_symbols, allowed_files_candidate,
+ *   acceptance_seed, atlas_capability_gap, risk_constraints, leverage_hint.
  *
  * An idea is promoted only when ALL conditions pass.
  *
@@ -25,12 +29,13 @@ final class AtlasExternalBrainResearchDigestGrounder
     public const SCHEMA = 'atlas.external_brain.research_digest_grounder.v1';
 
     public const REJECTION_HYPE_ONLY_NO_LOCAL_SYMBOL        = 'hype_only_no_local_symbol';
+    public const REJECTION_MISSING_ALLOWED_FILES_CANDIDATE  = 'missing_allowed_files_candidate';
     public const REJECTION_NO_RUNNABLE_EVIDENCE_PATH        = 'no_runnable_evidence_path';
     public const REJECTION_NO_LOCAL_OWNER                   = 'no_local_owner';
     public const REJECTION_FORBIDDEN_SCOPE                  = 'forbidden_scope';
     public const REJECTION_PROVIDER_STEADY_STATE_DEPENDENCY = 'provider_steady_state_dependency';
 
-    private const RUNNABLE_MARKERS = ['artisan', 'vendor/bin', 'phpunit'];
+    private const RUNNABLE_MARKERS = ['/opt/homebrew/bin/php', 'artisan', 'vendor/bin', 'phpunit'];
 
     /**
      * @param  array{research_ideas?: list<array>}  $input
@@ -68,21 +73,27 @@ final class AtlasExternalBrainResearchDigestGrounder
 
     private function reject(array $idea): ?string
     {
-        $localSymbols        = array_filter(array_map('trim', (array) ($idea['local_symbols']          ?? [])));
-        $evidencePath        = trim((string) ($idea['runnable_evidence_path']    ?? ''));
-        $hasLocalOwner       = (bool) ($idea['has_local_owner']                 ?? false);
-        $forbiddenScope      = (bool) ($idea['forbidden_scope']                 ?? false);
-        $providerSteadyState = (bool) ($idea['provider_steady_state_dep']       ?? false);
+        $localSymbols          = array_filter(array_map('trim', (array) ($idea['local_symbols']           ?? [])));
+        $allowedFilesCandidates = array_filter(array_map('trim', (array) ($idea['allowed_files_candidate'] ?? [])));
+        $evidencePath          = trim((string) ($idea['runnable_evidence_path']     ?? ''));
+        $ownerFiles            = array_filter(array_map('trim', (array) ($idea['owner_files']              ?? [])));
+        $hasLocalOwner         = (bool) ($idea['has_local_owner']                  ?? false);
+        $forbiddenScope        = (bool) ($idea['forbidden_scope']                  ?? false);
+        $providerSteadyState   = (bool) ($idea['provider_steady_state_dep']        ?? false);
 
         if ($localSymbols === []) {
             return self::REJECTION_HYPE_ONLY_NO_LOCAL_SYMBOL;
+        }
+
+        if ($allowedFilesCandidates === []) {
+            return self::REJECTION_MISSING_ALLOWED_FILES_CANDIDATE;
         }
 
         if (! $this->hasRunnableCommand($evidencePath)) {
             return self::REJECTION_NO_RUNNABLE_EVIDENCE_PATH;
         }
 
-        if (! $hasLocalOwner) {
+        if ($ownerFiles === [] && ! $hasLocalOwner) {
             return self::REJECTION_NO_LOCAL_OWNER;
         }
 
@@ -100,12 +111,13 @@ final class AtlasExternalBrainResearchDigestGrounder
     private function buildCandidate(array $idea): array
     {
         return [
-            'idea_id'               => trim((string) ($idea['idea_id']               ?? '')),
-            'research_note'         => trim((string) ($idea['research_note']         ?? '')),
-            'local_symbols'         => array_values(array_filter(array_map('trim', (array) ($idea['local_symbols'] ?? [])))),
-            'runnable_evidence_path' => trim((string) ($idea['runnable_evidence_path'] ?? '')),
-            'atlas_capability_gap'  => trim((string) ($idea['atlas_capability_gap']  ?? '')),
-            'risk_constraints'      => array_values(array_filter(array_map('trim', (array) ($idea['risk_constraints'] ?? [])))),
+            'idea_id'                => trim((string) ($idea['idea_id']                ?? '')),
+            'local_symbols'          => array_values(array_filter(array_map('trim', (array) ($idea['local_symbols']           ?? [])))),
+            'allowed_files_candidate' => array_values(array_filter(array_map('trim', (array) ($idea['allowed_files_candidate'] ?? [])))),
+            'acceptance_seed'        => trim((string) ($idea['acceptance_seed']        ?? '')),
+            'atlas_capability_gap'   => trim((string) ($idea['atlas_capability_gap']   ?? '')),
+            'risk_constraints'       => array_values(array_filter(array_map('trim', (array) ($idea['risk_constraints']        ?? [])))),
+            'leverage_hint'          => trim((string) ($idea['leverage_hint']          ?? '')),
         ];
     }
 
