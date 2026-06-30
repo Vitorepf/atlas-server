@@ -185,7 +185,6 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         array $missingModes,
         ?string $nextRecommendedMode,
     ): array {
-        // AC3: next_search_plan — ranked modes, evidence needed, and stop condition.
         $evidenceNeeded = $missingModes !== []
             ? 'non-stale pass records required for: ' . implode(', ', $missingModes)
             : 'all required search modes covered';
@@ -194,6 +193,7 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             'schema'                => self::SCHEMA,
             'surface_id'            => $surfaceId,
             'verdict'               => $verdict,
+            'recommendation'        => $this->deriveRecommendation($verdict),
             'saturation_score'      => round($saturationScore, 4),
             'reasoning'             => $reasoning,
             'dominant_subsystem'    => $dominantSubsystem,
@@ -202,10 +202,21 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             'missing_modes'         => $missingModes,
             'next_recommended_mode' => $nextRecommendedMode,
             'next_search_plan'      => [
-                'ranked_modes'   => $missingModes,
+                'ranked_modes'    => $missingModes,
                 'evidence_needed' => $evidenceNeeded,
-                'stop_condition' => 'all required search modes must have non-stale pass records',
+                'stop_condition'  => 'all required search modes must have non-stale pass records',
             ],
         ];
+    }
+
+    private function deriveRecommendation(string $verdict): string
+    {
+        return match ($verdict) {
+            self::VERDICT_EXHAUSTED       => 'pivot',
+            self::VERDICT_ROTATE          => 'pivot',
+            self::VERDICT_CONSOLIDATE     => 'consolidate',
+            self::VERDICT_UNDER_EVIDENCED => 'deepen_second_pass',
+            default                       => 'continue',
+        };
     }
 }
