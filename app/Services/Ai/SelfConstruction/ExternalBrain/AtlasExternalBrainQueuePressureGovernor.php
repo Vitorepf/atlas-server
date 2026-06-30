@@ -93,6 +93,15 @@ final class AtlasExternalBrainQueuePressureGovernor
             return $this->result(self::DECISION_ENQUEUE_NOW, "urgent repair class '{$taskClass}' bypasses all pressure checks", urgentOverride: true);
         }
 
+        // --- Worker starvation bypass: servable work per active worker below the floor and the
+        //     candidate replenishes worker capacity → enqueue now with a tight batch budget. ---
+        $workerFloor = (float) ($queueState['worker_floor'] ?? $context['worker_floor'] ?? 0.0);
+        $replenishesWorkerCapacity = (bool) ($candidate['replenishes_worker_capacity'] ?? false);
+
+        if ($workerFloor > 0.0 && $servablePerWorker < $workerFloor && $replenishesWorkerCapacity) {
+            return $this->result(self::DECISION_ENQUEUE_NOW, "worker starvation: servable_per_worker_ratio={$servablePerWorker} below worker_floor={$workerFloor}; candidate replenishes worker capacity", underPressure: true);
+        }
+
         $highClaimable = $claimableDepth >= self::HIGH_CLAIMABLE_DEPTH;
         $highLeases    = $activeLeases   >= self::HIGH_ACTIVE_LEASES;
         $queueDeep     = $highClaimable || $highServableRatio;
