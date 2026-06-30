@@ -26,6 +26,18 @@ final class AtlasMaestroLearningPolicyGuard
 
     private const TASK_FIELDS = ['acceptance_criteria', 'required_evidence'];
 
+    /** String fragments that indicate proxy / cosmetic-wrapper work (Goodhart bait). */
+    private const PROXY_PATTERNS = ['cosmetic wrapper', 'template farm', 'template_farm', 'proxy work', 'no-op refactor', 'boilerplate only', 'noop refactor'];
+
+    /** Human-in-the-loop signals that would break 24/7 unattended operation. */
+    private const HUMAN_DEPENDENCY_PATTERNS = ['requires human', 'human approval', 'human review', 'awaiting operator', 'manual intervention', 'human-in-the-loop'];
+
+    /** External provider mandate signals that would create uncontrolled spend. */
+    private const EXTERNAL_PROVIDER_PATTERNS = ['requires codex', 'requires claude', 'call provider', 'provider required', 'external ai call', 'mandatory provider'];
+
+    /** Quota-padding signals that inflate completion numbers without real delivery. */
+    private const QUOTA_PADDING_PATTERNS = ['quota padding', 'pad count', 'filler task', 'quota pad', 'filler_task'];
+
     /**
      * @param  array<mixed>  $artifact
      */
@@ -53,6 +65,13 @@ final class AtlasMaestroLearningPolicyGuard
                 if (in_array(strtolower($k), self::TASK_FIELDS, true)) {
                     throw AtlasMaestroLearningPolicyViolation::taskFieldOverride($k);
                 }
+                // allowed_files that are ALL under tests/ indicate a test-only task (proxy work).
+                if (strtolower($k) === 'allowed_files' && is_array($value) && count($value) > 0) {
+                    $testPaths = array_filter($value, static fn ($f) => is_string($f) && str_starts_with($f, 'tests/'));
+                    if (count($testPaths) === count($value)) {
+                        throw new AtlasMaestroLearningPolicyViolation('test_only_allowed_files', 'learning artifact recommends task whose allowed_files are all test paths (proxy work)');
+                    }
+                }
                 $this->walk($value);
             }
 
@@ -69,6 +88,26 @@ final class AtlasMaestroLearningPolicyGuard
             foreach (self::FORBIDDEN_SCOPES as $scope) {
                 if (str_contains($node, $scope)) {
                     throw AtlasMaestroLearningPolicyViolation::forbiddenScope($scope);
+                }
+            }
+            foreach (self::PROXY_PATTERNS as $pattern) {
+                if (str_contains($lower, $pattern)) {
+                    throw new AtlasMaestroLearningPolicyViolation('proxy_work', "learning artifact suggests proxy/cosmetic work: {$pattern}");
+                }
+            }
+            foreach (self::HUMAN_DEPENDENCY_PATTERNS as $pattern) {
+                if (str_contains($lower, $pattern)) {
+                    throw new AtlasMaestroLearningPolicyViolation('human_dependency', "learning artifact implies human dependency in steady state: {$pattern}");
+                }
+            }
+            foreach (self::EXTERNAL_PROVIDER_PATTERNS as $pattern) {
+                if (str_contains($lower, $pattern)) {
+                    throw new AtlasMaestroLearningPolicyViolation('external_provider_dependency', "learning artifact mandates external provider call: {$pattern}");
+                }
+            }
+            foreach (self::QUOTA_PADDING_PATTERNS as $pattern) {
+                if (str_contains($lower, $pattern)) {
+                    throw new AtlasMaestroLearningPolicyViolation('quota_padding', "learning artifact suggests quota padding: {$pattern}");
                 }
             }
         }
