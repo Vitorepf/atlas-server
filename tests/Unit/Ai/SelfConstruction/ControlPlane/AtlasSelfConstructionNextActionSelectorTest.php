@@ -206,4 +206,24 @@ final class AtlasSelfConstructionNextActionSelectorTest extends TestCase
         $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
         $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_RUN_KNOWLEDGE_SYNC, $verdict['action']);
     }
+
+    public function test_queue_repair_takes_priority_over_knowledge_sync_degraded(): void
+    {
+        $organs = $this->readyOrgans();
+        $organs['degraded_organs'] = [['organ' => 'knowledge_sync', 'reason' => 'stale']];
+        $queue = $this->emptyQueue();
+        $queue['malformed_count'] = 2;
+
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select($organs, $this->scopeAllowed(), $this->execMode(), $queue);
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_REPAIR_QUEUE, $verdict['action']);
+        $this->assertContains('malformed_queue_packets:2', $verdict['reasons']);
+    }
+
+    public function test_selector_output_is_facts_only_no_side_effects_in_source(): void
+    {
+        $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/ControlPlane/AtlasSelfConstructionNextActionSelector.php'));
+        foreach (['dispatch(', 'Queue::', 'shell_exec', 'exec(', 'Http::', 'DB::', 'git ', '->ledger', 'Ledger::'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $src, "selector source must not contain {$forbidden}");
+        }
+    }
 }
