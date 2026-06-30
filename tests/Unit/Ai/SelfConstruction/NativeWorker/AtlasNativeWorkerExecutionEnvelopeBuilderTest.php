@@ -22,8 +22,8 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilderTest extends TestCase
             'objective' => 'Implement a small thing.',
             'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
             'scope_in' => ['app/Foo.php'],
-            'acceptance_criteria' => ['phpunit green'],
-            'required_evidence' => ['test_run_id', 'commit_sha'],
+            'acceptance_criteria' => ['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
             'gates' => ['phpunit', 'static_analysis'],
             'simplicity_contract' => AtlasNativeWorkerExecutionEnvelopeBuilder::SIMPLICITY_CONTRACT_NATIVE,
         ];
@@ -37,8 +37,8 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilderTest extends TestCase
         $this->assertSame(AtlasNativeWorkerExecutionEnvelopeBuilder::EXECUTION_TOPOLOGY, $e['execution_topology']);
         $this->assertNull($e['provider_prompt']);
         $this->assertSame(['app/Foo.php', 'tests/Unit/FooTest.php'], $e['allowed_files']);
-        $this->assertSame(['phpunit green'], $e['acceptance_criteria']);
-        $this->assertSame(['test_run_id', 'commit_sha'], $e['required_evidence']);
+        $this->assertSame(['/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php'], $e['acceptance_criteria']);
+        $this->assertSame(['tests_or_gates_result', 'implementation_notes'], $e['required_evidence']);
     }
 
     public function test_missing_allowed_files_fails_closed(): void
@@ -127,6 +127,51 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilderTest extends TestCase
         unset($p['evidence_template']);
         $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
 
-        $this->assertSame(['test_run_id' => null, 'commit_sha' => null], $e['evidence_template']);
+        $this->assertSame(['tests_or_gates_result' => null, 'implementation_notes' => null], $e['evidence_template']);
+    }
+
+    public function test_missing_tests_or_gates_result_in_required_evidence_fails_closed(): void
+    {
+        $p = $this->validPacket();
+        $p['required_evidence'] = ['implementation_notes'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing mandatory required_evidence field: tests_or_gates_result/');
+        (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+    }
+
+    public function test_missing_implementation_notes_in_required_evidence_fails_closed(): void
+    {
+        $p = $this->validPacket();
+        $p['required_evidence'] = ['tests_or_gates_result'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/missing mandatory required_evidence field: implementation_notes/');
+        (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+    }
+
+    public function test_acceptance_criteria_without_runnable_artisan_command_fails_closed(): void
+    {
+        $p = $this->validPacket();
+        $p['acceptance_criteria'] = ['all tests must pass', 'no regressions'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/acceptance_criteria lacks runnable/');
+        (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+    }
+
+    public function test_allowed_files_with_only_test_files_fails_closed(): void
+    {
+        $p = $this->validPacket();
+        $p['allowed_files'] = ['tests/Unit/FooTest.php', 'tests/Unit/BarTest.php'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/only test files/');
+        (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+    }
+
+    public function test_allowed_files_with_impl_plus_tests_is_valid(): void
+    {
+        $p = $this->validPacket();
+        $p['allowed_files'] = ['app/Foo.php', 'tests/Unit/FooTest.php'];
+        $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+        $this->assertNull($e['provider_prompt']);
+        $this->assertSame(AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER, $e['runtime_owner']);
     }
 }

@@ -46,6 +46,25 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
         if ($requiredEvidence === []) {
             throw new RuntimeException('execution envelope fail-closed: missing required_evidence');
         }
+        foreach (['tests_or_gates_result', 'implementation_notes'] as $mandatory) {
+            if (! in_array($mandatory, $requiredEvidence, true)) {
+                throw new RuntimeException('execution envelope fail-closed: missing mandatory required_evidence field: '.$mandatory);
+            }
+        }
+        $hasRunnable = false;
+        foreach ($acceptance as $criterion) {
+            if (str_contains($criterion, '/opt/homebrew/bin/php artisan')) {
+                $hasRunnable = true;
+                break;
+            }
+        }
+        if (! $hasRunnable) {
+            throw new RuntimeException('execution envelope fail-closed: acceptance_criteria lacks runnable /opt/homebrew/bin/php artisan command');
+        }
+        $implFiles = array_filter($allowedFiles, static fn (string $f): bool => ! str_ends_with($f, 'Test.php') && ! str_starts_with($f, 'tests/'));
+        if ($implFiles === []) {
+            throw new RuntimeException('execution envelope fail-closed: allowed_files contains only test files; at least one implementation file required');
+        }
         $simplicity = (string) ($packet['simplicity_contract'] ?? self::SIMPLICITY_CONTRACT_NATIVE);
         if ($simplicity !== self::SIMPLICITY_CONTRACT_NATIVE) {
             throw new RuntimeException('execution envelope fail-closed: non Atlas-native simplicity_contract: '.$simplicity);
