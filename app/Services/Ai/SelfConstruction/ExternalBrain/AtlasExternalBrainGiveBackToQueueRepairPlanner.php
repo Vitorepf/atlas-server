@@ -52,9 +52,10 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
     public const SCHEMA = 'atlas.external_brain.giveback_to_queue_repair_planner.v1';
 
     /** repair_plan values that describe a bad/impossible PACKET SCOPE — distinct from queue starvation. */
-    private const SCOPE_REPAIR_PLANS = ['add_allowed_file', 'rewrite_acceptance', 'split_task', 'quarantine_poison'];
+    private const SCOPE_REPAIR_PLANS = ['add_allowed_file', 'rewrite_acceptance', 'split_task', 'quarantine_poison', 'respec_for_queue_feed'];
 
     private const SAFETY_SCORES = [
+        'respec_for_queue_feed' => 4,
         'add_allowed_file' => 3,
         'rewrite_acceptance' => 3,
         'split_task' => 2,
@@ -63,6 +64,14 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
         'operator_only_fix' => 0,
     ];
 
+    /** claimable_per_active_worker at or below this ratio means workers are about to starve. */
+    private const WORKER_FLOOR_LOW_THRESHOLD = 2.0;
+
+    /** A root_cause seen this many times or more in the same batch is a "repeated" give_back pattern. */
+    private const REPEATED_GIVE_BACK_MIN_COUNT = 2;
+
+    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -70,13 +79,29 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
     public function plan(array $input): array
     {
         $events = is_array($input['give_backs'] ?? null) ? $input['give_backs'] : [];
+        $claimablePerActiveWorker = isset($input['claimable_per_active_worker']) ? (float) $input['claimable_per_active_worker'] : null;
+        $workerFloorLow = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= self::WORKER_FLOOR_LOW_THRESHOLD;
+
+        // Count how many give_back events in THIS batch share the same root_cause — a repeated
+        // pattern, not a one-off, is what justifies prioritizing immediate queue-feed repair.
+        $rootCauseCounts = [];
+        foreach ($events as $event) {
+            if (! is_array($event)) {
+                continue;
+            }
+            $rc = strtolower(trim((string) ($event['root_cause'] ?? '')));
+            if ($rc === '') {
+                continue;
+            }
+            $rootCauseCounts[$rc] = ($rootCauseCounts[$rc] ?? 0) + 1;
+        }
 
         $candidates = [];
         foreach ($events as $event) {
             if (! is_array($event) || ! isset($event['task_id'])) {
                 continue;
             }
-            $candidates[] = $this->planOne($event);
+            $candidates[] = $this->planOne($event, $workerFloorLow, $rootCauseCounts);
         }
 
         $ranked = $candidates;
@@ -95,9 +120,10 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
 
     /**
      * @param  array<string,mixed>  $event
+     * @param  array<string,int>  $rootCauseCounts
      * @return array<string,mixed>
      */
-    private function planOne(array $event): array
+    private function planOne(array $event, bool $workerFloorLow, array $rootCauseCounts): array
     {
         $taskId = (string) $event['task_id'];
         $rootCause = strtolower(trim((string) ($event['root_cause'] ?? '')));
@@ -136,6 +162,29 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
             default => ['operator_only_fix', 'root_cause_not_auto_repairable_refusing_fake_green_or_retry'],
         };
 
+        // Repeated-give_back + low-worker-floor prioritization: a passive "operator_only_fix"
+        // diagnostic is upgraded to an immediate, SAFE respec action when (a) this root_cause has
+        // repeated across the batch, (b) claimable supply per active worker is already thin, AND
+        // (c) the packet has enough material to respec safely — allowed_files plus a runnable
+        // acceptance criterion. Missing either of those refuses the upgrade and stays diagnostic
+        // (AC2): we never guess a respec without the scope to do it safely.
+        if ($repairPlan === 'operator_only_fix' && $reason === 'root_cause_not_auto_repairable_refusing_fake_green_or_retry') {
+            $isRepeatedPattern = $rootCause !== '' && ($rootCauseCounts[$rootCause] ?? 0) >= self::REPEATED_GIVE_BACK_MIN_COUNT;
+            if ($isRepeatedPattern && $workerFloorLow) {
+                $allowedFiles = is_array($event['allowed_files'] ?? null)
+                    ? array_values(array_filter(array_map('strval', $event['allowed_files'])))
+                    : [];
+                $hasRunnableAcceptance = $this->hasRunnableAcceptance((array) ($event['acceptance_criteria'] ?? []));
+
+                if ($allowedFiles !== [] && $hasRunnableAcceptance) {
+                    $repairPlan = 'respec_for_queue_feed';
+                    $reason = 'repeated_give_back_pattern_prioritized_for_queue_feed_repair_under_worker_floor_pressure';
+                } else {
+                    $reason = 'repeated_give_back_pattern_but_missing_allowed_files_or_runnable_acceptance_refusing_respec';
+                }
+            }
+        }
+
         $repairType = in_array($repairPlan, self::SCOPE_REPAIR_PLANS, true) ? 'respec_packet' : $repairPlan;
 
         return [
@@ -147,5 +196,22 @@ final class AtlasExternalBrainGiveBackToQueueRepairPlanner
             'token_savings' => $tokenSavings,
             'unblock_count' => $unblockCount,
         ];
+    }
+
+    /**
+     * @param  list<mixed>  $acceptanceCriteria
+     */
+    private function hasRunnableAcceptance(array $acceptanceCriteria): bool
+    {
+        foreach ($acceptanceCriteria as $criterion) {
+            $lower = strtolower((string) $criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
