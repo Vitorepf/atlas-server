@@ -404,4 +404,48 @@ final class AtlasExternalBrainValueGateBacktestReplayTest extends TestCase
         $thresholds = array_column($result['recommended_threshold_adjustments'], 'threshold');
         $this->assertNotContains('give_back_risk_ceiling', $thresholds);
     }
+
+    // ── false_reject_risk ─────────────────────────────────────────────────────
+
+    public function test_output_has_false_reject_risk_key(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success')]]);
+
+        $this->assertArrayHasKey('false_reject_risk', $result);
+        $this->assertIsFloat($result['false_reject_risk']);
+    }
+
+    public function test_false_reject_risk_is_zero_when_no_green_rejected(): void
+    {
+        $candidates = array_fill(0, 5, $this->entry('commit_success', 0.80, 0.20));
+        $result = $this->replay()->replay(['candidates' => $candidates]);
+
+        $this->assertSame(0.0, $result['false_reject_risk']);
+    }
+
+    public function test_false_reject_risk_reflects_rejected_green_share_of_total(): void
+    {
+        $candidates = array_merge(
+            array_fill(0, 2, $this->entry('commit_success', 0.80, 0.20)),  // admitted green
+            array_fill(0, 2, $this->entry('commit_success', 0.10, 0.20)),  // rejected green (false reject)
+        );
+
+        $result = $this->replay()->replay(['candidates' => $candidates]);
+
+        $this->assertSame(2, $result['rejected_green']);
+        $this->assertEqualsWithDelta(0.5, $result['false_reject_risk'], 0.0001);
+    }
+
+    public function test_false_reject_risk_is_deterministic(): void
+    {
+        $candidates = [
+            $this->entry('commit_success', 0.10, 0.20),
+            $this->entry('commit_success', 0.80, 0.20),
+        ];
+
+        $a = $this->replay()->replay(['candidates' => $candidates]);
+        $b = $this->replay()->replay(['candidates' => $candidates]);
+
+        $this->assertSame($a['false_reject_risk'], $b['false_reject_risk']);
+    }
 }

@@ -135,6 +135,9 @@ final class AtlasExternalBrainValueGateBacktestReplay
 
         $precision = $admittedGreen / max(1, $admittedGreen + $admittedPoison);
         $recall    = $admittedGreen / max(1, $admittedGreen + $rejectedGreen);
+        // false_reject_risk: share of ALL replayed candidates that were successful tasks the gate
+        // wrongly rejected — the risk this calibration run is starving real high-impact work.
+        $falseRejectRisk = $total > 0 ? $rejectedGreen / $total : 0.0;
 
         $adjustments = $this->computeAdjustments(
             $total,
@@ -163,6 +166,7 @@ final class AtlasExternalBrainValueGateBacktestReplay
             'precision'                    => round($precision, 6),
             'recall'                       => round($recall,    6),
             'estimated_token_waste_avoided' => $rejectedPoison * $tokenCostPerTask,
+            'false_reject_risk'            => round($falseRejectRisk, 6),
             // adjustment recommendations
             'recommended_threshold_adjustments' => $adjustments,
         ];
