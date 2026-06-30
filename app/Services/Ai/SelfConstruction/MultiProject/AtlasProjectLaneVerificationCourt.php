@@ -46,6 +46,7 @@ final class AtlasProjectLaneVerificationCourt
         $records = is_array($input['evidence_records'] ?? null) ? array_values($input['evidence_records']) : [];
         $requiredRerun = is_array($input['required_rerun_evidence'] ?? null) ? array_values(array_map('strval', $input['required_rerun_evidence'])) : [];
         $leakFacts = is_array($input['leak_facts'] ?? null) ? array_values($input['leak_facts']) : [];
+        $laneRoots = is_array($input['lane_roots'] ?? null) ? array_map('strval', $input['lane_roots']) : [];
 
         $blockers = [];
         if ($projectId === '') {
@@ -73,14 +74,37 @@ final class AtlasProjectLaneVerificationCourt
             $recProj = (string) ($rec['project_id'] ?? '');
             if ($recProj !== '' && $recProj !== $projectId) {
                 $blockers[] = 'evidence_project_id_mismatch:'.$recProj;
-
                 continue;
             }
             $hash = (string) ($rec['evidence_hash'] ?? '');
             if ($hash === '') {
                 $blockers[] = 'evidence_missing_hash:'.(string) ($rec['gate'] ?? '?');
-
                 continue;
+            }
+            // server_side_green is the authoritative field; fall back to `passed` for backwards compat.
+            $serverSideGreen = (bool) ($rec['server_side_green'] ?? $rec['passed'] ?? false);
+            if (! $serverSideGreen) {
+                $blockers[] = 'evidence_not_server_side_green:'.(string) ($rec['gate'] ?? '?');
+                continue;
+            }
+            if (! empty($rec['stale'])) {
+                $blockers[] = 'evidence_stale:'.(string) ($rec['gate'] ?? '?');
+                continue;
+            }
+            $path = (string) ($rec['path'] ?? '');
+            if ($path !== '' && $laneRoots !== []) {
+                $inside = false;
+                foreach ($laneRoots as $root) {
+                    $root = rtrim($root, '/');
+                    if ($root !== '' && (str_starts_with($path, $root.'/') || $path === $root)) {
+                        $inside = true;
+                        break;
+                    }
+                }
+                if (! $inside) {
+                    $blockers[] = 'lane_root_mismatch:'.$path;
+                    continue;
+                }
             }
             $evidenceHashes[] = $hash;
             if (isset($rec['gate'])) {

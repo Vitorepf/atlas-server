@@ -41,7 +41,7 @@ final class AtlasProjectLaneVerificationCourtTest extends TestCase
         $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
             'project_id' => 'demo-lane',
             'verification_policy' => $this->passingPolicy(),
-            'evidence_records' => [['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1']],
+            'evidence_records' => [['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1', 'server_side_green' => true]],
             'required_rerun_evidence' => ['phpunit', 'pint'],
         ]);
 
@@ -123,5 +123,48 @@ final class AtlasProjectLaneVerificationCourtTest extends TestCase
         $this->assertSame(AtlasProjectLaneVerificationCourt::SCHEMA, $v['schema_version']);
         $json = (string) json_encode($v);
         $this->assertDoesNotMatchRegularExpression('/"(score|grade|percent)"/i', $json);
+    }
+
+    public function test_evidence_without_server_side_green_cannot_pass(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'evidence_records' => [['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1']],
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_BLOCKED, $v['verdict']);
+        $this->assertContains('evidence_not_server_side_green:phpunit', $v['blockers']);
+    }
+
+    public function test_stale_evidence_cannot_pass(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id' => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'evidence_records' => [['project_id' => 'demo-lane', 'gate' => 'phpunit', 'evidence_hash' => 'h-1', 'server_side_green' => true, 'stale' => true]],
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_BLOCKED, $v['verdict']);
+        $this->assertContains('evidence_stale:phpunit', $v['blockers']);
+    }
+
+    public function test_evidence_path_outside_lane_roots_is_blocked_as_lane_root_mismatch(): void
+    {
+        $v = (new AtlasProjectLaneVerificationCourt)->adjudicate([
+            'project_id'          => 'demo-lane',
+            'verification_policy' => $this->passingPolicy(),
+            'lane_roots'          => ['/repo/demo-lane/app/'],
+            'evidence_records'    => [[
+                'project_id'      => 'demo-lane',
+                'gate'            => 'phpunit',
+                'evidence_hash'   => 'h-1',
+                'server_side_green' => true,
+                'path'            => '/repo/other-lane/app/secret.php',
+            ]],
+        ]);
+
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_BLOCKED, $v['verdict']);
+        $this->assertContains('lane_root_mismatch:/repo/other-lane/app/secret.php', $v['blockers']);
     }
 }
