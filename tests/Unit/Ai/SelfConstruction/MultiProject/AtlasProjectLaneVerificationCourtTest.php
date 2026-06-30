@@ -167,4 +167,115 @@ final class AtlasProjectLaneVerificationCourtTest extends TestCase
         $this->assertSame(AtlasProjectLaneVerificationCourt::VERDICT_BLOCKED, $v['verdict']);
         $this->assertContains('lane_root_mismatch:/repo/other-lane/app/secret.php', $v['blockers']);
     }
+
+    // ── evaluateVotes ─────────────────────────────────────────────────────────
+
+    private function cleanVotesInput(): array
+    {
+        return [
+            'project_id'               => 'demo-lane',
+            'lane_roots'               => ['/repo/demo-lane'],
+            'required_rerun_evidence'  => ['phpunit'],
+            'evidence_records'         => [[
+                'project_id'       => 'demo-lane',
+                'gate'             => 'phpunit',
+                'evidence_hash'    => 'h-1',
+                'server_side_green' => true,
+                'path'             => '/repo/demo-lane/Service.php',
+            ]],
+        ];
+    }
+
+    public function test_evaluate_votes_all_pass_when_clean_input(): void
+    {
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($this->cleanVotesInput());
+
+        $this->assertTrue($r['lane_promotion_allowed']);
+        $this->assertSame([], $r['blocked_vote_ids']);
+        $this->assertSame(AtlasProjectLaneVerificationCourt::VOTES_SCHEMA, $r['schema_version']);
+        $this->assertCount(count(AtlasProjectLaneVerificationCourt::VOTE_IDS), $r['votes']);
+    }
+
+    public function test_evaluate_votes_isolation_fails_when_no_lane_roots(): void
+    {
+        $input = $this->cleanVotesInput();
+        unset($input['lane_roots']);
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertFalse($r['lane_promotion_allowed']);
+        $this->assertContains('isolation', $r['blocked_vote_ids']);
+        $this->assertArrayHasKey('isolation', $r['repair_hints']);
+    }
+
+    public function test_evaluate_votes_isolation_fails_when_path_outside_lane(): void
+    {
+        $input = $this->cleanVotesInput();
+        $input['evidence_records'][0]['path'] = '/repo/other-project/foo.php';
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertFalse($r['lane_promotion_allowed']);
+        $this->assertContains('isolation', $r['blocked_vote_ids']);
+    }
+
+    public function test_evaluate_votes_runnable_proof_fails_without_server_side_green(): void
+    {
+        $input = $this->cleanVotesInput();
+        $input['evidence_records'][0]['server_side_green'] = false;
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertFalse($r['lane_promotion_allowed']);
+        $this->assertContains('runnable_proof', $r['blocked_vote_ids']);
+    }
+
+    public function test_evaluate_votes_knowledge_freshness_fails_when_stale(): void
+    {
+        $input = $this->cleanVotesInput();
+        $input['evidence_records'][0]['stale'] = true;
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertFalse($r['lane_promotion_allowed']);
+        $this->assertContains('knowledge_freshness', $r['blocked_vote_ids']);
+    }
+
+    public function test_evaluate_votes_queue_namespace_safety_fails_on_project_id_mismatch(): void
+    {
+        $input = $this->cleanVotesInput();
+        $input['evidence_records'][0]['project_id'] = 'other-project';
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertFalse($r['lane_promotion_allowed']);
+        $this->assertContains('queue_namespace_safety', $r['blocked_vote_ids']);
+    }
+
+    public function test_evaluate_votes_evidence_completeness_fails_when_required_gate_missing(): void
+    {
+        $input = $this->cleanVotesInput();
+        $input['required_rerun_evidence'] = ['phpunit', 'pint'];
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertFalse($r['lane_promotion_allowed']);
+        $this->assertContains('evidence_completeness', $r['blocked_vote_ids']);
+        $this->assertStringContainsString('pint', $r['repair_hints']['evidence_completeness']);
+    }
+
+    public function test_evaluate_votes_repair_hints_returned_for_each_blocked_vote(): void
+    {
+        // Multiple failures: no lane_roots (isolation) + stale record (knowledge_freshness).
+        $input = $this->cleanVotesInput();
+        unset($input['lane_roots']);
+        $input['evidence_records'][0]['stale'] = true;
+
+        $r = (new AtlasProjectLaneVerificationCourt)->evaluateVotes($input);
+
+        $this->assertArrayHasKey('isolation', $r['repair_hints']);
+        $this->assertArrayHasKey('knowledge_freshness', $r['repair_hints']);
+        $this->assertNotEmpty($r['repair_hints']['isolation']);
+        $this->assertNotEmpty($r['repair_hints']['knowledge_freshness']);
+    }
 }
