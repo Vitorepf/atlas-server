@@ -118,6 +118,28 @@ final class AtlasSelfConstructionQueueTopUpPolicyTest extends TestCase
         $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_WAIT, $r['outcome']);
     }
 
+    public function test_worker_spike_above_low_water_still_triggers_prefill(): void
+    {
+        // claimable=30 > low_water_mark=25, so belowLowWater=FALSE
+        // but target_worker_count=40 > net_claimable=30, so topUpRequired=TRUE
+        // the !belowLowWater && !topUpRequired guard must NOT fire — must reach ALLOW
+        $r = (new AtlasSelfConstructionQueueTopUpPolicy)->decide([
+            'queue_health_status' => 'green',
+            'claimable_depth' => 30,
+            'malformed_count' => 0,
+            'accepted_frontier_count' => 10,
+            'risk_budget' => ['remaining_units' => 100, 'required_per_packet' => 5],
+            'low_water_mark' => 25,
+            'batch_cap' => 10,
+            'target_worker_count' => 40,
+            'quarantined_count' => 0,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionQueueTopUpPolicy::OUTCOME_ALLOW, $r['outcome']);
+        $this->assertTrue($r['top_up_required']);
+        $this->assertGreaterThan(0, $r['new_packet_count']);
+    }
+
     public function test_quarantined_poisons_reduce_effective_claimable_and_trigger_top_up(): void
     {
         // claimable=30 looks healthy (>= low_water_mark=25), but quarantined=27 poisons leave only 3 net
