@@ -51,6 +51,44 @@ final class AtlasMaestroWorkloadConsumptionRateReporterTest extends TestCase
         $this->assertNoGoodhartKeys($report);
     }
 
+    public function test_producer_shaped_events_with_to_key_yield_non_zero_throughput(): void
+    {
+        $now = CarbonImmutable::parse('2026-06-29T10:00:00Z');
+
+        // Producer writes event='status_changed' / event='status_compare_and_swapped' with the real
+        // status in the 'to' key — the reporter must read 'to' first, not 'event'.
+        $events = [];
+        for ($i = 0; $i < 4; $i++) {
+            $events[] = [
+                'client_id' => 'worker-x',
+                'event' => 'status_compare_and_swapped',
+                'to' => 'completed_dry_run',
+                'recorded_at' => $now->subMinutes(5)->toIso8601String(),
+            ];
+        }
+        $events[] = [
+            'client_id' => 'worker-x',
+            'event' => 'status_changed',
+            'to' => 'claimed',
+            'recorded_at' => $now->subMinutes(10)->toIso8601String(),
+        ];
+
+        $report = (new AtlasMaestroWorkloadConsumptionRateReporter())->report(['events' => $events], $now, 3600);
+
+        // worker-x row: 4 completed → tasks_per_hour = 4 / (3600/3600) = 4.0
+        $workerRow = $report['rows'][0];
+        $this->assertSame('worker-x', $workerRow['client_id']);
+        $this->assertSame(4, $workerRow['completed_count']);
+        $this->assertGreaterThan(0.0, $workerRow['tasks_per_hour'],
+            'tasks_per_hour must be non-zero when producer-shaped events have real status in to key');
+        $this->assertSame(1, $workerRow['started_count']);
+
+        // fleet row must also reflect non-zero throughput
+        $fleetRow = $report['rows'][1];
+        $this->assertSame('fleet', $fleetRow['client_id']);
+        $this->assertGreaterThan(0.0, $fleetRow['tasks_per_hour']);
+    }
+
     /**
      * @return array{events:list<array<string,string>>}
      */

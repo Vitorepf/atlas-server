@@ -31,7 +31,7 @@ final class AtlasMaestroWorkloadConsumptionRateReporter
         $perClient = [];
         foreach ($events as $event) {
             $clientId = trim((string) ($event['client_id'] ?? ''));
-            $eventName = (string) ($event['event'] ?? $event['status'] ?? '');
+            $eventName = (string) ($event['to'] ?? $event['event'] ?? $event['status'] ?? '');
             $recordedAtRaw = (string) ($event['recorded_at'] ?? $event['at'] ?? '');
             $recordedAt = $recordedAtRaw !== '' ? CarbonImmutable::parse($recordedAtRaw) : null;
 
