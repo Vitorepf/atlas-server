@@ -20,6 +20,8 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *   respec          — forbidden-target: any allowed_file in forbidden_targets.
  *   respec          — empty acceptance_criteria.
  *   respec          — empty objective.
+ *   respec          — missing_test_path: has an implementation file but no test path.
+ *   respec          — test_only_packet: allowed_files contains only test paths.
  *   serve           — packet is healthy.
  *
  * AC3 — unmet dependencies → dependency_wait, not respec/poison.
@@ -88,11 +90,31 @@ final class AtlasTaskQueuePreServeSelfHealingGate
             $repairHints['add_objective'] = true;
         }
 
+        if ($allowedFiles !== []) {
+            $testFiles = array_values(array_filter($allowedFiles, [$this, 'isTestPath']));
+            $implFiles = array_values(array_diff($allowedFiles, $testFiles));
+
+            if ($implFiles !== [] && $testFiles === []) {
+                $reasons[]                          = 'missing_test_path';
+                $repairHints['add_test_file']       = true;
+            } elseif ($implFiles === [] && $testFiles !== []) {
+                $reasons[]                              = 'test_only_packet';
+                $repairHints['add_implementation_file'] = true;
+            }
+        }
+
         if (! empty($reasons)) {
             return $this->result('respec', $reasons, [], $repairHints);
         }
 
         return $this->result('serve', [], [], []);
+    }
+
+    private function isTestPath(string $path): bool
+    {
+        $norm = ltrim(str_replace('\\', '/', trim($path)), '/');
+
+        return str_starts_with($norm, 'tests/') || str_contains($norm, '/tests/') || str_ends_with($norm, 'Test.php');
     }
 
     private function result(

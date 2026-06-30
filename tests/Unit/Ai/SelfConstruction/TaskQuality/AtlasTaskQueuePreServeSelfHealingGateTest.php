@@ -131,6 +131,64 @@ final class AtlasTaskQueuePreServeSelfHealingGateTest extends TestCase
         $this->assertContains('empty_objective', $r['reasons']);
     }
 
+    // ── AC2: respec — missing test path ───────────────────────────────────────
+
+    public function test_implementation_file_without_test_path_returns_respec_missing_test_path(): void
+    {
+        $r = $this->gate()->classify([
+            'packet' => $this->healthyPacket(['allowed_files' => ['app/Foo.php']]),
+        ]);
+        $this->assertSame('respec', $r['classification']);
+        $this->assertContains('missing_test_path', $r['reasons']);
+        $this->assertTrue($r['repair_hints']['add_test_file']);
+    }
+
+    // ── AC2: respec — test-only packet ────────────────────────────────────────
+
+    public function test_test_only_allowed_files_returns_respec_test_only_packet(): void
+    {
+        $r = $this->gate()->classify([
+            'packet' => $this->healthyPacket(['allowed_files' => ['tests/FooTest.php']]),
+        ]);
+        $this->assertSame('respec', $r['classification']);
+        $this->assertContains('test_only_packet', $r['reasons']);
+        $this->assertTrue($r['repair_hints']['add_implementation_file']);
+    }
+
+    public function test_impl_and_test_pair_does_not_trigger_test_path_issues(): void
+    {
+        $r = $this->gate()->classify(['packet' => $this->healthyPacket()]);
+        $this->assertSame('serve', $r['classification']);
+        $this->assertNotContains('missing_test_path', $r['reasons']);
+        $this->assertNotContains('test_only_packet', $r['reasons']);
+    }
+
+    // ── AC3: dependency_wait beats missing_test_path / test_only_packet ──────
+
+    public function test_dependency_wait_beats_missing_test_path(): void
+    {
+        $r = $this->gate()->classify([
+            'packet' => $this->healthyPacket([
+                'allowed_files' => ['app/Foo.php'],
+                'dependencies'  => ['dep-x'],
+            ]),
+            'resolved_dependencies' => [],
+        ]);
+        $this->assertSame('dependency_wait', $r['classification']);
+    }
+
+    public function test_dependency_wait_beats_test_only_packet(): void
+    {
+        $r = $this->gate()->classify([
+            'packet' => $this->healthyPacket([
+                'allowed_files' => ['tests/FooTest.php'],
+                'dependencies'  => ['dep-x'],
+            ]),
+            'resolved_dependencies' => [],
+        ]);
+        $this->assertSame('dependency_wait', $r['classification']);
+    }
+
     // ── Multiple respec reasons accumulated ───────────────────────────────────
 
     public function test_multiple_respec_reasons_all_reported(): void
