@@ -160,6 +160,59 @@ final class AgentControlPlaneCycleHorizonAnalyzer
     }
 
     /**
+     * Analyzes a flat list of task packets for dead-end chains, repeated poison families, and
+     * servable descendants. Pure — no I/O, no provider calls.
+     *
+     * @param  list<array<string,mixed>>  $packets  each packet: {task_id, status, family?}
+     * @return array{classification:string, dead_end:bool, servable_descendants:list<string>, poison_family_risk:list<array<string,mixed>>, repair_hints:list<string>}
+     */
+    public static function analyzeChainHorizon(array $packets): array
+    {
+        $servableStatuses = ['queued', 'pending', 'ready', 'servable'];
+        $servableDescendants = [];
+        $giveBackByFamily = [];
+        $repairHints = [];
+
+        foreach ($packets as $packet) {
+            $taskId = (string) ($packet['task_id'] ?? '');
+            $status = (string) ($packet['status'] ?? '');
+            $family = (string) ($packet['family'] ?? 'default');
+
+            if (in_array($status, $servableStatuses, true)) {
+                $servableDescendants[] = $taskId;
+            }
+            if ($status === 'give_back') {
+                $giveBackByFamily[$family][] = $taskId;
+            }
+        }
+
+        $deadEnd = $packets !== [] && $servableDescendants === [];
+
+        $poisonFamilyRisk = [];
+        foreach ($giveBackByFamily as $family => $taskIds) {
+            if (count($taskIds) >= 2) {
+                $poisonFamilyRisk[] = ['family' => $family, 'task_ids' => $taskIds, 'count' => count($taskIds)];
+                $repairHints[] = 'quarantine_or_reroute_poison_family:'.$family;
+            }
+        }
+
+        if ($deadEnd) {
+            $repairHints[] = 'unblock_or_remove_chain_blockers';
+            $repairHints[] = 'replenish_servable_packets_before_next_tick';
+        }
+
+        $classification = $deadEnd ? 'dead_end' : ($poisonFamilyRisk !== [] ? 'poison_risk' : 'healthy');
+
+        return [
+            'classification' => $classification,
+            'dead_end' => $deadEnd,
+            'servable_descendants' => $servableDescendants,
+            'poison_family_risk' => $poisonFamilyRisk,
+            'repair_hints' => $repairHints,
+        ];
+    }
+
+    /**
      * @param  list<array<string, string>>  $deepChain
      * @param  array<string, mixed>  $cycleIntegrity
      * @return array<string, mixed>
