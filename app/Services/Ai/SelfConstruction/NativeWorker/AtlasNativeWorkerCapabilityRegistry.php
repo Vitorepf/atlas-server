@@ -121,6 +121,75 @@ final class AtlasNativeWorkerCapabilityRegistry
     }
 
     /**
+     * Match task packet needs to native worker capabilities and return ordered candidates.
+     *
+     * @param  array{required_capabilities?:list<string>, risk_ceiling?:string}  $taskNeeds
+     *   required_capabilities: capability_ids the task declares it needs.
+     *   risk_ceiling: AUTONOMY_* constant; capabilities with a higher-risk autonomy level are excluded.
+     *                 Defaults to AUTONOMY_NATIVE_SUPERVISED (all native levels allowed).
+     * @return array{candidates:list<array{capability_id:string,autonomy_level:string}>, unsupported_gap:list<string>}
+     *   candidates: matched capabilities ordered autonomous-before-supervised then by canonical registry order.
+     *   unsupported_gap: required_capabilities absent from the registry or above the risk ceiling.
+     */
+    public function route(array $taskNeeds): array
+    {
+        $required    = array_values(array_map('strval', (array) ($taskNeeds['required_capabilities'] ?? [])));
+        $ceiling     = (string) ($taskNeeds['risk_ceiling'] ?? self::AUTONOMY_NATIVE_SUPERVISED);
+        $ceilingRank = $this->autonomyRank($ceiling);
+
+        $canonicalOrder = [];
+        $byId           = [];
+        foreach ($this->capabilities() as $idx => $cap) {
+            $byId[$cap['capability_id']]            = $cap;
+            $canonicalOrder[$cap['capability_id']]  = $idx;
+        }
+
+        $candidates     = [];
+        $unsupportedGap = [];
+
+        foreach ($required as $reqId) {
+            if (! isset($byId[$reqId])) {
+                $unsupportedGap[] = $reqId;
+                continue;
+            }
+            $cap  = $byId[$reqId];
+            $rank = $this->autonomyRank($cap['autonomy_level']);
+            if ($rank > $ceilingRank) {
+                $unsupportedGap[] = $reqId;
+                continue;
+            }
+            $candidates[] = [
+                'capability_id'  => $cap['capability_id'],
+                'autonomy_level' => $cap['autonomy_level'],
+                '_rank'          => $rank,
+                '_order'         => $canonicalOrder[$reqId],
+            ];
+        }
+
+        usort($candidates, static fn (array $a, array $b): int =>
+            $a['_rank'] !== $b['_rank'] ? $a['_rank'] <=> $b['_rank'] : $a['_order'] <=> $b['_order']
+        );
+
+        return [
+            'candidates'      => array_values(array_map(static function (array $c): array {
+                unset($c['_rank'], $c['_order']);
+                return $c;
+            }, $candidates)),
+            'unsupported_gap' => array_values(array_unique($unsupportedGap)),
+        ];
+    }
+
+    private function autonomyRank(string $level): int
+    {
+        return match ($level) {
+            self::AUTONOMY_NATIVE_AUTONOMOUS => 0,
+            self::AUTONOMY_NATIVE_SUPERVISED => 1,
+            self::AUTONOMY_BOOTSTRAP_ONLY    => 2,
+            default                          => 99,
+        };
+    }
+
+    /**
      * @return list<string>  every capability_id (final + bootstrap) — guaranteed unique.
      */
     public function allIds(): array

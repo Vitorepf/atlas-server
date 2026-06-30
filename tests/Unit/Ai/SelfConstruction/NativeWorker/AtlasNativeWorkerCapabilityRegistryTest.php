@@ -82,6 +82,71 @@ final class AtlasNativeWorkerCapabilityRegistryTest extends TestCase
         $this->assertCount(count(array_unique($ids)), $ids, 'no duplicate capability_id across the union');
     }
 
+    public function test_route_returns_matched_candidates_ordered_autonomous_before_supervised(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+
+        // 'apply_scoped_patch' is native_supervised; 'inspect_task_packet' is native_autonomous
+        $result = $r->route(['required_capabilities' => ['apply_scoped_patch', 'inspect_task_packet']]);
+
+        $this->assertSame([], $result['unsupported_gap']);
+        $ids = array_column($result['candidates'], 'capability_id');
+        // autonomous must come before supervised regardless of input order
+        $this->assertSame('inspect_task_packet', $ids[0], 'autonomous capability must be first');
+        $this->assertSame('apply_scoped_patch',  $ids[1], 'supervised capability must follow');
+    }
+
+    public function test_route_returns_unsupported_gap_for_unknown_capability_id(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+
+        $result = $r->route(['required_capabilities' => ['inspect_task_packet', 'non_existent_capability']]);
+
+        $this->assertContains('non_existent_capability', $result['unsupported_gap']);
+        $this->assertNotEmpty($result['candidates']);
+        $this->assertSame('inspect_task_packet', $result['candidates'][0]['capability_id']);
+    }
+
+    public function test_route_excludes_supervised_capabilities_when_ceiling_is_autonomous(): void
+    {
+        $r = new AtlasNativeWorkerCapabilityRegistry;
+
+        // 'apply_scoped_patch' and 'request_rollback' are native_supervised — above autonomous ceiling
+        $result = $r->route([
+            'required_capabilities' => ['inspect_task_packet', 'apply_scoped_patch', 'run_gates'],
+            'risk_ceiling'          => AtlasNativeWorkerCapabilityRegistry::AUTONOMY_NATIVE_AUTONOMOUS,
+        ]);
+
+        $ids = array_column($result['candidates'], 'capability_id');
+        $this->assertContains('inspect_task_packet', $ids);
+        $this->assertContains('run_gates',           $ids);
+        $this->assertNotContains('apply_scoped_patch', $ids, 'supervised capability must not appear when ceiling is autonomous');
+        $this->assertContains('apply_scoped_patch', $result['unsupported_gap'], 'supervised capability must appear in unsupported_gap');
+    }
+
+    public function test_route_with_empty_requirements_returns_empty_candidates_and_no_gap(): void
+    {
+        $r      = new AtlasNativeWorkerCapabilityRegistry;
+        $result = $r->route(['required_capabilities' => []]);
+
+        $this->assertSame([], $result['candidates']);
+        $this->assertSame([], $result['unsupported_gap']);
+    }
+
+    public function test_route_is_deterministic_across_two_calls(): void
+    {
+        $r      = new AtlasNativeWorkerCapabilityRegistry;
+        $needs  = ['required_capabilities' => ['run_gates', 'write_evidence', 'inspect_task_packet']];
+        $first  = $r->route($needs);
+        $second = $r->route($needs);
+
+        $this->assertSame(
+            json_encode($first,  JSON_UNESCAPED_SLASHES),
+            json_encode($second, JSON_UNESCAPED_SLASHES),
+            'route() must be deterministic'
+        );
+    }
+
     public function test_no_scalar_score_or_percent_field_in_any_row(): void
     {
         $r = new AtlasNativeWorkerCapabilityRegistry;
