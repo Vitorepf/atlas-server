@@ -103,6 +103,37 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
         ];
     }
 
+    public const REASON_WAIT_OK = 'wait_ok';
+
+    public const REASON_WORKER_STARVATION_RISK = 'worker_starvation_risk';
+
+    public const REASON_MAESTRO_URGENCY_NOT_WAIT = 'maestro_urgency_not_wait';
+
+    /**
+     * Maestro's "wait" advice must never silently suppress replenishment when the
+     * claimable buffer is thin enough that active workers risk draining to
+     * no_claimable_task. worker_floor_breach / replenish_soon signals OVERRIDE wait.
+     *
+     * @param  array{maestro_urgency?: string, worker_floor_breach?: bool, replenish_soon?: bool}  $input
+     * @return array{schema:string, allowed:bool, reason:string}
+     */
+    public function evaluateWaitOverride(array $input): array
+    {
+        $maestroUrgency = (string) ($input['maestro_urgency'] ?? 'wait');
+        $workerFloorBreach = (bool) ($input['worker_floor_breach'] ?? false);
+        $replenishSoon = (bool) ($input['replenish_soon'] ?? false);
+
+        if ($maestroUrgency !== 'wait') {
+            return ['schema' => self::SCHEMA, 'allowed' => true, 'reason' => self::REASON_MAESTRO_URGENCY_NOT_WAIT];
+        }
+
+        if ($workerFloorBreach || $replenishSoon) {
+            return ['schema' => self::SCHEMA, 'allowed' => true, 'reason' => self::REASON_WORKER_STARVATION_RISK];
+        }
+
+        return ['schema' => self::SCHEMA, 'allowed' => false, 'reason' => self::REASON_WAIT_OK];
+    }
+
     private function makeInspector(): ?AtlasTaskPacketQualityInspector
     {
         try {
