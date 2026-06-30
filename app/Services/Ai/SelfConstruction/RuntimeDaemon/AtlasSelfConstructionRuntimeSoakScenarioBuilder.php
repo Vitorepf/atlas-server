@@ -82,6 +82,24 @@ final class AtlasSelfConstructionRuntimeSoakScenarioBuilder
             'required_evidence' => ['scope_expansion_governor_receipt'],
             'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
         ],
+        [
+            'kind' => 'malformed_packet',
+            'expected_outcome' => 'give_back_malformed',
+            'required_evidence' => ['malformed_packet_diagnostic'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'stale_evidence_rejection',
+            'expected_outcome' => 'evidence_rejected_stale',
+            'required_evidence' => ['stale_evidence_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'idle_worker_timeout',
+            'expected_outcome' => 'worker_recycled',
+            'required_evidence' => ['idle_timeout_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
     ];
 
     /**

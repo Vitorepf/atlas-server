@@ -90,6 +90,36 @@ class AtlasSelfConstructionRuntimeSoakScenarioBuilderTest extends TestCase
         self::assertStringStartsWith('scenario_', $a['scenario_hash']);
     }
 
+    public function test_malformed_scenario_is_included_with_give_back_outcome(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+        $byKind = array_column($verdict['virtual_ticks'], null, 'kind');
+
+        self::assertArrayHasKey('malformed_packet', $byKind, 'malformed_packet scenario must be present');
+        self::assertSame('give_back_malformed', $byKind['malformed_packet']['expected_outcome']);
+        self::assertContains('malformed_packet_diagnostic', $byKind['malformed_packet']['required_evidence']);
+    }
+
+    public function test_stale_evidence_scenario_is_included_with_rejection_outcome(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+        $byKind = array_column($verdict['virtual_ticks'], null, 'kind');
+
+        self::assertArrayHasKey('stale_evidence_rejection', $byKind, 'stale_evidence_rejection scenario must be present');
+        self::assertSame('evidence_rejected_stale', $byKind['stale_evidence_rejection']['expected_outcome']);
+        self::assertContains('stale_evidence_receipt', $byKind['stale_evidence_rejection']['required_evidence']);
+    }
+
+    public function test_idle_worker_scenario_is_included_with_recycled_outcome(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+        $byKind = array_column($verdict['virtual_ticks'], null, 'kind');
+
+        self::assertArrayHasKey('idle_worker_timeout', $byKind, 'idle_worker_timeout scenario must be present');
+        self::assertSame('worker_recycled', $byKind['idle_worker_timeout']['expected_outcome']);
+        self::assertContains('idle_timeout_receipt', $byKind['idle_worker_timeout']['required_evidence']);
+    }
+
     public function test_scenario_source_does_not_touch_fs_provider_process_git_or_scheduler(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeSoakScenarioBuilder.php'));
