@@ -127,7 +127,8 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         $r = $this->evaluate(['poison_delta' => 0.01]);
 
         $this->assertFalse($r['promote']);
-        $this->assertContains('poison_risk_increased', $r['blocking_reasons']);
+        $this->assertContains('poison_risk_increased', $r['rollback_triggers']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
     }
 
     public function test_negative_poison_delta_is_fine(): void
@@ -290,5 +291,103 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         $r = $this->evaluate(['heldout_pass_rate' => 1.0, 'proxy_leak_rate' => 0.50]);
 
         $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+    }
+
+    // ── output has rollback_triggers as its own field ───────────────────────────
+
+    public function test_output_has_rollback_triggers_key(): void
+    {
+        $r = $this->evaluate();
+
+        $this->assertArrayHasKey('rollback_triggers', $r);
+        $this->assertSame([], $r['rollback_triggers']);
+    }
+
+    public function test_proxy_leak_ceiling_breach_appears_in_rollback_triggers_and_decision_rollback(): void
+    {
+        $r = $this->evaluate(['proxy_leak_rate' => 0.50]);
+
+        $this->assertContains('proxy_leak_ceiling_breached', $r['rollback_triggers']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+        $this->assertFalse($r['promote']);
+    }
+
+    public function test_negative_quality_lift_appears_in_rollback_triggers_and_decision_rollback(): void
+    {
+        $r = $this->evaluate(['quality_lift_delta' => -0.05]);
+
+        $this->assertContains('quality_regression_detected', $r['rollback_triggers']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+        $this->assertFalse($r['promote']);
+    }
+
+    // ── AC3: missing mandatory evidence keeps shadow_more even with high lift_ratio ──
+
+    public function test_missing_evidence_keeps_shadow_more_despite_high_lift_ratio(): void
+    {
+        $r = $this->evaluate([
+            'sustained_lift_ratio' => 0.95, // very high legacy lift
+            'sample_count'         => 0,    // no shadow evidence at all
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_SHADOW_MORE, $r['decision']);
+        $this->assertFalse($r['promote']);
+        $this->assertNotEmpty($r['missing_evidence']);
+    }
+
+    public function test_missing_heldout_evidence_keeps_shadow_more_despite_high_lift_ratio(): void
+    {
+        $r = $this->evaluate([
+            'sustained_lift_ratio' => 0.95,
+            'heldout_pass_rate'    => 0.0,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_SHADOW_MORE, $r['decision']);
+        $this->assertContains('heldout_test_suite_with_pass_rate_above_floor', $r['missing_evidence']);
+    }
+
+    // ── AC4: proxy leak, negative lift, or poison_delta → rollback, never promote ──
+
+    public function test_proxy_leak_never_promotes_even_with_perfect_everything_else(): void
+    {
+        $r = $this->evaluate(['proxy_leak_rate' => 0.99]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    public function test_negative_quality_lift_never_promotes(): void
+    {
+        $r = $this->evaluate(['quality_lift_delta' => -0.01]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    public function test_poison_delta_never_promotes(): void
+    {
+        $r = $this->evaluate(['poison_delta' => 0.001]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    public function test_rollback_wins_over_shadow_more_when_both_present(): void
+    {
+        // Missing evidence (sample_count=0) AND a rollback trigger (poison) both present.
+        $r = $this->evaluate(['sample_count' => 0, 'poison_delta' => 0.01]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+        $this->assertNotEmpty($r['rollback_triggers']);
+        $this->assertNotEmpty($r['blocking_reasons']);
+    }
+
+    public function test_evaluate_is_deterministic(): void
+    {
+        $input = $this->passing();
+        $a = $this->svc()->evaluate($input);
+        $b = $this->svc()->evaluate($input);
+
+        $this->assertSame(json_encode($a), json_encode($b));
     }
 }

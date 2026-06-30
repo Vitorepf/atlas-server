@@ -147,6 +147,7 @@ final class AtlasExternalBrainAmplifierPromotionGate
             'reasons'                   => $reasons,
             'missing_evidence'          => array_values(array_unique($missingEvidence)),
             'blocking_reasons'          => $blockingReasons,
+            'rollback_triggers'         => $rollbackTriggers,
             'required_more_shadow_runs' => $requiredMoreShadowRuns,
             'live_rollout_constraints'  => $liveRolloutConstraints,
         ];
