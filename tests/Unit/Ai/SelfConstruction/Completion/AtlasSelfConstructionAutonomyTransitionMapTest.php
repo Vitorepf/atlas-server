@@ -87,6 +87,47 @@ final class AtlasSelfConstructionAutonomyTransitionMapTest extends TestCase
         $this->assertSame(json_encode($svc->transition($audit)), json_encode($svc->transition($audit)));
     }
 
+    public function test_replacement_task_seed_carries_required_fields(): void
+    {
+        $map = (new AtlasSelfConstructionAutonomyTransitionMap)->transition([
+            'steady_state_dependencies' => [
+                ['step_id' => 'verify_release', 'role' => 'human'],
+            ],
+        ]);
+
+        $seed = $map['replacements'][0]['task_seed'];
+        $this->assertArrayHasKey('objective_hint', $seed);
+        $this->assertArrayHasKey('required_capability', $seed);
+        $this->assertArrayHasKey('acceptance_hint', $seed);
+        $this->assertArrayHasKey('evidence_hint', $seed);
+        $this->assertNotEmpty($seed['objective_hint']);
+        $this->assertSame(AtlasSelfConstructionAutonomyTransitionMap::CAPABILITY_VERIFIER, $seed['required_capability']);
+    }
+
+    public function test_unknown_step_id_does_not_receive_task_seed(): void
+    {
+        $map = (new AtlasSelfConstructionAutonomyTransitionMap)->transition([
+            'steady_state_dependencies' => [
+                ['step_id' => 'arcane_ritual_unknown', 'role' => 'wizard'],
+            ],
+        ]);
+
+        $this->assertSame([], $map['replacements']);
+        $this->assertCount(1, $map['untransitioned']);
+        $this->assertArrayNotHasKey('task_seed', $map['untransitioned'][0]);
+    }
+
+    public function test_task_seed_fields_are_deterministic_across_calls(): void
+    {
+        $svc = new AtlasSelfConstructionAutonomyTransitionMap;
+        $audit = ['steady_state_dependencies' => [['step_id' => 'merge_to_main', 'role' => 'operator']]];
+
+        $a = $svc->transition($audit)['replacements'][0]['task_seed'];
+        $b = $svc->transition($audit)['replacements'][0]['task_seed'];
+
+        $this->assertSame($a, $b);
+    }
+
     public function test_replacements_are_sorted_by_step_id_asc(): void
     {
         $map = (new AtlasSelfConstructionAutonomyTransitionMap)->transition([

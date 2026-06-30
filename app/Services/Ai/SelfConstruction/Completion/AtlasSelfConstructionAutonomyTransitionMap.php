@@ -75,6 +75,12 @@ final class AtlasSelfConstructionAutonomyTransitionMap
                 'owning_organ' => $organ,
                 'replacement_capability' => $capability,
                 'task_fabric_action' => $action,
+                'task_seed' => [
+                    'objective_hint' => 'Implement '.$capability.' for '.$stepId.' owned by '.$organ,
+                    'required_capability' => $capability,
+                    'acceptance_hint' => 'atlas native '.$action.' executes without provider dependency',
+                    'evidence_hint' => 'evidence_kind=capability_demonstration',
+                ],
             ];
         }
 
