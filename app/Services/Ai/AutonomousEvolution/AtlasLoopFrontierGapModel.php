@@ -34,25 +34,37 @@ final class AtlasLoopFrontierGapModel
                 continue;
             }
 
+            $flatRefs    = $flat['evidence_refs'];
+            $abstainRefs = $abstained['evidence_refs'];
+            $attemptRefs = $this->refs($attemptsByScope[$scope] ?? []);
+            $orphanRefs  = $this->refs($originatorByScope[$scope] ?? []);
+
             $evidenceRefs = array_values(array_unique(array_filter([
-                ...$flat['evidence_refs'],
-                ...$abstained['evidence_refs'],
-                ...$this->refs($attemptsByScope[$scope] ?? []),
-                ...$this->refs($originatorByScope[$scope] ?? []),
+                ...$flatRefs, ...$abstainRefs, ...$attemptRefs, ...$orphanRefs,
             ], static fn (string $ref): bool => $ref !== '')));
             sort($evidenceRefs, SORT_STRING);
             if ($evidenceRefs === []) {
                 continue;
             }
 
+            $sourceSignalCounts = [
+                'capability_buckets' => count($flatRefs),
+                'abstain_cycles'     => count($abstainRefs),
+                'attempt_ledger'     => count($attemptRefs),
+                'orphan_inventory'   => count($orphanRefs),
+            ];
+            [$nextLeverageClass, $leverageReason] = $this->classifyLeverage($sourceSignalCounts);
             $lastMovementAt = $this->lastMovementAt($bucketsByScope[$scope] ?? []);
             $gaps[] = [
-                'record_type' => 'FrontierGap',
-                'gap_id' => 'frontier_gap:'.sha1($scope.'|'.implode('|', $evidenceRefs)),
-                'scope' => $scope,
-                'evidence_refs' => $evidenceRefs,
-                'plateau_signal' => true,
-                'last_movement_at' => $lastMovementAt,
+                'record_type'          => 'FrontierGap',
+                'gap_id'               => 'frontier_gap:'.sha1($scope.'|'.implode('|', $evidenceRefs)),
+                'scope'                => $scope,
+                'evidence_refs'        => $evidenceRefs,
+                'plateau_signal'       => true,
+                'last_movement_at'     => $lastMovementAt,
+                'next_leverage_class'  => $nextLeverageClass,
+                'leverage_reason'      => $leverageReason,
+                'source_signal_counts' => $sourceSignalCounts,
             ];
         }
 
@@ -197,5 +209,27 @@ final class AtlasLoopFrontierGapModel
         }
 
         return $lastMovementAt;
+    }
+
+    /**
+     * @param  array{capability_buckets:int,abstain_cycles:int,attempt_ledger:int,orphan_inventory:int}  $counts
+     * @return array{0:string,1:string}
+     */
+    private function classifyLeverage(array $counts): array
+    {
+        // Orphan inventory present → task-fabric bottleneck (overrides abstain).
+        if ($counts['orphan_inventory'] > 0) {
+            return ['task_fabric', 'unwired inventory items are blocking new task supply'];
+        }
+        // Logged failed attempts → verification gap (overrides abstain).
+        if ($counts['attempt_ledger'] > 0) {
+            return ['verification', 'logged failed attempts indicate a verification gap'];
+        }
+        // Consecutive abstain/operator_question cycles with nothing else → operator input needed.
+        if ($counts['abstain_cycles'] > 0) {
+            return ['operator_dependency', 'consecutive abstain/operator_question cycles indicate the scope needs operator input'];
+        }
+
+        return ['knowledge', 'plateau with no task-fabric or verification signals — external knowledge or research needed'];
     }
 }

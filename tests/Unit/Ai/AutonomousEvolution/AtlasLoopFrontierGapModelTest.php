@@ -99,6 +99,59 @@ final class AtlasLoopFrontierGapModelTest extends TestCase
         $this->assertSame([], $gaps, 'frontier gaps without persisted evidence ids are discarded instead of synthesized');
     }
 
+    public function test_abstain_only_gap_carries_leverage_fields_and_classifies_operator_dependency(): void
+    {
+        // No orphan_inventory, no attempt_ledger — only capability buckets + abstain cycles.
+        $gaps = (new AtlasLoopFrontierGapModel)->compute([
+            'capability_trend' => [
+                'buckets' => [$this->bucket(1, 0.5), $this->bucket(2, 0.5), $this->bucket(3, 0.5)],
+            ],
+            'origination_pipeline' => [
+                'cycles' => [
+                    $this->cycle(1, 'abstain', 'operator_question'),
+                    $this->cycle(2, 'abstain', 'operator_question'),
+                    $this->cycle(3, 'abstain', 'operator_question'),
+                ],
+            ],
+        ]);
+
+        $this->assertCount(1, $gaps);
+        $g = $gaps[0];
+        $this->assertArrayHasKey('next_leverage_class', $g);
+        $this->assertArrayHasKey('leverage_reason', $g);
+        $this->assertArrayHasKey('source_signal_counts', $g);
+        $this->assertSame('operator_dependency', $g['next_leverage_class']);
+        $this->assertNotEmpty($g['leverage_reason']);
+        $this->assertSame(3, $g['source_signal_counts']['capability_buckets']);
+        $this->assertSame(3, $g['source_signal_counts']['abstain_cycles']);
+        $this->assertSame(0, $g['source_signal_counts']['orphan_inventory']);
+        $this->assertSame(0, $g['source_signal_counts']['attempt_ledger']);
+    }
+
+    public function test_orphan_inventory_overrides_abstain_cycles_to_task_fabric(): void
+    {
+        $gaps = (new AtlasLoopFrontierGapModel)->compute([
+            'comprehension_originator' => [
+                'orphans' => [['id' => 'originator:orphan:AtlasMissingService', 'scope' => 'loop-origination']],
+            ],
+            'capability_trend' => [
+                'buckets' => [$this->bucket(1, 0.5), $this->bucket(2, 0.5), $this->bucket(3, 0.5)],
+            ],
+            'origination_pipeline' => [
+                'cycles' => [
+                    $this->cycle(1, 'abstain', 'abstain_and_ask'),
+                    $this->cycle(2, 'abstain', 'abstain_and_ask'),
+                    $this->cycle(3, 'abstain', 'abstain_and_ask'),
+                ],
+            ],
+        ]);
+
+        $this->assertCount(1, $gaps);
+        $this->assertSame('task_fabric', $gaps[0]['next_leverage_class'], 'orphan_inventory must override abstain_cycles');
+        $this->assertGreaterThan(0, $gaps[0]['source_signal_counts']['abstain_cycles'], 'abstain signals still counted');
+        $this->assertGreaterThan(0, $gaps[0]['source_signal_counts']['orphan_inventory']);
+    }
+
     /** @return array{id:string,scope:string,index:int,total:int,rate:float,ended_at:string} */
     private function bucket(int $index, float $rate): array
     {
