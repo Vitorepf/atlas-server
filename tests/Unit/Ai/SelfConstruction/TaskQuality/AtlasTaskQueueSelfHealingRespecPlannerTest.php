@@ -235,4 +235,51 @@ final class AtlasTaskQueueSelfHealingRespecPlannerTest extends TestCase
         $input = $this->healthyPacket(['has_contradictory_acceptance' => true]);
         $this->assertSame($this->planner()->plan($input), $this->planner()->plan($input));
     }
+
+    // ── runnable_command_hint and non_fatal_discovery_hints ──────────────────
+
+    public function test_respec_includes_runnable_command_hint(): void
+    {
+        $result = $this->planner()->plan([
+            'allowed_files'       => ['app/Services/Foo.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'forbidden_targets'   => [],
+        ]);
+
+        $this->assertTrue($result['respec_required']);
+        $this->assertNotNull($result['runnable_command_hint']);
+        $this->assertStringContainsString('artisan test', $result['runnable_command_hint']);
+    }
+
+    public function test_missing_test_path_emits_non_fatal_discovery_hint(): void
+    {
+        $result = $this->planner()->plan([
+            'allowed_files'       => ['app/Services/Foo.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'forbidden_targets'   => [],
+        ]);
+
+        $this->assertNotEmpty($result['non_fatal_discovery_hints']);
+        $this->assertStringContainsString('discovery', $result['non_fatal_discovery_hints'][0]);
+    }
+
+    public function test_test_only_packet_emits_non_fatal_discovery_hint(): void
+    {
+        $result = $this->planner()->plan([
+            'allowed_files'       => ['tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['must pass tests'],
+            'forbidden_targets'   => [],
+        ]);
+
+        $this->assertNotEmpty($result['non_fatal_discovery_hints']);
+    }
+
+    public function test_healthy_packet_has_no_runnable_command_hint_or_discovery_hints(): void
+    {
+        $result = $this->planner()->plan($this->healthyPacket());
+
+        $this->assertFalse($result['respec_required']);
+        $this->assertNull($result['runnable_command_hint']);
+        $this->assertSame([], $result['non_fatal_discovery_hints']);
+    }
 }

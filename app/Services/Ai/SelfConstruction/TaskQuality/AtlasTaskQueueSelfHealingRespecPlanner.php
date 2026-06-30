@@ -120,12 +120,26 @@ final class AtlasTaskQueueSelfHealingRespecPlanner
             ]
             : [];
 
+        // ── runnable_command hint: ensure acceptance requires a real artisan test path ──
+        $runnableCommand = null;
+        $nonFatalDiscoveryHints = [];
+        if ($respecRequired) {
+            $runnableCommand = '/opt/homebrew/bin/php artisan test --filter=<TestClass> <test_path>';
+            foreach ($issues as $issue) {
+                if (in_array($issue['type'], ['missing_test_path', 'test_only_packet'], true)) {
+                    $nonFatalDiscoveryHints[] = 'rg no-match or missing test files are expected discovery facts, not task failures — use search_files/grep to locate the class before treating it as missing.';
+                }
+            }
+        }
+
         return [
-            'schema'                => self::SCHEMA,
-            'respec_required'       => $respecRequired,
-            'issues'                => $issues,
-            'respec_actions'        => $respecActions,
-            'evidence_requirements' => $evidenceReqs,
+            'schema'                  => self::SCHEMA,
+            'respec_required'         => $respecRequired,
+            'issues'                  => $issues,
+            'respec_actions'          => $respecActions,
+            'evidence_requirements'   => $evidenceReqs,
+            'runnable_command_hint'   => $runnableCommand,
+            'non_fatal_discovery_hints' => array_values(array_unique($nonFatalDiscoveryHints)),
         ];
     }
 
