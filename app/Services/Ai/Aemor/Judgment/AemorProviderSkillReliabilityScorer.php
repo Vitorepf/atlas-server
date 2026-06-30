@@ -31,6 +31,10 @@ final class AemorProviderSkillReliabilityScorer
 
     private const UNKNOWN = 'unknown';
 
+    private const EVIDENCE_FLOOR = 1;
+
+    private const UNKNOWN_LABEL_PENALTY = 5;
+
     /**
      * @return array{
      *     schema_version: string,
@@ -40,7 +44,10 @@ final class AemorProviderSkillReliabilityScorer
      *     flow_id: string,
      *     reliability_score: int,
      *     signal: string,
-     *     sample_policy: string
+     *     sample_policy: string,
+     *     evidence_floor_met: bool,
+     *     label_completeness: float,
+     *     reliability_blockers: list<string>
      * }
      */
     public function score(
@@ -51,6 +58,10 @@ final class AemorProviderSkillReliabilityScorer
         ?string $domain,
         ?string $flowId
     ): array {
+        $providerLabel = $this->labelOrUnknown($provider);
+        $domainLabel   = $this->labelOrUnknown($domain);
+        $flowLabel     = $this->labelOrUnknown($flowId);
+
         // R1: base.
         $score = self::BASE_SCORE;
 
@@ -63,26 +74,42 @@ final class AemorProviderSkillReliabilityScorer
         // R4: presence of evidence references.
         $score += $evidenceRefsCount > 0 ? 10 : -10;
 
-        // R5: clamp into [0, 100].
+        // R5: unknown-label penalties — missing context degrades reliability.
+        $unknownCount = ($providerLabel === self::UNKNOWN ? 1 : 0)
+            + ($domainLabel   === self::UNKNOWN ? 1 : 0)
+            + ($flowLabel     === self::UNKNOWN ? 1 : 0);
+        $score -= $unknownCount * self::UNKNOWN_LABEL_PENALTY;
+
+        // R6: clamp into [0, 100].
         $score = max(self::SCORE_FLOOR, min(self::SCORE_CEILING, $score));
 
+        // R7: evidence floor — one green status without any evidence refs cannot inflate reliability.
+        $evidenceFloorMet = $evidenceRefsCount >= self::EVIDENCE_FLOOR;
+        $reliabilityBlockers = $evidenceFloorMet ? [] : ['evidence_floor_not_met'];
+
+        // R8: signal banding, with blocker cap: blockers prevent a positive signal.
+        $rawSignal = $score >= self::POSITIVE_THRESHOLD
+            ? 'positive'
+            : ($score >= self::NEUTRAL_THRESHOLD ? 'neutral' : 'negative');
+        $signal = ($reliabilityBlockers !== [] && $rawSignal === 'positive') ? 'neutral' : $rawSignal;
+
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => self::STATUS,
-            'provider' => $this->labelOrUnknown($provider),
-            'domain' => $this->labelOrUnknown($domain),
-            'flow_id' => $this->labelOrUnknown($flowId),
-            'reliability_score' => $score,
-            // R6: signal banding off the clamped score.
-            'signal' => $score >= self::POSITIVE_THRESHOLD
-                ? 'positive'
-                : ($score >= self::NEUTRAL_THRESHOLD ? 'neutral' : 'negative'),
-            'sample_policy' => self::SAMPLE_POLICY,
+            'schema_version'      => self::SCHEMA_VERSION,
+            'status'              => self::STATUS,
+            'provider'            => $providerLabel,
+            'domain'              => $domainLabel,
+            'flow_id'             => $flowLabel,
+            'reliability_score'   => $score,
+            'signal'              => $signal,
+            'sample_policy'       => self::SAMPLE_POLICY,
+            'evidence_floor_met'  => $evidenceFloorMet,
+            'label_completeness'  => (float) round((3 - $unknownCount) / 3, 2),
+            'reliability_blockers' => $reliabilityBlockers,
         ];
     }
 
     /**
-     * R7: trimmed non-empty value, otherwise the 'unknown' fallback.
+     * R9: trimmed non-empty value, otherwise the 'unknown' fallback.
      */
     private function labelOrUnknown(?string $value): string
     {
