@@ -81,6 +81,60 @@ PHP;
         $this->assertSame([], $result['witness_nodes']);
     }
 
+    public function test_never_invariant_broken_when_forbidden_symbol_persists_in_post(): void
+    {
+        $ast = $this->parse('never($dangerousFlag)');
+        $pre = <<<'PHP'
+<?php
+final class Fixture {
+    public function run(): void {
+        $dangerousFlag = true;
+    }
+}
+PHP;
+        $post = <<<'PHP'
+<?php
+final class Fixture {
+    public function run(): void {
+        $dangerousFlag = true;
+        $extra = 1;
+    }
+}
+PHP;
+
+        $result = (new AtlasLoopFormalInvariantSurvivalProver)->prove('inv-never', $ast, $pre, $post);
+
+        $this->assertSame('broken', $result['verdict'], 'forbidden symbol persists in post — must be broken, not survives');
+        $this->assertNotSame([], $result['witness_nodes']);
+    }
+
+    public function test_implies_invariant_broken_when_antecedent_present_and_consequent_absent_in_post(): void
+    {
+        $ast = $this->parse('implies($featureFlag, $featureGuard)');
+        $pre = <<<'PHP'
+<?php
+final class Fixture {
+    public function run(): void {
+        $featureFlag = true;
+        $featureGuard = true;
+    }
+}
+PHP;
+        $post = <<<'PHP'
+<?php
+final class Fixture {
+    public function run(): void {
+        $featureFlag = true;
+    }
+}
+PHP;
+
+        $result = (new AtlasLoopFormalInvariantSurvivalProver)->prove('inv-implies', $ast, $pre, $post);
+
+        $this->assertSame('broken', $result['verdict'], 'antecedent present but consequent removed — implication violated');
+        $this->assertNotSame([], $result['witness_nodes']);
+    }
+
     /**
      * @return array<string,mixed>
      */

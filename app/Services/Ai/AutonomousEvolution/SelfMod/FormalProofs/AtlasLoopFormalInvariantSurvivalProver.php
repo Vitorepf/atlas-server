@@ -123,12 +123,12 @@ final class AtlasLoopFormalInvariantSurvivalProver
             return $this->result($invariantId, 'indeterminate', [], 'unsupported_never_shape');
         }
 
-        $introduced = $postMap['assigned'][$symbol] ?? [];
-        if (($preMap['assigned'][$symbol] ?? []) === [] && $introduced !== []) {
-            return $this->result($invariantId, 'broken', $introduced, null);
+        $postAssignments = $postMap['assigned'][$symbol] ?? [];
+        if ($postAssignments !== []) {
+            return $this->result($invariantId, 'broken', $postAssignments, null);
         }
 
-        return $this->result($invariantId, 'survives', $introduced, null);
+        return $this->result($invariantId, 'survives', [], null);
     }
 
     /**
@@ -154,11 +154,11 @@ final class AtlasLoopFormalInvariantSurvivalProver
             return $this->result($invariantId, 'indeterminate', [], 'unsupported_implies_shape');
         }
 
-        $antecedentRemoved = ($preMap['assigned'][$antecedentSymbol] ?? []) !== [] && ($postMap['assigned'][$antecedentSymbol] ?? []) === [];
-        $consequentStillPresent = ($postMap['assigned'][$consequentSymbol] ?? []) !== [];
+        $antecedentPresent = ($postMap['assigned'][$antecedentSymbol] ?? []) !== [];
+        $consequentPresent = ($postMap['assigned'][$consequentSymbol] ?? []) !== [];
 
-        if ($antecedentRemoved && ! $consequentStillPresent) {
-            return $this->result($invariantId, 'broken', $preMap['assigned'][$antecedentSymbol] ?? [], null);
+        if ($antecedentPresent && ! $consequentPresent) {
+            return $this->result($invariantId, 'broken', $postMap['assigned'][$antecedentSymbol] ?? [], null);
         }
 
         $witness = $postMap['assigned'][$consequentSymbol] ?? [];
