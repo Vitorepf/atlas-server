@@ -17,6 +17,20 @@ final class AtlasCortexUniversalFactsSchema
 {
     public const SCHEMA_ID = 'atlas.cortex.facts.v1';
 
+    /** Violation codes returned in the errors list — consumed by the brain and Self-Construction OS. */
+    public const VIOLATION_MISSING_FIELD       = 'missing_field';
+    public const VIOLATION_UNSAFE_EVIDENCE_REF = 'unsafe_evidence_ref';
+    public const VIOLATION_STALE_FACT          = 'stale_fact';
+    public const VIOLATION_SCALAR_ONLY_SCORE   = 'scalar_only_score';
+
+    /** Default freshness window: 48 hours — a captured_at older than this triggers stale_fact. */
+    public const FRESHNESS_THRESHOLD_SECONDS = 172_800;
+
+    /**
+     * @param  int  $nowUnix  Override "now" for freshness checks (0 = use time()). Injectable for tests.
+     */
+    public function __construct(private readonly int $nowUnix = 0) {}
+
     /** Top-level required keys mirroring {@see \App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel::toArray()}. */
     private const REQUIRED_TOP_LEVEL = [
         'snapshot_id' => 'string',
@@ -37,6 +51,18 @@ final class AtlasCortexUniversalFactsSchema
         'doc_purposes_provenance' => 'string',
         'doc_stated_gaps_provenance' => 'string',
         'schema_version' => 'string',
+        // Self-Construction / brain fields
+        'source_workspace' => 'string',
+        'evidence_refs' => 'array_any',
+        'captured_at' => 'string',
+    ];
+
+    /** Provider-unsafe patterns that must never appear inside an evidence_ref string. */
+    private const UNSAFE_REF_PATTERNS = [
+        '/sk-ant-[A-Za-z0-9_\-]{8,}/',
+        '/sk-[A-Za-z0-9_\-]{16,}/',
+        '/Bearer\s+[A-Za-z0-9._\-]{8,}/i',
+        '/\/Users\/[^\/]+\//',
     ];
 
     private const FORBIDDEN_UNIT_KEY_PATTERN = '/^(score|rank|grade)$/i';
@@ -75,6 +101,31 @@ final class AtlasCortexUniversalFactsSchema
     }
 
     /**
+     * Normalize a FACTS payload: apply defaults for optional fields and sort keys deterministically.
+     * Returns ['facts' => normalized, 'violations' => list of error strings].
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array{facts:array<string,mixed>, violations:list<string>}
+     */
+    public function normalize(array $facts): array
+    {
+        $violations = $this->validate($facts);
+
+        // Apply deterministic defaults for optional fields.
+        $facts += [
+            'source_workspace' => '',
+            'evidence_refs'    => [],
+            'captured_at'      => '',
+            'schema_version'   => self::SCHEMA_ID,
+        ];
+
+        // Sort top-level keys alphabetically for byte-identical output across calls.
+        ksort($facts, SORT_STRING);
+
+        return ['facts' => $facts, 'violations' => $violations];
+    }
+
+    /**
      * Validate a FACTS payload. Returns an array of error strings; empty array = valid.
      *
      * @param  array<string,mixed>  $facts
@@ -87,7 +138,7 @@ final class AtlasCortexUniversalFactsSchema
         // (1) Required top-level keys present + typed correctly.
         foreach (self::REQUIRED_TOP_LEVEL as $key => $type) {
             if (! array_key_exists($key, $facts)) {
-                $errors[] = "missing required top-level key: {$key}";
+                $errors[] = self::VIOLATION_MISSING_FIELD.': '.$key;
 
                 continue;
             }
@@ -105,6 +156,30 @@ final class AtlasCortexUniversalFactsSchema
             $typeError = $this->typeError($facts[$key], $type);
             if ($typeError !== null) {
                 $errors[] = "optional top-level key {$key} {$typeError}";
+            }
+        }
+
+        // (2b) evidence_refs: each ref must be a safe string (no provider keys, no home paths).
+        if (isset($facts['evidence_refs']) && is_array($facts['evidence_refs'])) {
+            foreach ($facts['evidence_refs'] as $idx => $ref) {
+                $ref = (string) $ref;
+                foreach (self::UNSAFE_REF_PATTERNS as $pattern) {
+                    if (preg_match($pattern, $ref) === 1) {
+                        $errors[] = self::VIOLATION_UNSAFE_EVIDENCE_REF.': evidence_refs['.$idx.'] contains provider-unsafe content';
+                        break;
+                    }
+                }
+            }
+        }
+
+        // (2c) captured_at freshness: if present and parseable, must not exceed the staleness threshold.
+        if (isset($facts['captured_at']) && is_string($facts['captured_at']) && $facts['captured_at'] !== '') {
+            $ts = strtotime($facts['captured_at']);
+            if ($ts !== false) {
+                $now = $this->nowUnix !== 0 ? $this->nowUnix : time();
+                if (($now - $ts) > self::FRESHNESS_THRESHOLD_SECONDS) {
+                    $errors[] = self::VIOLATION_STALE_FACT.': captured_at='.$facts['captured_at'].' exceeds freshness threshold of '.self::FRESHNESS_THRESHOLD_SECONDS.'s';
+                }
             }
         }
 
@@ -132,6 +207,15 @@ final class AtlasCortexUniversalFactsSchema
                         }
                     }
                 }
+                // (3b-pre) scalar_only_score: reject units whose every value is numeric with no structural key.
+                if (! empty($unit)) {
+                    $structuralKeys = array_filter(array_keys($unit), static fn (mixed $k): bool => ! is_numeric($unit[$k]));
+                    $allNumeric     = array_reduce($unit, static fn (bool $carry, mixed $v): bool => $carry && is_numeric($v), true);
+                    if ($allNumeric && empty($structuralKeys)) {
+                        $errors[] = self::VIOLATION_SCALAR_ONLY_SCORE.": unit '{$unitId}' carries only numeric scalar values with no structural context — confidence must be accompanied by structural facts";
+                    }
+                }
+
                 // (3b) transitions must be a list of named transitions when present.
                 if (isset($unit['transitions'])) {
                     if (! is_array($unit['transitions'])) {

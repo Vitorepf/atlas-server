@@ -91,7 +91,7 @@ final class AtlasCortexUniversalFactsSchemaTest extends TestCase
         $this->assertNotEmpty($errors);
         $combined = implode("\n", $errors);
         foreach (['inventory', 'orphans', 'clone_clusters', 'forbidden', 'doc_stated_gaps'] as $key) {
-            $this->assertStringContainsString('missing required top-level key: '.$key, $combined);
+            $this->assertStringContainsString(AtlasCortexUniversalFactsSchema::VIOLATION_MISSING_FIELD.': '.$key, $combined);
         }
     }
 
@@ -102,6 +102,75 @@ final class AtlasCortexUniversalFactsSchemaTest extends TestCase
         $this->assertSame('atlas.cortex.facts.v1', $def['schema_id']);
         $this->assertContains('snapshot_id', $def['required']);
         $this->assertContains('inventory', $def['required']);
+    }
+
+    // ---------- violation codes ----------
+
+    private function base(): array
+    {
+        return ['snapshot_id' => 'snap-1', 'inventory' => [], 'orphans' => [], 'clone_clusters' => [], 'forbidden' => [], 'doc_stated_gaps' => []];
+    }
+
+    public function test_unsafe_evidence_ref_violation_for_api_key_in_ref(): void
+    {
+        $facts = array_merge($this->base(), ['evidence_refs' => ['sk-ant-api01-supersecretkey12345678']]);
+        $errors = $this->schema()->validate($facts);
+        $this->assertNotEmpty($errors);
+        $this->assertStringContainsString(AtlasCortexUniversalFactsSchema::VIOLATION_UNSAFE_EVIDENCE_REF, implode("\n", $errors));
+    }
+
+    public function test_safe_evidence_refs_produce_no_violation(): void
+    {
+        $facts = array_merge($this->base(), ['evidence_refs' => ['receipt:abc123', 'gate:phpunit-green', 'ledger:entry-42']]);
+        $this->assertSame([], $this->schema()->validate($facts));
+    }
+
+    public function test_stale_fact_violation_when_captured_at_exceeds_threshold(): void
+    {
+        // Use a future nowUnix so a recent timestamp appears stale.
+        $capturedAt = date('c', time());
+        $futureNow  = time() + AtlasCortexUniversalFactsSchema::FRESHNESS_THRESHOLD_SECONDS + 3600;
+        $facts      = array_merge($this->base(), ['captured_at' => $capturedAt]);
+        $schema     = new AtlasCortexUniversalFactsSchema($futureNow);
+        $errors     = $schema->validate($facts);
+        $this->assertStringContainsString(AtlasCortexUniversalFactsSchema::VIOLATION_STALE_FACT, implode("\n", $errors));
+    }
+
+    public function test_fresh_captured_at_does_not_trigger_stale_violation(): void
+    {
+        $facts = array_merge($this->base(), ['captured_at' => date('c')]);
+        $this->assertSame([], $this->schema()->validate($facts));
+    }
+
+    public function test_scalar_only_score_violation_for_numeric_only_unit(): void
+    {
+        $facts = array_merge($this->base(), ['units' => ['App\\Foo' => ['confidence' => 0.9]]]);
+        $errors = $this->schema()->validate($facts);
+        $this->assertStringContainsString(AtlasCortexUniversalFactsSchema::VIOLATION_SCALAR_ONLY_SCORE, implode("\n", $errors));
+    }
+
+    public function test_unit_with_structural_key_alongside_numeric_does_not_trigger_scalar_only(): void
+    {
+        $facts = array_merge($this->base(), ['units' => ['App\\Foo' => ['confidence' => 0.9, 'basis' => 'all gates green']]]);
+        $this->assertSame([], $this->schema()->validate($facts));
+    }
+
+    public function test_normalize_returns_deterministic_facts_with_defaults(): void
+    {
+        $facts  = $this->base();
+        $result = $this->schema()->normalize($facts);
+        $this->assertArrayHasKey('facts', $result);
+        $this->assertArrayHasKey('violations', $result);
+        $this->assertSame([], $result['violations']);
+        $this->assertArrayHasKey('source_workspace', $result['facts']);
+        $this->assertArrayHasKey('evidence_refs', $result['facts']);
+        $this->assertArrayHasKey('captured_at', $result['facts']);
+        // Second call must produce byte-identical facts.
+        $result2 = $this->schema()->normalize($facts);
+        $this->assertSame(
+            json_encode($result['facts'],  JSON_UNESCAPED_SLASHES),
+            json_encode($result2['facts'], JSON_UNESCAPED_SLASHES),
+        );
     }
 
     public function test_real_builder_output_validates_clean_for_a_tiny_fixture_scope(): void
