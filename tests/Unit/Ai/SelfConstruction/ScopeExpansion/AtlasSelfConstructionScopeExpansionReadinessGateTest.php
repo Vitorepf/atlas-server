@@ -33,6 +33,10 @@ final class AtlasSelfConstructionScopeExpansionReadinessGateTest extends TestCas
             'knowledge_sync_current' => true,
             'test_suite_green' => true,
             'worker_capacity_available' => true,
+            'context_pack_fresh' => true,
+            'queue_health_evidence' => true,
+            'rollback_evidence' => true,
+            'proof_plan_bounded' => true,
             'evidence_refs' => ['evidence:run-1'],
         ], $overrides);
     }
@@ -224,6 +228,95 @@ final class AtlasSelfConstructionScopeExpansionReadinessGateTest extends TestCas
         $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
         $this->assertSame('hold', $verdict['status']);
         $this->assertContains('optional_freshness_missing:worker_capacity_available', $verdict['hold_reasons']);
+    }
+
+    // --- proof artifact freshness tests ---
+
+    public function test_hold_when_context_pack_fresh_absent(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['context_pack_fresh']);
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertContains('optional_freshness_missing:context_pack_fresh', $verdict['hold_reasons']);
+    }
+
+    public function test_blocked_when_context_pack_fresh_explicitly_false(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->candidate(),
+            $this->readyFacts(['context_pack_fresh' => false]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('context_pack_fresh_not_ready', $verdict['blockers']);
+    }
+
+    public function test_hold_when_queue_health_evidence_absent(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['queue_health_evidence']);
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertContains('optional_freshness_missing:queue_health_evidence', $verdict['hold_reasons']);
+    }
+
+    public function test_blocked_when_queue_health_evidence_explicitly_false(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->candidate(),
+            $this->readyFacts(['queue_health_evidence' => false]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('queue_health_evidence_not_ready', $verdict['blockers']);
+    }
+
+    public function test_hold_when_rollback_evidence_absent(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['rollback_evidence']);
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertContains('optional_freshness_missing:rollback_evidence', $verdict['hold_reasons']);
+    }
+
+    public function test_blocked_when_rollback_evidence_explicitly_false(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->candidate(),
+            $this->readyFacts(['rollback_evidence' => false]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('rollback_evidence_not_ready', $verdict['blockers']);
+    }
+
+    public function test_hold_when_proof_plan_bounded_absent(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['proof_plan_bounded']);
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate($this->candidate(), $facts);
+        $this->assertSame('hold', $verdict['status']);
+        $this->assertContains('optional_freshness_missing:proof_plan_bounded', $verdict['hold_reasons']);
+    }
+
+    public function test_blocked_when_proof_plan_bounded_explicitly_false(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->candidate(),
+            $this->readyFacts(['proof_plan_bounded' => false]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('proof_plan_bounded_not_ready', $verdict['blockers']);
+    }
+
+    public function test_ready_with_all_proof_artifacts_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->candidate(),
+            $this->readyFacts(),
+        );
+        $this->assertSame('ready', $verdict['status']);
+        $this->assertTrue($verdict['ready']);
+        $this->assertArrayNotHasKey('asks_for_human', $verdict);
     }
 
     public function test_gate_source_has_no_side_effects(): void

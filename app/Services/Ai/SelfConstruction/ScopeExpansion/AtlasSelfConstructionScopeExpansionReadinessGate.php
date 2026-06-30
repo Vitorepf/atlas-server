@@ -77,6 +77,11 @@ final class AtlasSelfConstructionScopeExpansionReadinessGate
         $this->freshnessSignal($facts, 'knowledge_sync_current', $blockers, $holdReasons, $warnings);
         $this->freshnessSignal($facts, 'test_suite_green', $blockers, $holdReasons, $warnings);
         $this->freshnessSignal($facts, 'worker_capacity_available', $blockers, $holdReasons, $warnings);
+        // Proof artifact freshness — expansion cannot proceed without these evidence receipts.
+        $this->freshnessSignal($facts, 'context_pack_fresh', $blockers, $holdReasons, $warnings);
+        $this->freshnessSignal($facts, 'queue_health_evidence', $blockers, $holdReasons, $warnings);
+        $this->freshnessSignal($facts, 'rollback_evidence', $blockers, $holdReasons, $warnings);
+        $this->freshnessSignal($facts, 'proof_plan_bounded', $blockers, $holdReasons, $warnings);
 
         $status = self::STATUS_READY;
         if ($blockers !== []) {
