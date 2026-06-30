@@ -131,10 +131,23 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifier
         return is_array($r) && isset($r['pattern_family']) && $r['pattern_family'] !== '';
     }
 
+    /** At least one of these keys must be present to prove learning influenced origination. */
+    private const CONSTRAINT_INFLUENCE_KEYS = [
+        'promoted_rule', 'blocked_family', 'threshold_change', 'routing_hint', 'retired_pattern',
+    ];
+
     private function hasNextConstraint(array $cycle): bool
     {
         $r = $cycle['next_batch_constraint'] ?? null;
-        return is_array($r) && $r !== [];
+        if (! is_array($r) || $r === []) {
+            return false;
+        }
+        foreach (self::CONSTRAINT_INFLUENCE_KEYS as $key) {
+            if (array_key_exists($key, $r)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private function topRepairHint(array $missingLinks): ?string

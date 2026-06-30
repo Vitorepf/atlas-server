@@ -19,12 +19,12 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
     private function completeCycle(array $overrides = []): array
     {
         return array_merge([
-            'cycle_id'             => 'cycle-1',
-            'origination_receipt'  => ['task_packet_id' => 'task-001'],
+            'cycle_id'              => 'cycle-1',
+            'origination_receipt'   => ['task_packet_id' => 'task-001'],
             'implementation_result' => ['commit_sha' => 'abc123', 'files_committed' => ['app/Foo.php']],
-            'runnable_evidence'    => ['command' => './vendor/bin/phpunit tests/FooTest.php', 'outcome' => 'OK (14 tests)'],
-            'learning_update'      => ['pattern_family' => 'spec-quality', 'delta' => 0.15],
-            'next_batch_constraint' => ['target_entropy_floor' => 0.4, 'required_families' => ['adversarial']],
+            'runnable_evidence'     => ['command' => './vendor/bin/phpunit tests/FooTest.php', 'outcome' => 'OK (14 tests)'],
+            'learning_update'       => ['pattern_family' => 'spec-quality', 'delta' => 0.15],
+            'next_batch_constraint' => ['promoted_rule' => 'require_behavior_proof'],
         ], $overrides);
     }
 
@@ -188,5 +188,82 @@ final class AtlasExternalBrainClosedLoopLearningCompletenessVerifierTest extends
         $this->assertTrue($result['complete']);
         $this->assertSame([], $result['missing_links']);
         $this->assertNull($result['next_repair_task_hint']);
+    }
+
+    // ── AC2: generic constraint (no influence keys) → incomplete ──────────────
+
+    public function test_generic_next_batch_constraint_without_influence_keys_is_incomplete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => ['target_entropy_floor' => 0.4, 'required_families' => ['adversarial']]])
+        ));
+
+        $this->assertFalse($result['complete']);
+        $this->assertContains(
+            AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_NEXT_BATCH_CONSTRAINT,
+            $result['missing_links'],
+        );
+    }
+
+    public function test_empty_next_batch_constraint_array_is_incomplete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => []])
+        ));
+
+        $this->assertFalse($result['complete']);
+        $this->assertContains(
+            AtlasExternalBrainClosedLoopLearningCompletenessVerifier::LINK_NEXT_BATCH_CONSTRAINT,
+            $result['missing_links'],
+        );
+    }
+
+    // ── AC3: each valid influence key makes cycle complete ────────────────────
+
+    public function test_blocked_family_influence_key_makes_cycle_complete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => ['blocked_family' => 'proxy_tasks']])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
+
+    public function test_threshold_change_influence_key_makes_cycle_complete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => ['threshold_change' => ['leverage' => 0.7]]])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
+
+    public function test_routing_hint_influence_key_makes_cycle_complete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => ['routing_hint' => 'prefer_wiring_tasks']])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
+
+    public function test_retired_pattern_influence_key_makes_cycle_complete(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => ['retired_pattern' => 'empty_spec_proxy']])
+        ));
+
+        $this->assertTrue($result['complete']);
+    }
+
+    // ── Repair hint for no_next_batch_constraint ──────────────────────────────
+
+    public function test_no_op_constraint_gives_correct_repair_hint(): void
+    {
+        $result = $this->verifier->verify($this->input(
+            $this->completeCycle(['next_batch_constraint' => ['some_generic_key' => 'value']])
+        ));
+
+        $this->assertSame('derive_next_batch_constraint_from_learning_update', $result['next_repair_task_hint']);
     }
 }
