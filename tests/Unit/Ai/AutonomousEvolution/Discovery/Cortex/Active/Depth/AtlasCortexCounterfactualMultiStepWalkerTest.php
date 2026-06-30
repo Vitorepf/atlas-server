@@ -88,6 +88,28 @@ final class AtlasCortexCounterfactualMultiStepWalkerTest extends TestCase
         $this->assertSame('depth_reached', $result['terminated_reason']);
     }
 
+    public function test_self_link_does_not_inflate_projected_reachable_count(): void
+    {
+        $snapshot = [
+            'reachability' => [
+                'app/Services/Foo.php' => ['app/Services/Foo.php', 'app/Services/Bar.php'],
+                'app/Services/Bar.php' => [],
+            ],
+        ];
+        $walker = new AtlasCortexCounterfactualMultiStepWalker(enabled: true, depth: 1);
+        $result = $walker->walk($snapshot, [
+            ['site' => 'app/Services/Foo.php', 'mutation_kind' => 'tighten_signature'],
+        ]);
+
+        $delta = $result['steps'][0]['observable_fact_delta'];
+        $this->assertSame(
+            count($delta['affected_files']),
+            $delta['projected_reachable_count'],
+            'projected_reachable_count must equal the distinct affected_files count',
+        );
+        $this->assertCount(2, $delta['affected_files']);
+    }
+
     public function test_hard_cap_is_eight(): void
     {
         $walker = new AtlasCortexCounterfactualMultiStepWalker(enabled: true, depth: 99);

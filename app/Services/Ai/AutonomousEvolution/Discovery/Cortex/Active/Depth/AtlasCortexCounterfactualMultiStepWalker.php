@@ -153,10 +153,12 @@ final class AtlasCortexCounterfactualMultiStepWalker
         }
         sort($affected, SORT_STRING);
 
+        $deduped = array_values(array_unique($affected));
+
         return [
             'mutation_kind' => $mutationKind,
-            'affected_files' => array_values(array_unique($affected)),
-            'projected_reachable_count' => count($affected),
+            'affected_files' => $deduped,
+            'projected_reachable_count' => count($deduped),
         ];
     }
 }
