@@ -146,4 +146,110 @@ final class AtlasMaestroTieredRoutingPolicyTest extends TestCase
         $v = $this->policy->evaluate('codex-1', $hardPacket);
         $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict']);
     }
+
+    // ── governed override on tier mismatch ──────────────────────────────────────
+
+    public function test_hardest_packet_to_easy_worker_without_override_is_refused(): void
+    {
+        $this->registry->register('plain-1', 'easy');
+        $v = $this->policy->evaluate('plain-1', $this->hardestPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_REFUSE, $v['verdict']);
+        $this->assertFalse($v['override_applied']);
+    }
+
+    public function test_hardest_packet_to_easy_worker_with_explicit_override_is_allow_with_review(): void
+    {
+        $this->registry->register('override-1', 'easy', ['override_tier_mismatch' => true]);
+        $v = $this->policy->evaluate('override-1', $this->hardestPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW_WITH_REVIEW, $v['verdict']);
+        $this->assertTrue($v['override_applied']);
+        $this->assertStringContainsString('override', $v['reason']);
+    }
+
+    // ── low confidence downgrades a hard/hardest in-tier allow ─────────────────
+
+    public function test_low_confidence_worker_on_hard_packet_is_allow_with_review_not_silent_allow(): void
+    {
+        $this->registry->register('shaky-1', 'hard', ['outcome_confidence' => 0.2]);
+        $hardPacket = [
+            'packet_id' => 'p-hard-conf',
+            'objective' => str_repeat('x', 1500),
+            'allowed_files' => ['app/A.php'],
+            'acceptance_criteria' => [],
+        ];
+        $v = $this->policy->evaluate('shaky-1', $hardPacket);
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW_WITH_REVIEW, $v['verdict']);
+        $this->assertSame(0.2, $v['worker_outcome_confidence']);
+        $this->assertFalse($v['override_applied']);
+    }
+
+    public function test_high_confidence_worker_on_hard_packet_is_silently_allowed(): void
+    {
+        $this->registry->register('reliable-1', 'hard', ['outcome_confidence' => 0.9]);
+        $hardPacket = [
+            'packet_id' => 'p-hard-conf-ok',
+            'objective' => str_repeat('x', 1500),
+            'allowed_files' => ['app/A.php'],
+            'acceptance_criteria' => [],
+        ];
+        $v = $this->policy->evaluate('reliable-1', $hardPacket);
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict']);
+        $this->assertSame(0.9, $v['worker_outcome_confidence']);
+    }
+
+    public function test_low_confidence_worker_on_easy_packet_is_still_silently_allowed(): void
+    {
+        // Confidence floor only applies to hard/hardest packets — easy packets stay silent allow.
+        $this->registry->register('shaky-2', 'hard', ['outcome_confidence' => 0.1]);
+        $v = $this->policy->evaluate('shaky-2', $this->easyPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict']);
+    }
+
+    public function test_no_confidence_meta_does_not_trigger_review_downgrade(): void
+    {
+        // Absent confidence means no signal either way — must not be treated as "low".
+        $this->registry->register('no-conf-1', 'hard');
+        $hardPacket = [
+            'packet_id' => 'p-hard-no-conf',
+            'objective' => str_repeat('x', 1500),
+            'allowed_files' => ['app/A.php'],
+            'acceptance_criteria' => [],
+        ];
+        $v = $this->policy->evaluate('no-conf-1', $hardPacket);
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict']);
+        $this->assertNull($v['worker_outcome_confidence']);
+    }
+
+    // ── unknown worker keeps legacy behavior with explicit reason ───────────────
+
+    public function test_unknown_worker_reason_explicitly_cites_legacy_un_tiered_flow(): void
+    {
+        $v = $this->policy->evaluate('totally-unknown', $this->hardestPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW_UNKNOWN, $v['verdict']);
+        $this->assertStringContainsString('not registered', $v['reason']);
+        $this->assertStringContainsString('legacy', $v['reason']);
+        $this->assertNull($v['worker_outcome_confidence']);
+        $this->assertFalse($v['override_applied']);
+    }
+
+    // ── advisory only ────────────────────────────────────────────────────────
+
+    public function test_evaluate_does_not_mutate_the_registry(): void
+    {
+        $this->registry->register('stable-1', 'easy');
+        $before = $this->registry->lookup('stable-1');
+
+        $this->policy->evaluate('stable-1', $this->hardestPacket());
+
+        $after = $this->registry->lookup('stable-1');
+        $this->assertSame($before->declaredMaxTier, $after->declaredMaxTier);
+        $this->assertSame($before->meta, $after->meta);
+    }
 }
