@@ -13,31 +13,62 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
 
     public const MODE = 'read_only_human_completion_receipt_verifier';
 
+    private const CONTEXT_HASH_FIELDS = [
+        'completion_audit_hash', 'release_dossier_hash', 'replay_diff_hash', 'runtime_gap_matrix_hash',
+        'runtime_promotion_receipt_hash', 'real_provider_smoke_hash', 'certification_status_batch_hash',
+    ];
+
+    private const FORBIDDEN_RUNTIME_FLAGS = [
+        'execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed',
+        'adapter_execution_allowed', 'self_programming_allowed', 'completion_autopromoted',
+    ];
+
     /** @return array<string, mixed> */
     public function verify(array $receipt, array $context = []): array
     {
         $base = (new AtlasSelfConstructionHumanSignedCompletionReceiptService)->verify($receipt);
         $violations = (array) data_get($base, 'violations', []);
+        $fieldMatrix = [];
 
-        if ($this->isPlaceholderSigner((string) ($receipt['signed_by'] ?? ''))) {
+        $signerPlaceholder = $this->isPlaceholderSigner((string) ($receipt['signed_by'] ?? ''));
+        if ($signerPlaceholder) {
             $violations[] = ['code' => 'human_completion_receipt_signer_invalid_or_placeholder'];
         }
-        if ($this->isPlaceholderReason((string) ($receipt['reason'] ?? ''))) {
+        $fieldMatrix[] = $this->field('signed_by', ! $signerPlaceholder, $signerPlaceholder ? 'human_completion_receipt_signer_invalid_or_placeholder' : null);
+
+        $reasonPlaceholder = $this->isPlaceholderReason((string) ($receipt['reason'] ?? ''));
+        $reasonExternalClaim = $this->isExternalCompletionClaimReason((string) ($receipt['reason'] ?? ''));
+        if ($reasonPlaceholder) {
             $violations[] = ['code' => 'human_completion_receipt_reason_placeholder'];
         }
-        if ($this->isExternalCompletionClaimReason((string) ($receipt['reason'] ?? ''))) {
+        if ($reasonExternalClaim) {
             $violations[] = ['code' => 'human_completion_receipt_reason_relies_on_external_agent_claim'];
         }
-        foreach (['completion_audit_hash', 'release_dossier_hash', 'replay_diff_hash', 'runtime_gap_matrix_hash', 'runtime_promotion_receipt_hash', 'real_provider_smoke_hash', 'certification_status_batch_hash'] as $field) {
+        $reasonOk = ! $reasonPlaceholder && ! $reasonExternalClaim;
+        $fieldMatrix[] = $this->field(
+            'reason',
+            $reasonOk,
+            $reasonOk ? null : ($reasonPlaceholder ? 'human_completion_receipt_reason_placeholder' : 'human_completion_receipt_reason_relies_on_external_agent_claim'),
+        );
+
+        $receiptHashOk = (bool) data_get($base, 'receipt_hash_matches_payload', false);
+        $fieldMatrix[] = $this->field('receipt_hash', $receiptHashOk, $receiptHashOk ? null : 'human_completion_receipt_hash_mismatch');
+
+        foreach (self::CONTEXT_HASH_FIELDS as $field) {
             $expected = (string) data_get($context, $field, '');
-            if ($expected !== '' && (string) ($receipt[$field] ?? '') !== $expected) {
+            $matches = $expected === '' || (string) ($receipt[$field] ?? '') === $expected;
+            if (! $matches) {
                 $violations[] = ['code' => 'context_hash_mismatch', 'field' => $field];
             }
+            $fieldMatrix[] = $this->field($field, $matches, $matches ? null : 'context_hash_mismatch');
         }
-        foreach (['execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'adapter_execution_allowed', 'self_programming_allowed', 'completion_autopromoted'] as $flag) {
-            if ((bool) ($receipt[$flag] ?? false) === true) {
+
+        foreach (self::FORBIDDEN_RUNTIME_FLAGS as $flag) {
+            $flagSet = (bool) ($receipt[$flag] ?? false) === true;
+            if ($flagSet) {
                 $violations[] = ['code' => 'forbidden_flag_in_human_completion_receipt', 'flag' => $flag];
             }
+            $fieldMatrix[] = $this->field($flag, ! $flagSet, $flagSet ? 'forbidden_flag_in_human_completion_receipt' : null);
         }
 
         $status = $violations === [] ? 'passed' : 'blocked';
@@ -53,6 +84,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
             'receipt_hash_matches_payload' => (bool) data_get($base, 'receipt_hash_matches_payload', false),
             'violation_count' => count($violations),
             'violations' => $violations,
+            'field_verification_matrix' => $fieldMatrix,
             'completion_claim_allowed' => $status === 'passed',
             'execution_allowed' => false,
             'dispatch_allowed' => false,
@@ -85,6 +117,12 @@ final class AtlasSelfConstructionHumanCompletionReceiptVerifierService
             'persisted' => (bool) data_get($persisted, 'persisted', false),
             'receipt_path' => (string) data_get($persisted, 'receipt_path', ''),
         ];
+    }
+
+    /** @return array<string, mixed> */
+    private function field(string $name, bool $ok, ?string $blockingReason): array
+    {
+        return ['field' => $name, 'ok' => $ok, 'blocking_reason' => $blockingReason];
     }
 
     private function isPlaceholderSigner(string $signedBy): bool
