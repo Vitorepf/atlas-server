@@ -118,6 +118,81 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
         ];
     }
 
+    private const DEFAULT_STARVATION_CYCLES = 5;
+
+    private const DEFAULT_NON_SELECTION_THRESHOLD = 3;
+
+    private const DEFAULT_LOW_VALUE_THRESHOLD = 0.3;
+
+    /**
+     * Detects path starvation per lane from last_seen, value potential,
+     * blocked dependencies and repeated non-selection, and recommends
+     * unblock, defer_with_reason or retire_lane for each neglected lane.
+     *
+     * A lane is starved when last_seen_cycles_ago >= starvation_threshold_cycles
+     * OR non_selection_count >= non_selection_threshold. Non-starved lanes are
+     * not returned — they need no unblock plan.
+     *
+     * RECOMMENDATION (first matching rule wins):
+     *   value_potential < low_value_threshold        -> retire_lane
+     *     (age alone never promotes a low-value lane — this check runs first)
+     *   blocked_dependencies is non-empty             -> defer_with_reason
+     *   otherwise                                      -> unblock
+     *
+     * @param  array<string,mixed>  $input  { lanes: list<{lane_id, last_seen_cycles_ago?,
+     *   value_potential?, blocked_dependencies?, non_selection_count?}>,
+     *   starvation_threshold_cycles?, non_selection_threshold?, low_value_threshold? }
+     * @return array<string,mixed>
+     */
+    public function recommendNeglectedLanes(array $input): array
+    {
+        $lanes = is_array($input['lanes'] ?? null) ? $input['lanes'] : [];
+        $starvationThresholdCycles = max(1, (int) ($input['starvation_threshold_cycles'] ?? self::DEFAULT_STARVATION_CYCLES));
+        $nonSelectionThreshold = max(1, (int) ($input['non_selection_threshold'] ?? self::DEFAULT_NON_SELECTION_THRESHOLD));
+        $lowValueThreshold = max(0.0, min(1.0, (float) ($input['low_value_threshold'] ?? self::DEFAULT_LOW_VALUE_THRESHOLD)));
+
+        $recommendations = [];
+        foreach ($lanes as $lane) {
+            if (! is_array($lane) || ! isset($lane['lane_id'])) {
+                continue;
+            }
+
+            $laneId = (string) $lane['lane_id'];
+            $lastSeenCyclesAgo = max(0, (int) ($lane['last_seen_cycles_ago'] ?? 0));
+            $valuePotential = max(0.0, min(1.0, (float) ($lane['value_potential'] ?? 0.0)));
+            $blockedDependencies = is_array($lane['blocked_dependencies'] ?? null) ? array_values($lane['blocked_dependencies']) : [];
+            $nonSelectionCount = max(0, (int) ($lane['non_selection_count'] ?? 0));
+
+            $starved = $lastSeenCyclesAgo >= $starvationThresholdCycles || $nonSelectionCount >= $nonSelectionThreshold;
+            if (! $starved) {
+                continue;
+            }
+
+            [$recommendation, $reason] = match (true) {
+                $valuePotential < $lowValueThreshold => ['retire_lane', 'low_value_potential_age_alone_does_not_justify_promotion'],
+                $blockedDependencies !== [] => ['defer_with_reason', 'blocked_by_dependencies: '.implode(',', $blockedDependencies)],
+                default => ['unblock', 'starved_lane_with_sufficient_value_and_no_blockers'],
+            };
+
+            $recommendations[] = [
+                'lane_id' => $laneId,
+                'starved' => true,
+                'last_seen_cycles_ago' => $lastSeenCyclesAgo,
+                'value_potential' => $valuePotential,
+                'blocked_dependencies' => $blockedDependencies,
+                'non_selection_count' => $nonSelectionCount,
+                'recommendation' => $recommendation,
+                'reason' => $reason,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'recommendations' => $recommendations,
+            'neglected_lane_count' => count($recommendations),
+        ];
+    }
+
     /** @return list<string> */
     private function filterCanonical(array $paths): array
     {

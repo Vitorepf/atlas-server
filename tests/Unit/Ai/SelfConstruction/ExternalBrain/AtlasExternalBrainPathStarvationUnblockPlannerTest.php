@@ -171,4 +171,112 @@ final class AtlasExternalBrainPathStarvationUnblockPlannerTest extends TestCase
         $planPaths = array_column($result['rotation_plan'], 'path');
         $this->assertNotContains('totally-fake-path', $planPaths);
     }
+
+    // ── recommendNeglectedLanes ──────────────────────────────────────────────────
+
+    private function lane(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'lane_id' => $id,
+            'last_seen_cycles_ago' => 10,
+            'value_potential' => 0.8,
+            'blocked_dependencies' => [],
+            'non_selection_count' => 0,
+        ], $overrides);
+    }
+
+    private function recFor(array $result, string $laneId): ?array
+    {
+        foreach ($result['recommendations'] as $r) {
+            if ($r['lane_id'] === $laneId) {
+                return $r;
+            }
+        }
+
+        return null;
+    }
+
+    public function test_recently_seen_low_non_selection_lane_is_not_returned(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('fresh-lane', ['last_seen_cycles_ago' => 1, 'non_selection_count' => 0]),
+        ]]);
+
+        $this->assertSame([], $result['recommendations']);
+        $this->assertSame(0, $result['neglected_lane_count']);
+    }
+
+    public function test_old_high_value_lane_with_no_blockers_recommends_unblock(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('valuable-old', ['last_seen_cycles_ago' => 20, 'value_potential' => 0.9]),
+        ]]);
+
+        $rec = $this->recFor($result, 'valuable-old');
+        $this->assertSame('unblock', $rec['recommendation']);
+        $this->assertTrue($rec['starved']);
+    }
+
+    public function test_old_low_value_lane_recommends_retire_not_promotion(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('old-low-value', ['last_seen_cycles_ago' => 50, 'value_potential' => 0.1]),
+        ]]);
+
+        $rec = $this->recFor($result, 'old-low-value');
+        $this->assertSame('retire_lane', $rec['recommendation']);
+        $this->assertStringContainsString('age_alone_does_not_justify_promotion', $rec['reason']);
+    }
+
+    public function test_starved_lane_with_blocked_dependencies_recommends_defer(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('blocked-lane', ['last_seen_cycles_ago' => 10, 'value_potential' => 0.7, 'blocked_dependencies' => ['missing_capability_x']]),
+        ]]);
+
+        $rec = $this->recFor($result, 'blocked-lane');
+        $this->assertSame('defer_with_reason', $rec['recommendation']);
+        $this->assertStringContainsString('missing_capability_x', $rec['reason']);
+    }
+
+    public function test_low_value_outranks_blocked_dependencies(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('low-value-blocked', ['last_seen_cycles_ago' => 10, 'value_potential' => 0.05, 'blocked_dependencies' => ['x']]),
+        ]]);
+
+        $rec = $this->recFor($result, 'low-value-blocked');
+        $this->assertSame('retire_lane', $rec['recommendation']);
+    }
+
+    public function test_repeated_non_selection_alone_triggers_starvation(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('repeatedly-skipped', ['last_seen_cycles_ago' => 0, 'non_selection_count' => 5, 'value_potential' => 0.7]),
+        ]]);
+
+        $rec = $this->recFor($result, 'repeatedly-skipped');
+        $this->assertNotNull($rec);
+        $this->assertTrue($rec['starved']);
+    }
+
+    public function test_neglected_lane_count_matches_recommendation_count(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('a', ['last_seen_cycles_ago' => 10]),
+            $this->lane('b', ['last_seen_cycles_ago' => 0, 'non_selection_count' => 0]),
+            $this->lane('c', ['last_seen_cycles_ago' => 20]),
+        ]]);
+
+        $this->assertSame(2, $result['neglected_lane_count']);
+        $this->assertCount(2, $result['recommendations']);
+    }
+
+    public function test_empty_lanes_returns_empty_recommendations(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => []]);
+
+        $this->assertSame([], $result['recommendations']);
+        $this->assertSame(0, $result['neglected_lane_count']);
+    }
 }
