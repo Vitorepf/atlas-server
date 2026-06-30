@@ -81,4 +81,77 @@ class AtlasSelfConstructionFinalOrganMapTest extends TestCase
         self::assertSame($a, $b);
         self::assertArrayNotHasKey('score', $a);
     }
+
+    // ---------- coverageView ----------
+
+    public function test_coverage_view_no_organs_implemented_gives_zero_pct_and_all_missing(): void
+    {
+        $map = new AtlasSelfConstructionFinalOrganMap;
+        $view = $map->coverageView([]);
+
+        self::assertSame(0.0, $view['completion_pct']);
+        self::assertSame([], $view['implemented_organs']);
+        self::assertCount($view['total_organs'], $view['missing_organs']);
+        self::assertSame([], $view['missing_tests']);
+        self::assertSame([], $view['unwired_organs']);
+    }
+
+    public function test_coverage_view_implemented_organs_not_in_missing(): void
+    {
+        $map  = new AtlasSelfConstructionFinalOrganMap;
+        $view = $map->coverageView([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS],
+        ]);
+
+        self::assertContains(AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX,   $view['implemented_organs']);
+        self::assertContains(AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS, $view['implemented_organs']);
+        self::assertNotContains(AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX,   $view['missing_organs']);
+        self::assertNotContains(AtlasSelfConstructionFinalOrganMap::ORGAN_RECEIPTS, $view['missing_organs']);
+        self::assertSame([], $view['missing_tests']);
+        self::assertSame([], $view['unwired_organs']);
+    }
+
+    public function test_coverage_view_missing_tests_when_implemented_but_no_test(): void
+    {
+        $map  = new AtlasSelfConstructionFinalOrganMap;
+        $view = $map->coverageView([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO],
+        ]);
+
+        self::assertContains(AtlasSelfConstructionFinalOrganMap::ORGAN_MAESTRO, $view['missing_tests']);
+        self::assertNotContains(AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, $view['missing_tests']);
+    }
+
+    public function test_coverage_view_unwired_organs_when_implemented_but_not_wired(): void
+    {
+        $map  = new AtlasSelfConstructionFinalOrganMap;
+        $view = $map->coverageView([
+            'implemented' => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC],
+            'has_tests'   => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX, AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC],
+            'wired'       => [AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX],
+        ]);
+
+        self::assertContains(AtlasSelfConstructionFinalOrganMap::ORGAN_TASK_FABRIC, $view['unwired_organs']);
+        self::assertNotContains(AtlasSelfConstructionFinalOrganMap::ORGAN_CORTEX,   $view['unwired_organs']);
+    }
+
+    public function test_coverage_view_completion_pct_is_implemented_over_total(): void
+    {
+        $map   = new AtlasSelfConstructionFinalOrganMap;
+        $total = count($map->organs());
+
+        $view = $map->coverageView([
+            'implemented' => array_column($map->organs(), 'organ_id'),
+            'has_tests'   => array_column($map->organs(), 'organ_id'),
+            'wired'       => array_column($map->organs(), 'organ_id'),
+        ]);
+
+        self::assertSame(100.0, $view['completion_pct']);
+        self::assertSame($total, $view['total_organs']);
+        self::assertSame([], $view['missing_organs']);
+    }
 }

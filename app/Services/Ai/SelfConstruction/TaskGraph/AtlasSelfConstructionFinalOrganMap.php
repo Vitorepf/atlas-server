@@ -189,6 +189,47 @@ final class AtlasSelfConstructionFinalOrganMap
     }
 
     /**
+     * Compact completion view over the canonical organ map.
+     *
+     * INPUT:
+     *   implemented  — organ_ids with a shipped implementation
+     *   has_tests    — organ_ids with passing test coverage
+     *   wired        — organ_ids wired into the live runtime
+     *
+     * OUTPUT (facts-only, no decisions):
+     *   total_organs, implemented_organs, missing_organs,
+     *   missing_tests (implemented but no test), unwired_organs (implemented but not wired),
+     *   completion_pct (implemented / total * 100, two decimal places)
+     *
+     * @param  array{implemented?:list<string>, has_tests?:list<string>, wired?:list<string>}  $facts
+     * @return array<string,mixed>
+     */
+    public function coverageView(array $facts): array
+    {
+        $allIds = array_column($this->organs(), 'organ_id');
+        $implemented = array_values(array_intersect($allIds, (array) ($facts['implemented'] ?? [])));
+        $hasTests    = array_flip((array) ($facts['has_tests'] ?? []));
+        $wired       = array_flip((array) ($facts['wired'] ?? []));
+
+        $missing      = array_values(array_diff($allIds, $implemented));
+        $missingTests = array_values(array_filter($implemented, static fn (string $id): bool => ! isset($hasTests[$id])));
+        $unwired      = array_values(array_filter($implemented, static fn (string $id): bool => ! isset($wired[$id])));
+
+        $total = count($allIds);
+        $completionPct = $total > 0 ? round(count($implemented) / $total * 100, 2) : 0.0;
+
+        return [
+            'schema'              => self::SCHEMA,
+            'total_organs'        => $total,
+            'implemented_organs'  => $implemented,
+            'missing_organs'      => $missing,
+            'missing_tests'       => $missingTests,
+            'unwired_organs'      => $unwired,
+            'completion_pct'      => $completionPct,
+        ];
+    }
+
+    /**
      * @param  list<string>  $capabilities
      * @param  list<string>  $evidenceIds
      * @param  list<string>  $nonAuthorities
