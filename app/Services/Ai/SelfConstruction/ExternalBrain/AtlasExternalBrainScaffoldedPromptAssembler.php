@@ -6,19 +6,27 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
  * Pure deterministic assembler for scaffolded-model task-origination prompts.
- * Combines evidence intake, reasoning scaffold, anti-duplication checks, and
- * output contract into one structured prompt without calling providers.
+ * Combines evidence intake, ranking policy, live-queue snapshot, anti-duplication
+ * checks, forbidden output shapes, acceptance floor, budget guard, and output
+ * contract into one structured prompt without calling providers.
  *
- * AC3 — fail-closed when:
+ * Fail-closed when:
  *   - allow_direct_final_answer = true  (free-form answer must never be emitted)
  *   - evidence_intake is empty          (scaffold needs evidence to reason over)
+ *   - queued_targets key absent         (dedup state unknown; cannot prevent queue collisions)
  *
- * AC2 — on success, output includes:
- *   schema_version, prompt_sections (ordered), required_artifacts,
- *   anti_duplication_checks, max_context_budget_chars
+ * Prompt section order (deterministic):
+ *   1  evidence_intake
+ *   2  live_queue_snapshot
+ *   3  ranking_order
+ *   4  reasoning_scaffold
+ *   5  anti_duplication_check
+ *   6  forbidden_output_shapes
+ *   7  acceptance_floor
+ *   8  budget_guard
+ *   9  output_contract
  *
- * AC4 — pure PHP, no provider calls, no filesystem writes, no Artisan calls,
- *        no operator dependency.
+ * Pure / deterministic / no I/O.
  */
 final class AtlasExternalBrainScaffoldedPromptAssembler
 {
@@ -26,11 +34,15 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
 
     private const DEFAULT_CONTEXT_BUDGET_CHARS = 8_000;
 
-    // Ordered prompt section names
-    private const SECTION_EVIDENCE       = 'evidence_intake';
-    private const SECTION_SCAFFOLD       = 'reasoning_scaffold';
-    private const SECTION_DEDUP          = 'anti_duplication_check';
-    private const SECTION_OUTPUT_CONTRACT = 'output_contract';
+    private const SECTION_EVIDENCE         = 'evidence_intake';
+    private const SECTION_QUEUE_SNAPSHOT   = 'live_queue_snapshot';
+    private const SECTION_RANKING          = 'ranking_order';
+    private const SECTION_SCAFFOLD         = 'reasoning_scaffold';
+    private const SECTION_DEDUP            = 'anti_duplication_check';
+    private const SECTION_FORBIDDEN        = 'forbidden_output_shapes';
+    private const SECTION_ACCEPTANCE_FLOOR = 'acceptance_floor';
+    private const SECTION_BUDGET_GUARD     = 'budget_guard';
+    private const SECTION_OUTPUT_CONTRACT  = 'output_contract';
 
     private const REQUIRED_ARTIFACTS = [
         'task_spec_with_allowed_files',
@@ -46,37 +58,31 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
      *   allow_direct_final_answer?: bool,
      *   context_budget_chars?: int,
      * }  $input
-     * @return array{schema_version:string, assembled:bool, failure_reason:string|null, prompt_sections:list<array<string,string>>, required_artifacts:list<string>, anti_duplication_checks:list<string>, max_context_budget_chars:int}
+     * @return array<string,mixed>
      */
     public function assemble(array $input): array
     {
         $allowDirectAnswer = (bool)  ($input['allow_direct_final_answer'] ?? false);
         $evidenceIntake    = (array) ($input['evidence_intake']           ?? []);
-        $queuedTargets     = (array) ($input['queued_targets']            ?? []);
+        $dedupProvided     = array_key_exists('queued_targets', $input);
+        $queuedTargets     = $dedupProvided ? (array) $input['queued_targets'] : [];
         $budgetChars       = max(1, (int) ($input['context_budget_chars'] ?? self::DEFAULT_CONTEXT_BUDGET_CHARS));
 
-        $failureReason = $this->failCloseReason($allowDirectAnswer, $evidenceIntake);
+        $failureReason = $this->failCloseReason($allowDirectAnswer, $evidenceIntake, $dedupProvided);
         if ($failureReason !== null) {
             return $this->failed($failureReason, $budgetChars);
         }
 
         $sections = [
-            [
-                'section' => self::SECTION_EVIDENCE,
-                'content' => $this->renderEvidence($evidenceIntake, $budgetChars),
-            ],
-            [
-                'section' => self::SECTION_SCAFFOLD,
-                'content' => $this->renderScaffold(),
-            ],
-            [
-                'section' => self::SECTION_DEDUP,
-                'content' => $this->renderDedup($queuedTargets),
-            ],
-            [
-                'section' => self::SECTION_OUTPUT_CONTRACT,
-                'content' => $this->renderOutputContract(),
-            ],
+            ['section' => self::SECTION_EVIDENCE,         'content' => $this->renderEvidence($evidenceIntake, $budgetChars)],
+            ['section' => self::SECTION_QUEUE_SNAPSHOT,   'content' => $this->renderQueueSnapshot($queuedTargets)],
+            ['section' => self::SECTION_RANKING,          'content' => $this->renderRanking()],
+            ['section' => self::SECTION_SCAFFOLD,         'content' => $this->renderScaffold()],
+            ['section' => self::SECTION_DEDUP,            'content' => $this->renderDedup($queuedTargets)],
+            ['section' => self::SECTION_FORBIDDEN,        'content' => $this->renderForbidden()],
+            ['section' => self::SECTION_ACCEPTANCE_FLOOR, 'content' => $this->renderAcceptanceFloor()],
+            ['section' => self::SECTION_BUDGET_GUARD,     'content' => $this->renderBudgetGuard($budgetChars)],
+            ['section' => self::SECTION_OUTPUT_CONTRACT,  'content' => $this->renderOutputContract()],
         ];
 
         return [
@@ -90,13 +96,16 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
         ];
     }
 
-    private function failCloseReason(bool $allowDirectAnswer, array $evidence): ?string
+    private function failCloseReason(bool $allowDirectAnswer, array $evidence, bool $dedupProvided): ?string
     {
         if ($allowDirectAnswer) {
             return 'fail_closed:allow_direct_final_answer_is_true';
         }
         if ($evidence === []) {
             return 'fail_closed:evidence_intake_empty';
+        }
+        if (! $dedupProvided) {
+            return 'fail_closed:queued_target_dedup_missing';
         }
         return null;
     }
@@ -118,7 +127,7 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
     {
         $lines   = ['[EVIDENCE INTAKE — use as primary reasoning substrate]'];
         $chars   = 0;
-        $ceiling = (int) ($budget * 0.5); // evidence gets at most 50% of budget
+        $ceiling = (int) ($budget * 0.5);
 
         foreach ($evidenceItems as $i => $item) {
             $text = is_string($item) ? $item : (string) ($item['text'] ?? json_encode($item));
@@ -131,6 +140,30 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
         }
 
         return implode("\n", $lines);
+    }
+
+    private function renderQueueSnapshot(array $queuedTargets): string
+    {
+        if ($queuedTargets === []) {
+            return '[LIVE QUEUE SNAPSHOT — queue is currently empty; originate fresh tasks]';
+        }
+        $lines = ['[LIVE QUEUE SNAPSHOT — tasks already queued]'];
+        foreach ($queuedTargets as $target) {
+            $lines[] = '- ' . $target;
+        }
+        return implode("\n", $lines);
+    }
+
+    private function renderRanking(): string
+    {
+        return implode("\n", [
+            '[RANKING ORDER — apply this priority when selecting what to build next]',
+            '1. Tasks that unblock other queued work (dependency chains).',
+            '2. Tasks that add provable test coverage to uncovered branches.',
+            '3. Tasks that wire orphan organs (classes with zero consumers).',
+            '4. Tasks with the highest cyclomatic-complexity reduction potential.',
+            '5. Tasks that close a known gate weakness in the spec-mutation suite.',
+        ]);
     }
 
     private function renderScaffold(): string
@@ -155,6 +188,40 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
             $lines[] = '- ' . $target;
         }
         return implode("\n", $lines);
+    }
+
+    private function renderForbidden(): string
+    {
+        return implode("\n", [
+            '[FORBIDDEN OUTPUT SHAPES — violating any of these is an automatic rejection]',
+            '- Do NOT emit an objective using only generic phrases ("the service", "the case", "handle correctly", "make it work").',
+            '- Do NOT emit acceptance criteria that do not name the exact class or method under test.',
+            '- Do NOT emit a task that duplicates any entry in the LIVE QUEUE SNAPSHOT.',
+            '- Do NOT emit a task with fewer than 2 runnable acceptance criteria.',
+            '- Do NOT emit template-farm specs: every task must be unique and grounded in the evidence above.',
+        ]);
+    }
+
+    private function renderAcceptanceFloor(): string
+    {
+        return implode("\n", [
+            '[ACCEPTANCE FLOOR — every task spec you emit must clear all of these minimums]',
+            '- allowed_files must contain at least 1 non-test implementation file.',
+            '- At least 1 acceptance criterion must include a runnable command (/opt/homebrew/bin/php or vendor/bin/).',
+            '- required_evidence must include "tests_or_gates_result" or "implementation_notes".',
+            '- objective must name at least one PascalCase class (e.g. AtlasFooService).',
+        ]);
+    }
+
+    private function renderBudgetGuard(int $budgetChars): string
+    {
+        $evidenceCeiling = (int) ($budgetChars * 0.5);
+        return implode("\n", [
+            sprintf('[BUDGET GUARD — context budget: %d chars]', $budgetChars),
+            sprintf('- Evidence intake is capped at %d chars (50%% of budget).', $evidenceCeiling),
+            '- If you are near the budget ceiling, prioritize the highest-leverage task over completeness.',
+            '- Do not hallucinate facts to fill budget; truncate evidence instead.',
+        ]);
     }
 
     private function renderOutputContract(): string
