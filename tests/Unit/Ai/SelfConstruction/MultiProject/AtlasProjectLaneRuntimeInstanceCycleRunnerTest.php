@@ -113,6 +113,80 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunnerTest extends TestCase
         $this->assertNotEmpty(array_filter($out['withheld_actions'], static fn (array $w): bool => str_starts_with($w['reason'], 'write_root_outside_lane:')));
     }
 
+    public function test_dry_run_records_withheld_dry_run_actions_deterministically(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $outA = $runner->run($this->laneInstance(), $this->readyFacts(), []);
+        $outB = $runner->run($this->laneInstance(), $this->readyFacts(), []);
+
+        $this->assertTrue($outA['dry_run']);
+        $this->assertCount(1, $outA['withheld_actions']);
+        $this->assertSame('dry_run', $outA['withheld_actions'][0]['reason']);
+        $this->assertSame('native_lane_tick', $outA['withheld_actions'][0]['kind']);
+        $this->assertSame($outA['withheld_actions'], $outB['withheld_actions'], 'withheld_actions must be deterministic');
+    }
+
+    public function test_apply_lane_receipt_has_required_fields(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $out = $runner->run($this->laneInstance(), $this->readyFacts(), [
+            'apply' => true,
+            'action_callbacks' => ['native_lane_tick' => static fn (array $a): array => ['done' => true]],
+        ]);
+
+        $this->assertCount(1, $out['lane_receipts']);
+        $receipt = $out['lane_receipts'][0];
+        $this->assertSame('lane-x', $receipt['lane_id']);
+        $this->assertSame('demo', $receipt['project_id']);
+        $this->assertSame(64, strlen($receipt['action_hash']));
+        $this->assertSame(64, strlen($receipt['result_hash']));
+        $this->assertArrayHasKey('daemon_status', $receipt);
+    }
+
+    public function test_missing_namespace_action_is_withheld(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $out = $runner->run($this->laneInstance(), $this->readyFacts(['planned_actions' => [[
+            'kind' => 'native_lane_tick',
+            'lane_id' => 'lane-x',
+            'queue_namespace' => '',
+            'write_roots' => ['projects/demo/src/bar.php'],
+        ]]]), ['apply' => true, 'action_callbacks' => ['native_lane_tick' => static fn (): array => ['ok' => true]]]);
+
+        $this->assertSame([], $out['applied_actions']);
+        $reasons = array_column($out['withheld_actions'], 'reason');
+        $this->assertTrue(
+            (bool) array_filter($reasons, static fn (string $r): bool => str_starts_with($r, 'namespace_mismatch')),
+            'missing namespace must produce namespace_mismatch reason',
+        );
+    }
+
+    public function test_callback_exception_does_not_abort_sibling_allowed_actions(): void
+    {
+        $runner = new AtlasProjectLaneRuntimeInstanceCycleRunner;
+        $facts = $this->readyFacts(['planned_actions' => [
+            ['kind' => 'native_lane_tick', 'lane_id' => 'lane-x', 'queue_namespace' => 'demo.x', 'write_roots' => ['projects/demo/src/a.php']],
+            ['kind' => 'native_lane_tick', 'lane_id' => 'lane-x', 'queue_namespace' => 'demo.x', 'write_roots' => ['projects/demo/src/b.php']],
+        ]]);
+        $call = 0;
+        $out = $runner->run($this->laneInstance(), $facts, [
+            'apply' => true,
+            'action_callbacks' => [
+                'native_lane_tick' => function () use (&$call): array {
+                    $call++;
+                    if ($call === 1) {
+                        throw new \RuntimeException('first-action-boom');
+                    }
+                    return ['ok' => true];
+                },
+            ],
+        ]);
+
+        $this->assertCount(1, $out['blocked_actions'], 'first action must be blocked');
+        $this->assertCount(1, $out['applied_actions'], 'second action must still apply');
+        $this->assertSame('first-action-boom', $out['blocked_actions'][0]['error']);
+    }
+
     public function test_refused_action_kinds_never_fire(): void
     {
         $touched = false;

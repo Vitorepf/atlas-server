@@ -54,6 +54,10 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunner
 
         $plannedActions = array_values((array) ($facts['planned_actions'] ?? []));
 
+        $daemonCycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+        $daemonVerdict = $daemonCycle->tick($facts, ['apply' => false]);
+        $daemonStatus = (string) ($daemonVerdict['daemon_status'] ?? 'unknown');
+
         $applied = [];
         $blocked = [];
         $withheld = [];
@@ -103,20 +107,20 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunner
             }
             try {
                 $result = $cb($action, $instance);
-                $applied[] = ['kind' => $kind, 'result' => is_array($result) ? $result : ['ok' => true]];
+                $result = is_array($result) ? $result : ['ok' => true];
+                $applied[] = ['kind' => $kind, 'result' => $result];
                 $laneReceipts[] = [
                     'kind' => $kind,
                     'lane_id' => $laneId,
                     'project_id' => $projectId,
-                    'receipt_hash' => hash('sha256', (string) json_encode(['action' => $action, 'result' => $result], JSON_UNESCAPED_SLASHES)),
+                    'action_hash' => hash('sha256', (string) json_encode($action, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+                    'result_hash' => hash('sha256', (string) json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+                    'daemon_status' => $daemonStatus,
                 ];
             } catch (Throwable $e) {
                 $blocked[] = ['kind' => $kind, 'error' => $e->getMessage()];
             }
         }
-
-        $daemonCycle = new AtlasSelfConstructionRuntimeDaemonCycle;
-        $daemonVerdict = $daemonCycle->tick($facts, ['apply' => false]); // facts-only projection, never apply through here.
 
         $payload = [
             'schema_version' => self::SCHEMA,
@@ -129,7 +133,7 @@ final class AtlasProjectLaneRuntimeInstanceCycleRunner
             'blocked_actions' => $blocked,
             'withheld_actions' => $withheld,
             'lane_receipts' => $laneReceipts,
-            'daemon_status' => (string) ($daemonVerdict['daemon_status'] ?? 'unknown'),
+            'daemon_status' => $daemonStatus,
         ];
         $payload['runner_hash'] = $this->hash($payload);
 
