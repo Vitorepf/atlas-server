@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use Carbon\CarbonImmutable;
+
 /**
  * Pure, deterministic trust ranker for research source candidates.
  *
@@ -38,9 +40,11 @@ final class AtlasExternalBrainResearchSourceTrustRanker
     private const PENALTY_UNDATED        = 1.0;
     private const PENALTY_SOURCE_MISSING = 2.5;
 
+    private const STALE_DAYS_THRESHOLD = 180;
+
     /**
-     * @param  array{source_type?:string, has_concrete_claim?:bool, source_date?:string, has_source_url?:bool, is_hype_heavy?:bool, grounding?:string}  $candidate
-     * @return array{trust_score:float, trust_tier:string, use_decision:string, penalties:list<string>, grounding_requirements:list<string>}
+     * @param  array{source_type?:string, has_concrete_claim?:bool, source_date?:string, has_source_url?:bool, is_hype_heavy?:bool, grounding?:string, as_of?:string}  $candidate
+     * @return array{trust_score:float, trust_tier:string, use_decision:string, penalties:list<string>, grounding_requirements:list<string>, rejection_reasons:list<string>}
      */
     public function rank(array $candidate): array
     {
@@ -76,6 +80,14 @@ final class AtlasExternalBrainResearchSourceTrustRanker
         if ($dateStr === '') {
             $score -= self::PENALTY_UNDATED;
             $penalties[] = 'missing_source_date';
+        } else {
+            $sourceDate = CarbonImmutable::parse($dateStr);
+            $asOfStr = trim((string) ($candidate['as_of'] ?? ''));
+            $asOf = $asOfStr !== '' ? CarbonImmutable::parse($asOfStr) : CarbonImmutable::now();
+            if ($sourceDate->diffInDays($asOf, false) > self::STALE_DAYS_THRESHOLD) {
+                $score -= self::PENALTY_STALE;
+                $penalties[] = 'stale_source';
+            }
         }
 
         if (($candidate['has_source_url'] ?? true) === false) {
@@ -107,12 +119,23 @@ final class AtlasExternalBrainResearchSourceTrustRanker
             default       => self::USE_REJECT,
         };
 
+        $rejectionReasons = [];
+        if ($useDecision === self::USE_REJECT) {
+            if ($score < 3.0) {
+                $rejectionReasons[] = 'trust_score_below_admission_floor';
+            }
+            foreach (array_unique($penalties) as $p) {
+                $rejectionReasons[] = 'penalty:'.$p;
+            }
+        }
+
         return [
             'trust_score'           => $score,
             'trust_tier'            => $tier,
             'use_decision'          => $useDecision,
             'penalties'             => array_values(array_unique($penalties)),
             'grounding_requirements' => array_values(array_unique($groundingReqs)),
+            'rejection_reasons'     => array_values(array_unique($rejectionReasons)),
         ];
     }
 }

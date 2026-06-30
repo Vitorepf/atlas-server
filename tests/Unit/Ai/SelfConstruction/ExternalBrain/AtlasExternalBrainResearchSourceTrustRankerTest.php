@@ -84,9 +84,62 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
     {
         $r = $this->ranker()->rank(['source_type' => 'blog', 'source_date' => '2026-01-01']);
 
-        foreach (['trust_score', 'trust_tier', 'use_decision', 'penalties', 'grounding_requirements'] as $key) {
+        foreach (['trust_score', 'trust_tier', 'use_decision', 'penalties', 'grounding_requirements', 'rejection_reasons'] as $key) {
             $this->assertArrayHasKey($key, $r, "missing key: {$key}");
         }
+    }
+
+    // ── staleness penalty ─────────────────────────────────────────────────────
+
+    public function test_stale_source_is_penalized(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'source_date' => '2025-01-01',
+            'as_of' => '2026-06-30',
+        ]);
+
+        $this->assertContains('stale_source', $r['penalties']);
+    }
+
+    public function test_recent_source_is_not_penalized_for_staleness(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'source_date' => '2026-06-01',
+            'as_of' => '2026-06-30',
+        ]);
+
+        $this->assertNotContains('stale_source', $r['penalties']);
+    }
+
+    // ── rejection_reasons ─────────────────────────────────────────────────────
+
+    public function test_rejected_candidate_has_non_empty_rejection_reasons(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'generic_summary',
+            'has_source_url' => false,
+            'source_date' => '',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainResearchSourceTrustRanker::USE_REJECT, $r['use_decision']);
+        $this->assertNotEmpty($r['rejection_reasons']);
+    }
+
+    public function test_adopted_candidate_has_empty_rejection_reasons(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+            'as_of' => '2026-06-30',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
+        $this->assertSame([], $r['rejection_reasons']);
     }
 
     // ── AC4: deterministic ───────────────────────────────────────────────────
