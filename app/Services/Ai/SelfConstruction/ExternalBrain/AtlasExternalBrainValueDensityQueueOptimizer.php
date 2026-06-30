@@ -85,9 +85,13 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
         $densityFloor = (float) ($input['value_density_floor'] ?? self::DEFAULT_CANDIDATE_DENSITY_FLOOR);
         $claimableCount = max(0, (int) ($input['claimable_count'] ?? 0));
         $capacity = max(1, (int) ($input['capacity'] ?? 1));
+        $workerFloor = max(0, (int) ($input['worker_floor'] ?? 0));
+        $starvationImminent = $claimableCount < $workerFloor;
 
         $queuePressure = round($claimableCount / $capacity, 4);
-        $cutoff = round($densityFloor + max(0.0, $queuePressure - 1.0) * self::PRESSURE_CUTOFF_RAISE_PER_UNIT, 6);
+        $cutoff = $starvationImminent
+            ? round($densityFloor, 6)
+            : round($densityFloor + max(0.0, $queuePressure - 1.0) * self::PRESSURE_CUTOFF_RAISE_PER_UNIT, 6);
 
         $ranked = [];
         foreach ($rawCandidates as $candidate) {
@@ -103,6 +107,7 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
             $implementationMinutes = max(1.0, (float) ($candidate['implementation_size'] ?? self::DEFAULT_IMPLEMENTATION_MINUTES));
             $implementationHours = max(0.1, $implementationMinutes / 60.0);
             $isCriticalBlockerRemoval = (bool) ($candidate['is_critical_blocker_removal'] ?? false);
+            $replenishesWorkerCapacity = (bool) ($candidate['replenishes_worker_capacity'] ?? false);
 
             $valueDensity = round(
                 ($impact * 0.4 + $unlockScore * 0.3 + $riskReduction * 0.3) / $implementationHours,
@@ -110,10 +115,12 @@ final class AtlasExternalBrainValueDensityQueueOptimizer
             );
 
             $meetsCutoff = $valueDensity >= $cutoff;
-            $decision = ($meetsCutoff || $isCriticalBlockerRemoval) ? self::DECISION_ENQUEUE : self::DECISION_DEFER;
+            $clearsBaseFloorForStarvation = $starvationImminent && $replenishesWorkerCapacity && $valueDensity >= $densityFloor;
+            $decision = ($meetsCutoff || $isCriticalBlockerRemoval || $clearsBaseFloorForStarvation) ? self::DECISION_ENQUEUE : self::DECISION_DEFER;
             $decisionReason = match (true) {
                 $isCriticalBlockerRemoval && ! $meetsCutoff => 'critical_blocker_removal_preserved_despite_low_density',
                 $meetsCutoff => 'value_density_meets_cutoff',
+                $clearsBaseFloorForStarvation => 'worker_starvation_capacity_replenishment_preserved',
                 default => 'value_density_below_cutoff_deferred',
             };
 
