@@ -81,6 +81,19 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
         $this->assertContains('readiness:admission_failed', $verdict['blockers']);
     }
 
+    public function test_incomplete_when_readiness_state_is_absent(): void
+    {
+        // readiness policy with no 'state' key — defaults to 'unknown', must NOT pass to COMPLETE
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['blockers' => []], // no 'state' key
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('readiness:unknown', $verdict['blockers'], 'absent readiness state must produce a blocker');
+    }
+
     public function test_asks_for_human_is_always_false(): void
     {
         $svc = new AtlasSelfConstructionFinalAutonomyVerdict;

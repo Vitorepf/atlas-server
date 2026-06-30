@@ -67,8 +67,8 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions);
         }
 
-        // INCOMPLETE — atlas_native AND not blocked, but still untransitioned deps OR readiness on hold.
-        if ($untransitioned !== [] || $readinessState === 'hold') {
+        // INCOMPLETE — atlas_native AND not blocked, but untransitioned deps OR readiness not explicitly ready.
+        if ($untransitioned !== [] || $readinessState !== 'ready') {
             foreach ($untransitioned as $u) {
                 $blockers[] = 'untransitioned:'.(string) ($u['step_id'] ?? '');
             }
@@ -77,6 +77,9 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
                 foreach ($readinessBlockers as $b) {
                     $blockers[] = 'readiness_hold:'.(string) $b;
                 }
+            } elseif ($readinessState !== 'ready') {
+                // 'unknown' or any other non-explicit state: gate must not pass
+                $blockers[] = 'readiness:'.$readinessState;
             }
             foreach ($replacements as $r) {
                 $nextActions[] = (string) ($r['task_fabric_action'] ?? '');
