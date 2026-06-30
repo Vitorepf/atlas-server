@@ -1,0 +1,217 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to function is_int\(\) with int will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Http/Controllers/AtlasDev/CancelController.php
+
+		-
+			message: '#^Instanceof between App\\Models\\AtlasProgrammingStageReceipt and App\\Models\\AtlasProgrammingStageReceipt will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/ContinuationPack/DevContinuationPackBuilder.php
+
+		-
+			message: '#^Property App\\Services\\Ai\\Programming\\AtlasDev\\Differential\\Shadow\\ShadowDiffService\:\:\$phpBinary is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Differential/Shadow/ShadowDiffService.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between non\-falsy\-string and '''' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Differential/Shadow/ShadowDiffSymbolExtractor.php
+
+		-
+			message: '#^Offset ''symbols'' on array\{path\: mixed, reason\: mixed, confidence\: mixed, symbols\: list\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php
+
+		-
+			message: '#^Parameter \#1 \$array \(non\-empty\-list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Discovery/CodeDiscoveryEngine.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Discovery/OpenBrainProjectionAdapter.php
+
+		-
+			message: '#^Variable \$normalisedFallback might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Gate/PatchApplier.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<mixed\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Gate/ScopeContractFeasibilityClassifier.php
+
+		-
+			message: '#^Variable \$unmatchedProductionFiles in PHPDoc tag @var does not match assigned variable \$unmatched\.$#'
+			identifier: varTag.differentVariable
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Intelligence/TestSelectionIntelligenceService.php
+
+		-
+			message: '#^Offset 1 on array\{string, non\-falsy\-string, non\-empty\-string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Pipeline/PlanOnlyResult.php
+
+		-
+			message: '#^Offset 2 on array\{string, non\-falsy\-string, non\-empty\-string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Pipeline/PlanOnlyResult.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<string\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Pipeline/PlanOnlyResult.php
+
+		-
+			message: '#^Property App\\Models\\AtlasProgrammingWorkItem\:\:\$plan_json \(string\) does not accept array\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/PlanVisible/AtlasDevPlanProjectionService.php
+
+		-
+			message: '#^Cannot unset offset ''generated_at'' on array\{schema_version\: ''atlas\.programming…'', run_id\: string, task_contract_hash\: string, risk_level\: string, attempt_count\: int\<0, max\>, attempts_allowed\: int, outcome\: string, failure_capture\: array\<string, mixed\>, \.\.\.\}\.$#'
+			identifier: unset.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>failureSignature" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php
+
+		-
+			message: '#^Offset ''status'' on array\{case_id\: ''frontend_case'', task_kind\: ''frontend'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''blocked''\|''passed'', blocking_findings\: array, write_command\: string, \.\.\.\}\|array\{case_id\: ''frontend_case'', task_kind\: ''frontend'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''missing'', blocking_findings\: array\{''source_missing''\}, write_command\: string\}\|array\{case_id\: ''patch_case'', task_kind\: ''patch'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''blocked''\|''passed'', blocking_findings\: array, write_command\: string, \.\.\.\}\|array\{case_id\: ''patch_case'', task_kind\: ''patch'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''missing'', blocking_findings\: array\{''source_missing''\}, write_command\: string\}\|array\{case_id\: ''question_case'', task_kind\: ''question'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''blocked''\|''passed'', blocking_findings\: array, write_command\: string, \.\.\.\}\|array\{case_id\: ''question_case'', task_kind\: ''question'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''missing'', blocking_findings\: array\{''source_missing''\}, write_command\: string\}\|array\{case_id\: ''repair_case'', task_kind\: ''repair'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''blocked''\|''passed'', blocking_findings\: array, write_command\: string, \.\.\.\}\|array\{case_id\: ''repair_case'', task_kind\: ''repair'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''missing'', blocking_findings\: array\{''source_missing''\}, write_command\: string\}\|array\{case_id\: ''review_case'', task_kind\: ''review'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''blocked''\|''passed'', blocking_findings\: array, write_command\: string, \.\.\.\}\|array\{case_id\: ''review_case'', task_kind\: ''review'', participant\: ''atlas''\|''claude_code''\|''codex'', ref\: ''desktop_efficiency…'', task_prompt_sha256\: non\-falsy\-string, status\: ''missing'', blocking_findings\: array\{''source_missing''\}, write_command\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 2
+			path: app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between array\{claude_code\: float, codex\: float\} and array\{\} will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Runtime/AtlasDevDesktopEfficiencyEvidenceService.php
+
+		-
+			message: '#^Offset ''pid'' on array\{command\: string, pid\: int, running\: bool, signaled\: bool, stopped\: bool, exitcode\: int, termsig\: int, stopsig\: int\} in isset\(\) always exists and is not nullable\.$#'
+			identifier: isset.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Runtime/ProcOpenRunWorkerDispatcher.php
+
+		-
+			message: '#^Constant App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\CompactSdd\:\:HASH_FIELD is unused\.$#'
+			identifier: classConstant.unused
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Schemas/CompactSdd.php
+
+		-
+			message: '#^Offset ''blocker''\|''critical''\|''high''\|''info''\|''low''\|''medium'' on array\{blocker\: 0, critical\: 1, high\: 2, medium\: 3, low\: 4, info\: 5\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Schemas/Components/ReviewFinding.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$values with type mixed is not subtype of native type array\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Schemas/PatchIntelligenceReceipt.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-empty\-array\<mixed, mixed\> and array\{\} will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Schemas/Support/AtlasDevSchemaArray.php
+
+		-
+			message: '#^Cannot call method isPast\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Security/ConfirmationTokenService.php
+
+		-
+			message: '#^Access to property \$attemptIndex on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Access to property \$capsuleHash on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Access to property \$decision on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Access to property \$failureSignature on an unknown class App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\SeniorEngineerLoopExecutionReporter\:\:exitCode\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\SeniorEngineerLoopExecutionReporter\:\:writeFailureCapsuleIfNeeded\(\) has invalid return type App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Method App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\SeniorEngineerLoopExecutionReporter\:\:writeFailureCapsuleIfNeeded\(\) should return array\{App\\Services\\Ai\\Programming\\AtlasDev\\SeniorLoop\\FailureCapsule\|null, string\|null\} but returns array\{App\\Services\\Ai\\Programming\\AtlasDev\\Schemas\\FailureCapsule, string\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutionReporter.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Support/AtlasDevProcessEnvironment.php
+
+		-
+			message: '#^Offset ''dir'' on array\{name\: string, passwd\: string, uid\: int, gid\: int, gecos\: string, dir\: string, shell\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Support/AtlasDevProcessEnvironment.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-empty\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Services/Ai/Programming/AtlasDev/Surface/HttpResponseRedactor.php

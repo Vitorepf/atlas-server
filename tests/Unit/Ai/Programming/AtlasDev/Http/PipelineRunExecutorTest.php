@@ -556,7 +556,16 @@ DIFF;
         $this->assertSame('cursor_cli', $result->providerCallSummary['provider']);
         $this->assertSame('composer-2.5-fast', $result->providerCallSummary['model_family']);
         $this->assertSame(1, $result->providerCallSummary['provider_calls']);
-        $this->assertSame('passed', $result->completionState);
+        // M1 critic-provider-agnostic: the senior critic now runs for ANY
+        // locked provider after a passed gate (not only hermes). The
+        // cursor_cli diff touches app/Foo.php with no matching test, so the
+        // critic flags a test_gap (STATUS_REVIEWED) and CompletionStateGate
+        // honestly downgrades PASSED -> needs_review. The pre-M1 `passed`
+        // assertion relied on the critic being skipped for non-hermes (the
+        // hole this feature closes). The provider-lock contract (cursor_cli
+        // dispatched, no Claude call, patch applied) still holds.
+        $this->assertSame('needs_review', $result->completionState);
+        $this->assertSame('reviewed', $result->providerCallSummary['critic_status']);
         $this->assertStringContainsString("return 'after';", (string) file_get_contents($target));
         $promptArg = (string) end($capturedArgv);
         $this->assertStringContainsString('Open .atlas/provider-prompts/cursor-cli/', $promptArg);
@@ -732,12 +741,21 @@ DIFF;
         $this->assertSame('codex_cli', $result->providerCallSummary['provider']);
         $this->assertSame('gpt-5.5', $result->providerCallSummary['model_family']);
         $this->assertSame(1, $result->providerCallSummary['provider_calls']);
-        $this->assertSame('passed', $result->completionState, json_encode([
+        // M1 critic-provider-agnostic: the senior critic now runs for ANY
+        // locked provider after a passed gate (not only hermes). The
+        // codex_cli diff touches app/Foo.php with no matching test, so the
+        // critic flags a test_gap (STATUS_REVIEWED) and CompletionStateGate
+        // honestly downgrades PASSED -> needs_review. The pre-M1 `passed`
+        // assertion relied on the critic being skipped for non-hermes (the
+        // hole this feature closes). The provider-lock contract (codex_cli
+        // dispatched, no Claude call, patch applied) still holds.
+        $this->assertSame('needs_review', $result->completionState, json_encode([
             'provider' => $result->providerCallSummary,
             'diff' => $result->diffParseSummary,
             'scope_guard_status' => $result->scopeGuardStatus,
             'verification_status' => $result->verificationStatus,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->assertSame('reviewed', $result->providerCallSummary['critic_status']);
         $this->assertStringContainsString("return 'after-codex';", (string) file_get_contents($target));
         $this->assertContains('exec', $capturedArgv);
         $this->assertContains('--skip-git-repo-check', $capturedArgv);
