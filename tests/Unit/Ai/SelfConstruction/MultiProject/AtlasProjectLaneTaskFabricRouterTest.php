@@ -26,7 +26,7 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
             'objective' => 'improve foo',
             'allowed_files' => ['/repos/atlas-server/app/Foo.php', '/repos/atlas-server/tests/FooTest.php'],
             'scope_in' => ['/repos/atlas-server/app/Foo.php'],
-            'acceptance_criteria' => ['exit 0 on green'],
+            'acceptance_criteria' => ['php artisan test --filter=FooTest exits 0'],
             'required_evidence' => ['php artisan test'],
         ];
     }
@@ -149,11 +149,11 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
     public function test_acceptance_and_evidence_fields_are_preserved(): void
     {
         $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate([
-            'acceptance_criteria' => ['A', 'B', 'C'],
+            'acceptance_criteria' => ['A', 'B', 'php artisan test C'],
             'required_evidence' => ['lint', 'phpunit', 'mutop'],
         ]));
 
-        $this->assertSame(['A', 'B', 'C'], $out['acceptance_criteria']);
+        $this->assertSame(['A', 'B', 'php artisan test C'], $out['acceptance_criteria']);
         $this->assertSame(['lint', 'phpunit', 'mutop'], $out['required_evidence']);
     }
 
@@ -238,5 +238,140 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
         foreach (['objective', 'allowed_files', 'scope_in', 'acceptance_criteria', 'required_evidence', 'workspace_policy'] as $key) {
             $this->assertArrayHasKey($key, $out, "top-level field missing: {$key}");
         }
+    }
+
+    // ── AC: project_lane_proof_contract carries queue_namespace, context_freshness,
+    //        runnable_acceptance, required_evidence, cross_project_leak_guard ──────
+
+    public function test_proof_contract_has_hardening_fields(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate());
+        $contract = $out['project_lane_proof_contract'];
+
+        foreach (['queue_namespace', 'context_freshness', 'runnable_acceptance', 'required_evidence', 'cross_project_leak_guard'] as $key) {
+            $this->assertArrayHasKey($key, $contract, "proof contract missing key: {$key}");
+        }
+        $this->assertTrue($contract['runnable_acceptance']);
+    }
+
+    public function test_proof_contract_uses_lane_namespace_when_provided(): void
+    {
+        $lane = $this->lane();
+        $lane['namespace'] = 'lane.atlas-server.abcd1234.main';
+
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($lane, $this->candidate());
+
+        $this->assertSame('lane.atlas-server.abcd1234.main', $out['project_lane_proof_contract']['queue_namespace']);
+    }
+
+    // ── AC: stale context is rejected ─────────────────────────────────────────
+
+    public function test_stale_context_is_rejected(): void
+    {
+        $lane = $this->lane();
+        $lane['context_freshness'] = ['conformant' => false, 'blockers' => ['docs_sync_stale']];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/stale_context/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($lane, $this->candidate());
+    }
+
+    public function test_conformant_context_freshness_is_accepted_and_passed_through(): void
+    {
+        $lane = $this->lane();
+        $lane['context_freshness'] = ['conformant' => true, 'blockers' => []];
+
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($lane, $this->candidate());
+
+        $this->assertSame(['conformant' => true, 'blockers' => []], $out['project_lane_proof_contract']['context_freshness']);
+    }
+
+    // ── AC: namespace mismatch is rejected ────────────────────────────────────
+
+    public function test_namespace_mismatch_is_rejected(): void
+    {
+        $lane = $this->lane();
+        $lane['namespace'] = 'lane.atlas-server.abcd1234.main';
+
+        $candidate = $this->candidate(['task_packet_id' => 'lane.other-project.ffff0000.main:do-thing']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/namespace_mismatch/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($lane, $candidate);
+    }
+
+    public function test_matching_namespace_prefix_is_accepted(): void
+    {
+        $lane = $this->lane();
+        $lane['namespace'] = 'lane.atlas-server.abcd1234.main';
+
+        $candidate = $this->candidate(['task_packet_id' => 'lane.atlas-server.abcd1234.main:do-thing']);
+
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($lane, $candidate);
+        $this->assertNotEmpty($out['task_packet_id']);
+    }
+
+    // ── AC: empty/non-runnable evidence and acceptance are rejected ──────────
+
+    public function test_acceptance_criteria_without_runnable_signal_is_rejected(): void
+    {
+        $candidate = $this->candidate(['acceptance_criteria' => ['looks good to me']]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/acceptance_criteria_not_runnable/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    public function test_empty_required_evidence_is_rejected(): void
+    {
+        $candidate = $this->candidate(['required_evidence' => []]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/required_evidence/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    // ── AC: provider/human steady-state dependency markers are rejected ──────
+
+    public function test_requires_operator_marker_is_rejected(): void
+    {
+        $candidate = $this->candidate(['requires_operator' => true]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/provider_or_human_dependency_marker_present/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    public function test_requires_human_marker_is_rejected(): void
+    {
+        $candidate = $this->candidate(['requires_human' => true]);
+
+        $this->expectException(RuntimeException::class);
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    public function test_requires_external_provider_marker_is_rejected(): void
+    {
+        $candidate = $this->candidate(['requires_external_provider' => true]);
+
+        $this->expectException(RuntimeException::class);
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    public function test_non_atlas_native_steady_state_owner_is_rejected(): void
+    {
+        $candidate = $this->candidate(['steady_state_runtime_owner' => 'human_operator']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/non_atlas_native_steady_state_owner/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    public function test_atlas_native_steady_state_owner_is_accepted(): void
+    {
+        $candidate = $this->candidate(['steady_state_runtime_owner' => 'atlas_native']);
+
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+        $this->assertNotEmpty($out['task_packet_id']);
     }
 }
