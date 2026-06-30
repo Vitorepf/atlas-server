@@ -205,4 +205,65 @@ final class AtlasProjectLaneRuntimeInstanceSoakTest extends TestCase
         $this->assertContains('external_provider', $deps);
         $this->assertFalse($verdict['passed']);
     }
+
+    public function test_task_packet_id_from_sibling_lane_is_refused_as_leak(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceSoak)->run([
+            $this->instanceA(),
+            $this->instanceB(),
+        ], [
+            'scripts' => [
+                'lane-a' => [[
+                    'type' => 'tick',
+                    'action' => $this->action('lane-a', 'pa.ns', 'projects/pa/src/x', ['task_packet_id' => 'lane-b-pkt-from-a']),
+                ]],
+                'lane-b' => [['type' => 'tick', 'action' => $this->action('lane-b', 'pb.ns', 'projects/pb/src/y')]],
+            ],
+        ]);
+
+        $kinds = array_column($verdict['leak_attempts'], 'kind');
+        $this->assertContains('task_packet_id_leak', $kinds);
+        $this->assertFalse($verdict['passed']);
+    }
+
+    public function test_knowledge_sync_ref_from_sibling_lane_is_refused_as_leak(): void
+    {
+        $verdict = (new AtlasProjectLaneRuntimeInstanceSoak)->run([
+            $this->instanceA(),
+            $this->instanceB(),
+        ], [
+            'scripts' => [
+                'lane-a' => [[
+                    'type' => 'tick',
+                    'action' => $this->action('lane-a', 'pa.ns', 'projects/pa/src/x', ['knowledge_sync_ref' => 'lane-b-ks-cross']),
+                ]],
+                'lane-b' => [['type' => 'tick', 'action' => $this->action('lane-b', 'pb.ns', 'projects/pb/src/y')]],
+            ],
+        ]);
+
+        $kinds = array_column($verdict['leak_attempts'], 'kind');
+        $this->assertContains('knowledge_sync_ref_leak', $kinds);
+        $this->assertFalse($verdict['passed']);
+    }
+
+    public function test_dependency_violations_are_deterministic(): void
+    {
+        $options = [
+            'scripts' => [
+                'lane-a' => [[
+                    'type' => 'tick',
+                    'action' => $this->action('lane-a', 'pa.ns', 'projects/pa/src/x', ['steady_state_dependencies' => ['claude_code', 'codex']]),
+                ]],
+            ],
+        ];
+
+        $a = (new AtlasProjectLaneRuntimeInstanceSoak)->run([$this->instanceA()], $options);
+        $b = (new AtlasProjectLaneRuntimeInstanceSoak)->run([$this->instanceA()], $options);
+
+        $this->assertFalse($a['passed']);
+        $this->assertSame($a['dependency_violations'], $b['dependency_violations'], 'dependency_violations must be deterministic');
+        $deps = array_column($a['dependency_violations'], 'dependency');
+        $this->assertContains('claude_code', $deps);
+        $this->assertContains('codex', $deps);
+    }
 }
