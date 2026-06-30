@@ -137,6 +137,40 @@ class AtlasSelfConstructionAtlasNativeDossierExporterTest extends TestCase
         self::assertSame($a['dossier_id'], $b['dossier_id']);
     }
 
+    public function test_missing_proof_section_is_listed_as_blocker(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['evidence_facts']['native_worker_readiness'] = false;
+
+        $dossier = (new AtlasSelfConstructionAtlasNativeDossierExporter)->export($facts);
+
+        self::assertContains('missing_proof_section:native_worker', $dossier['blockers']);
+        self::assertFalse($dossier['evidence_sections']['native_worker']);
+    }
+
+    public function test_complete_proof_sections_export_stable_dossier_hash(): void
+    {
+        $exporter = new AtlasSelfConstructionAtlasNativeDossierExporter();
+        $a = $exporter->export($this->readyFacts());
+        $b = $exporter->export($this->readyFacts());
+
+        self::assertArrayHasKey('dossier_hash', $a);
+        self::assertSame(64, strlen($a['dossier_hash']));
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $a['dossier_hash']);
+        self::assertSame($a['dossier_hash'], $b['dossier_hash']);
+        self::assertSame([], $a['blockers']);
+    }
+
+    public function test_no_percent_ready_or_scalar_hype_score_in_dossier(): void
+    {
+        $dossier = (new AtlasSelfConstructionAtlasNativeDossierExporter)->export($this->readyFacts());
+        $json = strtolower((string) json_encode($dossier));
+
+        self::assertStringNotContainsString('percent', $json);
+        self::assertStringNotContainsString('hype', $json);
+        self::assertStringNotContainsString('%', $json);
+    }
+
     /**
      * @return array<string,mixed>
      */

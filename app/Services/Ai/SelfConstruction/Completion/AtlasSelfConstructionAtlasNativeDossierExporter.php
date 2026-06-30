@@ -24,6 +24,22 @@ final class AtlasSelfConstructionAtlasNativeDossierExporter
 {
     public const SCHEMA = 'atlas.self_construction.atlas_native_dossier.v1';
 
+    /**
+     * Boolean proof sections — when false, emits missing_proof_section:<key> blocker.
+     *
+     * @var array<string,string>  section_key => evidence_facts field
+     */
+    private const PROOF_SECTION_BOOL_FIELDS = [
+        'queue_health' => 'serving_queue_health',
+        'native_worker' => 'native_worker_readiness',
+        'verification_court' => 'verification_court_readiness',
+        'merge_governor' => 'merge_governor_readiness',
+        'rollback' => 'rollback_readiness',
+        'learning' => 'learning_transfer_readiness',
+        'code_index' => 'code_index_readiness',
+        'multi_project_lanes' => 'multi_project_lane_readiness',
+    ];
+
     /** @var list<string> Mandatory Atlas-native evidence sections (no human/external provider fields). */
     public const MANDATORY_FIELDS = [
         'owner',
@@ -93,22 +109,32 @@ final class AtlasSelfConstructionAtlasNativeDossierExporter
             'evidence_source_coverage' => $this->evidenceSourceCoverage($finalization),
         ];
 
-        $dossierId = $this->dossierId($finalState, $blockers, $sections);
+        $proofBlockers = [];
+        foreach (self::PROOF_SECTION_BOOL_FIELDS as $sectionKey => $evidenceKey) {
+            if (! (bool) ($evidence[$evidenceKey] ?? false)) {
+                $proofBlockers[] = 'missing_proof_section:'.$sectionKey;
+            }
+        }
+        $allBlockers = array_values(array_unique(array_merge($blockers, $proofBlockers)));
+
+        $dossierId = $this->dossierId($finalState, $allBlockers, $sections);
+        $dossierHash = $this->dossierHash($finalState, $allBlockers, $sections);
 
         return [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
             'dossier_id' => $dossierId,
+            'dossier_hash' => $dossierHash,
             'final_state' => $finalState,
             'mandatory_fields' => self::MANDATORY_FIELDS,
             'evidence_sections' => $sections,
-            'blockers' => $blockers,
+            'blockers' => $allBlockers,
             'receipts' => $sections['receipts'],
             'proof_summary' => sprintf(
                 'final_state=%s sections=%d blockers=%d',
                 $finalState,
                 count(self::MANDATORY_FIELDS),
-                count($blockers),
+                count($allBlockers),
             ),
         ];
     }
@@ -200,14 +226,22 @@ final class AtlasSelfConstructionAtlasNativeDossierExporter
         ];
     }
 
-    private function dossierId(string $finalState, array $blockers, array $sections): string
+    private function canonicalJson(string $finalState, array $blockers, array $sections): string
     {
-        $canonical = json_encode([
+        return (string) json_encode([
             'final_state' => $finalState,
             'blockers' => $blockers,
             'sections' => $sections,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
 
-        return 'atlas-dossier_'.substr(hash('sha256', (string) $canonical), 0, 24);
+    private function dossierId(string $finalState, array $blockers, array $sections): string
+    {
+        return 'atlas-dossier_'.substr(hash('sha256', $this->canonicalJson($finalState, $blockers, $sections)), 0, 24);
+    }
+
+    private function dossierHash(string $finalState, array $blockers, array $sections): string
+    {
+        return hash('sha256', $this->canonicalJson($finalState, $blockers, $sections));
     }
 }
