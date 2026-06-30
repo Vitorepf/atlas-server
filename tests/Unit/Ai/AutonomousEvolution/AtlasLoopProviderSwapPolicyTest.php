@@ -152,6 +152,17 @@ final class AtlasLoopProviderSwapPolicyTest extends TestCase
         $this->assertSame('codex', $policy->activeProvider('camp-revert', 'codex'));
     }
 
+    public function test_single_failed_sample_does_not_evict_provider(): void
+    {
+        $probe = $this->probe();
+        $this->seedSamples($probe, 'codex', ok: false, latencyMs: 500, n: 1); // 0/1 — below min-sample floor
+
+        $decision = $this->policy($probe)->decide('camp-minsample', 'codex', ['minimax']);
+
+        $this->assertSame('hold', $decision['action'], 'a single failed sample must not evict the provider');
+        $this->assertSame('codex', $decision['from_provider']);
+    }
+
     public function test_empty_fallback_chain_is_a_noop_hold(): void
     {
         $probe = $this->probe();

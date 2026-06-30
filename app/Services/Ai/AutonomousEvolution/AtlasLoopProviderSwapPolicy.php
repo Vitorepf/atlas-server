@@ -122,6 +122,7 @@ final class AtlasLoopProviderSwapPolicy
     {
         $p95Ceiling = max(1, (int) config('atlas.loop.provider_swap.p95_ceiling_ms', 120000));
         $okFloor = (float) config('atlas.loop.provider_swap.ok_rate_floor', 0.6);
+        $okMinSamples = max(1, (int) config('atlas.loop.provider_swap.ok_rate_min_samples', 5));
         $breakerThreshold = max(1, (int) config('atlas.loop.provider_swap.degrade_rounds', 3));
 
         $snapshot = ($this->probe ?? new AtlasLoopProviderHealthProbe)->snapshot($providerKey, $windowSeconds);
@@ -132,10 +133,13 @@ final class AtlasLoopProviderSwapPolicy
             if ((int) ($snapshot['p95_ms'] ?? 0) > $p95Ceiling) {
                 return ['degraded' => true, 'reason' => 'p95_breach'];
             }
-            $ok = (int) ($snapshot['ok_count'] ?? 0);
-            $okRate = $samples > 0 ? $ok / $samples : 1.0;
-            if ($okRate < $okFloor) {
-                return ['degraded' => true, 'reason' => 'ok_rate_breach'];
+            // Require a minimum-sample floor before ok-rate can declare a breach;
+            // a single failed call (0/1) must not evict a healthy provider on noise.
+            if ($samples >= $okMinSamples) {
+                $ok = (int) ($snapshot['ok_count'] ?? 0);
+                if (($ok / $samples) < $okFloor) {
+                    return ['degraded' => true, 'reason' => 'ok_rate_breach'];
+                }
             }
         }
 
