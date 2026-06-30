@@ -70,6 +70,17 @@ final class PipelineRunExecutorTest extends TestCase
         // cursor/codex provider branches, not E3. (m2-e3-mutation)
         config()->set('atlas_dev.elevations.e3.mode', 'off');
 
+        // E6 spec-constitution gate is off for these fixtures: the tests use
+        // fixtures that touch `app/Foo.php` (or similar) which is NOT in the
+        // default mini_programming_spec's allowed_files (the spec scopes to
+        // app/Services/Ai/Cli/AtlasCliDevWorkflowService.php). With e6.mode=
+        // advisory (the M2 default), E6's out-of-spec scope-creep check
+        // would fire spec_constitution_violation and downgrade the completion
+        // to needs_review independently of the behavior under test. These
+        // tests cover F-03 receipt routing and the cursor/codex provider
+        // branches, not E6. (m2-e6-constitution-gate)
+        config()->set('atlas_dev.elevations.e6.mode', 'off');
+
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-exec-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
 

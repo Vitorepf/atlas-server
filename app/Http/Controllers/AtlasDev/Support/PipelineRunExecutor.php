@@ -39,6 +39,7 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
+use App\Services\Ai\Programming\AtlasDev\Probe\SpecDrivenConstitutionGate;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
@@ -769,6 +770,95 @@ final class PipelineRunExecutor implements RunExecutor
                     }
                 }
             }
+        }
+
+        // E6: Spec-Driven Constitution Gate — validates the diff's touched
+        // files against the task's MiniProgrammingSpec (the task's
+        // constitution): acceptance criteria honored, non-goals respected,
+        // forbidden files respected.
+        //
+        // This is the SEMANTIC scope check, distinct from the ScopeGuard
+        // (which mechanically enforces the task contract's allowed_files).
+        // E6 catches out-of-spec behavior the ScopeGuard does not — e.g. a
+        // diff that touches a forbidden_file declared in the spec while
+        // staying within the contract's allowed_files mechanically
+        // (VAL-M2-024).
+        //
+        // The gate is deterministic: it inspects the spec's declared
+        // boundaries (forbiddenFiles, nonGoals, allowedFiles, expectedFiles,
+        // acceptanceCriteria) against the touched file paths from the scope
+        // receipt. It does NOT attempt line-level semantic analysis.
+        //
+        // Channels (no third way, no silent green):
+        //   - off      => the gate is not invoked (byte-identical to pre-E6).
+        //   - advisory => honesty flag only (PASSED -> needs_review downgrade).
+        //   - hard     => STATUS_FAILED gate channel (completion `failed`).
+        //
+        // Honest ceiling (VAL-M2-033): when the spec is unreadable/corrupt or
+        // the evaluation errors, the gate surfaces an unevaluable verdict
+        // (advisory => needs_review with spec_unevaluable flag; hard =>
+        // failed). Never a silent pass, never a crash.
+        //
+        // No-op (VAL-M2-034): when the task declares no spec (not persisted)
+        // or the spec has no constitution to validate (no acceptance
+        // criteria, non-goals, forbidden files, or expected behavior), E6
+        // surfaces nothing — a spec-less task is never false-flagged.
+        //
+        // Like E1-E5, this runs for EVERY provider (the spec is a property
+        // of the task, not the provider) and covers the best-of-N winner
+        // path through the same post-gate block (VAL-CROSS-015).
+        $e6Config = $this->resolveE6Config();
+        if (! $e6Config->isOff()) {
+            $e6Verdict = $this->evaluateSpecConstitution(
+                runId: $runId,
+                scopeReceipt: $scopeReceipt,
+            );
+
+            if ($e6Verdict->isUnevaluable) {
+                // Honest ceiling (VAL-M2-033): an unevaluable spec-constitution
+                // check never silently greens. Advisory => honesty flag
+                // (-> needs_review); hard => STATUS_FAILED (-> failed).
+                if ($e6Config->isHard()) {
+                    $verificationResult = new VerificationGateResult(
+                        tests: $verificationResult->tests,
+                        gates: $verificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $verificationResult->withHonestyFlags(
+                            $e6Verdict->honestyFlags,
+                        )->honestyFlags,
+                        evidenceRefs: $verificationResult->evidenceRefs,
+                        profile: $verificationResult->profile,
+                    );
+                } else {
+                    $verificationResult = $verificationResult->withHonestyFlags(
+                        $e6Verdict->honestyFlags,
+                    );
+                }
+            } elseif ($e6Verdict->tripped) {
+                // Spec/constitution violation (VAL-M2-021/022/024).
+                //   - advisory => honesty flag only (drives the
+                //     CompletionStateGate PASSED -> needs_review downgrade).
+                //   - hard     => STATUS_FAILED gate channel (completion
+                //     `failed`, NOT the advisory `needs_review`).
+                if ($e6Config->isHard()) {
+                    $verificationResult = new VerificationGateResult(
+                        tests: $verificationResult->tests,
+                        gates: $verificationResult->gates,
+                        aggregateStatus: VerificationGateResult::STATUS_FAILED,
+                        honestyFlags: $verificationResult->withHonestyFlags(
+                            $e6Verdict->honestyFlags,
+                        )->honestyFlags,
+                        evidenceRefs: $verificationResult->evidenceRefs,
+                        profile: $verificationResult->profile,
+                    );
+                } else {
+                    $verificationResult = $verificationResult->withHonestyFlags(
+                        $e6Verdict->honestyFlags,
+                    );
+                }
+            }
+            // else: no-op or pass — no flag, no STATUS_FAILED (byte-identical
+            // to pre-E6 for this run on the E6 axis).
         }
 
         // M3: Senior critic — invoke ReviewIntelligenceService after the gate
@@ -3409,7 +3499,22 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     }
 
     /**
-     * E4: resolve the DifferentialTestingService the candidate-divergence
+     * E6: resolve the e6 elevation config. Same resolution pattern as
+     * E1/E2/E3/E4/E5: reads the live config kernel when available, otherwise
+     * degrades to the safe default (advisory) so plain-PHPunit unit tests
+     * never crash.
+     */
+    private function resolveE6Config(): ElevationConfig
+    {
+        try {
+            return ElevationConfig::fromConfig('e6');
+        } catch (\Throwable) {
+            return ElevationConfig::for('e6', null);
+        }
+    }
+
+    /**
+     * E6: resolve the DifferentialTestingService the candidate-divergence
      * gate consumes.
      *
      * Bound through the container via `atlas_dev.e4.differential_testing_service`
@@ -3710,5 +3815,73 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return (new IntentCoverageProbe)->isIntentNotTested($taskContract, $miniSpec);
+    }
+
+    /**
+     * E6: evaluate the diff's touched files against the task's
+     * MiniProgrammingSpec (the task's constitution). Loads the persisted
+     * spec from storage and runs the {@see SpecDrivenConstitutionGate}.
+     *
+     * Honest ceiling (VAL-M2-033): three distinct outcomes —
+     *   - Spec not persisted (storage->read returns null): no spec declared
+     *     => no-op verdict (VAL-M2-034). The gate is never invoked.
+     *   - Spec persisted but corrupt/unreadable (storage->read throws, or
+     *     fromArray throws): unevaluable verdict. The executor routes this
+     *     through the advisory/hard channels with the spec_unevaluable flag
+     *     (advisory => needs_review; hard => failed). Never a silent pass.
+     *   - Spec loaded and gate ran: the gate's verdict (no-op / pass /
+     *     tripped). If the gate itself throws, unevaluable (never a crash).
+     *
+     * @param  ScopeGuardReceipt  $scopeReceipt  the scope guard receipt
+     *         carrying the observed file diffs (touched file paths).
+     * @return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict
+     */
+    private function evaluateSpecConstitution(
+        string $runId,
+        ScopeGuardReceipt $scopeReceipt,
+    ): \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict {
+        // Load the persisted MiniProgrammingSpec. storage->read returns null
+        // when the file does not exist (no spec declared => no-op, VAL-M2-
+        // 034) and throws when the file exists but is corrupt (unevaluable,
+        // VAL-M2-033).
+        try {
+            $payload = $this->storage->read($runId, ArtifactNames::MINI_PROGRAMMING_SPEC);
+        } catch (\Throwable $e) {
+            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::unevaluable(
+                'e6: mini_programming_spec could not be read: '.$e->getMessage(),
+            );
+        }
+
+        // No spec file persisted => no spec declared => no-op (VAL-M2-034).
+        if (! is_array($payload)) {
+            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::noOp();
+        }
+
+        // Parse the spec. If fromArray throws (corrupt structure), the spec
+        // is unevaluable (VAL-M2-033 honest ceiling — never a silent green).
+        try {
+            $miniSpec = MiniProgrammingSpec::fromArray($payload);
+        } catch (\Throwable $e) {
+            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::unevaluable(
+                'e6: mini_programming_spec could not be parsed: '.$e->getMessage(),
+            );
+        }
+
+        // Gather the touched file paths from the scope receipt (the
+        // authoritative source — what ScopeGuard observed in the workspace).
+        $touchedFilePaths = array_map(
+            static fn (ScopeFileDiff $diff): string => $diff->path,
+            $scopeReceipt->observed->fileDiffs,
+        );
+
+        // Run the gate. If the gate itself throws (unexpected), the check is
+        // unevaluable (VAL-M2-033 — never a crash, never a silent green).
+        try {
+            return (new SpecDrivenConstitutionGate)->evaluate($miniSpec, $touchedFilePaths);
+        } catch (\Throwable $e) {
+            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::unevaluable(
+                'e6: spec constitution evaluation errored: '.$e->getMessage(),
+            );
+        }
     }
 }

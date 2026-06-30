@@ -274,6 +274,31 @@ return [
         'e5' => ['mode' => env('ATLAS_DEV_ELEVATION_E5_MODE', 'hard')],
 
         // E6: Spec-Driven Constitution Gate (M6 milestone).
+        //   - mode: tri-state off|advisory|hard governing the spec-driven
+        //     constitution gate. E6 validates the diff's touched files
+        //     against the task's MiniProgrammingSpec (the task's
+        //     constitution): acceptance criteria honored, non-goals
+        //     respected, forbidden files respected. This is the SEMANTIC
+        //     scope check, distinct from the ScopeGuard (which mechanically
+        //     enforces the task contract's allowed_files).
+        //   - M2 (m2-e6-constitution-gate): built from scratch (pre-M2 only
+        //     this config flag existed, zero code). The gate class
+        //     (SpecDrivenConstitutionGate), resolveE6Config, and the post-
+        //     verification wiring in PipelineRunExecutor are NEW. E6 follows
+        //     the safe rollout: the default is `advisory` (NOT hard — E6 is
+        //     newly built and never starts at hard, VAL-M2-025). Advisory
+        //     fires a `spec_constitution_violation` honesty flag when the
+        //     diff does not honor a stated acceptance criterion (-> needs_review,
+        //     VAL-M2-021); hard trip -> `failed` (VAL-M2-022). E6 detects
+        //     out-of-spec scope creep (forbidden files / non-goals,
+        //     VAL-M2-024), does NOT false-fail when the diff honors the spec
+        //     (VAL-M2-023), is a no-op on a task with no declared spec /
+        //     acceptance criteria (VAL-M2-034), and has an honest ceiling:
+        //     an unevaluable/errored spec-constitution check never silently
+        //     greens (advisory => needs_review with `spec_unevaluable` flag;
+        //     hard => failed, VAL-M2-033). Operators can flip to hard via
+        //     ATLAS_DEV_ELEVATION_E6_MODE once the trip condition is verified
+        //     stable at advisory.
         'e6' => ['mode' => env('ATLAS_DEV_ELEVATION_E6_MODE', 'advisory')],
     ],
 ];
