@@ -61,7 +61,6 @@ final class ShadowDiffService
      *
      * @param  string  $workspace  absolute path to the git workspace (post-patch state).
      * @param  list<string>  $changedPhpFiles  repo-relative PHP file paths that changed.
-     * @return ShadowDiffResult
      */
     public function evaluate(string $workspace, array $changedPhpFiles): ShadowDiffResult
     {
@@ -91,6 +90,7 @@ final class ShadowDiffService
                     'file' => $relativePath,
                     'reason' => 'workspace file unreadable',
                 ];
+
                 continue;
             }
 
@@ -107,6 +107,7 @@ final class ShadowDiffService
                         'file' => $relativePath,
                         'reason' => 'newly-added: no prior implementation to diff',
                     ];
+
                     continue;
                 }
 
@@ -120,6 +121,7 @@ final class ShadowDiffService
                         'file' => $relativePath,
                         'reason' => 'old version impure: '.$oldImpure,
                     ];
+
                     continue;
                 }
                 $newImpure = $this->purityDetector->impureIndicator($newSymbol->body);
@@ -129,6 +131,7 @@ final class ShadowDiffService
                         'file' => $relativePath,
                         'reason' => 'new version impure: '.$newImpure,
                     ];
+
                     continue;
                 }
 
@@ -150,6 +153,7 @@ final class ShadowDiffService
                         'file' => $relativePath,
                         'reason' => 'harness: '.$harnessResult->error,
                     ];
+
                     continue;
                 }
 

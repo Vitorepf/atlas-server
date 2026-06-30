@@ -15,6 +15,7 @@ final class EscalationSummary implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.components.escalation_summary.v1';
 
     public const TARGET_FORGE = 'forge';
+
     public const TARGET_OBRA_CANDIDATE = 'obra_candidate';
 
     public const ALLOWED_TARGETS = [
@@ -34,7 +35,7 @@ final class EscalationSummary implements AtlasDevSchemaContract
     ) {
         if ($this->target !== null && ! in_array($this->target, self::ALLOWED_TARGETS, true)) {
             throw new InvalidArgumentException(
-                "EscalationSummary.target must be null or one of [".implode(',', self::ALLOWED_TARGETS)."], got '{$this->target}'."
+                'EscalationSummary.target must be null or one of ['.implode(',', self::ALLOWED_TARGETS)."], got '{$this->target}'."
             );
         }
         if ($this->recommended && $this->target === null) {

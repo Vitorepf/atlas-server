@@ -106,5 +106,4 @@ final class ScopeContractFeasibilityClassifier
             'satisfiable_allowed_count' => $satisfiableAllowedCount,
         ];
     }
-
 }

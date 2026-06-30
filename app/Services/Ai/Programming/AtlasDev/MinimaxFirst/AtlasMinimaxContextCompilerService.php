@@ -29,25 +29,24 @@ final class AtlasMinimaxContextCompilerService
      * Compile a MiniMax-ready manifest from a finding + allowed files.
      *
      * @param  array<string,mixed>  $finding
-     * @param  list<string>         $allowedFiles  relative paths
-     * @param  string               $repoRoot
-     * @param  array<string,mixed>  $codexPlan     optional Codex spec (may be empty)
+     * @param  list<string>  $allowedFiles  relative paths
+     * @param  array<string,mixed>  $codexPlan  optional Codex spec (may be empty)
      * @return array<string,mixed>
      */
     public function compile(array $finding, array $allowedFiles, string $repoRoot, array $codexPlan = []): array
     {
         $systemPrompt = $this->buildSystemPrompt($finding);
         $filesContext = $this->buildFilesContext($allowedFiles, $repoRoot);
-        $userPrompt   = $this->buildUserPrompt($finding, $codexPlan, $filesContext);
+        $userPrompt = $this->buildUserPrompt($finding, $codexPlan, $filesContext);
 
-        $estimatedTokens = $this->estimateTokens($systemPrompt . $userPrompt);
+        $estimatedTokens = $this->estimateTokens($systemPrompt.$userPrompt);
 
         if ($estimatedTokens > self::MAX_TOKENS) {
-            $budget     = self::MAX_TOKENS - $this->estimateTokens($systemPrompt) - 500;
-            $maxChars   = max(1_000, $budget * 4);
+            $budget = self::MAX_TOKENS - $this->estimateTokens($systemPrompt) - 500;
+            $maxChars = max(1_000, $budget * 4);
             $userPrompt = mb_substr($userPrompt, 0, $maxChars)
-                . "\n\n[Context truncated to fit token budget. Implement what you can from the spec above.]";
-            $estimatedTokens = $this->estimateTokens($systemPrompt . $userPrompt);
+                ."\n\n[Context truncated to fit token budget. Implement what you can from the spec above.]";
+            $estimatedTokens = $this->estimateTokens($systemPrompt.$userPrompt);
         }
 
         // The MiniMax CLI adapter builds the user message from task_contract.task_description +
@@ -57,23 +56,23 @@ final class AtlasMinimaxContextCompilerService
         // task_description and the file context into context, so the prompt actually reaches
         // the model. `system`/`messages` kept for any consumer that reads them.
         $manifest = [
-            'model'      => 'MiniMax-M3',
-            'system'     => $systemPrompt,
-            'messages'   => [['role' => 'user', 'content' => $userPrompt]],
+            'model' => 'MiniMax-M3',
+            'system' => $systemPrompt,
+            'messages' => [['role' => 'user', 'content' => $userPrompt]],
             'task_contract' => [
                 'task_description' => $systemPrompt."\n\n".$userPrompt,
-                'context'          => $filesContext,
+                'context' => $filesContext,
             ],
             'max_tokens' => 32_768,
         ];
 
         return [
-            'schema_version'   => self::SCHEMA,
-            'system_prompt'    => $systemPrompt,
-            'user_prompt'      => $userPrompt,
-            'files_included'   => $allowedFiles,
+            'schema_version' => self::SCHEMA,
+            'system_prompt' => $systemPrompt,
+            'user_prompt' => $userPrompt,
+            'files_included' => $allowedFiles,
             'estimated_tokens' => $estimatedTokens,
-            'manifest'         => $manifest,
+            'manifest' => $manifest,
         ];
     }
 
@@ -140,7 +139,7 @@ PROMPT;
         }
 
         $lines[] = 'FINDING SPEC:';
-        $lines[] = 'Title: ' . ($finding['title'] ?? '');
+        $lines[] = 'Title: '.($finding['title'] ?? '');
         foreach ($this->findingNarrativeLines($finding) as $line) {
             $lines[] = $line;
         }
@@ -164,13 +163,13 @@ PROMPT;
             }
         }
         if (! empty($finding['spec_seed']['candidate_id'])) {
-            $lines[] = 'Spec ID: ' . $finding['spec_seed']['candidate_id'];
+            $lines[] = 'Spec ID: '.$finding['spec_seed']['candidate_id'];
         }
 
         $lines[] = '';
         $lines[] = 'HARD SCOPE:';
         $findingAllowedFiles = AtlasDevStringListNormalizer::uniqueRecursiveTrimmedStrings($finding['allowed_files'] ?? []);
-        $lines[] = '- Allowed files: ' . ($findingAllowedFiles !== []
+        $lines[] = '- Allowed files: '.($findingAllowedFiles !== []
             ? implode(', ', $findingAllowedFiles)
             : 'the files listed in FILES TO MODIFY below');
         $lines[] = '- Preserve existing tests and product methods unless the anchored task explicitly requires changing that member.';
@@ -305,11 +304,12 @@ PROMPT;
         $parts = ['FILES TO MODIFY (current content):'];
 
         foreach ($allowedFiles as $relativePath) {
-            $absolutePath = rtrim($repoRoot, '/') . '/' . ltrim($relativePath, '/');
-            $parts[]      = "\n--- FILE: {$relativePath} ---";
+            $absolutePath = rtrim($repoRoot, '/').'/'.ltrim($relativePath, '/');
+            $parts[] = "\n--- FILE: {$relativePath} ---";
 
             if (! is_file($absolutePath)) {
                 $parts[] = '[File does not exist yet — create it with the correct namespace.]';
+
                 continue;
             }
 
@@ -338,8 +338,8 @@ PROMPT;
         $tail = array_slice($lines, -300, 300);
 
         return implode("\n", $head)
-            . "\n// ... [" . ($total - 500) . ' lines omitted for context budget] ...' . "\n"
-            . implode("\n", $tail);
+            ."\n// ... [".($total - 500).' lines omitted for context budget] ...'."\n"
+            .implode("\n", $tail);
     }
 
     public function estimateTokens(string $text): int

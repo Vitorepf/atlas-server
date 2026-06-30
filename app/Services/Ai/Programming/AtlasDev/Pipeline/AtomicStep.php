@@ -17,9 +17,13 @@ namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 final class AtomicStep
 {
     public const KIND_CONTRACT = 'contract';
+
     public const KIND_SKELETON = 'skeleton';
+
     public const KIND_BEHAVIOR = 'behavior';
+
     public const KIND_WIRING = 'wiring';
+
     public const KIND_TEST = 'test';
 
     public const KINDS = [

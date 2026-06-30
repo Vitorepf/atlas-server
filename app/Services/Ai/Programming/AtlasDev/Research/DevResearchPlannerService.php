@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Research;
 
-use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ResearchFinding;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ResearchOpenQuestion;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ResearchSource;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ResearchReceipt;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 

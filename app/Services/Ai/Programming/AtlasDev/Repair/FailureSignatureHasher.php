@@ -28,7 +28,7 @@ final class FailureSignatureHasher
      * Patterns of volatile fragments stripped before hashing. Order matters:
      * longer/more specific patterns come first to avoid partial overlap.
      *
-     * @var list<array{0:string,1:string}>  list of [regex, replacement]
+     * @var list<array{0:string,1:string}> list of [regex, replacement]
      */
     private const VOLATILE_PATTERNS = [
         // ISO-8601 timestamps with optional fractional seconds and timezone.

@@ -26,7 +26,9 @@ use InvalidArgumentException;
 final class SonnetClaudeCliAdapter
 {
     public const PROVIDER = 'claude_cli';
+
     public const MODEL_FAMILY = 'sonnet';
+
     public const DEFAULT_TIMEOUT_SECONDS = 300;
 
     public function __construct(

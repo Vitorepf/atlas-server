@@ -15,9 +15,13 @@ final class ScopeViolation implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.components.scope_violation.v1';
 
     public const KIND_FORBIDDEN_TOUCH = 'forbidden_touch';
+
     public const KIND_WATCHED_TOUCH = 'watched_touch';
+
     public const KIND_UNEXPECTED_TOUCH = 'unexpected_touch';
+
     public const KIND_EXCEEDED_MAX_FILES = 'exceeded_max_files';
+
     public const KIND_PRE_EXISTING_CHANGE = 'pre_existing_change';
 
     public const ALLOWED_KINDS = [
@@ -47,7 +51,7 @@ final class ScopeViolation implements AtlasDevSchemaContract
     ) {
         if (! in_array($this->kind, self::ALLOWED_KINDS, true)) {
             throw new InvalidArgumentException(
-                "ScopeViolation.kind must be one of [".implode(',', self::ALLOWED_KINDS)."], got '{$this->kind}'."
+                'ScopeViolation.kind must be one of ['.implode(',', self::ALLOWED_KINDS)."], got '{$this->kind}'."
             );
         }
         if ($this->detail === '') {

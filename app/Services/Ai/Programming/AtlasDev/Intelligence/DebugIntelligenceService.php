@@ -606,5 +606,4 @@ final class DebugIntelligenceService
 
         return $trimmed === '' ? null : $trimmed;
     }
-
 }

@@ -151,5 +151,4 @@ final class AtlasDevScopeGuardService
 
         return 'sha256:'.hash('sha256', json_encode($material, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
     }
-
 }

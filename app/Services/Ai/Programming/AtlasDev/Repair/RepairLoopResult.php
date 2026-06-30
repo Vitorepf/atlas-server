@@ -24,8 +24,11 @@ use InvalidArgumentException;
 final class RepairLoopResult
 {
     public const STATUS_RECOVERED = 'recovered';
+
     public const STATUS_EXHAUSTED = 'exhausted';
+
     public const STATUS_ESCALATED = 'escalated';
+
     public const STATUS_NOT_ATTEMPTED = 'not_attempted';
 
     public const ALLOWED_STATUSES = [
@@ -37,8 +40,8 @@ final class RepairLoopResult
 
     /**
      * @param  list<FailureCapsule>  $capsules  appended in attempt order
-     * @param  list<string>          $escalationSignalDelta  union of all signals
-     *                                                       observed in this loop
+     * @param  list<string>  $escalationSignalDelta  union of all signals
+     *                                               observed in this loop
      */
     public function __construct(
         public readonly string $status,

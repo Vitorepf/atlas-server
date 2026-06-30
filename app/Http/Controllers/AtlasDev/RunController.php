@@ -21,11 +21,11 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**

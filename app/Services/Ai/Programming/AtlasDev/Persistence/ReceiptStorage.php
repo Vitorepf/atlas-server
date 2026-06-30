@@ -23,7 +23,9 @@ use RuntimeException;
 final class ReceiptStorage
 {
     private const RUN_ID_PATTERN = '/^[A-Za-z0-9._-]{1,128}$/';
+
     private const FILENAME_PATTERN = '/^[A-Za-z0-9._-]{1,160}\.json$/';
+
     private const VERSION_BASE_PATTERN = '/^[A-Za-z0-9._-]{1,128}$/';
 
     public function __construct(
@@ -75,7 +77,7 @@ final class ReceiptStorage
      * existing artifact: callers wanting versions must use writeMonotonic.
      *
      * @param  array<string, mixed>  $payload
-     * @return string  absolute path of the resulting artifact
+     * @return string absolute path of the resulting artifact
      */
     public function writeAtomic(string $runId, string $filename, array $payload): string
     {
@@ -159,7 +161,7 @@ final class ReceiptStorage
     }
 
     /**
-     * @return list<int>  sorted ascending
+     * @return list<int> sorted ascending
      */
     public function listVersions(string $runId, string $base): array
     {
@@ -231,7 +233,7 @@ final class ReceiptStorage
     }
 
     /**
-     * @return list<string>  filenames of orphan temp files (path traversal safe)
+     * @return list<string> filenames of orphan temp files (path traversal safe)
      */
     public function listOrphanTempFiles(string $runId): array
     {

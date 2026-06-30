@@ -29,26 +29,43 @@ namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 final class EscalationSignalScorer
 {
     public const MAX_SCORE = 10;
+
     public const MIN_SCORE = 0;
 
     public const RISK_R4_OR_R5_WEIGHT = 5;
+
     public const FILE_COUNT_HIGH_WEIGHT = 2;   // > 5 files
+
     public const FILE_COUNT_MED_WEIGHT = 1;    // > 3 files (and <= 5)
+
     public const LAYERS_WEIGHT = 1;            // layers_touched >= 3
+
     public const SAME_SIGNATURE_WEIGHT = 2;
+
     public const DIFF_GROWTH_WEIGHT = 1;
+
     public const TEST_COVERAGE_GAP_WEIGHT = 1;
+
     public const PRIOR_FAILURE_AREA_WEIGHT = 1;
+
     public const RISK_KEYWORDS_CAP = 2;
+
     public const CONTEXT_HIGH_WEIGHT = 1;      // >= 40k chars
+
     public const THREAD_LONG_WEIGHT = 1;       // >= 24 messages
+
     public const PRIOR_FAILURE_COUNT_WEIGHT = 1; // >= 2 in this run
 
     public const HIGH_FILE_THRESHOLD = 5;
+
     public const MED_FILE_THRESHOLD = 3;
+
     public const HIGH_LAYER_THRESHOLD = 3;
+
     public const HIGH_CONTEXT_CHARS_THRESHOLD = 40_000;
+
     public const LONG_THREAD_THRESHOLD = 24;
+
     public const PRIOR_FAILURE_COUNT_THRESHOLD = 2;
 
     /**

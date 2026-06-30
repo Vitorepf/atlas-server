@@ -19,7 +19,9 @@ use InvalidArgumentException;
 final class VerificationGateResult
 {
     public const STATUS_PASSED = 'passed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_NEEDS_REVIEW = 'needs_review';
 
     public const ALLOWED_STATUSES = [

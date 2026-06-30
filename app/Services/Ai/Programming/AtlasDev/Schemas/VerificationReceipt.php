@@ -22,6 +22,7 @@ final class VerificationReceipt implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.verification_receipt.v1';
 
     public const ALLOWED_TASK_KINDS = ['question', 'patch', 'repair', 'review', 'frontend', 'risky'];
+
     public const ALLOWED_RISK_LEVELS = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
 
     private const HASH_FIELD = 'receipt_hash';
@@ -58,12 +59,12 @@ final class VerificationReceipt implements AtlasDevSchemaContract
     ) {
         if (! in_array($this->taskKind, self::ALLOWED_TASK_KINDS, true)) {
             throw new InvalidArgumentException(
-                "VerificationReceipt.task_kind must be one of [".implode(',', self::ALLOWED_TASK_KINDS)."], got '{$this->taskKind}'."
+                'VerificationReceipt.task_kind must be one of ['.implode(',', self::ALLOWED_TASK_KINDS)."], got '{$this->taskKind}'."
             );
         }
         if (! in_array($this->riskLevel, self::ALLOWED_RISK_LEVELS, true)) {
             throw new InvalidArgumentException(
-                "VerificationReceipt.risk_level must be one of [".implode(',', self::ALLOWED_RISK_LEVELS)."], got '{$this->riskLevel}'."
+                'VerificationReceipt.risk_level must be one of ['.implode(',', self::ALLOWED_RISK_LEVELS)."], got '{$this->riskLevel}'."
             );
         }
         foreach ($this->changedFiles as $i => $f) {

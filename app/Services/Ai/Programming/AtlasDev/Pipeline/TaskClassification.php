@@ -14,10 +14,15 @@ namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 final class TaskClassification
 {
     public const KIND_QUESTION = 'question';
+
     public const KIND_PATCH = 'patch';
+
     public const KIND_REPAIR = 'repair';
+
     public const KIND_REVIEW = 'review';
+
     public const KIND_FRONTEND = 'frontend';
+
     public const KIND_RISKY = 'risky';
 
     public const KINDS = [

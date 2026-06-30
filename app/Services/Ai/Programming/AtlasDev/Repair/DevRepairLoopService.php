@@ -640,5 +640,4 @@ final class DevRepairLoopService
     {
         return $capsule->toCanonicalArray();
     }
-
 }

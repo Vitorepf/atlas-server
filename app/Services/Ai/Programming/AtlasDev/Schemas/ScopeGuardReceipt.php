@@ -20,7 +20,9 @@ final class ScopeGuardReceipt implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.scope_guard_receipt.v1';
 
     public const STATUS_PASSED = 'passed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_NEEDS_REVIEW = 'needs_review';
 
     public const ALLOWED_STATUSES = [
@@ -49,7 +51,7 @@ final class ScopeGuardReceipt implements AtlasDevSchemaContract
     ) {
         if (! in_array($this->status, self::ALLOWED_STATUSES, true)) {
             throw new InvalidArgumentException(
-                "ScopeGuardReceipt.status must be one of [".implode(',', self::ALLOWED_STATUSES)."], got '{$this->status}'."
+                'ScopeGuardReceipt.status must be one of ['.implode(',', self::ALLOWED_STATUSES)."], got '{$this->status}'."
             );
         }
         foreach ($this->violations as $i => $v) {

@@ -12,9 +12,9 @@ use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceGate;
 use App\Services\Ai\Programming\AtlasDev\Differential\DifferentialTestingService;
+use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\PhpSubprocessShadowDiffHarness;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffGate;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness;
-use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\PhpSubprocessShadowDiffHarness;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffService;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\CompletionDecision;
@@ -39,6 +39,7 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
+use App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict;
 use App\Services\Ai\Programming\AtlasDev\Probe\SpecDrivenConstitutionGate;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
@@ -3838,13 +3839,12 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      *     tripped). If the gate itself throws, unevaluable (never a crash).
      *
      * @param  ScopeGuardReceipt  $scopeReceipt  the scope guard receipt
-     *         carrying the observed file diffs (touched file paths).
-     * @return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict
+     *                                           carrying the observed file diffs (touched file paths).
      */
     private function evaluateSpecConstitution(
         string $runId,
         ScopeGuardReceipt $scopeReceipt,
-    ): \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict {
+    ): SpecConstitutionVerdict {
         // Load the persisted MiniProgrammingSpec. storage->read returns null
         // when the file does not exist (no spec declared => no-op, VAL-M2-
         // 034) and throws when the file exists but is corrupt (unevaluable,
@@ -3852,14 +3852,14 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         try {
             $payload = $this->storage->read($runId, ArtifactNames::MINI_PROGRAMMING_SPEC);
         } catch (\Throwable $e) {
-            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::unevaluable(
+            return SpecConstitutionVerdict::unevaluable(
                 'e6: mini_programming_spec could not be read: '.$e->getMessage(),
             );
         }
 
         // No spec file persisted => no spec declared => no-op (VAL-M2-034).
         if (! is_array($payload)) {
-            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::noOp();
+            return SpecConstitutionVerdict::noOp();
         }
 
         // Parse the spec. If fromArray throws (corrupt structure), the spec
@@ -3867,7 +3867,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         try {
             $miniSpec = MiniProgrammingSpec::fromArray($payload);
         } catch (\Throwable $e) {
-            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::unevaluable(
+            return SpecConstitutionVerdict::unevaluable(
                 'e6: mini_programming_spec could not be parsed: '.$e->getMessage(),
             );
         }
@@ -3884,7 +3884,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         try {
             return (new SpecDrivenConstitutionGate)->evaluate($miniSpec, $touchedFilePaths);
         } catch (\Throwable $e) {
-            return \App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict::unevaluable(
+            return SpecConstitutionVerdict::unevaluable(
                 'e6: spec constitution evaluation errored: '.$e->getMessage(),
             );
         }

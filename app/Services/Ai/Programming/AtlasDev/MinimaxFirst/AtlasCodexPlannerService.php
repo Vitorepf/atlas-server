@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
 use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
@@ -44,9 +45,9 @@ final class AtlasCodexPlannerService
 
     /**
      * @param  array<string,mixed>  $finding
-     * @param  list<string>         $allowedFiles
-     * @param  list<string>         $validationCommands
-     * @return array<string,mixed>|null  null = Codex unavailable / timed out / parse error
+     * @param  list<string>  $allowedFiles
+     * @param  list<string>  $validationCommands
+     * @return array<string,mixed>|null null = Codex unavailable / timed out / parse error
      */
     public function plan(array $finding, array $allowedFiles, array $validationCommands, string $repoRoot): ?array
     {
@@ -72,19 +73,19 @@ final class AtlasCodexPlannerService
     private function buildPlanningPrompt(array $finding, array $allowedFiles, array $validationCommands): string
     {
         $title = mb_substr((string) ($finding['title'] ?? 'implement'), 0, 120);
-        $desc  = mb_substr($this->bestNarrative($finding), 0, 500);
+        $desc = mb_substr($this->bestNarrative($finding), 0, 500);
         $files = implode(', ', array_slice($allowedFiles, 0, 5));
-        $test  = $this->extractTestFilter($validationCommands);
+        $test = $this->extractTestFilter($validationCommands);
         $anchor = $this->anchorSummary($finding);
 
         $prompt = "Atlas task. Planning only. Reply ONLY with valid JSON, no other text.\n"
-            . "Do not run shell commands. Do not execute tests. Do not edit files.\n"
-            . "Task: {$title}. {$desc}\n"
-            . ($anchor !== '' ? "Anchor: {$anchor}\n" : '')
-            . "Modify ONLY: {$files}\n"
-            . "Focused validation command: {$test}\n"
-            . "Quality: preserve existing methods/tests; append or narrowly adjust focused tests; no large test deletion; no comment-only/no-op/scaffold output.\n"
-            . 'JSON: {"file":string,"method":string,"signature":string,"logic":string,"constraints":[string]}';
+            ."Do not run shell commands. Do not execute tests. Do not edit files.\n"
+            ."Task: {$title}. {$desc}\n"
+            .($anchor !== '' ? "Anchor: {$anchor}\n" : '')
+            ."Modify ONLY: {$files}\n"
+            ."Focused validation command: {$test}\n"
+            ."Quality: preserve existing methods/tests; append or narrowly adjust focused tests; no large test deletion; no comment-only/no-op/scaffold output.\n"
+            .'JSON: {"file":string,"method":string,"signature":string,"logic":string,"constraints":[string]}';
 
         return mb_substr($prompt, 0, self::MAX_PROMPT_CHARS);
     }
@@ -181,7 +182,7 @@ final class AtlasCodexPlannerService
         return $this->providers = app(AiProviderManager::class);
     }
 
-    private function provider(): \App\Services\Ai\AiProvider
+    private function provider(): AiProvider
     {
         return $this->providerManager()->get('codex_cli');
     }
@@ -226,5 +227,4 @@ final class AtlasCodexPlannerService
 
         return null;
     }
-
 }

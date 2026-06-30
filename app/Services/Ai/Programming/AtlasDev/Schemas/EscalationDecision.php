@@ -16,6 +16,7 @@ final class EscalationDecision implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.escalation_decision.v1';
 
     public const TARGET_FORGE = 'forge';
+
     public const TARGET_OBRA_CANDIDATE = 'obra_candidate';
 
     public const ALLOWED_TARGETS = [
@@ -26,6 +27,7 @@ final class EscalationDecision implements AtlasDevSchemaContract
     public const ALLOWED_RISK_LEVELS = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
 
     private const SCORE_MIN = 0;
+
     private const SCORE_MAX = 10;
 
     public const POST_HOC_FIELDS = [
@@ -57,17 +59,17 @@ final class EscalationDecision implements AtlasDevSchemaContract
     ) {
         if (! in_array($this->target, self::ALLOWED_TARGETS, true)) {
             throw new InvalidArgumentException(
-                "EscalationDecision.target must be one of [".implode(',', self::ALLOWED_TARGETS)."], got '{$this->target}'."
+                'EscalationDecision.target must be one of ['.implode(',', self::ALLOWED_TARGETS)."], got '{$this->target}'."
             );
         }
         if (! in_array($this->riskLevel, self::ALLOWED_RISK_LEVELS, true)) {
             throw new InvalidArgumentException(
-                "EscalationDecision.risk_level must be one of [".implode(',', self::ALLOWED_RISK_LEVELS)."], got '{$this->riskLevel}'."
+                'EscalationDecision.risk_level must be one of ['.implode(',', self::ALLOWED_RISK_LEVELS)."], got '{$this->riskLevel}'."
             );
         }
         if ($this->score < self::SCORE_MIN || $this->score > self::SCORE_MAX) {
             throw new InvalidArgumentException(
-                "EscalationDecision.score must be in [".self::SCORE_MIN.','.self::SCORE_MAX."], got {$this->score}."
+                'EscalationDecision.score must be in ['.self::SCORE_MIN.','.self::SCORE_MAX."], got {$this->score}."
             );
         }
         if ($this->triggeredAt === '') {

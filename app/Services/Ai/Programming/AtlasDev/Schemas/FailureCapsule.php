@@ -15,7 +15,9 @@ final class FailureCapsule implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.failure_capsule.v1';
 
     public const DECISION_RETRY = 'retry';
+
     public const DECISION_STOP = 'stop';
+
     public const DECISION_ESCALATE = 'escalate';
 
     public const ALLOWED_DECISIONS = [
@@ -70,7 +72,7 @@ final class FailureCapsule implements AtlasDevSchemaContract
         }
         if (! in_array($this->decision, self::ALLOWED_DECISIONS, true)) {
             throw new InvalidArgumentException(
-                "FailureCapsule.decision must be one of [".implode(',', self::ALLOWED_DECISIONS)."], got '{$this->decision}'."
+                'FailureCapsule.decision must be one of ['.implode(',', self::ALLOWED_DECISIONS)."], got '{$this->decision}'."
             );
         }
         if ($this->decision === self::DECISION_ESCALATE && $this->escalationSignalDelta === []) {

@@ -15,9 +15,13 @@ final class GateOutcome implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.components.gate_outcome.v1';
 
     public const STATUS_PASSED = 'passed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_NEEDS_REVIEW = 'needs_review';
+
     public const STATUS_SKIPPED = 'skipped';
+
     public const STATUS_WAIVED = 'waived';
 
     public const ALLOWED_STATUSES = [
@@ -42,7 +46,7 @@ final class GateOutcome implements AtlasDevSchemaContract
         }
         if (! in_array($this->status, self::ALLOWED_STATUSES, true)) {
             throw new InvalidArgumentException(
-                "GateOutcome.status must be one of [".implode(',', self::ALLOWED_STATUSES)."], got '{$this->status}'."
+                'GateOutcome.status must be one of ['.implode(',', self::ALLOWED_STATUSES)."], got '{$this->status}'."
             );
         }
         if ($this->status === self::STATUS_WAIVED && ($this->waiverReason === null || $this->waiverReason === '')) {

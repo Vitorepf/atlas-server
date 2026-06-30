@@ -216,5 +216,4 @@ class RiskLevelScorer
 
         return AtlasDevStringListNormalizer::uniqueTrimmedStrings($files);
     }
-
 }

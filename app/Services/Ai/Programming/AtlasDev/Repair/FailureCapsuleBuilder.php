@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Repair;
 
+use App\Services\Ai\Programming\AtlasDev\Escalation\EscalationDecisionEngine;
 use App\Services\Ai\Programming\AtlasDev\Repair\Contracts\RepairAttemptOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\RepairPolicy;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
@@ -17,7 +18,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
  *   - `escalate` honest dead-end (same signature twice OR diff grew).
  *
  * `escalation_signal_delta` is the per-capsule contribution that the
- * upstream {@see \App\Services\Ai\Programming\AtlasDev\Escalation\EscalationDecisionEngine}
+ * upstream {@see EscalationDecisionEngine}
  * folds into its score; capsules whose decision is `escalate` MUST carry
  * a non-empty delta (DTO invariant).
  *
@@ -28,9 +29,13 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 final class FailureCapsuleBuilder
 {
     public const SIGNAL_SAME_SIGNATURE_TWICE = 'same_signature_twice';
+
     public const SIGNAL_DIFF_GROWTH = 'diff_growth';
+
     public const SIGNAL_SCOPE_VIOLATION = 'scope_violation';
+
     public const SIGNAL_MAX_ATTEMPTS_REACHED = 'max_attempts_reached';
+
     public const SIGNAL_BLOCKED_PREFLIGHT = 'blocked_preflight';
 
     /**
@@ -47,6 +52,7 @@ final class FailureCapsuleBuilder
      * stays visible in the receipt.
      */
     private const EXCERPT_MAX_BYTES = 4096;
+
     private const EXCERPT_TRUNCATION_MARKER = ' …[truncated]';
 
     public function __construct(

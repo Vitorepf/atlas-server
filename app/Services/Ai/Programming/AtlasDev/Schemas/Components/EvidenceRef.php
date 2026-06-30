@@ -41,7 +41,7 @@ final class EvidenceRef implements AtlasDevSchemaContract
     ) {
         if (! in_array($this->kind, self::ALLOWED_KINDS, true)) {
             throw new InvalidArgumentException(
-                "EvidenceRef.kind must be one of [".implode(',', self::ALLOWED_KINDS)."], got '{$this->kind}'."
+                'EvidenceRef.kind must be one of ['.implode(',', self::ALLOWED_KINDS)."], got '{$this->kind}'."
             );
         }
         if ($this->path === '') {

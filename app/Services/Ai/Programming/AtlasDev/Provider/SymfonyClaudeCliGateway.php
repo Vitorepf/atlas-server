@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Provider;
 
-use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevProcessEnvironment;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use InvalidArgumentException;

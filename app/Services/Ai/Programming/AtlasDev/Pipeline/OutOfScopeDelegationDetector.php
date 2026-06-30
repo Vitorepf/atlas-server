@@ -146,5 +146,4 @@ class OutOfScopeDelegationDetector
 
         return strtolower(implode("\n", $parts));
     }
-
 }

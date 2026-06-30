@@ -102,5 +102,4 @@ class DevOutcomeMemoryService
 
         return AtlasDevStringListNormalizer::uniqueMergedStrings($items);
     }
-
 }

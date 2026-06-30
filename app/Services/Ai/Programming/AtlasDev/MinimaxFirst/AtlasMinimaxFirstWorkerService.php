@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
-use App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor;
 use Symfony\Component\Process\Process;
 
 /**
@@ -49,16 +49,16 @@ final class AtlasMinimaxFirstWorkerService
      * Run one implementation cycle.
      *
      * @param  array<string,mixed>  $input  {finding, allowed_files, validation_commands, worktree_path, repo_root, max_repairs}
-     * @return array<string,mixed>          atlas.dev.senior_engineer_loop_execution.v1 shape
+     * @return array<string,mixed> atlas.dev.senior_engineer_loop_execution.v1 shape
      */
     public function run(array $input): array
     {
-        $finding        = (array) ($input['finding'] ?? []);
-        $allowedFiles   = array_values(array_filter((array) ($input['allowed_files'] ?? []), 'is_string'));
+        $finding = (array) ($input['finding'] ?? []);
+        $allowedFiles = array_values(array_filter((array) ($input['allowed_files'] ?? []), 'is_string'));
         $validationCmds = array_values(array_filter((array) ($input['validation_commands'] ?? []), 'is_string'));
-        $worktree       = (string) ($input['worktree_path'] ?? '');
-        $repoRoot       = (string) ($input['repo_root'] ?? $worktree);
-        $maxRepairs     = max(0, min(3, (int) ($input['max_repairs'] ?? 2)));
+        $worktree = (string) ($input['worktree_path'] ?? '');
+        $repoRoot = (string) ($input['repo_root'] ?? $worktree);
+        $maxRepairs = max(0, min(3, (int) ($input['max_repairs'] ?? 2)));
 
         // Pre-gate: basic sanity before touching the provider.
         $gate = $this->preGate($finding, $worktree);
@@ -98,12 +98,12 @@ final class AtlasMinimaxFirstWorkerService
         $manifest['timeout_seconds'] = max(120, (int) ($input['provider_timeout_seconds'] ?? 600));
         $manifest['max_output_chars'] = max(12000, (int) ($manifest['max_output_chars'] ?? 60000));
 
-        $tokensUsed  = 0;
+        $tokensUsed = 0;
         $repairCount = 0;
 
         while (true) {
             // Phase 3: Invoke MiniMax.
-            $response    = $this->minimaxExecutor->execute($manifest);
+            $response = $this->minimaxExecutor->execute($manifest);
             $tokensUsed += (int) ($response['input_tokens'] ?? 0) + (int) ($response['output_tokens'] ?? 0);
 
             if (($response['status'] ?? '') !== 'completed') {
@@ -122,6 +122,7 @@ final class AtlasMinimaxFirstWorkerService
                         'no extractable code',
                     );
                     $repairCount++;
+
                     continue;
                 }
 
@@ -131,7 +132,7 @@ final class AtlasMinimaxFirstWorkerService
             // Phase 5: Write files.
             $written = $this->writeCode($codeBlocks, $worktree);
             if ($written['errors'] !== []) {
-                return $this->blocked('write_failed: ' . implode('; ', $written['errors']), $tokensUsed, [], $repairCount);
+                return $this->blocked('write_failed: '.implode('; ', $written['errors']), $tokensUsed, [], $repairCount);
             }
 
             $changedFiles = $this->changedFiles($worktree);
@@ -148,6 +149,7 @@ final class AtlasMinimaxFirstWorkerService
                         'provider diff quality gate',
                     );
                     $repairCount++;
+
                     continue;
                 }
 
@@ -171,6 +173,7 @@ final class AtlasMinimaxFirstWorkerService
                 }
                 $manifest = $this->buildRepairManifest($manifest, implode("\n", $syntax['errors']), 'php syntax error');
                 $repairCount++;
+
                 continue;
             }
 
@@ -211,12 +214,12 @@ final class AtlasMinimaxFirstWorkerService
     // ─────────────────────────────────────────────────────────
 
     /**
-     * @param  list<string>          $allowedFiles  relative paths
-     * @return array<string,string>                 relative_path => file_content
+     * @param  list<string>  $allowedFiles  relative paths
+     * @return array<string,string> relative_path => file_content
      */
     private function extractCodeBlocks(string $minimaxText, array $allowedFiles): array
     {
-        $blocks           = [];
+        $blocks = [];
         $normalizedAllowed = array_map(static fn ($f) => ltrim($f, '/'), $allowedFiles);
 
         preg_match_all(
@@ -227,7 +230,7 @@ final class AtlasMinimaxFirstWorkerService
         );
 
         foreach ($matches as $match) {
-            $path    = trim($match[1], " \t\r\n`'\"");
+            $path = trim($match[1], " \t\r\n`'\"");
             $content = trim($match[2]);
 
             $content = (string) preg_replace('/^```(?:php)?\n?/i', '', $content);
@@ -308,24 +311,26 @@ final class AtlasMinimaxFirstWorkerService
     private function writeCode(array $codeBlocks, string $worktree): array
     {
         $written = [];
-        $errors  = [];
+        $errors = [];
         $worktreeRoot = $this->canonicalPath($worktree);
 
         foreach ($codeBlocks as $relativePath => $content) {
             $relativePath = str_replace('\\', '/', $relativePath);
             if ($relativePath === '' || str_starts_with($relativePath, '/') || preg_match('#(^|/)\.\.(/|$)#', $relativePath)) {
                 $errors[] = "path_escape_attempt: {$relativePath}";
+
                 continue;
             }
 
             $absPath = $worktreeRoot.'/'.$relativePath;
-            $dir     = dirname($absPath);
+            $dir = dirname($absPath);
 
             // Prevent path-traversal: resolved dir must be inside worktree.
             $nearestExistingDir = $this->nearestExistingDirectory($dir);
             $resolvedDir = $this->canonicalPath($nearestExistingDir);
             if (! $this->pathIsInside($resolvedDir, $worktreeRoot)) {
                 $errors[] = "path_escape_attempt: {$relativePath}";
+
                 continue;
             }
 
@@ -336,11 +341,13 @@ final class AtlasMinimaxFirstWorkerService
             $resolvedCreatedDir = realpath($dir);
             if ($resolvedCreatedDir === false || ! $this->pathIsInside($this->canonicalPath($resolvedCreatedDir), $worktreeRoot)) {
                 $errors[] = "path_escape_attempt: {$relativePath}";
+
                 continue;
             }
 
             if (file_put_contents($absPath, $content) === false) {
                 $errors[] = "write_failed: {$relativePath}";
+
                 continue;
             }
 
@@ -594,7 +601,7 @@ final class AtlasMinimaxFirstWorkerService
             .'Missing schema literals: '.implode(', ', array_values((array) ($contract['missing_schema_literals'] ?? [])))."\n"
             .'Missing return keys: '.implode(', ', array_values((array) ($contract['missing_return_keys'] ?? [])))."\n"
             .'Source criteria: '.implode(' | ', array_values((array) ($contract['source_criteria'] ?? [])))."\n"
-            ."Regenerate the complete allowed product and test files. The product return array must include the exact schema_version literal and every required key. Keep scope unchanged.";
+            .'Regenerate the complete allowed product and test files. The product return array must include the exact schema_version literal and every required key. Keep scope unchanged.';
     }
 
     /**
@@ -1038,11 +1045,11 @@ final class AtlasMinimaxFirstWorkerService
     {
         $errors = [];
         foreach ($relativePaths as $rel) {
-            $abs     = rtrim($worktree, '/') . '/' . $rel;
+            $abs = rtrim($worktree, '/').'/'.$rel;
             $process = new Process([PHP_BINARY, '-l', $abs], $worktree, null, null, 30.0);
             $process->run();
             if (! $process->isSuccessful()) {
-                $errors[] = $process->getOutput() . $process->getErrorOutput();
+                $errors[] = $process->getOutput().$process->getErrorOutput();
             }
         }
 
@@ -1073,8 +1080,8 @@ final class AtlasMinimaxFirstWorkerService
             $process->run();
             if (! $process->isSuccessful()) {
                 return [
-                    'ok'        => false,
-                    'output'    => mb_substr($process->getOutput() . $process->getErrorOutput(), 0, 4_000),
+                    'ok' => false,
+                    'output' => mb_substr($process->getOutput().$process->getErrorOutput(), 0, 4_000),
                     'exit_code' => $process->getExitCode() ?? 1,
                 ];
             }
@@ -1102,8 +1109,8 @@ final class AtlasMinimaxFirstWorkerService
         $appDir = $worktree.'/app';
         $path = sys_get_temp_dir().'/atlas_wt_autoload_'.substr(hash('sha256', $worktree), 0, 16).'.php';
         $contents = "<?php\n"
-            ."require ".var_export($vendorAutoload, true).";\n"
-            ."\$__atlas_app = ".var_export($appDir, true).";\n"
+            .'require '.var_export($vendorAutoload, true).";\n"
+            .'$__atlas_app = '.var_export($appDir, true).";\n"
             ."spl_autoload_register(static function (string \$class) use (\$__atlas_app): void {\n"
             ."    if (str_starts_with(\$class, 'App\\\\')) {\n"
             ."        \$file = \$__atlas_app.'/'.str_replace('\\\\', '/', substr(\$class, 4)).'.php';\n"
@@ -1147,13 +1154,13 @@ final class AtlasMinimaxFirstWorkerService
     private function buildRepairManifest(array $originalManifest, string $failureOutput, string $failureKind): array
     {
         $original = $originalManifest['messages'][0]['content'] ?? '';
-        $repair   = "\n\n--- REPAIR REQUIRED ({$failureKind}) ---\n"
-            . "Previous attempt failed. Error output:\n{$failureOutput}\n\n"
-            . "Fix ONLY the failing issue. Do not rewrite unrelated code.\n"
-            . "Output the complete corrected file(s) with // FILE: markers.";
+        $repair = "\n\n--- REPAIR REQUIRED ({$failureKind}) ---\n"
+            ."Previous attempt failed. Error output:\n{$failureOutput}\n\n"
+            ."Fix ONLY the failing issue. Do not rewrite unrelated code.\n"
+            .'Output the complete corrected file(s) with // FILE: markers.';
 
-        $manifest                           = $originalManifest;
-        $manifest['messages'][0]['content'] = mb_substr($original, 0, 20_000) . $repair;
+        $manifest = $originalManifest;
+        $manifest['messages'][0]['content'] = mb_substr($original, 0, 20_000).$repair;
         if (is_array($manifest['task_contract'] ?? null)) {
             $taskDescription = (string) ($manifest['task_contract']['task_description'] ?? '');
             $manifest['task_contract']['task_description'] = mb_substr($taskDescription !== '' ? $taskDescription : $original, 0, 20_000).$repair;
@@ -1200,15 +1207,15 @@ final class AtlasMinimaxFirstWorkerService
     ): array {
         return [
             'schema_version' => self::SCHEMA,
-            'status'         => $status,
-            'run_id'         => 'mmfirst_' . bin2hex(random_bytes(8)),
-            'run_summary'    => [
-                'completion_state'    => $completionState,
+            'status' => $status,
+            'run_id' => 'mmfirst_'.bin2hex(random_bytes(8)),
+            'run_summary' => [
+                'completion_state' => $completionState,
                 'verification_status' => $verificationStatus,
-                'scope_guard_status'  => 'passed',
-                'provider_call'       => [
-                    'provider'    => 'minimax_m27_cli',
-                    'model'       => 'MiniMax-M3',
+                'scope_guard_status' => 'passed',
+                'provider_call' => [
+                    'provider' => 'minimax_m27_cli',
+                    'model' => 'MiniMax-M3',
                     'tokens_used' => $tokensUsed,
                     // Real provider invocations this run = initial call + one per repair. The
                     // AP-759 runner maps this to owner_cli_provider_calls; without it the gate
@@ -1219,8 +1226,8 @@ final class AtlasMinimaxFirstWorkerService
                 ],
                 'repair_count' => $repairCount,
             ],
-            'debug_loop'    => ['reason' => $reason, 'failure_capsules' => $failureCapsules],
-            'blockers'      => $status === 'blocked' ? [$reason] : [],
+            'debug_loop' => ['reason' => $reason, 'failure_capsules' => $failureCapsules],
+            'blockers' => $status === 'blocked' ? [$reason] : [],
             'files_modified' => $filesWritten,
         ];
     }

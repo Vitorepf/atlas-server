@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Differential\Shadow;
 
+use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceVerdict;
+use App\Services\Ai\Programming\AtlasDev\Regression\RegressionVerdict;
+
 /**
  * E4 -- Verdict returned by {@see ShadowDiffGate::evaluate()}.
  *
@@ -12,8 +15,8 @@ namespace App\Services\Ai\Programming\AtlasDev\Differential\Shadow;
  * sanctioned channels (honesty flag for advisory, STATUS_FAILED gate for
  * hard). The verdict itself does NOT mutate any gate result.
  *
- * Mirrors {@see \App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceVerdict}
- * and {@see \App\Services\Ai\Programming\AtlasDev\Regression\RegressionVerdict}
+ * Mirrors {@see CandidateDivergenceVerdict}
+ * and {@see RegressionVerdict}
  * so the executor applies the E4 shadow-diff verdict through the SAME
  * post-gate block pattern used for E1/E2/E3/E5.
  *

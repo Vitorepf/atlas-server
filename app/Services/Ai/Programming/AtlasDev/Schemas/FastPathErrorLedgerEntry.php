@@ -17,13 +17,21 @@ final class FastPathErrorLedgerEntry implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.fast_path_error_ledger.v1';
 
     public const FAILURE_MODE_WRONG_FILE = 'wrong_file';
+
     public const FAILURE_MODE_WRONG_SCOPE = 'wrong_scope';
+
     public const FAILURE_MODE_MISSED_TEST = 'missed_test';
+
     public const FAILURE_MODE_BAD_REPAIR = 'bad_repair';
+
     public const FAILURE_MODE_MISSED_ESCALATION = 'missed_escalation';
+
     public const FAILURE_MODE_FALSE_ESCALATION = 'false_escalation';
+
     public const FAILURE_MODE_PROMPT_PROJECTION_ERROR = 'prompt_projection_error';
+
     public const FAILURE_MODE_CONTEXT_ERROR = 'context_error';
+
     public const FAILURE_MODE_OTHER = 'other';
 
     public const ALLOWED_FAILURE_MODES = [

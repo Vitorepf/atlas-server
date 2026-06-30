@@ -20,11 +20,11 @@ final class EscalationSignalsInput
     public const ALLOWED_RISK_LEVELS = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
 
     /**
-     * @param  list<string>  $riskKeywords        risk-flavoured terms found in
-     *                                            the intent or contract
+     * @param  list<string>  $riskKeywords  risk-flavoured terms found in
+     *                                      the intent or contract
      * @param  list<string>  $loopEscalationSignalDelta  signals reported by
-     *                                            the repair loop (e.g. same
-     *                                            signature, diff growth)
+     *                                                   the repair loop (e.g. same
+     *                                                   signature, diff growth)
      */
     public function __construct(
         public readonly string $riskLevel,

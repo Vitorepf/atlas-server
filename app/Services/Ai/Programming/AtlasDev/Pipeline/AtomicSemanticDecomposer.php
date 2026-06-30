@@ -56,7 +56,7 @@ final class AtomicSemanticDecomposer
      *
      * @param  string  $sliceIntent  the large slice's natural-language intent
      * @param  list<string>  $candidateFiles  workspace-relative implementation files
-     *                                         the slice would touch (non-test)
+     *                                        the slice would touch (non-test)
      * @param  list<string>  $testFiles  workspace-relative test files for the slice
      * @return list<AtomicStep>
      */

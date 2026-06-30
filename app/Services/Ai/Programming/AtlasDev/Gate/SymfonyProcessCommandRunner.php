@@ -70,5 +70,4 @@ final class SymfonyProcessCommandRunner implements AtlasDevVerificationCommandRu
             timedOut: $timedOut,
         );
     }
-
 }

@@ -16,7 +16,9 @@ final class FastPathTelemetry implements AtlasDevSchemaContract
     public const SCHEMA_VERSION = 'atlas.dev.fast_path_telemetry.v1';
 
     public const ALLOWED_TASK_KINDS = ['question', 'patch', 'repair', 'review', 'frontend', 'risky'];
+
     public const ALLOWED_RISK_LEVELS = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+
     public const ALLOWED_CONTRACT_STATUSES = ['passed', 'failed', 'needs_review'];
 
     public const COMPLETION_STATES_REQUIRING_ERROR_LEDGER = [

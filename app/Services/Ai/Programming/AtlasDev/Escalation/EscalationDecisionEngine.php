@@ -24,6 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 final class EscalationDecisionEngine
 {
     public const THRESHOLD_FORGE = 7;
+
     public const THRESHOLD_OBRA = 4;
 
     public function __construct(

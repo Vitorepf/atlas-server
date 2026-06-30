@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\AtlasDev\Repair;
 
 use App\Services\Ai\Programming\AtlasDev\Repair\Contracts\RepairAttemptEvaluator;
-use App\Services\Ai\Programming\AtlasDev\Repair\Contracts\RepairAttemptOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\FailureCapsule;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;

@@ -22,8 +22,11 @@ use InvalidArgumentException;
 final class RepairAttemptOutcome
 {
     public const STATUS_PASSED = 'passed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_SCOPE_VIOLATION = 'scope_violation';
+
     public const STATUS_BLOCKED = 'blocked';
 
     public const ALLOWED_STATUSES = [

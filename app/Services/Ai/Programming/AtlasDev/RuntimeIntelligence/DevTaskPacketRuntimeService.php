@@ -4,10 +4,10 @@ namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
 
 use App\Models\AtlasDevTaskPacket;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevRiskNormalizer;
-use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Product\AtlasExecutionDoctrineGateService;
 use App\Services\Ai\Product\AtlasExecutionDoctrineRuntimeService;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevRiskNormalizer;
+use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
@@ -145,5 +145,4 @@ class DevTaskPacketRuntimeService
             is_array($items) ? array_values(array_filter($items, 'is_string')) : [],
         );
     }
-
 }

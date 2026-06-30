@@ -101,5 +101,4 @@ class DevFailureCapsuleRuntimeService
 
         return strlen($value) <= $limit ? $value : substr($value, 0, $limit - 3).'...';
     }
-
 }
