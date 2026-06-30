@@ -49,7 +49,10 @@ final class AtlasMaestroPriorityReshaper
      * @param  array<string,mixed>        $snapshot fact snapshot consulted keys (all default to empty/false):
      *                                              facts.dependency_criticality_by_task_id (int, higher wins),
      *                                              facts.worker_starvation_unblock_by_task_id (bool, true rises above FIFO),
-     *                                              facts.poison_family_by_task_id (bool, true sinks below clean peers)
+     *                                              facts.poison_family_by_task_id (bool, true sinks below clean peers),
+     *                                              facts.high_give_back_risk_by_task_id (bool, true sinks below clean
+     *                                              peers, weaker than poison; dependency-critical/starvation-unblock
+     *                                              still override it via the earlier comparator stages)
      * @param  string                     $queueTag  for the forbidden-scope guard
      * @return list<array<string,mixed>>  ordered packets (input order if master-off)
      */
@@ -65,8 +68,9 @@ final class AtlasMaestroPriorityReshaper
         $criticality = (array) ($facts['dependency_criticality_by_task_id'] ?? []);
         $poison = (array) ($facts['poison_family_by_task_id'] ?? []);
         $starvation = (array) ($facts['worker_starvation_unblock_by_task_id'] ?? []);
+        $giveBackRisk = (array) ($facts['high_give_back_risk_by_task_id'] ?? []);
 
-        $augmented = array_map(static function (array $packet) use ($criticality, $poison, $starvation): array {
+        $augmented = array_map(static function (array $packet) use ($criticality, $poison, $starvation, $giveBackRisk): array {
             $id = (string) ($packet['task_packet_id'] ?? '');
 
             return [
@@ -74,6 +78,7 @@ final class AtlasMaestroPriorityReshaper
                 '_criticality' => (int) ($criticality[$id] ?? 0),
                 '_starvation' => (bool) ($starvation[$id] ?? false),
                 '_poison' => (bool) ($poison[$id] ?? false),
+                '_give_back_risk' => (bool) ($giveBackRisk[$id] ?? false),
                 '_enqueued_at' => (string) ($packet['enqueued_at'] ?? ''),
                 '_id' => $id,
             ];
@@ -95,13 +100,19 @@ final class AtlasMaestroPriorityReshaper
             if ($c !== 0) {
                 return $c;
             }
-            // (4) older enqueued_at first (strcmp on ISO-8601 sorts chronologically)
+            // (4) high give_back risk: clean before risky (sinks behind clean work, weaker than
+            // poison; criticality/starvation above already override this for explicit cases)
+            $c = ($a['_give_back_risk'] ? 1 : 0) <=> ($b['_give_back_risk'] ? 1 : 0);
+            if ($c !== 0) {
+                return $c;
+            }
+            // (5) older enqueued_at first (strcmp on ISO-8601 sorts chronologically)
             $c = strcmp($a['_enqueued_at'], $b['_enqueued_at']);
             if ($c !== 0) {
                 return $c;
             }
 
-            // (5) lexical task_packet_id
+            // (6) lexical task_packet_id
             return strcmp($a['_id'], $b['_id']);
         });
 

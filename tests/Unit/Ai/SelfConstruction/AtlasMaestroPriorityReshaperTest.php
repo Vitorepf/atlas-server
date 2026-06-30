@@ -164,4 +164,61 @@ final class AtlasMaestroPriorityReshaperTest extends TestCase
         $onOrder = $this->reshaper(masterOn: true)->reshape($packets, $snapshot, 'loop');
         $this->assertSame(['pkt-new', 'pkt-old'], array_column($onOrder, 'task_packet_id'), 'starvation-unblock must precede FIFO peers');
     }
+
+    public function test_high_give_back_risk_sinks_below_clean_peer_with_equal_criticality(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'high_give_back_risk_by_task_id' => ['pkt-A' => true],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-A', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-B', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-B', 'pkt-A'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_high_give_back_risk_is_weaker_than_poison(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'poison_family_by_task_id' => ['pkt-A' => true],
+                'high_give_back_risk_by_task_id' => ['pkt-B' => true],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-A', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-B', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        // pkt-B (give_back risk) before pkt-A (poison) — poison sinks lower than give_back risk.
+        $this->assertSame(['pkt-B', 'pkt-A'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_dependency_criticality_overrides_high_give_back_risk(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => ['pkt-A' => 5],
+                'high_give_back_risk_by_task_id' => ['pkt-A' => true],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-A', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-B', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        // pkt-A still rises despite give_back risk because it's explicitly dependency-critical.
+        $this->assertSame(['pkt-A', 'pkt-B'], array_column($ordered, 'task_packet_id'));
+    }
 }
