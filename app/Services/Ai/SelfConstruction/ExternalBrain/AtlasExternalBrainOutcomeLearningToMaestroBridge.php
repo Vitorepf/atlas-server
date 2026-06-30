@@ -16,25 +16,30 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     give_back_rate:  float    0.0–1.0
  *     quarantine_rate: float    0.0–1.0
  *     sample_count:    int      rows with count < MIN_SAMPLES are skipped
+ *     has_value_proof: bool     true = real capability delta proven; false = weak-green candidate
  *   }
  *
- * RULES (all applied per row; first matching rule wins within each output category):
+ * RULES (all applied per row; priority ordering within each output category):
  *
  *   POISON BLOCK:
  *     give_back_rate >= POISON_GIVE_BACK OR quarantine_rate >= POISON_QUARANTINE
- *     → poison_family_blocks entry + supply adjustment block + replenisher reduce_supply
+ *     → poison_family_blocks + block supply adjustment + replenisher reduce_supply
  *
  *   SUPPLY DECREASE (non-poison):
  *     give_back_rate >= GIVE_BACK_CEILING (but below poison)
  *     → task_family_supply_adjustments decrease + replenisher reduce_supply
  *
- *   SUPPLY INCREASE:
- *     success_rate >= SUCCESS_FLOOR
+ *   SUPPLY INCREASE (requires value_proof):
+ *     success_rate >= SUCCESS_FLOOR AND has_value_proof
  *     → task_family_supply_adjustments increase + replenisher boost_supply
  *
+ *   WEAK-GREEN QUALITY REVIEW (success without value_proof):
+ *     success_rate >= SUCCESS_FLOOR AND NOT has_value_proof
+ *     → weak_green_quality_reviews tighten_task_fabric (no supply boost)
+ *
  *   WORKER AFFINITY (independent; emitted regardless of supply direction):
- *     success_rate >= SUCCESS_FLOOR → recommend current worker_tier (it is working well)
- *     give_back_rate >= GIVE_BACK_CEILING → recommend cheaper or scaffolded tier if not already
+ *     success_rate >= SUCCESS_FLOOR AND has_value_proof → confirm current worker_tier
+ *     give_back_rate >= GIVE_BACK_CEILING                → recommend cheaper tier
  *
  * DEFAULT THRESHOLDS:
  *   MIN_SAMPLES           = 3
@@ -49,6 +54,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     worker_affinity_updates,
  *     task_family_supply_adjustments,
  *     poison_family_blocks,
+ *     weak_green_quality_reviews,
  *     replenisher_feedback
  *   }
  *
@@ -77,29 +83,31 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
      */
     public function bridge(array $rows, array $options = []): array
     {
-        $thresholds      = is_array($options['thresholds'] ?? null) ? $options['thresholds'] : [];
-        $minSamples      = (int)   ($thresholds['min_samples']       ?? self::MIN_SAMPLES);
-        $successFloor    = (float) ($thresholds['success_floor']     ?? self::SUCCESS_FLOOR);
-        $giveBackCeiling = (float) ($thresholds['give_back_ceiling'] ?? self::GIVE_BACK_CEILING);
-        $poisonGiveBack  = (float) ($thresholds['poison_give_back']  ?? self::POISON_GIVE_BACK);
+        $thresholds       = is_array($options['thresholds'] ?? null) ? $options['thresholds'] : [];
+        $minSamples       = (int)   ($thresholds['min_samples']       ?? self::MIN_SAMPLES);
+        $successFloor     = (float) ($thresholds['success_floor']     ?? self::SUCCESS_FLOOR);
+        $giveBackCeiling  = (float) ($thresholds['give_back_ceiling'] ?? self::GIVE_BACK_CEILING);
+        $poisonGiveBack   = (float) ($thresholds['poison_give_back']  ?? self::POISON_GIVE_BACK);
         $poisonQuarantine = (float) ($thresholds['poison_quarantine'] ?? self::POISON_QUARANTINE);
 
-        $affinityUpdates     = [];
-        $supplyAdjustments   = [];
-        $poisonBlocks        = [];
-        $replenisherFeedback = [];
+        $affinityUpdates      = [];
+        $supplyAdjustments    = [];
+        $poisonBlocks         = [];
+        $weakGreenReviews     = [];
+        $replenisherFeedback  = [];
 
         foreach ($rows as $row) {
             if (! is_array($row)) {
                 continue;
             }
 
-            $family        = (string) ($row['task_family'] ?? '');
-            $tier          = (string) ($row['worker_tier'] ?? 'scaffolded_small_model');
-            $successRate   = (float) ($row['success_rate'] ?? 0.0);
-            $giveBackRate  = (float) ($row['give_back_rate'] ?? 0.0);
-            $quarantineRate = (float) ($row['quarantine_rate'] ?? 0.0);
-            $sampleCount   = (int) ($row['sample_count'] ?? 0);
+            $family         = (string) ($row['task_family'] ?? '');
+            $tier           = (string) ($row['worker_tier'] ?? 'scaffolded_small_model');
+            $successRate    = (float)  ($row['success_rate'] ?? 0.0);
+            $giveBackRate   = (float)  ($row['give_back_rate'] ?? 0.0);
+            $quarantineRate = (float)  ($row['quarantine_rate'] ?? 0.0);
+            $sampleCount    = (int)    ($row['sample_count'] ?? 0);
+            $hasValueProof  = (bool)   ($row['has_value_proof'] ?? false);
 
             if ($sampleCount < $minSamples || $family === '') {
                 continue;
@@ -107,13 +115,13 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
 
             $isPoison = $giveBackRate >= $poisonGiveBack || $quarantineRate >= $poisonQuarantine;
 
-            // Poison block.
+            // ── Poison block (highest priority; skips all other rules) ─────────
             if ($isPoison) {
                 $reason = $giveBackRate >= $poisonGiveBack
                     ? sprintf('give_back_rate_%.2f_exceeds_poison_threshold_%.2f', $giveBackRate, $poisonGiveBack)
                     : sprintf('quarantine_rate_%.2f_exceeds_poison_threshold_%.2f', $quarantineRate, $poisonQuarantine);
 
-                $poisonBlocks[]      = ['task_family' => $family, 'reason' => $reason];
+                $poisonBlocks[]     = ['task_family' => $family, 'reason' => $reason];
                 $supplyAdjustments[] = [
                     'task_family' => $family,
                     'adjustment'  => 'block',
@@ -125,17 +133,15 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                     'action'      => 'reduce_supply',
                     'reason'      => 'poison_block:'.$reason,
                 ];
-                // Affinity: downgrade tier for poison.
-                $cheaper = $this->cheaperTier($tier);
                 $affinityUpdates[] = [
                     'task_family'      => $family,
-                    'recommended_tier' => $cheaper,
+                    'recommended_tier' => $this->cheaperTier($tier),
                     'reason'           => 'poison_family_downgrade_to_cheaper_tier',
                 ];
                 continue;
             }
 
-            // Non-poison supply decrease.
+            // ── Non-poison supply decrease ────────────────────────────────────
             $supplySentinel = 'hold';
             if ($giveBackRate >= $giveBackCeiling) {
                 $magnitude = round(min(1.0, $giveBackRate * 2), 4);
@@ -146,59 +152,70 @@ final class AtlasExternalBrainOutcomeLearningToMaestroBridge
                     'reason'      => sprintf('give_back_rate_%.2f_above_ceiling_%.2f', $giveBackRate, $giveBackCeiling),
                 ];
                 $supplySentinel = 'reduce_supply';
+
+                $affinityUpdates[] = [
+                    'task_family'      => $family,
+                    'recommended_tier' => $this->cheaperTier($tier),
+                    'reason'           => sprintf('give_back_rate_%.2f_suggests_simpler_tier', $giveBackRate),
+                ];
             }
 
-            // Supply increase.
+            // ── Supply increase OR weak-green review ──────────────────────────
             if ($successRate >= $successFloor) {
-                $magnitude = round(min(1.0, $successRate), 4);
-                $supplyAdjustments[] = [
-                    'task_family' => $family,
-                    'adjustment'  => 'increase',
-                    'magnitude'   => $magnitude,
-                    'reason'      => sprintf('success_rate_%.2f_above_floor_%.2f', $successRate, $successFloor),
-                ];
-                $supplySentinel = 'boost_supply';
+                if ($hasValueProof) {
+                    // Proven real value: boost supply and confirm tier.
+                    $magnitude = round(min(1.0, $successRate), 4);
+                    $supplyAdjustments[] = [
+                        'task_family' => $family,
+                        'adjustment'  => 'increase',
+                        'magnitude'   => $magnitude,
+                        'reason'      => sprintf('success_rate_%.2f_with_value_proof_above_floor_%.2f', $successRate, $successFloor),
+                    ];
+                    $supplySentinel = 'boost_supply';
+
+                    $affinityUpdates[] = [
+                        'task_family'      => $family,
+                        'recommended_tier' => $tier,
+                        'reason'           => sprintf('success_rate_%.2f_with_value_proof_confirms_tier_%s', $successRate, $tier),
+                    ];
+                } else {
+                    // Green metrics but no value proof: tighten gates, do not boost.
+                    $weakGreenReviews[] = [
+                        'task_family' => $family,
+                        'action'      => 'tighten_task_fabric',
+                        'worker_tier' => $tier,
+                        'reason'      => sprintf('success_rate_%.2f_without_value_proof', $successRate),
+                    ];
+                    // supplySentinel stays 'hold' (no boost for weak-green)
+                }
             }
 
             $replenisherFeedback[] = [
                 'task_family' => $family,
                 'action'      => $supplySentinel,
-                'reason'      => $supplySentinel === 'hold'
-                    ? 'no_dominant_supply_signal'
-                    : $supplySentinel.'_based_on_outcome_rates',
+                'reason'      => match ($supplySentinel) {
+                    'boost_supply'   => 'boost_supply_based_on_outcome_rates',
+                    'reduce_supply'  => 'reduce_supply_based_on_outcome_rates',
+                    default          => 'no_dominant_supply_signal',
+                },
             ];
-
-            // Worker affinity.
-            if ($successRate >= $successFloor) {
-                $affinityUpdates[] = [
-                    'task_family'      => $family,
-                    'recommended_tier' => $tier,
-                    'reason'           => sprintf('success_rate_%.2f_confirms_tier_%s', $successRate, $tier),
-                ];
-            } elseif ($giveBackRate >= $giveBackCeiling) {
-                $cheaper = $this->cheaperTier($tier);
-                $affinityUpdates[] = [
-                    'task_family'      => $family,
-                    'recommended_tier' => $cheaper,
-                    'reason'           => sprintf('give_back_rate_%.2f_suggests_simpler_tier', $giveBackRate),
-                ];
-            }
         }
 
         return [
-            'schema'                        => self::SCHEMA,
-            'worker_affinity_updates'       => $affinityUpdates,
-            'task_family_supply_adjustments' => $supplyAdjustments,
-            'poison_family_blocks'          => $poisonBlocks,
-            'replenisher_feedback'          => $replenisherFeedback,
+            'schema'                          => self::SCHEMA,
+            'worker_affinity_updates'         => $affinityUpdates,
+            'task_family_supply_adjustments'  => $supplyAdjustments,
+            'poison_family_blocks'            => $poisonBlocks,
+            'weak_green_quality_reviews'      => $weakGreenReviews,
+            'replenisher_feedback'            => $replenisherFeedback,
         ];
     }
 
     private function cheaperTier(string $tier): string
     {
-        $rank = self::TIER_ORDER[$tier] ?? 1;
+        $rank   = self::TIER_ORDER[$tier] ?? 1;
         $cheaper = max(0, $rank - 1);
-        $flip = array_flip(self::TIER_ORDER);
+        $flip   = array_flip(self::TIER_ORDER);
 
         return $flip[$cheaper] ?? 'small_model';
     }
