@@ -113,6 +113,48 @@ class AtlasMaestroProviderRecommendationReceiptLedgerTest extends TestCase
         self::assertSame($bytes, file_get_contents($this->ledgerPath));
     }
 
+    public function test_first_receipt_prev_chain_hash_is_genesis(): void
+    {
+        $ledger = new AtlasMaestroProviderRecommendationReceiptLedger($this->ledgerPath);
+        $r = $ledger->record($this->rec(['reason' => 'highest_success_rate']));
+
+        self::assertSame('genesis', $r['prev_chain_hash']);
+        self::assertSame('highest_success_rate', $r['reason']);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['fact_hash']);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['chain_hash']);
+    }
+
+    public function test_valid_chain_verifies_correctly_for_multiple_receipts(): void
+    {
+        $ledger = new AtlasMaestroProviderRecommendationReceiptLedger($this->ledgerPath);
+        $ledger->record($this->rec(['requested_at' => '2026-06-25T00:00:01Z', 'reason' => 'highest_success_rate']));
+        $ledger->record($this->rec(['task_class' => 'coverage', 'recommended_provider' => 'codex', 'requested_at' => '2026-06-25T00:00:02Z', 'reason' => 'tied_within_margin']));
+        $ledger->record($this->rec(['task_class' => 'docs', 'requested_at' => '2026-06-25T00:00:03Z', 'reason' => 'minimum_sample_threshold']));
+
+        $result = $ledger->verifyChain();
+
+        self::assertTrue($result['valid'], implode(', ', $result['violations']));
+        self::assertSame(3, $result['chain_length']);
+        self::assertSame([], $result['violations']);
+    }
+
+    public function test_tampered_provider_in_stored_receipt_invalidates_chain(): void
+    {
+        $ledger = new AtlasMaestroProviderRecommendationReceiptLedger($this->ledgerPath);
+        $ledger->record($this->rec(['reason' => 'highest_success_rate']));
+
+        // Read the file, tamper the provider field, write back.
+        $line = trim((string) file_get_contents($this->ledgerPath));
+        $row = json_decode($line, true);
+        $row['recommended_provider'] = 'tampered_provider'; // fact_hash and chain_hash now stale
+        file_put_contents($this->ledgerPath, json_encode($row)."\n");
+
+        $result = $ledger->verifyChain();
+
+        self::assertFalse($result['valid']);
+        self::assertContains('fact_hash_mismatch:position_0', $result['violations']);
+    }
+
     public function test_ledger_has_no_marketing_aaeos_forge_dependency(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/Maestro/ProviderLearning/AtlasMaestroProviderRecommendationReceiptLedger.php'));

@@ -30,7 +30,8 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
 
     /**
      * @param  array<string,mixed>  $recommendation
-     *      {task_class, recommended_provider, sample_size, success_rate, give_back_rate?, tied_with?, tie_reason?, requested_at, requested_by}
+     *      {task_class, recommended_provider, sample_size, success_rate, give_back_rate?, tied_with?,
+     *       tie_reason?, requested_at, requested_by, reason?}
      * @return array<string,mixed>  the receipt that was appended (or the existing one if dedup'd)
      */
     public function record(array $recommendation): array
@@ -44,8 +45,12 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
         $tieReason = (string) ($recommendation['tie_reason'] ?? '');
         $requestedAt = (string) ($recommendation['requested_at'] ?? '');
         $requestedBy = (string) ($recommendation['requested_by'] ?? '');
+        $reason = (string) ($recommendation['reason'] ?? 'unspecified');
 
         $receiptId = $this->receiptId($taskClass, $provider, $sampleSize, $successRate, $requestedAt);
+        $factHash = $this->computeFactHash($taskClass, $provider, $sampleSize, $successRate, $reason);
+        $prevChainHash = $this->lastChainHash();
+        $chainHash = $this->computeChainHash($prevChainHash, $receiptId, $factHash);
 
         $receipt = [
             'schema' => self::SCHEMA,
@@ -59,6 +64,10 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
             'tie_reason' => $tieReason,
             'requested_at' => $requestedAt,
             'requested_by' => $requestedBy,
+            'reason' => $reason,
+            'fact_hash' => $factHash,
+            'prev_chain_hash' => $prevChainHash,
+            'chain_hash' => $chainHash,
         ];
 
         if ($this->isAlreadyRecorded($receiptId)) {
@@ -77,6 +86,49 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
         }
 
         return $receipt;
+    }
+
+    /**
+     * Verify the integrity of the full hash chain.
+     * Re-derives fact_hash and chain_hash for every stored receipt and flags any discrepancy.
+     *
+     * @return array{valid: bool, chain_length: int, violations: list<string>}
+     */
+    public function verifyChain(): array
+    {
+        $rows = $this->readAll();
+        $violations = [];
+        $expectedPrevHash = 'genesis';
+
+        foreach ($rows as $i => $row) {
+            $taskClass = (string) ($row['task_class'] ?? '');
+            $provider = (string) ($row['recommended_provider'] ?? '');
+            $sampleSize = (int) ($row['sample_size'] ?? 0);
+            $successRate = (float) ($row['success_rate'] ?? 0);
+            $reason = (string) ($row['reason'] ?? 'unspecified');
+            $receiptId = (string) ($row['receipt_id'] ?? '');
+
+            $expectedFactHash = $this->computeFactHash($taskClass, $provider, $sampleSize, $successRate, $reason);
+            $expectedChainHash = $this->computeChainHash($expectedPrevHash, $receiptId, $expectedFactHash);
+
+            if ((string) ($row['fact_hash'] ?? '') !== $expectedFactHash) {
+                $violations[] = 'fact_hash_mismatch:position_'.$i;
+            }
+            if ((string) ($row['prev_chain_hash'] ?? '') !== $expectedPrevHash) {
+                $violations[] = 'prev_chain_hash_mismatch:position_'.$i;
+            }
+            if ((string) ($row['chain_hash'] ?? '') !== $expectedChainHash) {
+                $violations[] = 'chain_hash_mismatch:position_'.$i;
+            }
+
+            $expectedPrevHash = $expectedChainHash;
+        }
+
+        return [
+            'valid' => $violations === [],
+            'chain_length' => count($rows),
+            'violations' => $violations,
+        ];
     }
 
     /**
@@ -102,6 +154,26 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
         $this->sortReceipts($rows);
 
         return $rows;
+    }
+
+    private function computeFactHash(string $taskClass, string $provider, int $sampleSize, float $successRate, string $reason): string
+    {
+        return hash('sha256', $taskClass.'|'.$provider.'|'.$sampleSize.'|'.$successRate.'|'.$reason);
+    }
+
+    private function computeChainHash(string $prevChainHash, string $receiptId, string $factHash): string
+    {
+        return hash('sha256', $prevChainHash.'|'.$receiptId.'|'.$factHash);
+    }
+
+    private function lastChainHash(): string
+    {
+        $rows = $this->readAll();
+        if ($rows === []) {
+            return 'genesis';
+        }
+
+        return (string) (end($rows)['chain_hash'] ?? 'genesis');
     }
 
     private function receiptId(string $taskClass, string $provider, int $sampleSize, float $successRate, string $requestedAt): string
