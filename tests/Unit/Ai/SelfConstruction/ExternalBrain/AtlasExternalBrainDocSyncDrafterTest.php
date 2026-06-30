@@ -79,6 +79,17 @@ final class AtlasExternalBrainDocSyncDrafterTest extends TestCase
         }
     }
 
+    public function test_sections_has_all_seven_canonical_keys(): void
+    {
+        $result = $this->drafter()->draft($this->cleanSnapshot());
+
+        foreach (['architecture', 'operation', 'limitations', 'evidence', 'queue_quality', 'knowledge_freshness', 'next_leverage'] as $section) {
+            $this->assertArrayHasKey($section, $result['sections']);
+            $this->assertIsString($result['sections'][$section]);
+            $this->assertNotEmpty($result['sections'][$section]);
+        }
+    }
+
     public function test_maturity_change_produces_different_architecture_section(): void
     {
         $advanced      = $this->cleanSnapshot();
@@ -217,5 +228,119 @@ final class AtlasExternalBrainDocSyncDrafterTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainDocSyncDrafter::SCHEMA, $result['schema']);
         $this->assertStringContainsString('bootstrapping', $result['sections']['architecture']);
+    }
+
+    public function test_autonomous_readiness_reaches_90_with_no_refused_claims(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['maturity_band' => 'autonomous', 'maturity_score' => 0.90]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $this->assertFalse($result['certification_blocked']);
+        $this->assertSame([], $result['refused_claims']);
+        preg_match('/(\d+)%/', $result['readiness_claim'], $m);
+        $this->assertSame(90, (int) ($m[1] ?? 0));
+    }
+
+    public function test_stale_docs_caps_readiness_below_95_and_adds_refused_claim(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['stale_docs' => true]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $this->assertNotEmpty($result['refused_claims']);
+        $this->assertStringContainsString('stale_docs', implode(',', $result['refused_claims']));
+        preg_match('/(\d+)%/', $result['readiness_claim'], $m);
+        $this->assertLessThan(95, (int) ($m[1] ?? 100));
+    }
+
+    public function test_stale_code_index_caps_readiness_below_95(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['stale_code_index' => true]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $claims = implode(',', $result['refused_claims']);
+        $this->assertStringContainsString('stale_code_index', $claims);
+        preg_match('/(\d+)%/', $result['readiness_claim'], $m);
+        $this->assertLessThan(95, (int) ($m[1] ?? 100));
+    }
+
+    public function test_queue_quality_risks_cap_readiness_below_95(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['queue_quality_risks' => ['poison_family_detected']]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $claims = implode(',', $result['refused_claims']);
+        $this->assertStringContainsString('queue_quality_risks', $claims);
+        preg_match('/(\d+)%/', $result['readiness_claim'], $m);
+        $this->assertLessThan(95, (int) ($m[1] ?? 100));
+    }
+
+    public function test_queue_quality_section_reflects_risks(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['queue_quality_risks' => ['malformed_burst', 'give_back_spike']]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $this->assertStringContainsString('malformed_burst', $result['sections']['queue_quality']);
+        $this->assertStringContainsString('give_back_spike', $result['sections']['queue_quality']);
+    }
+
+    public function test_queue_quality_section_clean_when_no_risks(): void
+    {
+        $result = $this->drafter()->draft($this->cleanSnapshot());
+
+        $this->assertStringContainsString('No queue quality risks detected', $result['sections']['queue_quality']);
+    }
+
+    public function test_knowledge_freshness_section_reflects_stale_flags(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['stale_docs' => true, 'stale_code_index' => true]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $this->assertStringContainsString('STALE', $result['sections']['knowledge_freshness']);
+    }
+
+    public function test_knowledge_freshness_section_current_when_no_staleness(): void
+    {
+        $result = $this->drafter()->draft($this->cleanSnapshot());
+
+        $this->assertStringContainsString('current', $result['sections']['knowledge_freshness']);
+        $this->assertStringNotContainsString('STALE', $result['sections']['knowledge_freshness']);
+    }
+
+    public function test_doc_deltas_include_evidence_refs_and_update_priority(): void
+    {
+        $result = $this->drafter()->draft($this->cleanSnapshot());
+
+        foreach ($result['doc_deltas'] as $delta) {
+            $this->assertArrayHasKey('evidence_refs', $delta);
+            $this->assertArrayHasKey('update_priority', $delta);
+            $this->assertIsArray($delta['evidence_refs']);
+            $this->assertIsString($delta['update_priority']);
+        }
+    }
+
+    public function test_stale_docs_adds_knowledge_freshness_delta(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['stale_docs' => true]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $sections = array_column($result['doc_deltas'], 'section');
+        $this->assertContains('knowledge-freshness', $sections);
+    }
+
+    public function test_queue_quality_risks_adds_queue_quality_risks_delta(): void
+    {
+        $snapshot = array_merge($this->cleanSnapshot(), ['queue_quality_risks' => ['drain_overdue']]);
+
+        $result = $this->drafter()->draft($snapshot);
+
+        $sections = array_column($result['doc_deltas'], 'section');
+        $this->assertContains('queue-quality-risks', $sections);
     }
 }
