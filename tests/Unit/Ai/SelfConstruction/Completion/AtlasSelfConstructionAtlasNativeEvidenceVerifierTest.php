@@ -304,4 +304,206 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCas
         $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_READY, $verdict['status']);
         $this->assertSame([], $verdict['source_blockers']);
     }
+
+    // ── freshness-window checks ───────────────────────────────────────────────
+
+    public function test_freshness_window_exceeded_on_refreshable_source_yields_hold(): void
+    {
+        $now = 1_751_290_000;
+        $facts = $this->readyFacts([
+            'sources' => [
+                'docs_health' => ['status' => 'pass', 'generated_at_unix' => $now - 7200],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts, $now);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_HOLD, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('stale_by_freshness_window', $kinds);
+    }
+
+    public function test_freshness_window_exceeded_on_non_refreshable_source_yields_blocked(): void
+    {
+        $now = 1_751_290_000;
+        $facts = $this->readyFacts([
+            'sources' => [
+                'task_serving_contract_sentinel' => ['status' => 'pass', 'generated_at_unix' => $now - 200_000],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts, $now);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('stale_by_freshness_window', $kinds);
+        $row = array_values(array_filter($verdict['source_blockers'], fn (array $r): bool => $r['kind'] === 'stale_by_freshness_window'))[0];
+        $this->assertFalse($row['refreshable']);
+    }
+
+    public function test_freshness_window_not_exceeded_does_not_add_blocker(): void
+    {
+        $now = 1_751_290_000;
+        $facts = $this->readyFacts([
+            'sources' => [
+                'docs_health' => ['status' => 'pass', 'generated_at_unix' => $now - 60],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts, $now);
+
+        $this->assertTrue($verdict['passed']);
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_READY, $verdict['status']);
+    }
+
+    public function test_nowunix_zero_skips_freshness_check(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'docs_health' => ['status' => 'pass', 'generated_at_unix' => 1],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts, 0);
+
+        $this->assertTrue($verdict['passed']);
+    }
+
+    // ── required-fields checks ────────────────────────────────────────────────
+
+    public function test_missing_required_field_on_source_with_fields_list_adds_blocker(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'task_graph_autonomous_replenisher' => [
+                    'status' => 'pass',
+                    'fields' => ['dry_run', 'applied_count'],
+                ],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('missing_required_field:plan_hash', $kinds);
+    }
+
+    public function test_source_with_all_required_fields_does_not_add_blocker(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'task_graph_autonomous_replenisher' => [
+                    'status' => 'pass',
+                    'fields' => ['plan_hash', 'dry_run', 'applied_count', 'withheld_count', 'duplicate_count', 'replenisher_hash'],
+                ],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $missingKinds = array_filter($kinds, fn (string $k): bool => str_starts_with($k, 'missing_required_field:'));
+        $this->assertEmpty($missingKinds);
+    }
+
+    public function test_source_without_fields_key_skips_required_fields_check(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'task_graph_autonomous_replenisher' => ['status' => 'pass'],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $missingKinds = array_filter($kinds, fn (string $k): bool => str_starts_with($k, 'missing_required_field:'));
+        $this->assertEmpty($missingKinds);
+    }
+
+    // ── cross-source consistency ──────────────────────────────────────────────
+
+    public function test_group_consistency_gap_when_one_source_fails_and_sibling_passes(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'merge_governor' => ['status' => 'fail'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('group_consistency_gap', $kinds);
+        $gapRow = array_values(array_filter($verdict['source_blockers'], fn (array $r): bool => $r['kind'] === 'group_consistency_gap'))[0];
+        $this->assertSame('governance', $gapRow['source_id']);
+    }
+
+    public function test_group_consistency_gap_when_contradictory_alongside_pass(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'merge_governor' => ['status' => 'contradictory'],
+                'multi_project_governance_dossier' => ['status' => 'pass'],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertContains('group_consistency_gap', $kinds);
+    }
+
+    public function test_missing_alongside_pass_in_same_group_does_not_trigger_consistency_gap(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['sources']['knowledge_sync']);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertNotContains('group_consistency_gap', $kinds);
+    }
+
+    public function test_all_sources_fail_in_group_does_not_trigger_consistency_gap(): void
+    {
+        $facts = $this->readyFacts([
+            'sources' => [
+                'merge_governor' => ['status' => 'fail'],
+                'multi_project_governance_dossier' => ['status' => 'fail'],
+            ],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $kinds = array_column($verdict['source_blockers'], 'kind');
+        $this->assertNotContains('group_consistency_gap', $kinds);
+    }
+
+    // ── evidence_refs ─────────────────────────────────────────────────────────
+
+    public function test_evidence_refs_present_and_lists_checked_source_ids(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyFacts());
+
+        $this->assertArrayHasKey('evidence_refs', $verdict);
+        $this->assertIsArray($verdict['evidence_refs']);
+        $this->assertNotEmpty($verdict['evidence_refs']);
+        $this->assertContains('merge_governor', $verdict['evidence_refs']);
+        $this->assertContains('task_serving_contract_sentinel', $verdict['evidence_refs']);
+    }
+
+    public function test_evidence_refs_stable_sorted_order(): void
+    {
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyFacts());
+
+        $refs = $verdict['evidence_refs'];
+        $sorted = $refs;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $refs, 'evidence_refs must be in byte-stable sorted order');
+    }
 }

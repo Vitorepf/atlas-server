@@ -54,9 +54,10 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
 
     /**
      * @param  array<string,mixed>  $facts
+     * @param  int                  $nowUnix  Unix timestamp used for freshness-window checks; 0 = skip.
      * @return array<string,mixed>
      */
-    public function verify(array $facts): array
+    public function verify(array $facts, int $nowUnix = 0): array
     {
         $contractBlockers = $this->autonomyContractBlockers($facts);
         $sourceFacts = is_array($facts['sources'] ?? null) ? $facts['sources'] : $this->legacyFactsToSources($facts);
@@ -95,6 +96,46 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
                         $unsafeBlocker = true;
                     }
                 }
+
+                // Freshness-window check: only when caller supplies a reference timestamp.
+                $freshWindow = isset($source['freshness_window_seconds']) ? (int) $source['freshness_window_seconds'] : 0;
+                if ($nowUnix > 0 && $freshWindow > 0 && $sourceRow !== null && isset($sourceRow['generated_at_unix'])) {
+                    $generatedAt = (int) $sourceRow['generated_at_unix'];
+                    if ($generatedAt > 0 && ($nowUnix - $generatedAt) > $freshWindow) {
+                        $sourceBlockers[] = [
+                            'source_id' => $sourceId,
+                            'kind' => 'stale_by_freshness_window',
+                            'status' => $status,
+                            'refreshable' => $refreshable,
+                            'note' => sprintf('generated_at=%d window_seconds=%d', $generatedAt, $freshWindow),
+                        ];
+                        if ($refreshable) {
+                            $refreshableHold = true;
+                        } else {
+                            $unsafeBlocker = true;
+                        }
+                    }
+                }
+
+                // Required-fields check: fires when the source row exposes a 'fields' list AND the registry
+                // declares required_fields for this source.
+                $requiredFields = is_array($source['required_fields'] ?? null) ? (array) $source['required_fields'] : [];
+                if ($requiredFields !== [] && $sourceRow !== null && is_array($sourceRow['fields'] ?? null)) {
+                    $observedFields = (array) $sourceRow['fields'];
+                    foreach ($requiredFields as $reqField) {
+                        if (! in_array((string) $reqField, $observedFields, true)) {
+                            $sourceBlockers[] = [
+                                'source_id' => $sourceId,
+                                'kind' => 'missing_required_field:'.(string) $reqField,
+                                'status' => $status,
+                                'refreshable' => $refreshable,
+                                'note' => '',
+                            ];
+                            $unsafeBlocker = true;
+                        }
+                    }
+                }
+
                 continue;
             }
 
@@ -117,6 +158,35 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             if ($safeMiss) {
                 $refreshableHold = true;
             } else {
+                $unsafeBlocker = true;
+            }
+        }
+
+        // Cross-source consistency: within each registry group, all observed sources should share the
+        // same pass/fail state. A mix of passing and non-passing sources in the same group indicates
+        // contradictory evidence (e.g. queue facts say ready but runtime facts say blocked).
+        foreach ($registry['source_groups'] as $group => $groupSourceIds) {
+            $groupStatuses = [];
+            foreach ($groupSourceIds as $sid) {
+                if (isset($sourcesObserved[$sid])) {
+                    $groupStatuses[] = $sourcesObserved[$sid];
+                }
+            }
+            if (count($groupStatuses) < 2) {
+                continue;
+            }
+            $passingCount = count(array_filter($groupStatuses, fn (string $s): bool => $s === self::SOURCE_STATUS_PASS));
+            // Only contradictory/fail alongside pass is a genuine consistency violation.
+            // missing/stale in a group is handled by the per-source refreshable/unsafe logic already.
+            $contradictoryCount = count(array_filter($groupStatuses, fn (string $s): bool => in_array($s, [self::SOURCE_STATUS_FAIL, self::SOURCE_STATUS_CONTRADICTORY], true)));
+            if ($passingCount > 0 && $contradictoryCount > 0) {
+                $sourceBlockers[] = [
+                    'source_id' => $group,
+                    'kind' => 'group_consistency_gap',
+                    'status' => 'inconsistent',
+                    'refreshable' => false,
+                    'note' => sprintf('%d pass %d fail_or_contradictory in group', $passingCount, $contradictoryCount),
+                ];
                 $unsafeBlocker = true;
             }
         }
@@ -152,6 +222,7 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             'autonomy_contract_blockers' => $contractBlockers,
             'source_blockers' => $sourceBlockers,
             'sources_observed' => $sourcesObserved,
+            'evidence_refs' => array_keys($sourcesObserved),
             'registry_schema_version' => (string) $registry['schema_version'],
         ];
     }
