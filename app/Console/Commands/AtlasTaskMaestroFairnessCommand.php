@@ -101,7 +101,7 @@ final class AtlasTaskMaestroFairnessCommand extends Command
         if ($this->option('json')) {
             $this->line((string) json_encode($alerts, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
         } else {
-            foreach (array_slice($alerts, -$limit) as $a) {
+            foreach (array_slice($alerts, -max(1, $limit)) as $a) {
                 $this->line(sprintf(
                     '%s axis=%s gini=%.3f',
                     (string) ($a['observed_at'] ?? '?'),

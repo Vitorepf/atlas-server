@@ -121,6 +121,21 @@ class AtlasTaskMaestroFairnessCommandTest extends TestCase
         self::assertSame('2026-06-25T00:00:03Z', $payload[2]['observed_at']);
     }
 
+    public function test_history_limit_zero_returns_at_most_one_alert(): void
+    {
+        $this->bindEmitter([], 5, 0.6);
+        // Seed 5 alerts; without the max(1,...) floor, --limit=0 would dump all 5.
+        for ($i = 1; $i <= 5; $i++) {
+            file_put_contents($this->alertsPath, json_encode(['observed_at' => "2026-06-25T00:00:0{$i}Z", 'axis' => 'workers', 'gini_observed' => 0.7])."\n", FILE_APPEND);
+        }
+
+        $r = $this->runCmd(['action' => 'history', '--limit' => 0]);
+
+        self::assertSame(0, $r['exit']);
+        $lines = $r['output'] === '' ? [] : explode("\n", $r['output']);
+        self::assertLessThanOrEqual(1, count($lines), '--limit=0 must emit at most 1 alert line, not the full history');
+    }
+
     public function test_unknown_action_exits_non_zero_with_usage_message(): void
     {
         $this->bindEmitter([], 5, 0.6);
