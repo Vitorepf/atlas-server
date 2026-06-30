@@ -49,6 +49,21 @@ final class AtlasSelfConstructionReceiptMemoryExportPlan
             $summary = (string) ($c['fact_summary'] ?? '');
             $verdict = (string) ($c['verdict'] ?? '');
 
+            if ($id === '') {
+                $rejections[] = ['source_id' => '', 'reason' => 'rejected:empty_id'];
+
+                continue;
+            }
+            if ($kind === '') {
+                $rejections[] = ['source_id' => $id, 'reason' => 'rejected:empty_kind'];
+
+                continue;
+            }
+            if ($summary === '') {
+                $rejections[] = ['source_id' => $id, 'reason' => 'rejected:empty_fact_summary'];
+
+                continue;
+            }
             if (! ($c['bound'] ?? false)) {
                 $rejections[] = ['source_id' => $id, 'reason' => 'rejected:unbound'];
 
@@ -97,8 +112,23 @@ final class AtlasSelfConstructionReceiptMemoryExportPlan
         if (preg_match('/SECRET|TOKEN|API_KEY|PASSWORD/i', $summary)) {
             return true;
         }
-        foreach (array_keys($payload) as $k) {
+
+        return $this->payloadHasSecret($payload);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function payloadHasSecret(array $payload): bool
+    {
+        foreach ($payload as $k => $v) {
             if (preg_match('/SECRET|TOKEN|API_KEY|PASSWORD/i', (string) $k)) {
+                return true;
+            }
+            if (is_string($v) && preg_match('/SECRET|TOKEN|API_KEY|PASSWORD/i', $v)) {
+                return true;
+            }
+            if (is_array($v) && $this->payloadHasSecret($v)) {
                 return true;
             }
         }

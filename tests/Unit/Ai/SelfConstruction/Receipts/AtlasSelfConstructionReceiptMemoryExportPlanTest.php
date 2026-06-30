@@ -81,4 +81,52 @@ final class AtlasSelfConstructionReceiptMemoryExportPlanTest extends TestCase
         $b = $p->plan($candidates);
         $this->assertSame($a['export_plan'][0]['export_id'], $b['export_plan'][0]['export_id']);
     }
+
+    public function test_empty_id_is_rejected(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptMemoryExportPlan)->plan([
+            ['id' => '', 'kind' => 'decision', 'bound' => true, 'fact_summary' => 'ok'],
+        ]);
+        $this->assertSame([], $r['export_plan']);
+        $this->assertSame('rejected:empty_id', $r['rejections'][0]['reason']);
+    }
+
+    public function test_empty_kind_is_rejected(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptMemoryExportPlan)->plan([
+            ['id' => 'e-1', 'kind' => '', 'bound' => true, 'fact_summary' => 'ok'],
+        ]);
+        $this->assertSame([], $r['export_plan']);
+        $this->assertSame('rejected:empty_kind', $r['rejections'][0]['reason']);
+    }
+
+    public function test_empty_fact_summary_is_rejected(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptMemoryExportPlan)->plan([
+            ['id' => 'e-2', 'kind' => 'decision', 'bound' => true, 'fact_summary' => ''],
+        ]);
+        $this->assertSame([], $r['export_plan']);
+        $this->assertSame('rejected:empty_fact_summary', $r['rejections'][0]['reason']);
+    }
+
+    public function test_secret_in_nested_raw_payload_value_is_rejected(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptMemoryExportPlan)->plan([
+            [
+                'id' => 's-2', 'kind' => 'decision', 'bound' => true, 'fact_summary' => 'all good',
+                'raw_payload' => ['config' => ['nested' => ['value' => 'TOKEN=abc123']]],
+            ],
+        ]);
+        $this->assertSame([], $r['export_plan']);
+        $this->assertSame('rejected:contains_secret', $r['rejections'][0]['reason']);
+    }
+
+    public function test_raw_payload_never_in_export_row(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptMemoryExportPlan)->plan([
+            ['id' => 'r-1', 'kind' => 'decision', 'bound' => true, 'fact_summary' => 'ok', 'raw_payload' => ['sensitive' => 'data']],
+        ]);
+        $this->assertCount(1, $r['export_plan']);
+        $this->assertArrayNotHasKey('raw_payload', $r['export_plan'][0]);
+    }
 }
