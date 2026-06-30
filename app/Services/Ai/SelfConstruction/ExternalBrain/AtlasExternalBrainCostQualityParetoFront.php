@@ -204,11 +204,23 @@ final class AtlasExternalBrainCostQualityParetoFront
             }
         }
 
-        // Escalation triggers.
+        // Escalation triggers: only recommended when a frontier option clears the
+        // quality-delta or risk-reduction threshold (AC3 — justify the cost).
         $escalationTriggers = [];
-        if ($benchmarkFailed)   $escalationTriggers[] = 'benchmark_miss';
-        if ($proxyFailed)       $escalationTriggers[] = 'proxy_leakage';
-        if ($repairLoopFailed)  $escalationTriggers[] = 'repair_loop_failure';
+        $frontierClearsThreshold = false;
+        foreach ($paretoFront as $o) {
+            if ($o['expected_lift'] >= self::ESCALATION_QUALITY_DELTA_THRESHOLD
+                || $o['risk_reduction'] >= self::ESCALATION_RISK_REDUCTION_THRESHOLD
+            ) {
+                $frontierClearsThreshold = true;
+                break;
+            }
+        }
+        if ($frontierClearsThreshold) {
+            if ($benchmarkFailed)  $escalationTriggers[] = 'benchmark_miss';
+            if ($proxyFailed)      $escalationTriggers[] = 'proxy_leakage';
+            if ($repairLoopFailed) $escalationTriggers[] = 'repair_loop_failure';
+        }
 
         // Risk notes.
         $riskNotes = [];
@@ -243,10 +255,15 @@ final class AtlasExternalBrainCostQualityParetoFront
         ];
     }
 
+    private const ESCALATION_QUALITY_DELTA_THRESHOLD    = 0.10;
+    private const ESCALATION_RISK_REDUCTION_THRESHOLD   = 0.10;
+
     /** @param array<string,mixed> $a @param array<string,mixed> $b */
     private function dominates(array $a, array $b): bool
     {
-        return $a['quality'] >= $b['quality']
+        // A dominates B only when A is at least as safe (no higher risk).
+        return $a['safety'] >= $b['safety']
+            && $a['quality'] >= $b['quality']
             && $a['cost'] <= $b['cost']
             && ($a['quality'] > $b['quality'] || $a['cost'] < $b['cost']);
     }
