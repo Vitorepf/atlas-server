@@ -385,6 +385,37 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         }
     }
 
+    public function test_not_implemented_capability_is_excluded_from_isolated_organs(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'not_built', 'is_implemented' => false, 'is_wired' => false, 'integration_points' => [], 'connected_to' => []]),
+        ]]);
+
+        $this->assertSame([], $r['isolated_organs']);
+        $this->assertSame([], $r['circuit_recommendations'], 'a never-built capability must not get a retire recommendation');
+    }
+
+    public function test_not_implemented_capability_is_excluded_from_circuits(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'not_built', 'is_implemented' => false, 'circuit' => 'some_circuit']),
+        ]]);
+
+        $this->assertSame([], $r['circuits']);
+    }
+
+    public function test_implemented_capability_still_correctly_grouped_when_not_implemented_sibling_present(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'real_organ', 'circuit' => 'shared_circuit', 'integration_points' => ['orchestrator'], 'connected_to' => ['orchestrator']]),
+            $this->cap(['id' => 'not_built', 'is_implemented' => false]),
+        ]]);
+
+        $this->assertCount(1, $r['circuits']);
+        $this->assertSame(['real_organ'], $r['circuits'][0]['member_organ_ids']);
+        $this->assertSame([], $r['circuits'][0]['missing_edges']);
+    }
+
     public function test_wrapper_only_debt_organ_does_not_produce_high_leverage_connect(): void
     {
         // Organ is integration_debt (is_wired=false) but all integration_points are already connected_to

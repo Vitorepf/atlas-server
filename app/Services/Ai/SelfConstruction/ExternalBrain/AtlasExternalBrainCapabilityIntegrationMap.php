@@ -125,8 +125,15 @@ final class AtlasExternalBrainCapabilityIntegrationMap
         }
 
         $capabilities    = array_values($capabilities); // ensure 0-indexed for circuit pass
-        $circuits        = $this->buildCircuits($capabilities, $capabilityMap);
-        $isolatedOrgans  = $this->findIsolatedOrgans($capabilities);
+        // Circuit/isolation analysis only makes sense for capabilities that actually exist —
+        // a not_implemented organ has no integration to evaluate and must never be recommended
+        // for "retire" (that's a build gap, not integration debt).
+        $implementedCapabilities = array_values(array_filter(
+            $capabilities,
+            static fn (array $cap): bool => (bool) ($cap['is_implemented'] ?? false),
+        ));
+        $circuits        = $this->buildCircuits($implementedCapabilities, $capabilityMap);
+        $isolatedOrgans  = $this->findIsolatedOrgans($implementedCapabilities);
         $recommendations = $this->buildRecommendations($circuits, $isolatedOrgans);
 
         return [
@@ -180,8 +187,9 @@ final class AtlasExternalBrainCapabilityIntegrationMap
     private function buildCircuits(array $capabilities, array $capabilityMap): array
     {
         $buckets = [];
+        $mapById = array_column($capabilityMap, null, 'capability_id');
 
-        foreach ($capabilities as $i => $cap) {
+        foreach ($capabilities as $cap) {
             $id          = (string) ($cap['id'] ?? '');
             $integPoints = is_array($cap['integration_points'] ?? null) ? $cap['integration_points'] : [];
             $connectedTo = is_array($cap['connected_to']       ?? null) ? $cap['connected_to']       : [];
@@ -215,7 +223,7 @@ final class AtlasExternalBrainCapabilityIntegrationMap
             $consumerCount = array_key_exists('consumer_count', $cap) ? (int) $cap['consumer_count'] : 0;
             $buckets[$circuitName]['downstream_consumers'] += $consumerCount;
 
-            $mapEntry = $capabilityMap[$i] ?? [];
+            $mapEntry = $mapById[$id] ?? [];
             foreach ((array) ($mapEntry['missing_connections'] ?? []) as $edge) {
                 if (! in_array($edge, $buckets[$circuitName]['missing_edges'], true)) {
                     $buckets[$circuitName]['missing_edges'][] = $edge;
