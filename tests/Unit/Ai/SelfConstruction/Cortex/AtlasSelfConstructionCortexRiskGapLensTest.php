@@ -62,17 +62,86 @@ final class AtlasSelfConstructionCortexRiskGapLensTest extends TestCase
         $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_MALFORMED_QUEUE, $classes);
     }
 
-    public function test_unproved_runtime_gap_triggered_by_unknown_coverage_or_repeated_giveback(): void
+    public function test_unproved_runtime_gap_triggered_by_unknown_coverage(): void
     {
         $r1 = (new AtlasSelfConstructionCortexRiskGapLens)->project([
             'sweep_health' => ['coverage_unknown' => true],
         ]);
         $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_UNPROVED_RUNTIME, array_column($r1['gaps'], 'class'));
+    }
 
-        $r2 = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+    public function test_repeated_give_back_is_its_own_dedicated_gap_class(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
             'queue_health' => ['repeated_give_back_count' => 4],
         ]);
-        $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_UNPROVED_RUNTIME, array_column($r2['gaps'], 'class'));
+        $classes = array_column($r['gaps'], 'class');
+        $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_REPEATED_GIVE_BACK, $classes);
+        $this->assertNotContains(AtlasSelfConstructionCortexRiskGapLens::GAP_UNPROVED_RUNTIME, $classes,
+            'repeated give_back must not also trigger the unrelated unproved_runtime_path class');
+    }
+
+    public function test_weak_worker_outcomes_gap_triggered_by_weak_flag(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'worker_outcomes' => ['weak' => true],
+        ]);
+        $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_WEAK_WORKER_OUTCOMES, array_column($r['gaps'], 'class'));
+    }
+
+    public function test_weak_worker_outcomes_gap_triggered_by_weak_workers_list(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'worker_outcomes' => ['weak_workers' => ['codex-1']],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $this->assertArrayHasKey(AtlasSelfConstructionCortexRiskGapLens::GAP_WEAK_WORKER_OUTCOMES, $byClass);
+        $this->assertSame(['codex-1'], $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_WEAK_WORKER_OUTCOMES]['evidence']['weak_workers']);
+    }
+
+    public function test_stale_code_index_gap_triggered(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'code_index' => ['stale' => true],
+        ]);
+        $this->assertContains(AtlasSelfConstructionCortexRiskGapLens::GAP_STALE_CODE_INDEX, array_column($r['gaps'], 'class'));
+    }
+
+    public function test_project_lane_leak_gap_triggered(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'lane_governance' => ['leak_detected' => true, 'leaked_paths' => ['app/Foo.php']],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $this->assertArrayHasKey(AtlasSelfConstructionCortexRiskGapLens::GAP_PROJECT_LANE_LEAK, $byClass);
+        $this->assertSame(['app/Foo.php'], $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_PROJECT_LANE_LEAK]['evidence']['leaked_paths']);
+    }
+
+    // ── repeated give_back / weak worker outcomes point to learning/maestro repair ──
+
+    public function test_repeated_give_back_hints_point_to_maestro_repair_not_generic_task_creation(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'queue_health' => ['repeated_give_back_count' => 5],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_REPEATED_GIVE_BACK]['originator_hints'];
+
+        $this->assertSame('maestro_repair', $hints['suggested_lane']);
+        $this->assertSame('maestro', $hints['likely_owner_organ']);
+        $this->assertStringContainsString('filing_more_tasks', $hints['avoid_proxy_warning']);
+    }
+
+    public function test_weak_worker_outcomes_hints_point_to_maestro_repair_not_generic_task_creation(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'worker_outcomes' => ['weak' => true],
+        ]);
+        $byClass = array_column($r['gaps'], null, 'class');
+        $hints = $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_WEAK_WORKER_OUTCOMES]['originator_hints'];
+
+        $this->assertSame('maestro_repair', $hints['suggested_lane']);
+        $this->assertSame('maestro', $hints['likely_owner_organ']);
     }
 
     public function test_envelope_carries_no_scalar_score_or_rank_field(): void
@@ -143,7 +212,7 @@ final class AtlasSelfConstructionCortexRiskGapLensTest extends TestCase
             'sweep_health' => ['coverage_unknown' => false],
         ]);
         $classes = array_column($r['gaps'], 'class');
-        $this->assertNotContains(AtlasSelfConstructionCortexRiskGapLens::GAP_UNPROVED_RUNTIME, $classes);
+        $this->assertNotContains(AtlasSelfConstructionCortexRiskGapLens::GAP_REPEATED_GIVE_BACK, $classes);
     }
 
     public function test_invalid_merge_posture_yields_unsafe_merge_gap_with_observed_posture(): void
