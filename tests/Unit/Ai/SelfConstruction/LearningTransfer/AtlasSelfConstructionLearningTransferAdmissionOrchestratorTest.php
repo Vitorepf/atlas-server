@@ -113,4 +113,33 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
         self::assertArrayHasKey('classification', $r);
         self::assertArrayHasKey('gate_decision', $r);
     }
+
+    public function test_envelope_includes_stable_lesson_key(): void
+    {
+        $r = $this->orchestrator()->admit($this->admittableFact());
+
+        self::assertArrayHasKey('lesson_key', $r);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $r['lesson_key']);
+        // Same input → same key across independent orchestrator instances.
+        $r2 = $this->orchestrator()->admit($this->admittableFact());
+        self::assertSame($r['lesson_key'], $r2['lesson_key']);
+    }
+
+    public function test_duplicate_lesson_key_in_template_snapshot_short_circuits(): void
+    {
+        // First call to obtain the lesson_key.
+        $first = $this->orchestrator()->admit($this->admittableFact());
+        $lessonKey = $first['lesson_key'];
+        self::assertNotEmpty($lessonKey);
+
+        // Second call with the key listed in known_lesson_keys → duplicate_observed.
+        $second = $this->orchestrator()->admit(
+            $this->admittableFact(),
+            ['known_lesson_keys' => [$lessonKey]],
+        );
+        self::assertSame('duplicate_observed', $second['outcome']);
+        self::assertSame($lessonKey, $second['lesson_key']);
+        self::assertNull($second['plan']);
+        self::assertNull($second['ledger']);
+    }
 }

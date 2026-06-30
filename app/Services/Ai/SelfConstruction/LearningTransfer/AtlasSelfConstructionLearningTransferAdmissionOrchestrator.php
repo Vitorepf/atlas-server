@@ -60,6 +60,23 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
     {
         $mode = self::MODE_OBSERVE;
         $classification = $this->classifier->classify($giveBackFact);
+        $lessonKey = $this->computeLessonKey($classification);
+
+        // Deduplicate against a caller-supplied snapshot of already-known lesson keys.
+        $knownKeys = array_values((array) ($template['known_lesson_keys'] ?? []));
+        if ($knownKeys !== [] && in_array($lessonKey, $knownKeys, true)) {
+            return $this->envelope(
+                mode: $mode,
+                classification: $classification,
+                gateDecision: [],
+                plan: null,
+                templateAfter: null,
+                ledger: null,
+                outcome: 'duplicate_observed',
+                lessonKey: $lessonKey,
+            );
+        }
+
         $candidate = [
             'class' => (string) ($classification['class'] ?? ''),
             'observations' => $this->synthesizeObservations($classification, $giveBackFact),
@@ -76,6 +93,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
                 templateAfter: null,
                 ledger: null,
                 outcome: 'short_circuited_at_gate',
+                lessonKey: $lessonKey,
             );
         }
 
@@ -88,6 +106,10 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
             'evidence_refs' => $classification['evidence_refs'] ?? [],
         ];
         $plan = $this->planner->plan($admittedLesson);
+        // Propagate evidence refs so the ledger admission guard (requires source_evidence_refs) passes.
+        if (! isset($plan['source_evidence_refs']) || $plan['source_evidence_refs'] === []) {
+            $plan['source_evidence_refs'] = array_values(array_map('strval', (array) ($admittedLesson['evidence_refs'] ?? [])));
+        }
 
         $intendedTemplateAfter = $template === []
             ? ['observe_mode_no_template_provided' => true]
@@ -108,7 +130,23 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
             templateAfter: $intendedTemplateAfter,
             ledger: $ledgerResult,
             outcome: 'admitted_and_recorded',
+            lessonKey: $lessonKey,
         );
+    }
+
+    private function computeLessonKey(array $classification): string
+    {
+        $payload = [
+            'allowed_files' => array_values(array_map('strval', (array) ($classification['allowed_files'] ?? []))),
+            'blocking_facts' => array_values(array_map('strval', (array) ($classification['blocking_facts'] ?? []))),
+            'class' => (string) ($classification['class'] ?? ''),
+            'evidence_refs' => array_values(array_map('strval', (array) ($classification['evidence_refs'] ?? []))),
+        ];
+        sort($payload['allowed_files']);
+        sort($payload['blocking_facts']);
+        sort($payload['evidence_refs']);
+
+        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**
@@ -151,11 +189,13 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         ?array $templateAfter,
         ?array $ledger,
         string $outcome,
+        string $lessonKey = '',
     ): array {
         $envelope = [
             'schema_version' => self::SCHEMA,
             'mode' => $mode,
             'outcome' => $outcome,
+            'lesson_key' => $lessonKey,
             'classification' => $classification,
             'gate_decision' => $gateDecision,
             'plan' => $plan,
