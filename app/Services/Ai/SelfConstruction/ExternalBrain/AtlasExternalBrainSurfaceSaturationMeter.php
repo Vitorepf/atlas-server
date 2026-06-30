@@ -30,7 +30,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * OUTPUT:
  *   { schema, surface_id, verdict, saturation_score, reasoning,
- *     dominant_subsystem:string|null, duplicate_rate, low_yield_rate }
+ *     dominant_subsystem:string|null, duplicate_rate, low_yield_rate,
+ *     missing_modes:list<string>, next_recommended_mode:string|null }
+ *
+ * SATURATION GATE — exhausted_with_evidence requires explicit pass records for ALL FIVE
+ * search modes: bug-hunt, architecture, research, simplification, proof-gap.
+ * Missing or stale pass records keep the surface open (verdict → deepen) and surface
+ * next_recommended_mode so the brain knows what to run next.
  *
  * PURE / DETERMINISTIC. No I/O.
  */
@@ -48,6 +54,9 @@ final class AtlasExternalBrainSurfaceSaturationMeter
 
     public const VERDICT_INSUFFICIENT = 'insufficient_data';
 
+    /** All five modes must have non-stale pass records before the surface can be declared exhausted. */
+    public const REQUIRED_SEARCH_MODES = ['bug-hunt', 'architecture', 'research', 'simplification', 'proof-gap'];
+
     private const DEFAULT_YIELD_FLOOR = 0.3;
 
     private const DEFAULT_SATURATION_THRESHOLD = 0.7;
@@ -57,9 +66,9 @@ final class AtlasExternalBrainSurfaceSaturationMeter
     /**
      * @param  list<array{candidate_id?:string, subsystem?:string, target_path?:string,
      *                    value_mechanism?:string, yield?:float, duplicate?:bool}>  $recentCandidates
-     * @param  array{yield_floor?:float, saturation_threshold?:float, min_candidates_for_decision?:int}  $context
-     * @return array{schema:string, surface_id:string, verdict:string, saturation_score:float,
-     *               reasoning:string, dominant_subsystem:string|null, duplicate_rate:float, low_yield_rate:float}
+     * @param  array{yield_floor?:float, saturation_threshold?:float, min_candidates_for_decision?:int,
+     *               mode_passes?:array<string,array{passed?:bool,stale?:bool}>}  $context
+     * @return array<string,mixed>
      */
     public function measure(string $surfaceId, array $recentCandidates, array $context = []): array
     {
@@ -72,7 +81,7 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         if ($total < $minCandidates) {
             return $this->result($surfaceId, self::VERDICT_INSUFFICIENT, 0.0,
                 "Only {$total} candidates — need at least {$minCandidates} before a verdict.",
-                null, 0.0, 0.0);
+                null, 0.0, 0.0, [], null);
         }
 
         // Compute rates.
@@ -107,28 +116,54 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         // Saturation score: weighted average of both rates.
         $saturationScore = ($duplicateRate + $lowYieldRate) / 2.0;
 
+        // Mode-coverage check — always computed so the caller knows what's missing.
+        $modePasses = is_array($context['mode_passes'] ?? null) ? $context['mode_passes'] : [];
+        $missingModes = $this->missingSearchModes($modePasses);
+        $nextRecommendedMode = $missingModes[0] ?? null;
+
         // Verdict decision tree.
         if ($duplicateRate >= $threshold && $lowYieldRate >= $threshold) {
+            // Block exhausted verdict until all five search modes have non-stale pass records.
+            if ($missingModes !== []) {
+                return $this->result($surfaceId, self::VERDICT_DEEPEN, $saturationScore,
+                    "Rates suggest exhaustion (duplicate_rate={$duplicateRate}, low_yield_rate={$lowYieldRate}) but search modes not fully covered. Run {$nextRecommendedMode} next.",
+                    $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
+            }
+
             return $this->result($surfaceId, self::VERDICT_EXHAUSTED, $saturationScore,
-                "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both exceed threshold={$threshold}. Surface is spent.",
-                $dominantSubsystem, $duplicateRate, $lowYieldRate);
+                "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both exceed threshold={$threshold}. All search modes covered. Surface is spent.",
+                $dominantSubsystem, $duplicateRate, $lowYieldRate, [], null);
         }
 
         if ($duplicateRate >= $threshold) {
             return $this->result($surfaceId, self::VERDICT_ROTATE, $saturationScore,
                 "duplicate_rate={$duplicateRate} ≥ {$threshold}: same targets keep reappearing. Rotate to a different surface.",
-                $dominantSubsystem, $duplicateRate, $lowYieldRate);
+                $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
         }
 
         if ($lowYieldRate >= $threshold) {
             return $this->result($surfaceId, self::VERDICT_CONSOLIDATE, $saturationScore,
                 "low_yield_rate={$lowYieldRate} ≥ {$threshold} but duplicate_rate={$duplicateRate} is healthy. Many unique but low-value ideas — consolidate before expanding.",
-                $dominantSubsystem, $duplicateRate, $lowYieldRate);
+                $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
         }
 
         return $this->result($surfaceId, self::VERDICT_DEEPEN, $saturationScore,
             "duplicate_rate={$duplicateRate} and low_yield_rate={$lowYieldRate} both below threshold={$threshold}. Surface still has signal — keep mining.",
-            $dominantSubsystem, $duplicateRate, $lowYieldRate);
+            $dominantSubsystem, $duplicateRate, $lowYieldRate, $missingModes, $nextRecommendedMode);
+    }
+
+    /** @return list<string> */
+    private function missingSearchModes(array $modePasses): array
+    {
+        $missing = [];
+        foreach (self::REQUIRED_SEARCH_MODES as $mode) {
+            $record = $modePasses[$mode] ?? null;
+            if (! is_array($record) || ! ($record['passed'] ?? false) || ($record['stale'] ?? false)) {
+                $missing[] = $mode;
+            }
+        }
+
+        return $missing;
     }
 
     /** @return array<string, mixed> */
@@ -140,6 +175,8 @@ final class AtlasExternalBrainSurfaceSaturationMeter
         ?string $dominantSubsystem,
         float $duplicateRate,
         float $lowYieldRate,
+        array $missingModes,
+        ?string $nextRecommendedMode,
     ): array {
         return [
             'schema' => self::SCHEMA,
@@ -150,6 +187,8 @@ final class AtlasExternalBrainSurfaceSaturationMeter
             'dominant_subsystem' => $dominantSubsystem,
             'duplicate_rate' => round($duplicateRate, 4),
             'low_yield_rate' => round($lowYieldRate, 4),
+            'missing_modes' => $missingModes,
+            'next_recommended_mode' => $nextRecommendedMode,
         ];
     }
 }

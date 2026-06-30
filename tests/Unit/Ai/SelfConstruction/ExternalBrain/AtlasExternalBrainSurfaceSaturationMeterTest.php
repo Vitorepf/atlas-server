@@ -38,6 +38,16 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
         return $this->candidate(array_merge(['yield' => 0.1, 'duplicate' => true], $overrides));
     }
 
+    private function allModePasses(): array
+    {
+        $passes = [];
+        foreach (AtlasExternalBrainSurfaceSaturationMeter::REQUIRED_SEARCH_MODES as $mode) {
+            $passes[$mode] = ['passed' => true, 'stale' => false];
+        }
+
+        return $passes;
+    }
+
     // ── output shape ──────────────────────────────────────────────────────────
 
     public function test_output_has_all_required_keys(): void
@@ -49,7 +59,8 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
         ]);
 
         foreach (['schema', 'surface_id', 'verdict', 'saturation_score', 'reasoning',
-                  'dominant_subsystem', 'duplicate_rate', 'low_yield_rate'] as $key) {
+                  'dominant_subsystem', 'duplicate_rate', 'low_yield_rate',
+                  'missing_modes', 'next_recommended_mode'] as $key) {
             $this->assertArrayHasKey($key, $r, "output must contain {$key}");
         }
         $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::SCHEMA, $r['schema']);
@@ -75,6 +86,24 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
     public function test_exhausted_when_both_rates_exceed_threshold(): void
     {
         // 8 duplicates (all low-yield) out of 10 → both rates ≥ 0.7.
+        // All five search modes must also be covered.
+        $candidates = array_merge(
+            array_fill(0, 8, $this->duplicate()),
+            [$this->candidate(['yield' => 0.9]), $this->candidate(['yield' => 0.9])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, ['mode_passes' => $this->allModePasses()]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
+        $this->assertGreaterThanOrEqual(0.7, $r['duplicate_rate']);
+        $this->assertGreaterThanOrEqual(0.7, $r['low_yield_rate']);
+        $this->assertSame([], $r['missing_modes']);
+        $this->assertNull($r['next_recommended_mode']);
+    }
+
+    public function test_exhausted_blocked_without_mode_passes_returns_deepen(): void
+    {
+        // Both rates ≥ threshold but no mode_passes → verdict must stay deepen.
         $candidates = array_merge(
             array_fill(0, 8, $this->duplicate()),
             [$this->candidate(['yield' => 0.9]), $this->candidate(['yield' => 0.9])],
@@ -82,9 +111,52 @@ final class AtlasExternalBrainSurfaceSaturationMeterTest extends TestCase
 
         $r = $this->meter->measure('surf', $candidates);
 
-        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_EXHAUSTED, $r['verdict']);
-        $this->assertGreaterThanOrEqual(0.7, $r['duplicate_rate']);
-        $this->assertGreaterThanOrEqual(0.7, $r['low_yield_rate']);
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_DEEPEN, $r['verdict']);
+        $this->assertNotEmpty($r['missing_modes']);
+        $this->assertSame('bug-hunt', $r['next_recommended_mode']);
+    }
+
+    public function test_exhausted_blocked_with_stale_mode_pass_returns_deepen(): void
+    {
+        $passes = $this->allModePasses();
+        $passes['architecture'] = ['passed' => true, 'stale' => true]; // stale → counts as missing
+
+        $candidates = array_merge(
+            array_fill(0, 8, $this->duplicate()),
+            [$this->candidate(['yield' => 0.9]), $this->candidate(['yield' => 0.9])],
+        );
+
+        $r = $this->meter->measure('surf', $candidates, ['mode_passes' => $passes]);
+
+        $this->assertSame(AtlasExternalBrainSurfaceSaturationMeter::VERDICT_DEEPEN, $r['verdict']);
+        $this->assertContains('architecture', $r['missing_modes']);
+    }
+
+    public function test_missing_modes_lists_uncovered_modes(): void
+    {
+        $passes = [
+            'bug-hunt'      => ['passed' => true, 'stale' => false],
+            'architecture'  => ['passed' => true, 'stale' => false],
+            // research, simplification, proof-gap missing
+        ];
+
+        $r = $this->meter->measure('surf', array_fill(0, 3, $this->candidate()), ['mode_passes' => $passes]);
+
+        $this->assertContains('research', $r['missing_modes']);
+        $this->assertContains('simplification', $r['missing_modes']);
+        $this->assertContains('proof-gap', $r['missing_modes']);
+        $this->assertNotContains('bug-hunt', $r['missing_modes']);
+        $this->assertNotContains('architecture', $r['missing_modes']);
+    }
+
+    public function test_next_recommended_mode_follows_required_modes_order(): void
+    {
+        // Only bug-hunt covered — next should be architecture (second in list).
+        $passes = ['bug-hunt' => ['passed' => true, 'stale' => false]];
+
+        $r = $this->meter->measure('surf', array_fill(0, 3, $this->candidate()), ['mode_passes' => $passes]);
+
+        $this->assertSame('architecture', $r['next_recommended_mode']);
     }
 
     // ── rotate ────────────────────────────────────────────────────────────────
