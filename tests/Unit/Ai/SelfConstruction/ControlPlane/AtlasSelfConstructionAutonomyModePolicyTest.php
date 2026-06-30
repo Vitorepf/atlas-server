@@ -196,6 +196,30 @@ final class AtlasSelfConstructionAutonomyModePolicyTest extends TestCase
         $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_DISABLED, $r['mode']);
     }
 
+    public function test_stale_evidence_detected_downgrades_continuous_to_execute_guarded(): void
+    {
+        $facts = $this->allOrgansReady();
+        $facts['stale_evidence_detected'] = true;
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($facts);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('stale_evidence:downgrade_to_guarded', $r['blockers']);
+        $this->assertContains('execute_guarded:stale_evidence_downgrade', $r['reasons']);
+    }
+
+    public function test_degraded_safety_mode_receipt_carries_schema_reasons_and_summary(): void
+    {
+        $facts = $this->allOrgansReady();
+        $facts['server_side_verification'] = $this->organ(false, ['server_not_verified']);
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($facts);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::SCHEMA, $r['schema']);
+        $this->assertContains('execute_guarded:native_worker+rollback_ready', $r['reasons']);
+        $this->assertArrayHasKey('readiness_summary', $r);
+        $this->assertFalse($r['readiness_summary']['server_side_verification']);
+    }
+
     public function test_force_observe_takes_precedence_over_dependency_guard(): void
     {
         $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(

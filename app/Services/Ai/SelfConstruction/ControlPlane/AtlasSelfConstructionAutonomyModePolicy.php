@@ -96,6 +96,14 @@ final class AtlasSelfConstructionAutonomyModePolicy
         $guardedReady = $basicReady && $nativeWorker && $rollback;
         $continuousReady = $guardedReady && $serverVer && $knowledgeSync;
 
+        $staleEvidence = (bool) ($facts['stale_evidence_detected'] ?? false);
+        if ($staleEvidence && $continuousReady) {
+            $blockers[] = 'stale_evidence:downgrade_to_guarded';
+            $reasons[] = 'execute_guarded:stale_evidence_downgrade';
+
+            return $this->envelope(self::MODE_EXECUTE_GUARDED, $blockers, $reasons, $facts, $summary);
+        }
+
         $mode = self::MODE_OBSERVE;
         if (! $hasDependencyBlock && $continuousReady) {
             $mode = self::MODE_EXECUTE_CONTINUOUS;
