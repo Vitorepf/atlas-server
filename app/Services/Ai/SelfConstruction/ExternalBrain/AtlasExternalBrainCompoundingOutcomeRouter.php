@@ -39,6 +39,18 @@ final class AtlasExternalBrainCompoundingOutcomeRouter
     public const BUCKET_MAINTENANCE  = 'maintenance';
     public const BUCKET_REGRESSION   = 'regression';
 
+    // Next-decision effects (AC1-AC3).
+    public const EFFECT_COMPOUND_NEXT_BATCH = 'compound_next_batch';
+    public const EFFECT_PROMOTE_PATTERN     = 'promote_pattern';
+    public const EFFECT_AVOID_PATTERN       = 'avoid_pattern';
+    public const EFFECT_SELF_HEAL           = 'self_heal';
+    public const EFFECT_REQUEUE_SPEC_REPAIR = 'requeue_spec_repair';
+    public const EFFECT_NONE                = 'none';
+
+    private const NEGATIVE_STREAK_THRESHOLD    = 3;
+    private const HIGH_CONFIDENCE_THRESHOLD    = 0.8;
+    private const PROMOTE_CONFIDENCE_THRESHOLD = 0.5;
+
     private const MAINTENANCE_TYPES      = ['doc_update', 'documentation', 'formatting', 'whitespace', 'comment'];
     private const COSMETIC_TYPES         = ['cosmetic_wrapper', 'naming_refactor', 'style_fix'];
     private const NEW_CAPABILITY_TYPES   = ['new_service', 'new_capability', 'new_organ'];
@@ -102,41 +114,47 @@ final class AtlasExternalBrainCompoundingOutcomeRouter
         $giveBackReduction = max(0, (int) ($outcome['give_back_reduction_count'] ?? 0));
         $unlockChainDepth  = max(0, (int) ($outcome['unlock_chain_depth']        ?? 0));
 
+        // Next-decision-effect inputs (AC1-AC3).
+        $workerOutcome   = strtolower(trim((string) ($outcome['worker_outcome']       ?? '')));
+        $confidence      = min(1.0, max(0.0, (float) ($outcome['confidence']         ?? 0.0)));
+        $negativeStreak  = max(0, (int) ($outcome['negative_outcome_streak']          ?? 0));
+        $nextDecisionEffect = $this->computeNextDecisionEffect($workerOutcome, $confidence, $negativeStreak);
+
         $hasIntegrationEvidence = $this->hasIntegrationEvidence($evidenceRefs);
         $hasDownstreamProof     = $hasIntegrationEvidence || $wiredCallers > 0 || $downstreamServices > 0;
         $isNewCapability        = in_array($outcomeType, self::NEW_CAPABILITY_TYPES, true);
 
         // 1. Regression — highest priority.
         if ($regressionDetected || $outcomeType === 'regression') {
-            return $this->result(self::BUCKET_REGRESSION, 'regression_detected', false, false, 0, 0);
+            return $this->result(self::BUCKET_REGRESSION, 'regression_detected', false, false, 0, 0, $nextDecisionEffect);
         }
 
         // 2. Maintenance.
         if (in_array($outcomeType, self::MAINTENANCE_TYPES, true)) {
-            return $this->result(self::BUCKET_MAINTENANCE, 'outcome_type_is_maintenance', false, $hasDownstreamProof, 0, 0);
+            return $this->result(self::BUCKET_MAINTENANCE, 'outcome_type_is_maintenance', false, $hasDownstreamProof, 0, 0, $nextDecisionEffect);
         }
 
         // 3. Proxy — cosmetic flag or cosmetic type (AC3).
         if ($isCosmetic || in_array($outcomeType, self::COSMETIC_TYPES, true)) {
-            return $this->result(self::BUCKET_PROXY, 'cosmetic_outcome', false, false, 0, 0);
+            return $this->result(self::BUCKET_PROXY, 'cosmetic_outcome', false, false, 0, 0, $nextDecisionEffect);
         }
 
         // 4. Schema-only without wired callers → low_compounding (AC3).
         if ($outcomeType === 'schema_change' && $wiredCallers === 0) {
-            return $this->result(self::BUCKET_LOW, 'schema_only_no_wired_callers', true, false, 0, 0);
+            return $this->result(self::BUCKET_LOW, 'schema_only_no_wired_callers', true, false, 0, 0, $nextDecisionEffect);
         }
 
         // 5. No downstream proof → unproven claim → low_compounding (AC2 + AC3).
         if (! $hasDownstreamProof) {
-            return $this->result(self::BUCKET_LOW, 'no_downstream_evidence_or_wired_callers', true, false, 0, 0);
+            return $this->result(self::BUCKET_LOW, 'no_downstream_evidence_or_wired_callers', true, false, 0, 0, $nextDecisionEffect);
         }
 
         // 6. Has downstream proof → compounding tiers (AC2 satisfied).
         if ($isNewCapability && $wiredCallers > 0) {
-            return $this->result(self::BUCKET_UNLOCKS_NEW, 'new_capability_with_wired_callers_and_downstream_proof', false, true, $giveBackReduction, $unlockChainDepth);
+            return $this->result(self::BUCKET_UNLOCKS_NEW, 'new_capability_with_wired_callers_and_downstream_proof', false, true, $giveBackReduction, $unlockChainDepth, $nextDecisionEffect);
         }
 
-        return $this->result(self::BUCKET_COMPOUNDS, 'downstream_evidence_confirms_compounding', false, true, $giveBackReduction, $unlockChainDepth);
+        return $this->result(self::BUCKET_COMPOUNDS, 'downstream_evidence_confirms_compounding', false, true, $giveBackReduction, $unlockChainDepth, $nextDecisionEffect);
     }
 
     /**
@@ -146,6 +164,7 @@ final class AtlasExternalBrainCompoundingOutcomeRouter
         string $bucket, string $reason,
         bool $requiresDownstreamProof, bool $hasDownstreamProof,
         int $giveBackReduction, int $unlockChainDepth,
+        string $nextDecisionEffect = self::EFFECT_NONE,
     ): array {
         $base         = self::SCORE[$bucket];
         $gbBonus      = min(0.20, $giveBackReduction * self::GIVE_BACK_REDUCTION_BONUS);
@@ -158,12 +177,34 @@ final class AtlasExternalBrainCompoundingOutcomeRouter
             'compounding_score'         => $base,
             'weighted_score'            => $weightedScore,
             'next_batch_action'         => self::NEXT_BATCH_ACTION[$bucket],
+            'next_decision_effect'      => $nextDecisionEffect,
             'classification_reason'     => $reason,
             'requires_downstream_proof' => $requiresDownstreamProof,
             'has_downstream_proof'      => $hasDownstreamProof,
             'recommended_followup'      => self::FOLLOWUP[$bucket],
             'risk_reduction_credit'     => self::RISK_CREDIT[$bucket],
         ];
+    }
+
+    private function computeNextDecisionEffect(string $workerOutcome, float $confidence, int $negativeStreak): string
+    {
+        return match ($workerOutcome) {
+            'success' => $confidence >= self::HIGH_CONFIDENCE_THRESHOLD
+                ? self::EFFECT_COMPOUND_NEXT_BATCH
+                : ($confidence >= self::PROMOTE_CONFIDENCE_THRESHOLD
+                    ? self::EFFECT_PROMOTE_PATTERN
+                    : self::EFFECT_NONE),
+            'give_back' => $negativeStreak >= self::NEGATIVE_STREAK_THRESHOLD
+                ? self::EFFECT_SELF_HEAL
+                : self::EFFECT_REQUEUE_SPEC_REPAIR,
+            'poison' => $negativeStreak >= self::NEGATIVE_STREAK_THRESHOLD
+                ? self::EFFECT_AVOID_PATTERN
+                : self::EFFECT_REQUEUE_SPEC_REPAIR,
+            'quarantine' => $negativeStreak >= self::NEGATIVE_STREAK_THRESHOLD
+                ? self::EFFECT_SELF_HEAL
+                : self::EFFECT_AVOID_PATTERN,
+            default => self::EFFECT_NONE,
+        };
     }
 
     private function hasIntegrationEvidence(array $refs): bool
