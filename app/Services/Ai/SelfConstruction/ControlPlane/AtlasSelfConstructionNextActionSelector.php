@@ -157,8 +157,23 @@ final class AtlasSelfConstructionNextActionSelector
         if ($idleWorkers > 0 && $claimableDepth > 0) {
             return $this->envelope(self::ACTION_SCHEDULE_WORKERS, ['idle_workers_with_claimable_tasks'], $scopeGate);
         }
-        if ($backlog > 0) {
-            return $this->envelope(self::ACTION_CREATE_TASK_PACKETS, ['backlog_acceptance_items_present'], $scopeGate);
+        // 9.5. WORKER-FEED RISK — originate before active workers hit no_claimable_task, even
+        // when backlog_acceptance_items is zero.
+        $workerFeedRisk = (bool) ($workQueue['worker_feed_risk'] ?? false);
+        $replenishRecommendation = (string) ($workQueue['replenish_recommendation'] ?? '');
+        if ($backlog > 0 || $workerFeedRisk || $replenishRecommendation === 'replenish_soon') {
+            $reasons = [];
+            if ($backlog > 0) {
+                $reasons[] = 'backlog_acceptance_items_present';
+            }
+            if ($workerFeedRisk) {
+                $reasons[] = 'worker_feed_risk';
+            }
+            if ($replenishRecommendation === 'replenish_soon') {
+                $reasons[] = 'replenish_recommendation_replenish_soon';
+            }
+
+            return $this->envelope(self::ACTION_CREATE_TASK_PACKETS, $reasons, $scopeGate);
         }
 
         return $this->envelope(self::ACTION_HOLD_POSITION, ['queue_idle'], $scopeGate);

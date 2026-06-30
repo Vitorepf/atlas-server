@@ -94,4 +94,100 @@ final class AtlasSelfConstructionNextActionSelectorStarvationFloorTest extends T
 
         $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_SCHEDULE_WORKERS, $verdict['action']);
     }
+
+    public function test_worker_feed_risk_with_zero_backlog_creates_task_packets_in_execute_mode(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->starvedQueue([
+                'backlog_acceptance_items' => 0,
+                'idle_workers' => 0,
+                'claimable_depth' => 0,
+                'servable_now' => 5,
+                'servability_floor' => 0,
+                'worker_feed_risk' => true,
+            ]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+        $this->assertContains('worker_feed_risk', $verdict['reasons']);
+    }
+
+    public function test_replenish_soon_with_zero_backlog_creates_task_packets_in_execute_mode(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->starvedQueue([
+                'backlog_acceptance_items' => 0,
+                'idle_workers' => 0,
+                'claimable_depth' => 0,
+                'servable_now' => 5,
+                'servability_floor' => 0,
+                'replenish_recommendation' => 'replenish_soon',
+            ]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_CREATE_TASK_PACKETS, $verdict['action']);
+        $this->assertContains('replenish_recommendation_replenish_soon', $verdict['reasons']);
+    }
+
+    public function test_observe_mode_holds_position_despite_worker_feed_risk(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            ['mode' => 'observe'],
+            $this->starvedQueue([
+                'backlog_acceptance_items' => 0,
+                'idle_workers' => 0,
+                'claimable_depth' => 0,
+                'servable_now' => 5,
+                'servability_floor' => 0,
+                'worker_feed_risk' => true,
+            ]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
+    }
+
+    public function test_scope_denied_holds_position_despite_replenish_soon(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            ['allowed' => false, 'reasons' => ['out_of_scope']],
+            $this->execMode(),
+            $this->starvedQueue([
+                'backlog_acceptance_items' => 0,
+                'idle_workers' => 0,
+                'claimable_depth' => 0,
+                'servable_now' => 5,
+                'servability_floor' => 0,
+                'replenish_recommendation' => 'replenish_soon',
+            ]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
+    }
+
+    public function test_no_risk_signals_and_no_backlog_still_holds_position(): void
+    {
+        $verdict = (new AtlasSelfConstructionNextActionSelector)->select(
+            $this->readyOrgans(),
+            $this->scopeAllowed(),
+            $this->execMode(),
+            $this->starvedQueue([
+                'backlog_acceptance_items' => 0,
+                'idle_workers' => 0,
+                'claimable_depth' => 0,
+                'servable_now' => 5,
+                'servability_floor' => 0,
+            ]),
+        );
+
+        $this->assertSame(AtlasSelfConstructionNextActionSelector::ACTION_HOLD_POSITION, $verdict['action']);
+    }
 }
