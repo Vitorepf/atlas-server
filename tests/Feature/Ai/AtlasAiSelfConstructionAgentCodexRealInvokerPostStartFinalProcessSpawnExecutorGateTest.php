@@ -350,6 +350,67 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartFinalProcessSpawnExec
         ];
     }
 
+    private function readyProofs(): array
+    {
+        return [
+            'authorization_present' => true,
+            'authorization_age_seconds' => 60,
+            'scope_lock_present' => true,
+            'scope_lock_age_seconds' => 60,
+            'dry_run_preview_present' => true,
+            'dry_run_preview_age_seconds' => 60,
+            'liveness_plan_present' => true,
+            'liveness_plan_age_seconds' => 60,
+            'rollback_proof_present' => true,
+            'rollback_proof_age_seconds' => 60,
+        ];
+    }
+
+    public function test_spawn_allowed_when_all_proofs_present_and_fresh(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate::class)
+            ->evaluateFinalSpawnReadiness($this->readyProofs());
+
+        $this->assertTrue($result['spawn_allowed']);
+        $this->assertSame([], $result['missing_proofs']);
+        $this->assertNull($result['next_repair_hint']);
+    }
+
+    public function test_spawn_blocked_when_proof_missing(): void
+    {
+        $proofs = $this->readyProofs();
+        $proofs['rollback_proof_present'] = false;
+
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate::class)
+            ->evaluateFinalSpawnReadiness($proofs);
+
+        $this->assertFalse($result['spawn_allowed']);
+        $this->assertContains('rollback_proof', $result['missing_proofs']);
+        $this->assertSame('attach_rollback_proof_artifact', $result['next_repair_hint']);
+    }
+
+    public function test_spawn_blocked_when_proof_stale(): void
+    {
+        $proofs = $this->readyProofs();
+        $proofs['authorization_age_seconds'] = 7200;
+
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate::class)
+            ->evaluateFinalSpawnReadiness($proofs);
+
+        $this->assertFalse($result['spawn_allowed']);
+        $this->assertContains('authorization', $result['missing_proofs']);
+        $this->assertSame('obtain_signed_dispatch_authorization', $result['next_repair_hint']);
+    }
+
+    public function test_spawn_blocked_with_no_proofs_at_all(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate::class)
+            ->evaluateFinalSpawnReadiness([]);
+
+        $this->assertFalse($result['spawn_allowed']);
+        $this->assertCount(5, $result['missing_proofs']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');

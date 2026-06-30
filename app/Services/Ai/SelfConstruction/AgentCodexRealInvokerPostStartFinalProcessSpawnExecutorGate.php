@@ -14,6 +14,69 @@ class AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate
         private readonly AgentCodexProcessSpawnExecutor $processSpawnExecutor,
     ) {}
 
+    private const REQUIRED_PROOFS = [
+        'authorization',
+        'scope_lock',
+        'dry_run_preview',
+        'liveness_plan',
+        'rollback_proof',
+    ];
+
+    private const PROOF_REPAIR_HINTS = [
+        'authorization' => 'obtain_signed_dispatch_authorization',
+        'scope_lock' => 'acquire_executor_scope_lock',
+        'dry_run_preview' => 'run_dry_run_preview_before_spawn',
+        'liveness_plan' => 'attach_post_spawn_liveness_monitor_plan',
+        'rollback_proof' => 'attach_rollback_proof_artifact',
+    ];
+
+    private const MAX_PROOF_AGE_SECONDS = 3600;
+
+    /**
+     * Pure last-mile decision: final process spawn is allowed only when all
+     * five required proofs are present AND fresh. A proof is "present" when
+     * its boolean confirmation field is true and "fresh" when its
+     * corresponding age (in seconds) does not exceed MAX_PROOF_AGE_SECONDS —
+     * a stale proof (e.g. an authorization signed an hour ago for a run
+     * that has since drifted) is treated identically to a missing one,
+     * since it can no longer be trusted to describe the current state.
+     *
+     * @param  array<string,mixed>  $proofs  { authorization_present?: bool,
+     *   authorization_age_seconds?: int, scope_lock_present?: bool,
+     *   scope_lock_age_seconds?: int, dry_run_preview_present?: bool,
+     *   dry_run_preview_age_seconds?: int, liveness_plan_present?: bool,
+     *   liveness_plan_age_seconds?: int, rollback_proof_present?: bool,
+     *   rollback_proof_age_seconds?: int }
+     * @return array<string,mixed>
+     */
+    public function evaluateFinalSpawnReadiness(array $proofs): array
+    {
+        $missingProofs = [];
+
+        foreach (self::REQUIRED_PROOFS as $proof) {
+            $present = (bool) ($proofs[$proof.'_present'] ?? false);
+            $ageSeconds = (int) ($proofs[$proof.'_age_seconds'] ?? PHP_INT_MAX);
+
+            if (! $present || $ageSeconds > self::MAX_PROOF_AGE_SECONDS) {
+                $missingProofs[] = $proof;
+            }
+        }
+
+        if ($missingProofs !== []) {
+            return [
+                'spawn_allowed' => false,
+                'missing_proofs' => $missingProofs,
+                'next_repair_hint' => self::PROOF_REPAIR_HINTS[$missingProofs[0]],
+            ];
+        }
+
+        return [
+            'spawn_allowed' => true,
+            'missing_proofs' => [],
+            'next_repair_hint' => null,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
