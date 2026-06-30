@@ -182,4 +182,80 @@ final class AtlasExternalBrainScaffoldRetirementPlannerTest extends TestCase
         $entry = $this->findEntry($result, 'conflict');
         $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
     }
+
+    // ── Downgrade ──────────────────────────────────────────────────────────────
+
+    public function test_costly_stale_moderate_lift_scaffold_is_downgraded(): void
+    {
+        $result = $this->plan($this->scaffold('costly-stale', [
+            'lift_score' => 0.30,
+            'maintenance_cost' => 0.80,
+            'stale_usage_days' => 45,
+        ]));
+
+        $entry = $this->findEntry($result, 'costly-stale');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_DOWNGRADE, $entry['action']);
+        $this->assertSame(1, $result['downgrade_count']);
+    }
+
+    public function test_moderate_lift_low_maintenance_cost_is_not_downgraded(): void
+    {
+        $result = $this->plan($this->scaffold('cheap-moderate', [
+            'lift_score' => 0.30,
+            'maintenance_cost' => 0.10,
+            'stale_usage_days' => 45,
+        ]));
+
+        $entry = $this->findEntry($result, 'cheap-moderate');
+        $this->assertNotSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_DOWNGRADE, $entry['action']);
+    }
+
+    // ── Refuse retirement without lift evidence ──────────────────────────────
+
+    public function test_missing_lift_evidence_refuses_retirement_even_with_zero_lift(): void
+    {
+        $result = $this->plan($this->scaffold('no-evidence', [
+            'lift_score' => 0.0,
+            'has_lift_evidence' => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'no-evidence');
+        $this->assertNotSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_KEEP, $entry['action']);
+        $this->assertStringContainsString('lift_evidence_missing', implode(' ', $entry['reasons']));
+    }
+
+    public function test_high_failure_recurrence_still_retires_without_lift_evidence(): void
+    {
+        // Failure-recurrence retirement is independent of lift evidence.
+        $result = $this->plan($this->scaffold('failing-no-evidence', [
+            'has_lift_evidence' => false,
+            'failure_recurrence_rate' => 0.90,
+        ]));
+
+        $entry = $this->findEntry($result, 'failing-no-evidence');
+        $this->assertSame(AtlasExternalBrainScaffoldRetirementPlanner::ACTION_RETIRE, $entry['action']);
+    }
+
+    // ── Expected complexity reduction and capability risk ────────────────────
+
+    public function test_each_entry_reports_expected_complexity_reduction_and_capability_risk(): void
+    {
+        $result = $this->plan($this->scaffold('s1'));
+
+        $entry = $this->findEntry($result, 's1');
+        $this->assertArrayHasKey('expected_complexity_reduction', $entry);
+        $this->assertArrayHasKey('capability_risk', $entry);
+    }
+
+    public function test_retire_action_reports_higher_complexity_reduction_than_keep(): void
+    {
+        $retired = $this->plan($this->scaffold('r1', ['lift_score' => 0.05, 'maintenance_cost' => 0.50]));
+        $kept = $this->plan($this->scaffold('k1', ['maintenance_cost' => 0.50]));
+
+        $retiredEntry = $this->findEntry($retired, 'r1');
+        $keptEntry = $this->findEntry($kept, 'k1');
+
+        $this->assertGreaterThan($keptEntry['expected_complexity_reduction'], $retiredEntry['expected_complexity_reduction']);
+    }
 }
