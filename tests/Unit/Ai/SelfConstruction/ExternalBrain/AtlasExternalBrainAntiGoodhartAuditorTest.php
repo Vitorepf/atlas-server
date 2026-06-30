@@ -277,6 +277,76 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
             'critical similarity farm must produce reject verdict');
     }
 
+    // ── AC1: high_score_missing_proof ────────────────────────────────────────
+
+    public function test_high_score_task_lacking_proof_triggers_finding(): void
+    {
+        $batch = [
+            ['label' => 'h1', 'category' => 'architecture_unlock', 'allowed_files' => ['app/A.php', 'tests/ATest.php'], 'value_mechanism' => 'unlocks:capability_X', 'final_score' => 0.90],
+            ['label' => 'h2', 'category' => 'bug_fix',             'allowed_files' => ['app/B.php', 'tests/BTest.php'], 'value_mechanism' => 'fixes:critical_Y',    'final_score' => 0.85],
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertContains('high_score_missing_proof', $findingNames);
+
+        foreach ($result['findings'] as $f) {
+            if ($f['finding'] === 'high_score_missing_proof') {
+                $this->assertSame(2, $f['affected']);
+                $this->assertStringContainsString('proof', $f['repair_hint']);
+                break;
+            }
+        }
+    }
+
+    public function test_high_score_task_with_both_proof_fields_does_not_trigger(): void
+    {
+        $batch = [[
+            'label'                => 'h1',
+            'category'             => 'architecture_unlock',
+            'allowed_files'        => ['app/A.php', 'tests/ATest.php'],
+            'value_mechanism'      => 'unlocks:X',
+            'final_score'          => 0.92,
+            'runnable_acceptance'  => 'phpunit AtlasATest',
+            'implementation_proof' => 'commit:abc123',
+        ]];
+
+        $result = $this->auditor()->audit($batch);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertNotContains('high_score_missing_proof', $findingNames);
+    }
+
+    // ── AC2: value_mechanism_clone ────────────────────────────────────────────
+
+    public function test_value_mechanism_clone_causes_reject(): void
+    {
+        // 6 tasks — distinct names and files, but all share identical value_mechanism.
+        $batch = array_map(static fn (int $i): array => [
+            'label'           => "task-{$i}",
+            'category'        => 'architecture_unlock',
+            'allowed_files'   => ["app/Services/Distinct{$i}/{$i}.php", "tests/Distinct{$i}Test.php"],
+            'value_mechanism' => 'new_capability:same_thing_every_time',
+            'final_score'     => 0.75,
+        ], range(1, 6));
+
+        $result = $this->auditor()->audit($batch);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertContains('value_mechanism_clone', $findingNames);
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict']);
+
+        foreach ($result['findings'] as $f) {
+            if ($f['finding'] === 'value_mechanism_clone') {
+                $this->assertSame('critical', $f['severity']);
+                $this->assertGreaterThan(0.50, $f['fraction']);
+                $this->assertStringContainsString('same_thing_every_time', $f['repair_hint']);
+                break;
+            }
+        }
+    }
+
     public function test_diverse_batch_has_no_similarity_farm(): void
     {
         $batch = [

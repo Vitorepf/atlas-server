@@ -32,7 +32,7 @@ final class AtlasExternalBrainAntiGoodhartAuditor
     public const VERDICT_REPAIR_REQUIRED = 'repair_required';
     public const VERDICT_REJECT          = 'reject';
 
-    private const CRITICAL_FINDINGS = ['template_farm', 'template_similarity_farm', 'low_variety'];
+    private const CRITICAL_FINDINGS = ['template_farm', 'template_similarity_farm', 'low_variety', 'value_mechanism_clone'];
 
     /** @param list<array<string,mixed>> $batch */
     public function audit(array $batch): array
@@ -49,6 +49,8 @@ final class AtlasExternalBrainAntiGoodhartAuditor
                 $this->checkUnverifiableClaims($batch, $total),
                 $this->checkFileConcentration($batch, $total),
                 $this->checkAlreadySatisfied($batch, $total),
+                $this->checkHighScoreMissingProof($batch, $total),
+                $this->checkValueMechanismClone($batch, $total),
             ]);
         }
 
@@ -310,6 +312,76 @@ final class AtlasExternalBrainAntiGoodhartAuditor
         sort($suffixes);
 
         return implode(',', array_unique($suffixes));
+    }
+
+    /**
+     * AC1: high-score tasks (≥0.80) that lack runnable_acceptance or implementation_proof
+     * are self-declared — no external audit trail proves the capability gain.
+     *
+     * @param list<array<string,mixed>> $batch
+     */
+    private function checkHighScoreMissingProof(array $batch, int $total): ?array
+    {
+        $bad = array_filter($batch, static function (array $t): bool {
+            if ((float) ($t['final_score'] ?? 0.0) < 0.80) {
+                return false;
+            }
+            $runnable = trim((string) ($t['runnable_acceptance'] ?? ''));
+            $proof    = trim((string) ($t['implementation_proof'] ?? ''));
+
+            return $runnable === '' || $proof === '';
+        });
+
+        $count = count($bad);
+        if ($count === 0) {
+            return null;
+        }
+
+        return [
+            'finding'     => 'high_score_missing_proof',
+            'severity'    => 'warning',
+            'affected'    => $count,
+            'fraction'    => round($count / $total, 3),
+            'repair_hint' => "{$count} high-score task(s) (score≥0.80) lack runnable_acceptance or implementation_proof. Add a runnable command and concrete implementation evidence to distinguish real capability gain from self-declared progress.",
+        ];
+    }
+
+    /**
+     * AC2: batches where >50% of tasks share the same value_mechanism claim work is
+     * a single mechanism renamed — genuine diversity requires distinct mechanisms.
+     *
+     * @param list<array<string,mixed>> $batch
+     */
+    private function checkValueMechanismClone(array $batch, int $total): ?array
+    {
+        $counts = [];
+        foreach ($batch as $t) {
+            $vm = trim((string) ($t['value_mechanism'] ?? ''));
+            if ($vm !== '') {
+                $counts[$vm] = ($counts[$vm] ?? 0) + 1;
+            }
+        }
+
+        if ($counts === []) {
+            return null;
+        }
+
+        arsort($counts);
+        $topVm    = (string) array_key_first($counts);
+        $topCount = $counts[$topVm];
+        $fraction = $topCount / $total;
+
+        if ($fraction <= 0.50) {
+            return null;
+        }
+
+        return [
+            'finding'     => 'value_mechanism_clone',
+            'severity'    => 'critical',
+            'affected'    => $topCount,
+            'fraction'    => round($fraction, 3),
+            'repair_hint' => "{$topCount} tasks ({$this->pct($fraction)}%) share identical value_mechanism '{$topVm}'. Each task must unlock a distinct capability — different mechanism, different gap closed, different system improved.",
+        ];
     }
 
     private function topDirPrefix(array $task): string
