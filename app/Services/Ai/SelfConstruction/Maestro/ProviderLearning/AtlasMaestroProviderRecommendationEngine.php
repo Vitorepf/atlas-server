@@ -10,10 +10,16 @@ namespace App\Services\Ai\SelfConstruction\Maestro\ProviderLearning;
  * provider manager, never auto-applies.
  *
  * Ranking:
- *   1. success_rate    descending
- *   2. give_back_rate  ascending
- *   3. avg_duration_ms ascending
- *   4. provider name   ascending (alphabetical)
+ *   1. success_rate      descending
+ *   2. give_back_rate    ascending
+ *   3. evidence_complete descending (all successes carried required_evidence beats partial/none)
+ *   4. avg_token_cost    ascending
+ *   5. avg_duration_ms   ascending
+ *   6. atlas_native      preferred on a full tie
+ *   7. provider name     ascending (alphabetical)
+ *
+ * Cost/duration are pure TIE-BREAKERS: they never outrank success/give_back/evidence safety, so a
+ * cheaper-but-flakier or cheaper-but-evidence-incomplete provider can never beat a safer one.
  *
  * The tie reason exposed in the response is the FIRST tier where the winner overtook the runners-up.
  */
@@ -62,12 +68,21 @@ final class AtlasMaestroProviderRecommendationEngine
                     continue;
                 }
             }
+            $successCount = (int) ($row['success_count'] ?? 0);
+            $evidenceCount = (int) ($row['has_required_evidence_count'] ?? 0);
+            $evidenceRate = $successCount > 0 ? $evidenceCount / $successCount : 1.0;
+            $costCount = (int) ($row['duration_ms_count'] ?? 0);
+            $avgTokenCost = $costCount > 0 ? ((int) ($row['token_cost_sum'] ?? 0)) / $costCount : 0.0;
+
             $rows[] = [
                 'provider' => (string) $provider,
-                'success_rate' => $total > 0 ? ((int) $row['success_count']) / $total : 0.0,
+                'success_rate' => $total > 0 ? $successCount / $total : 0.0,
                 'give_back_rate' => $total > 0 ? ((int) $row['give_back_count']) / $total : 0.0,
                 'sample_size' => $total,
                 'avg_duration_ms' => (int) ($row['avg_duration_ms'] ?? 0),
+                'evidence_rate' => $evidenceRate,
+                'evidence_complete' => $evidenceRate >= 1.0,
+                'avg_token_cost' => $avgTokenCost,
             ];
         }
 
@@ -97,6 +112,15 @@ final class AtlasMaestroProviderRecommendationEngine
                 return $c;
             }
             $c = $a['give_back_rate'] <=> $b['give_back_rate'];
+            if ($c !== 0) {
+                return $c;
+            }
+            // evidence_complete: true (1) beats false (0) — descending.
+            $c = ((int) $b['evidence_complete']) <=> ((int) $a['evidence_complete']);
+            if ($c !== 0) {
+                return $c;
+            }
+            $c = $a['avg_token_cost'] <=> $b['avg_token_cost'];
             if ($c !== 0) {
                 return $c;
             }
@@ -136,6 +160,9 @@ final class AtlasMaestroProviderRecommendationEngine
             'give_back_rate' => $winner['give_back_rate'],
             'sample_size' => $winner['sample_size'],
             'avg_duration_ms' => $winner['avg_duration_ms'],
+            'evidence_rate' => $winner['evidence_rate'],
+            'evidence_complete' => $winner['evidence_complete'],
+            'avg_token_cost' => $winner['avg_token_cost'],
             'tied_with' => $tiedWith,
             'tie_reason' => $tieReason,
         ];
@@ -155,8 +182,17 @@ final class AtlasMaestroProviderRecommendationEngine
         if ($winner['give_back_rate'] !== $other['give_back_rate']) {
             return 'give_back_rate';
         }
+        if ($winner['evidence_complete'] !== $other['evidence_complete']) {
+            return 'evidence_complete';
+        }
+        if ($winner['avg_token_cost'] !== $other['avg_token_cost']) {
+            return 'avg_token_cost';
+        }
         if ($winner['avg_duration_ms'] !== $other['avg_duration_ms']) {
             return 'avg_duration_ms';
+        }
+        if ($winner['provider'] === 'atlas_native' && $other['provider'] !== 'atlas_native') {
+            return 'atlas_native_preferred';
         }
 
         return 'provider_name';
