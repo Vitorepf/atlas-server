@@ -50,7 +50,7 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
         $result = $this->planner()->plan(['candidates' => [$this->keepCandidate()]]);
 
         $entry = $result['ranked_candidates'][0];
-        foreach (['rank', 'organ_id', 'recommended_action', 'line_reduction', 'preserved_capability', 'risk_notes', 'proof_required_before_deletion'] as $f) {
+        foreach (['rank', 'organ_id', 'recommended_action', 'expected_line_delta', 'preserved_capability', 'risk_notes', 'proof_required_before_deletion', 'blocked_deletion_reason', 'simplification_roi_hint'] as $f) {
             $this->assertArrayHasKey($f, $entry);
         }
     }
@@ -349,14 +349,14 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
             array_merge($this->keepCandidate('LR1'), ['estimated_line_delta' => 75]),
         ]]);
 
-        $this->assertSame(75, $r['ranked_candidates'][0]['line_reduction']);
+        $this->assertSame(75, $r['ranked_candidates'][0]['expected_line_delta']);
     }
 
     public function test_line_reduction_zero_when_no_delta_given(): void
     {
         $r = $this->planner()->plan(['candidates' => [$this->keepCandidate()]]);
 
-        $this->assertSame(0, $r['ranked_candidates'][0]['line_reduction']);
+        $this->assertSame(0, $r['ranked_candidates'][0]['expected_line_delta']);
     }
 
     // ── determinism ──────────────────────────────────────────────────────────
@@ -503,5 +503,106 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
         // Blocked but proof is still required before it can be actioned.
         $this->assertNotEmpty($r['proof_required']);
         $this->assertStringContainsString('BL', $r['proof_required'][0]);
+    }
+
+    // ── AC3: active consumers / missing replacement proof / missing behavior
+    //         preservation evidence force migrate_or_prove_first ──────────────
+
+    public function test_active_consumers_forces_migrate_or_prove_first_action(): void
+    {
+        $candidate = [
+            'organ_id'             => 'MC1',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'has_active_consumers' => true,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('active_consumers_detected', $entry['blocked_deletion_reason']);
+        $this->assertContains('MC1', $r['blocked_deletions']);
+    }
+
+    public function test_missing_replacement_proof_forces_migrate_or_prove_first(): void
+    {
+        $candidate = [
+            'organ_id'                => 'MC2',
+            'similar_organs'          => ['other'],
+            'usage_evidence_count'    => 0,
+            'compounding_value'       => 0.0,
+            'has_replacement_proof'   => false,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('missing_replacement_proof', $entry['blocked_deletion_reason']);
+    }
+
+    public function test_missing_behavior_preservation_evidence_forces_migrate_or_prove_first(): void
+    {
+        $candidate = [
+            'organ_id'                              => 'MC3',
+            'similar_organs'                        => ['other'],
+            'usage_evidence_count'                  => 0,
+            'compounding_value'                     => 0.0,
+            'has_behavior_preservation_evidence'    => false,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('missing_behavior_preservation_evidence', $entry['blocked_deletion_reason']);
+    }
+
+    public function test_unblocked_deletive_candidate_has_empty_blocked_deletion_reason(): void
+    {
+        $candidate = [
+            'organ_id'             => 'CLEAN1',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_DELETE, $entry['recommended_action']);
+        $this->assertSame([], $entry['blocked_deletion_reason']);
+    }
+
+    public function test_blocked_candidate_preserved_capability_describes_original_intended_action(): void
+    {
+        $candidate = [
+            'organ_id'             => 'MC4',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'has_active_consumers' => true,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame('none (purpose absorbed by similar organs)', $entry['preserved_capability']);
+    }
+
+    // ── simplification_roi_hint ────────────────────────────────────────────────
+
+    public function test_simplification_roi_hint_present_for_every_candidate(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [$this->keepCandidate()]]);
+
+        $this->assertIsString($r['ranked_candidates'][0]['simplification_roi_hint']);
+        $this->assertNotEmpty($r['ranked_candidates'][0]['simplification_roi_hint']);
+    }
+
+    public function test_simplification_roi_hint_reflects_line_delta_when_positive(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            array_merge($this->keepCandidate('ROI1'), ['estimated_line_delta' => 100]),
+        ]]);
+
+        $this->assertStringContainsString('100', $r['ranked_candidates'][0]['simplification_roi_hint']);
     }
 }

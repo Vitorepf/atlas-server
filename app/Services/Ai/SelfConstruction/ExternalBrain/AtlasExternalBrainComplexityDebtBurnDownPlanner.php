@@ -61,6 +61,7 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
     public const ACTION_INLINE      = 'inline';
     public const ACTION_SIMPLIFY    = 'simplify';
     public const ACTION_KEEP        = 'keep';
+    public const ACTION_MIGRATE_OR_PROVE_FIRST = 'migrate_or_prove_first';
 
     public const PREFERRED_CONSOLIDATE_OR_DELETE = 'consolidate_or_delete';
     public const PREFERRED_ADD_NEW_CAPABILITY    = 'add_new_capability';
@@ -97,6 +98,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             $compounding       = (float) ($raw['compounding_value'] ?? 0.0);
             $maintCost         = (float) ($raw['maintenance_cost'] ?? 0.0);
             $hasActiveConsumers = (bool) ($raw['has_active_consumers'] ?? false);
+            $hasReplacementProof = (bool) ($raw['has_replacement_proof'] ?? true);
+            $hasBehaviorPreservationEvidence = (bool) ($raw['has_behavior_preservation_evidence'] ?? true);
             $estimatedLineDelta = (int) ($raw['estimated_line_delta'] ?? 0);
             $sameDecision      = is_array($raw['covers_same_decision_surface_as'] ?? null)
                 ? $raw['covers_same_decision_surface_as']
@@ -142,18 +145,35 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
 
             $isDeletive = in_array($action, [self::ACTION_DELETE, self::ACTION_MERGE, self::ACTION_CONSOLIDATE], true);
 
-            // AC3: active consumers block deletion/consolidation.
-            $isBlocked = $isDeletive && $hasActiveConsumers;
+            // AC3: active consumers, missing replacement proof, or missing behavior-preservation
+            // evidence all block an unblocked delete/merge/consolidate — they must migrate/prove first.
+            $blockReasons = [];
+            if ($isDeletive && $hasActiveConsumers) {
+                $blockReasons[] = 'active_consumers_detected';
+            }
+            if ($isDeletive && ! $hasReplacementProof) {
+                $blockReasons[] = 'missing_replacement_proof';
+            }
+            if ($isDeletive && ! $hasBehaviorPreservationEvidence) {
+                $blockReasons[] = 'missing_behavior_preservation_evidence';
+            }
+            $isBlocked = $blockReasons !== [];
+            $originalAction = $action;
             if ($isBlocked) {
                 $blockedDeletions[] = $organId;
-                $riskNotes[]        = 'blocked: active consumers detected — must migrate before delete';
+                foreach ($blockReasons as $reason) {
+                    $riskNotes[] = 'blocked: '.str_replace('_', ' ', $reason).' — must migrate or prove before '.$action;
+                }
+                $action = self::ACTION_MIGRATE_OR_PROVE_FIRST;
             }
 
             $proof = $isDeletive
                 ? 'verify zero active consumers before deleting '.$organId
                 : null;
 
-            $preserved = match ($action) {
+            // preserved_capability describes the ORIGINAL intended action's outcome even when blocked,
+            // so the operator can see what migrating/proving would unlock.
+            $preserved = match ($originalAction) {
                 self::ACTION_DELETE      => 'none (purpose absorbed by similar organs)',
                 self::ACTION_MERGE       => sprintf('merged into: %s', implode(', ', array_slice($sameDecision, 0, 2))),
                 self::ACTION_CONSOLIDATE => sprintf('merged into: %s', implode(', ', array_slice($similarOrgans ?: $sameDecision, 0, 2))),
@@ -162,16 +182,24 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 default                  => sprintf('full capability of: %s', $purpose),
             };
 
+            $lineDeltaPositive = max(0, $estimatedLineDelta);
+            $roi = $score > 0.0 ? round($lineDeltaPositive / $score, 2) : 0.0;
+            $simplificationRoiHint = $lineDeltaPositive > 0
+                ? sprintf('%d lines removed per %.2f debt-score points (roi=%.2f)', $lineDeltaPositive, $score, $roi)
+                : 'no line reduction estimated for this candidate';
+
             $scored[] = [
                 'organ_id'                       => $organId,
                 '_score'                         => $score,
                 '_line_delta'                    => $estimatedLineDelta,
                 '_blocked'                       => $isBlocked,
                 'recommended_action'             => $action,
-                'line_reduction'                 => max(0, $estimatedLineDelta),
+                'expected_line_delta'            => $lineDeltaPositive,
                 'preserved_capability'           => $preserved,
                 'risk_notes'                     => $riskNotes,
                 'proof_required_before_deletion' => $proof,
+                'blocked_deletion_reason'        => $blockReasons,
+                'simplification_roi_hint'        => $simplificationRoiHint,
             ];
         }
 
