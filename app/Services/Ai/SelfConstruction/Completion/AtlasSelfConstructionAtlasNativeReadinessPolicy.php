@@ -42,6 +42,16 @@ final class AtlasSelfConstructionAtlasNativeReadinessPolicy
 
     public const ATLAS_NATIVE_OWNER = 'atlas_native';
 
+    /** Six non-compensating dimensions. Every capability in every dimension must be atlas_native + verified. */
+    public const DIMENSIONS = [
+        'planning'       => ['inspect_task_packet', 'prepare_patch_plan'],
+        'queueing'       => ['route_to_worker', 'replenish_queue', 'repair_poison_packet'],
+        'execution'      => ['apply_scoped_patch', 'run_gates', 'request_rollback'],
+        'learning'       => ['write_evidence', 'learn_from_receipt'],
+        'certification'  => ['decide_release', 'supervise_worker_pool'],
+        'knowledge_sync' => ['sync_knowledge', 'keep_context_fresh'],
+    ];
+
     public const REQUIRED_ORDINARY_CAPABILITIES = [
         'inspect_task_packet',
         'prepare_patch_plan',
@@ -72,35 +82,53 @@ final class AtlasSelfConstructionAtlasNativeReadinessPolicy
     {
         $ordinary = is_array($facts['ordinary_capabilities'] ?? null) ? $facts['ordinary_capabilities'] : [];
         $dependencyBlockers = [];
-        $evidenceBlockers = [];
-        $ownedByAtlas = [];
+        $evidenceBlockers   = [];
+        $ownedByAtlas       = [];
+        $blockedCaps        = [];
 
         foreach (self::REQUIRED_ORDINARY_CAPABILITIES as $cap) {
             $row = is_array($ordinary[$cap] ?? null) ? $ordinary[$cap] : null;
             if ($row === null) {
                 $evidenceBlockers[] = 'missing_capability:'.$cap;
+                $blockedCaps[$cap]  = true;
 
                 continue;
             }
             $owner = (string) ($row['owner'] ?? '');
             if ($owner !== self::ATLAS_NATIVE_OWNER) {
                 $dependencyBlockers[] = 'non_atlas_native_owner:'.$cap.':'.($owner === '' ? 'missing' : $owner);
+                $blockedCaps[$cap]    = true;
 
                 continue;
             }
-            $verified = (bool) ($row['verified'] ?? false);
+            $verified    = (bool) ($row['verified'] ?? false);
             $evidenceRef = (string) ($row['evidence_ref'] ?? '');
             if (! $verified) {
                 $evidenceBlockers[] = 'unverified:'.$cap;
+                $blockedCaps[$cap]  = true;
 
                 continue;
             }
             if ($evidenceRef === '') {
                 $evidenceBlockers[] = 'missing_evidence_ref:'.$cap;
+                $blockedCaps[$cap]  = true;
 
                 continue;
             }
             $ownedByAtlas[] = $cap;
+        }
+
+        // Non-compensating dimension verdicts: a complete dimension cannot compensate for a blocked one.
+        $dimensionVerdicts = [];
+        foreach (self::DIMENSIONS as $dim => $caps) {
+            $dimBlocked = false;
+            foreach ($caps as $cap) {
+                if (isset($blockedCaps[$cap])) {
+                    $dimBlocked = true;
+                    break;
+                }
+            }
+            $dimensionVerdicts[$dim] = $dimBlocked ? 'blocked' : 'ready';
         }
 
         $outcome = self::OUTCOME_READY;
@@ -115,10 +143,11 @@ final class AtlasSelfConstructionAtlasNativeReadinessPolicy
         sort($ownedByAtlas, SORT_STRING);
 
         return [
-            'schema' => self::SCHEMA,
-            'outcome' => $outcome,
-            'blockers' => $blockers,
-            'owned_by_atlas' => $ownedByAtlas,
+            'schema'                 => self::SCHEMA,
+            'outcome'                => $outcome,
+            'blockers'               => $blockers,
+            'dimension_verdicts'     => $dimensionVerdicts,
+            'owned_by_atlas'         => $ownedByAtlas,
             'oversight_capabilities' => array_keys((array) ($facts['oversight_capabilities'] ?? [])),
             'emergency_capabilities' => array_keys((array) ($facts['emergency_capabilities'] ?? [])),
         ];

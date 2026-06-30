@@ -103,4 +103,53 @@ final class AtlasSelfConstructionAtlasNativeReadinessPolicyTest extends TestCase
             $this->assertContains($cap, $r['owned_by_atlas']);
         }
     }
+
+    // ── dimension_verdicts: six non-compensating dimensions ───────────────────
+
+    public function test_all_six_dimensions_present_in_result_when_ready(): void
+    {
+        $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate(['ordinary_capabilities' => $this->allReadyOrdinary()]);
+
+        $this->assertArrayHasKey('dimension_verdicts', $r);
+        foreach (['planning', 'queueing', 'execution', 'learning', 'certification', 'knowledge_sync'] as $dim) {
+            $this->assertArrayHasKey($dim, $r['dimension_verdicts'], "Missing dimension: {$dim}");
+            $this->assertSame('ready', $r['dimension_verdicts'][$dim]);
+        }
+    }
+
+    public function test_missing_planning_capability_blocks_only_planning_dimension(): void
+    {
+        $ordinary = $this->allReadyOrdinary();
+        unset($ordinary['prepare_patch_plan']); // planning dimension
+        $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate(['ordinary_capabilities' => $ordinary]);
+
+        $this->assertSame('blocked', $r['dimension_verdicts']['planning']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['execution']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['learning']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['certification']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['knowledge_sync']);
+    }
+
+    public function test_strong_dimensions_cannot_compensate_for_missing_knowledge_sync(): void
+    {
+        $ordinary = $this->allReadyOrdinary();
+        unset($ordinary['sync_knowledge']); // knowledge_sync dimension
+        $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate(['ordinary_capabilities' => $ordinary]);
+
+        // Overall outcome must still be blocked despite all other dimensions being ready.
+        $this->assertNotSame(AtlasSelfConstructionAtlasNativeReadinessPolicy::OUTCOME_READY, $r['outcome']);
+        $this->assertSame('blocked', $r['dimension_verdicts']['knowledge_sync']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['planning']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['execution']);
+    }
+
+    public function test_non_atlas_native_owner_blocks_its_dimension(): void
+    {
+        $ordinary = $this->allReadyOrdinary();
+        $ordinary['route_to_worker']['owner'] = 'external_worker'; // queueing dimension
+        $r = (new AtlasSelfConstructionAtlasNativeReadinessPolicy)->evaluate(['ordinary_capabilities' => $ordinary]);
+
+        $this->assertSame('blocked', $r['dimension_verdicts']['queueing']);
+        $this->assertSame('ready',   $r['dimension_verdicts']['certification']);
+    }
 }
