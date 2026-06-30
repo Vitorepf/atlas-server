@@ -14,6 +14,14 @@ final class AtlasMaestroOutcomeShapeLedger
 
     private const OUTCOMES = ['delivered', 'give_back', 'rejected', 'stale'];
 
+    private const GIVE_BACK_ROOT_CAUSES = [
+        'malformed_spec',
+        'forbidden_scope',
+        'failing_gate',
+        'duplicate_capability',
+        'transient_concurrency',
+    ];
+
     public function __construct(private readonly ?string $path = null)
     {
     }
@@ -31,9 +39,9 @@ final class AtlasMaestroOutcomeShapeLedger
             throw new DomainException('invalid_maestro_outcome');
         }
 
-        $entry = [
-            'schema' => self::SCHEMA,
-            'task_packet_id' => $taskPacketId,
+        $giveBackRootCause = $this->normalizeRootCause($shapeFacts['give_back_root_cause'] ?? null);
+
+        $shape = [
             'origin_kind' => $this->originKind($shapeFacts['origin_kind'] ?? null),
             'allowed_files_count' => max(0, (int) ($shapeFacts['allowed_files_count'] ?? 0)),
             'scope_in_size' => max(0, (int) ($shapeFacts['scope_in_size'] ?? 0)),
@@ -41,8 +49,14 @@ final class AtlasMaestroOutcomeShapeLedger
             'required_evidence_count' => max(0, (int) ($shapeFacts['required_evidence_count'] ?? 0)),
             'has_tests_path' => (bool) ($shapeFacts['has_tests_path'] ?? false),
             'wave_bucket' => (string) ($shapeFacts['wave_bucket'] ?? 'unknown'),
-            'outcome' => $outcome,
+            'give_back_root_cause' => $giveBackRootCause,
         ];
+
+        $entry = array_merge(
+            ['schema' => self::SCHEMA, 'task_packet_id' => $taskPacketId],
+            $shape,
+            ['outcome' => $outcome, 'shape_hash' => hash('sha256', (string) json_encode($shape))],
+        );
 
         $this->appendIdempotent($entry);
     }
@@ -101,7 +115,8 @@ final class AtlasMaestroOutcomeShapeLedger
                 $row = json_decode($line, true);
                 if (is_array($row)
                     && ($row['task_packet_id'] ?? null) === $entry['task_packet_id']
-                    && ($row['outcome'] ?? null) === $entry['outcome']) {
+                    && ($row['outcome'] ?? null) === $entry['outcome']
+                    && ($row['shape_hash'] ?? null) === $entry['shape_hash']) {
                     return;
                 }
             }
@@ -118,6 +133,11 @@ final class AtlasMaestroOutcomeShapeLedger
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    private function normalizeRootCause(mixed $rootCause): string
+    {
+        return in_array($rootCause, self::GIVE_BACK_ROOT_CAUSES, true) ? (string) $rootCause : 'unknown';
     }
 
     private function originKind(mixed $originKind): string
