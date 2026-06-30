@@ -190,4 +190,121 @@ final class AtlasExternalBrainStalledCapabilityRescuePlannerTest extends TestCas
 
         $this->assertSame(AtlasExternalBrainStalledCapabilityRescuePlanner::SCHEMA, $r['schema_version']);
     }
+
+    // ── model-amplifier rescue policy (AC2 + AC3) ─────────────────────────────
+
+    public function test_stale_duplicated_unused_high_cost_is_not_rescue(): void
+    {
+        $r = $this->svc()->plan([array_merge(
+            $this->cap('cap-bad', 'implemented'),
+            [
+                'consumer_count'             => 0,
+                'duplicate_owner_count'      => 1,
+                'last_green_commit_age_days' => 31,
+                'estimated_rescue_cost'      => 2.0,
+            ],
+        )]);
+
+        $e = $this->entryFor($r, 'cap-bad');
+        $this->assertNotNull($e);
+        $this->assertNotSame(AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RESCUE, $e['action']);
+    }
+
+    public function test_stale_duplicated_unused_high_cost_collapses_when_has_duplicate_owner(): void
+    {
+        $r = $this->svc()->plan([array_merge(
+            $this->cap('cap-dup', 'implemented'),
+            [
+                'consumer_count'             => 0,
+                'duplicate_owner_count'      => 2,
+                'last_green_commit_age_days' => 35,
+                'estimated_rescue_cost'      => 3.0,
+            ],
+        )]);
+
+        $this->assertSame(
+            AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_COLLAPSE,
+            $this->entryFor($r, 'cap-dup')['action'],
+        );
+    }
+
+    public function test_implemented_with_consumers_recent_green_low_cost_is_rescue(): void
+    {
+        $r = $this->svc()->plan([array_merge(
+            $this->cap('cap-good', 'implemented'),
+            [
+                'consumer_count'             => 3,
+                'last_green_commit_age_days' => 5,
+                'estimated_rescue_cost'      => 0.5,
+            ],
+        )]);
+
+        $e = $this->entryFor($r, 'cap-good');
+        $this->assertSame(AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RESCUE, $e['action']);
+        $this->assertContains('integration_test', $e['evidence_requirements']);
+        $this->assertContains('wiring_proof', $e['evidence_requirements']);
+    }
+
+    public function test_stale_unused_high_cost_without_dup_owner_still_rescues(): void
+    {
+        // All four AC2 conditions must hold; without duplicate_owner → primary check fails → still viable
+        $r = $this->svc()->plan([array_merge(
+            $this->cap('cap-solo', 'implemented'),
+            [
+                'consumer_count'             => 0,
+                'duplicate_owner_count'      => 0,
+                'last_green_commit_age_days' => 60,
+                'estimated_rescue_cost'      => 5.0,
+            ],
+        )]);
+
+        $this->assertSame(
+            AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RESCUE,
+            $this->entryFor($r, 'cap-solo')['action'],
+        );
+    }
+
+    public function test_high_give_backs_unused_stale_low_completeness_retires(): void
+    {
+        $r = $this->svc()->plan([array_merge(
+            $this->cap('cap-gb', 'implemented'),
+            [
+                'consumer_count'              => 0,
+                'duplicate_owner_count'       => 0,
+                'last_green_commit_age_days'  => 31,
+                'outstanding_give_back_count' => 2,
+                'implementation_completeness' => 0.3,
+            ],
+        )]);
+
+        $this->assertSame(
+            AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RETIRE,
+            $this->entryFor($r, 'cap-gb')['action'],
+        );
+    }
+
+    public function test_high_completeness_saves_give_back_from_retire(): void
+    {
+        $r = $this->svc()->plan([array_merge(
+            $this->cap('cap-done', 'implemented'),
+            [
+                'consumer_count'              => 0,
+                'duplicate_owner_count'       => 0,
+                'last_green_commit_age_days'  => 31,
+                'outstanding_give_back_count' => 2,
+                'implementation_completeness' => 0.8,
+            ],
+        )]);
+
+        $this->assertSame(
+            AtlasExternalBrainStalledCapabilityRescuePlanner::ACTION_RESCUE,
+            $this->entryFor($r, 'cap-done')['action'],
+        );
+    }
+
+    public function test_rescue_viability_constants_are_public(): void
+    {
+        $this->assertSame(30, AtlasExternalBrainStalledCapabilityRescuePlanner::RESCUE_STALE_DAYS_THRESHOLD);
+        $this->assertSame(1.0, AtlasExternalBrainStalledCapabilityRescuePlanner::RESCUE_MAX_COST);
+    }
 }
