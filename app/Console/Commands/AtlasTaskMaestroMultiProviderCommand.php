@@ -34,15 +34,18 @@ final class AtlasTaskMaestroMultiProviderCommand extends Command
     public function handle(
         AtlasMaestroProviderClassRegistry $registry,
         AtlasMaestroPacketClassifier $classifier,
-        AtlasMaestroProviderAssignmentPolicy $policy,
-        AtlasMaestroAssignmentReceiptLedger $ledger,
     ): int {
         $action = (string) $this->argument('action');
 
         return match ($action) {
             'providers' => $this->providers($registry),
             'classify' => $this->classify($classifier),
-            'assign' => $this->assign($classifier, $policy, $ledger),
+            // ponytail: policy + ledger resolved here so providers/classify never trigger their constructors
+            'assign' => $this->assign(
+                $classifier,
+                $this->laravel->make(AtlasMaestroProviderAssignmentPolicy::class),
+                $this->laravel->make(AtlasMaestroAssignmentReceiptLedger::class),
+            ),
             default => $this->usage('unknown action: '.$action),
         };
     }

@@ -126,6 +126,19 @@ final class AtlasTaskMaestroMultiProviderCommandTest extends TestCase
         $this->assertSame(AtlasTaskMaestroMultiProviderCommand::EXIT_USAGE, $exitAssign);
     }
 
+    public function test_providers_exits_ok_when_execution_runtime_is_absent_from_registry(): void
+    {
+        // Regression: handle() used to inject AtlasMaestroProviderAssignmentPolicy eagerly, causing a
+        // DomainException for any provider id not in the registry — even for the read-only providers action.
+        config(['atlas.provider_defaults.execution_runtime' => 'nonexistent-provider-xyz']);
+
+        [$exit, $out] = $this->runCmd(['action' => 'providers', '--json' => true]);
+        $this->assertSame(AtlasTaskMaestroMultiProviderCommand::EXIT_OK, $exit, $out);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded['providers'] ?? null);
+        $this->assertGreaterThan(0, count($decoded['providers']));
+    }
+
     public function test_command_name_does_not_collide_with_atlas_task_next_report(): void
     {
         $kernel = $this->app->make(ConsoleKernel::class);
