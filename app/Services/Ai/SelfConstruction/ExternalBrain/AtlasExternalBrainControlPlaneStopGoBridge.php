@@ -18,6 +18,15 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   create_more_tasks    — healthy + quality_trend=high
  *   pause                — default
  *
+ * UPSTREAM POLICY INTEROP: accepts an optional `upstream_decision` (vocabulary from queue saturation /
+ * backlog cost / originator stop policies — consolidate_or_audit, pause_creation_and_consolidate, drain,
+ * unblock, self_heal_before_more_volume, monitor) and normalizes it into this bridge's own facts:
+ *   self_heal_before_more_volume, unblock → forces self_heal_queue (beats create/escalate, tier 1)
+ *   consolidate_or_audit, pause_creation_and_consolidate → forces run_consolidation, even when
+ *     quality_trend is high
+ *   drain → forces drain_existing_queue, even when quality_trend is high
+ *   monitor → no override; healthy + high-quality facts can still escalate/create normally
+ *
  * Pure: no I/O, no provider calls, no side effects.
  */
 final class AtlasExternalBrainControlPlaneStopGoBridge
@@ -37,6 +46,8 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
      */
     public function decide(array $input): array
     {
+        $input = $this->mergeUpstreamDecision($input);
+
         $queuePressure    = (string) ($input['queue_pressure']     ?? 'low');
         $qualityTrend     = (string) ($input['quality_trend']      ?? 'medium');
         $sprawlPressure   = (string) ($input['sprawl_pressure']    ?? 'low');
@@ -46,6 +57,8 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         $claimableDepth   = (string) ($input['claimable_depth']    ?? 'low');
         $valueDensity     = (string) ($input['value_density']      ?? 'stable');
         $giveBackPressure = (string) ($input['give_back_pressure'] ?? 'low');
+        $forceConsolidate = (bool)   ($input['force_consolidation'] ?? false);
+        $forceDrain       = (bool)   ($input['force_drain']         ?? false);
 
         $isHealthy   = $queueHealth === 'healthy';
         $isHighValue = $qualityTrend === 'high';
@@ -54,6 +67,7 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
             $queuePressure, $qualityTrend, $sprawlPressure,
             $malformedRisk, $isHealthy, $isHighValue, $maturityGaps,
             $claimableDepth, $valueDensity, $giveBackPressure, $queueHealth,
+            $forceConsolidate, $forceDrain,
         );
 
         return [
@@ -79,6 +93,8 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         string $valueDensity,
         string $giveBackPressure,
         string $queueHealth,
+        bool   $forceConsolidate,
+        bool   $forceDrain,
     ): array {
         // 1. SELF_HEAL_QUEUE — safety net first
         $healReasons = [];
@@ -93,6 +109,14 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         }
         if ($healReasons !== []) {
             return [self::DECISION_SELF_HEAL_QUEUE, $healReasons];
+        }
+
+        // 1a. Upstream-forced consolidation/drain — beats quality_trend=high (overrides escalate/create).
+        if ($forceConsolidate) {
+            return [self::DECISION_RUN_CONSOLIDATION, ['upstream_decision:consolidate_or_pause']];
+        }
+        if ($forceDrain) {
+            return [self::DECISION_DRAIN_EXISTING_QUEUE, ['upstream_decision:drain']];
         }
 
         // 2. RUN_CONSOLIDATION — quality or sprawl degradation
@@ -138,6 +162,30 @@ final class AtlasExternalBrainControlPlaneStopGoBridge
         }
 
         return [self::DECISION_PAUSE, ['no_expansion_signal_detected']];
+    }
+
+    /**
+     * Normalizes an optional `upstream_decision` (queue saturation / backlog cost / originator stop
+     * policy vocabulary) into this bridge's own facts. Additive only — never weakens an explicit
+     * caller-supplied fact; 'monitor' sets no override (passthrough).
+     */
+    private function mergeUpstreamDecision(array $input): array
+    {
+        $upstream = (string) ($input['upstream_decision'] ?? '');
+        if ($upstream === '') {
+            return $input;
+        }
+
+        if (str_contains($upstream, 'self_heal') || $upstream === 'unblock') {
+            $input['malformed_risk'] = true;
+        } elseif (str_contains($upstream, 'consolidate') || str_contains($upstream, 'pause')) {
+            $input['force_consolidation'] = true;
+        } elseif ($upstream === 'drain') {
+            $input['force_drain'] = true;
+        }
+        // 'monitor' sets no override — healthy + high-quality facts can still escalate/create.
+
+        return $input;
     }
 
     private function stopGoSignal(string $decision): string

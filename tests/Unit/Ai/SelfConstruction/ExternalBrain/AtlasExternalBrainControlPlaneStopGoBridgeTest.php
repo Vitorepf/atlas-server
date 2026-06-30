@@ -242,4 +242,77 @@ final class AtlasExternalBrainControlPlaneStopGoBridgeTest extends TestCase
 
         $this->assertNotSame($healAction, $createAction);
     }
+
+    // ── upstream policy interop (upstream_decision) ───────────────────────────
+
+    public function test_upstream_self_heal_maps_to_self_heal_queue_before_create(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['upstream_decision' => 'self_heal_before_more_volume']));
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+    }
+
+    public function test_upstream_unblock_maps_to_self_heal_queue_before_escalate(): void
+    {
+        $result = $this->bridge->decide($this->healthy(['upstream_decision' => 'unblock', 'maturity_gap_count' => 3]));
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+    }
+
+    public function test_upstream_consolidate_or_audit_maps_to_run_consolidation_even_with_high_quality(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'upstream_decision' => 'consolidate_or_audit',
+            'quality_trend' => 'high',
+        ]));
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION, $result['stop_go_decision']);
+    }
+
+    public function test_upstream_pause_creation_and_consolidate_maps_to_run_consolidation_even_with_high_quality(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'upstream_decision' => 'pause_creation_and_consolidate',
+            'quality_trend' => 'high',
+        ]));
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_RUN_CONSOLIDATION, $result['stop_go_decision']);
+    }
+
+    public function test_upstream_drain_maps_to_drain_existing_queue_even_with_high_quality(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'upstream_decision' => 'drain',
+            'quality_trend' => 'high',
+        ]));
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_DRAIN_EXISTING_QUEUE, $result['stop_go_decision']);
+    }
+
+    public function test_upstream_monitor_with_healthy_high_quality_still_creates_and_is_provider_free(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'upstream_decision' => 'monitor',
+            'quality_trend' => 'high',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_CREATE_MORE_TASKS, $result['stop_go_decision']);
+        $this->assertTrue($result['provider_free']);
+    }
+
+    public function test_upstream_monitor_with_healthy_high_quality_and_maturity_gaps_escalates(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'upstream_decision' => 'monitor',
+            'quality_trend' => 'high',
+            'maturity_gap_count' => 2,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_ESCALATE_AMBITION, $result['stop_go_decision']);
+    }
+
+    public function test_upstream_decision_never_weakens_explicit_malformed_risk(): void
+    {
+        $result = $this->bridge->decide($this->healthy([
+            'upstream_decision' => 'monitor',
+            'malformed_risk' => true,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainControlPlaneStopGoBridge::DECISION_SELF_HEAL_QUEUE, $result['stop_go_decision']);
+    }
 }
