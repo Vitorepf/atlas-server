@@ -63,6 +63,12 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlan
         if ($allowedRoots === []) {
             $blockers[] = 'allowed_roots_empty';
         }
+        if (! (bool) ($laneFacts['quality_floor_met'] ?? true)) {
+            $blockers[] = 'quality_floor_not_met';
+        }
+        if (! (bool) ($laneFacts['rollback_ready'] ?? true)) {
+            $blockers[] = 'rollback_not_ready';
+        }
 
         $existing = (array) ($laneFacts['existing_lane_roots'] ?? []);
         foreach ($allowedRoots as $root) {
@@ -102,6 +108,7 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlan
             'rollback_hooks' => ['atlas.rollback.apply'],
             'knowledge_sync_hooks' => ['atlas.engineering.knowledge.sync', 'atlas.engineering.knowledge.index-code'],
             'requires_operator_handoff' => false,
+            'lane_priority' => $laneType === 'atlas_internal' ? 1 : 2,
         ];
 
         return $this->envelope(self::STATUS_READY, $plan);

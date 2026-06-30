@@ -121,6 +121,41 @@ final class AtlasSelfConstructionScopeExpansionLaneAdmissionPlanTest extends Tes
         $this->assertSame($a['admission_plan_hash'], $b['admission_plan_hash']);
     }
 
+    public function test_rejects_when_quality_floor_not_met(): void
+    {
+        $plan = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts(['quality_floor_met' => false]));
+
+        $this->assertSame('rejected', $plan['status']);
+        $this->assertContains('quality_floor_not_met', $plan['blockers']);
+    }
+
+    public function test_rejects_when_rollback_not_ready(): void
+    {
+        $plan = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts(['rollback_ready' => false]));
+
+        $this->assertSame('rejected', $plan['status']);
+        $this->assertContains('rollback_not_ready', $plan['blockers']);
+    }
+
+    public function test_ready_plan_includes_prioritized_lane_output(): void
+    {
+        $internal = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan($this->candidate(), $this->readyVerdict(), $this->laneFacts());
+
+        $external = (new AtlasSelfConstructionScopeExpansionLaneAdmissionPlan)
+            ->plan(
+                $this->candidate(['lane_type' => 'external_project']),
+                $this->readyVerdict(),
+                $this->laneFacts(['lane_type' => 'external_project', 'project_id' => 'ext-proj', 'queue_namespace' => 'ext.ns']),
+            );
+
+        $this->assertArrayHasKey('lane_priority', $internal);
+        $this->assertArrayHasKey('lane_priority', $external);
+        $this->assertLessThan($external['lane_priority'], $internal['lane_priority'], 'atlas_internal must have lower (higher-priority) number than external');
+    }
+
     public function test_plan_source_is_pure(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/ScopeExpansion/AtlasSelfConstructionScopeExpansionLaneAdmissionPlan.php'));
