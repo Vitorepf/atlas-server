@@ -45,6 +45,16 @@ final class AtlasExternalBrainScaffoldRegistryGovernance
     private const ALLOWED_STATUSES = ['active', 'retired', 'experimental', 'deprecated'];
     private const SEMVER_PATTERN   = '/^\d+\.\d+\.\d+$/';
 
+    public const RECOMMEND_PROMOTE = 'promote';
+    public const RECOMMEND_KEEP_TESTING = 'keep_testing';
+    public const RECOMMEND_DOWNGRADE = 'downgrade';
+    public const RECOMMEND_RETIRE = 'retire';
+
+    private const MIN_SAMPLE_SIZE = 5;
+    private const PROMOTE_LIFT_THRESHOLD = 0.15;
+    private const DOWNGRADE_LIFT_THRESHOLD = 0.05;
+    private const HIGH_RISK_PROMOTE_LIFT_THRESHOLD = 0.25;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -132,6 +142,78 @@ final class AtlasExternalBrainScaffoldRegistryGovernance
         }
 
         return $reasons;
+    }
+
+    /**
+     * Recommends a lifecycle action (promote, keep_testing, downgrade,
+     * retire) for a single scaffold based on its outcome evidence. Tracks
+     * id, version, intended_failure_mode, observed_lift, risk and
+     * lifecycle_state.
+     *
+     * FAILS CLOSED: when observed_lift is absent/null OR sample_size is
+     * below MIN_SAMPLE_SIZE (5), the scaffold has no measurable lift
+     * evidence and the recommendation is keep_testing — never promote.
+     *
+     * Otherwise, in order:
+     *   observed_lift <= 0                                  -> retire (no_positive_lift)
+     *   risk=high AND observed_lift < HIGH_RISK_PROMOTE_LIFT_THRESHOLD (0.25) -> retire (high_risk_without_sufficient_lift)
+     *   observed_lift < DOWNGRADE_LIFT_THRESHOLD (0.05)     -> downgrade (lift_below_downgrade_threshold)
+     *   observed_lift >= PROMOTE_LIFT_THRESHOLD (0.15) (and risk != high, or it already cleared the high-risk bar) -> promote
+     *   otherwise                                            -> keep_testing
+     *
+     * @param  array<string,mixed>  $scaffold  { id, version?, intended_failure_mode?,
+     *   observed_lift?, sample_size?, risk?, lifecycle_state? }
+     * @return array<string,mixed>
+     */
+    public function recommendLifecycle(array $scaffold): array
+    {
+        $id = (string) ($scaffold['id'] ?? '');
+        $version = (string) ($scaffold['version'] ?? '');
+        $intendedFailureMode = (string) ($scaffold['intended_failure_mode'] ?? '');
+        $risk = strtolower(trim((string) ($scaffold['risk'] ?? 'low')));
+        $lifecycleState = (string) ($scaffold['lifecycle_state'] ?? 'experimental');
+        $sampleSize = max(0, (int) ($scaffold['sample_size'] ?? 0));
+        $observedLift = array_key_exists('observed_lift', $scaffold) && $scaffold['observed_lift'] !== null
+            ? (float) $scaffold['observed_lift']
+            : null;
+
+        if ($observedLift === null || $sampleSize < self::MIN_SAMPLE_SIZE) {
+            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_KEEP_TESTING, 'insufficient_lift_evidence');
+        }
+
+        if ($observedLift <= 0.0) {
+            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_RETIRE, 'no_positive_lift');
+        }
+
+        if ($risk === 'high' && $observedLift < self::HIGH_RISK_PROMOTE_LIFT_THRESHOLD) {
+            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_RETIRE, 'high_risk_without_sufficient_lift');
+        }
+
+        if ($observedLift < self::DOWNGRADE_LIFT_THRESHOLD) {
+            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_DOWNGRADE, 'lift_below_downgrade_threshold');
+        }
+
+        if ($observedLift >= self::PROMOTE_LIFT_THRESHOLD) {
+            return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_PROMOTE, 'lift_meets_promotion_bar');
+        }
+
+        return $this->lifecycleResult($id, $version, $intendedFailureMode, $observedLift, $risk, $lifecycleState, self::RECOMMEND_KEEP_TESTING, 'lift_positive_but_below_promotion_bar');
+    }
+
+    /** @return array<string,mixed> */
+    private function lifecycleResult(string $id, string $version, string $intendedFailureMode, ?float $observedLift, string $risk, string $lifecycleState, string $recommendation, string $reason): array
+    {
+        return [
+            'schema_version' => self::SCHEMA,
+            'id' => $id,
+            'version' => $version,
+            'intended_failure_mode' => $intendedFailureMode,
+            'observed_lift' => $observedLift,
+            'risk' => $risk,
+            'lifecycle_state' => $lifecycleState,
+            'recommendation' => $recommendation,
+            'reason' => $reason,
+        ];
     }
 
     private function health(int $total, int $rejected, int $activeValid): string

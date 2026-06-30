@@ -175,4 +175,108 @@ final class AtlasExternalBrainScaffoldRegistryGovernanceTest extends TestCase
         $b = $this->gov()->govern($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── recommendLifecycle ──────────────────────────────────────────────────────
+
+    private function scaffold(array $overrides = []): array
+    {
+        return array_merge([
+            'id' => 'scaffold-1',
+            'version' => '1.0.0',
+            'intended_failure_mode' => 'hallucinated_file_path',
+            'observed_lift' => 0.2,
+            'sample_size' => 10,
+            'risk' => 'low',
+            'lifecycle_state' => 'experimental',
+        ], $overrides);
+    }
+
+    public function test_lifecycle_output_has_required_keys(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold());
+
+        foreach (['schema_version', 'id', 'version', 'intended_failure_mode', 'observed_lift', 'risk', 'lifecycle_state', 'recommendation', 'reason'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::SCHEMA, $r['schema_version']);
+    }
+
+    public function test_missing_observed_lift_fails_closed_to_keep_testing(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => null]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_KEEP_TESTING, $r['recommendation']);
+        $this->assertSame('insufficient_lift_evidence', $r['reason']);
+    }
+
+    public function test_below_min_sample_size_fails_closed_even_with_high_lift(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => 0.9, 'sample_size' => 2]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_KEEP_TESTING, $r['recommendation']);
+        $this->assertSame('insufficient_lift_evidence', $r['reason']);
+    }
+
+    public function test_negative_lift_is_retired(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => -0.1]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_RETIRE, $r['recommendation']);
+        $this->assertSame('no_positive_lift', $r['reason']);
+    }
+
+    public function test_zero_lift_is_retired(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => 0.0]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_RETIRE, $r['recommendation']);
+    }
+
+    public function test_high_risk_with_moderate_lift_is_retired(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['risk' => 'high', 'observed_lift' => 0.18]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_RETIRE, $r['recommendation']);
+        $this->assertSame('high_risk_without_sufficient_lift', $r['reason']);
+    }
+
+    public function test_high_risk_with_strong_lift_can_still_promote(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['risk' => 'high', 'observed_lift' => 0.3]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_PROMOTE, $r['recommendation']);
+    }
+
+    public function test_low_positive_lift_is_downgraded(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => 0.02]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_DOWNGRADE, $r['recommendation']);
+        $this->assertSame('lift_below_downgrade_threshold', $r['reason']);
+    }
+
+    public function test_moderate_lift_keeps_testing(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => 0.10]));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_KEEP_TESTING, $r['recommendation']);
+        $this->assertSame('lift_positive_but_below_promotion_bar', $r['reason']);
+    }
+
+    public function test_high_lift_low_risk_promotes(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['observed_lift' => 0.2, 'risk' => 'low']));
+
+        $this->assertSame(AtlasExternalBrainScaffoldRegistryGovernance::RECOMMEND_PROMOTE, $r['recommendation']);
+        $this->assertSame('lift_meets_promotion_bar', $r['reason']);
+    }
+
+    public function test_lifecycle_result_preserves_identity_fields(): void
+    {
+        $r = $this->gov()->recommendLifecycle($this->scaffold(['id' => 'scaffold-x', 'version' => '2.1.0', 'intended_failure_mode' => 'logic_gap']));
+
+        $this->assertSame('scaffold-x', $r['id']);
+        $this->assertSame('2.1.0', $r['version']);
+        $this->assertSame('logic_gap', $r['intended_failure_mode']);
+    }
 }
