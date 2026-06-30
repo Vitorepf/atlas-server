@@ -214,6 +214,76 @@ final class AtlasExternalBrainDecisionLedgerCompactor
         ];
     }
 
+    /**
+     * Compact a flat decision ledger (separate from compact()'s trace-grouping model).
+     *
+     * Durable decisions, active constraints, and negative-result rules (failed_pattern)
+     * are always preserved unless explicitly superseded/duplicate AND conflict-free.
+     * A decision flagged with conflicts_with is NEVER silently dropped or silently
+     * resolved to "newest wins" — it is marked for human/agent revalidation instead.
+     *
+     * @param  array{decisions?: list<array<string,mixed>>}  $input
+     * @return array{schema:string, compact_summary:string, dropped_count:int, preserved_count:int, revalidate_count:int, preserved:list<array<string,mixed>>, dropped:list<array<string,mixed>>, revalidate:list<array<string,mixed>>}
+     */
+    public function compactDecisions(array $input): array
+    {
+        $decisions = is_array($input['decisions'] ?? null) ? $input['decisions'] : [];
+
+        $preserved  = [];
+        $dropped    = [];
+        $revalidate = [];
+
+        foreach ($decisions as $decision) {
+            $decisionId   = (string) ($decision['decision_id']   ?? '');
+            $type         = (string) ($decision['type']          ?? 'durable_decision');
+            $status       = (string) ($decision['status']        ?? 'active');
+            $conflictsWith = $this->normalizeList($decision['conflicts_with'] ?? []);
+
+            if ($conflictsWith !== []) {
+                $revalidate[] = [
+                    'decision_id'    => $decisionId,
+                    'type'           => $type,
+                    'conflicts_with' => $conflictsWith,
+                ];
+                continue;
+            }
+
+            $isDurableClass = in_array($type, ['durable_decision', 'failed_pattern', 'active_constraint'], true);
+            $isSupersededOrDuplicate = in_array($status, ['superseded', 'duplicate'], true);
+
+            if ($isDurableClass && ! $isSupersededOrDuplicate) {
+                $preserved[] = ['decision_id' => $decisionId, 'type' => $type];
+                continue;
+            }
+
+            $dropped[] = [
+                'decision_id' => $decisionId,
+                'type'        => $type,
+                'reason'      => $isSupersededOrDuplicate ? $status : 'not_durable',
+            ];
+        }
+
+        $droppedCount    = count($dropped);
+        $preservedCount  = count($preserved);
+        $revalidateCount = count($revalidate);
+
+        return [
+            'schema'           => self::SCHEMA,
+            'compact_summary'  => sprintf(
+                'preserved %d durable decision(s)/constraint(s)/failed pattern(s), dropped %d superseded/duplicate, flagged %d for revalidation',
+                $preservedCount,
+                $droppedCount,
+                $revalidateCount,
+            ),
+            'dropped_count'    => $droppedCount,
+            'preserved_count'  => $preservedCount,
+            'revalidate_count' => $revalidateCount,
+            'preserved'        => $preserved,
+            'dropped'          => $dropped,
+            'revalidate'       => $revalidate,
+        ];
+    }
+
     /** @return list<string> */
     private function normalizeCauses(mixed $raw): array
     {

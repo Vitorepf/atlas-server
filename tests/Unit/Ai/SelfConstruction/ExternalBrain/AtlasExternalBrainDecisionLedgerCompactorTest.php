@@ -337,4 +337,96 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
 
         $this->assertSame(count($result['lessons']), $result['lesson_count']);
     }
+
+    // ── compactDecisions() ──────────────────────────────────────────────────────
+
+    public function test_compact_decisions_has_required_keys(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => []]);
+
+        foreach (['compact_summary', 'dropped_count', 'preserved_count', 'revalidate_count'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+    }
+
+    public function test_compact_decisions_preserves_durable_decision(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'D1', 'type' => 'durable_decision', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['preserved_count']);
+        $this->assertSame(0, $result['dropped_count']);
+    }
+
+    public function test_compact_decisions_preserves_active_constraint(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'C1', 'type' => 'active_constraint', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['preserved_count']);
+    }
+
+    public function test_compact_decisions_preserves_failed_pattern_negative_result_rule(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'F1', 'type' => 'failed_pattern', 'status' => 'active'],
+        ]]);
+
+        $this->assertSame(1, $result['preserved_count']);
+    }
+
+    public function test_compact_decisions_drops_superseded_entry(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'D1', 'type' => 'durable_decision', 'status' => 'superseded'],
+        ]]);
+
+        $this->assertSame(1, $result['dropped_count']);
+        $this->assertSame(0, $result['preserved_count']);
+    }
+
+    public function test_compact_decisions_drops_duplicate_entry(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'D1', 'type' => 'durable_decision', 'status' => 'duplicate'],
+        ]]);
+
+        $this->assertSame(1, $result['dropped_count']);
+    }
+
+    public function test_compact_decisions_marks_conflict_for_revalidation_instead_of_dropping(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'D1', 'type' => 'durable_decision', 'status' => 'active', 'conflicts_with' => ['D2']],
+        ]]);
+
+        $this->assertSame(1, $result['revalidate_count']);
+        $this->assertSame(0, $result['dropped_count']);
+        $this->assertSame(0, $result['preserved_count']);
+    }
+
+    public function test_compact_decisions_conflict_overrides_superseded_status(): void
+    {
+        // Even a "superseded" entry must not be silently dropped if it conflicts —
+        // conflicts always require revalidation, never silent newest-wins resolution.
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'D1', 'type' => 'durable_decision', 'status' => 'superseded', 'conflicts_with' => ['D2']],
+        ]]);
+
+        $this->assertSame(1, $result['revalidate_count']);
+        $this->assertSame(0, $result['dropped_count']);
+    }
+
+    public function test_compact_decisions_summary_mentions_counts(): void
+    {
+        $result = $this->compactor->compactDecisions(['decisions' => [
+            ['decision_id' => 'D1', 'type' => 'durable_decision', 'status' => 'active'],
+            ['decision_id' => 'D2', 'type' => 'durable_decision', 'status' => 'duplicate'],
+        ]]);
+
+        $this->assertStringContainsString('preserved 1', $result['compact_summary']);
+        $this->assertStringContainsString('dropped 1', $result['compact_summary']);
+    }
 }
