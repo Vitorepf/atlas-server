@@ -49,7 +49,14 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
     public const CLASS_UNKNOWN = 'unknown';
 
-    public const CLASS_NO_CLAIMABLE_TASK = 'no_claimable_task';
+    /**
+     * Separate learning class for queue STARVATION give_backs (worker had nothing claimable) —
+     * never lumped together with bad scope, bad acceptance, or provider failure, since the
+     * repair action is "replenish the queue", not "respec the packet".
+     */
+    public const CLASS_NO_CLAIMABLE_TASK = 'queue_starvation';
+
+    public const CLASS_QUEUE_STARVATION = self::CLASS_NO_CLAIMABLE_TASK;
 
     public const CLASS_STALE_CLAIMABLE_BACKLOG = 'stale_claimable_backlog';
 
@@ -67,7 +74,7 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
         $class = $this->resolveClass($reason, $giveBackFact);
 
-        return [
+        $result = [
             'schema_version' => self::SCHEMA,
             'class' => $class,
             'action_hint' => $this->actionHint($class),
@@ -76,6 +83,17 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
             'blocking_facts' => $blockingFacts,
             'evidence_refs' => $evidenceRefs,
         ];
+
+        // Queue starvation carries its own repair signal — claimable depth and active worker
+        // count — so the learning class never gets lumped together with bad scope/acceptance.
+        if ($class === self::CLASS_QUEUE_STARVATION) {
+            $result['queue_floor_facts'] = [
+                'claimable_depth' => isset($giveBackFact['claimable_depth']) ? (int) $giveBackFact['claimable_depth'] : null,
+                'active_worker_count' => isset($giveBackFact['active_worker_count']) ? (int) $giveBackFact['active_worker_count'] : null,
+            ];
+        }
+
+        return $result;
     }
 
     private function actionHint(string $class): string
