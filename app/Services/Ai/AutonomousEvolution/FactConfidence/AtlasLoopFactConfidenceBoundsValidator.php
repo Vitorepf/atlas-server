@@ -94,6 +94,6 @@ final class AtlasLoopFactConfidenceBoundsValidator implements AtlasLoopFactConfi
         }
         $envelope = $fact[self::ENVELOPE_KEY];
 
-        return is_array($envelope) && array_key_exists('lower', $envelope) && array_key_exists('upper', $envelope);
+        return is_array($envelope) && array_key_exists('sample_size', $envelope) && array_key_exists('source_count', $envelope);
     }
 }

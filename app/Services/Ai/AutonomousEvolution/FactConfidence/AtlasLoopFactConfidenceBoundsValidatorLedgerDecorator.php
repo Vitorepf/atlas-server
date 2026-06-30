@@ -95,7 +95,7 @@ final class AtlasLoopFactConfidenceBoundsValidatorLedgerDecorator implements Atl
         return is_array($fact)
             && isset($fact['confidence_bounds'])
             && is_array($fact['confidence_bounds'])
-            && array_key_exists('lower', $fact['confidence_bounds'])
-            && array_key_exists('upper', $fact['confidence_bounds']);
+            && array_key_exists('sample_size', $fact['confidence_bounds'])
+            && array_key_exists('source_count', $fact['confidence_bounds']);
     }
 }

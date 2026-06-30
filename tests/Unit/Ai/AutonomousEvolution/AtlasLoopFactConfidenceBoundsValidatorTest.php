@@ -41,7 +41,7 @@ class AtlasLoopFactConfidenceBoundsValidatorTest extends TestCase
         $v = $this->makeValidator(enforce: true);
         $v->validate('loop.comprehend.snapshot_writer', [
             'value' => true,
-            'confidence_bounds' => ['lower' => 0.9, 'upper' => 0.95],
+            'confidence_bounds' => ['sample_size' => 5, 'source_count' => 3, 'value' => true],
         ]);
         self::assertSame([], $this->warnings);
     }
@@ -67,7 +67,7 @@ class AtlasLoopFactConfidenceBoundsValidatorTest extends TestCase
         $v = $this->makeValidator(enforce: true);
         $v->validate('loop.observability.something', [
             'value' => 42,
-            'confidence_bounds' => ['lower' => 30, 'upper' => 50],
+            'confidence_bounds' => ['sample_size' => 10, 'source_count' => 4, 'value' => true],
         ]);
         self::assertSame([], $this->warnings);
     }
@@ -86,12 +86,24 @@ class AtlasLoopFactConfidenceBoundsValidatorTest extends TestCase
         self::assertSame($a, $b);
     }
 
-    public function test_partial_envelope_without_lower_or_upper_is_not_accepted(): void
+    public function test_partial_envelope_missing_source_count_is_not_accepted(): void
     {
         $v = $this->makeValidator(enforce: true);
         $this->expectException(AtlasLoopFactBoundsMissingException::class);
         $v->validate('loop.comprehend.snapshot_writer', [
-            'confidence_bounds' => ['lower' => 0.1],
+            'confidence_bounds' => ['sample_size' => 5], // missing source_count
         ]);
+    }
+
+    public function test_canonical_envelope_on_critical_path_next_work_decider_is_accepted(): void
+    {
+        // Proves the stale-vocabulary fix: sample_size/source_count/value (AtlasLoopFactConfidenceBoundsEnvelope::toArray())
+        // is the canonical format — hasEnvelope() must recognise it and not throw on the critical path.
+        $v = $this->makeValidator(enforce: true);
+        $v->validate('loop.next_work_decider', [
+            'value' => true,
+            'confidence_bounds' => ['sample_size' => 8, 'source_count' => 3, 'value' => true],
+        ]);
+        self::assertSame([], $this->warnings, 'canonical envelope must be accepted silently on critical path');
     }
 }
