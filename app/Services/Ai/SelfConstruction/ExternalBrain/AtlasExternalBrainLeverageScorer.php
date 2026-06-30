@@ -42,10 +42,18 @@ final class AtlasExternalBrainLeverageScorer
     ];
 
     /**
-     * Score a single opportunity.
+     * Score a single opportunity, including a compound-impact receipt.
+     *
+     * compound_impact fields are extracted from the opportunity input:
+     *   - unlocked_capabilities    list<string>  capabilities this opportunity makes possible
+     *   - downstream_unblock_count int           number of downstream tasks/caps directly freed
+     *   - risk_reduction_signals   list<string>  named risks this removes or reduces
+     *   - autonomy_gain_signals    list<string>  named autonomy dimensions this improves
+     *
+     * why_this_beats_next is null here; rank() fills it after ordering.
      *
      * @param  array<string, mixed>  $opportunity
-     * @return array{schema:string, label:string, weighted_sum:float, penalty:float, final_score:float, dimension_scores:array<string,float>, triggered_penalties:list<string>}
+     * @return array<string, mixed>
      */
     public function score(array $opportunity): array
     {
@@ -69,6 +77,19 @@ final class AtlasExternalBrainLeverageScorer
         }
         $penalty = min(1.0, $penalty);
 
+        $compoundImpact = [
+            'unlocked_capabilities'    => is_array($opportunity['unlocked_capabilities'] ?? null)
+                ? array_values($opportunity['unlocked_capabilities'])
+                : [],
+            'downstream_unblock_count' => max(0, (int) ($opportunity['downstream_unblock_count'] ?? 0)),
+            'risk_reduction_signals'   => is_array($opportunity['risk_reduction_signals'] ?? null)
+                ? array_values($opportunity['risk_reduction_signals'])
+                : [],
+            'autonomy_gain_signals'    => is_array($opportunity['autonomy_gain_signals'] ?? null)
+                ? array_values($opportunity['autonomy_gain_signals'])
+                : [],
+        ];
+
         return [
             'schema'              => self::SCHEMA,
             'label'               => $label,
@@ -77,11 +98,14 @@ final class AtlasExternalBrainLeverageScorer
             'final_score'         => round($weightedSum * (1.0 - $penalty), 4),
             'dimension_scores'    => $dimensionScores,
             'triggered_penalties' => $triggeredPenalties,
+            'compound_impact'     => $compoundImpact,
+            'why_this_beats_next' => null,
         ];
     }
 
     /**
-     * Score and rank opportunities by final_score descending.
+     * Score and rank opportunities by final_score descending, then annotate each entry
+     * with a deterministic why_this_beats_next explanation comparing it to the item below.
      *
      * @param  list<array<string,mixed>>  $opportunities
      * @return list<array<string,mixed>>
@@ -90,8 +114,63 @@ final class AtlasExternalBrainLeverageScorer
     {
         $scored = array_map(fn (array $opp): array => $this->score($opp), $opportunities);
         usort($scored, static fn (array $a, array $b): int => $b['final_score'] <=> $a['final_score']);
+        $scored = array_values($scored);
 
-        return array_values($scored);
+        foreach ($scored as $i => $item) {
+            $scored[$i]['why_this_beats_next'] = isset($scored[$i + 1])
+                ? $this->explainWin($item, $scored[$i + 1])
+                : 'last_in_ranking';
+        }
+
+        return $scored;
+    }
+
+    /**
+     * Produce a deterministic, pipe-separated explanation of why $winner outranks $next.
+     *
+     * @param  array<string,mixed>  $winner
+     * @param  array<string,mixed>  $next
+     */
+    private function explainWin(array $winner, array $next): string
+    {
+        $parts = [];
+
+        $scoreDiff = round((float) $winner['final_score'] - (float) $next['final_score'], 4);
+        $parts[]   = 'score_advantage:'.$scoreDiff;
+
+        $penaltyDiff = round((float) $next['penalty'] - (float) $winner['penalty'], 4);
+        if ($penaltyDiff > 0.0) {
+            $parts[] = 'fewer_penalties:'.$penaltyDiff;
+        }
+
+        $wImpact = $winner['compound_impact'] ?? [];
+        $nImpact = $next['compound_impact']   ?? [];
+
+        $wUnblock = (int) ($wImpact['downstream_unblock_count'] ?? 0);
+        $nUnblock = (int) ($nImpact['downstream_unblock_count'] ?? 0);
+        if ($wUnblock > $nUnblock) {
+            $parts[] = 'more_downstream_unblocks:'.$wUnblock.'_vs_'.$nUnblock;
+        }
+
+        $wCaps = count((array) ($wImpact['unlocked_capabilities'] ?? []));
+        $nCaps = count((array) ($nImpact['unlocked_capabilities'] ?? []));
+        if ($wCaps > $nCaps) {
+            $parts[] = 'more_unlocked_capabilities:'.$wCaps.'_vs_'.$nCaps;
+        }
+
+        $wRisk = count((array) ($wImpact['risk_reduction_signals'] ?? []));
+        $nRisk = count((array) ($nImpact['risk_reduction_signals'] ?? []));
+        if ($wRisk > $nRisk) {
+            $parts[] = 'more_risk_reduction_signals:'.$wRisk.'_vs_'.$nRisk;
+        }
+
+        $wAuto = count((array) ($wImpact['autonomy_gain_signals'] ?? []));
+        $nAuto = count((array) ($nImpact['autonomy_gain_signals'] ?? []));
+        if ($wAuto > $nAuto) {
+            $parts[] = 'more_autonomy_gain_signals:'.$wAuto.'_vs_'.$nAuto;
+        }
+
+        return implode('|', $parts);
     }
 
     /** @return list<array{dimension:string,weight:float}> */

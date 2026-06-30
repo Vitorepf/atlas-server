@@ -205,4 +205,131 @@ final class AtlasExternalBrainLeverageScorerTest extends TestCase
         $this->assertSame(1.0, $result['dimension_scores']['capability_unlock']);
         $this->assertSame(0.0, $result['dimension_scores']['blast_radius_safety']);
     }
+
+    // ---------- compound_impact receipt ----------
+
+    public function test_score_includes_compound_impact_block(): void
+    {
+        $result = $this->scorer()->score([
+            'label'                    => 'test_opportunity',
+            'capability_unlock'        => 0.8,
+            'unlocked_capabilities'    => ['auth_recovery', 'lease_repair'],
+            'downstream_unblock_count' => 5,
+            'risk_reduction_signals'   => ['removes_stale_lease_deadlock'],
+            'autonomy_gain_signals'    => ['enables_unattended_recovery'],
+        ]);
+
+        $this->assertArrayHasKey('compound_impact', $result);
+        $ci = $result['compound_impact'];
+
+        $this->assertSame(['auth_recovery', 'lease_repair'], $ci['unlocked_capabilities']);
+        $this->assertSame(5, $ci['downstream_unblock_count']);
+        $this->assertSame(['removes_stale_lease_deadlock'], $ci['risk_reduction_signals']);
+        $this->assertSame(['enables_unattended_recovery'], $ci['autonomy_gain_signals']);
+    }
+
+    public function test_score_compound_impact_defaults_to_empty_when_absent(): void
+    {
+        $result = $this->scorer()->score(['capability_unlock' => 0.5]);
+
+        $ci = $result['compound_impact'];
+        $this->assertSame([], $ci['unlocked_capabilities']);
+        $this->assertSame(0, $ci['downstream_unblock_count']);
+        $this->assertSame([], $ci['risk_reduction_signals']);
+        $this->assertSame([], $ci['autonomy_gain_signals']);
+    }
+
+    public function test_score_why_this_beats_next_is_null_without_ranking(): void
+    {
+        $result = $this->scorer()->score(['capability_unlock' => 0.7]);
+        $this->assertNull($result['why_this_beats_next']);
+    }
+
+    // ---------- why_this_beats_next in rank ----------
+
+    public function test_rank_fills_why_this_beats_next_for_each_item(): void
+    {
+        $ranked = $this->scorer()->rank([
+            ['label' => 'alpha', 'capability_unlock' => 0.9],
+            ['label' => 'beta',  'capability_unlock' => 0.3],
+        ]);
+
+        $this->assertNotNull($ranked[0]['why_this_beats_next'], 'winner must have explanation');
+        $this->assertStringContainsString('score_advantage', $ranked[0]['why_this_beats_next']);
+        $this->assertSame('last_in_ranking', $ranked[1]['why_this_beats_next']);
+    }
+
+    public function test_rank_why_mentions_fewer_penalties_when_relevant(): void
+    {
+        $ranked = $this->scorer()->rank([
+            ['label' => 'clean',   'capability_unlock' => 0.6],
+            ['label' => 'penalised', 'capability_unlock' => 0.6, 'cosmetic_cli' => true],
+        ]);
+
+        $this->assertSame('clean', $ranked[0]['label']);
+        $this->assertStringContainsString('fewer_penalties', $ranked[0]['why_this_beats_next']);
+    }
+
+    public function test_rank_why_mentions_downstream_unblocks_when_relevant(): void
+    {
+        $ranked = $this->scorer()->rank([
+            ['label' => 'high_unblock', 'capability_unlock' => 0.6, 'downstream_unblock_count' => 8],
+            ['label' => 'low_unblock',  'capability_unlock' => 0.6, 'downstream_unblock_count' => 1],
+        ]);
+
+        $this->assertSame('high_unblock', $ranked[0]['label']);
+        $why = $ranked[0]['why_this_beats_next'];
+        $this->assertStringContainsString('more_downstream_unblocks', $why);
+        $this->assertStringContainsString('8_vs_1', $why);
+    }
+
+    // ---------- acceptance criteria: structural unblocker beats cosmetic task ----------
+
+    public function test_structural_unblocker_beats_high_ease_cosmetic_task(): void
+    {
+        $scorer = $this->scorer();
+
+        // High-ease cosmetic task: low friction but no real compound impact.
+        $cosmeticTask = [
+            'label'                    => 'cosmetic_cli_wrapper',
+            'capability_unlock'        => 0.3,
+            'dependency_unblock'       => 0.1,
+            'implementation_evidence'  => 0.9,   // easy to implement
+            'repeated_pain'            => 0.2,
+            'blast_radius_safety'      => 0.95,  // very safe (tiny scope)
+            'cosmetic_cli'             => true,
+            'downstream_unblock_count' => 0,
+            'unlocked_capabilities'    => [],
+            'risk_reduction_signals'   => [],
+            'autonomy_gain_signals'    => [],
+        ];
+
+        // Harder structural unblocker: more effort but real compound impact.
+        $structuralUnblocker = [
+            'label'                    => 'structural_arch_unlock',
+            'capability_unlock'        => 0.9,
+            'dependency_unblock'       => 0.85,
+            'implementation_evidence'  => 0.6,   // harder, less obvious
+            'repeated_pain'            => 0.8,
+            'blast_radius_safety'      => 0.5,
+            'downstream_unblock_count' => 7,
+            'unlocked_capabilities'    => ['lease_recovery', 'acp_health', 'auto_merge'],
+            'risk_reduction_signals'   => ['removes_zombie_lease', 'closes_stale_index'],
+            'autonomy_gain_signals'    => ['enables_unattended_24h', 'closes_human_gating'],
+        ];
+
+        $ranked = $scorer->rank([$cosmeticTask, $structuralUnblocker]);
+
+        $this->assertSame('structural_arch_unlock', $ranked[0]['label'],
+            'Structural unblocker must outrank high-ease cosmetic task');
+
+        $why = $ranked[0]['why_this_beats_next'];
+        $this->assertNotEmpty($why);
+        $this->assertStringContainsString('score_advantage', $why);
+        // Compound impact signals must appear in the explanation
+        $this->assertMatchesRegularExpression(
+            '/(more_downstream_unblocks|more_unlocked_capabilities|more_risk_reduction_signals|more_autonomy_gain_signals)/',
+            $why,
+        );
+    }
 }
