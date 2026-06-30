@@ -89,6 +89,13 @@ final class AtlasExternalBrainContextHygieneIncidentTaskPlanner
             if ($issueCode === '' || $sourceId === '') {
                 continue;
             }
+            // Firewall: only the known, pre-sanitized issue codes may ever reach the output.
+            // An issue_code outside this whitelist could be raw/unsanitized text smuggled past
+            // the upstream safety gate — dropping it here is what stops it from being echoed
+            // verbatim into a task spec.
+            if (! array_key_exists($issueCode, self::SEVERITY_RANK)) {
+                continue;
+            }
             $evidenceCount = max(0, (int) ($incident['evidence_count'] ?? 0));
             $key = $issueCode.'|'.$sourceId;
 
