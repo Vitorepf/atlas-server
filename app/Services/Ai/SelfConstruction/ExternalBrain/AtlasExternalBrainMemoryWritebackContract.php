@@ -9,7 +9,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * A proposal is a candidate memory entry produced by the cycle. This contract:
  *   1. Validates type — only ALLOWED_TYPES are accepted.
- *   2. Validates required fields — type, fact, source must be present and non-empty.
+ *   2. Validates required fields — type, fact, source, evidence_ref, scope, lesson,
+ *      decision_effect must be present and non-empty; provider_safe must be true.
  *   3. Rejects oversized facts — prevents memory spam (max MAX_FACT_LENGTH chars).
  *   4. Redacts forbidden content — raw prompts, provider names, API tokens.
  *   5. Normalises — trims whitespace, lowercases type.
@@ -18,7 +19,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Rejection reasons:
  *   unknown_type                 — type not in ALLOWED_TYPES
- *   missing_required_fields      — type, fact, or source is blank
+ *   missing_required_fields      — type, fact, source, evidence_ref, scope, lesson, or
+ *                                  decision_effect is blank
+ *   not_provider_safe            — provider_safe != true (unsafe to send to external providers)
  *   fact_too_long                — fact exceeds MAX_FACT_LENGTH
  *   raw_prompt_detected          — fact contains prompt-like markers
  *   provider_details_detected    — fact mentions model/API identifiers
@@ -111,13 +114,26 @@ final class AtlasExternalBrainMemoryWritebackContract
      */
     private function evaluate(array $proposal, array &$seen): array
     {
-        $source = trim((string) ($proposal['source'] ?? ''));
-        $type   = strtolower(trim((string) ($proposal['type'] ?? '')));
-        $fact   = trim((string) ($proposal['fact'] ?? ''));
+        $source         = trim((string) ($proposal['source'] ?? ''));
+        $type           = strtolower(trim((string) ($proposal['type'] ?? '')));
+        $fact           = trim((string) ($proposal['fact'] ?? ''));
+        $evidenceRef    = trim((string) ($proposal['evidence_ref'] ?? ''));
+        $scope          = trim((string) ($proposal['scope'] ?? ''));
+        $lesson         = trim((string) ($proposal['lesson'] ?? ''));
+        $decisionEffect = trim((string) ($proposal['decision_effect'] ?? ''));
+        $providerSafe   = $proposal['provider_safe'] ?? false;
 
         // Required fields
-        if ($source === '' || $type === '' || $fact === '') {
-            return $this->reject($source, 'missing_required_fields', 'type, fact, and source are required');
+        if ($source === '' || $type === '' || $fact === ''
+            || $evidenceRef === '' || $scope === '' || $lesson === '' || $decisionEffect === '') {
+            return $this->reject($source, 'missing_required_fields',
+                'type, fact, source, evidence_ref, scope, lesson, and decision_effect are required');
+        }
+
+        // Provider-safe gate — must be explicitly true.
+        if ($providerSafe !== true) {
+            return $this->reject($source, 'not_provider_safe',
+                'provider_safe must be true before writeback');
         }
 
         // Known type
@@ -164,6 +180,11 @@ final class AtlasExternalBrainMemoryWritebackContract
             'type'             => $type,
             'fact'             => $fact,
             'source'           => $source,
+            'evidence_ref'     => $evidenceRef,
+            'scope'            => $scope,
+            'lesson'           => $lesson,
+            'decision_effect'  => $decisionEffect,
+            'provider_safe'    => true,
             'evidence_strength' => $strength,
         ];
         $factKey = $this->factKey($normalized);
