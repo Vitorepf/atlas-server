@@ -382,4 +382,131 @@ class AtlasSelfConstructionTaskGraphCoverageAuditorTest extends TestCase
 
         self::assertNull($r['gaps'][0]['latest_evidence_ref']);
     }
+
+    // ── auditFinalReadiness tests ───────────────────────────────────────────────
+
+    public function test_full_live_evidence_across_organs_produces_final_ready_true(): void
+    {
+        $lanes = ['frontier' => ['frontier_organ_a', 'frontier_organ_b']];
+        $records = [$this->laneRecord('frontier_organ_a'), $this->laneRecord('frontier_organ_b')];
+
+        $r = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+
+        self::assertTrue($r['final_ready']);
+        self::assertNull($r['final_ready_reason']);
+        self::assertEqualsWithDelta(1.0, $r['lane_coverage']['frontier'], 0.0001);
+        self::assertSame([], $r['blocked_by_lane']['frontier']);
+        self::assertNull($r['next_missing_evidence_class']);
+    }
+
+    public function test_completed_dry_run_record_alone_does_not_satisfy_final_ready(): void
+    {
+        $lanes = ['frontier' => ['frontier_organ_a']];
+        $records = [$this->laneRecord('frontier_organ_a', 'completed_dry_run')];
+
+        $r = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+
+        self::assertFalse($r['final_ready']);
+        self::assertNotNull($r['final_ready_reason']);
+        self::assertStringContainsString('legacy', $r['final_ready_reason']);
+        self::assertContains('frontier_organ_a', $r['blocked_by_lane']['frontier']);
+    }
+
+    public function test_legacy_only_metadata_record_alone_does_not_satisfy_final_ready(): void
+    {
+        $lanes = ['frontier' => ['frontier_organ_a']];
+        $record = $this->laneRecord('frontier_organ_a');
+        $record['metadata'] = ['legacy_only' => true];
+
+        $r = $this->laneAuditor()->auditFinalReadiness([$record], $lanes);
+
+        self::assertFalse($r['final_ready']);
+        self::assertContains('frontier_organ_a', $r['blocked_by_lane']['frontier']);
+    }
+
+    public function test_missing_evidence_classes_are_grouped_by_lane_and_expose_next_missing_evidence_class(): void
+    {
+        $lanes = [
+            'frontier' => ['frontier_organ_a'],
+            'recovery' => ['recovery_organ_a'],
+        ];
+        $thin = $this->laneRecord('frontier_organ_a');
+        $thin['task_packet']['evidence_classes'] = ['implementation']; // missing gate/receipt/cli_or_readiness
+
+        $r = $this->laneAuditor()->auditFinalReadiness([$thin], $lanes);
+
+        self::assertFalse($r['final_ready']);
+        self::assertContains('frontier_organ_a', $r['blocked_by_lane']['frontier']);
+        self::assertContains('recovery_organ_a', $r['blocked_by_lane']['recovery']); // missing entirely too
+        self::assertSame('gate', $r['next_missing_evidence_class']);
+    }
+
+    public function test_productive_vs_stale_counts_records_by_legacy_status(): void
+    {
+        $lanes = ['frontier' => ['frontier_organ_a']];
+        $records = [
+            $this->laneRecord('frontier_organ_a'),
+            $this->laneRecord('frontier_organ_a', 'completed_dry_run'),
+            $this->laneRecord('frontier_organ_a', 'completed_dry_run'),
+        ];
+
+        $r = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+
+        self::assertSame(1, $r['productive_vs_stale']['productive']);
+        self::assertSame(2, $r['productive_vs_stale']['stale']);
+    }
+
+    public function test_lane_coverage_reflects_partial_coverage(): void
+    {
+        $lanes = ['compounding' => ['comp_a', 'comp_b']];
+        $records = [$this->laneRecord('comp_a')]; // comp_b missing
+
+        $r = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+
+        self::assertEqualsWithDelta(0.5, $r['lane_coverage']['compounding'], 0.0001);
+        self::assertContains('comp_b', $r['blocked_by_lane']['compounding']);
+        self::assertFalse($r['final_ready']);
+    }
+
+    public function test_absent_lane_with_zero_organs_blocks_final_ready(): void
+    {
+        $lanes = ['ghost-lane' => []];
+
+        $r = $this->laneAuditor()->auditFinalReadiness([], $lanes);
+
+        self::assertFalse($r['final_ready']);
+        self::assertEqualsWithDelta(0.0, $r['lane_coverage']['ghost-lane'], 0.0001);
+        self::assertSame([], $r['blocked_by_lane']['ghost-lane']);
+    }
+
+    public function test_auditor_remains_pure_facts_only_no_score_key(): void
+    {
+        $lanes = ['frontier' => ['frontier_organ_a']];
+        $records = [$this->laneRecord('frontier_organ_a')];
+
+        $r = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+
+        self::assertArrayNotHasKey('score', $r);
+        self::assertArrayNotHasKey('quality_score', $r);
+    }
+
+    public function test_audit_final_readiness_is_deterministic(): void
+    {
+        $lanes = ['frontier' => ['frontier_organ_a', 'frontier_organ_b']];
+        $records = [$this->laneRecord('frontier_organ_a')];
+
+        $a = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+        $b = $this->laneAuditor()->auditFinalReadiness($records, $lanes);
+
+        self::assertSame(json_encode($a), json_encode($b));
+    }
+
+    public function test_default_lanes_used_when_no_override_supplied(): void
+    {
+        $r = $this->laneAuditor()->auditFinalReadiness([]);
+
+        self::assertArrayHasKey('recovery', $r['lane_coverage']);
+        self::assertArrayHasKey('final-certifier', $r['lane_coverage']);
+        self::assertFalse($r['final_ready']);
+    }
 }

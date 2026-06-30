@@ -390,6 +390,111 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
     }
 
     /**
+     * Final go/no-go readiness verdict across all lanes — the answer to "can the organ map be
+     * declared final right now". A lane/organ can only contribute final_ready=true when it has a
+     * LIVE (non-legacy, non-stale) record carrying every required evidence class; completed_dry_run
+     * or metadata.legacy_only records never satisfy it on their own, matching audit()/auditByLane().
+     *
+     * Pure, facts-only — no scalar score; final_ready_reason is a deterministic, human-readable
+     * concatenation of every blocking fact found, in lane/organ array order.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @param  array<string,list<string>>|null  $lanesOverride  Organ IDs per lane; defaults to FINAL_BRAIN_LANES
+     * @return array{schema:string, final_ready:bool, final_ready_reason:?string, lane_coverage:array<string,float>, blocked_by_lane:array<string,list<string>>, next_missing_evidence_class:?string, productive_vs_stale:array{productive:int,stale:int}}
+     */
+    public function auditFinalReadiness(array $records, ?array $lanesOverride = null): array
+    {
+        $lanes = $lanesOverride ?? self::FINAL_BRAIN_LANES;
+
+        $laneCoverage = [];
+        $blockedByLane = [];
+        $nextMissingEvidenceClass = null;
+        $finalReady = true;
+        $reasons = [];
+
+        foreach ($lanes as $lane => $organIds) {
+            if ($organIds === []) {
+                $laneCoverage[$lane] = 0.0;
+                $blockedByLane[$lane] = [];
+                $finalReady = false;
+                $reasons[] = sprintf("lane '%s' is absent (zero organs defined)", $lane);
+
+                continue;
+            }
+
+            $covered = 0;
+            $blockedOrgans = [];
+
+            foreach ($organIds as $organId) {
+                $matched = $this->matchesForOrgan($records, $organId, [$organId]);
+                if ($matched === []) {
+                    $blockedOrgans[] = $organId;
+                    $finalReady = false;
+                    $reasons[] = sprintf("organ '%s' in lane '%s' has no matching record", $organId, $lane);
+
+                    continue;
+                }
+
+                $selfSufficient = array_values(array_filter($matched, fn (array $r): bool => $this->isSelfSufficient($r)));
+                if ($selfSufficient === []) {
+                    $blockedOrgans[] = $organId;
+                    $finalReady = false;
+                    $reasons[] = sprintf("organ '%s' in lane '%s' has no self-sufficient record (blocked or stale)", $organId, $lane);
+
+                    continue;
+                }
+
+                $legacyOnly = array_filter($selfSufficient, fn (array $r): bool => $this->isLegacyOnly($r));
+                if (count($legacyOnly) === count($selfSufficient)) {
+                    $blockedOrgans[] = $organId;
+                    $finalReady = false;
+                    $reasons[] = sprintf("organ '%s' in lane '%s' only has legacy/stale evidence (completed_dry_run or legacy_only)", $organId, $lane);
+
+                    continue;
+                }
+
+                $liveRecords = array_values(array_diff_key($selfSufficient, $legacyOnly));
+                $missingClasses = $this->missingEvidenceClasses($liveRecords);
+                if ($missingClasses !== []) {
+                    $blockedOrgans[] = $organId;
+                    $finalReady = false;
+                    if ($nextMissingEvidenceClass === null) {
+                        $nextMissingEvidenceClass = $missingClasses[0];
+                    }
+                    $reasons[] = sprintf("organ '%s' in lane '%s' missing evidence class '%s'", $organId, $lane, $missingClasses[0]);
+
+                    continue;
+                }
+
+                $covered++;
+            }
+
+            $laneCoverage[$lane] = round($covered / count($organIds), 4);
+            $blockedByLane[$lane] = $blockedOrgans;
+        }
+
+        $productive = 0;
+        $stale = 0;
+        foreach ($records as $record) {
+            if ($this->isLegacyOnly($record)) {
+                $stale++;
+            } else {
+                $productive++;
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'final_ready' => $finalReady,
+            'final_ready_reason' => $finalReady ? null : implode('; ', $reasons),
+            'lane_coverage' => $laneCoverage,
+            'blocked_by_lane' => $blockedByLane,
+            'next_missing_evidence_class' => $nextMissingEvidenceClass,
+            'productive_vs_stale' => ['productive' => $productive, 'stale' => $stale],
+        ];
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $records
      * @param  list<string>  $tags
      * @return list<array<string,mixed>>
