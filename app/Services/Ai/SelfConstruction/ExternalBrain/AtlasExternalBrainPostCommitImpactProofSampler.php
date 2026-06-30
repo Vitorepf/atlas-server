@@ -83,7 +83,9 @@ final class AtlasExternalBrainPostCommitImpactProofSampler
 
         [$label, $reason] = $this->classify($cosmeticOnly, $testOnly, $hasImpl, $hasTests, $hasDelta, $queueUp, $promisedDelta);
 
-        $promisedDeltaObserved = $hasImpl && $hasTests;
+        // AC1: promised delta is observed only when impl+tests exist AND a concrete
+        // behavior delta was recorded — green tests alone do not prove structural impact.
+        $promisedDeltaObserved = $hasImpl && $hasTests && $hasDelta && $behaviorDelta !== '';
 
         // AC3: causal_proof_strength = satisfied proof signals / 7 total.
         $satisfied = array_sum([
