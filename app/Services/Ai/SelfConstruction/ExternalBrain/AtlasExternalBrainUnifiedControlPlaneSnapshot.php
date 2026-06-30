@@ -41,10 +41,18 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
     public const DECISION_CONSOLIDATE = 'consolidate_existing_tasks';
     public const DECISION_MONITOR     = 'monitor';
 
-    private const GIVE_BACK_RED_FLOOR        = 0.30;
-    private const GIVE_BACK_YELLOW_FLOOR     = 0.15;
-    private const SUCCESS_RATE_RED_CEILING   = 0.50;
+    public const FOCUS_SELF_HEAL       = 'self_heal';
+    public const FOCUS_SIMPLIFICATION  = 'simplification';
+    public const FOCUS_MODEL_AMPLIFIER = 'model_amplifier';
+    public const FOCUS_OUTCOME_LEARNING = 'outcome_learning';
+    public const FOCUS_CAPABILITY_GAP  = 'capability_gap';
+    public const FOCUS_TASK_FABRIC     = 'task_fabric';
+
+    private const GIVE_BACK_RED_FLOOR         = 0.30;
+    private const GIVE_BACK_YELLOW_FLOOR      = 0.15;
+    private const SUCCESS_RATE_RED_CEILING    = 0.50;
     private const SUCCESS_RATE_YELLOW_CEILING = 0.70;
+    private const MALFORMED_RED_FLOOR         = 0.30;
 
     /**
      * @param  array<string,mixed>  $input
@@ -52,14 +60,15 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
      */
     public function compose(array $input): array
     {
-        $queuePressure        = (string) ($input['queue_pressure']          ?? 'low');
-        $simplPressure        = (string) ($input['simplification_pressure'] ?? 'low');
-        $amplifierStatus      = (string) ($input['model_amplifier_status']  ?? 'healthy');
-        $maturityGapCount     = max(0,   (int)   ($input['maturity_gap_count']      ?? 0));
-        $workerSuccessRate    = max(0.0, min(1.0, (float) ($input['worker_success_rate']   ?? 1.0)));
-        $giveBackRate         = max(0.0, min(1.0, (float) ($input['give_back_rate']        ?? 0.0)));
-        $taskValueDegrading   = (bool)   ($input['task_value_degrading']    ?? false);
-        $muscleOutcomeDegrading = (bool) ($input['muscle_outcomes_degrading'] ?? false);
+        $queuePressure          = (string) ($input['queue_pressure']            ?? 'low');
+        $simplPressure          = (string) ($input['simplification_pressure']   ?? 'low');
+        $amplifierStatus        = (string) ($input['model_amplifier_status']    ?? 'healthy');
+        $maturityGapCount       = max(0,   (int)   ($input['maturity_gap_count']        ?? 0));
+        $workerSuccessRate      = max(0.0, min(1.0, (float) ($input['worker_success_rate']     ?? 1.0)));
+        $giveBackRate           = max(0.0, min(1.0, (float) ($input['give_back_rate']          ?? 0.0)));
+        $malformedRate          = max(0.0, min(1.0, (float) ($input['malformed_rate']          ?? 0.0)));
+        $taskValueDegrading     = (bool)   ($input['task_value_degrading']      ?? false);
+        $muscleOutcomeDegrading = (bool)   ($input['muscle_outcomes_degrading'] ?? false);
 
         [$status, $topRisks] = $this->resolveStatus(
             $queuePressure, $simplPressure, $amplifierStatus,
@@ -68,6 +77,10 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
 
         $nextDecision = $this->resolveDecision($queuePressure, $simplPressure, $maturityGapCount);
         $batchTheme   = $this->resolveBatchTheme($status, $nextDecision, $topRisks);
+        $rankedFocus  = $this->resolveRankedFocus(
+            $giveBackRate, $malformedRate, $workerSuccessRate,
+            $simplPressure, $amplifierStatus, $taskValueDegrading, $muscleOutcomeDegrading, $maturityGapCount,
+        );
 
         return [
             'schema'                   => self::SCHEMA,
@@ -75,6 +88,7 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             'top_risks'                => array_values($topRisks),
             'next_decision'            => $nextDecision,
             'recommended_batch_theme'  => $batchTheme,
+            'ranked_focus'             => $rankedFocus,
             'stop_go_verdict'          => match ($status) {
                 self::STATUS_RED    => self::VERDICT_STOP,
                 self::STATUS_YELLOW => self::VERDICT_WATCH,
@@ -165,5 +179,28 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
             return 'expand:fill_maturity_gaps_with_high_leverage_tasks';
         }
         return 'monitor:observe_system_stability_before_next_batch';
+    }
+
+    // AC1/AC2: ranked_focus — first-match priority; self_heal precedes create when rates degraded.
+    private function resolveRankedFocus(
+        float  $giveBackRate,
+        float  $malformedRate,
+        float  $workerSuccessRate,
+        string $simplPressure,
+        string $amplifierStatus,
+        bool   $taskValueDegrading,
+        bool   $muscleOutcomeDegrading,
+        int    $maturityGapCount,
+    ): string {
+        return match (true) {
+            $giveBackRate > self::GIVE_BACK_RED_FLOOR
+                || $malformedRate > self::MALFORMED_RED_FLOOR
+                || $workerSuccessRate < self::SUCCESS_RATE_RED_CEILING => self::FOCUS_SELF_HEAL,
+            $simplPressure === 'high'                              => self::FOCUS_SIMPLIFICATION,
+            in_array($amplifierStatus, ['watch', 'rollback_candidate'], true) => self::FOCUS_MODEL_AMPLIFIER,
+            $taskValueDegrading || $muscleOutcomeDegrading         => self::FOCUS_OUTCOME_LEARNING,
+            $maturityGapCount > 0                                  => self::FOCUS_CAPABILITY_GAP,
+            default                                                => self::FOCUS_TASK_FABRIC,
+        };
     }
 }

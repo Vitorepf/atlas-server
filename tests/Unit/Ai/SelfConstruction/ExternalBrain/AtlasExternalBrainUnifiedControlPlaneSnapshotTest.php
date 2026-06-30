@@ -191,4 +191,81 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshotTest extends TestCase
 
         $this->assertStringContainsString('stabilize', $result['recommended_batch_theme']);
     }
+
+    // ── AC1: ranked_focus always present ─────────────────────────────────────
+
+    public function test_ranked_focus_always_present_in_output(): void
+    {
+        $r = $this->snapshot->compose($this->healthy());
+
+        $this->assertArrayHasKey('ranked_focus', $r);
+    }
+
+    public function test_ranked_focus_task_fabric_when_healthy(): void
+    {
+        $r = $this->snapshot->compose($this->healthy());
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_TASK_FABRIC, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_capability_gap_when_maturity_gaps(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['maturity_gap_count' => 3]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_CAPABILITY_GAP, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_outcome_learning_when_value_degrading(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['task_value_degrading' => true]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_OUTCOME_LEARNING, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_model_amplifier_when_watch(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['model_amplifier_status' => 'watch']));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_MODEL_AMPLIFIER, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_simplification_when_pressure_high(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['simplification_pressure' => 'high']));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_SIMPLIFICATION, $r['ranked_focus']);
+    }
+
+    // ── AC2: self_heal precedes create when rates degraded ───────────────────
+
+    public function test_ranked_focus_self_heal_when_give_back_rate_high(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['give_back_rate' => 0.35, 'maturity_gap_count' => 5]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_SELF_HEAL, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_self_heal_when_malformed_rate_high(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['malformed_rate' => 0.35, 'maturity_gap_count' => 5]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_SELF_HEAL, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_self_heal_when_success_rate_very_low(): void
+    {
+        $r = $this->snapshot->compose($this->healthy(['worker_success_rate' => 0.40, 'maturity_gap_count' => 5]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_SELF_HEAL, $r['ranked_focus']);
+    }
+
+    public function test_ranked_focus_self_heal_over_simplification_when_both(): void
+    {
+        $r = $this->snapshot->compose($this->healthy([
+            'give_back_rate'          => 0.35,
+            'simplification_pressure' => 'high',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainUnifiedControlPlaneSnapshot::FOCUS_SELF_HEAL, $r['ranked_focus']);
+    }
 }
