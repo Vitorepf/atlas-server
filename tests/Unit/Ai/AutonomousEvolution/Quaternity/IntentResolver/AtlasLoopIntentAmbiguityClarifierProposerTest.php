@@ -43,6 +43,25 @@ final class AtlasLoopIntentAmbiguityClarifierProposerTest extends TestCase
         );
     }
 
+    public function test_real_producer_key_raw_text_is_read_for_span_resolution(): void
+    {
+        $intent = [
+            'intent_id' => 'intent-real',
+            'raw_text' => 'Improve billing flow and define success for dashboard ownership.',
+            'enumerated_tokens' => ['billing'],
+        ];
+
+        $packets = (new AtlasLoopIntentAmbiguityClarifierProposer)->propose(
+            $intent,
+            [['ambiguity_finding_id' => 'f-1', 'dimension' => 'scope-undefined', 'source_span' => 'billing flow']],
+            [['dimension' => 'scope-undefined', 'resolution' => 'billing']],
+        );
+
+        $this->assertNotEmpty($packets, 'raw_text key must be read so span resolution succeeds');
+        $packet = reset($packets);
+        $this->assertSame('billing flow', $packet['span']);
+    }
+
     public function test_class_has_no_provider_constructor_dependencies(): void
     {
         $constructor = (new ReflectionClass(AtlasLoopIntentAmbiguityClarifierProposer::class))->getConstructor();

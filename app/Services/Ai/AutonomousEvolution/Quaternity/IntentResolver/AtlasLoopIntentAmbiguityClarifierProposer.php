@@ -17,7 +17,7 @@ final class AtlasLoopIntentAmbiguityClarifierProposer
     public function propose(array $capturedIntent, array $ambiguityFindings, array $ledgerSnapshot): array
     {
         $intentId = (string) ($capturedIntent['intent_id'] ?? '');
-        $intentText = (string) ($capturedIntent['text'] ?? '');
+        $intentText = (string) ($capturedIntent['raw_text'] ?? $capturedIntent['text'] ?? '');
         $enumeratedTokens = array_values(array_filter((array) ($capturedIntent['enumerated_tokens'] ?? []), 'is_string'));
 
         $packets = [];
