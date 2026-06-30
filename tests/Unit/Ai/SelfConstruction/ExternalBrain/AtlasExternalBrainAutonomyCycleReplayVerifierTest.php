@@ -32,6 +32,53 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
         $this->assertNull($result['missing_stage']);
         $this->assertSame(AtlasExternalBrainAutonomyCycleReplayVerifier::REQUIRED_STAGES, $result['stages_observed']);
         $this->assertSame([], $result['ordering_violations']);
+        $this->assertSame('tp-cycle-1', $result['correlation_id']);
+        $this->assertSame(1.0, $result['replay_score']);
+    }
+
+    public function test_next_decision_before_outcome_learning_does_not_count_as_changed(): void
+    {
+        $facts = [
+            ['stage' => 'lever_chosen', 'sequence' => 1, 'lever' => 'widen_breadth'],
+            ['stage' => 'packet_emitted', 'sequence' => 2, 'task_packet_id' => 'tp-1'],
+            ['stage' => 'muscle_outcome', 'sequence' => 3, 'task_packet_id' => 'tp-1'],
+            // next_decision arrives BEFORE outcome_learning — premature, must not count.
+            ['stage' => 'next_decision', 'sequence' => 4, 'lever' => 'increase_depth'],
+            ['stage' => 'gates_judged', 'sequence' => 5, 'task_packet_id' => 'tp-1', 'gate_verdict' => 'pass'],
+            ['stage' => 'outcome_learning', 'sequence' => 6, 'task_packet_id' => 'tp-1', 'outcome_learning_ref' => 'learn-1'],
+        ];
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertFalse($result['decision_changed']);
+        $this->assertSame('next_decision', $result['missing_stage']);
+    }
+
+    public function test_correlation_id_is_null_when_stages_disagree(): void
+    {
+        $facts = $this->completeStream();
+        foreach ($facts as &$f) {
+            if ($f['stage'] === 'gates_judged') {
+                $f['task_packet_id'] = 'different-id';
+            }
+        }
+        unset($f);
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertNull($result['correlation_id']);
+    }
+
+    public function test_replay_score_lower_when_violations_present(): void
+    {
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($this->completeStream());
+        $facts = array_values(array_filter(
+            $this->completeStream(),
+            static fn (array $f): bool => $f['stage'] !== 'outcome_learning',
+        ));
+        $incomplete = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertLessThan($result['replay_score'], $incomplete['replay_score']);
     }
 
     public function test_missing_outcome_learning_returns_incomplete_with_exact_missing_stage(): void

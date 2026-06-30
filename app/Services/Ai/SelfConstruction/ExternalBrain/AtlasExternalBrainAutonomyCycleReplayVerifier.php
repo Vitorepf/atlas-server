@@ -54,8 +54,14 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
             $byStage[$stage] = $fact;
         }
 
+        // next_decision only counts when its lever differs AND it appears after outcome_learning
+        // in sequence order — a lever flip that precedes the learning step proves nothing.
         $decisionChanged = isset($byStage['lever_chosen'], $byStage['next_decision'])
-            && (string) ($byStage['lever_chosen']['lever'] ?? '') !== (string) ($byStage['next_decision']['lever'] ?? '');
+            && (string) ($byStage['lever_chosen']['lever'] ?? '') !== (string) ($byStage['next_decision']['lever'] ?? '')
+            && (
+                ! isset($byStage['outcome_learning'])
+                || (int) ($byStage['next_decision']['sequence'] ?? 0) > (int) ($byStage['outcome_learning']['sequence'] ?? 0)
+            );
 
         $stagesObserved = [];
         $missingStage = null;
@@ -77,16 +83,45 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
 
         $orderingViolations = $this->orderingViolations($byStage);
         $causalityViolations = $this->causalityViolations($byStage);
+        $cycleComplete = $missingStage === null && $orderingViolations === [] && $causalityViolations === [];
+
+        $correlationId = $this->sharedCorrelationId($byStage);
+        $replayScore = round(
+            (count($stagesObserved) / count(self::REQUIRED_STAGES))
+            * ($orderingViolations === [] && $causalityViolations === [] ? 1.0 : 0.5),
+            4,
+        );
 
         return [
             'schema' => self::SCHEMA,
-            'cycle_complete' => $missingStage === null && $orderingViolations === [] && $causalityViolations === [],
+            'cycle_complete' => $cycleComplete,
             'stages_observed' => $stagesObserved,
             'missing_stage' => $missingStage,
             'decision_changed' => $decisionChanged,
             'ordering_violations' => $orderingViolations,
             'causality_violations' => $causalityViolations,
+            'correlation_id' => $correlationId,
+            'replay_score' => $replayScore,
         ];
+    }
+
+    /** Returns the shared identity across correlated stages, or null when absent/disagreeing. */
+    private function sharedCorrelationId(array $byStage): ?string
+    {
+        $identities = [];
+        foreach (self::CORRELATED_STAGES as $stage) {
+            if (! isset($byStage[$stage])) {
+                continue;
+            }
+            $identity = (string) ($byStage[$stage]['task_packet_id'] ?? $byStage[$stage]['correlation_id'] ?? '');
+            if ($identity !== '') {
+                $identities[] = $identity;
+            }
+        }
+
+        $unique = array_unique($identities);
+
+        return count($unique) === 1 ? $unique[array_key_first($unique)] : null;
     }
 
     /**
