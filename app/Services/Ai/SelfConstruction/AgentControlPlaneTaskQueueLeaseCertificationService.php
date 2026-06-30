@@ -86,6 +86,41 @@ final class AgentControlPlaneTaskQueueLeaseCertificationService
             $violations[] = ['code' => 'forbidden_axes_set_drift'];
         }
 
+        // Feed-continuity invariants: never mutates queue/leases, read-only cross-check.
+        $queueRegistryForContinuity = $this->queue->registry();
+        $leaseSummaryForContinuity = $this->leaseSummary();
+        $statusCounts = (array) ($queueRegistryForContinuity['status_counts'] ?? []);
+        $claimableCount = (int) ($statusCounts['claimable'] ?? 0);
+        $claimedCount = (int) ($statusCounts['claimed'] ?? 0);
+        $activeLeaseCount = (int) ($leaseSummaryForContinuity['active_lease_count'] ?? 0);
+
+        // No active lease leak: every active lease must correspond to at least one
+        // 'claimed' queue entry — an active lease with zero claimed entries means the
+        // queue registry and lease store have drifted apart.
+        $invariants['no_active_lease_leak'] = $activeLeaseCount === 0 || $claimedCount > 0;
+        if (! $invariants['no_active_lease_leak']) {
+            $violations[] = ['code' => 'active_lease_leak'];
+        }
+
+        // No registry/lease summary mismatch: claimed count can never exceed active leases.
+        $invariants['no_registry_lease_mismatch'] = $claimedCount <= $activeLeaseCount;
+        if (! $invariants['no_registry_lease_mismatch']) {
+            $violations[] = ['code' => 'registry_lease_mismatch'];
+        }
+
+        // Claimable floor: when caller supplies active_worker_count/minimum_claimable_per_worker,
+        // the claimable queue must stay above worker demand so active workers never drain to
+        // no_claimable_task while leases are outstanding.
+        $activeWorkerCount = isset($options['active_worker_count']) ? max(0, (int) $options['active_worker_count']) : null;
+        if ($activeWorkerCount !== null) {
+            $minimumClaimablePerWorker = max(0, (int) ($options['minimum_claimable_per_worker'] ?? 1));
+            $claimableFloor = $activeWorkerCount * $minimumClaimablePerWorker;
+            $invariants['feed_continuity_floor'] = $activeLeaseCount === 0 || $claimableCount >= $claimableFloor;
+            if (! $invariants['feed_continuity_floor']) {
+                $violations[] = ['code' => 'feed_continuity_floor', 'claimable_count' => $claimableCount, 'claimable_floor' => $claimableFloor];
+            }
+        }
+
         // Synthetic probes.
         $probes = $this->runProbes();
         foreach ($probes['probes'] as $key => $passed) {
