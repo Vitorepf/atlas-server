@@ -185,7 +185,7 @@ final class AtlasTaskFabricRoadmapGapMiner
                 $tags[] = 'lane:'.$lane;
             }
 
-            $candidate = [
+            $candidate = array_merge([
                 'schema_version'  => self::SCHEMA,
                 'organ'           => $organ,
                 'capability'      => $capability,
@@ -194,7 +194,7 @@ final class AtlasTaskFabricRoadmapGapMiner
                 'suggested_files' => $files,
                 'owner_scope'     => 'atlas-native',
                 'tags'            => $tags,
-            ];
+            ], $this->extractChainFields($row));
             if ($lane !== '') {
                 $candidate['lane'] = $lane;
             }
@@ -209,6 +209,52 @@ final class AtlasTaskFabricRoadmapGapMiner
         });
 
         return $candidates;
+    }
+
+    /**
+     * Extract optional chain/unlock hint fields from a roadmap row.
+     * Only non-empty values are included in the returned array.
+     *
+     * Fields sourced from the row (all optional):
+     *   chain_key             string      — logical chain this gap belongs to
+     *   unlocks_capabilities  string[]    — capability labels unlocked when this gap closes
+     *   prerequisite_gap_refs string[]    — other gap IDs that must close first
+     *   next_unblock_hint     string      — human-readable hint for what to do next
+     *
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>
+     */
+    private function extractChainFields(array $row): array
+    {
+        $out = [];
+
+        $chainKey = trim((string) ($row['chain_key'] ?? ''));
+        if ($chainKey !== '') {
+            $out['chain_key'] = $chainKey;
+        }
+
+        $unlocks = array_values(array_filter(
+            array_map('trim', (array) ($row['unlocks_capabilities'] ?? [])),
+            static fn (string $s): bool => $s !== '',
+        ));
+        if ($unlocks !== []) {
+            $out['unlocks_capabilities'] = $unlocks;
+        }
+
+        $prereqs = array_values(array_filter(
+            array_map('trim', (array) ($row['prerequisite_gap_refs'] ?? [])),
+            static fn (string $s): bool => $s !== '',
+        ));
+        if ($prereqs !== []) {
+            $out['prerequisite_gap_refs'] = $prereqs;
+        }
+
+        $hint = trim((string) ($row['next_unblock_hint'] ?? ''));
+        if ($hint !== '') {
+            $out['next_unblock_hint'] = $hint;
+        }
+
+        return $out;
     }
 
     /**
@@ -299,7 +345,7 @@ final class AtlasTaskFabricRoadmapGapMiner
                 $tags[] = 'lane:'.$lane;
             }
 
-            $candidate = [
+            $candidate = array_merge([
                 'schema_version'  => self::SCHEMA,
                 'organ'           => $organ,
                 'capability'      => $capability,
@@ -309,7 +355,7 @@ final class AtlasTaskFabricRoadmapGapMiner
                 'owner_scope'     => 'atlas-native',
                 'leverage_score'  => $leverageScore,
                 'tags'            => $tags,
-            ];
+            ], $this->extractChainFields($row));
             if ($lane !== '') {
                 $candidate['lane'] = $lane;
             }

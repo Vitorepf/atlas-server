@@ -293,4 +293,127 @@ final class AtlasTaskFabricRoadmapGapMinerTest extends TestCase
         sort($sorted, SORT_STRING);
         $this->assertSame($sorted, $reasons, 'rejections must be sorted by reason asc');
     }
+
+    // --- chain / unlock hint field tests ---
+
+    public function test_mine_by_lane_emits_chain_key_when_row_provides_it(): void
+    {
+        $row = $this->row('Task Fabric', 'chain_source', [
+            'lane'      => 'self-recovery',
+            'chain_key' => 'fabric-unlock-chain-1',
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out);
+        $this->assertArrayHasKey('chain_key', $out[0]);
+        $this->assertSame('fabric-unlock-chain-1', $out[0]['chain_key']);
+    }
+
+    public function test_mine_by_lane_emits_unlocks_capabilities_when_supplied(): void
+    {
+        $row = $this->row('Maestro', 'adaptive_routing', [
+            'lane'                 => 'task-repair',
+            'unlocks_capabilities' => ['score_routing', 'weighted_dispatch'],
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertArrayHasKey('unlocks_capabilities', $out[0]);
+        $this->assertSame(['score_routing', 'weighted_dispatch'], $out[0]['unlocks_capabilities']);
+    }
+
+    public function test_mine_by_lane_emits_prerequisite_gap_refs_when_supplied(): void
+    {
+        $row = $this->row('Worker Swarm', 'lease_repair', [
+            'lane'                  => 'task-repair',
+            'prerequisite_gap_refs' => ['gap-001', 'gap-002'],
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertArrayHasKey('prerequisite_gap_refs', $out[0]);
+        $this->assertSame(['gap-001', 'gap-002'], $out[0]['prerequisite_gap_refs']);
+    }
+
+    public function test_mine_by_lane_emits_next_unblock_hint_when_supplied(): void
+    {
+        $row = $this->row('Verification Court', 'replay_proof', [
+            'lane'              => 'completion-certification',
+            'next_unblock_hint' => 'Wire the CertificationService into the runtime loop',
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertArrayHasKey('next_unblock_hint', $out[0]);
+        $this->assertSame('Wire the CertificationService into the runtime loop', $out[0]['next_unblock_hint']);
+    }
+
+    public function test_mine_ranked_emits_chain_fields_when_row_provides_them(): void
+    {
+        $row = $this->row('Task Fabric', 'ranked_chain', [
+            'chain_key'             => 'fabric-chain-A',
+            'unlocks_capabilities'  => ['ranked_dispatch'],
+            'prerequisite_gap_refs' => ['gap-ranked-001'],
+            'next_unblock_hint'     => 'Implement the ranked chain solver first',
+        ]);
+
+        $result    = (new AtlasTaskFabricRoadmapGapMiner)->mineRanked([$row]);
+        $candidate = $result['candidates'][0];
+
+        $this->assertSame('fabric-chain-A', $candidate['chain_key']);
+        $this->assertSame(['ranked_dispatch'], $candidate['unlocks_capabilities']);
+        $this->assertSame(['gap-ranked-001'], $candidate['prerequisite_gap_refs']);
+        $this->assertSame('Implement the ranked chain solver first', $candidate['next_unblock_hint']);
+    }
+
+    public function test_chain_fields_absent_when_row_does_not_supply_them(): void
+    {
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$this->row('Merge Governor', 'auto_merge')]);
+
+        $this->assertArrayNotHasKey('chain_key',             $out[0]);
+        $this->assertArrayNotHasKey('unlocks_capabilities',  $out[0]);
+        $this->assertArrayNotHasKey('prerequisite_gap_refs', $out[0]);
+        $this->assertArrayNotHasKey('next_unblock_hint',     $out[0]);
+    }
+
+    public function test_resolved_row_with_chain_metadata_is_still_skipped(): void
+    {
+        $row = $this->row('Task Fabric', 'resolved_chain', [
+            'resolved'  => true,
+            'chain_key' => 'should-not-emit',
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertSame([], $out);
+    }
+
+    public function test_live_target_duplicate_with_chain_metadata_is_still_skipped(): void
+    {
+        $row = $this->row('Maestro', 'duplicate_chain', [
+            'lane'      => 'self-recovery',
+            'chain_key' => 'should-not-emit',
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row], ['Maestro:duplicate_chain']);
+
+        $this->assertSame([], $out);
+    }
+
+    public function test_blank_chain_fields_are_omitted_not_emitted_empty(): void
+    {
+        $row = $this->row('Learning Transfer', 'blank_chain', [
+            'chain_key'            => '',
+            'unlocks_capabilities' => [''],
+            'next_unblock_hint'    => '  ',
+        ]);
+
+        $out = (new AtlasTaskFabricRoadmapGapMiner)->mineByLane([$row]);
+
+        $this->assertCount(1, $out);
+        $this->assertArrayNotHasKey('chain_key',            $out[0]);
+        $this->assertArrayNotHasKey('unlocks_capabilities', $out[0]);
+        $this->assertArrayNotHasKey('next_unblock_hint',    $out[0]);
+    }
 }
