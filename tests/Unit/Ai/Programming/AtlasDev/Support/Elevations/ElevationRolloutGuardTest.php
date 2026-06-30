@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\AtlasDev\Support\Elevations;
 
 use PHPUnit\Framework\TestCase;
+use Tests\Unit\Ai\Programming\AtlasDev\Probe\E1HardGateTest;
 
 /**
  * VAL-M2-028: Rollout guard — each elevation's trip condition must be verified
@@ -60,6 +61,18 @@ final class ElevationRolloutGuardTest extends TestCase
         //       'trip'  => [E1HardGateTest::class, 'test_e1_hard_trip_produces_failed_on_intent_missing_diff'],
         //       'clear' => [E1HardGateTest::class, 'test_e1_hard_does_not_false_fail_on_genuine_intent_diff'],
         //   ],
+
+        // m2-e1-hard: E1 (intent-falsification / coverage probe) promoted
+        // advisory -> hard. The trip condition (an intent-missing diff on a
+        // green gate forces STATUS_FAILED -> `failed`, flag retained) and the
+        // does-not-false-fail condition (a genuine-intent diff does not trip)
+        // are proven on a fixture pair in E1HardGateTest, which drives a real
+        // PipelineRunExecutor with e1.mode=hard. Registered BEFORE the config
+        // default flipped to hard, per the VAL-M2-028 rollout discipline.
+        'e1' => [
+            'trip' => [E1HardGateTest::class, 'test_e1_hard_trip_produces_failed_on_intent_missing_diff'],
+            'clear' => [E1HardGateTest::class, 'test_e1_hard_does_not_false_fail_on_genuine_intent_diff'],
+        ],
     ];
 
     /**

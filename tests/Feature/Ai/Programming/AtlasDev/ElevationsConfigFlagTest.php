@@ -166,6 +166,27 @@ final class ElevationsConfigFlagTest extends TestCase
         }
     }
 
+    /**
+     * VAL-M2-001: the E1 (intent-falsification / coverage probe) elevation
+     * ships a `hard` config default. A runtime read of the REAL config kernel
+     * (no env override, no in-test config mutation) classifies E1 as hard:
+     * ElevationConfig::fromConfig('e1')->isHard() === true. This is the
+     * Feature-level complement to AtlasDevFeatureFlagsTest (which reads the
+     * config source directly with env unset).
+     */
+    public function test_e1_mode_default_is_hard_via_real_config_kernel(): void
+    {
+        // Read the real, unmutated config block for e1 (no config() override).
+        $config = ElevationConfig::fromConfig('e1');
+
+        $this->assertTrue(
+            $config->isHard(),
+            'VAL-M2-001: the real atlas_dev.elevations.e1 config must resolve to hard by default.',
+        );
+        $this->assertFalse($config->isAdvisory(), 'VAL-M2-001: e1 must not be advisory by default.');
+        $this->assertFalse($config->isOff());
+    }
+
     // -- VAL-M0-008 helper: the advisory flag, when appended, forces the
     //    sanctioned downgrade (passed -> needs_review), never green ---------
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\Security;
 
+use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasDevFeatureFlagsTest extends TestCase
@@ -73,6 +74,45 @@ final class AtlasDevFeatureFlagsTest extends TestCase
 
         // Restore the process env so the override never leaks into later tests.
         $this->clearEnv('ATLAS_DEV_EFFICIENT_RUN_ENABLED');
+    }
+
+    /**
+     * VAL-M2-001: the E1 (intent-falsification / coverage probe) elevation is
+     * promoted advisory -> hard. The canonical config source
+     * config/atlas_dev.php ships `elevations.e1.mode` with an env fallback of
+     * `hard` (not `advisory`). This is the single switch that makes the E1
+     * hard branch live by default: a hard E1 trip on an intent-missing diff
+     * produces a `failed` completion (not `needs_review`).
+     */
+    public function test_e1_mode_config_source_defaults_to_hard(): void
+    {
+        $configSource = (string) file_get_contents($this->repoPath('config/atlas_dev.php'));
+
+        $this->assertStringContainsString(
+            "'mode' => env('ATLAS_DEV_ELEVATION_E1_MODE', 'hard')",
+            $configSource,
+            'VAL-M2-001: the e1.mode config source default must be hard (promoted from advisory).',
+        );
+    }
+
+    /**
+     * VAL-M2-001: with no ATLAS_DEV_ELEVATION_E1_MODE env var set, a runtime
+     * read of the canonical config yields `elevations.e1.mode === 'hard'`, and
+     * the elevation resolver classifies E1 as hard
+     * (ElevationConfig::for('e1', $block)->isHard() === true). This proves the
+     * hard default is live at the resolution layer, not just in the source.
+     */
+    public function test_e1_mode_resolves_hard_when_env_unset(): void
+    {
+        $this->clearEnv('ATLAS_DEV_ELEVATION_E1_MODE');
+        $config = require $this->repoPath('config/atlas_dev.php');
+
+        $this->assertSame('hard', $config['elevations']['e1']['mode']);
+
+        $e1 = ElevationConfig::for('e1', $config['elevations']['e1']);
+        $this->assertTrue($e1->isHard(), 'VAL-M2-001: ElevationConfig must classify e1 as hard by default.');
+        $this->assertFalse($e1->isAdvisory());
+        $this->assertFalse($e1->isOff());
     }
 
     public function test_plan_enabled_is_on_under_testing_environment(): void

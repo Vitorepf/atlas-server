@@ -160,6 +160,17 @@ return [
         //   - mode: tri-state off|advisory|hard governing the deterministic
         //     intent-falsification probe + the detectIntentFalsification
         //     critic detector.
+        //   - M2 (m2-e1-hard): promoted advisory -> hard. The trip condition
+        //     (an intent-missing diff on a green gate) was verified on a
+        //     fixture pair (E1HardGateTest: trip -> failed + flag retained;
+        //     clear -> no false-fail on a genuine-intent diff) BEFORE the
+        //     config default flipped, per the VAL-M2-028 rollout guard. A
+        //     hard E1 trip forces STATUS_FAILED (completion `failed`, NOT the
+        //     advisory `needs_review`) while preserving the
+        //     `intent_likely_not_addressed` honesty flag for auditability
+        //     (VAL-M2-002/004). A genuine-intent diff does not trip
+        //     (VAL-M2-003). Operators can opt back down to advisory/off via
+        //     ATLAS_DEV_ELEVATION_E1_MODE.
         //   - llm_judge: OPTIONAL adversarial LLM-as-judge sub-layer (default
         //     OFF). When ON, a judge callable is resolved from the container
         //     binding 'atlas_dev.e1.intent_judge' and invoked by the critic's
@@ -169,7 +180,7 @@ return [
         //     — the deterministic probe's verdict is the immovable floor and
         //     a fake judge screaming APPROVE cannot clear intent_likely_not_addressed.
         'e1' => [
-            'mode' => env('ATLAS_DEV_ELEVATION_E1_MODE', 'advisory'),
+            'mode' => env('ATLAS_DEV_ELEVATION_E1_MODE', 'hard'),
             'llm_judge' => (bool) env('ATLAS_DEV_ELEVATION_E1_LLM_JUDGE', false),
         ],
 
