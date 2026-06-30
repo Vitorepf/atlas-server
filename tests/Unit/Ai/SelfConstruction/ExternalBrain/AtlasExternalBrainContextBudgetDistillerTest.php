@@ -204,4 +204,77 @@ final class AtlasExternalBrainContextBudgetDistillerTest extends TestCase
         $b = $this->distiller()->distill($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC2: anti_proxy_rule is Tier-1 ────────────────────────────────────────
+
+    public function test_anti_proxy_rule_retained_as_tier1(): void
+    {
+        $r = $this->distiller()->distill([
+            'context_sections' => [$this->sec(['type' => 'anti_proxy_rule', 'token_count' => 50])],
+            'budget_tokens'    => 10000,
+        ]);
+        $this->assertCount(1, $r['retained_sections']);
+        $this->assertSame('anti_proxy_rule', $r['retained_sections'][0]['type']);
+        $this->assertSame('low', $r['risk_of_loss']);
+    }
+
+    public function test_anti_proxy_rule_budget_exhaustion_causes_high_risk(): void
+    {
+        $r = $this->distiller()->distill([
+            'context_sections' => [$this->sec(['type' => 'anti_proxy_rule', 'token_count' => 1000])],
+            'budget_tokens'    => 10,
+        ]);
+        $this->assertSame('high', $r['risk_of_loss']);
+    }
+
+    // ── AC4: missing_critical_sections ────────────────────────────────────────
+
+    public function test_output_has_missing_critical_sections_key(): void
+    {
+        $r = $this->distiller()->distill([]);
+        $this->assertArrayHasKey('missing_critical_sections', $r);
+        $this->assertIsArray($r['missing_critical_sections']);
+    }
+
+    public function test_missing_critical_sections_lists_absent_tier1_types(): void
+    {
+        // Only canonical_decision supplied — rest of Tier 1 should appear in missing
+        $r = $this->distiller()->distill([
+            'context_sections' => [$this->sec(['type' => 'canonical_decision'])],
+            'budget_tokens'    => 10000,
+        ]);
+        $this->assertContains('anti_proxy_rule',      $r['missing_critical_sections']);
+        $this->assertContains('queue_constraint',     $r['missing_critical_sections']);
+        $this->assertContains('target_path',          $r['missing_critical_sections']);
+        $this->assertNotContains('canonical_decision', $r['missing_critical_sections']);
+    }
+
+    public function test_missing_critical_sections_empty_when_all_tier1_present(): void
+    {
+        $sections = [];
+        foreach (['canonical_decision', 'ac_definition', 'anti_proxy_rule', 'queue_constraint', 'target_path'] as $i => $type) {
+            $sections[] = $this->sec(['id' => "s{$i}", 'type' => $type]);
+        }
+        $r = $this->distiller()->distill(['context_sections' => $sections, 'budget_tokens' => 10000]);
+        $this->assertSame([], $r['missing_critical_sections']);
+    }
+
+    public function test_missing_critical_sections_not_affected_by_always_drop(): void
+    {
+        // provider_trace supplied — it's not Tier-1, so doesn't appear in missing
+        $r = $this->distiller()->distill([
+            'context_sections' => [$this->sec(['type' => 'provider_trace'])],
+            'budget_tokens'    => 10000,
+        ]);
+        $this->assertNotContains('provider_trace', $r['missing_critical_sections']);
+    }
+
+    public function test_empty_input_reports_all_tier1_as_missing(): void
+    {
+        $r = $this->distiller()->distill([]);
+        $missing = $r['missing_critical_sections'];
+        foreach (['canonical_decision', 'ac_definition', 'anti_proxy_rule', 'queue_constraint', 'target_path'] as $type) {
+            $this->assertContains($type, $missing);
+        }
+    }
 }

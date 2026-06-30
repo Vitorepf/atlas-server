@@ -9,11 +9,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * high-signal subset for smaller model consumption.
  *
  * Retention priority (AC2 — higher tier fills budget first):
- *   Tier 1: canonical_decision, ac_definition          (never drop unless duplicate)
- *   Tier 2: queue_constraint, recent_failure           (retain if budget allows)
- *   Tier 3: target_path                                (retain if budget allows)
- *   Tier 4: non-critical sections with signal >= 0.70
- *   Tier 5: non-critical sections with signal >= 0.50
+ *   Tier 1: canonical_decision, ac_definition, anti_proxy_rule,
+ *            queue_constraint, target_path              (never drop unless duplicate)
+ *   Tier 2: recent_failure                             (retain if budget allows)
+ *   Tier 3: non-critical sections with signal >= 0.70
+ *   Tier 4: non-critical sections with signal >= 0.50
  *
  * Always omitted (AC3):
  *   - type in ['provider_trace', 'stale_summary']
@@ -38,9 +38,8 @@ final class AtlasExternalBrainContextBudgetDistiller
 
     private const ALWAYS_DROP = ['provider_trace', 'stale_summary'];
 
-    private const TIER1 = ['canonical_decision', 'ac_definition'];
-    private const TIER2 = ['queue_constraint', 'recent_failure'];
-    private const TIER3 = ['target_path'];
+    private const TIER1 = ['canonical_decision', 'ac_definition', 'anti_proxy_rule', 'queue_constraint', 'target_path'];
+    private const TIER2 = ['recent_failure'];
 
     private const HIGH_SIGNAL  = 0.70;
     private const MED_SIGNAL   = 0.50;
@@ -92,7 +91,6 @@ final class AtlasExternalBrainContextBudgetDistiller
         $tiers = [
             ['types' => self::TIER1, 'label' => 't1'],
             ['types' => self::TIER2, 'label' => 't2'],
-            ['types' => self::TIER3, 'label' => 't3'],
         ];
 
         $remaining = $classified;
@@ -148,13 +146,24 @@ final class AtlasExternalBrainContextBudgetDistiller
             $risk = 'medium';
         }
 
+        // Types present in input (pre-drop) — to identify truly absent critical sections.
+        $inputTypes = array_unique(array_map(
+            static fn ($s) => strtolower(trim((string) ($s['type'] ?? ''))),
+            $sections
+        ));
+        $missingCritical = array_values(array_filter(
+            self::TIER1,
+            static fn (string $t) => ! in_array($t, $inputTypes, true),
+        ));
+
         return [
-            'schema_version'    => self::SCHEMA,
-            'distilled_context' => $distilledContext,
-            'retained_sections' => $retainedPublic,
-            'omitted_sections'  => $omitted,
-            'budget_used'       => $budgetUsed,
-            'risk_of_loss'      => $risk,
+            'schema_version'          => self::SCHEMA,
+            'distilled_context'       => $distilledContext,
+            'retained_sections'       => $retainedPublic,
+            'omitted_sections'        => $omitted,
+            'budget_used'             => $budgetUsed,
+            'risk_of_loss'            => $risk,
+            'missing_critical_sections' => $missingCritical,
         ];
     }
 }
