@@ -37,7 +37,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
     {
         $result = $this->matrix->audit($this->goodSpec());
 
-        foreach (['schema', 'verdict', 'coverage_flags', 'rejections'] as $k) {
+        foreach (['schema', 'verdict', 'coverage_flags', 'rejections', 'claimed_leverage_gaps'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::SCHEMA, $result['schema']);
@@ -186,5 +186,68 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
         $this->assertTrue($result['coverage_flags']['has_impl_file_coverage']);
         $this->assertTrue($result['coverage_flags']['has_evidence_refs']);
         $this->assertFalse($result['coverage_flags']['is_brittle_proxy']);
+    }
+
+    // ── AC2: claimed leverage coverage — flagged, not rejected ───────────────
+
+    public function test_multi_component_claim_with_narrow_filter_is_accepted_but_flagged(): void
+    {
+        // Objective claims multi-component leverage; only a narrow --filter= command as evidence
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'           => 'implement multi-component wiring for the brain pipeline',
+            'acceptance_criteria' => [
+                '/opt/homebrew/bin/php artisan test --filter=AtlasBrainWiringTest exits 0',
+            ],
+            'evidence_refs' => ['tests_or_gates_result'],
+        ]));
+
+        // Still accepted — claimed_leverage_coverage is non-blocking
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        $this->assertContains('multi_component', $result['claimed_leverage_gaps']);
+        $this->assertFalse($result['coverage_flags']['claimed_leverage_coverage_met']);
+    }
+
+    public function test_learning_loop_claim_with_narrow_evidence_is_flagged(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'   => 'close the learning loop for outcome learning after each batch',
+            'evidence_refs' => ['tests_or_gates_result'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        $this->assertContains('learning_loop', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_no_impact_claims_gives_empty_leverage_gaps(): void
+    {
+        // goodSpec objective is absent — no impact dimension keywords → no gaps
+        $result = $this->matrix->audit($this->goodSpec());
+
+        $this->assertSame([], $result['claimed_leverage_gaps']);
+        $this->assertTrue($result['coverage_flags']['claimed_leverage_coverage_met']);
+    }
+
+    // ── AC3: evidence refs covering claimed dimensions → no gap ──────────────
+
+    public function test_multi_component_claim_with_matching_evidence_ref_has_no_gap(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'spans multiple capabilities via cross-component integration',
+            'evidence_refs' => ['tests_or_gates_result', 'integration_test'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        $this->assertNotContains('multi_component', $result['claimed_leverage_gaps']);
+        $this->assertTrue($result['coverage_flags']['claimed_leverage_coverage_met']);
+    }
+
+    public function test_all_claimed_dimensions_covered_by_refs_has_no_gaps(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'multi-component integration with outcome learning and anti-goodhart enforcement',
+            'evidence_refs' => ['integration_test', 'outcome_learning', 'anti_goodhart'],
+        ]));
+
+        $this->assertSame([], $result['claimed_leverage_gaps']);
     }
 }

@@ -34,8 +34,23 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
     public const DIM_IMPL_FILE_COVERAGE  = 'impl_file_coverage';
     public const DIM_EVIDENCE_REFS       = 'evidence_refs';
     public const DIM_BRITTLE_PROXY       = 'brittle_proxy';
+    public const DIM_CLAIMED_LEVERAGE    = 'claimed_leverage_coverage';
 
     private const RUNNABLE_MARKERS = ['artisan', 'vendor/bin', 'phpunit'];
+
+    private const IMPACT_DIMENSIONS = [
+        'multi_component'  => ['multi-component', 'cross-component', 'integration', 'multiple capabilities', 'spans multiple'],
+        'learning_loop'    => ['learning-loop', 'learning loop', 'outcome learning', 'closed loop', 'closed-loop'],
+        'anti_goodhart'    => ['anti-goodhart', 'anti goodhart', 'goodhart', 'proxy detection'],
+        'queue_health'     => ['queue-health', 'queue health', 'queue integrity', 'task fabric', 'origination cycle'],
+    ];
+
+    private const DIMENSION_EVIDENCE_KEYS = [
+        'multi_component'  => ['integration_test', 'cross_component', 'multi_component_proof', 'e2e_test'],
+        'learning_loop'    => ['learning_outcome', 'outcome_learning', 'learning_loop_proof'],
+        'anti_goodhart'    => ['anti_goodhart', 'goodhart_proof', 'anti_proxy'],
+        'queue_health'     => ['queue_health', 'queue_integrity', 'queue_proof'],
+    ];
 
     /**
      * @param  array{
@@ -45,7 +60,7 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
      *   required_evidence?: list<string>,
      *   objective?: string,
      * }  $spec
-     * @return array{schema:string, verdict:string, coverage_flags:array<string,bool>, rejections:list<array<string,string>>}
+     * @return array{schema:string, verdict:string, coverage_flags:array<string,bool>, rejections:list<array<string,string>>, claimed_leverage_gaps:list<string>}
      */
     public function audit(array $spec): array
     {
@@ -53,11 +68,13 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         $allowedFiles     = array_values(array_filter(array_map('trim', (array) ($spec['allowed_files']       ?? [])), fn (string $s): bool => $s !== ''));
         $evidenceRefs     = array_values(array_filter(array_map('trim', (array) ($spec['evidence_refs']       ?? [])), fn (string $s): bool => $s !== ''));
         $requiredEvidence = array_values(array_filter(array_map('trim', (array) ($spec['required_evidence']   ?? [])), fn (string $s): bool => $s !== ''));
+        $objective        = (string) ($spec['objective'] ?? '');
 
         $hasRunnableCommand  = $this->hasRunnableCommand($criteria);
         $hasImplFileCoverage = $this->hasImplFileCoverage($allowedFiles);
         $hasEvidenceRefs     = $requiredEvidence === [] || $evidenceRefs !== [];
         $isBrittleProxy      = $this->isBrittleProxy($criteria);
+        $claimedLeverageGaps = $this->findLeverageGaps($criteria, $objective, $evidenceRefs);
 
         $rejections = [];
         if (! $hasRunnableCommand) {
@@ -80,15 +97,17 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         }
 
         return [
-            'schema'          => self::SCHEMA,
-            'verdict'         => $rejections === [] ? self::VERDICT_ACCEPTED : self::VERDICT_REJECTED,
-            'coverage_flags'  => [
-                'has_runnable_command'   => $hasRunnableCommand,
-                'has_impl_file_coverage' => $hasImplFileCoverage,
-                'has_evidence_refs'      => $hasEvidenceRefs,
-                'is_brittle_proxy'       => $isBrittleProxy,
+            'schema'                => self::SCHEMA,
+            'verdict'               => $rejections === [] ? self::VERDICT_ACCEPTED : self::VERDICT_REJECTED,
+            'coverage_flags'        => [
+                'has_runnable_command'        => $hasRunnableCommand,
+                'has_impl_file_coverage'      => $hasImplFileCoverage,
+                'has_evidence_refs'           => $hasEvidenceRefs,
+                'is_brittle_proxy'            => $isBrittleProxy,
+                'claimed_leverage_coverage_met' => $claimedLeverageGaps === [],
             ],
-            'rejections'      => $rejections,
+            'rejections'            => $rejections,
+            'claimed_leverage_gaps' => $claimedLeverageGaps,
         ];
     }
 
@@ -139,6 +158,51 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         }
 
         return true;
+    }
+
+    /** @return list<string> dimension keys whose claimed leverage has no matching evidence ref */
+    private function findLeverageGaps(array $criteria, string $objective, array $evidenceRefs): array
+    {
+        $claimed = $this->detectClaimedDimensions($criteria, $objective);
+        if ($claimed === []) {
+            return [];
+        }
+
+        $refs  = array_map('strtolower', $evidenceRefs);
+        $gaps  = [];
+        foreach ($claimed as $dim) {
+            $covered = false;
+            foreach (self::DIMENSION_EVIDENCE_KEYS[$dim] as $key) {
+                foreach ($refs as $ref) {
+                    if (str_contains($ref, $key)) {
+                        $covered = true;
+                        break 2;
+                    }
+                }
+            }
+            if (! $covered) {
+                $gaps[] = $dim;
+            }
+        }
+
+        return $gaps;
+    }
+
+    /** @return list<string> dimension keys whose keywords appear in criteria or objective */
+    private function detectClaimedDimensions(array $criteria, string $objective): array
+    {
+        $haystack = strtolower($objective.' '.implode(' ', $criteria));
+        $claimed  = [];
+        foreach (self::IMPACT_DIMENSIONS as $dim => $keywords) {
+            foreach ($keywords as $kw) {
+                if (str_contains($haystack, $kw)) {
+                    $claimed[] = $dim;
+                    break;
+                }
+            }
+        }
+
+        return $claimed;
     }
 
     private function isTestPath(string $path): bool
