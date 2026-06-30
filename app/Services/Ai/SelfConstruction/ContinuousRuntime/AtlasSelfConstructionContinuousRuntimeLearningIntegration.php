@@ -126,6 +126,76 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
             'receipt_inputs' => $receipt,
             'compounding_inputs' => $compounding,
             'required_promotion_evidence_hashes' => array_values(array_unique($requiredHashes)),
+            'next_cycle_strategy' => $this->buildNextCycleStrategy($outcomes),
+        ];
+    }
+
+    /** @param list<array<string,mixed>> $outcomes */
+    private function buildNextCycleStrategy(array $outcomes): array
+    {
+        $totalNonStale = 0;
+        $provenSuccessCount = 0;
+        $giveBackCauses = [];
+        $regressionSignals = [];
+        $successClasses = [];
+        $failClasses = [];
+
+        foreach ($outcomes as $o) {
+            if (! is_array($o) || (bool) ($o['stale'] ?? false)) {
+                continue;
+            }
+            $totalNonStale++;
+            $kind = (string) ($o['kind'] ?? '');
+            $evidenceHash = (string) ($o['evidence_hash'] ?? '');
+            $taskClass = (string) ($o['task_class'] ?? '');
+            $isProxy = (bool) ($o['proxy_success'] ?? false);
+
+            // Proven success: merge + real evidence + not proxy-flagged.
+            if ($kind === self::OUTCOME_MERGE && $evidenceHash !== '' && ! $isProxy) {
+                $provenSuccessCount++;
+                if ($taskClass !== '') {
+                    $successClasses[$taskClass] = true;
+                }
+            }
+
+            if ($kind === self::OUTCOME_GIVE_BACK) {
+                $cause = (string) ($o['class'] ?? 'unknown');
+                $giveBackCauses[$cause] = ($giveBackCauses[$cause] ?? 0) + 1;
+                if ($taskClass !== '') {
+                    $failClasses[$taskClass] = true;
+                }
+            }
+
+            if ($kind === self::OUTCOME_QUARANTINE && $taskClass !== '') {
+                $failClasses[$taskClass] = true;
+            }
+
+            if ((bool) ($o['regression'] ?? false) && $evidenceHash !== '') {
+                $regressionSignals[] = $evidenceHash;
+            }
+        }
+
+        // Capability gaps: task_classes that only appeared in failures, never in proven successes.
+        $capabilityGaps = array_values(array_filter(
+            array_keys($failClasses),
+            static fn (string $tc): bool => ! isset($successClasses[$tc])
+        ));
+        sort($capabilityGaps, SORT_STRING);
+
+        arsort($giveBackCauses);
+        $giveBackCausesFormatted = [];
+        foreach ($giveBackCauses as $cause => $count) {
+            $giveBackCausesFormatted[] = ['cause' => $cause, 'count' => $count];
+        }
+
+        $successYield = $totalNonStale > 0 ? round($provenSuccessCount / $totalNonStale, 4) : 0.0;
+
+        return [
+            'success_yield'              => $successYield,
+            'give_back_causes'           => $giveBackCausesFormatted,
+            'regression_signals'         => array_values(array_unique($regressionSignals)),
+            'capability_gaps'            => $capabilityGaps,
+            'next_cycle_confidence_score' => $successYield,
         ];
     }
 }

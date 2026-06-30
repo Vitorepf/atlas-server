@@ -210,4 +210,105 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegrationTest extend
 
         $this->assertNull($verdict['compounding_inputs'][0]['worker_quality']);
     }
+
+    // ── next_cycle_strategy ───────────────────────────────────────────────────
+
+    public function test_next_cycle_strategy_key_present_in_output(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([]);
+
+        $this->assertArrayHasKey('next_cycle_strategy', $verdict);
+        $strategy = $verdict['next_cycle_strategy'];
+        $this->assertArrayHasKey('success_yield', $strategy);
+        $this->assertArrayHasKey('give_back_causes', $strategy);
+        $this->assertArrayHasKey('regression_signals', $strategy);
+        $this->assertArrayHasKey('capability_gaps', $strategy);
+        $this->assertArrayHasKey('next_cycle_confidence_score', $strategy);
+    }
+
+    public function test_proven_merge_increases_confidence_score(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'merge', 'evidence_hash' => 'h1', 'task_class' => 'gate'],
+            ['kind' => 'merge', 'evidence_hash' => 'h2', 'task_class' => 'gate'],
+        ]);
+
+        $strategy = $verdict['next_cycle_strategy'];
+        $this->assertGreaterThan(0.0, $strategy['next_cycle_confidence_score']);
+        $this->assertSame(1.0, $strategy['success_yield']);
+    }
+
+    public function test_proxy_success_does_not_increase_confidence_score(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'merge', 'evidence_hash' => 'h1', 'proxy_success' => true],
+            ['kind' => 'merge', 'evidence_hash' => 'h2', 'proxy_success' => true],
+        ]);
+
+        $strategy = $verdict['next_cycle_strategy'];
+        $this->assertSame(0.0, $strategy['next_cycle_confidence_score']);
+        $this->assertSame(0.0, $strategy['success_yield']);
+    }
+
+    public function test_unproven_outcome_empty_evidence_does_not_increase_confidence(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'merge', 'evidence_hash' => ''],  // no evidence = unproven
+        ]);
+
+        $strategy = $verdict['next_cycle_strategy'];
+        $this->assertSame(0.0, $strategy['next_cycle_confidence_score']);
+    }
+
+    public function test_give_back_causes_grouped_by_class(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'give_back', 'evidence_hash' => 'h1', 'class' => 'scope_gap'],
+            ['kind' => 'give_back', 'evidence_hash' => 'h2', 'class' => 'scope_gap'],
+            ['kind' => 'give_back', 'evidence_hash' => 'h3', 'class' => 'missing_impl'],
+        ]);
+
+        $causes = $verdict['next_cycle_strategy']['give_back_causes'];
+        $byClass = array_column($causes, 'count', 'cause');
+        $this->assertSame(2, $byClass['scope_gap']);
+        $this->assertSame(1, $byClass['missing_impl']);
+    }
+
+    public function test_regression_signals_populated_from_regression_true_outcomes(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'verification', 'evidence_hash' => 'reg-h1', 'regression' => true],
+            ['kind' => 'verification', 'evidence_hash' => 'ok-h2', 'regression' => false],
+            ['kind' => 'verification', 'evidence_hash' => 'reg-h3', 'regression' => true],
+        ]);
+
+        $signals = $verdict['next_cycle_strategy']['regression_signals'];
+        $this->assertContains('reg-h1', $signals);
+        $this->assertContains('reg-h3', $signals);
+        $this->assertNotContains('ok-h2', $signals);
+    }
+
+    public function test_capability_gaps_identifies_task_classes_with_only_failures(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'merge',     'evidence_hash' => 'h1', 'task_class' => 'gate'],  // success
+            ['kind' => 'give_back', 'evidence_hash' => 'h2', 'task_class' => 'refactor'],  // only fail
+            ['kind' => 'give_back', 'evidence_hash' => 'h3', 'task_class' => 'gate'],  // fail but gate also has success
+        ]);
+
+        $gaps = $verdict['next_cycle_strategy']['capability_gaps'];
+        $this->assertContains('refactor', $gaps);
+        $this->assertNotContains('gate', $gaps);  // gate has a proven success
+    }
+
+    public function test_empty_outcomes_yields_zero_confidence_and_empty_strategy(): void
+    {
+        $strategy = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([])['next_cycle_strategy'];
+
+        $this->assertSame(0.0, $strategy['success_yield']);
+        $this->assertSame(0.0, $strategy['next_cycle_confidence_score']);
+        $this->assertSame([], $strategy['give_back_causes']);
+        $this->assertSame([], $strategy['regression_signals']);
+        $this->assertSame([], $strategy['capability_gaps']);
+    }
 }
