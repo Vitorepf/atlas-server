@@ -40,6 +40,11 @@ final class AtlasExternalBrainImplementabilitySimulator
 
     public const VERDICT_CONTRADICTORY = 'contradictory';
 
+    public const VERDICT_REPAIR_REQUIRED = 'repair_required';
+
+    private const HIGH_COLLISION_THRESHOLD  = 3; // ≥ this many colliding files → repair_required
+    private const HIGH_DEPENDENCY_THRESHOLD = 3; // ≥ this many pending blockers  → repair_required
+
     /**
      * @param  array<string,mixed>  $candidate
      * @param  array<string,mixed>  $context
@@ -58,12 +63,23 @@ final class AtlasExternalBrainImplementabilitySimulator
         $pendingTaskIds     = is_array($context['pending_task_ids']      ?? null) ? $context['pending_task_ids']     : [];
         $propertyGates      = is_array($context['property_gates']        ?? null) ? $context['property_gates']       : [];
         $missingProdFiles   = is_array($context['missing_prod_files']    ?? null) ? $context['missing_prod_files']   : [];
+        $forbiddenFiles     = is_array($context['forbidden_files']       ?? null) ? $context['forbidden_files']      : [];
 
         // 1. Contradictory — criteria negate each other OR test-only with missing impl not in queue.
         // AC2: test-only contradiction only fires when the missing impl files are also absent from live_queued_targets.
         $contradictions = $this->detectContradictions($criteria, $allowedFiles, $missingProdFiles, $liveQueuedTargets);
         if ($contradictions !== []) {
             return $this->result($id, self::VERDICT_CONTRADICTORY, $contradictions);
+        }
+
+        // Forbidden target — file is on the operator-supplied block list.
+        $forbiddenHits = array_values(array_intersect($allowedFiles, $forbiddenFiles));
+        if ($forbiddenHits !== []) {
+            return $this->result(
+                $id,
+                self::VERDICT_CONTRADICTORY,
+                array_map(fn (string $f): string => 'forbidden_target:'.$f, $forbiddenHits),
+            );
         }
 
         // 2. Duplicate — all impl files already exist.
@@ -80,6 +96,14 @@ final class AtlasExternalBrainImplementabilitySimulator
         // 4. Collision with active leases OR live queued targets (AC1: same collision pool).
         $collisionPool = array_values(array_unique(array_merge($activeAllowedFiles, $liveQueuedTargets)));
         $collisions    = array_values(array_intersect($allowedFiles, $collisionPool));
+        // High collision risk (≥ threshold files) escalates to repair_required.
+        if (count($collisions) >= self::HIGH_COLLISION_THRESHOLD) {
+            return $this->result(
+                $id,
+                self::VERDICT_REPAIR_REQUIRED,
+                array_merge(['multi_file_collision_risk'], array_map(fn (string $f): string => 'file_held:'.$f, $collisions)),
+            );
+        }
         if ($collisions !== []) {
             return $this->result(
                 $id,
@@ -90,6 +114,14 @@ final class AtlasExternalBrainImplementabilitySimulator
 
         // 5. Dependency not yet complete.
         $blockers = array_values(array_intersect($unblocked_by, $pendingTaskIds));
+        // High dependency risk (≥ threshold blockers) escalates to repair_required.
+        if (count($blockers) >= self::HIGH_DEPENDENCY_THRESHOLD) {
+            return $this->result(
+                $id,
+                self::VERDICT_REPAIR_REQUIRED,
+                array_merge(['high_dependency_risk'], array_map(fn (string $t): string => 'pending:'.$t, $blockers)),
+            );
+        }
         if ($blockers !== []) {
             return $this->result(
                 $id,
