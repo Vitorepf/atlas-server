@@ -228,4 +228,126 @@ final class AtlasExternalBrainCompoundingOutcomeRouterTest extends TestCase
 
         $this->assertSame(json_encode($this->router->route($outcome)), json_encode($this->router->route($outcome)));
     }
+
+    // ── AC1: next_batch_action present in output ──────────────────────────────
+
+    public function test_output_includes_next_batch_action_and_weighted_score(): void
+    {
+        $r = $this->router->route([]);
+
+        $this->assertArrayHasKey('next_batch_action', $r, 'next_batch_action missing from output');
+        $this->assertArrayHasKey('weighted_score', $r, 'weighted_score missing from output');
+        $this->assertContains($r['next_batch_action'], ['boost', 'suppress', 'repair', 'investigate']);
+    }
+
+    public function test_regression_next_batch_action_is_repair(): void
+    {
+        $r = $this->router->route(['regression_detected' => true]);
+
+        $this->assertSame('repair', $r['next_batch_action']);
+    }
+
+    public function test_proxy_next_batch_action_is_suppress(): void
+    {
+        $r = $this->router->route(['outcome_type' => 'style_fix']);
+
+        $this->assertSame('suppress', $r['next_batch_action']);
+    }
+
+    public function test_maintenance_next_batch_action_is_suppress(): void
+    {
+        $r = $this->router->route(['outcome_type' => 'doc_update']);
+
+        $this->assertSame('suppress', $r['next_batch_action']);
+    }
+
+    public function test_low_compounding_next_batch_action_is_investigate(): void
+    {
+        $r = $this->router->route(['outcome_type' => 'new_service', 'evidence_refs' => ['phpunit:t']]);
+
+        $this->assertSame('investigate', $r['next_batch_action']);
+    }
+
+    public function test_compounds_existing_next_batch_action_is_boost(): void
+    {
+        $r = $this->router->route(['outcome_type' => 'enhancement', 'wired_callers_count' => 1]);
+
+        $this->assertSame('boost', $r['next_batch_action']);
+    }
+
+    public function test_unlocks_new_capability_next_batch_action_is_boost(): void
+    {
+        $r = $this->router->route([
+            'outcome_type'        => 'new_service',
+            'evidence_refs'       => ['integration:suite'],
+            'wired_callers_count' => 2,
+        ]);
+
+        $this->assertSame('boost', $r['next_batch_action']);
+    }
+
+    // ── AC2: higher weight for give_back reduction + unlock chain depth ────────
+
+    public function test_give_back_reduction_boosts_weighted_score_above_compounding_score(): void
+    {
+        $r = $this->router->route([
+            'outcome_type'               => 'enhancement',
+            'wired_callers_count'        => 1,
+            'give_back_reduction_count'  => 4,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainCompoundingOutcomeRouter::BUCKET_COMPOUNDS, $r['bucket']);
+        $this->assertGreaterThan($r['compounding_score'], $r['weighted_score']);
+    }
+
+    public function test_unlock_chain_depth_boosts_weighted_score(): void
+    {
+        $r = $this->router->route([
+            'outcome_type'        => 'new_service',
+            'evidence_refs'       => ['integration:suite'],
+            'wired_callers_count' => 2,
+            'unlock_chain_depth'  => 5,
+        ]);
+
+        $this->assertGreaterThan($r['compounding_score'], $r['weighted_score']);
+    }
+
+    public function test_weighted_score_is_capped_at_one(): void
+    {
+        $r = $this->router->route([
+            'outcome_type'               => 'new_service',
+            'evidence_refs'              => ['integration:suite'],
+            'wired_callers_count'        => 10,
+            'give_back_reduction_count'  => 100,
+            'unlock_chain_depth'         => 100,
+        ]);
+
+        $this->assertLessThanOrEqual(1.0, $r['weighted_score']);
+    }
+
+    // ── AC3: task volume alone does not boost weighted score ──────────────────
+
+    public function test_high_commit_count_without_downstream_proof_stays_low_compounding(): void
+    {
+        // Many commits but no integration evidence, no wired callers → low_compounding
+        $r = $this->router->route([
+            'outcome_type'  => 'new_service',
+            'evidence_refs' => ['phpunit:t1', 'phpunit:t2', 'phpunit:t3'],
+            // no wired_callers_count, no integration: refs, no give_back_reduction
+        ]);
+
+        $this->assertSame(AtlasExternalBrainCompoundingOutcomeRouter::BUCKET_LOW, $r['bucket']);
+        $this->assertSame($r['compounding_score'], $r['weighted_score'],
+            'low_compounding with no bonuses: weighted_score must equal compounding_score');
+    }
+
+    public function test_no_give_back_reduction_no_unlock_chain_weighted_equals_base(): void
+    {
+        $r = $this->router->route([
+            'outcome_type'        => 'enhancement',
+            'wired_callers_count' => 1,
+        ]);
+
+        $this->assertSame($r['compounding_score'], $r['weighted_score']);
+    }
 }
