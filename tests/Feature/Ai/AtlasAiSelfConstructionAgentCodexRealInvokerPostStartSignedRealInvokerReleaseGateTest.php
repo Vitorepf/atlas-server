@@ -428,4 +428,75 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedRealInvokerRele
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── validateSignedRelease() ──────────────────────────────────────────────
+
+    private function bindingFacts(array $overrides = []): array
+    {
+        $bindings = [
+            'scope' => ['hash' => 'scope-hash', 'age_minutes' => 5],
+            'lease' => ['hash' => 'lease-hash', 'age_minutes' => 5],
+            'queue_health' => ['hash' => 'queue-hash', 'age_minutes' => 5],
+            'proof_bundle' => ['hash' => 'proof-hash', 'age_minutes' => 5],
+        ];
+        $bindings = array_replace($bindings, array_intersect_key($overrides, $bindings));
+
+        $signature = hash('sha256', implode('|', array_map(fn ($b) => $b['hash'], $bindings)));
+
+        return array_merge($bindings, ['release_signature_hash' => $signature], array_diff_key($overrides, $bindings));
+    }
+
+    public function test_release_valid_when_all_bindings_fresh_and_signature_matches(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class);
+        $result = $gate->validateSignedRelease($this->bindingFacts());
+
+        $this->assertTrue($result['release_valid']);
+        $this->assertNull($result['invalid_binding']);
+        $this->assertNull($result['required_resign_hint']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_release_blocked_when_scope_missing(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class);
+        $result = $gate->validateSignedRelease($this->bindingFacts(['scope' => ['hash' => '', 'age_minutes' => 5]]));
+
+        $this->assertFalse($result['release_valid']);
+        $this->assertSame('scope', $result['invalid_binding']);
+        $this->assertNotNull($result['required_resign_hint']);
+    }
+
+    public function test_release_blocked_when_lease_stale(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class);
+        $result = $gate->validateSignedRelease($this->bindingFacts(['lease' => ['hash' => 'lease-hash', 'age_minutes' => 90]]));
+
+        $this->assertFalse($result['release_valid']);
+        $this->assertSame('lease', $result['invalid_binding']);
+        $this->assertSame('stale', $result['invalid_binding_defect']);
+    }
+
+    public function test_release_blocked_when_signature_mismatched(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class);
+        $facts = $this->bindingFacts();
+        $facts['release_signature_hash'] = str_repeat('a', 64);
+        $result = $gate->validateSignedRelease($facts);
+
+        $this->assertFalse($result['release_valid']);
+        $this->assertSame('signature', $result['invalid_binding']);
+    }
+
+    public function test_custom_max_binding_age_minutes_is_respected(): void
+    {
+        $gate = app(AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate::class);
+        $result = $gate->validateSignedRelease($this->bindingFacts([
+            'queue_health' => ['hash' => 'queue-hash', 'age_minutes' => 20],
+            'max_binding_age_minutes' => 10,
+        ]));
+
+        $this->assertFalse($result['release_valid']);
+        $this->assertSame('queue_health', $result['invalid_binding']);
+    }
 }

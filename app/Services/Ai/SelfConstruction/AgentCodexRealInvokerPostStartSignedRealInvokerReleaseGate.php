@@ -14,6 +14,82 @@ class AgentCodexRealInvokerPostStartSignedRealInvokerReleaseGate
         private readonly AgentCodexSignedRealInvokerReleaseGate $signedRelease,
     ) {}
 
+    private const DEFAULT_MAX_BINDING_AGE_MINUTES = 30;
+
+    private const RESIGN_HINTS = [
+        'scope' => 'resign the release with the current scope hash before it can be trusted',
+        'lease' => 'resign the release after re-claiming or renewing the current lease',
+        'queue_health' => 'resign the release with current queue_health evidence (not stale)',
+        'proof_bundle' => 'resign the release with a fresh, complete proof_bundle',
+        'signature' => 'recompute and resign release_signature_hash over scope, lease, queue_health and proof_bundle',
+    ];
+
+    /**
+     * Pure, provider-free validation that a signed real-invoker release is
+     * bound to the CURRENT scope, lease, queue health and proof bundle —
+     * not whatever was true when it was originally signed. Any binding
+     * that is missing, stale, or whose hash doesn't match what was signed
+     * over blocks the release. Never starts a process; only judges the
+     * signature binding.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function validateSignedRelease(array $facts): array
+    {
+        $maxAgeMinutes = (int) ($facts['max_binding_age_minutes'] ?? self::DEFAULT_MAX_BINDING_AGE_MINUTES);
+
+        $bindingHashes = [];
+        foreach (['scope', 'lease', 'queue_health', 'proof_bundle'] as $binding) {
+            $component = (array) ($facts[$binding] ?? []);
+            $hash = (string) ($component['hash'] ?? '');
+            $ageMinutes = (int) ($component['age_minutes'] ?? PHP_INT_MAX);
+
+            if ($hash === '') {
+                return $this->blocked($binding, 'missing');
+            }
+            if ($ageMinutes > $maxAgeMinutes) {
+                return $this->blocked($binding, 'stale');
+            }
+
+            $bindingHashes[$binding] = $hash;
+        }
+
+        $expectedSignatureHash = hash('sha256', implode('|', $bindingHashes));
+        $releaseSignatureHash = strtolower(trim((string) ($facts['release_signature_hash'] ?? '')));
+
+        if ($releaseSignatureHash !== $expectedSignatureHash) {
+            return $this->blocked('signature', 'mismatched');
+        }
+
+        return [
+            'release_valid' => true,
+            'invalid_binding' => null,
+            'required_resign_hint' => null,
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function blocked(string $binding, string $defect): array
+    {
+        return [
+            'release_valid' => false,
+            'invalid_binding' => $binding,
+            'invalid_binding_defect' => $defect,
+            'required_resign_hint' => self::RESIGN_HINTS[$binding],
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
