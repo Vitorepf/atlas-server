@@ -146,6 +146,75 @@ final class AtlasMaestroQueueAgeHistogramTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $histogram['total_claimable']);
     }
 
+    public function test_fresh_count_and_stale_count_sum_to_total_claimable(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packets = [
+            $this->claimableFor($now, 30, 'claimable_since'),     // <1m  → fresh
+            $this->claimableFor($now, 600, 'enqueued_at'),        // 5-15m → fresh
+            $this->claimableFor($now, 1800, 'updated_at'),        // 15-60m → stale
+            $this->claimableFor($now, 7200, 'claimable_since'),   // 1-6h → stale
+        ];
+        $queue = $this->inlineQueue($packets);
+
+        $h = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $this->assertSame(4, $h['total_claimable']);
+        $this->assertSame(2, $h['fresh_count']);
+        $this->assertSame(2, $h['stale_count']);
+        $this->assertSame($h['total_claimable'], $h['fresh_count'] + $h['stale_count']);
+        $this->assertFalse($h['starvation_risk']); // fresh supply exists
+    }
+
+    public function test_starvation_risk_true_when_all_packets_are_stale_and_no_fresh(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packets = [
+            $this->claimableFor($now, 3600, 'claimable_since'),
+            $this->claimableFor($now, 86400, 'claimable_since'),
+        ];
+        $queue = $this->inlineQueue($packets);
+
+        $h = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $this->assertSame(0, $h['fresh_count']);
+        $this->assertSame(2, $h['stale_count']);
+        $this->assertTrue($h['starvation_risk']);
+    }
+
+    public function test_oldest_packet_ids_stable_ordered_and_read_only(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $packets = [
+            $this->claimableFor($now, 30, 'claimable_since'),     // youngest
+            $this->claimableFor($now, 7200, 'claimable_since'),   // middle
+            $this->claimableFor($now, 90000, 'claimable_since'),  // oldest
+        ];
+        $queue = $this->inlineQueue($packets);
+
+        $hA = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+        $hB = (new AtlasMaestroQueueAgeHistogram($queue, static fn (): DateTimeImmutable => $now))->histogram();
+
+        $this->assertSame($hA['oldest_packet_ids'], $hB['oldest_packet_ids'], 'oldest_packet_ids must be deterministic');
+        $this->assertSame('packet_90000', $hA['oldest_packet_ids'][0]);
+        $this->assertSame('packet_7200', $hA['oldest_packet_ids'][1]);
+        $this->assertSame(3, $hA['total_claimable']); // read-only: no packets added/removed
+    }
+
+    /** @param list<array<string,mixed>> $packets */
+    private function inlineQueue(array $packets): object
+    {
+        return new class($packets) {
+            public function __construct(private readonly array $packets) {}
+
+            /** @return list<array<string,mixed>> */
+            public function list(array $filters = []): array
+            {
+                return (string) ($filters['status'] ?? '') === 'claimable' ? $this->packets : [];
+            }
+        };
+    }
+
     /**
      * @return array<string,mixed>
      */

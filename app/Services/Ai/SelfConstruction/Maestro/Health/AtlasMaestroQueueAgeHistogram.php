@@ -53,24 +53,42 @@ final class AtlasMaestroQueueAgeHistogram
     {
         $now = ($this->clock)()->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
         $ages = [];
+        $packetAges = [];
 
         foreach ($this->queueRepo()->list(['status' => 'claimable']) as $packet) {
             if (! is_array($packet)) {
                 continue;
             }
-
-            $ages[] = max(0, $now - $this->claimableSinceUnix($packet));
+            $age = max(0, $now - $this->claimableSinceUnix($packet));
+            $ages[] = $age;
+            $packetAges[] = ['age' => $age, 'id' => (string) ($packet['task_packet_id'] ?? '')];
         }
 
         sort($ages, SORT_NUMERIC);
+        usort($packetAges, static fn (array $a, array $b): int => $b['age'] <=> $a['age']);
+
+        $bins = $this->bins($ages);
+
+        // Fresh = first 3 buckets (<1m, 1-5m, 5-15m — age < 900s).
+        // Stale = remaining buckets (15-60m and older).
+        $freshCount = array_sum(array_column(array_slice($bins, 0, 3), 'count'));
+        $staleCount = count($ages) - $freshCount;
+        $oldestIds = array_values(array_filter(
+            array_column(array_slice($packetAges, 0, 5), 'id'),
+            static fn (string $id): bool => $id !== '',
+        ));
 
         return [
             'schema' => self::SCHEMA,
             'total_claimable' => count($ages),
-            'bins' => $this->bins($ages),
+            'bins' => $bins,
             'oldest_seconds' => $ages === [] ? 0 : max($ages),
             'p50_seconds' => $this->nearestRank($ages, 0.50),
             'p95_seconds' => $this->nearestRank($ages, 0.95),
+            'fresh_count' => $freshCount,
+            'stale_count' => $staleCount,
+            'starvation_risk' => $staleCount > 0 && $freshCount === 0,
+            'oldest_packet_ids' => $oldestIds,
         ];
     }
 
