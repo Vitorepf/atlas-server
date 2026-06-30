@@ -92,4 +92,27 @@ final class AtlasSelfConstructionWorkerCapabilityContractTest extends TestCase
         $b = json_encode($c->evaluate($p));
         $this->assertSame($a, $b);
     }
+
+    public function test_tier_mismatch_when_worker_tier_below_required(): void
+    {
+        $p = $this->safeProfile();
+        $p['worker_tier']   = AtlasSelfConstructionWorkerCapabilityContract::TIER_EASY;
+        $p['required_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARD;
+        $r = (new AtlasSelfConstructionWorkerCapabilityContract)->evaluate($p);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('tier_mismatch:easy<hard', $r['blockers']);
+    }
+
+    public function test_compact_contract_serialization_emits_bounded_fields(): void
+    {
+        $p = $this->safeProfile();
+        $p['worker_tier'] = AtlasSelfConstructionWorkerCapabilityContract::TIER_HARD;
+        $compact = (new AtlasSelfConstructionWorkerCapabilityContract)->toCompact($p);
+
+        $this->assertSame(['schema', 'worker_id', 'worker_tier', 'scope_roots', 'capabilities'], array_keys($compact));
+        $this->assertSame('hard', $compact['worker_tier']);
+        $this->assertSame($p['worker_id'], $compact['worker_id']);
+        $this->assertIsArray($compact['capabilities']);
+    }
 }

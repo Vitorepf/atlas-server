@@ -59,6 +59,14 @@ final class AtlasSelfConstructionWorkerCapabilityContract
 
     public const REQUIRED_EVIDENCE = ['evidence_hash', 'test_run_id', 'commit_sha_or_diff_hash'];
 
+    public const TIER_EASY = 'easy';
+
+    public const TIER_HARD = 'hard';
+
+    public const TIER_HARDEST = 'hardest';
+
+    private const TIER_RANK = [self::TIER_EASY => 0, self::TIER_HARD => 1, self::TIER_HARDEST => 2];
+
     /**
      * @param  array{
      *     worker_id?:string,
@@ -119,6 +127,16 @@ final class AtlasSelfConstructionWorkerCapabilityContract
             }
         }
 
+        $workerTier = (string) ($profile['worker_tier'] ?? '');
+        $requiredTier = (string) ($profile['required_tier'] ?? '');
+        if ($workerTier !== '' && $requiredTier !== '') {
+            $workerRank = self::TIER_RANK[$workerTier] ?? -1;
+            $requiredRank = self::TIER_RANK[$requiredTier] ?? -1;
+            if ($workerRank < $requiredRank) {
+                $blockers[] = 'tier_mismatch:'.$workerTier.'<'.$requiredTier;
+            }
+        }
+
         sort($blockers, SORT_STRING);
 
         return [
@@ -132,7 +150,27 @@ final class AtlasSelfConstructionWorkerCapabilityContract
                 'declared_capabilities' => $caps,
                 'declared_actions' => $actions,
                 'evidence_emits' => $evidence,
+                'worker_tier' => $workerTier !== '' ? $workerTier : null,
             ],
+        ];
+    }
+
+    /**
+     * Compact read-only view of the contract — used for logging and routing decisions.
+     *
+     * @param  array<string,mixed>  $profile
+     * @return array{schema:string, worker_id:string, worker_tier:string|null, scope_roots:list<string>, capabilities:list<string>}
+     */
+    public function toCompact(array $profile): array
+    {
+        $r = $this->evaluate($profile);
+
+        return [
+            'schema'       => self::SCHEMA,
+            'worker_id'    => (string) ($profile['worker_id'] ?? ''),
+            'worker_tier'  => ($profile['worker_tier'] ?? '') !== '' ? (string) $profile['worker_tier'] : null,
+            'scope_roots'  => $r['profile']['scope_roots'],
+            'capabilities' => $r['profile']['declared_capabilities'],
         ];
     }
 }
