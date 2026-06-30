@@ -137,6 +137,52 @@ final class OutcomeCausalityRankerTest extends TestCase
         $this->assertFalse($unblockedFallback['attribution_blocked']);
     }
 
+    public function testGiveBackWithInsufficientAllowedFilesOutranksGenericExecutionFailure(): void
+    {
+        $result = $this->ranker->rankOutcomeEnvelope([
+            'outcome' => 'give_back',
+            'has_evidence_refs' => true,
+            'allowed_files_sufficient' => false,
+        ]);
+
+        $this->assertSame('scope_or_contract_mismatch', $result['primary_cause']);
+        $this->assertSame(
+            ['scope_or_contract_mismatch', 'execution_failed_or_blocked'],
+            array_map(static fn (array $candidate): string => $candidate['cause'], $result['candidates']),
+        );
+    }
+
+    public function testPoisonOutcomeRanksPacketQualityFailureAheadOfMissingContext(): void
+    {
+        $result = $this->ranker->rankOutcomeEnvelope([
+            'outcome' => 'poison',
+            'has_evidence_refs' => true,
+            'missing_required_sources' => true,
+            'packet_quality_failed' => true,
+        ]);
+
+        $this->assertSame('packet_quality_failure', $result['primary_cause']);
+        $causes = array_map(static fn (array $candidate): string => $candidate['cause'], $result['candidates']);
+        $this->assertContains('packet_quality_failure', $causes);
+        $this->assertContains('context_missing_required_sources', $causes);
+        $this->assertLessThan(
+            array_search('context_missing_required_sources', $causes, true),
+            array_search('packet_quality_failure', $causes, true),
+        );
+    }
+
+    public function testSuccessOutcomeWithEvidenceAndGreenTestsKeepsAttributionUnblocked(): void
+    {
+        $result = $this->ranker->rankOutcomeEnvelope([
+            'outcome' => 'success',
+            'has_evidence_refs' => true,
+            'tests_passed' => true,
+        ]);
+
+        $this->assertSame('execution_strategy_likely_succeeded', $result['primary_cause']);
+        $this->assertFalse($result['attribution_blocked']);
+    }
+
     public function testIdenticalInputIsDeterministic(): void
     {
         $first = $this->ranker->rank(false, 'failed', true, false);

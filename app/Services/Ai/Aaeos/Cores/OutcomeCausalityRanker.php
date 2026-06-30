@@ -30,6 +30,22 @@ final class OutcomeCausalityRanker
 
     private const STATUS_SUCCEEDED = 'succeeded';
 
+    private const CAUSE_SCOPE_OR_CONTRACT_MISMATCH = 'scope_or_contract_mismatch';
+
+    private const CAUSE_PACKET_QUALITY_FAILURE = 'packet_quality_failure';
+
+    private const WEIGHT_SCOPE_OR_CONTRACT_MISMATCH = 0.80;
+
+    private const WEIGHT_PACKET_QUALITY_FAILURE = 0.72;
+
+    private const OUTCOME_SUCCESS = 'success';
+
+    private const OUTCOME_GIVE_BACK = 'give_back';
+
+    private const OUTCOME_POISON = 'poison';
+
+    private const OUTCOME_QUARANTINE = 'quarantine';
+
     /**
      * Rank causal explanations for an execution outcome and derive attribution.
      *
@@ -65,6 +81,81 @@ final class OutcomeCausalityRanker
             $testsPassed,
         );
 
+        return $this->finalizeRanking($candidates, $hasEvidenceRefs);
+    }
+
+    /**
+     * Adapter that ranks causality from a single worker outcome envelope (success,
+     * give_back, poison/quarantine, blocked, missing evidence, failed tests, missing
+     * context) so the Learning Layer never infers causality from free text.
+     *
+     * @param  array{
+     *     outcome:string,
+     *     has_evidence_refs?:bool,
+     *     tests_passed?:?bool,
+     *     missing_required_sources?:bool,
+     *     allowed_files_sufficient?:bool,
+     *     packet_quality_failed?:bool,
+     * }  $envelope
+     * @return array{
+     *     schema_version:string,
+     *     candidates:list<array{cause:string,weight:float}>,
+     *     primary_cause:string,
+     *     alternative_explanations:list<array{cause:string,weight:float}>,
+     *     attribution_confidence:float,
+     *     attribution_blocked:bool
+     * }
+     */
+    public function rankOutcomeEnvelope(array $envelope): array
+    {
+        $outcome = (string) ($envelope['outcome'] ?? '');
+        $hasEvidenceRefs = (bool) ($envelope['has_evidence_refs'] ?? false);
+        $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
+        $missingRequiredSources = (bool) ($envelope['missing_required_sources'] ?? false);
+        $allowedFilesSufficient = (bool) ($envelope['allowed_files_sufficient'] ?? true);
+        $packetQualityFailed = (bool) ($envelope['packet_quality_failed'] ?? false);
+
+        $candidates = $this->buildCandidates(
+            $hasEvidenceRefs,
+            $outcome === self::OUTCOME_SUCCESS ? self::STATUS_SUCCEEDED : $outcome,
+            $missingRequiredSources,
+            $testsPassed,
+        );
+
+        $order = count($candidates);
+
+        if ($outcome === self::OUTCOME_GIVE_BACK && ! $allowedFilesSufficient) {
+            $candidates[] = [
+                'cause' => self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH,
+                'weight' => self::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH,
+                'order' => $order++,
+            ];
+        }
+
+        if (in_array($outcome, [self::OUTCOME_POISON, self::OUTCOME_QUARANTINE], true) && $packetQualityFailed) {
+            $candidates[] = [
+                'cause' => self::CAUSE_PACKET_QUALITY_FAILURE,
+                'weight' => self::WEIGHT_PACKET_QUALITY_FAILURE,
+                'order' => $order++,
+            ];
+        }
+
+        return $this->finalizeRanking($candidates, $hasEvidenceRefs);
+    }
+
+    /**
+     * @param  list<array{cause:string,weight:float,order:int}>  $candidates
+     * @return array{
+     *     schema_version:string,
+     *     candidates:list<array{cause:string,weight:float}>,
+     *     primary_cause:string,
+     *     alternative_explanations:list<array{cause:string,weight:float}>,
+     *     attribution_confidence:float,
+     *     attribution_blocked:bool
+     * }
+     */
+    private function finalizeRanking(array $candidates, bool $hasEvidenceRefs): array
+    {
         usort($candidates, function (array $a, array $b): int {
             if ($a['weight'] === $b['weight']) {
                 return $a['order'] <=> $b['order'];
@@ -154,7 +245,9 @@ final class OutcomeCausalityRanker
     {
         return match ($primaryCause) {
             self::CAUSE_MISSING_EVIDENCE, self::CAUSE_TESTS_FAILED => 0.90,
+            self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH => 0.84,
             self::CAUSE_EXECUTION_FAILED_OR_BLOCKED, self::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES => 0.78,
+            self::CAUSE_PACKET_QUALITY_FAILURE => 0.76,
             self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED => 0.62,
             default => 0.45,
         };
