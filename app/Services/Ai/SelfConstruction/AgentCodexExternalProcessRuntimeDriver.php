@@ -14,9 +14,81 @@ class AgentCodexExternalProcessRuntimeDriver
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
 
+    public const OUTCOME_LAUNCH_FAILURE = 'launch_failure';
+    public const OUTCOME_STALE_HEARTBEAT = 'stale_heartbeat';
+    public const OUTCOME_NO_OUTPUT = 'no_output';
+    public const OUTCOME_COMPLETED_WITHOUT_PROOF = 'completed_without_proof';
+    public const OUTCOME_COMPLETED_WITH_PROOF = 'completed_with_proof';
+
+    public const DEFAULT_HEARTBEAT_STALE_THRESHOLD_SECONDS = 120;
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
+
+    /**
+     * Pure outcome classifier (AC1/AC2/AC3): given observable execution signals — did the process
+     * launch, is the heartbeat fresh, did output arrive, does the output carry runnable proof —
+     * classifies the run for outcome learning. Does not touch the database or the ledger; this is
+     * the same start/heartbeat/output/failure-class evidence the runtime registry needs, computed
+     * deterministically from a snapshot rather than by polling a live process.
+     *
+     * Outcome class priority (first failing check wins):
+     *   1. launch_failure            — the process never started
+     *   2. stale_heartbeat           — no heartbeat, or last one is older than the threshold
+     *   3. no_output                 — heartbeat is fresh but no output was ever received
+     *   4. completed_without_proof   — output arrived but carries no runnable proof
+     *   5. completed_with_proof      — output arrived and carries runnable proof
+     *
+     * INPUT:
+     *   launch_succeeded?: bool (default true)
+     *   heartbeat_age_seconds?: float|null (default null = never received)
+     *   heartbeat_stale_threshold_seconds?: int (default 120)
+     *   output_received?: bool (default false)
+     *   proof_present?: bool (default false)
+     *
+     * OUTPUT:
+     *   outcome_payload: { outcome_class, failure_class, start_receipt, heartbeat_marker,
+     *     output_receipt, suitable_for_learning }
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function classifyExecutionOutcome(array $input): array
+    {
+        $launchSucceeded = (bool) ($input['launch_succeeded'] ?? true);
+        $heartbeatAge = isset($input['heartbeat_age_seconds']) ? (float) $input['heartbeat_age_seconds'] : null;
+        $staleThreshold = (int) ($input['heartbeat_stale_threshold_seconds'] ?? self::DEFAULT_HEARTBEAT_STALE_THRESHOLD_SECONDS);
+        $outputReceived = (bool) ($input['output_received'] ?? false);
+        $proofPresent = (bool) ($input['proof_present'] ?? false);
+
+        $startReceipt = ['recorded' => true, 'launch_succeeded' => $launchSucceeded];
+        $heartbeatMarker = ['age_seconds' => $heartbeatAge, 'stale_threshold_seconds' => $staleThreshold];
+        $outputReceipt = ['received' => $outputReceived, 'proof_present' => $proofPresent];
+
+        $heartbeatStale = $heartbeatAge === null || $heartbeatAge > $staleThreshold;
+
+        $outcomeClass = match (true) {
+            ! $launchSucceeded => self::OUTCOME_LAUNCH_FAILURE,
+            $heartbeatStale => self::OUTCOME_STALE_HEARTBEAT,
+            ! $outputReceived => self::OUTCOME_NO_OUTPUT,
+            ! $proofPresent => self::OUTCOME_COMPLETED_WITHOUT_PROOF,
+            default => self::OUTCOME_COMPLETED_WITH_PROOF,
+        };
+
+        $failureClass = $outcomeClass === self::OUTCOME_COMPLETED_WITH_PROOF ? null : $outcomeClass;
+
+        return [
+            'outcome_payload' => [
+                'outcome_class' => $outcomeClass,
+                'failure_class' => $failureClass,
+                'start_receipt' => $startReceipt,
+                'heartbeat_marker' => $heartbeatMarker,
+                'output_receipt' => $outputReceipt,
+                'suitable_for_learning' => true,
+            ],
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input

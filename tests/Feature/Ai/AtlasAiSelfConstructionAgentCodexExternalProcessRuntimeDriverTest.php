@@ -230,4 +230,111 @@ class AtlasAiSelfConstructionAgentCodexExternalProcessRuntimeDriverTest extends 
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── AC1/AC2/AC3: classifyExecutionOutcome — pure outcome classifier ────────
+
+    public function test_default_input_with_no_heartbeat_or_output_is_stale_heartbeat(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([]);
+
+        $this->assertSame(
+            AgentCodexExternalProcessRuntimeDriver::OUTCOME_STALE_HEARTBEAT,
+            $result['outcome_payload']['outcome_class'],
+        );
+    }
+
+    public function test_launch_failure_takes_priority_over_everything(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([
+            'launch_succeeded' => false,
+            'heartbeat_age_seconds' => 1.0,
+            'output_received' => true,
+            'proof_present' => true,
+        ]);
+
+        $this->assertSame(
+            AgentCodexExternalProcessRuntimeDriver::OUTCOME_LAUNCH_FAILURE,
+            $result['outcome_payload']['outcome_class'],
+        );
+        $this->assertSame(AgentCodexExternalProcessRuntimeDriver::OUTCOME_LAUNCH_FAILURE, $result['outcome_payload']['failure_class']);
+    }
+
+    public function test_stale_heartbeat_age_exceeding_threshold_blocks(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([
+            'heartbeat_age_seconds' => 999.0,
+            'heartbeat_stale_threshold_seconds' => 120,
+        ]);
+
+        $this->assertSame(
+            AgentCodexExternalProcessRuntimeDriver::OUTCOME_STALE_HEARTBEAT,
+            $result['outcome_payload']['outcome_class'],
+        );
+    }
+
+    public function test_fresh_heartbeat_but_no_output_is_no_output(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([
+            'heartbeat_age_seconds' => 5.0,
+            'output_received' => false,
+        ]);
+
+        $this->assertSame(
+            AgentCodexExternalProcessRuntimeDriver::OUTCOME_NO_OUTPUT,
+            $result['outcome_payload']['outcome_class'],
+        );
+    }
+
+    public function test_output_without_proof_is_completed_without_proof(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([
+            'heartbeat_age_seconds' => 5.0,
+            'output_received' => true,
+            'proof_present' => false,
+        ]);
+
+        $this->assertSame(
+            AgentCodexExternalProcessRuntimeDriver::OUTCOME_COMPLETED_WITHOUT_PROOF,
+            $result['outcome_payload']['outcome_class'],
+        );
+        $this->assertSame(AgentCodexExternalProcessRuntimeDriver::OUTCOME_COMPLETED_WITHOUT_PROOF, $result['outcome_payload']['failure_class']);
+    }
+
+    public function test_output_with_proof_is_completed_with_proof_and_no_failure_class(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([
+            'heartbeat_age_seconds' => 5.0,
+            'output_received' => true,
+            'proof_present' => true,
+        ]);
+
+        $this->assertSame(
+            AgentCodexExternalProcessRuntimeDriver::OUTCOME_COMPLETED_WITH_PROOF,
+            $result['outcome_payload']['outcome_class'],
+        );
+        $this->assertNull($result['outcome_payload']['failure_class']);
+    }
+
+    public function test_outcome_payload_includes_start_receipt_heartbeat_marker_and_output_receipt(): void
+    {
+        $result = app(AgentCodexExternalProcessRuntimeDriver::class)->classifyExecutionOutcome([
+            'heartbeat_age_seconds' => 5.0,
+            'output_received' => true,
+            'proof_present' => true,
+        ]);
+
+        $payload = $result['outcome_payload'];
+        $this->assertArrayHasKey('start_receipt', $payload);
+        $this->assertArrayHasKey('heartbeat_marker', $payload);
+        $this->assertArrayHasKey('output_receipt', $payload);
+        $this->assertTrue($payload['suitable_for_learning']);
+    }
+
+    public function test_classify_execution_outcome_is_deterministic(): void
+    {
+        $driver = app(AgentCodexExternalProcessRuntimeDriver::class);
+        $input = ['heartbeat_age_seconds' => 5.0, 'output_received' => true, 'proof_present' => true];
+
+        $this->assertSame($driver->classifyExecutionOutcome($input), $driver->classifyExecutionOutcome($input));
+    }
 }
