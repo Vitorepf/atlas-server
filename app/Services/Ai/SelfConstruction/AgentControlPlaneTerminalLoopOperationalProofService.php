@@ -117,6 +117,101 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
         ];
     }
 
+    private const STALE_EVIDENCE_AGE_SECONDS = 1800;
+
+    private const NEXT_RECOVERY_HINT_BY_STATUS = [
+        'operational' => 'no_action_needed_loop_is_proven_operational',
+        'stale' => 'trigger_a_fresh_claim_and_report_cycle_or_run_the_terminal_loop_health_digest',
+        'stuck' => 'reclaim_the_lease_and_check_for_a_worker_that_claimed_but_never_reported',
+        'fake_alive' => 'do_not_trust_process_presence_alone_collect_a_real_claim_or_report_event',
+        'insufficient_evidence' => 'collect_claim_and_report_evidence_before_judging_loop_status',
+    ];
+
+    /**
+     * Pure, stateless classifier: judges loop operational status from fresh
+     * claim/report events and queue movement only — never from static
+     * process-name existence alone. process_name_present, when supplied, is
+     * used only to distinguish fake_alive (a process running with no real
+     * activity evidence) from insufficient_evidence (no process and no
+     * evidence either).
+     *
+     * Ages are caller-supplied seconds-since-event (not wall-clock
+     * timestamps) so this method stays pure with no implicit `now`.
+     *
+     * STATUS (first matching rule wins):
+     *   no claim/success/failed-report evidence at all
+     *     + process_name_present=true  -> fake_alive (process_present_without_claim_or_report_evidence)
+     *     + process_name_present=false -> insufficient_evidence (no_loop_activity_evidence_present)
+     *   freshest evidence age > STALE_EVIDENCE_AGE_SECONDS (1800)
+     *                                    -> stale (no_recent_claim_or_report_activity)
+     *   a claim is fresher than any report AND queue_movement_count=0
+     *                                    -> stuck (claimed_lease_with_no_followup_report_or_queue_movement)
+     *   otherwise                        -> operational (none)
+     *
+     * @param  array<string, mixed>  $facts  { last_claim_age_seconds?,
+     *   last_success_report_age_seconds?, last_failed_report_age_seconds?,
+     *   queue_movement_count?, process_name_present? }
+     * @return array{status:string, evidence_freshness:int|null, blocking_reason:string|null, next_recovery_hint:string}
+     */
+    public function classifyLoopOperationalStatus(array $facts): array
+    {
+        $claimAge = isset($facts['last_claim_age_seconds']) ? max(0, (int) $facts['last_claim_age_seconds']) : null;
+        $successAge = isset($facts['last_success_report_age_seconds']) ? max(0, (int) $facts['last_success_report_age_seconds']) : null;
+        $failedAge = isset($facts['last_failed_report_age_seconds']) ? max(0, (int) $facts['last_failed_report_age_seconds']) : null;
+        $queueMovementCount = max(0, (int) ($facts['queue_movement_count'] ?? 0));
+        $processNamePresent = (bool) ($facts['process_name_present'] ?? false);
+
+        $ages = array_values(array_filter([$claimAge, $successAge, $failedAge], static fn ($a): bool => $a !== null));
+
+        if ($ages === []) {
+            $status = $processNamePresent ? 'fake_alive' : 'insufficient_evidence';
+            $blockingReason = $processNamePresent
+                ? 'process_present_without_claim_or_report_evidence'
+                : 'no_loop_activity_evidence_present';
+
+            return [
+                'status' => $status,
+                'evidence_freshness' => null,
+                'blocking_reason' => $blockingReason,
+                'next_recovery_hint' => self::NEXT_RECOVERY_HINT_BY_STATUS[$status],
+            ];
+        }
+
+        $evidenceFreshness = min($ages);
+
+        if ($evidenceFreshness > self::STALE_EVIDENCE_AGE_SECONDS) {
+            return [
+                'status' => 'stale',
+                'evidence_freshness' => $evidenceFreshness,
+                'blocking_reason' => 'no_recent_claim_or_report_activity',
+                'next_recovery_hint' => self::NEXT_RECOVERY_HINT_BY_STATUS['stale'],
+            ];
+        }
+
+        $reportAge = $successAge !== null && $failedAge !== null
+            ? min($successAge, $failedAge)
+            : ($successAge ?? $failedAge);
+        $claimedWithoutFollowup = $claimAge !== null
+            && ($reportAge === null || $claimAge < $reportAge)
+            && $queueMovementCount === 0;
+
+        if ($claimedWithoutFollowup) {
+            return [
+                'status' => 'stuck',
+                'evidence_freshness' => $evidenceFreshness,
+                'blocking_reason' => 'claimed_lease_with_no_followup_report_or_queue_movement',
+                'next_recovery_hint' => self::NEXT_RECOVERY_HINT_BY_STATUS['stuck'],
+            ];
+        }
+
+        return [
+            'status' => 'operational',
+            'evidence_freshness' => $evidenceFreshness,
+            'blocking_reason' => null,
+            'next_recovery_hint' => self::NEXT_RECOVERY_HINT_BY_STATUS['operational'],
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>

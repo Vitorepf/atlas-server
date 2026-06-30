@@ -139,4 +139,103 @@ final class AgentControlPlaneTerminalLoopOperationalProofServiceTest extends Tes
         $this->assertSame(1, $result['facts_evaluated']['command_receipts_count']);
         $this->assertSame(1, $result['facts_evaluated']['successful_worker_reports']);
     }
+
+    // ── classifyLoopOperationalStatus ───────────────────────────────────────────
+
+    public function test_no_evidence_and_no_process_is_insufficient_evidence(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([]);
+
+        $this->assertSame('insufficient_evidence', $result['status']);
+        $this->assertSame('no_loop_activity_evidence_present', $result['blocking_reason']);
+        $this->assertNull($result['evidence_freshness']);
+    }
+
+    public function test_process_present_with_no_evidence_is_fake_alive(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus(['process_name_present' => true]);
+
+        $this->assertSame('fake_alive', $result['status']);
+        $this->assertSame('process_present_without_claim_or_report_evidence', $result['blocking_reason']);
+    }
+
+    public function test_old_evidence_beyond_threshold_is_stale(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([
+            'last_success_report_age_seconds' => 5000,
+        ]);
+
+        $this->assertSame('stale', $result['status']);
+        $this->assertSame('no_recent_claim_or_report_activity', $result['blocking_reason']);
+        $this->assertSame(5000, $result['evidence_freshness']);
+    }
+
+    public function test_recent_claim_without_followup_report_or_movement_is_stuck(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([
+            'last_claim_age_seconds' => 60,
+            'queue_movement_count' => 0,
+        ]);
+
+        $this->assertSame('stuck', $result['status']);
+        $this->assertSame('claimed_lease_with_no_followup_report_or_queue_movement', $result['blocking_reason']);
+    }
+
+    public function test_recent_claim_with_newer_success_report_is_operational(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([
+            'last_claim_age_seconds' => 120,
+            'last_success_report_age_seconds' => 30,
+            'queue_movement_count' => 1,
+        ]);
+
+        $this->assertSame('operational', $result['status']);
+        $this->assertNull($result['blocking_reason']);
+    }
+
+    public function test_recent_claim_with_queue_movement_is_not_stuck(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([
+            'last_claim_age_seconds' => 60,
+            'queue_movement_count' => 3,
+        ]);
+
+        $this->assertSame('operational', $result['status']);
+    }
+
+    public function test_recent_failed_report_alone_is_operational_not_stale(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([
+            'last_failed_report_age_seconds' => 100,
+        ]);
+
+        $this->assertSame('operational', $result['status']);
+    }
+
+    public function test_next_recovery_hint_is_present_for_every_status(): void
+    {
+        $cases = [
+            [],
+            ['process_name_present' => true],
+            ['last_success_report_age_seconds' => 5000],
+            ['last_claim_age_seconds' => 60, 'queue_movement_count' => 0],
+            ['last_claim_age_seconds' => 60, 'last_success_report_age_seconds' => 10, 'queue_movement_count' => 1],
+        ];
+
+        foreach ($cases as $facts) {
+            $result = $this->svc()->classifyLoopOperationalStatus($facts);
+            $this->assertNotEmpty($result['next_recovery_hint']);
+        }
+    }
+
+    public function test_evidence_freshness_is_the_minimum_age_across_signals(): void
+    {
+        $result = $this->svc()->classifyLoopOperationalStatus([
+            'last_claim_age_seconds' => 500,
+            'last_success_report_age_seconds' => 50,
+            'last_failed_report_age_seconds' => 800,
+        ]);
+
+        $this->assertSame(50, $result['evidence_freshness']);
+    }
 }
