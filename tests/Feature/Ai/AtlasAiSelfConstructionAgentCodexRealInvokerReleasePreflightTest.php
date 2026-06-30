@@ -244,4 +244,94 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerReleasePreflightTest extends T
         Schema::dropIfExists('atlas_self_construction_agent_runs');
         Schema::dropIfExists('atlas_ledger_events');
     }
+
+    // ── evaluateReleaseReadiness() ───────────────────────────────────────────
+
+    private function freshProof(int $ageMinutes = 5): array
+    {
+        return ['present' => true, 'age_minutes' => $ageMinutes];
+    }
+
+    private function readinessFacts(array $overrides = []): array
+    {
+        return array_merge([
+            'scope_proof' => $this->freshProof(),
+            'launch_proof' => $this->freshProof(),
+            'rollback_plan' => $this->freshProof(),
+            'queue_health' => $this->freshProof(),
+        ], $overrides);
+    }
+
+    public function test_release_ready_when_all_four_proofs_present_and_fresh(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness($this->readinessFacts());
+
+        $this->assertTrue($result['release_ready']);
+        $this->assertSame([], $result['missing_proofs']);
+        $this->assertNull($result['next_repair_hint']);
+        $this->assertFalse($result['dispatch_allowed']);
+    }
+
+    public function test_release_blocked_when_scope_proof_missing(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness(
+            $this->readinessFacts(['scope_proof' => null]),
+        );
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('scope_proof', $result['missing_proofs']);
+        $this->assertNotNull($result['next_repair_hint']);
+    }
+
+    public function test_release_blocked_when_launch_proof_stale(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness(
+            $this->readinessFacts(['launch_proof' => $this->freshProof(120)]),
+        );
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('launch_proof', $result['missing_proofs']);
+    }
+
+    public function test_release_blocked_when_rollback_plan_not_present(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness(
+            $this->readinessFacts(['rollback_plan' => ['present' => false]]),
+        );
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('rollback_plan', $result['missing_proofs']);
+    }
+
+    public function test_release_blocked_when_queue_health_missing(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness(
+            $this->readinessFacts(['queue_health' => null]),
+        );
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('queue_health', $result['missing_proofs']);
+    }
+
+    public function test_custom_max_proof_age_minutes_is_respected(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness(
+            $this->readinessFacts(['launch_proof' => $this->freshProof(20), 'max_proof_age_minutes' => 10]),
+        );
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('launch_proof', $result['missing_proofs']);
+    }
+
+    public function test_multiple_missing_proofs_all_listed(): void
+    {
+        $result = app(AgentCodexRealInvokerReleasePreflight::class)->evaluateReleaseReadiness(
+            $this->readinessFacts(['scope_proof' => null, 'queue_health' => null]),
+        );
+
+        $this->assertFalse($result['release_ready']);
+        $this->assertContains('scope_proof', $result['missing_proofs']);
+        $this->assertContains('queue_health', $result['missing_proofs']);
+        $this->assertCount(2, $result['missing_proofs']);
+    }
 }

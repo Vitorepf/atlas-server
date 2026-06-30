@@ -18,6 +18,62 @@ class AgentCodexRealInvokerReleasePreflight
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
 
+    private const DEFAULT_MAX_PROOF_AGE_MINUTES = 60;
+
+    private const REPAIR_HINTS = [
+        'scope_proof' => 'attach a fresh scope_proof (signed allowed_files + task scope) before requesting live release',
+        'launch_proof' => 'attach a fresh launch_proof (dry-run or sandbox launch evidence) before requesting live release',
+        'rollback_plan' => 'attach a rollback_plan with a termination/recovery path before requesting live release',
+        'queue_health' => 'attach current queue_health evidence (not stale) before requesting live release',
+    ];
+
+    /**
+     * Pure, provider-free decision on whether the real Codex invoker is
+     * allowed to flip from disabled to live: requires fresh scope proof,
+     * launch proof, a rollback plan and current queue health. Never starts
+     * a process; only decides release_ready and what is missing.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function evaluateReleaseReadiness(array $facts): array
+    {
+        $maxAgeMinutes = (int) ($facts['max_proof_age_minutes'] ?? self::DEFAULT_MAX_PROOF_AGE_MINUTES);
+
+        $missingProofs = [];
+        foreach (['scope_proof', 'launch_proof', 'rollback_plan', 'queue_health'] as $proofKey) {
+            if (! $this->proofIsPresentAndFresh($facts[$proofKey] ?? null, $maxAgeMinutes)) {
+                $missingProofs[] = $proofKey;
+            }
+        }
+
+        $releaseReady = $missingProofs === [];
+
+        return [
+            'release_ready' => $releaseReady,
+            'missing_proofs' => $missingProofs,
+            'next_repair_hint' => $releaseReady ? null : self::REPAIR_HINTS[$missingProofs[0]],
+            'external_process_started' => false,
+            'token_spend_allowed' => false,
+            'provider_started' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
+     * @param  mixed  $proof
+     */
+    private function proofIsPresentAndFresh($proof, int $maxAgeMinutes): bool
+    {
+        if (! is_array($proof) || ($proof['present'] ?? false) !== true) {
+            return false;
+        }
+
+        $ageMinutes = (int) ($proof['age_minutes'] ?? PHP_INT_MAX);
+
+        return $ageMinutes <= $maxAgeMinutes;
+    }
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
