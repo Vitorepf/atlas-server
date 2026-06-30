@@ -74,6 +74,73 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         $this->assertSame($first, $second);
     }
 
+    public function test_suspected_stuck_leases_above_zero_adds_mid_reason(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 100, 'p95_seconds' => 100],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 1],
+            idle: ['claimable_depth' => 20, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 2000, 'active_claimed_workers' => 0, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdHighStuckLeases: 3,
+        )->classify();
+
+        $this->assertSame('MID', $result['urgency']);
+        $this->assertContains('suspected_stuck_leases_threaten_throughput', $result['reasons']);
+        $this->assertSame(1, $result['inputs']['suspected_stuck_leases']);
+    }
+
+    public function test_high_stuck_leases_raise_urgency_to_high(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 100, 'p95_seconds' => 100],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 3],
+            idle: ['claimable_depth' => 20, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 2000, 'active_claimed_workers' => 0, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdHighStuckLeases: 3,
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('high_stuck_lease_threat', $result['reasons']);
+    }
+
+    public function test_low_claimable_depth_with_active_workers_is_high_before_queue_dry(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 50, 'p95_seconds' => 50],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 2, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_claimed_workers' => 3, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+            thresholdMinActiveWorkers: 2,
+        )->classify();
+
+        $this->assertSame('HIGH', $result['urgency']);
+        $this->assertContains('low_claimable_depth_with_active_worker_pressure', $result['reasons']);
+    }
+
+    public function test_healthy_deep_queue_with_active_workers_stays_low(): void
+    {
+        $result = $this->classifier(
+            queue: ['oldest_seconds' => 100, 'p95_seconds' => 100],
+            lease: ['p95_seconds' => 20, 'suspected_stuck_count' => 0],
+            idle: ['claimable_depth' => 20, 'serve_rate_per_minute' => 2.0, 'seconds_until_dry' => 9000, 'active_claimed_workers' => 5, 'poison_pressure' => 0],
+            thresholdHighSeconds: 60,
+            thresholdMidSeconds: 600,
+            thresholdStaleClaimableAgeSeconds: 600,
+            thresholdLowClaimableDepth: 5,
+            thresholdMinActiveWorkers: 2,
+        )->classify();
+
+        $this->assertSame('LOW', $result['urgency']);
+        $this->assertContains('no_replenish_pressure', $result['reasons']);
+    }
+
     /**
      * @param  array<string,mixed>  $queue
      * @param  array<string,mixed>  $lease
@@ -86,6 +153,9 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         int $thresholdHighSeconds = 300,
         int $thresholdMidSeconds = 1800,
         int $thresholdStaleClaimableAgeSeconds = 3600,
+        int $thresholdLowClaimableDepth = 5,
+        int $thresholdMinActiveWorkers = 2,
+        int $thresholdHighStuckLeases = 3,
     ): AtlasMaestroReplenishUrgencyClassifier {
         return new AtlasMaestroReplenishUrgencyClassifier(
             new class($queue)
@@ -121,6 +191,9 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
             $thresholdHighSeconds,
             $thresholdMidSeconds,
             $thresholdStaleClaimableAgeSeconds,
+            $thresholdLowClaimableDepth,
+            $thresholdMinActiveWorkers,
+            $thresholdHighStuckLeases,
         );
     }
 }

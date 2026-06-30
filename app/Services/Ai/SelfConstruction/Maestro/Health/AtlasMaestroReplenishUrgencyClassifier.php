@@ -15,6 +15,9 @@ final class AtlasMaestroReplenishUrgencyClassifier
         private readonly int $thresholdHighSeconds = 300,
         private readonly int $thresholdMidSeconds = 1800,
         private readonly int $thresholdStaleClaimableAgeSeconds = 3600,
+        private readonly int $thresholdLowClaimableDepth = 5,
+        private readonly int $thresholdMinActiveWorkers = 2,
+        private readonly int $thresholdHighStuckLeases = 3,
     ) {}
 
     /**
@@ -34,6 +37,9 @@ final class AtlasMaestroReplenishUrgencyClassifier
         $claimableDepth = $this->intFact($idle, 'claimable_depth', $this->intFact($queueAge, 'total_claimable'));
         $secondsUntilDry = $this->nullableIntFact($idle, 'seconds_until_dry');
         $p95ClaimableAge = $this->intFact($queueAge, 'p95_seconds');
+        $suspectedStuckLeases = $this->intFact($leaseLifetime, 'suspected_stuck_count');
+        $activeClaimedWorkers = $this->intFact($idle, 'active_claimed_workers');
+        $poisonPressure = $this->intFact($idle, 'poison_pressure');
 
         $inputs = [
             'claimable_depth' => $claimableDepth,
@@ -42,7 +48,9 @@ final class AtlasMaestroReplenishUrgencyClassifier
             'oldest_claimable_seconds' => $this->intFact($queueAge, 'oldest_seconds'),
             'p95_claimable_age_seconds' => $p95ClaimableAge,
             'p95_lease_lifetime_seconds' => $this->intFact($leaseLifetime, 'p95_seconds'),
-            'suspected_stuck_leases' => $this->intFact($leaseLifetime, 'suspected_stuck_count'),
+            'suspected_stuck_leases' => $suspectedStuckLeases,
+            'active_claimed_workers' => $activeClaimedWorkers,
+            'poison_pressure' => $poisonPressure,
             'threshold_high_seconds' => $this->thresholdHighSeconds,
             'threshold_mid_seconds' => $this->thresholdMidSeconds,
             'threshold_stale_claimable_age_seconds' => $this->thresholdStaleClaimableAgeSeconds,
@@ -55,6 +63,14 @@ final class AtlasMaestroReplenishUrgencyClassifier
         if ($secondsUntilDry !== null && $secondsUntilDry < $this->thresholdHighSeconds) {
             $reasons[] = 'seconds_until_dry_below_threshold_high';
         }
+        // Low claimable depth while workers are actively competing → muscles will starve before dry.
+        if ($claimableDepth > 0 && $claimableDepth <= $this->thresholdLowClaimableDepth && $activeClaimedWorkers >= $this->thresholdMinActiveWorkers) {
+            $reasons[] = 'low_claimable_depth_with_active_worker_pressure';
+        }
+        // Many stuck leases directly choke throughput.
+        if ($suspectedStuckLeases >= $this->thresholdHighStuckLeases) {
+            $reasons[] = 'high_stuck_lease_threat';
+        }
         if ($reasons !== []) {
             return $this->result('HIGH', $reasons, $inputs);
         }
@@ -64,6 +80,13 @@ final class AtlasMaestroReplenishUrgencyClassifier
         }
         if ($p95ClaimableAge > $this->thresholdStaleClaimableAgeSeconds) {
             $reasons[] = 'p95_claimable_age_above_threshold_stale';
+        }
+        // Any stuck lease or poison packet reduces effective throughput → surface at MID.
+        if ($suspectedStuckLeases > 0 && $suspectedStuckLeases < $this->thresholdHighStuckLeases) {
+            $reasons[] = 'suspected_stuck_leases_threaten_throughput';
+        }
+        if ($poisonPressure > 0) {
+            $reasons[] = 'poison_pressure_detected';
         }
         if ($reasons !== []) {
             return $this->result('MID', $reasons, $inputs);
