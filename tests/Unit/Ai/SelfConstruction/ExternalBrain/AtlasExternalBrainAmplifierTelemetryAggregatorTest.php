@@ -211,4 +211,150 @@ final class AtlasExternalBrainAmplifierTelemetryAggregatorTest extends TestCase
 
         $this->assertStringContainsString('monitor', $result['next_operator_free_action']);
     }
+
+    // ── AC1: per-run telemetry fields present ─────────────────────────────────
+
+    public function test_ac1_fields_present_with_no_runs(): void
+    {
+        $result = $this->aggregator->aggregate($this->allHealthy());
+
+        foreach (['pass_rate', 'heldout_pass_rate', 'proxy_leak_rate', 'avg_cost', 'regression_rate', 'sample_count', 'confidence', 'recommended_status'] as $k) {
+            $this->assertArrayHasKey($k, $result, "Missing AC1 key: {$k}");
+        }
+        $this->assertSame(0, $result['sample_count']);
+        $this->assertSame('low', $result['confidence']);
+        $this->assertSame($result['status'], $result['recommended_status']);
+    }
+
+    public function test_ac1_pass_rate_computed_from_runs(): void
+    {
+        $input          = $this->allHealthy();
+        $input['runs']  = [
+            ['passed' => true],
+            ['passed' => true],
+            ['passed' => false],
+            ['passed' => true],
+        ];
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(4, $result['sample_count']);
+        $this->assertSame(0.75, $result['pass_rate']);
+    }
+
+    public function test_ac1_heldout_pass_rate_computed_from_runs(): void
+    {
+        $input         = $this->allHealthy();
+        $input['runs'] = [
+            ['passed' => true,  'heldout_passed' => true],
+            ['passed' => true,  'heldout_passed' => false],
+            ['passed' => false],  // no heldout key
+        ];
+
+        $result = $this->aggregator->aggregate($input);
+
+        // 1 out of 2 heldout runs passed
+        $this->assertSame(0.5, $result['heldout_pass_rate']);
+    }
+
+    public function test_ac1_confidence_medium_at_5_runs(): void
+    {
+        $input         = $this->allHealthy();
+        $input['runs'] = array_fill(0, 5, ['passed' => true]);
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame('medium', $result['confidence']);
+    }
+
+    public function test_ac1_confidence_high_at_20_runs(): void
+    {
+        $input         = $this->allHealthy();
+        $input['runs'] = array_fill(0, 20, ['passed' => true]);
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame('high', $result['confidence']);
+    }
+
+    public function test_ac1_avg_cost_computed_from_runs(): void
+    {
+        $input         = $this->allHealthy();
+        $input['runs'] = [
+            ['passed' => true, 'cost' => 0.10],
+            ['passed' => true, 'cost' => 0.20],
+        ];
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(0.15, $result['avg_cost']);
+    }
+
+    // ── AC2: proxy_leak_rate forces rollback ─────────────────────────────────
+
+    public function test_ac2_proxy_leak_rate_at_threshold_forces_rollback(): void
+    {
+        $input         = $this->allHealthy();
+        // 15 proxy runs out of 100 = 0.15 (≥ PROXY_LEAK_FAILURE_FLOOR)
+        $input['runs'] = array_merge(
+            array_fill(0, 85, ['passed' => true, 'is_proxy' => false]),
+            array_fill(0, 15, ['passed' => true, 'is_proxy' => true]),
+        );
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+        $this->assertSame('blocking', $result['signal_rollup']['proxy_leak']);
+        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'proxy_leak')));
+    }
+
+    public function test_ac2_proxy_leak_below_threshold_no_rollback(): void
+    {
+        $input         = $this->allHealthy();
+        // 4 proxy out of 100 = 0.04 (< 0.05 warning floor)
+        $input['runs'] = array_merge(
+            array_fill(0, 96, ['passed' => true, 'is_proxy' => false]),
+            array_fill(0, 4,  ['passed' => true, 'is_proxy' => true]),
+        );
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame('healthy', $result['signal_rollup']['proxy_leak']);
+    }
+
+    public function test_ac2_regression_rate_at_threshold_forces_rollback(): void
+    {
+        $input         = $this->allHealthy();
+        // 10 regressed out of 100 = 0.10 (≥ REGRESSION_FAILURE_FLOOR)
+        $input['runs'] = array_merge(
+            array_fill(0, 90, ['passed' => true, 'regressed' => false]),
+            array_fill(0, 10, ['passed' => true, 'regressed' => true]),
+        );
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+        $this->assertSame('blocking', $result['signal_rollup']['regression']);
+        $this->assertNotEmpty(array_filter($result['blocking_reasons'], fn ($r) => str_contains($r, 'regression')));
+    }
+
+    public function test_ac2_flat_proxy_leak_rate_input_also_blocks(): void
+    {
+        $input                    = $this->allHealthy();
+        $input['proxy_leak_rate'] = 0.20; // above failure floor, no runs list
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+    }
+
+    public function test_ac2_flat_regression_rate_input_also_blocks(): void
+    {
+        $input                    = $this->allHealthy();
+        $input['regression_rate'] = 0.15; // above failure floor, no runs list
+
+        $result = $this->aggregator->aggregate($input);
+
+        $this->assertSame(AtlasExternalBrainAmplifierTelemetryAggregator::STATUS_ROLLBACK_CANDIDATE, $result['status']);
+    }
 }

@@ -31,18 +31,22 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
     public const STATUS_ROLLBACK_CANDIDATE = 'rollback_candidate';
 
     // Hard failure thresholds (→ rollback_candidate)
-    private const SHADOW_FAILURE_FLOOR    = 0.50;
-    private const CANARY_FAILURE_FLOOR    = 0.40;
-    private const SLO_FAILURE_FLOOR       = 0.50;
-    private const SCAFFOLD_FAILURE_FLOOR  = 0.50;
-    private const REPLAY_FAILURE_FLOOR    = 0.50;
+    private const SHADOW_FAILURE_FLOOR      = 0.50;
+    private const CANARY_FAILURE_FLOOR      = 0.40;
+    private const SLO_FAILURE_FLOOR         = 0.50;
+    private const SCAFFOLD_FAILURE_FLOOR    = 0.50;
+    private const REPLAY_FAILURE_FLOOR      = 0.50;
+    private const PROXY_LEAK_FAILURE_FLOOR  = 0.15;
+    private const REGRESSION_FAILURE_FLOOR  = 0.10;
 
     // Warning thresholds (→ watch)
-    private const SHADOW_WARNING_FLOOR    = 0.70;
-    private const CANARY_WARNING_FLOOR    = 0.65;
-    private const SLO_WARNING_FLOOR       = 0.70;
-    private const SCAFFOLD_WARNING_FLOOR  = 0.70;
-    private const REPLAY_WARNING_FLOOR    = 0.65;
+    private const SHADOW_WARNING_FLOOR      = 0.70;
+    private const CANARY_WARNING_FLOOR      = 0.65;
+    private const SLO_WARNING_FLOOR         = 0.70;
+    private const SCAFFOLD_WARNING_FLOOR    = 0.70;
+    private const REPLAY_WARNING_FLOOR      = 0.65;
+    private const PROXY_LEAK_WARNING_FLOOR  = 0.05;
+    private const REGRESSION_WARNING_FLOOR  = 0.05;
 
     /**
      * @param  array{
@@ -53,8 +57,13 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
      *   scaffold_compliance_rate?: float,
      *   replay_pass_rate?: float,
      *   promotion_ready?: bool,
+     *   runs?: list<array{passed?:bool,heldout_passed?:bool,is_proxy?:bool,cost?:float,regressed?:bool}>,
+     *   proxy_leak_rate?: float,
+     *   regression_rate?: float,
+     *   heldout_pass_rate?: float,
+     *   avg_cost?: float,
      * }  $input
-     * @return array{schema:string, status:string, signal_rollup:array<string,string>, blocking_reasons:list<string>, weak_signals:list<string>, next_operator_free_action:string}
+     * @return array<string,mixed>
      */
     public function aggregate(array $input): array
     {
@@ -64,6 +73,37 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
         $sloMet     = isset($input['slo_met']) ? (bool) $input['slo_met'] : ($sloScore >= self::SLO_WARNING_FLOOR);
         $scaffold   = max(0.0, min(1.0, (float) ($input['scaffold_compliance_rate'] ?? 1.0)));
         $replay     = max(0.0, min(1.0, (float) ($input['replay_pass_rate']         ?? 1.0)));
+
+        // AC1: per-run stats (or flat-input fallback).
+        $runs        = is_array($input['runs'] ?? null) ? $input['runs'] : [];
+        $sampleCount = count($runs);
+
+        if ($sampleCount > 0) {
+            $passedCount    = count(array_filter($runs, static fn (array $r): bool => ! empty($r['passed'])));
+            $heldoutRuns    = array_filter($runs, static fn (array $r): bool => array_key_exists('heldout_passed', $r));
+            $heldoutPassed  = count(array_filter($heldoutRuns, static fn (array $r): bool => ! empty($r['heldout_passed'])));
+            $proxyCount     = count(array_filter($runs, static fn (array $r): bool => ! empty($r['is_proxy'])));
+            $regressedCount = count(array_filter($runs, static fn (array $r): bool => ! empty($r['regressed'])));
+            $totalCost      = (float) array_sum(array_map(static fn (array $r): float => (float) ($r['cost'] ?? 0.0), $runs));
+
+            $passRate        = round($passedCount / $sampleCount, 4);
+            $heldoutPassRate = count($heldoutRuns) > 0 ? round($heldoutPassed / count($heldoutRuns), 4) : 0.0;
+            $proxyLeakRate   = round($proxyCount  / $sampleCount, 4);
+            $avgCost         = round($totalCost   / $sampleCount, 4);
+            $regressionRate  = round($regressedCount / $sampleCount, 4);
+        } else {
+            $passRate        = round(($shadow + $canary + $replay) / 3, 4);
+            $heldoutPassRate = max(0.0, min(1.0, (float) ($input['heldout_pass_rate'] ?? 0.0)));
+            $proxyLeakRate   = max(0.0, min(1.0, (float) ($input['proxy_leak_rate']   ?? 0.0)));
+            $avgCost         = (float) ($input['avg_cost'] ?? 0.0);
+            $regressionRate  = max(0.0, min(1.0, (float) ($input['regression_rate']   ?? 0.0)));
+        }
+
+        $confidence = match (true) {
+            $sampleCount >= 20 => 'high',
+            $sampleCount >= 5  => 'medium',
+            default            => 'low',
+        };
 
         $blocking = [];
         $weak     = [];
@@ -124,6 +164,28 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             $rollup['replay'] = 'healthy';
         }
 
+        // AC2: proxy leakage — forces rollback even when other signals are healthy.
+        if ($proxyLeakRate >= self::PROXY_LEAK_FAILURE_FLOOR) {
+            $blocking[] = "proxy_leak_rate:{$proxyLeakRate}>=".self::PROXY_LEAK_FAILURE_FLOOR;
+            $rollup['proxy_leak'] = 'blocking';
+        } elseif ($proxyLeakRate >= self::PROXY_LEAK_WARNING_FLOOR) {
+            $weak[]     = "proxy_leak_rate:{$proxyLeakRate}>=".self::PROXY_LEAK_WARNING_FLOOR;
+            $rollup['proxy_leak'] = 'watch';
+        } else {
+            $rollup['proxy_leak'] = 'healthy';
+        }
+
+        // AC2: regression rate — forces rollback even when other signals are healthy.
+        if ($regressionRate >= self::REGRESSION_FAILURE_FLOOR) {
+            $blocking[] = "regression_rate:{$regressionRate}>=".self::REGRESSION_FAILURE_FLOOR;
+            $rollup['regression'] = 'blocking';
+        } elseif ($regressionRate >= self::REGRESSION_WARNING_FLOOR) {
+            $weak[]     = "regression_rate:{$regressionRate}>=".self::REGRESSION_WARNING_FLOOR;
+            $rollup['regression'] = 'watch';
+        } else {
+            $rollup['regression'] = 'healthy';
+        }
+
         $status = $this->resolveStatus($blocking, $weak);
 
         return [
@@ -133,6 +195,15 @@ final class AtlasExternalBrainAmplifierTelemetryAggregator
             'blocking_reasons'          => $blocking,
             'weak_signals'              => $weak,
             'next_operator_free_action' => $this->nextAction($status),
+            // AC1: per-run summary fields.
+            'pass_rate'                 => $passRate,
+            'heldout_pass_rate'         => $heldoutPassRate,
+            'proxy_leak_rate'           => $proxyLeakRate,
+            'avg_cost'                  => $avgCost,
+            'regression_rate'           => $regressionRate,
+            'sample_count'              => $sampleCount,
+            'confidence'                => $confidence,
+            'recommended_status'        => $status,
         ];
     }
 
