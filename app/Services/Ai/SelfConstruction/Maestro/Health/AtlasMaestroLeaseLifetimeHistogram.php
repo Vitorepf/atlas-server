@@ -24,6 +24,12 @@ final class AtlasMaestroLeaseLifetimeHistogram
         ['label' => '>4h', 'lower_seconds' => 14400, 'upper_seconds' => null],
     ];
 
+    /** Leases expiring within this many seconds are considered near-expiry. */
+    public const NEAR_EXPIRY_THRESHOLD_SECONDS = 300;
+
+    /** Workers holding at least this many leases appear in worker_hotspots. */
+    public const HOTSPOT_MIN_LEASES = 2;
+
     private Closure $clock;
 
     /**
@@ -54,6 +60,9 @@ final class AtlasMaestroLeaseLifetimeHistogram
     {
         $now = ($this->clock)()->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
         $lifetimes = [];
+        $nearExpiry = 0;
+        $expired = 0;
+        $workerCounts = [];
 
         foreach ($this->leaseRepo()->activeLeases() as $lease) {
             if (! is_array($lease)) {
@@ -61,9 +70,32 @@ final class AtlasMaestroLeaseLifetimeHistogram
             }
 
             $lifetimes[] = max(0, $now - $this->leasedAtUnix($lease));
+
+            $exp = $this->expiresAtUnix($lease, $now);
+            if ($exp !== null) {
+                if ($exp <= $now) {
+                    $expired++;
+                } elseif ($exp <= $now + self::NEAR_EXPIRY_THRESHOLD_SECONDS) {
+                    $nearExpiry++;
+                }
+            }
+
+            $wid = $this->workerId($lease);
+            if ($wid !== null) {
+                $workerCounts[$wid] = ($workerCounts[$wid] ?? 0) + 1;
+            }
         }
 
         sort($lifetimes, SORT_NUMERIC);
+
+        $hotspots = [];
+        foreach ($workerCounts as $wid => $cnt) {
+            $hotspots[] = ['worker_id' => $wid, 'lease_count' => $cnt];
+        }
+        usort($hotspots, fn (array $a, array $b): int => $a['lease_count'] !== $b['lease_count']
+            ? $b['lease_count'] <=> $a['lease_count']
+            : strcmp($a['worker_id'], $b['worker_id']));
+        $hotspots = array_values(array_filter($hotspots, fn (array $h): bool => $h['lease_count'] >= self::HOTSPOT_MIN_LEASES));
 
         return [
             'schema' => self::SCHEMA,
@@ -76,6 +108,9 @@ final class AtlasMaestroLeaseLifetimeHistogram
                 $lifetimes,
                 fn (int $seconds): bool => $seconds > $this->suspectedStuckThresholdSeconds,
             )),
+            'near_expiry_count' => $nearExpiry,
+            'expired_count' => $expired,
+            'worker_hotspots' => $hotspots,
         ];
     }
 
@@ -132,6 +167,38 @@ final class AtlasMaestroLeaseLifetimeHistogram
         }
 
         return $bins;
+    }
+
+    /**
+     * @param  array<string,mixed>  $lease
+     */
+    private function expiresAtUnix(array $lease, int $now): ?int
+    {
+        if (isset($lease['expires_at_unix']) && is_numeric($lease['expires_at_unix'])) {
+            return (int) $lease['expires_at_unix'];
+        }
+        if (isset($lease['expires_at']) && is_string($lease['expires_at']) && trim($lease['expires_at']) !== '') {
+            return (new DateTimeImmutable($lease['expires_at']))->setTimezone(new DateTimeZone('UTC'))->getTimestamp();
+        }
+        if (isset($lease['ttl_seconds']) && is_numeric($lease['ttl_seconds'])) {
+            return $this->leasedAtUnix($lease) + (int) $lease['ttl_seconds'];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $lease
+     */
+    private function workerId(array $lease): ?string
+    {
+        foreach (['client_id', 'worker_id', 'claimed_by', 'locked_by'] as $key) {
+            if (isset($lease[$key]) && is_string($lease[$key]) && trim($lease[$key]) !== '') {
+                return $lease[$key];
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -134,6 +134,108 @@ final class AtlasMaestroLeaseLifetimeHistogramTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $histogram['total_active']);
     }
 
+    public function test_near_expiry_count_and_expired_count_from_expires_at_unix(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        $repo = new class([
+            ['acquired_at_unix' => $ts - 10, 'expires_at_unix' => $ts + 600],   // active, 600s left
+            ['acquired_at_unix' => $ts - 10, 'expires_at_unix' => $ts + 100],   // near-expiry, 100s left
+            ['acquired_at_unix' => $ts - 3660, 'expires_at_unix' => $ts - 60],  // expired
+        ]) {
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+        };
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $this->assertSame(1, $histogram['near_expiry_count']);
+        $this->assertSame(1, $histogram['expired_count']);
+    }
+
+    public function test_near_expiry_count_computed_from_ttl_seconds_when_expires_at_absent(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        // Acquired 3500s ago with a 3600s TTL → 100s remaining → near-expiry.
+        $repo = new class([['acquired_at_unix' => $ts - 3500, 'ttl_seconds' => 3600]]) {
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+        };
+
+        $histogram = (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $this->assertSame(1, $histogram['near_expiry_count']);
+        $this->assertSame(0, $histogram['expired_count']);
+    }
+
+    public function test_worker_hotspots_are_deterministic_and_repo_stays_read_only(): void
+    {
+        $now = new DateTimeImmutable('2026-06-24T12:00:00+00:00', new DateTimeZone('UTC'));
+        $ts = $now->getTimestamp();
+        $repo = new class([
+            ['acquired_at_unix' => $ts - 10, 'client_id' => 'alpha'],
+            ['acquired_at_unix' => $ts - 20, 'client_id' => 'alpha'],
+            ['acquired_at_unix' => $ts - 30, 'client_id' => 'alpha'],
+            ['acquired_at_unix' => $ts - 15, 'client_id' => 'beta'], // below HOTSPOT_MIN_LEASES
+        ]) {
+            public int $releaseCalls = 0;
+
+            public int $recoverCalls = 0;
+
+            public function __construct(private readonly array $leases) {}
+
+            /** @return list<array<string,mixed>> */
+            public function activeLeases(): array
+            {
+                return $this->leases;
+            }
+
+            public function release(): void
+            {
+                $this->releaseCalls++;
+            }
+
+            public function recover(): void
+            {
+                $this->recoverCalls++;
+            }
+        };
+
+        $make = fn () => (new AtlasMaestroLeaseLifetimeHistogram(
+            $repo,
+            static fn (): DateTimeImmutable => $now,
+        ))->histogram();
+
+        $h1 = $make();
+        $h2 = $make();
+
+        $this->assertSame(0, $repo->releaseCalls);
+        $this->assertSame(0, $repo->recoverCalls);
+
+        $this->assertCount(1, $h1['worker_hotspots']);
+        $this->assertSame('alpha', $h1['worker_hotspots'][0]['worker_id']);
+        $this->assertSame(3, $h1['worker_hotspots'][0]['lease_count']);
+
+        $this->assertSame($h1['worker_hotspots'], $h2['worker_hotspots']);
+    }
+
     /**
      * @return array<string,mixed>
      */
