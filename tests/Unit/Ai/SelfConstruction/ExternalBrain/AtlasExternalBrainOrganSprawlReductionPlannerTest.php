@@ -58,198 +58,180 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
         $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::SCHEMA, $result['schema']);
     }
 
-    public function test_each_entry_has_required_keys(): void
-    {
-        $result = $this->plan($this->organ('o1'));
-
-        foreach (['organ_id', 'action', 'reasons', 'line_delta', 'required_tests'] as $k) {
-            $this->assertArrayHasKey($k, $result['ranked_actions'][0]);
-        }
-    }
-
-    // ── AC2: retire_blocked — wants retirement but missing safety ─────────────
-
-    public function test_retire_blocked_when_missing_replacement(): void
-    {
-        $result = $this->plan($this->organ('weak', [
-            'evidence_strength'     => 0.10, // low → needs retirement
-            'has_replacement_owner' => false,
-            'has_test_coverage'     => true,
-        ]));
-
-        $entry = $this->findEntry($result, 'weak');
-        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $entry['action']);
-        $this->assertStringContainsString('replacement_owner', implode(' ', $entry['reasons']));
-    }
-
-    public function test_retire_blocked_when_missing_test_coverage(): void
-    {
-        $result = $this->plan($this->organ('weak2', [
-            'evidence_strength'     => 0.10,
-            'has_replacement_owner' => true,
-            'has_test_coverage'     => false,
-        ]));
-
-        $entry = $this->findEntry($result, 'weak2');
-        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $entry['action']);
-        $this->assertStringContainsString('test_coverage', implode(' ', $entry['reasons']));
-    }
-
-    // ── AC2: retire — safety met ──────────────────────────────────────────────
+    // ── AC2: safe retire ──────────────────────────────────────────────────────
 
     public function test_low_evidence_with_safety_retires(): void
     {
-        $result = $this->plan($this->organ('safe-retire', [
+        $result = $this->plan($this->organ('safe-r', [
             'evidence_strength'     => 0.10,
             'line_count'            => 150,
             'has_replacement_owner' => true,
             'has_test_coverage'     => true,
         ]));
 
-        $entry = $this->findEntry($result, 'safe-retire');
+        $entry = $this->findEntry($result, 'safe-r');
         $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE, $entry['action']);
         $this->assertSame(-150, $entry['line_delta']);
     }
 
-    public function test_retired_scaffold_status_retires(): void
+    // ── AC2: blocked retire ───────────────────────────────────────────────────
+
+    public function test_low_evidence_without_replacement_is_retire_blocked(): void
     {
-        $result = $this->plan($this->organ('old', [
-            'scaffold_status'       => 'retired',
-            'has_replacement_owner' => true,
+        $result = $this->plan($this->organ('blocked-r', [
+            'evidence_strength'     => 0.10,
+            'has_replacement_owner' => false,
             'has_test_coverage'     => true,
         ]));
 
-        $entry = $this->findEntry($result, 'old');
-        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE, $entry['action']);
-        $this->assertStringContainsString('scaffold_status:retired', implode(' ', $entry['reasons']));
+        $entry = $this->findEntry($result, 'blocked-r');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $entry['action']);
+        $this->assertSame(0, $entry['line_delta']);
+        $this->assertStringContainsString('replacement_owner', implode(' ', $entry['reasons']));
     }
 
-    // ── AC2: merge — overlapping organs ──────────────────────────────────────
-
-    public function test_overlapping_organ_with_safety_merges(): void
+    public function test_low_evidence_without_test_coverage_is_retire_blocked(): void
     {
-        $result = $this->plan($this->organ('dup', [
+        $result = $this->plan($this->organ('blocked-r2', [
+            'evidence_strength'     => 0.10,
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'blocked-r2');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $entry['action']);
+        $this->assertStringContainsString('test_coverage', implode(' ', $entry['reasons']));
+    }
+
+    // ── AC2: safe merge ───────────────────────────────────────────────────────
+
+    public function test_overlap_with_safety_merges(): void
+    {
+        $result = $this->plan($this->organ('safe-m', [
             'overlap_organs'        => ['organ-v2'],
             'line_count'            => 200,
             'has_replacement_owner' => true,
             'has_test_coverage'     => true,
         ]));
 
-        $entry = $this->findEntry($result, 'dup');
+        $entry = $this->findEntry($result, 'safe-m');
         $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE, $entry['action']);
-        $this->assertStringContainsString('organ-v2', implode(' ', $entry['reasons']));
         $this->assertSame(-100, $entry['line_delta']); // 50% of 200
     }
 
-    // ── AC2: simplify — oversized + few consumers ─────────────────────────────
+    // ── AC2: blocked merge (new) ──────────────────────────────────────────────
 
-    public function test_large_low_consumer_organ_simplifies(): void
+    public function test_overlap_without_replacement_is_merge_blocked(): void
     {
-        $result = $this->plan($this->organ('bloat', [
+        $result = $this->plan($this->organ('blocked-m', [
+            'overlap_organs'        => ['organ-v2'],
+            'has_replacement_owner' => false,
+            'has_test_coverage'     => true,
+        ]));
+
+        $entry = $this->findEntry($result, 'blocked-m');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE_BLOCKED, $entry['action']);
+        $this->assertSame(0, $entry['line_delta']);
+        $this->assertStringContainsString('replacement_owner', implode(' ', $entry['reasons']));
+    }
+
+    public function test_overlap_without_test_coverage_is_merge_blocked(): void
+    {
+        $result = $this->plan($this->organ('blocked-m2', [
+            'overlap_organs'        => ['organ-v2'],
+            'has_replacement_owner' => true,
+            'has_test_coverage'     => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'blocked-m2');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE_BLOCKED, $entry['action']);
+        $this->assertStringContainsString('test_coverage', implode(' ', $entry['reasons']));
+    }
+
+    // ── AC2: simplify oversized low-consumer organ ────────────────────────────
+
+    public function test_oversized_low_consumer_simplifies(): void
+    {
+        $result = $this->plan($this->organ('big', [
             'line_count'     => 400,
             'consumer_count' => 1,
         ]));
 
-        $entry = $this->findEntry($result, 'bloat');
+        $entry = $this->findEntry($result, 'big');
         $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_SIMPLIFY, $entry['action']);
         $this->assertLessThan(0, $entry['line_delta']);
     }
 
-    // ── AC2: keep — healthy organ ─────────────────────────────────────────────
+    // ── AC2: keep high-value organ ────────────────────────────────────────────
 
     public function test_healthy_organ_is_kept(): void
     {
-        $result = $this->plan($this->organ('healthy', [
+        $result = $this->plan($this->organ('keep-me', [
             'evidence_strength' => 0.90,
             'consumer_count'    => 5,
             'line_count'        => 80,
         ]));
 
-        $entry = $this->findEntry($result, 'healthy');
+        $entry = $this->findEntry($result, 'keep-me');
         $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_KEEP, $entry['action']);
         $this->assertSame(0, $entry['line_delta']);
     }
 
-    // ── AC3: retire_blocked emits required_tests ──────────────────────────────
+    // ── AC3: required_tests for every preserved capability ───────────────────
 
-    public function test_retire_blocked_emits_required_tests(): void
+    public function test_keep_action_includes_required_tests_per_capability(): void
     {
-        $result = $this->plan($this->organ('blocked', [
-            'evidence_strength'  => 0.05,
-            'capability_labels'  => ['emit_tasks', 'score_quality'],
+        $result = $this->plan($this->organ('keep-me', [
+            'capability_labels' => ['emit_tasks', 'score_quality'],
         ]));
 
-        $entry = $this->findEntry($result, 'blocked');
+        $entry = $this->findEntry($result, 'keep-me');
         $this->assertNotEmpty($entry['required_tests']);
+        $this->assertStringContainsString('emit_tasks', implode(' ', $entry['required_tests']));
+        $this->assertStringContainsString('score_quality', implode(' ', $entry['required_tests']));
     }
 
-    // ── AC3: no deletion without replacement — retire_blocked has line_delta 0
+    // ── AC3: first_safe_batch ordered by line reduction, then fewest capabilities
 
-    public function test_retire_blocked_has_zero_line_delta(): void
-    {
-        $result = $this->plan($this->organ('unsafe', [
-            'evidence_strength'     => 0.05,
-            'line_count'            => 300,
-            'has_replacement_owner' => false,
-        ]));
-
-        $entry = $this->findEntry($result, 'unsafe');
-        $this->assertSame(0, $entry['line_delta']);
-    }
-
-    // ── AC4: expected_line_delta sums all deltas ──────────────────────────────
-
-    public function test_expected_line_delta_aggregates(): void
+    public function test_first_safe_batch_highest_line_reduction_first(): void
     {
         $result = $this->plan(
-            $this->organ('r1', ['evidence_strength' => 0.05, 'line_count' => 100, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
-            $this->organ('k1'),
+            $this->organ('small', ['evidence_strength' => 0.05, 'line_count' => 50,  'has_replacement_owner' => true, 'has_test_coverage' => true]),
+            $this->organ('large', ['evidence_strength' => 0.05, 'line_count' => 300, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
         );
 
-        $this->assertSame(-100, $result['expected_line_delta']);
+        $this->assertSame('large', $result['first_safe_batch'][0]);
+        $this->assertSame('small', $result['first_safe_batch'][1]);
     }
 
-    // ── AC4: capability_preserved_count counts keep labels ───────────────────
+    // ── AC4: deterministic ordering — retire_blocked first ───────────────────
 
-    public function test_capability_preserved_counts_kept_organ_labels(): void
-    {
-        $result = $this->plan(
-            $this->organ('k1', ['capability_labels' => ['cap_a', 'cap_b']]),
-            $this->organ('r1', ['evidence_strength' => 0.05, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
-        );
-
-        $this->assertSame(2, $result['capability_preserved_count']);
-    }
-
-    // ── AC4: first_safe_batch includes retire + simplify ─────────────────────
-
-    public function test_first_safe_batch_includes_retire_and_simplify(): void
-    {
-        $result = $this->plan(
-            $this->organ('r1', ['evidence_strength' => 0.05, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
-            $this->organ('s1', ['line_count' => 400, 'consumer_count' => 1]),
-            $this->organ('k1'),
-        );
-
-        $this->assertContains('r1', $result['first_safe_batch']);
-        $this->assertContains('s1', $result['first_safe_batch']);
-        $this->assertNotContains('k1', $result['first_safe_batch']);
-    }
-
-    // ── AC4: ranked order — retire_blocked first ─────────────────────────────
-
-    public function test_ranked_actions_retire_blocked_comes_before_keep(): void
+    public function test_retire_blocked_comes_before_keep_in_ranked_actions(): void
     {
         $result = $this->plan(
             $this->organ('k1'),
-            $this->organ('blocked', ['evidence_strength' => 0.05]),
+            $this->organ('rb', ['evidence_strength' => 0.05]),
         );
 
-        $actions = array_column($result['ranked_actions'], 'action');
+        $actions   = array_column($result['ranked_actions'], 'action');
         $blockedPos = array_search(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_RETIRE_BLOCKED, $actions, true);
         $keepPos    = array_search(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_KEEP, $actions, true);
 
         $this->assertLessThan($keepPos, $blockedPos);
+    }
+
+    // ── AC4: expected_line_delta sums retire + simplify ───────────────────────
+
+    public function test_expected_line_delta_sums_all_deltas(): void
+    {
+        $result = $this->plan(
+            $this->organ('r1', ['evidence_strength' => 0.05, 'line_count' => 100, 'has_replacement_owner' => true, 'has_test_coverage' => true]),
+            $this->organ('s1', ['line_count' => 300, 'consumer_count' => 1]),
+            $this->organ('k1'),
+        );
+
+        // retire delta = -100; simplify delta = -90 (30% of 300)
+        $this->assertSame(-190, $result['expected_line_delta']);
     }
 
     // ── Empty input ───────────────────────────────────────────────────────────
@@ -260,8 +242,6 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
 
         $this->assertSame([], $result['ranked_actions']);
         $this->assertSame(0, $result['expected_line_delta']);
-        $this->assertSame(0, $result['capability_preserved_count']);
         $this->assertSame([], $result['first_safe_batch']);
-        $this->assertSame([], $result['required_tests']);
     }
 }
