@@ -146,10 +146,14 @@ final class AtlasTaskHealthHistogramCommand extends Command
     private function renderPredict(array $payload): void
     {
         $this->line('  claimable_depth='.($payload['claimable_depth'] ?? 0)
+            .'  active_workers='.($payload['active_workers'] ?? 'n/a')
             .'  serve_rate/min='.($payload['serve_rate_per_minute'] ?? 0)
             .'  seconds_until_dry='.($payload['seconds_until_dry'] ?? 'n/a')
             .'  confidence='.($payload['confidence'] ?? 'unknown'));
         $this->line('  projected_idle_at='.($payload['projected_idle_at_iso8601'] ?? 'n/a'));
+        if (array_key_exists('reason', $payload)) {
+            $this->line('  reason='.($payload['reason'] ?? 'n/a'));
+        }
     }
 
     /**
@@ -158,7 +162,8 @@ final class AtlasTaskHealthHistogramCommand extends Command
     private function renderUrgency(array $payload): void
     {
         $reasons = (array) ($payload['reasons'] ?? []);
-        $this->line('  urgency=<fg=magenta>'.($payload['urgency'] ?? 'unknown').'</>');
+        $this->line('  urgency=<fg=magenta>'.($payload['urgency'] ?? 'unknown').'</>'
+            .'  next_action=<fg=magenta>'.($payload['next_action'] ?? 'unknown').'</>');
         $this->line('  reasons: '.($reasons === [] ? 'none' : implode(', ', array_map('strval', $reasons))));
     }
 }

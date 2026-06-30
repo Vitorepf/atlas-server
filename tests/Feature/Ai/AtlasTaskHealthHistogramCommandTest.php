@@ -76,6 +76,68 @@ final class AtlasTaskHealthHistogramCommandTest extends TestCase
         $this->assertArrayHasKey('inputs', $payload);
     }
 
+    public function test_predict_human_output_includes_active_workers_and_reason(): void
+    {
+        $this->seedClaimablePacket('qa-predict-human');
+        $this->seedActiveLease('lease-task-predict-human');
+
+        // Confirm the predictor actually returns active_workers and reason for this fixture
+        // before asserting the renderer surfaces them.
+        [, $json] = $this->runJson('predict');
+        $this->assertArrayHasKey('active_workers', $json);
+        $this->assertArrayHasKey('reason', $json);
+
+        [$exit, $output] = $this->runHuman('predict');
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('active_workers=', $output);
+        $this->assertStringContainsString((string) $json['active_workers'], $output);
+        $this->assertStringContainsString('reason=', $output);
+        $this->assertStringContainsString($json['reason'], $output);
+    }
+
+    public function test_urgency_human_output_includes_next_action(): void
+    {
+        $this->seedClaimablePacket('qa-urgency-human');
+
+        [, $json] = $this->runJson('urgency');
+        $this->assertArrayHasKey('next_action', $json);
+
+        [$exit, $output] = $this->runHuman('urgency');
+
+        $this->assertSame(0, $exit);
+        $this->assertStringContainsString('next_action=', $output);
+        $this->assertStringContainsString($json['next_action'], $output);
+        $this->assertStringContainsString('urgency=', $output);
+    }
+
+    public function test_json_output_remains_machine_compatible_and_exposes_full_payload(): void
+    {
+        $this->seedClaimablePacket('qa-json-full');
+        $this->seedActiveLease('lease-task-json-full');
+
+        [$exitPredict, $predictPayload] = $this->runJson('predict');
+        [$exitUrgency, $urgencyPayload] = $this->runJson('urgency');
+
+        $this->assertSame(0, $exitPredict);
+        $this->assertSame(0, $exitUrgency);
+
+        // --json must expose the FULL payload (no human-only truncation/formatting), including
+        // every key the human renderer surfaces.
+        foreach (['schema', 'claimable_depth', 'active_workers', 'serve_rate_per_minute', 'confidence'] as $key) {
+            $this->assertArrayHasKey($key, $predictPayload, "predict --json missing key: {$key}");
+        }
+        foreach (['schema', 'urgency', 'next_action', 'reasons', 'inputs'] as $key) {
+            $this->assertArrayHasKey($key, $urgencyPayload, "urgency --json missing key: {$key}");
+        }
+
+        // No ANSI/tag formatting markers should leak into machine output.
+        $rawPredict = (string) json_encode($predictPayload);
+        $rawUrgency = (string) json_encode($urgencyPayload);
+        $this->assertStringNotContainsString('<fg=', $rawPredict);
+        $this->assertStringNotContainsString('<fg=', $rawUrgency);
+    }
+
     public function test_unknown_action_returns_non_zero_exit(): void
     {
         $kernel = $this->app->make(ConsoleKernel::class);
@@ -112,6 +174,17 @@ final class AtlasTaskHealthHistogramCommandTest extends TestCase
         $this->assertIsArray($decoded);
 
         return [$exit, $decoded];
+    }
+
+    /**
+     * @return array{0:int,1:string}
+     */
+    private function runHuman(string $action): array
+    {
+        $kernel = $this->app->make(ConsoleKernel::class);
+        $exit = $kernel->call('atlas:task:maestro-health', ['action' => $action]);
+
+        return [$exit, $kernel->output()];
     }
 
     private function seedClaimablePacket(string $taskPacketId): void
