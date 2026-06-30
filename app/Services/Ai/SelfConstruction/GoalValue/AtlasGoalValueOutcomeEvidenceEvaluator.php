@@ -35,6 +35,8 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
 
     public const CLASS_REUSE = 'reuse';
 
+    public const CLASS_WORKER_CONTINUITY = 'worker_continuity';
+
     public const STATUS_CONFIRMED = 'confirmed';
 
     public const STATUS_UNKNOWN = 'unknown';
@@ -61,6 +63,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             ? array_values(array_filter($facts['regression_signals'], 'is_array'))
             : [];
         $capabilityDelta = is_array($facts['capability_delta'] ?? null) ? $facts['capability_delta'] : [];
+        $queueContinuityDelta = is_array($facts['queue_continuity_delta'] ?? null) ? $facts['queue_continuity_delta'] : [];
 
         $valueFacts = [];
 
@@ -110,6 +113,28 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             $this->firstRef($gates, 'code_index'),
         );
 
+        // worker_continuity: receipt + passing queue_continuity gate + measured
+        // before/after improvement. NEVER inferred from absence — missing queue
+        // evidence blocks the claim rather than confirming it.
+        $workerContinuityFact = $this->classFact(
+            self::CLASS_WORKER_CONTINUITY,
+            $this->findReceipt($receipts, 'worker_continuity'),
+            $this->hasPassingGate($gates, 'queue_continuity'),
+            'queue_continuity gate absent or not passing',
+            $this->firstRef($gates, 'queue_continuity'),
+        );
+        if ($workerContinuityFact['status'] === self::STATUS_CONFIRMED) {
+            if (! $this->queueContinuityImproved($queueContinuityDelta)) {
+                $workerContinuityFact = [
+                    'class' => self::CLASS_WORKER_CONTINUITY,
+                    'status' => self::STATUS_BLOCKED,
+                    'reason' => 'queue_continuity_delta missing or does not show claimable_per_active_worker improvement or no_claimable_task incident drop',
+                    'evidence_refs' => $workerContinuityFact['evidence_refs'],
+                ];
+            }
+        }
+        $valueFacts[] = $workerContinuityFact;
+
         // Regression signals block any confirmed verdict and preserve evidence_refs.
         if ($regressionSignals !== []) {
             $regRefs = array_values(array_filter(array_map(static fn (array $s): string => (string) ($s['ref'] ?? ''), $regressionSignals)));
@@ -130,6 +155,28 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             'schema' => self::SCHEMA,
             'value_facts' => $valueFacts,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $delta  may contain claimable_per_active_worker_before/_after
+     *   and/or no_claimable_task_incidents_before/_after; both numeric pairs must be PRESENT
+     *   (never assumed) for an improvement claim.
+     */
+    private function queueContinuityImproved(array $delta): bool
+    {
+        $claimableBefore = $delta['claimable_per_active_worker_before'] ?? null;
+        $claimableAfter = $delta['claimable_per_active_worker_after'] ?? null;
+        if (is_numeric($claimableBefore) && is_numeric($claimableAfter) && (float) $claimableAfter > (float) $claimableBefore) {
+            return true;
+        }
+
+        $incidentsBefore = $delta['no_claimable_task_incidents_before'] ?? null;
+        $incidentsAfter = $delta['no_claimable_task_incidents_after'] ?? null;
+        if (is_numeric($incidentsBefore) && is_numeric($incidentsAfter) && (float) $incidentsAfter < (float) $incidentsBefore) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
