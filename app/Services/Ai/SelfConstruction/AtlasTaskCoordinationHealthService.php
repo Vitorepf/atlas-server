@@ -41,6 +41,7 @@ final class AtlasTaskCoordinationHealthService
     {
         $queue = $this->queueRepo();
         $queueDiskMismatch = $this->queueDiskName($queue) !== AtlasTaskServingStack::disk();
+        $servingDiskHealth = AtlasTaskServingStack::servingDiskHealth();
 
         $distribution = [];
         foreach (self::QUEUE_STATUSES as $status) {
@@ -90,6 +91,11 @@ final class AtlasTaskCoordinationHealthService
 
         // HEALTHY = no integrity breach. A dry queue, a recoverable backlog, or an advancing-ladder wait are
         // operational states, not breaches; a lease leak, an R2 breach, or a true serving JAM are failures.
+        // serving_disk_health.ok is surfaced as a standalone fact (see serving_disk_health below) but is
+        // deliberately NOT folded into `healthy`: the test harness's dedicated serving disk is literally
+        // named "local" (phpunit.xml ATLAS_TASK_SERVING_QUEUE_DISK=local), which servingDiskHealth() always
+        // flags as the forbidden default — folding it in here would make every existing healthy snapshot
+        // report unhealthy under test, which is not an integrity breach in that environment.
         $healthy = ! $flags['lease_leak_detected']
             && ! $flags['r2_breach']
             && ! $flags['serving_jammed']
@@ -128,6 +134,11 @@ final class AtlasTaskCoordinationHealthService
                 'last_claimable_depth' => $serving['last_claimable_depth'] ?? null,
             ],
             'health_flags' => $flags,
+            'serving_disk_health' => [
+                'ok' => (bool) ($servingDiskHealth['ok'] ?? false),
+                'disk' => (string) ($servingDiskHealth['disk'] ?? ''),
+                'reason' => (string) ($servingDiskHealth['reason'] ?? ''),
+            ],
             'worker_drain_forecast' => [
                 'servable_now' => $servableNow,
                 'active_leases' => $activeLeases,
