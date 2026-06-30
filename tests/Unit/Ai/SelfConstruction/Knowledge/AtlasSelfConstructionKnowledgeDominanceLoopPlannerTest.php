@@ -253,6 +253,103 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlannerTest extends TestC
         }
     }
 
+    // ── capture_outcome_learning ──────────────────────────────────────────────
+
+    public function test_uncaptured_outcomes_add_capture_action_and_block_readiness(): void
+    {
+        $result = $this->planner()->plan(['uncaptured_outcome_count' => 1]);
+
+        $actionIds = array_column($result['refresh_actions'], 'action_id');
+        $this->assertContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_CAPTURE_OUTCOME_LEARNING, $actionIds);
+        $this->assertFalse($result['next_originator_context_ready']);
+        $this->assertContains('outcomes_not_captured_in_learning', $result['not_ready_reasons']);
+    }
+
+    public function test_zero_uncaptured_outcomes_does_not_block_readiness(): void
+    {
+        $result = $this->planner()->plan(['uncaptured_outcome_count' => 0]);
+
+        $this->assertTrue($result['next_originator_context_ready']);
+        $this->assertNotContains('outcomes_not_captured_in_learning', $result['not_ready_reasons']);
+    }
+
+    public function test_multiple_uncaptured_outcomes_mention_count_in_reason(): void
+    {
+        $result = $this->planner()->plan(['uncaptured_outcome_count' => 5]);
+
+        $action = array_values(array_filter(
+            $result['refresh_actions'],
+            fn ($a) => $a['action_id'] === AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_CAPTURE_OUTCOME_LEARNING,
+        ))[0];
+        $this->assertStringContainsString('5', $action['reason']);
+    }
+
+    // ── refresh_queue_health ──────────────────────────────────────────────────
+
+    public function test_stale_queue_health_adds_action_and_blocks_readiness(): void
+    {
+        $result = $this->planner()->plan(['queue_health_freshness_seconds' => 301]);
+
+        $actionIds = array_column($result['refresh_actions'], 'action_id');
+        $this->assertContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_QUEUE_HEALTH, $actionIds);
+        $this->assertFalse($result['next_originator_context_ready']);
+        $this->assertContains('queue_health_stale', $result['not_ready_reasons']);
+    }
+
+    public function test_fresh_queue_health_does_not_block_readiness(): void
+    {
+        $result = $this->planner()->plan(['queue_health_freshness_seconds' => 300]);
+
+        $this->assertTrue($result['next_originator_context_ready']);
+        $this->assertNotContains('queue_health_stale', $result['not_ready_reasons']);
+    }
+
+    public function test_queue_health_skipped_when_zero_seconds(): void
+    {
+        $result = $this->planner()->plan(['queue_health_freshness_seconds' => 0]);
+
+        $actionIds = array_column($result['refresh_actions'], 'action_id');
+        $this->assertNotContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_QUEUE_HEALTH, $actionIds);
+    }
+
+    // ── refresh_queued_targets ────────────────────────────────────────────────
+
+    public function test_stale_queued_targets_adds_action_and_blocks_readiness(): void
+    {
+        $result = $this->planner()->plan(['queued_targets_stale_after_batch' => true]);
+
+        $actionIds = array_column($result['refresh_actions'], 'action_id');
+        $this->assertContains(AtlasSelfConstructionKnowledgeDominanceLoopPlanner::ACTION_REFRESH_QUEUED_TARGETS, $actionIds);
+        $this->assertFalse($result['next_originator_context_ready']);
+        $this->assertContains('queued_targets_stale_after_batch', $result['not_ready_reasons']);
+    }
+
+    public function test_fresh_queued_targets_does_not_block_readiness(): void
+    {
+        $result = $this->planner()->plan(['queued_targets_stale_after_batch' => false]);
+
+        $this->assertTrue($result['next_originator_context_ready']);
+        $this->assertNotContains('queued_targets_stale_after_batch', $result['not_ready_reasons']);
+    }
+
+    public function test_all_six_blocking_triggers_simultaneously(): void
+    {
+        $result = $this->planner()->plan([
+            'changed_files'                   => ['A.php'],
+            'code_index_freshness_seconds'    => 999,
+            'docs_touched'                    => ['docs/x.md'],
+            'memory_writes'                   => [],
+            'give_back_count'                 => 4,
+            'give_backs_captured_in_learning' => false,
+            'uncaptured_outcome_count'        => 2,
+            'queue_health_freshness_seconds'  => 400,
+            'queued_targets_stale_after_batch' => true,
+        ]);
+
+        $this->assertFalse($result['next_originator_context_ready']);
+        $this->assertCount(6, $result['not_ready_reasons']);
+    }
+
     // ── determinism ──────────────────────────────────────────────────────────
 
     public function test_identical_input_yields_identical_output(): void

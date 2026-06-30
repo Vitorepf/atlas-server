@@ -12,9 +12,12 @@ namespace App\Services\Ai\SelfConstruction\Knowledge;
  *   refresh_code_index        — changed_files non-empty AND code_index_freshness_seconds > CODE_INDEX_STALE_THRESHOLD
  *   sync_docs                 — docs_touched non-empty AND memory_writes empty
  *   capture_give_backs        — give_back_count >= GIVE_BACK_THRESHOLD AND NOT give_backs_captured_in_learning
+ *   capture_outcome_learning  — uncaptured_outcome_count > 0 (success/give_back/quarantine not yet in memory)
+ *   refresh_queue_health      — queue_health_freshness_seconds > QUEUE_HEALTH_STALE_THRESHOLD
+ *   refresh_queued_targets    — queued_targets_stale_after_batch = true
  *   refresh_context_pack      — context_pack_age_seconds > CONTEXT_PACK_STALE_THRESHOLD (advisory only)
  *
- * next_originator_context_ready = false when ANY of the first three triggers fire.
+ * next_originator_context_ready = false when ANY of the first six triggers fire.
  * Context-pack age alone is advisory and does NOT block readiness.
  *
  * INPUT:
@@ -25,6 +28,9 @@ namespace App\Services\Ai\SelfConstruction\Knowledge;
  *   context_pack_age_seconds:          int           (default 0)
  *   give_back_count:                   int           (default 0)
  *   give_backs_captured_in_learning:   bool          (default false)
+ *   uncaptured_outcome_count:          int           (default 0) — success/give_back/quarantine not captured
+ *   queue_health_freshness_seconds:    int           (default 0) — seconds since last queue health check
+ *   queued_targets_stale_after_batch:  bool          (default false) — targets not refreshed after batch
  *
  * OUTPUT:
  *   { schema, refresh_actions, skipped_actions, next_originator_context_ready, not_ready_reasons }
@@ -39,20 +45,27 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
 {
     public const SCHEMA = 'atlas.self_construction.knowledge.dominance_loop_planner.v1';
 
-    public const ACTION_REFRESH_CODE_INDEX   = 'refresh_code_index';
-    public const ACTION_SYNC_DOCS            = 'sync_docs';
-    public const ACTION_CAPTURE_GIVE_BACKS   = 'capture_give_backs_to_memory';
-    public const ACTION_REFRESH_CONTEXT_PACK = 'refresh_context_pack';
+    public const ACTION_REFRESH_CODE_INDEX      = 'refresh_code_index';
+    public const ACTION_SYNC_DOCS               = 'sync_docs';
+    public const ACTION_CAPTURE_GIVE_BACKS      = 'capture_give_backs_to_memory';
+    public const ACTION_CAPTURE_OUTCOME_LEARNING = 'capture_outcome_learning';
+    public const ACTION_REFRESH_QUEUE_HEALTH    = 'refresh_queue_health';
+    public const ACTION_REFRESH_QUEUED_TARGETS  = 'refresh_queued_targets';
+    public const ACTION_REFRESH_CONTEXT_PACK    = 'refresh_context_pack';
 
     private const CODE_INDEX_STALE_THRESHOLD    = 300;   // seconds
+    private const QUEUE_HEALTH_STALE_THRESHOLD  = 300;   // seconds
     private const CONTEXT_PACK_STALE_THRESHOLD  = 3600;  // seconds
     private const GIVE_BACK_THRESHOLD           = 2;
 
     private const COMMANDS = [
-        self::ACTION_REFRESH_CODE_INDEX   => 'atlas engineering knowledge index-code --prune',
-        self::ACTION_SYNC_DOCS            => 'atlas engineering knowledge sync --prune',
-        self::ACTION_CAPTURE_GIVE_BACKS   => 'atlas memory record give_back_learning',
-        self::ACTION_REFRESH_CONTEXT_PACK => 'atlas context-pack refresh',
+        self::ACTION_REFRESH_CODE_INDEX      => 'atlas engineering knowledge index-code --prune',
+        self::ACTION_SYNC_DOCS               => 'atlas engineering knowledge sync --prune',
+        self::ACTION_CAPTURE_GIVE_BACKS      => 'atlas memory record give_back_learning',
+        self::ACTION_CAPTURE_OUTCOME_LEARNING => 'atlas memory record outcome_learning',
+        self::ACTION_REFRESH_QUEUE_HEALTH    => 'atlas task queue:health-check',
+        self::ACTION_REFRESH_QUEUED_TARGETS  => 'atlas task queue:refresh-targets',
+        self::ACTION_REFRESH_CONTEXT_PACK    => 'atlas context-pack refresh',
     ];
 
     /**
@@ -64,10 +77,13 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
         $changedFiles              = is_array($input['changed_files'] ?? null) ? $input['changed_files'] : [];
         $docsTouched               = is_array($input['docs_touched'] ?? null) ? $input['docs_touched'] : [];
         $memoryWrites              = is_array($input['memory_writes'] ?? null) ? $input['memory_writes'] : [];
-        $codeIndexFreshness        = max(0, (int) ($input['code_index_freshness_seconds'] ?? 0));
-        $contextPackAge            = max(0, (int) ($input['context_pack_age_seconds'] ?? 0));
-        $giveBackCount             = max(0, (int) ($input['give_back_count'] ?? 0));
-        $giveBacksCaptured         = (bool) ($input['give_backs_captured_in_learning'] ?? false);
+        $codeIndexFreshness        = max(0, (int) ($input['code_index_freshness_seconds']   ?? 0));
+        $contextPackAge            = max(0, (int) ($input['context_pack_age_seconds']       ?? 0));
+        $giveBackCount             = max(0, (int) ($input['give_back_count']                ?? 0));
+        $giveBacksCaptured         = (bool) ($input['give_backs_captured_in_learning']      ?? false);
+        $uncapturedOutcomeCount    = max(0, (int) ($input['uncaptured_outcome_count']        ?? 0));
+        $queueHealthFreshness      = max(0, (int) ($input['queue_health_freshness_seconds']  ?? 0));
+        $queuedTargetsStale        = (bool) ($input['queued_targets_stale_after_batch']      ?? false);
 
         $refreshActions  = [];
         $skippedActions  = [];
@@ -141,7 +157,59 @@ final class AtlasSelfConstructionKnowledgeDominanceLoopPlanner
             ];
         }
 
-        // 4. Context pack refresh (advisory — does NOT block next_originator_context_ready).
+        // 4. Capture muscle outcome learning (success/give_back/quarantine not yet in memory).
+        if ($uncapturedOutcomeCount > 0) {
+            $refreshActions[] = [
+                'action_id' => self::ACTION_CAPTURE_OUTCOME_LEARNING,
+                'reason'    => sprintf(
+                    '%d uncaptured outcome(s) (success/give_back/quarantine) not yet captured into learning memory',
+                    $uncapturedOutcomeCount,
+                ),
+                'command'   => self::COMMANDS[self::ACTION_CAPTURE_OUTCOME_LEARNING],
+            ];
+            $notReadyReasons[] = 'outcomes_not_captured_in_learning';
+        } else {
+            $skippedActions[] = [
+                'action_id' => self::ACTION_CAPTURE_OUTCOME_LEARNING,
+                'reason'    => 'no uncaptured outcomes in this batch',
+            ];
+        }
+
+        // 5. Queue health freshness.
+        if ($queueHealthFreshness > self::QUEUE_HEALTH_STALE_THRESHOLD) {
+            $refreshActions[] = [
+                'action_id' => self::ACTION_REFRESH_QUEUE_HEALTH,
+                'reason'    => sprintf(
+                    'queue health check is %ds stale (threshold=%ds)',
+                    $queueHealthFreshness,
+                    self::QUEUE_HEALTH_STALE_THRESHOLD,
+                ),
+                'command'   => self::COMMANDS[self::ACTION_REFRESH_QUEUE_HEALTH],
+            ];
+            $notReadyReasons[] = 'queue_health_stale';
+        } else {
+            $skippedActions[] = [
+                'action_id' => self::ACTION_REFRESH_QUEUE_HEALTH,
+                'reason'    => sprintf('queue health is fresh (%ds <= threshold %ds)', $queueHealthFreshness, self::QUEUE_HEALTH_STALE_THRESHOLD),
+            ];
+        }
+
+        // 6. Queued-target collision freshness.
+        if ($queuedTargetsStale) {
+            $refreshActions[] = [
+                'action_id' => self::ACTION_REFRESH_QUEUED_TARGETS,
+                'reason'    => 'queued-target collision snapshot not refreshed after batch',
+                'command'   => self::COMMANDS[self::ACTION_REFRESH_QUEUED_TARGETS],
+            ];
+            $notReadyReasons[] = 'queued_targets_stale_after_batch';
+        } else {
+            $skippedActions[] = [
+                'action_id' => self::ACTION_REFRESH_QUEUED_TARGETS,
+                'reason'    => 'queued-target collision snapshot is current',
+            ];
+        }
+
+        // 7. Context pack refresh (advisory — does NOT block next_originator_context_ready).
         if ($contextPackAge > self::CONTEXT_PACK_STALE_THRESHOLD) {
             $refreshActions[] = [
                 'action_id' => self::ACTION_REFRESH_CONTEXT_PACK,
