@@ -121,4 +121,69 @@ class AtlasSelfConstructionUnattendedRecoveryActionPlannerTest extends TestCase
         self::assertSame($a['plan_hash'], $b['plan_hash']);
         self::assertStringStartsWith('recovery_plan_', $a['plan_hash']);
     }
+
+    public function test_must_run_now_brain_quota_emits_run_brain_action_with_stable_id_and_atlas_native(): void
+    {
+        $snapshot = ['facts' => ['brain_quota' => ['must_run_now' => true, 'status' => 'stalled', 'temp_spec_path' => '']]];
+
+        $verdict = (new AtlasSelfConstructionUnattendedRecoveryActionPlanner)->plan(
+            $this->classification(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, recoveryNeeded: false),
+            $snapshot,
+        );
+
+        $kinds = array_column($verdict['actions'], 'action');
+        self::assertContains(AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW, $kinds);
+
+        $brainAction = array_values(array_filter($verdict['actions'], fn ($a) => $a['action'] === AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW))[0];
+        self::assertSame('act_run_brain_must_run_now', $brainAction['action_id'], 'action_id must be stable');
+        self::assertTrue($brainAction['atlas_native'], 'brain action must be marked atlas_native');
+    }
+
+    public function test_done_temp_spec_emits_discard_action_with_stable_id_and_atlas_native(): void
+    {
+        $snapshot = ['facts' => ['brain_quota' => ['must_run_now' => false, 'status' => 'done', 'temp_spec_path' => '/tmp/brain-spec.json']]];
+
+        $verdict = (new AtlasSelfConstructionUnattendedRecoveryActionPlanner)->plan(
+            $this->classification(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, recoveryNeeded: false),
+            $snapshot,
+        );
+
+        $kinds = array_column($verdict['actions'], 'action');
+        self::assertContains(AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_DISCARD_DONE_TEMP_SPEC, $kinds);
+
+        $discardAction = array_values(array_filter($verdict['actions'], fn ($a) => $a['action'] === AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_DISCARD_DONE_TEMP_SPEC))[0];
+        self::assertSame('act_discard_done_temp_spec', $discardAction['action_id'], 'action_id must be stable');
+        self::assertTrue($discardAction['atlas_native'], 'discard action must be marked atlas_native');
+    }
+
+    public function test_brain_actions_are_deterministic_across_calls(): void
+    {
+        $snapshot = ['facts' => ['brain_quota' => ['must_run_now' => true, 'status' => '', 'temp_spec_path' => '']]];
+        $planner = new AtlasSelfConstructionUnattendedRecoveryActionPlanner;
+
+        $a = $planner->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, false), $snapshot);
+        $b = $planner->plan($this->classification(AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, false), $snapshot);
+
+        self::assertSame($a['actions'], $b['actions'], 'brain actions must be deterministic');
+        self::assertSame($a['plan_hash'], $b['plan_hash']);
+    }
+
+    public function test_planner_blocks_unsafe_action_kinds(): void
+    {
+        // The planner must never emit provider/git_push/network/unrestricted_shell actions
+        $planner = new AtlasSelfConstructionUnattendedRecoveryActionPlanner;
+        foreach ([
+            AtlasSelfConstructionUnattendedStallClassifier::QUEUE_DRY,
+            AtlasSelfConstructionUnattendedStallClassifier::HEARTBEAT_STALE,
+            AtlasSelfConstructionUnattendedStallClassifier::MERGE_BLOCKED,
+            AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP,
+        ] as $label) {
+            $verdict = $planner->plan($this->classification($label));
+            foreach ($verdict['actions'] as $action) {
+                foreach (['provider', 'git_push', 'network', 'unrestricted_shell'] as $forbidden) {
+                    self::assertStringNotContainsString($forbidden, $action['action'], "must not emit {$forbidden} action kind for {$label}");
+                }
+            }
+        }
+    }
 }
