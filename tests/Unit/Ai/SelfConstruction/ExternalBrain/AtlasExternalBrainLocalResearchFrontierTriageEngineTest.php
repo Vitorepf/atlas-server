@@ -315,6 +315,126 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
         $this->assertSame([], $r['leverage_rank']);
     }
 
+    // ── AC1: new deterministic score fields ──────────────────────────────────
+
+    public function test_atlas_fit_score_in_per_row_output(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['atlas_fit_score' => 0.75, 'evidence_strength' => 0.90])],
+        ]);
+        $this->assertSame(0.75, $r['promising'][0]['atlas_fit_score']);
+    }
+
+    public function test_evidence_quality_score_includes_code_and_benchmark_bonus(): void
+    {
+        // evidence=0.70, has_code=true, has_benchmark=true → 0.70+0.10+0.10 = 0.90
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.70, 'has_code' => true, 'has_benchmark' => true])],
+        ]);
+        $this->assertSame(0.9, $r['promising'][0]['evidence_quality_score']);
+    }
+
+    public function test_evidence_quality_score_no_bonus_without_code_or_benchmark(): void
+    {
+        // evidence=0.80, no code, no benchmark → score = 0.80
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.80, 'has_code' => false, 'has_benchmark' => false])],
+        ]);
+        $this->assertSame(0.8, $r['exploratory'][0]['evidence_quality_score']);
+    }
+
+    public function test_evidence_quality_score_capped_at_one(): void
+    {
+        // evidence=0.95, has_code=true, has_benchmark=true → 0.95+0.10+0.10 = 1.15 → capped at 1.0
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.95, 'has_code' => true, 'has_benchmark' => true])],
+        ]);
+        $this->assertSame(1.0, $r['promising'][0]['evidence_quality_score']);
+    }
+
+    public function test_implementation_risk_score_increases_for_provider_dependency(): void
+    {
+        // risk=0.20, provider_dep=true → 0.20+0.30 = 0.50
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row([
+                'implementation_risk'              => 0.20,
+                'provider_steady_state_dependency' => true,
+            ])],
+        ]);
+        $this->assertSame(0.5, $r['provider_dependent_rejected'][0]['implementation_risk_score']);
+    }
+
+    public function test_implementation_risk_score_equals_risk_when_no_provider_dep(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['implementation_risk' => 0.30])],
+        ]);
+        $this->assertSame(0.3, $r['promising'][0]['implementation_risk_score']);
+    }
+
+    public function test_provider_dependency_score_is_one_when_dependent(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['provider_steady_state_dependency' => true])],
+        ]);
+        $this->assertSame(1.0, $r['provider_dependent_rejected'][0]['provider_dependency_score']);
+    }
+
+    public function test_provider_dependency_score_is_zero_when_not_dependent(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row()],
+        ]);
+        $this->assertSame(0.0, $r['promising'][0]['provider_dependency_score']);
+    }
+
+    // ── AC2: reject hype/provider even with high novelty; promote grounded ────
+
+    public function test_high_compounding_impact_does_not_bypass_hype_rejection(): void
+    {
+        // High novelty (compounding_impact=0.99) but hype+low evidence → still hype_rejected.
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row([
+                'evidence_strength'          => 0.20,
+                'hype_signals'               => ['revolutionary', 'paradigm'],
+                'expected_compounding_impact' => 0.99,
+            ])],
+        ]);
+        $this->assertSame(1, $r['hype_rejected_count']);
+        $this->assertSame(0, $r['promising_count']);
+    }
+
+    public function test_provider_dependent_rejected_even_with_perfect_atlas_fit_and_high_impact(): void
+    {
+        // Provider dependency is a hard block regardless of other scores.
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row([
+                'atlas_fit_score'                  => 1.0,
+                'expected_compounding_impact'      => 1.0,
+                'evidence_strength'                => 0.99,
+                'provider_steady_state_dependency' => true,
+            ])],
+        ]);
+        $this->assertSame(0, $r['promising_count']);
+        $this->assertCount(1, $r['provider_dependent_rejected']);
+    }
+
+    public function test_grounded_local_code_research_promoted_to_promising(): void
+    {
+        // Good evidence, has_code, no hype, no provider dep → promised.
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row([
+                'evidence_strength'                => 0.80,
+                'has_code'                         => true,
+                'hype_signals'                     => [],
+                'provider_steady_state_dependency' => false,
+                'atlas_fit_score'                  => 0.90,
+            ])],
+        ]);
+        $this->assertSame(1, $r['promising_count']);
+        $this->assertGreaterThan(0.80, $r['promising'][0]['evidence_quality_score']); // bonus from has_code
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void

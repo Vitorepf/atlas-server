@@ -71,12 +71,20 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             $providerDepSS  = (bool) ($row['provider_steady_state_dependency'] ?? false);
             $compoundImpact = max(0.0, min(1.0, (float) ($row['expected_compounding_impact'] ?? 0.0)));
 
+            // AC1: deterministic score fields derived from inputs.
+            $evidenceQualityScore    = round(min(1.0, $evidence + ($hasCode ? 0.10 : 0.0) + ($hasBenchmark ? 0.10 : 0.0)), 4);
+            $implementationRiskScore = round(min(1.0, $risk + ($providerDepSS ? 0.30 : 0.0)), 4);
+            $providerDependencyScore = $providerDepSS ? 1.0 : 0.0;
+
             $entry = [
                 'id'                          => $id,
                 'title'                       => $title,
                 'evidence_strength'           => $evidence,
                 'atlas_fit_score'             => $atlasfit,
+                'evidence_quality_score'      => $evidenceQualityScore,
                 'implementation_risk'         => $risk,
+                'implementation_risk_score'   => $implementationRiskScore,
+                'provider_dependency_score'   => $providerDependencyScore,
                 'expected_compounding_impact' => $compoundImpact,
             ];
 
