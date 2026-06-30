@@ -160,4 +160,113 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             self::assertStringNotContainsString($forbidden, $src, "cycle must not contain {$forbidden}");
         }
     }
+
+    // ── step_retry_contract ───────────────────────────────────────────────────
+
+    public function test_dry_run_emits_step_retry_contract_with_dry_run_reason(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([]);
+
+        self::assertArrayHasKey('step_retry_contract', $r);
+        $src = $r['step_retry_contract'];
+        self::assertSame('dry_run_planned_steps_only', $src['reportable_outcome_reason']);
+        self::assertTrue($src['retryable']);
+        self::assertNull($src['required_callback']);
+        self::assertSame([], $src['evidence_needed']);
+    }
+
+    public function test_no_claim_emits_retryable_contract_with_queue_reason(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => null,
+        ]);
+
+        $src = $r['step_retry_contract'];
+        self::assertSame('no_task_available_in_queue', $src['reportable_outcome_reason']);
+        self::assertTrue($src['retryable']);
+        self::assertSame('claim', $src['failed_or_pending_step']);
+    }
+
+    public function test_no_claim_callback_emits_claim_as_required_callback(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            // no claim_callback
+        ]);
+
+        $src = $r['step_retry_contract'];
+        self::assertSame('claim', $src['required_callback']);
+        self::assertTrue($src['retryable']);
+    }
+
+    public function test_adapter_refused_emits_retryable_contract_with_adapter_reason(): void
+    {
+        $badClaim = $this->validClaim();
+        $badClaim['task_packet']['allowed_files'] = [];
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $badClaim,
+        ]);
+
+        $src = $r['step_retry_contract'];
+        self::assertSame('task_packet_rejected_by_adapter', $src['reportable_outcome_reason']);
+        self::assertTrue($src['retryable']);
+    }
+
+    public function test_forbidden_label_emits_non_retryable_contract(): void
+    {
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'action_labels' => ['git'],
+            'claim_callback' => fn () => null,
+        ]);
+
+        $src = $r['step_retry_contract'];
+        self::assertSame('forbidden_action_label_in_spec', $src['reportable_outcome_reason']);
+        self::assertFalse($src['retryable']);
+    }
+
+    public function test_successful_apply_emits_success_outcome_reason_and_not_retryable(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-src-test-'.bin2hex(random_bytes(4)).'.jsonl';
+
+        $r = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $this->validClaim(),
+            'report_callback' => fn (array $p) => $p,
+            'verification' => ['passed' => true],
+        ]);
+
+        $src = $r['step_retry_contract'];
+        self::assertStringContainsString('success', $src['reportable_outcome_reason']);
+        self::assertFalse($src['retryable']);
+        self::assertContains('tests_or_gates_result', $src['evidence_needed']);
+
+        @unlink($ledger);
+    }
+
+    public function test_step_retry_contract_required_keys_present_for_every_status(): void
+    {
+        $keys = ['failed_or_pending_step', 'retryable', 'required_callback', 'evidence_needed', 'reportable_outcome_reason'];
+
+        $fixtures = [
+            // dry_run
+            (new AtlasNativeWorkerClaimExecuteReportCycle)->run([]),
+            // no_claim
+            (new AtlasNativeWorkerClaimExecuteReportCycle)->run(['dry_run' => false, 'claim_callback' => fn () => null]),
+            // refused_label
+            (new AtlasNativeWorkerClaimExecuteReportCycle)->run(['dry_run' => false, 'action_labels' => ['git'], 'claim_callback' => fn () => null]),
+        ];
+
+        foreach ($fixtures as $i => $r) {
+            self::assertArrayHasKey('step_retry_contract', $r, "fixture {$i} missing step_retry_contract");
+            foreach ($keys as $k) {
+                self::assertArrayHasKey($k, $r['step_retry_contract'], "fixture {$i} step_retry_contract missing {$k}");
+            }
+        }
+    }
 }

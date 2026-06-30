@@ -254,13 +254,14 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
             $blockedActions[] = ['action' => 'report', 'reason' => 'report_callback_missing'];
         }
 
-        return $this->envelope(self::STATUS_OK, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome);
+        return $this->envelope(self::STATUS_OK, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome, array_values((array) ($normalized['required_evidence'] ?? [])));
     }
 
     /**
      * @param  list<string>  $plannedSteps
      * @param  list<string>  $appliedSteps
      * @param  list<array<string,mixed>>  $blockedActions
+     * @param  list<string>  $evidenceNeeded
      * @return array<string,mixed>
      */
     private function envelope(
@@ -273,6 +274,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         array $appliedSteps,
         array $blockedActions,
         string $reportOutcome = '',
+        array $evidenceNeeded = [],
     ): array {
         $payload = [
             'schema' => self::SCHEMA,
@@ -286,10 +288,70 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
             'applied_steps' => $appliedSteps,
             'blocked_actions' => $blockedActions,
             'report_outcome' => $reportOutcome,
+            'step_retry_contract' => $this->buildStepRetryContract(
+                $status, $dryRun, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome, $evidenceNeeded,
+            ),
         ];
         $payload['cycle_hash'] = $this->cycleHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * @param  list<string>  $plannedSteps
+     * @param  list<string>  $appliedSteps
+     * @param  list<array<string,mixed>>  $blockedActions
+     * @param  list<string>  $evidenceNeeded
+     * @return array{failed_or_pending_step:string|null,retryable:bool,required_callback:string|null,evidence_needed:list<string>,reportable_outcome_reason:string}
+     */
+    private function buildStepRetryContract(
+        string $status,
+        bool $dryRun,
+        array $plannedSteps,
+        array $appliedSteps,
+        array $blockedActions,
+        string $reportOutcome,
+        array $evidenceNeeded,
+    ): array {
+        $firstBlockedStep = count($blockedActions) > 0 ? (string) ($blockedActions[0]['action'] ?? '') : null;
+        $appliedSet = array_flip($appliedSteps);
+        $firstPending = null;
+        foreach ($plannedSteps as $step) {
+            if (! isset($appliedSet[$step])) {
+                $firstPending = $step;
+                break;
+            }
+        }
+        $failedOrPendingStep = ($firstBlockedStep !== null && $firstBlockedStep !== '') ? $firstBlockedStep : $firstPending;
+
+        $retryable = $reportOutcome !== 'success' && $status !== self::STATUS_REFUSED_LABEL;
+
+        $requiredCallback = null;
+        foreach ($blockedActions as $b) {
+            if (str_contains((string) ($b['reason'] ?? ''), 'callback_missing')) {
+                $requiredCallback = (string) ($b['action'] ?? '');
+                break;
+            }
+        }
+
+        $reportableOutcomeReason = match ($status) {
+            self::STATUS_OK => $dryRun
+                ? 'dry_run_planned_steps_only'
+                : ($reportOutcome !== '' ? "completed_with_outcome:{$reportOutcome}" : 'apply_completed_no_outcome'),
+            self::STATUS_NO_CLAIM        => 'no_task_available_in_queue',
+            self::STATUS_ADAPTER_REFUSED => 'task_packet_rejected_by_adapter',
+            self::STATUS_REFUSED_LABEL   => 'forbidden_action_label_in_spec',
+            self::STATUS_ERROR           => 'internal_error_during_execution',
+            default                      => 'unknown',
+        };
+
+        return [
+            'failed_or_pending_step'    => $failedOrPendingStep,
+            'retryable'                 => $retryable,
+            'required_callback'         => $requiredCallback,
+            'evidence_needed'           => $evidenceNeeded,
+            'reportable_outcome_reason' => $reportableOutcomeReason,
+        ];
     }
 
     /**
