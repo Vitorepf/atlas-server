@@ -226,4 +226,77 @@ final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
         }
         $this->fail("No missing_proof entry for phase '{$phase}'.");
     }
+
+    private function classificationForPhase(array $result, string $phase): array
+    {
+        foreach ($result['circuit_classifications'] as $entry) {
+            if ($entry['phase'] === $phase) {
+                return $entry;
+            }
+        }
+        $this->fail("No circuit_classifications entry for phase '{$phase}'.");
+    }
+
+    // ── Circuit classification ────────────────────────────────────────────────
+
+    public function test_fully_covered_phase_with_no_accelerators_is_provider_independent(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => [$this->fullPhase('task_origination')]]);
+
+        $classification = $this->classificationForPhase($result, 'task_origination');
+        $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_INDEPENDENT, $classification['classification']);
+        $this->assertFalse($classification['missing_fallback']);
+    }
+
+    public function test_phase_with_optional_frontier_accelerator_is_provider_accelerated_not_dependent(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => [
+            $this->fullPhase('task_origination', ['optional_frontier_accelerators' => ['frontier_model_x']]),
+        ]]);
+
+        $classification = $this->classificationForPhase($result, 'task_origination');
+        $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_ACCELERATED, $classification['classification']);
+        $this->assertTrue($result['independent'] || $result['provider_required_phases'] === []);
+    }
+
+    public function test_phase_requiring_live_provider_is_provider_dependent(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => [
+            $this->fullPhase('task_origination', ['requires_live_provider' => true]),
+        ]]);
+
+        $classification = $this->classificationForPhase($result, 'task_origination');
+        $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_DEPENDENT, $classification['classification']);
+    }
+
+    public function test_provider_dependent_phase_without_fallback_fails_closed_with_missing_fallback(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => [
+            [
+                'phase' => 'task_origination',
+                'has_local_evidence_path' => false,
+                'has_scaffold_fallback' => false,
+                'has_benchmark_coverage' => false,
+                'has_rollback_path' => false,
+                'requires_live_provider' => true,
+            ],
+        ]]);
+
+        $classification = $this->classificationForPhase($result, 'task_origination');
+        $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_DEPENDENT, $classification['classification']);
+        $this->assertTrue($classification['missing_fallback']);
+        $this->assertNotEmpty($classification['missing_fallback_types']);
+        $this->assertFalse($result['independent']);
+    }
+
+    public function test_provider_dependent_phase_with_full_fallback_does_not_report_missing_fallback(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => [
+            $this->fullPhase('task_origination', ['requires_live_provider' => true]),
+        ]]);
+
+        $classification = $this->classificationForPhase($result, 'task_origination');
+        $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_DEPENDENT, $classification['classification']);
+        $this->assertFalse($classification['missing_fallback']);
+    }
 }

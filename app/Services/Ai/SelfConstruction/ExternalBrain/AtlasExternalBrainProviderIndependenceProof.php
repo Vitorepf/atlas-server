@@ -53,6 +53,10 @@ final class AtlasExternalBrainProviderIndependenceProof
 {
     public const SCHEMA = 'atlas.external_brain.provider_independence_proof.v1';
 
+    public const CLASSIFICATION_PROVIDER_INDEPENDENT = 'provider_independent';
+    public const CLASSIFICATION_PROVIDER_ACCELERATED = 'provider_accelerated';
+    public const CLASSIFICATION_PROVIDER_DEPENDENT = 'provider_dependent';
+
     public const MANDATORY_PHASES = [
         'task_origination',
         'task_validation',
@@ -76,6 +80,7 @@ final class AtlasExternalBrainProviderIndependenceProof
         $optionalFrontierAccel  = [];
         $missingProofs          = [];
         $evaluatedPhases        = [];
+        $circuitClassifications = [];
 
         foreach ($claims as $claim) {
             if (! is_array($claim) || ! isset($claim['phase'])) {
@@ -144,6 +149,19 @@ final class AtlasExternalBrainProviderIndependenceProof
             if ($missing !== []) {
                 $missingProofs[] = ['phase' => $phase, 'missing_coverage' => $missing];
             }
+
+            $isProviderDependent = $reasons !== [];
+            $classification = match (true) {
+                $isProviderDependent => self::CLASSIFICATION_PROVIDER_DEPENDENT,
+                $accelerators !== [] => self::CLASSIFICATION_PROVIDER_ACCELERATED,
+                default => self::CLASSIFICATION_PROVIDER_INDEPENDENT,
+            };
+            $circuitClassifications[] = [
+                'phase' => $phase,
+                'classification' => $classification,
+                'missing_fallback' => $isProviderDependent && $missing !== [],
+                'missing_fallback_types' => $isProviderDependent ? $missing : [],
+            ];
         }
 
         // AC3: any mandatory phase not present in claims → missing_proofs
@@ -163,6 +181,7 @@ final class AtlasExternalBrainProviderIndependenceProof
             'fallback_coverage'              => $fallbackCoverage,
             'optional_frontier_accelerators' => $optionalFrontierAccel,
             'missing_proofs'                 => $missingProofs,
+            'circuit_classifications'        => $circuitClassifications,
         ];
     }
 }
