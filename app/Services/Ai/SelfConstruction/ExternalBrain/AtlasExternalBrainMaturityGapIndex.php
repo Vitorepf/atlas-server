@@ -184,6 +184,9 @@ final class AtlasExternalBrainMaturityGapIndex
             'blocker_class'         => $blockerClass,
             'next_best_task_family' => $nextBestTaskFamily,
             'missing_proof_type'    => $missingProofType,
+            // Always true for an incomplete dimension reaching this method: queue activity alone
+            // never substitutes for proof, so every gap here still requires real evidence.
+            'proof_required'        => true,
             'autonomy_blocker'      => $autonomyBlocker,
             'simplification_needed' => $simplificationNeeded,
             'readiness_tier'        => $readinessTier,

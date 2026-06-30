@@ -422,4 +422,57 @@ final class AtlasExternalBrainMaturityGapIndexTest extends TestCase
 
         $this->assertSame($gap['missing_proof_type'], $gap['next_chain_step']['required_proof_type']);
     }
+
+    // ── proof_required: queue activity alone never proves maturity ─────────────
+
+    public function test_incomplete_dimension_has_proof_required_true(): void
+    {
+        $rubric = [$this->dim('dim', 0.5, ['s1'], 'fam')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => []])['gaps'][0];
+
+        $this->assertArrayHasKey('proof_required', $gap);
+        $this->assertTrue($gap['proof_required']);
+    }
+
+    public function test_proof_required_stays_true_even_with_heavy_queue_activity(): void
+    {
+        $rubric = [$this->dim('dim', 0.5, ['s1'], 'fam')];
+        $result = $this->index->compute($rubric, [
+            'proven_evidence' => [],
+            'queue_counts'    => ['dim' => 50],
+        ]);
+        $gap = $result['gaps'][0];
+
+        $this->assertTrue($gap['proof_required'], 'queue activity alone must never satisfy proof_required');
+        $this->assertSame('queue_without_proof', $gap['blocker_class']);
+        $this->assertNotContains('dim', $result['complete_dimensions']);
+    }
+
+    public function test_all_required_incomplete_dimension_fields_present(): void
+    {
+        $rubric = [$this->dim('dim', 0.6, ['s1', 's2'], 'fam')];
+        $gap    = $this->index->compute($rubric, ['proven_evidence' => []])['gaps'][0];
+
+        foreach (['dependency_chain', 'next_chain_step', 'proof_required', 'readiness_tier', 'autonomy_blocker', 'simplification_needed', 'missing_proof_type', 'next_best_task_family'] as $field) {
+            $this->assertArrayHasKey($field, $gap, "gap missing required field: {$field}");
+        }
+    }
+
+    public function test_complete_dimensions_only_includes_dimensions_with_all_required_signals_proven(): void
+    {
+        $rubric = [
+            $this->dim('full_proof', 0.5, ['a', 'b']),
+            $this->dim('queue_only', 0.5, ['c', 'd']),
+        ];
+        $result = $this->index->compute($rubric, [
+            'proven_evidence' => ['a', 'b'],
+            'queue_counts'    => ['queue_only' => 99],
+        ]);
+
+        $this->assertContains('full_proof', $result['complete_dimensions']);
+        $this->assertNotContains('queue_only', $result['complete_dimensions']);
+
+        $queueOnlyGap = array_values(array_filter($result['gaps'], static fn (array $g): bool => $g['dimension'] === 'queue_only'))[0];
+        $this->assertSame('queue_without_proof', $queueOnlyGap['blocker_class']);
+    }
 }
