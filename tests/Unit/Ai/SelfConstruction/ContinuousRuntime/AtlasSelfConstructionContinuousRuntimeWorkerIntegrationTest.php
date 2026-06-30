@@ -125,6 +125,78 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegrationTest extends 
         }
     }
 
+    public function test_high_servable_queue_with_ready_capacity_emits_spawn(): void
+    {
+        $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
+            'servable_queue_depth' => 5,
+            'available_worker_count' => 2,
+            'worker_ready' => true,
+            'heartbeat_age_seconds' => 10,
+            'worker_readiness_safe' => true,
+        ]);
+
+        $this->assertContains('spawn', $result['recommendations']);
+        $this->assertNotContains('hold', $result['recommendations']);
+    }
+
+    public function test_stale_heartbeat_emits_repair_worker(): void
+    {
+        $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
+            'servable_queue_depth' => 3,
+            'available_worker_count' => 1,
+            'worker_ready' => true,
+            'heartbeat_age_seconds' => AtlasSelfConstructionContinuousRuntimeWorkerIntegration::WORKER_HEARTBEAT_STALE_SECONDS + 1,
+            'worker_readiness_safe' => true,
+        ]);
+
+        $this->assertContains('repair_worker', $result['recommendations']);
+    }
+
+    public function test_zero_servable_queue_emits_hold(): void
+    {
+        $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
+            'servable_queue_depth' => 0,
+            'available_worker_count' => 4,
+            'worker_ready' => true,
+            'heartbeat_age_seconds' => 10,
+            'worker_readiness_safe' => true,
+        ]);
+
+        $this->assertContains('hold', $result['recommendations']);
+        $this->assertNotContains('spawn', $result['recommendations']);
+    }
+
+    public function test_unsafe_worker_readiness_emits_drain(): void
+    {
+        $result = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->recommend([
+            'servable_queue_depth' => 2,
+            'available_worker_count' => 2,
+            'worker_ready' => true,
+            'heartbeat_age_seconds' => 10,
+            'worker_readiness_safe' => false,
+        ]);
+
+        $this->assertContains('drain', $result['recommendations']);
+    }
+
+    public function test_recommendations_are_deterministic_and_sorted(): void
+    {
+        $svc = new AtlasSelfConstructionContinuousRuntimeWorkerIntegration;
+        $facts = [
+            'servable_queue_depth' => 0,
+            'available_worker_count' => 0,
+            'worker_ready' => false,
+            'heartbeat_age_seconds' => 9999,
+            'worker_readiness_safe' => false,
+        ];
+        $a = $svc->recommend($facts);
+        $b = $svc->recommend($facts);
+        $this->assertSame($a['recommendations'], $b['recommendations']);
+        $copy = $a['recommendations'];
+        sort($copy, SORT_STRING);
+        $this->assertSame($copy, $a['recommendations']);
+    }
+
     public function test_schema_mismatch_in_native_pool_receipt_is_classified_as_not_ready(): void
     {
         $verdict = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->integrate($this->packet([

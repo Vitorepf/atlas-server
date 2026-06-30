@@ -25,6 +25,8 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
 
     public const NATIVE_POOL_SCHEMA = 'atlas.native_worker.pool_supervisor.v1';
 
+    public const WORKER_HEARTBEAT_STALE_SECONDS = 300;
+
     /**
      * Steady-state execution must NEVER depend on these worker kinds.
      *
@@ -106,6 +108,59 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
             ],
             'native_pool_facts' => $nativePool,
             'blockers' => [],
+        ];
+    }
+
+    /**
+     * Emit deterministic runtime-balancing recommendations from queue pressure, worker readiness,
+     * and heartbeat freshness. NEVER spawns anything — pure facts output only.
+     *
+     * Possible recommendations: spawn | hold | drain | repair_worker
+     *
+     * @param  array{
+     *     servable_queue_depth?:int,
+     *     available_worker_count?:int,
+     *     worker_ready?:bool,
+     *     heartbeat_age_seconds?:int,
+     *     worker_readiness_safe?:bool
+     * }  $facts
+     * @return array{schema:string, recommendations:list<string>, facts_observed:array<string,mixed>}
+     */
+    public function recommend(array $facts): array
+    {
+        $queueDepth = (int) ($facts['servable_queue_depth'] ?? 0);
+        $availableWorkers = (int) ($facts['available_worker_count'] ?? 0);
+        $workerReady = (bool) ($facts['worker_ready'] ?? false);
+        $heartbeatAge = (int) ($facts['heartbeat_age_seconds'] ?? 0);
+        $workerReadinessSafe = (bool) ($facts['worker_readiness_safe'] ?? true);
+
+        $recommendations = [];
+
+        if ($queueDepth === 0) {
+            $recommendations[] = 'hold';
+        }
+        if ($queueDepth > 0 && $workerReady && $availableWorkers > 0) {
+            $recommendations[] = 'spawn';
+        }
+        if (! $workerReadinessSafe) {
+            $recommendations[] = 'drain';
+        }
+        if ($heartbeatAge > self::WORKER_HEARTBEAT_STALE_SECONDS) {
+            $recommendations[] = 'repair_worker';
+        }
+
+        sort($recommendations, SORT_STRING);
+
+        return [
+            'schema' => self::SCHEMA,
+            'recommendations' => $recommendations,
+            'facts_observed' => [
+                'servable_queue_depth' => $queueDepth,
+                'available_worker_count' => $availableWorkers,
+                'worker_ready' => $workerReady,
+                'heartbeat_age_seconds' => $heartbeatAge,
+                'worker_readiness_safe' => $workerReadinessSafe,
+            ],
         ];
     }
 
