@@ -60,7 +60,7 @@ final class AtlasMaestroTaskPinningTtlExpiryTest extends TestCase
         $this->assertNull($reg->lookup('PKT-X'), 'lazy sweep should have removed the registry pin');
     }
 
-    public function test_sweep_returns_only_expired_ids_in_asc_order(): void
+    public function test_sweep_returns_receipts_for_expired_entries_in_asc_order(): void
     {
         [$reg, $ttl, $advance] = $this->build('2026-06-25T05:00:00Z');
         $ttl->pinWithTtl('zebra', 'w', 'r', 60);
@@ -68,11 +68,60 @@ final class AtlasMaestroTaskPinningTtlExpiryTest extends TestCase
         $ttl->pinWithTtl('mango', 'w', 'r', 36000);
 
         $advance('2026-06-25T05:02:00Z');
-        $expired = $ttl->sweep();
-        $this->assertSame(['apple', 'zebra'], $expired);
+        $receipts = $ttl->sweep();
+        $this->assertCount(2, $receipts);
+        $this->assertSame('apple', $receipts[0]['packet_id']);
+        $this->assertSame('zebra', $receipts[1]['packet_id']);
+        $this->assertSame(AtlasMaestroTaskPinningTtlExpiry::UNPIN_REASON, $receipts[0]['reason']);
+        $this->assertNotEmpty($receipts[0]['expired_at']);
         $this->assertNull($reg->lookup('apple'));
         $this->assertNull($reg->lookup('zebra'));
         $this->assertNotNull($reg->lookup('mango'));
+    }
+
+    public function test_corrupt_ttl_snapshot_is_treated_as_empty_state(): void
+    {
+        [$reg, $ttl] = $this->build('2026-06-25T05:00:00Z');
+
+        // Write corrupt bytes directly.
+        file_put_contents($this->root.'/ttl.json', '{not valid json!!!');
+
+        // Neither sweep nor effectivePinFor must throw.
+        $this->assertSame([], $ttl->sweep());
+        $this->assertNull($ttl->effectivePinFor('any'));
+    }
+
+    public function test_ttl_snapshot_with_non_array_values_is_quarantined(): void
+    {
+        [$reg, $ttl, $advance] = $this->build('2026-06-25T05:00:00Z');
+
+        // Write a snapshot that has a corrupt string entry.
+        file_put_contents($this->root.'/ttl.json', json_encode([
+            'good-pkt' => ['expires_at' => '2026-06-25T04:59:00Z'],
+            'bad-pkt' => 'not-an-array',
+        ]));
+
+        $advance('2026-06-25T05:00:01Z');
+        // Should not throw; corrupt entry ignored.
+        $receipts = $ttl->sweep();
+        $ids = array_column($receipts, 'packet_id');
+        $this->assertContains('good-pkt', $ids);
+        $this->assertNotContains('bad-pkt', $ids);
+    }
+
+    public function test_effective_pin_for_lazy_expiry_stores_receipt(): void
+    {
+        [$reg, $ttl, $advance] = $this->build('2026-06-25T05:00:00Z');
+        $ttl->pinWithTtl('PKT-LAZY', 'worker_a', 'lazy-test', 30);
+
+        $advance('2026-06-25T05:01:00Z');
+        $this->assertNull($ttl->effectivePinFor('PKT-LAZY'));
+
+        $receipt = $ttl->lastLazyExpiryReceipt();
+        $this->assertIsArray($receipt);
+        $this->assertSame('PKT-LAZY', $receipt['packet_id']);
+        $this->assertSame(AtlasMaestroTaskPinningTtlExpiry::UNPIN_REASON, $receipt['reason']);
+        $this->assertNotEmpty($receipt['expired_at']);
     }
 
     public function test_out_of_range_ttl_throws_with_offending_value(): void

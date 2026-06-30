@@ -28,6 +28,8 @@ final class AtlasMaestroTaskPinningTtlExpiry
     /** @var Closure():bool */
     private Closure $switchEnabled;
 
+    private ?array $lastLazyExpiryReceipt = null;
+
     public function __construct(
         private readonly AtlasMaestroTaskPinningRegistry $registry,
         private readonly string $ttlSnapshotPath,
@@ -61,7 +63,9 @@ final class AtlasMaestroTaskPinningTtlExpiry
         return $row;
     }
 
-    /** @return list<string> packet_ids removed, ASC */
+    /**
+     * @return list<array{packet_id:string,expired_at:string,reason:string}> receipts ASC by packet_id
+     */
     public function sweep(): array
     {
         if (! ($this->switchEnabled)()) {
@@ -69,19 +73,19 @@ final class AtlasMaestroTaskPinningTtlExpiry
         }
         $state = $this->loadTtl();
         $now = $this->nowIso();
-        $expired = [];
+        $receipts = [];
         foreach ($state as $packetId => $entry) {
             $exp = (string) ($entry['expires_at'] ?? '');
             if ($exp !== '' && strcmp($exp, $now) <= 0) {
-                $this->registry->unpin($packetId);
+                $this->registry->unpin((string) $packetId);
                 unset($state[$packetId]);
-                $expired[] = $packetId;
+                $receipts[] = ['packet_id' => (string) $packetId, 'expired_at' => $exp, 'reason' => self::UNPIN_REASON];
             }
         }
-        sort($expired, SORT_STRING);
+        usort($receipts, static fn (array $a, array $b): int => strcmp($a['packet_id'], $b['packet_id']));
         $this->saveTtl($state);
 
-        return $expired;
+        return $receipts;
     }
 
     /** @return array<string,mixed>|null */
@@ -96,13 +100,21 @@ final class AtlasMaestroTaskPinningTtlExpiry
             if ($exp !== '' && strcmp($exp, $this->nowIso()) <= 0) {
                 $this->registry->unpin($packetId);
                 unset($state[$packetId]);
+                $this->lastLazyExpiryReceipt = ['packet_id' => $packetId, 'expired_at' => $exp, 'reason' => self::UNPIN_REASON];
                 $this->saveTtl($state);
 
                 return null;
             }
         }
+        $this->lastLazyExpiryReceipt = null;
 
         return $this->registry->lookup($packetId);
+    }
+
+    /** @return array{packet_id:string,expired_at:string,reason:string}|null */
+    public function lastLazyExpiryReceipt(): ?array
+    {
+        return $this->lastLazyExpiryReceipt;
     }
 
     private function nowIso(): string
@@ -130,9 +142,12 @@ final class AtlasMaestroTaskPinningTtlExpiry
         if ($bytes === '') {
             return [];
         }
-        $decoded = json_decode($bytes, true);
+        $decoded = @json_decode($bytes, true);
+        if (! is_array($decoded)) {
+            return []; // corrupt JSON → treat as empty
+        }
 
-        return is_array($decoded) ? $decoded : [];
+        return array_filter($decoded, 'is_array'); // drop non-array entries (partial-write corruption)
     }
 
     /** @param array<string,array<string,mixed>> $state */
