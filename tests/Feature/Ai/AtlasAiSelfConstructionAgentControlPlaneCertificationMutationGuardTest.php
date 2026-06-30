@@ -280,4 +280,79 @@ final class AtlasAiSelfConstructionAgentControlPlaneCertificationMutationGuardTe
 
         return new AgentControlPlaneCertificationMutationGuard($readiness, $replay, $store);
     }
+
+    // ── evaluateMutations() ──────────────────────────────────────────────────
+
+    public function test_removed_critical_check_survives(): void
+    {
+        $result = $this->newGuard()->evaluateMutations(['mutations' => [
+            ['mutation_id' => 'm1', 'target_check' => 'scope_check', 'kind' => 'removed', 'still_blocking' => false],
+        ]]);
+
+        $this->assertFalse($result['results'][0]['killed']);
+        $this->assertTrue($result['results'][0]['survived']);
+        $this->assertNotEmpty($result['results'][0]['required_test_gap']);
+        $this->assertSame(1, $result['survived_count']);
+        $this->assertSame(0, $result['killed_count']);
+    }
+
+    public function test_weakened_to_advisory_check_survives(): void
+    {
+        $result = $this->newGuard()->evaluateMutations(['mutations' => [
+            ['mutation_id' => 'm1', 'target_check' => 'proof_check', 'kind' => 'weakened_to_advisory', 'still_blocking' => false],
+        ]]);
+
+        $this->assertTrue($result['results'][0]['survived']);
+        $this->assertStringContainsString('advisory', $result['results'][0]['required_test_gap']);
+    }
+
+    public function test_still_blocking_critical_check_is_killed(): void
+    {
+        $result = $this->newGuard()->evaluateMutations(['mutations' => [
+            ['mutation_id' => 'm1', 'target_check' => 'freshness_check', 'kind' => 'removed', 'still_blocking' => true],
+        ]]);
+
+        $this->assertTrue($result['results'][0]['killed']);
+        $this->assertFalse($result['results'][0]['survived']);
+        $this->assertNull($result['results'][0]['required_test_gap']);
+        $this->assertSame(1, $result['killed_count']);
+    }
+
+    public function test_harmless_refactor_excluded_from_killed_and_survived(): void
+    {
+        $result = $this->newGuard()->evaluateMutations(['mutations' => [
+            ['mutation_id' => 'm1', 'target_check' => 'conflict_check', 'kind' => 'harmless_refactor', 'still_blocking' => true],
+        ]]);
+
+        $this->assertTrue($result['results'][0]['harmless_refactor']);
+        $this->assertFalse($result['results'][0]['killed']);
+        $this->assertFalse($result['results'][0]['survived']);
+        $this->assertSame(1, $result['harmless_refactor_count']);
+        $this->assertSame(0, $result['killed_count']);
+        $this->assertSame(0, $result['survived_count']);
+    }
+
+    public function test_all_five_critical_checks_covered(): void
+    {
+        $mutations = array_map(
+            fn (string $check) => ['mutation_id' => "m-$check", 'target_check' => $check, 'kind' => 'removed', 'still_blocking' => false],
+            AgentControlPlaneCertificationMutationGuard::CRITICAL_CHECK_IDS,
+        );
+
+        $result = $this->newGuard()->evaluateMutations(['mutations' => $mutations]);
+
+        $this->assertCount(5, $result['results']);
+        $this->assertSame(5, $result['survived_count']);
+        $this->assertSame(0.0, $result['kill_ratio']);
+    }
+
+    public function test_kill_ratio_computed_correctly(): void
+    {
+        $result = $this->newGuard()->evaluateMutations(['mutations' => [
+            ['mutation_id' => 'm1', 'target_check' => 'scope_check', 'kind' => 'removed', 'still_blocking' => true],
+            ['mutation_id' => 'm2', 'target_check' => 'proof_check', 'kind' => 'removed', 'still_blocking' => false],
+        ]]);
+
+        $this->assertSame(0.5, $result['kill_ratio']);
+    }
 }

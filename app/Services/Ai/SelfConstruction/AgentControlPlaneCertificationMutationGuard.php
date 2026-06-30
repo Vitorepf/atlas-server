@@ -189,6 +189,96 @@ final class AgentControlPlaneCertificationMutationGuard
         return $payload;
     }
 
+    public const CRITICAL_CHECK_IDS = ['scope_check', 'proof_check', 'freshness_check', 'conflict_check', 'rollback_check'];
+
+    public const MUTATION_KIND_REMOVED          = 'removed';
+    public const MUTATION_KIND_WEAKENED_ADVISORY = 'weakened_to_advisory';
+    public const MUTATION_KIND_HARMLESS_REFACTOR = 'harmless_refactor';
+
+    /**
+     * Mutation-test the certification check suite itself: for each candidate
+     * mutation of a critical check (removed, weakened to advisory-only, or a
+     * harmless refactor), determine whether the guard would still BLOCK
+     * (killed) or would silently let a weakened check pass as green (survived).
+     *
+     * A mutation is "killed" only when the candidate's check set still enforces
+     * the target check as blocking. Harmless refactors never count as kills or
+     * survivals — they are excluded from the kill ratio entirely (AC2).
+     *
+     * @param  array{mutations?: list<array{
+     *     mutation_id?: string, target_check?: string, kind?: string, still_blocking?: bool,
+     * }>}  $input
+     * @return array{schema_version:string, results:list<array<string,mixed>>, killed_count:int, survived_count:int, harmless_refactor_count:int, kill_ratio:float}
+     */
+    public function evaluateMutations(array $input): array
+    {
+        $mutations = is_array($input['mutations'] ?? null) ? $input['mutations'] : [];
+
+        $results = [];
+        $killed = 0;
+        $survived = 0;
+        $harmless = 0;
+
+        foreach ($mutations as $mutation) {
+            $mutationId   = (string) ($mutation['mutation_id']   ?? '');
+            $targetCheck  = (string) ($mutation['target_check']  ?? '');
+            $kind         = (string) ($mutation['kind']          ?? self::MUTATION_KIND_REMOVED);
+            $stillBlocking = (bool)  ($mutation['still_blocking'] ?? false);
+
+            if ($kind === self::MUTATION_KIND_HARMLESS_REFACTOR) {
+                $harmless++;
+                $results[] = [
+                    'mutation_id'         => $mutationId,
+                    'target_check'        => $targetCheck,
+                    'kind'                => $kind,
+                    'killed'              => false,
+                    'survived'            => false,
+                    'harmless_refactor'   => true,
+                    'required_test_gap'   => null,
+                ];
+
+                continue;
+            }
+
+            $isKilled = $stillBlocking && in_array($targetCheck, self::CRITICAL_CHECK_IDS, true);
+
+            if ($isKilled) {
+                $killed++;
+            } else {
+                $survived++;
+            }
+
+            $requiredTestGap = $isKilled ? null : sprintf(
+                '%s for %s; add an assertion that fails certification when %s is %s',
+                $kind === self::MUTATION_KIND_WEAKENED_ADVISORY ? 'check downgraded to advisory-only' : 'check removed',
+                $targetCheck,
+                $targetCheck,
+                $kind === self::MUTATION_KIND_WEAKENED_ADVISORY ? 'non-blocking' : 'absent',
+            );
+
+            $results[] = [
+                'mutation_id'         => $mutationId,
+                'target_check'        => $targetCheck,
+                'kind'                => $kind,
+                'killed'              => $isKilled,
+                'survived'            => ! $isKilled,
+                'harmless_refactor'   => false,
+                'required_test_gap'   => $requiredTestGap,
+            ];
+        }
+
+        $totalScored = $killed + $survived;
+
+        return [
+            'schema_version'           => self::SCHEMA_VERSION,
+            'results'                  => $results,
+            'killed_count'             => $killed,
+            'survived_count'           => $survived,
+            'harmless_refactor_count'  => $harmless,
+            'kill_ratio'               => $totalScored > 0 ? round($killed / $totalScored, 4) : 1.0,
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
