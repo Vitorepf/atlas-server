@@ -37,7 +37,7 @@ final class AtlasMaestroAssignmentReceiptLedgerTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $first);
         $this->assertSame($first, $second);
         $lines = file($this->path, FILE_IGNORE_NEW_LINES);
-        $this->assertCount(2, $lines);
+        $this->assertCount(1, $lines); // dedup: same receipt_hash → single line
         foreach ($lines as $line) {
             $row = json_decode($line, true);
             $this->assertIsArray($row);
@@ -58,6 +58,42 @@ final class AtlasMaestroAssignmentReceiptLedgerTest extends TestCase
         $this->assertSame(['packet-2', 'packet-3'], array_column($recent, 'task_packet_id'));
         $this->assertSame(['succeeded', 'failed_over'], array_column($recent, 'outcome'));
         $this->assertSame('claude-opus', $recent[1]['fallback_used']);
+    }
+
+    public function test_unknown_outcome_throws_domain_exception(): void
+    {
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessageMatches('/unknown_outcome/');
+        $this->ledger()->record($this->receipt('p1', outcome: 'totally_invalid'));
+    }
+
+    public function test_previous_hash_chain_is_built_and_verifiable(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record($this->receipt('p1'));
+        $ledger->record($this->receipt('p2', outcome: 'succeeded'));
+        $ledger->record($this->receipt('p3', outcome: 'failed_over'));
+
+        $this->assertTrue($ledger->verifyChain(), 'chain must be valid after sequential inserts');
+        $rows = $ledger->recent(10);
+        $this->assertSame('genesis', $rows[0]['previous_hash']);
+        $this->assertSame($rows[0]['receipt_hash'], $rows[1]['previous_hash']);
+        $this->assertSame($rows[1]['receipt_hash'], $rows[2]['previous_hash']);
+    }
+
+    public function test_previous_hash_break_is_detected_by_verify_chain(): void
+    {
+        $ledger = $this->ledger();
+        $ledger->record($this->receipt('p1'));
+        $ledger->record($this->receipt('p2', outcome: 'succeeded'));
+
+        // Tamper: overwrite file with corrupted previous_hash on second row.
+        $lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $second = json_decode($lines[1], true);
+        $second['previous_hash'] = 'corrupted_hash';
+        file_put_contents($this->path, $lines[0].PHP_EOL.json_encode($second).PHP_EOL);
+
+        $this->assertFalse($ledger->verifyChain(), 'tampered previous_hash must break chain verification');
     }
 
     private function ledger(): AtlasMaestroAssignmentReceiptLedger

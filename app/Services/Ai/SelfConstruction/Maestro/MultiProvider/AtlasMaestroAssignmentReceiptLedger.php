@@ -18,13 +18,36 @@ final class AtlasMaestroAssignmentReceiptLedger
     }
 
     /**
+     * Record an assignment receipt idempotently.
+     *
+     * Throws DomainException for unknown outcomes.
+     * Returns the same receipt_hash if the receipt was already recorded (dedup by hash).
+     *
      * @param  array<string,mixed>  $receipt
      */
     public function record(array $receipt): string
     {
-        $payload = $this->canonicalPayload($receipt);
+        $outcome = (string) ($receipt['outcome'] ?? 'assigned');
+        if (! in_array($outcome, self::OUTCOMES, true)) {
+            throw new DomainException("unknown_outcome:{$outcome}");
+        }
+
+        $payload = $this->canonicalPayload($receipt, $outcome);
         $hash = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
-        $row = $payload + ['receipt_hash' => $hash];
+
+        // Idempotent: skip append if receipt_hash already present.
+        $existingRows = $this->rows();
+        foreach ($existingRows as $existing) {
+            if (($existing['receipt_hash'] ?? null) === $hash) {
+                return $hash;
+            }
+        }
+
+        $previous = empty($existingRows)
+            ? 'genesis'
+            : (string) ($existingRows[array_key_last($existingRows)]['receipt_hash'] ?? 'genesis');
+
+        $row = $payload + ['receipt_hash' => $hash, 'previous_hash' => $previous];
         $this->append($row);
 
         return $hash;
@@ -41,22 +64,35 @@ final class AtlasMaestroAssignmentReceiptLedger
     }
 
     /**
-     * @param  array<string,mixed>  $receipt
-     * @return array<string,mixed>
+     * Walk the ledger and verify that each row's previous_hash matches its predecessor's receipt_hash.
+     * Returns true for an empty ledger (vacuously valid).
      */
-    private function canonicalPayload(array $receipt): array
+    public function verifyChain(): bool
     {
-        $outcome = (string) ($receipt['outcome'] ?? 'assigned');
-        if (! in_array($outcome, self::OUTCOMES, true)) {
-            $outcome = 'assigned';
+        $rows = $this->rows();
+        $expected = 'genesis';
+        foreach ($rows as $row) {
+            if (($row['previous_hash'] ?? null) !== $expected) {
+                return false;
+            }
+            $expected = (string) ($row['receipt_hash'] ?? '');
         }
 
+        return true;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function canonicalPayload(array $receipt, string $outcome): array
+    {
         return [
             'schema' => self::SCHEMA,
             'task_packet_id' => (string) ($receipt['task_packet_id'] ?? 'unknown'),
-            'classified_class' => (string) ($receipt['classified_class'] ?? AtlasMaestroPacketClassifier::GRIND),
-            'classifier_rule_id' => (string) ($receipt['classifier_rule_id'] ?? AtlasMaestroPacketClassifier::REASON_GRIND),
-            'primary_provider' => (string) ($receipt['primary_provider'] ?? 'minimax-m3'),
+            // New field names; fall back to legacy keys for backward compatibility.
+            'packet_class' => (string) ($receipt['packet_class'] ?? $receipt['classified_class'] ?? AtlasMaestroPacketClassifier::GRIND),
+            'provider_class' => (string) ($receipt['provider_class'] ?? $receipt['primary_provider'] ?? 'minimax-m3'),
+            'reason_code' => (string) ($receipt['reason_code'] ?? $receipt['classifier_rule_id'] ?? AtlasMaestroPacketClassifier::REASON_GRIND),
             'fallback_chain' => array_values(array_map('strval', (array) ($receipt['fallback_chain'] ?? []))),
             'fallback_used' => isset($receipt['fallback_used']) ? (string) $receipt['fallback_used'] : null,
             'outcome' => $outcome,
