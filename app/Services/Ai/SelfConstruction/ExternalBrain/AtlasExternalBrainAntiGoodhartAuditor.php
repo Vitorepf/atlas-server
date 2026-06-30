@@ -70,6 +70,11 @@ final class AtlasExternalBrainAntiGoodhartAuditor
             'total_audited' => $total,
             'finding_count' => count($findings),
             'findings'      => $findings,
+            'checks_run'    => [
+                'template_farm', 'template_similarity_farm', 'low_variety',
+                'test_count_padding', 'unverifiable_value_claim', 'file_overconcentration',
+                'already_satisfied_work', 'high_score_missing_proof', 'value_mechanism_clone',
+            ],
         ];
     }
 
