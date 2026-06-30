@@ -149,6 +149,9 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCas
                 'generated_at_unix' => 1751284800,
                 'workspace_id' => 'atlas-server',
                 'receipt_hash' => 'abc123receipt',
+                'source_hash' => 'sha256:aabbccdd',
+                'observed_at' => 1751284800,
+                'replay_command_hash' => 'sha256:replay001',
             ];
         }
 
@@ -236,6 +239,66 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifierTest extends TestCas
     public function test_complete_bound_source_evidence_passes(): void
     {
         $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyBoundFacts());
+
+        $this->assertTrue($verdict['passed']);
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_READY, $verdict['status']);
+        $this->assertSame([], $verdict['source_blockers']);
+    }
+
+    // ── replay-proof binding fields ───────────────────────────────────────────
+
+    public function test_missing_workspace_id_in_bound_source_becomes_source_blocker(): void
+    {
+        $facts = $this->readyBoundFacts([
+            'sources' => ['task_serving_contract_sentinel' => ['workspace_id' => '']],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $this->assertContains('source_binding_missing_workspace_id:task_serving_contract_sentinel', $verdict['blockers']);
+    }
+
+    public function test_missing_source_hash_in_bound_source_becomes_source_blocker(): void
+    {
+        $facts = $this->readyBoundFacts([
+            'sources' => ['merge_governor' => ['source_hash' => '']],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $this->assertContains('source_binding_missing_source_hash:merge_governor', $verdict['blockers']);
+    }
+
+    public function test_missing_observed_at_in_bound_source_becomes_source_blocker(): void
+    {
+        $facts = $this->readyBoundFacts([
+            'sources' => ['verification_court' => ['observed_at' => 0]],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $this->assertContains('source_binding_missing_observed_at:verification_court', $verdict['blockers']);
+    }
+
+    public function test_missing_replay_command_hash_in_bound_source_becomes_source_blocker(): void
+    {
+        $facts = $this->readyBoundFacts([
+            'sources' => ['rollback' => ['replay_command_hash' => '']],
+        ]);
+
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($facts);
+
+        $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED, $verdict['status']);
+        $this->assertContains('source_binding_missing_replay_command_hash:rollback', $verdict['blockers']);
+    }
+
+    public function test_require_source_binding_false_preserves_existing_ready_path(): void
+    {
+        // require_source_binding absent/false — new binding checks must NOT fire.
+        $verdict = (new AtlasSelfConstructionAtlasNativeEvidenceVerifier)->verify($this->readyFacts());
 
         $this->assertTrue($verdict['passed']);
         $this->assertSame(AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_READY, $verdict['status']);

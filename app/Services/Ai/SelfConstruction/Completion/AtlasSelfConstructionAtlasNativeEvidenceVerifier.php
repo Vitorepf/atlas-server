@@ -251,15 +251,27 @@ final class AtlasSelfConstructionAtlasNativeEvidenceVerifier
             $issues[] = 'source_binding_missing_generated_at_unix';
         }
 
-        if ($expectedWorkspace !== '') {
-            $rowWorkspace = (string) ($sourceRow['workspace_id'] ?? '');
-            if ($rowWorkspace !== $expectedWorkspace) {
-                $issues[] = 'source_binding_workspace_mismatch:'.$rowWorkspace.'!='.$expectedWorkspace;
-            }
+        // workspace_id must be present in the source row (non-empty).
+        $rowWorkspace = trim((string) ($sourceRow['workspace_id'] ?? ''));
+        if ($rowWorkspace === '') {
+            $issues[] = 'source_binding_missing_workspace_id';
+        } elseif ($expectedWorkspace !== '' && $rowWorkspace !== $expectedWorkspace) {
+            $issues[] = 'source_binding_workspace_mismatch:'.$rowWorkspace.'!='.$expectedWorkspace;
         }
 
         if (trim((string) ($sourceRow['receipt_hash'] ?? '')) === '') {
             $issues[] = 'source_binding_missing_receipt_hash';
+        }
+
+        // Replay-proof binding fields: source_hash, observed_at, replay_command_hash.
+        if (trim((string) ($sourceRow['source_hash'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_source_hash';
+        }
+        if ((int) ($sourceRow['observed_at'] ?? 0) <= 0) {
+            $issues[] = 'source_binding_missing_observed_at';
+        }
+        if (trim((string) ($sourceRow['replay_command_hash'] ?? '')) === '') {
+            $issues[] = 'source_binding_missing_replay_command_hash';
         }
 
         return $issues;
