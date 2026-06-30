@@ -29,7 +29,7 @@ final class AtlasExternalBrainImpactBacktestHarness
 
     public const MIN_OVERCLAIM_RATE_FOR_HINT = 0.30;
 
-    public const PENALTY_OUTCOMES = ['give_back', 'proxy_implementation', 'no_capability_delta'];
+    public const PENALTY_OUTCOMES = ['give_back', 'proxy_implementation', 'no_capability_delta', 'quarantine'];
 
     /**
      * @param  array<string,mixed>  $input  scored_tasks list
@@ -47,6 +47,7 @@ final class AtlasExternalBrainImpactBacktestHarness
                 'scorer_adjustment_hints' => [],
                 'penalized_tasks' => [],
                 'calibration_score' => null,
+                'calibration_error' => null,
                 'total_tasks' => 0,
             ];
         }
@@ -55,13 +56,16 @@ final class AtlasExternalBrainImpactBacktestHarness
         $overclaims = [];
         $penalized = [];
         $wellCalibrated = 0;
+        $absDeltaSum = 0.0;
 
         foreach ($tasks as $t) {
             $id = (string) ($t['task_id'] ?? 'unknown');
             $predicted = (float) ($t['predicted_leverage'] ?? 0.0);
             $actual = (float) ($t['actual_leverage'] ?? 0.0);
             $outcome = (string) ($t['actual_outcome'] ?? 'unknown');
+            $downstreamUnlocks = array_key_exists('downstream_unlocks', $t) ? (int) $t['downstream_unlocks'] : null;
             $delta = $predicted - $actual;
+            $absDeltaSum += abs($delta);
 
             $byOutcome[$outcome][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta];
 
@@ -75,12 +79,21 @@ final class AtlasExternalBrainImpactBacktestHarness
                 ];
             }
 
-            if (in_array($outcome, self::PENALTY_OUTCOMES, true) && $predicted >= self::HIGH_LEVERAGE_FLOOR) {
+            $isHighPredicted = $predicted >= self::HIGH_LEVERAGE_FLOOR;
+
+            if (in_array($outcome, self::PENALTY_OUTCOMES, true) && $isHighPredicted) {
                 $penalized[] = [
                     'task_id' => $id,
                     'predicted_leverage' => $predicted,
                     'actual_outcome' => $outcome,
                     'penalty_reason' => 'high_predicted_leverage_with_negative_outcome',
+                ];
+            } elseif ($isHighPredicted && $downstreamUnlocks === 0) {
+                $penalized[] = [
+                    'task_id' => $id,
+                    'predicted_leverage' => $predicted,
+                    'actual_outcome' => $outcome,
+                    'penalty_reason' => 'no_downstream_unlock_despite_high_predicted_leverage',
                 ];
             }
 
@@ -133,6 +146,22 @@ final class AtlasExternalBrainImpactBacktestHarness
             ];
         }
 
+        $quarantineCount = count(array_filter($penalized, static fn (array $p): bool => $p['actual_outcome'] === 'quarantine'));
+        if ($quarantineCount > 0) {
+            $hints[] = [
+                'hint' => 'downweight_quarantine_prone_predictions',
+                'reason' => sprintf('%d high-predicted tasks were quarantined', $quarantineCount),
+            ];
+        }
+
+        $noUnlockCount = count(array_filter($penalized, static fn (array $p): bool => $p['penalty_reason'] === 'no_downstream_unlock_despite_high_predicted_leverage'));
+        if ($noUnlockCount > 0) {
+            $hints[] = [
+                'hint' => 'discount_leverage_without_downstream_unlocks',
+                'reason' => sprintf('%d high-predicted tasks produced zero downstream unlocks', $noUnlockCount),
+            ];
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'calibration_buckets' => $calibrationBuckets,
@@ -140,6 +169,7 @@ final class AtlasExternalBrainImpactBacktestHarness
             'scorer_adjustment_hints' => $hints,
             'penalized_tasks' => $penalized,
             'calibration_score' => $calibrationScore,
+            'calibration_error' => round($absDeltaSum / $totalTasks, 4),
             'total_tasks' => $totalTasks,
         ];
     }

@@ -201,4 +201,75 @@ final class AtlasExternalBrainImpactBacktestHarnessTest extends TestCase
         $r = $this->svc()->backtest([]);
         $this->assertSame(AtlasExternalBrainImpactBacktestHarness::SCHEMA, $r['schema_version']);
     }
+
+    // ── quarantine penalty ────────────────────────────────────────────────────
+
+    public function test_quarantine_with_high_predicted_is_penalized(): void
+    {
+        $r = $this->bt([$this->task('q1', 7.0, 1.0, 'quarantine')]);
+
+        $this->assertCount(1, $r['penalized_tasks']);
+        $this->assertSame('quarantine', $r['penalized_tasks'][0]['actual_outcome']);
+    }
+
+    public function test_quarantine_penalty_triggers_downweight_hint(): void
+    {
+        $r = $this->bt([$this->task('q1', 7.0, 1.0, 'quarantine')]);
+
+        $hints = array_column($r['scorer_adjustment_hints'], 'hint');
+        $this->assertContains('downweight_quarantine_prone_predictions', $hints);
+    }
+
+    // ── no downstream unlock penalty ──────────────────────────────────────────
+
+    public function test_high_predicted_with_zero_downstream_unlocks_is_penalized_even_on_success(): void
+    {
+        $task = $this->task('u1', 7.0, 7.0, 'commit_success');
+        $task['downstream_unlocks'] = 0;
+
+        $r = $this->bt([$task]);
+
+        $this->assertCount(1, $r['penalized_tasks']);
+        $this->assertSame('no_downstream_unlock_despite_high_predicted_leverage', $r['penalized_tasks'][0]['penalty_reason']);
+    }
+
+    public function test_high_predicted_with_positive_downstream_unlocks_is_not_penalized_for_unlocks(): void
+    {
+        $task = $this->task('u2', 7.0, 7.0, 'commit_success');
+        $task['downstream_unlocks'] = 3;
+
+        $r = $this->bt([$task]);
+
+        $this->assertSame([], $r['penalized_tasks']);
+    }
+
+    public function test_no_downstream_unlock_penalty_triggers_discount_hint(): void
+    {
+        $task = $this->task('u3', 7.0, 7.0, 'commit_success');
+        $task['downstream_unlocks'] = 0;
+
+        $r = $this->bt([$task]);
+
+        $hints = array_column($r['scorer_adjustment_hints'], 'hint');
+        $this->assertContains('discount_leverage_without_downstream_unlocks', $hints);
+    }
+
+    // ── calibration_error ─────────────────────────────────────────────────────
+
+    public function test_calibration_error_is_average_absolute_delta(): void
+    {
+        $r = $this->bt([
+            $this->task('e1', 5.0, 3.0),
+            $this->task('e2', 2.0, 4.0),
+        ]);
+
+        // |5-3|=2, |2-4|=2 → avg = 2.0
+        $this->assertEqualsWithDelta(2.0, $r['calibration_error'], 0.001);
+    }
+
+    public function test_calibration_error_null_when_no_tasks(): void
+    {
+        $r = $this->svc()->backtest([]);
+        $this->assertNull($r['calibration_error']);
+    }
 }
