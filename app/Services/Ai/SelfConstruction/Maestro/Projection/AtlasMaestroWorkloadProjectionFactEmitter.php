@@ -19,6 +19,97 @@ final class AtlasMaestroWorkloadProjectionFactEmitter
     /** Queue drains in fewer than this many hours → low_buffer. */
     public const HORIZON_LOW_BUFFER_HOURS = 4.0;
 
+    /** @var list<string> */
+    private const REQUIRED_FACT_ROW_FIELDS = ['claimable_depth', 'active_workers', 'telemetry_confidence'];
+
+    private ?string $factLogPathOverride = null;
+
+    public function setFactLogPathForTesting(?string $path): void
+    {
+        $this->factLogPathOverride = $path;
+    }
+
+    public function factLogPath(): string
+    {
+        return $this->factLogPathOverride
+            ?? storage_path('app/atlas/self-construction/agent-control-plane/maestro-workload-projection-facts.jsonl');
+    }
+
+    /**
+     * Append-only, history-ready workload projection fact row — no overwrite, ever. Each row is
+     * a FACT only: claimable_depth, active_workers, telemetry_confidence and generated_at. Rejects
+     * (without appending) when any required field is missing, so atlas:task:maestro-projection
+     * history never gains a row it can't trust.
+     *
+     * @param  array{claimable_depth?: int, active_workers?: int, telemetry_confidence?: float}  $input
+     * @return array{schema:string, accepted:bool, missing_fields:list<string>, row:?array<string,mixed>}
+     */
+    public function emitFactRow(array $input): array
+    {
+        $missingFields = array_values(array_filter(
+            self::REQUIRED_FACT_ROW_FIELDS,
+            static fn (string $field): bool => ! array_key_exists($field, $input) || $input[$field] === null,
+        ));
+
+        if ($missingFields !== []) {
+            return [
+                'schema' => self::SCHEMA,
+                'accepted' => false,
+                'missing_fields' => $missingFields,
+                'row' => null,
+            ];
+        }
+
+        $row = [
+            'schema' => self::SCHEMA,
+            'generated_at' => CarbonImmutable::now()->toIso8601String(),
+            'claimable_depth' => (int) $input['claimable_depth'],
+            'active_workers' => (int) $input['active_workers'],
+            'telemetry_confidence' => (float) $input['telemetry_confidence'],
+        ];
+
+        try {
+            $path = $this->factLogPath();
+            $dir = dirname($path);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            @file_put_contents($path, json_encode($row, JSON_UNESCAPED_SLASHES).PHP_EOL, FILE_APPEND | LOCK_EX);
+        } catch (\Throwable) {
+            // Append-only fact emission must never break the projection caller; a failed write is
+            // itself a (silent) signal, not a reason to throw.
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'accepted' => true,
+            'missing_fields' => [],
+            'row' => $row,
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    public function factHistory(int $tail = 200): array
+    {
+        $path = $this->factLogPath();
+        if (! is_file($path)) {
+            return [];
+        }
+        $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [];
+        $lines = array_slice($lines, -max(1, $tail));
+        $out = [];
+        foreach ($lines as $line) {
+            $decoded = json_decode((string) $line, true);
+            if (is_array($decoded)) {
+                $out[] = $decoded;
+            }
+        }
+
+        return $out;
+    }
+
     /**
      * @param  array<string,mixed>  $consumptionRateFact
      * @param  array<string,mixed>  $registrySnapshot
