@@ -160,6 +160,23 @@ final class AtlasStrategyCouncilRoadmapCandidateFilterTest extends TestCase
         $this->assertSame('live-2', $r['kept'][0]['candidate_id']);
     }
 
+    public function test_stale_candidate_is_dropped(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('s1', ['stale' => true]),
+        ]);
+        $this->assertSame([], $r['kept']);
+        $this->assertSame('dropped:stale', $r['dropped'][0]['drop_reason']);
+    }
+
+    public function test_stale_does_not_shadow_higher_priority_resolved_reason(): void
+    {
+        $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([
+            $this->candidate('dual-stale', ['resolved' => true, 'stale' => true]),
+        ]);
+        $this->assertSame('dropped:resolved', $r['dropped'][0]['drop_reason']);
+    }
+
     public function test_new_drop_reasons_are_deterministically_sorted_with_existing(): void
     {
         $r = (new AtlasStrategyCouncilRoadmapCandidateFilter)->filter([

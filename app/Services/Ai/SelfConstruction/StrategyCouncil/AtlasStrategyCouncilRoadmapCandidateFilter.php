@@ -21,6 +21,7 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  *   - dropped:duplicate:<key>         — same duplicate_key already kept (first-wins)
  *   - dropped:proxy_only              — kind matches /cosmetic|proxy|whitespace|comment|cyclomatic/i
  *   - dropped:outside_scope:<owner>   — owner_scope ∉ admitted_owner_scopes
+ *   - dropped:stale                   — stale===true
  *
  * OUTPUT:
  *   { schema, kept:list<candidate>, dropped:list<{candidate_id, drop_reason}> }
@@ -88,6 +89,11 @@ final class AtlasStrategyCouncilRoadmapCandidateFilter
             $owner = (string) ($c['owner_scope'] ?? '');
             if ($admittedOwnerScopes !== [] && ! in_array($owner, $admittedOwnerScopes, true)) {
                 $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:outside_scope:'.($owner === '' ? 'missing' : $owner)];
+
+                continue;
+            }
+            if ((bool) ($c['stale'] ?? false)) {
+                $dropped[] = ['candidate_id' => $id, 'drop_reason' => 'dropped:stale'];
 
                 continue;
             }
