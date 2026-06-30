@@ -104,6 +104,24 @@ final class AtlasCortexSnapshotDiffReceiptLedgerTest extends TestCase
         $this->assertSame($hashA, $hashB, 'structural hash must NOT depend on prose');
     }
 
+    public function test_structural_hash_excludes_doc_purposes_prose_real_engine_key(): void
+    {
+        $ledger = new AtlasCortexSnapshotDiffReceiptLedger();
+        $diffA = [
+            'inventory' => ['added' => ['a.php'], 'removed' => [], 'shape_changed' => []],
+            'orphans' => ['appeared' => [], 'resolved' => []],
+            'doc_purposes_prose' => ['added' => ['prose-A']],
+        ];
+        $diffB = [
+            'inventory' => ['added' => ['a.php'], 'removed' => [], 'shape_changed' => []],
+            'orphans' => ['appeared' => [], 'resolved' => []],
+            'doc_purposes_prose' => ['added' => ['prose-B', 'prose-C']],
+        ];
+        $hashA = $ledger->structuralHash($diffA);
+        $hashB = $ledger->structuralHash($diffB);
+        $this->assertSame($hashA, $hashB, 'structural hash must NOT depend on doc_purposes_prose');
+    }
+
     public function test_redirected_root_is_used_and_production_path_is_untouched(): void
     {
         // Snapshot whether the production root exists before this test.

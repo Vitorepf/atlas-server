@@ -89,7 +89,7 @@ final class AtlasCortexSnapshotDiffReceiptLedger
     public function structuralHash(array $diff): string
     {
         $structural = $diff;
-        unset($structural['prose']);
+        unset($structural['prose'], $structural['doc_purposes_prose']);
         $this->ksortRecursiveByReference($structural);
 
         return hash('sha256', (string) json_encode($structural, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
