@@ -25,6 +25,10 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
             'evidence_refs'   => ['ref-a'],
             'uncertainty'     => 'low',
             'is_contradictory' => false,
+            'is_stale'        => false,
+            'reversibility'   => 'reversible',
+            'scope'           => 'loop',
+            'expires_at'      => null,
         ], $overrides);
     }
 
@@ -56,7 +60,11 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $result = $this->compactor->compact(['traces' => [$this->trace(['trace_id' => 'T1'])]]);
 
         $lesson = $result['lessons'][0];
-        foreach (['lesson_id', 'causes', 'outcome', 'occurrence_count', 'confidence', 'retained_evidence', 'superseded_trace_ids', 'uncertainty'] as $k) {
+        foreach ([
+            'lesson_id', 'causes', 'outcome', 'occurrence_count', 'confidence',
+            'retained_evidence', 'superseded_trace_ids', 'uncertainty',
+            'reversibility', 'scope', 'expires_at',
+        ] as $k) {
             $this->assertArrayHasKey($k, $lesson, "Missing field: {$k}");
         }
     }
@@ -132,7 +140,6 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
             $this->trace(['trace_id' => 'T3', 'is_contradictory' => true]),
         ]]);
 
-        // T1+T2 merge to 1 lesson; T3 stays separate → 2 lessons total
         $this->assertSame(2, $result['lesson_count']);
         $reasons = array_column($result['lessons'], 'kept_separate_reason');
         $this->assertContains('contradictory', $reasons);
@@ -173,6 +180,70 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $this->assertSame(AtlasExternalBrainDecisionLedgerCompactor::CONFIDENCE_LOW, $result['lessons'][0]['confidence']);
     }
 
+    // ── AC2: stale trace kept separate ───────────────────────────────────────
+
+    public function test_stale_trace_kept_separate(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1']),
+            $this->trace(['trace_id' => 'T2']),
+            $this->trace(['trace_id' => 'T3', 'is_stale' => true]),
+        ]]);
+
+        $this->assertSame(2, $result['lesson_count']);
+        $reasons = array_column($result['lessons'], 'kept_separate_reason');
+        $this->assertContains('stale', $reasons);
+    }
+
+    public function test_stale_lesson_has_occurrence_count_one(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'is_stale' => true]),
+        ]]);
+
+        $this->assertSame(1, $result['lessons'][0]['occurrence_count']);
+        $this->assertSame('stale', $result['lessons'][0]['kept_separate_reason']);
+    }
+
+    // ── AC2: irreversible trace kept separate ─────────────────────────────────
+
+    public function test_irreversible_trace_kept_separate(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1']),
+            $this->trace(['trace_id' => 'T2']),
+            $this->trace(['trace_id' => 'T3', 'reversibility' => 'irreversible']),
+        ]]);
+
+        $this->assertSame(2, $result['lesson_count']);
+        $reasons = array_column($result['lessons'], 'kept_separate_reason');
+        $this->assertContains('irreversible', $reasons);
+    }
+
+    // ── scope: different scopes not merged ────────────────────────────────────
+
+    public function test_different_scope_not_merged(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'scope' => 'loop']),
+            $this->trace(['trace_id' => 'T2', 'scope' => 'brain']),
+        ]]);
+
+        // Same causes+outcome but different scope → 2 separate lessons
+        $this->assertSame(2, $result['lesson_count']);
+    }
+
+    public function test_same_scope_can_merge(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'scope' => 'loop']),
+            $this->trace(['trace_id' => 'T2', 'scope' => 'loop']),
+        ]]);
+
+        $this->assertSame(1, $result['lesson_count']);
+        $this->assertSame(2, $result['lessons'][0]['occurrence_count']);
+    }
+
     // ── Different outcomes → different lessons ────────────────────────────────
 
     public function test_same_causes_different_outcomes_produce_separate_lessons(): void
@@ -187,6 +258,71 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
         $this->assertNull($result['lessons'][1]['kept_separate_reason']);
     }
 
+    // ── reversibility, scope, expires_at preserved ───────────────────────────
+
+    public function test_merged_lesson_preserves_scope(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'scope' => 'maestro']),
+            $this->trace(['trace_id' => 'T2', 'scope' => 'maestro']),
+        ]]);
+
+        $this->assertSame('maestro', $result['lessons'][0]['scope']);
+    }
+
+    public function test_merged_lesson_reversibility_is_unknown_if_any_contributor_unknown(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'reversibility' => 'reversible']),
+            $this->trace(['trace_id' => 'T2', 'reversibility' => 'unknown']),
+        ]]);
+
+        $this->assertSame('unknown', $result['lessons'][0]['reversibility']);
+    }
+
+    public function test_merged_lesson_reversibility_is_reversible_when_all_reversible(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'reversibility' => 'reversible']),
+            $this->trace(['trace_id' => 'T2', 'reversibility' => 'reversible']),
+        ]]);
+
+        $this->assertSame('reversible', $result['lessons'][0]['reversibility']);
+    }
+
+    public function test_merged_lesson_expires_at_is_earliest_of_contributors(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'expires_at' => '2026-12-01']),
+            $this->trace(['trace_id' => 'T2', 'expires_at' => '2026-09-01']),
+        ]]);
+
+        $this->assertSame('2026-09-01', $result['lessons'][0]['expires_at']);
+    }
+
+    public function test_merged_lesson_expires_at_is_null_when_no_contributor_has_expiry(): void
+    {
+        $result = $this->compactor->compact(['traces' => [
+            $this->trace(['trace_id' => 'T1', 'expires_at' => null]),
+            $this->trace(['trace_id' => 'T2', 'expires_at' => null]),
+        ]]);
+
+        $this->assertNull($result['lessons'][0]['expires_at']);
+    }
+
+    // ── deterministic lesson ID ───────────────────────────────────────────────
+
+    public function test_lesson_id_is_deterministic_for_same_causes_outcome_scope(): void
+    {
+        $t1 = $this->trace(['trace_id' => 'T1', 'causes' => ['a', 'b'], 'outcome' => 'x', 'scope' => 'loop']);
+        $t2 = $this->trace(['trace_id' => 'T2', 'causes' => ['a', 'b'], 'outcome' => 'x', 'scope' => 'loop']);
+
+        $r1 = $this->compactor->compact(['traces' => [$t1]]);
+        $r2 = $this->compactor->compact(['traces' => [$t2]]);
+
+        $this->assertSame($r1['lessons'][0]['lesson_id'], $r2['lessons'][0]['lesson_id']);
+    }
+
     // ── lesson_count matches lessons list ─────────────────────────────────────
 
     public function test_lesson_count_matches_lessons_list_length(): void
@@ -196,6 +332,7 @@ final class AtlasExternalBrainDecisionLedgerCompactorTest extends TestCase
             $this->trace(['trace_id' => 'T2']),
             $this->trace(['trace_id' => 'T3', 'is_contradictory' => true]),
             $this->trace(['trace_id' => 'T4', 'uncertainty' => 'high']),
+            $this->trace(['trace_id' => 'T5', 'is_stale' => true]),
         ]]);
 
         $this->assertSame(count($result['lessons']), $result['lesson_count']);
