@@ -52,6 +52,14 @@ final class AgentControlPlaneClaimLeaseRepository
 
     public const MAX_REGISTRY_ENTRIES = 1_000;
 
+    /**
+     * Raw-bytes threshold above which loadRegistry() uses the bounded (streaming)
+     * path instead of json_decode() on the whole file. 1 000 compact registry
+     * entries × ~400 bytes pretty-printed ≈ 400 KB → threshold = 512 KB so a
+     * healthy capped file never triggers the self-heal path.
+     */
+    private const MAX_REGISTRY_BYTES = 524_288;
+
     public const LEASE_STATUS_ACTIVE = 'active';
 
     public const LEASE_STATUS_EXPIRED = 'expired';
@@ -791,6 +799,19 @@ final class AgentControlPlaneClaimLeaseRepository
             return ['entries' => []];
         }
         $raw = (string) $disk->get(self::REGISTRY_PATH);
+
+        // Bounded path: avoid json_decode() on a very large file — a bloated
+        // lease registry can OOM under a 128 M limit. Extract only the last
+        // MAX_REGISTRY_ENTRIES objects via a character-level scan, self-heal
+        // the file, and return the small result.
+        if (strlen($raw) > self::MAX_REGISTRY_BYTES) {
+            $entries = $this->extractLastEntriesRaw($raw, self::MAX_REGISTRY_ENTRIES);
+            $trimmed = ['entries' => $entries];
+            $this->saveRegistry($trimmed);
+
+            return $trimmed;
+        }
+
         try {
             $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable) {
@@ -801,6 +822,85 @@ final class AgentControlPlaneClaimLeaseRepository
         }
 
         return $decoded;
+    }
+
+    /**
+     * Memory-bounded entry extractor for oversized registry JSON.
+     *
+     * Identical algorithm to TaskQueueRegistryIndexStore::extractLastEntriesRaw()
+     * — kept local so both registries stay independently bounded without coupling.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractLastEntriesRaw(string $raw, int $keep): array
+    {
+        $len = strlen($raw);
+        $entries = [];
+        $depth = 0;
+        $entryStart = -1;
+        $inEntriesArray = false;
+        $inString = false;
+        $keepBuffer = $keep * 2;
+
+        $seekPos = strpos($raw, '"entries"');
+        if ($seekPos === false) {
+            return [];
+        }
+
+        for ($i = $seekPos; $i < $len; $i++) {
+            $ch = $raw[$i];
+
+            if ($inString) {
+                if ($ch === '\\') {
+                    $i++;
+                    continue;
+                }
+                if ($ch === '"') {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($ch === '"') {
+                $inString = true;
+                continue;
+            }
+
+            if (! $inEntriesArray) {
+                if ($ch === '[') {
+                    $inEntriesArray = true;
+                }
+                continue;
+            }
+
+            if ($ch === '{') {
+                if ($depth === 0) {
+                    $entryStart = $i;
+                }
+                $depth++;
+            } elseif ($ch === '}') {
+                $depth--;
+                if ($depth === 0 && $entryStart >= 0) {
+                    $entryJson = substr($raw, $entryStart, $i - $entryStart + 1);
+                    try {
+                        $entry = json_decode($entryJson, true, flags: JSON_THROW_ON_ERROR);
+                        if (is_array($entry)) {
+                            $entries[] = $entry;
+                            if (count($entries) > $keepBuffer) {
+                                $entries = array_slice($entries, -$keep);
+                            }
+                        }
+                    } catch (Throwable) {
+                        // skip corrupt individual entry
+                    }
+                    $entryStart = -1;
+                }
+            } elseif ($ch === ']' && $depth === 0) {
+                break;
+            }
+        }
+
+        return array_slice($entries, -$keep);
     }
 
     /**

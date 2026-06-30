@@ -20,6 +20,21 @@ final class TaskQueueRegistryIndexStore
 {
     public const REGISTRY_PATH = 'atlas/self-construction/task-packet-queue-registry.json';
 
+    /**
+     * Hard ceiling for the registry index.
+     * The registry is an index — evicted entries remain on disk and can be
+     * re-indexed via rebuildRegistryFromLeaseFiles(). Keeps the newest entries.
+     */
+    public const HARD_CAP = 500;
+
+    /**
+     * Raw-bytes threshold above which loadRegistry() uses the bounded (streaming)
+     * path instead of json_decode() on the whole file.  Set below what HARD_CAP
+     * entries would produce so a healthy file never triggers it.
+     * 500 entries × ~700 bytes pretty-printed ≈ 350 KB → threshold = 400 KB.
+     */
+    private const MAX_REGISTRY_BYTES = 409600;
+
     public function __construct(
         private readonly Filesystem $disk,
         private readonly TaskPacketCanonicalizer $canonicalizer,
@@ -87,6 +102,20 @@ final class TaskQueueRegistryIndexStore
             return ['entries' => []];
         }
         $raw = (string) $this->disk->get(self::REGISTRY_PATH);
+
+        // Bounded path: avoid a full json_decode() on a very large file — decoding
+        // a 3 MB JSON registry into a PHP array can use 50–100 MB and OOM under
+        // constrained limits.  Instead extract only the last HARD_CAP entry objects
+        // using a character-level scanner, save the trimmed file (self-heal), and
+        // return the small result.
+        if (strlen($raw) > self::MAX_REGISTRY_BYTES) {
+            $entries = $this->extractLastEntriesRaw($raw, self::HARD_CAP);
+            $trimmed = ['entries' => $entries];
+            $this->saveRegistry($trimmed);
+
+            return $trimmed;
+        }
+
         try {
             $decoded = json_decode($raw, true, flags: JSON_THROW_ON_ERROR);
         } catch (Throwable) {
@@ -108,9 +137,11 @@ final class TaskQueueRegistryIndexStore
     }
 
     /**
-     * Bound the registry WITHOUT ever losing live work. Keep ALL
-     * non-terminal entries; evict only the oldest TERMINAL entries to fit the
-     * cap. If live work alone exceeds the cap, the registry grows past it.
+     * Bound the registry in two tiers:
+     *   1. Soft cap ($cap): evict oldest TERMINAL entries first.
+     *   2. Hard cap (HARD_CAP): if live work alone still exceeds the absolute
+     *      ceiling, evict oldest live entries too — the index is truncated, not
+     *      the task files on disk.
      *
      * @param  array<string, mixed>  $registry
      * @return array<string, mixed>
@@ -133,9 +164,100 @@ final class TaskQueueRegistryIndexStore
             $done = $roomForTerminal > 0 ? array_slice($done, -$roomForTerminal) : [];
             $entries = array_merge($live, $done);
         }
+        // Hard ceiling: evict oldest entries beyond the absolute max.
+        if (count($entries) > self::HARD_CAP) {
+            $entries = array_slice($entries, -self::HARD_CAP);
+        }
         $registry['entries'] = $entries;
         unset($registry['corrupt']);
 
         return $registry;
+    }
+
+    /**
+     * Memory-bounded entry extractor for oversized registry JSON.
+     *
+     * Scans the raw pretty-printed JSON character by character, tracking brace
+     * depth and string boundaries to locate entry object boundaries without
+     * calling json_decode() on the full file.  Individual entry objects
+     * (~450 bytes each) are json_decoded one at a time, so peak memory is
+     * proportional to $keep entries, not to the total file size.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractLastEntriesRaw(string $raw, int $keep): array
+    {
+        $len = strlen($raw);
+        $entries = [];
+        $depth = 0;
+        $entryStart = -1;
+        $inEntriesArray = false;
+        $inString = false;
+        $keepBuffer = $keep * 2; // intermediate bound; sliced to $keep at the end
+
+        // Jump straight to the "entries" key to skip the outer wrapper.
+        $seekPos = strpos($raw, '"entries"');
+        if ($seekPos === false) {
+            return [];
+        }
+
+        for ($i = $seekPos; $i < $len; $i++) {
+            $ch = $raw[$i];
+
+            // ── string tracking (skip brace/bracket counts inside strings) ──
+            if ($inString) {
+                if ($ch === '\\') {
+                    $i++; // skip escaped character
+                    continue;
+                }
+                if ($ch === '"') {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($ch === '"') {
+                $inString = true;
+                continue;
+            }
+
+            // ── find the opening [ of the entries array ──
+            if (! $inEntriesArray) {
+                if ($ch === '[') {
+                    $inEntriesArray = true;
+                }
+                continue;
+            }
+
+            // ── inside the entries array ──
+            if ($ch === '{') {
+                if ($depth === 0) {
+                    $entryStart = $i;
+                }
+                $depth++;
+            } elseif ($ch === '}') {
+                $depth--;
+                if ($depth === 0 && $entryStart >= 0) {
+                    $entryJson = substr($raw, $entryStart, $i - $entryStart + 1);
+                    try {
+                        $entry = json_decode($entryJson, true, flags: JSON_THROW_ON_ERROR);
+                        if (is_array($entry)) {
+                            $entries[] = $entry;
+                            if (count($entries) > $keepBuffer) {
+                                // Periodic trim keeps $entries bounded in memory.
+                                $entries = array_slice($entries, -$keep);
+                            }
+                        }
+                    } catch (Throwable) {
+                        // skip corrupt individual entry
+                    }
+                    $entryStart = -1;
+                }
+            } elseif ($ch === ']' && $depth === 0) {
+                break; // reached end of entries array
+            }
+        }
+
+        return array_slice($entries, -$keep);
     }
 }
