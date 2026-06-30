@@ -76,6 +76,10 @@ final class ContextRetrievalRouter
             $plan['fanout_gate'] = $fanoutSection;
         }
 
+        if ($this->isAmplifierTask($taskType, $mode)) {
+            $plan['model_amplifier_contract'] = $this->modelAmplifierContract($taskType, $domain, $mode, $risk, $payload);
+        }
+
         return $plan;
     }
 
@@ -164,6 +168,46 @@ final class ContextRetrievalRouter
         return in_array($taskType, ['planning', 'decision', 'research'], true)
             || in_array($domain, ['finance', 'marketing', 'personal_development', 'self_improvement'], true)
             || Str::contains($text, ['arquitetura', 'dependencia', 'dependência', 'relacao', 'relação', 'causa', 'impacto', 'tradeoff', 'fluxo']);
+    }
+
+    private function isAmplifierTask(string $taskType, string $mode): bool
+    {
+        return in_array($taskType, ['dev', 'debug', 'review'], true)
+            || in_array($mode, ['dev', 'debug', 'review', 'programming'], true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function modelAmplifierContract(
+        string $taskType,
+        string $domain,
+        string $mode,
+        string $risk,
+        array $payload,
+    ): array {
+        $mustKeep = (
+            in_array($taskType, ['dev', 'debug', 'review', 'quality_repair'], true)
+            || in_array($mode, ['dev', 'debug', 'review', 'programming'], true)
+            || in_array($domain, ['developer', 'programming', 'atlas_programming'], true)
+        ) ? ['code_intelligence', 'memory_signals'] : [];
+
+        $failClosed = (
+            in_array($risk, ['high', 'irreversible'], true)
+            || data_get($payload, 'trace_id') !== null
+            || data_get($payload, 'envelope_id') !== null
+            || data_get($payload, 'receipt_id') !== null
+            || data_get($payload, 'run_id') !== null
+        ) ? ['evidence_replay'] : [];
+
+        return [
+            'provider_safe_only' => true,
+            'required_capabilities' => ['code_understanding', 'context_retention', 'instruction_following'],
+            'must_keep_sources' => $mustKeep,
+            'optional_sources' => ['vector_retrieval'],
+            'fail_closed_sources' => $failClosed,
+        ];
     }
 
     /**

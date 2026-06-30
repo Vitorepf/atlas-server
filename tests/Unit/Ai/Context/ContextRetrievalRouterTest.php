@@ -59,4 +59,101 @@ class ContextRetrievalRouterTest extends TestCase
         $this->assertSame('degraded', data_get($plan, 'readiness.status'));
         $this->assertSame(['graph_retrieval'], data_get($plan, 'readiness.unavailable_selected_sources'));
     }
+
+    public function test_dev_task_emits_model_amplifier_contract_with_required_fields(): void
+    {
+        $plan = app(ContextRetrievalRouter::class)->plan(
+            'fix routing bug',
+            new AiTaskRequest([
+                'task_type' => 'dev',
+                'desired_mode' => 'dev',
+                'risk_level' => 'low',
+                'domain' => 'developer',
+            ]),
+        );
+
+        $this->assertArrayHasKey('model_amplifier_contract', $plan);
+        $c = $plan['model_amplifier_contract'];
+        $this->assertTrue($c['provider_safe_only']);
+        $this->assertArrayHasKey('required_capabilities', $c);
+        $this->assertArrayHasKey('must_keep_sources', $c);
+        $this->assertArrayHasKey('optional_sources', $c);
+        $this->assertArrayHasKey('fail_closed_sources', $c);
+    }
+
+    public function test_code_intelligence_and_memory_signals_are_must_keep_for_programming_tasks(): void
+    {
+        $plan = app(ContextRetrievalRouter::class)->plan(
+            'refactor auth layer',
+            new AiTaskRequest([
+                'task_type' => 'dev',
+                'desired_mode' => 'dev',
+                'risk_level' => 'low',
+                'domain' => 'developer',
+            ]),
+        );
+
+        $mustKeep = $plan['model_amplifier_contract']['must_keep_sources'];
+        $this->assertContains('code_intelligence', $mustKeep);
+        $this->assertContains('memory_signals', $mustKeep);
+    }
+
+    public function test_evidence_replay_is_fail_closed_for_high_risk_tasks(): void
+    {
+        $plan = app(ContextRetrievalRouter::class)->plan(
+            'deploy production change',
+            new AiTaskRequest([
+                'task_type' => 'dev',
+                'desired_mode' => 'dev',
+                'risk_level' => 'high',
+                'domain' => 'developer',
+            ]),
+        );
+
+        $this->assertContains('evidence_replay', $plan['model_amplifier_contract']['fail_closed_sources']);
+    }
+
+    public function test_evidence_replay_is_fail_closed_for_trace_backed_tasks(): void
+    {
+        $plan = app(ContextRetrievalRouter::class)->plan(
+            'debug failing request',
+            new AiTaskRequest([
+                'task_type' => 'debug',
+                'desired_mode' => 'debug',
+                'risk_level' => 'low',
+                'domain' => 'developer',
+            ]),
+            ['trace_id' => 'trace_abc'],
+        );
+
+        $this->assertContains('evidence_replay', $plan['model_amplifier_contract']['fail_closed_sources']);
+    }
+
+    public function test_non_amplifier_task_omits_model_amplifier_contract(): void
+    {
+        $plan = app(ContextRetrievalRouter::class)->plan(
+            'analyze dependencies for planning',
+            new AiTaskRequest([
+                'task_type' => 'planning',
+                'desired_mode' => 'plan',
+                'risk_level' => 'low',
+                'domain' => 'architecture',
+            ]),
+        );
+
+        $this->assertArrayNotHasKey('model_amplifier_contract', $plan);
+    }
+
+    public function test_existing_plan_fields_remain_backward_compatible(): void
+    {
+        $plan = app(ContextRetrievalRouter::class)->plan(
+            'fix bug',
+            new AiTaskRequest(['task_type' => 'dev', 'desired_mode' => 'dev', 'risk_level' => 'low', 'domain' => 'developer']),
+        );
+
+        $this->assertArrayHasKey('selected_sources', $plan);
+        $this->assertArrayHasKey('skipped_sources', $plan);
+        $this->assertArrayHasKey('readiness', $plan);
+        $this->assertArrayHasKey('policy', $plan);
+    }
 }
