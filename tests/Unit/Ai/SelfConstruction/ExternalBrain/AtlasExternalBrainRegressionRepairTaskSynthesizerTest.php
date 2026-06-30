@@ -403,4 +403,41 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizerTest extends TestCa
 
         $this->assertSame(json_encode($r1), json_encode($r2));
     }
+
+    // ── AC1: grouping_summary + safety_rejections ─────────────────────────────
+
+    public function test_output_has_grouping_summary_and_safety_rejections_keys(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input($this->good()));
+
+        $this->assertArrayHasKey('grouping_summary', $result);
+        $this->assertArrayHasKey('safety_rejections', $result);
+    }
+
+    public function test_grouping_summary_reports_diagnostic_count_per_target(): void
+    {
+        $result = $this->synthesizer->synthesize($this->input(
+            $this->good(['diagnostic_id' => 'diag-a']),
+            $this->good(['diagnostic_id' => 'diag-b']),
+        ));
+
+        $this->assertSame(1, count($result['grouping_summary']));
+        $this->assertSame(2, $result['grouping_summary'][0]['diagnostic_count']);
+    }
+
+    public function test_safety_rejections_includes_forbidden_target_but_not_vague_diagnostic(): void
+    {
+        $vague = ['diagnostic_id' => 'diag-vague'];
+        $forbidden = $this->good([
+            'diagnostic_id' => 'diag-forbidden',
+            'forbidden_self_target' => true,
+            'unblock_plan' => '',
+        ]);
+
+        $result = $this->synthesizer->synthesize($this->input($vague, $forbidden));
+
+        $safetyIds = array_column($result['safety_rejections'], 'diagnostic_id');
+        $this->assertContains('diag-forbidden', $safetyIds);
+        $this->assertNotContains('diag-vague', $safetyIds);
+    }
 }

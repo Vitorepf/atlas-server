@@ -88,6 +88,20 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
 
         $unblockReason = $repairSpecs !== [] ? $repairSpecs[0]['unblock_reason'] : null;
 
+        $groupingSummary = [];
+        foreach ($groups as $implTarget => $groupDiags) {
+            $groupingSummary[] = [
+                'target_path'      => $implTarget,
+                'diagnostic_count' => count($groupDiags),
+            ];
+        }
+
+        $safetyRejectionReasons = [self::REJECTION_FORBIDDEN_TARGET, self::REJECTION_MANUAL_OPERATOR];
+        $safetyRejections = array_values(array_filter(
+            $rejectedDiagnostics,
+            static fn (array $r): bool => in_array($r['rejection_reason'], $safetyRejectionReasons, true),
+        ));
+
         return [
             'schema'               => self::SCHEMA,
             'repair_specs'         => $repairSpecs,
@@ -95,6 +109,8 @@ final class AtlasExternalBrainRegressionRepairTaskSynthesizer
             'allowed_files'        => $allAllowedFiles,
             'acceptance_criteria'  => $allAcceptanceCriteria,
             'unblock_reason'       => $unblockReason,
+            'grouping_summary'     => $groupingSummary,
+            'safety_rejections'    => $safetyRejections,
         ];
     }
 
