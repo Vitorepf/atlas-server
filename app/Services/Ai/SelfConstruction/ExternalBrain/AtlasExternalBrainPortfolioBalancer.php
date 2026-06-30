@@ -42,6 +42,10 @@ final class AtlasExternalBrainPortfolioBalancer
     /** Minimum wave size before minimum-per-category is enforced. */
     private const MIN_WAVE_SIZE = 7;
 
+    private const MAX_AVG_GIVE_BACK_RISK = 0.6;
+    private const MAX_AVG_PROXY_RISK = 0.5;
+    private const MIN_AVG_LEVERAGE_SCORE = 0.3;
+
     /**
      * Balance a candidate wave.
      *
@@ -117,7 +121,47 @@ final class AtlasExternalBrainPortfolioBalancer
             $out = array_values(array_merge($other, $trimmed));
         }
 
+        // Risk-dimension aggregates from candidate fields.
+        $totalGbr = 0.0;
+        $totalPr  = 0.0;
+        $totalLev = 0.0;
+        foreach ($candidates as $c) {
+            $totalGbr += (float) ($c['give_back_risk']  ?? 0.0);
+            $totalPr  += (float) ($c['proxy_risk']      ?? 0.0);
+            $totalLev += (float) ($c['leverage_score']  ?? 0.5);
+        }
+        $n              = max(1, $total);
+        $avgGbr         = $totalGbr / $n;
+        $avgPr          = $totalPr  / $n;
+        $avgLev         = $totalLev / $n;
+
+        $riskFlags       = [];
+        $balanceReasons  = [];
+        $replacementCat  = null;
+
+        if ($total > 0 && $avgGbr > self::MAX_AVG_GIVE_BACK_RISK) {
+            $riskFlags[]     = 'high_give_back_risk';
+            $balanceReasons[] = 'give_back_risk:high:avg_'.round($avgGbr, 2);
+            $replacementCat  ??= $this->leastRepresentedCategory($categoryCounts);
+        }
+        if ($total > 0 && $avgPr > self::MAX_AVG_PROXY_RISK) {
+            $riskFlags[]     = 'high_proxy_risk';
+            $balanceReasons[] = 'proxy_risk:high:avg_'.round($avgPr, 2);
+            $replacementCat  ??= $this->leastRepresentedCategory($categoryCounts);
+        }
+        if ($total > 0 && $avgLev < self::MIN_AVG_LEVERAGE_SCORE) {
+            $riskFlags[]     = 'low_leverage_score';
+            $balanceReasons[] = 'leverage_score:low:avg_'.round($avgLev, 2);
+        }
+        foreach ($deficits as $d) {
+            $balanceReasons[] = 'missing_capability_dimension:'.$d['category'];
+        }
+        foreach ($surpluses as $s) {
+            $balanceReasons[] = 'category_diversity:surplus:'.$s['category'];
+        }
+
         $status = match (true) {
+            $riskFlags !== []                     => 'unbalanced',
             $deficits !== [] && $surpluses !== [] => 'rebalanced',
             $deficits !== []                      => 'deficit',
             $surpluses !== []                     => 'rebalanced',
@@ -125,16 +169,37 @@ final class AtlasExternalBrainPortfolioBalancer
         };
 
         return [
-            'schema'           => self::SCHEMA,
-            'status'           => $status,
-            'passed'           => $status === 'balanced',
-            'total_in'         => $total,
-            'total_out'        => count($out),
-            'deficits'         => $deficits,
-            'surpluses'        => $surpluses,
-            'category_counts'  => $categoryCounts,
-            'risk_tier_counts' => $riskTierCounts,
-            'candidates'       => $out,
+            'schema'                => self::SCHEMA,
+            'status'                => $status,
+            'passed'                => $status === 'balanced',
+            'total_in'              => $total,
+            'total_out'             => count($out),
+            'deficits'              => $deficits,
+            'surpluses'             => $surpluses,
+            'category_counts'       => $categoryCounts,
+            'risk_tier_counts'      => $riskTierCounts,
+            'avg_leverage_score'    => round($avgLev, 4),
+            'avg_give_back_risk'    => round($avgGbr, 4),
+            'avg_proxy_risk'        => round($avgPr, 4),
+            'unbalanced_risk_flags' => $riskFlags,
+            'balance_reasons'       => $balanceReasons,
+            'replacement_category'  => $replacementCat,
+            'candidates'            => $out,
         ];
+    }
+
+    /** @param array<string,int> $categoryCounts */
+    private function leastRepresentedCategory(array $categoryCounts): string
+    {
+        $min  = PHP_INT_MAX;
+        $best = self::CATEGORIES[0];
+        foreach (self::CATEGORIES as $cat) {
+            $count = $categoryCounts[$cat] ?? 0;
+            if ($count < $min) {
+                $min  = $count;
+                $best = $cat;
+            }
+        }
+        return $best;
     }
 }

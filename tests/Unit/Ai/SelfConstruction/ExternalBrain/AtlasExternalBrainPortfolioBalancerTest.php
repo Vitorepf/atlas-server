@@ -196,6 +196,135 @@ final class AtlasExternalBrainPortfolioBalancerTest extends TestCase
         $this->assertSame(1, $result['risk_tier_counts']['high']);
     }
 
+    // ── leverage / give-back / proxy risk dimensions ──────────────────────────
+
+    public function test_high_give_back_risk_marks_diverse_batch_unbalanced_with_replacement(): void
+    {
+        $cats = [
+            'bug_fix', 'architecture_unlock', 'test_gate',
+            'runtime_continuity', 'task_quality_repair', 'docs_sync', 'learning_loop',
+        ];
+        $candidates = array_map(
+            static fn (string $cat, int $i): array => [
+                'label'          => $cat.'-'.$i,
+                'category'       => $cat,
+                'risk_tier'      => 'low',
+                'final_score'    => 0.5,
+                'give_back_risk' => 0.8,  // high
+                'proxy_risk'     => 0.1,
+                'leverage_score' => 0.5,
+            ],
+            $cats, array_keys($cats),
+        );
+
+        $result = $this->balancer()->balance($candidates);
+
+        $this->assertSame('unbalanced', $result['status']);
+        $this->assertFalse($result['passed']);
+        $this->assertContains('high_give_back_risk', $result['unbalanced_risk_flags']);
+        $this->assertNotNull($result['replacement_category']);
+        $this->assertIsString($result['replacement_category']);
+        $found = false;
+        foreach ($result['balance_reasons'] as $r) {
+            if (str_contains($r, 'give_back_risk:high')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'balance_reasons must include give_back_risk:high reason');
+    }
+
+    public function test_high_proxy_risk_diverse_batch_emits_replacement_category(): void
+    {
+        $cats = [
+            'bug_fix', 'architecture_unlock', 'test_gate',
+            'runtime_continuity', 'task_quality_repair', 'docs_sync', 'learning_loop',
+        ];
+        $candidates = array_map(
+            static fn (string $cat, int $i): array => [
+                'label'          => $cat.'-'.$i,
+                'category'       => $cat,
+                'risk_tier'      => 'low',
+                'final_score'    => 0.5,
+                'give_back_risk' => 0.1,
+                'proxy_risk'     => 0.9,  // high
+                'leverage_score' => 0.5,
+            ],
+            $cats, array_keys($cats),
+        );
+
+        $result = $this->balancer()->balance($candidates);
+
+        $this->assertSame('unbalanced', $result['status']);
+        $this->assertContains('high_proxy_risk', $result['unbalanced_risk_flags']);
+        $this->assertNotNull($result['replacement_category']);
+        $found = false;
+        foreach ($result['balance_reasons'] as $r) {
+            if (str_contains($r, 'proxy_risk:high')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'balance_reasons must include proxy_risk:high reason');
+    }
+
+    public function test_low_leverage_score_surfaces_in_balance_reasons(): void
+    {
+        $cats = ['bug_fix', 'architecture_unlock', 'test_gate'];
+        $candidates = array_map(
+            static fn (string $cat, int $i): array => [
+                'label'          => $cat.'-'.$i,
+                'category'       => $cat,
+                'risk_tier'      => 'low',
+                'final_score'    => 0.1,
+                'give_back_risk' => 0.0,
+                'proxy_risk'     => 0.0,
+                'leverage_score' => 0.1,  // below MIN_AVG_LEVERAGE_SCORE (0.3)
+            ],
+            $cats, array_keys($cats),
+        );
+
+        $result = $this->balancer()->balance($candidates);
+
+        $this->assertContains('low_leverage_score', $result['unbalanced_risk_flags']);
+        $found = false;
+        foreach ($result['balance_reasons'] as $r) {
+            if (str_contains($r, 'leverage_score:low')) {
+                $found = true;
+            }
+        }
+        $this->assertTrue($found, 'balance_reasons must include leverage_score:low reason');
+    }
+
+    public function test_balance_reasons_include_missing_capability_dimension_for_deficits(): void
+    {
+        // 7 candidates all bug_fix → all other categories are deficits.
+        $candidates = $this->candidates(array_fill(0, 7, 'bug_fix'));
+        $result = $this->balancer()->balance($candidates);
+
+        $dimensionReasons = array_filter(
+            $result['balance_reasons'],
+            static fn (string $r): bool => str_starts_with($r, 'missing_capability_dimension:'),
+        );
+        $this->assertNotEmpty($dimensionReasons);
+        $dimensionCats = array_map(
+            static fn (string $r): string => substr($r, strlen('missing_capability_dimension:')),
+            array_values($dimensionReasons),
+        );
+        $this->assertContains('architecture_unlock', $dimensionCats);
+        $this->assertContains('test_gate', $dimensionCats);
+    }
+
+    public function test_avg_risk_fields_present_in_output(): void
+    {
+        $result = $this->balancer()->balance($this->candidates(['bug_fix']));
+
+        $this->assertArrayHasKey('avg_leverage_score', $result);
+        $this->assertArrayHasKey('avg_give_back_risk', $result);
+        $this->assertArrayHasKey('avg_proxy_risk', $result);
+        $this->assertArrayHasKey('unbalanced_risk_flags', $result);
+        $this->assertArrayHasKey('balance_reasons', $result);
+        $this->assertArrayHasKey('replacement_category', $result);
+    }
+
     public function test_categories_constant_has_seven_entries(): void
     {
         $this->assertCount(7, AtlasExternalBrainPortfolioBalancer::CATEGORIES);
