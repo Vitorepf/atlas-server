@@ -123,6 +123,56 @@ final class AtlasSelfConstructionUnattendedSupervisorCycle
             'blocked_actions' => $blockedActions,
             'receipts' => $receipts,
             'supervisor_cycle_hash' => $supervisorCycleHash,
+            'recovery_receipt_strength' => $this->buildRecoveryReceiptStrength(
+                $plannedActions,
+                $blockedActions,
+                $receipts,
+                $isUnsafeStop,
+            ),
+        ];
+    }
+
+    /**
+     * Build a summary of recovery receipt strength for the runtime daemon.
+     *
+     * Fields:
+     *   planned_atlas_native_actions  list<string>  — action ids where atlas_native=true
+     *   missing_callbacks             list<string>  — action ids blocked due to callback_missing
+     *   unsafe_stop_blockers          list<string>  — action ids blocked due to unsafe_stop guard
+     *   applied_receipts_count        int           — number of receipts recorded this tick
+     *   safe_to_continue              bool          — no unsafe_stop AND no missing callbacks
+     *
+     * @param  list<array<string,mixed>>  $plannedActions
+     * @param  list<array<string,mixed>>  $blockedActions
+     * @param  list<array<string,mixed>>  $receipts
+     */
+    private function buildRecoveryReceiptStrength(
+        array $plannedActions,
+        array $blockedActions,
+        array $receipts,
+        bool $isUnsafeStop,
+    ): array {
+        $plannedAtlasNative = array_values(array_map(
+            static fn (array $a): string => (string) ($a['action'] ?? ''),
+            array_filter($plannedActions, static fn (array $a): bool => (bool) ($a['atlas_native'] ?? false)),
+        ));
+
+        $missingCallbacks = array_values(array_map(
+            static fn (array $b): string => (string) ($b['action'] ?? ''),
+            array_filter($blockedActions, static fn (array $b): bool => ($b['reason'] ?? '') === 'callback_missing'),
+        ));
+
+        $unsafeStopBlockers = array_values(array_map(
+            static fn (array $b): string => (string) ($b['action'] ?? ''),
+            array_filter($blockedActions, static fn (array $b): bool => ($b['reason'] ?? '') === 'unsafe_stop_only_safety_stop_allowed'),
+        ));
+
+        return [
+            'planned_atlas_native_actions' => $plannedAtlasNative,
+            'missing_callbacks'            => $missingCallbacks,
+            'unsafe_stop_blockers'         => $unsafeStopBlockers,
+            'applied_receipts_count'       => count($receipts),
+            'safe_to_continue'             => ! $isUnsafeStop && $missingCallbacks === [],
         ];
     }
 

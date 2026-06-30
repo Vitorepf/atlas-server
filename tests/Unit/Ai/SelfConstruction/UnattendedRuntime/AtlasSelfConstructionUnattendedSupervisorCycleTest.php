@@ -162,4 +162,74 @@ class AtlasSelfConstructionUnattendedSupervisorCycleTest extends TestCase
             self::assertStringNotContainsString($forbidden, $src, "supervisor cycle must not contain {$forbidden}");
         }
     }
+
+    // --- recovery_receipt_strength tests ---
+
+    public function test_output_has_recovery_receipt_strength_key(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick($this->baseFacts());
+
+        self::assertArrayHasKey('recovery_receipt_strength', $verdict);
+        $rrs = $verdict['recovery_receipt_strength'];
+        foreach (['planned_atlas_native_actions', 'missing_callbacks', 'unsafe_stop_blockers', 'applied_receipts_count', 'safe_to_continue'] as $key) {
+            self::assertArrayHasKey($key, $rrs);
+        }
+    }
+
+    public function test_healthy_state_emits_no_planned_atlas_native_and_safe_to_continue(): void
+    {
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick($this->baseFacts());
+
+        $rrs = $verdict['recovery_receipt_strength'];
+        self::assertSame([], $rrs['planned_atlas_native_actions']);
+        self::assertSame([], $rrs['missing_callbacks']);
+        self::assertTrue($rrs['safe_to_continue']);
+        self::assertSame(0, $rrs['applied_receipts_count']);
+    }
+
+    public function test_queue_dry_missing_callback_yields_not_safe_to_continue(): void
+    {
+        // Queue dry → planner proposes actions, but no callbacks → missing_callbacks non-empty → not safe
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['depth' => 0, 'claimable_count' => 0]]),
+            [],
+            ['apply' => true],
+        );
+
+        $rrs = $verdict['recovery_receipt_strength'];
+        self::assertNotEmpty($rrs['planned_atlas_native_actions']);
+        self::assertNotEmpty($rrs['missing_callbacks']);
+        self::assertFalse($rrs['safe_to_continue']);
+        self::assertSame(0, $rrs['applied_receipts_count']);
+    }
+
+    public function test_unsafe_stop_yields_safe_to_continue_false(): void
+    {
+        // unsafe_stop planner only plans safety_stop itself, so unsafe_stop_blockers stays empty;
+        // safe_to_continue must still be false because isUnsafeStop=true drives it.
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['safety_stop' => true]]),
+            [AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_SAFETY_STOP => static fn () => ['ok' => true]],
+            ['apply' => true],
+        );
+
+        $rrs = $verdict['recovery_receipt_strength'];
+        self::assertFalse($rrs['safe_to_continue']);
+        self::assertSame(AtlasSelfConstructionUnattendedStallClassifier::UNSAFE_STOP, $verdict['classification']);
+    }
+
+    public function test_brain_quota_with_callback_yields_applied_receipt_and_safe(): void
+    {
+        // brain_quota.must_run_now=true is the trigger; providing the callback → it runs → receipt recorded.
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['brain_quota' => ['must_run_now' => true, 'status' => 'stalled', 'temp_spec_path' => '']]),
+            [AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_BRAIN_MUST_RUN_NOW => static fn () => ['ok' => true]],
+            ['apply' => true],
+        );
+
+        $rrs = $verdict['recovery_receipt_strength'];
+        self::assertGreaterThanOrEqual(1, $rrs['applied_receipts_count']);
+        self::assertSame([], $rrs['missing_callbacks']);
+        self::assertTrue($rrs['safe_to_continue']);
+    }
 }
