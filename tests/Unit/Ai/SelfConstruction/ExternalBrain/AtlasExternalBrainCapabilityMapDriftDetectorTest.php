@@ -14,13 +14,21 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
         return new AtlasExternalBrainCapabilityMapDriftDetector;
     }
 
-    private function entry(string $id, string $state = 'known', int $ageDays = 5, bool $evidence = true): array
-    {
+    private function entry(
+        string $id,
+        string $state = 'known',
+        int $ageDays = 5,
+        bool $evidence = true,
+        string $owner = 'default-owner',
+        string $maturityBand = 'functional',
+    ): array {
         return [
-            'area_id' => $id,
-            'state' => $state,
-            'last_updated_age_days' => $ageDays,
+            'area_id'                 => $id,
+            'state'                   => $state,
+            'last_updated_age_days'   => $ageDays,
             'has_completion_evidence' => $evidence,
+            'owner'                   => $owner,
+            'maturity_band'           => $maturityBand,
         ];
     }
 
@@ -168,5 +176,193 @@ final class AtlasExternalBrainCapabilityMapDriftDetectorTest extends TestCase
         $r = $this->svc()->detect([]);
 
         $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::SCHEMA, $r['schema_version']);
+    }
+
+    // ── missing_owner ─────────────────────────────────────────────────────────
+
+    public function test_missing_owner_flagged_with_evidence_needed(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [array_merge($this->entry('auth'), ['owner' => ''])],
+            'queued_areas' => [],
+        ]);
+
+        $f = $this->findingFor($r, 'auth');
+        $this->assertNotNull($f);
+        $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_OWNER, $f['drift_type']);
+        $this->assertContains('owner_assignment', $f['evidence_needed']);
+        $this->assertContains('domain_mapping', $f['evidence_needed']);
+    }
+
+    public function test_entry_with_owner_not_flagged_as_missing_owner(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('auth')], // owner='default-owner'
+            'queued_areas' => [],
+        ]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertNotContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_OWNER, $driftTypes);
+    }
+
+    // ── missing_maturity_band ─────────────────────────────────────────────────
+
+    public function test_missing_maturity_band_flagged_with_evidence_needed(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [array_merge($this->entry('ledger'), ['maturity_band' => ''])],
+            'queued_areas' => [],
+        ]);
+
+        $f = $this->findingFor($r, 'ledger');
+        $this->assertNotNull($f);
+        $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_MATURITY_BAND, $f['drift_type']);
+        $this->assertContains('maturity_assessment', $f['evidence_needed']);
+        $this->assertContains('capability_evaluation', $f['evidence_needed']);
+    }
+
+    public function test_entry_with_maturity_band_not_flagged(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('ledger')], // maturity_band='functional'
+            'queued_areas' => [],
+        ]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertNotContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_MATURITY_BAND, $driftTypes);
+    }
+
+    // ── stale_owner_evidence ──────────────────────────────────────────────────
+
+    public function test_stale_owner_evidence_flagged(): void
+    {
+        $threshold = AtlasExternalBrainCapabilityMapDriftDetector::STALE_AGE_THRESHOLD_DAYS;
+        $entry = array_merge($this->entry('billing'), ['owner_evidence_age_days' => $threshold + 1]);
+
+        $r = $this->svc()->detect(['map_entries' => [$entry], 'queued_areas' => []]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE_OWNER_EVIDENCE, $driftTypes);
+
+        $f = $this->findingFor($r, 'billing');
+        $this->assertContains('owner_revalidation', $f['evidence_needed']);
+    }
+
+    public function test_fresh_owner_evidence_not_flagged(): void
+    {
+        $entry = array_merge($this->entry('billing'), ['owner_evidence_age_days' => 5]);
+
+        $r = $this->svc()->detect(['map_entries' => [$entry], 'queued_areas' => []]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertNotContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_STALE_OWNER_EVIDENCE, $driftTypes);
+    }
+
+    // ── maturity_regression ───────────────────────────────────────────────────
+
+    public function test_maturity_regression_without_follow_up_flagged(): void
+    {
+        $entry = array_merge($this->entry('core', 'known', 5, true, 'team-a', 'emerging'), [
+            'previous_maturity_band' => 'advanced',
+            'has_follow_up_task'     => false,
+        ]);
+
+        $r = $this->svc()->detect(['map_entries' => [$entry], 'queued_areas' => []]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MATURITY_REGRESSION, $driftTypes);
+
+        $f = array_values(array_filter($r['findings'], fn ($f) => $f['drift_type'] === AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MATURITY_REGRESSION))[0];
+        $this->assertContains('regression_root_cause', $f['evidence_needed']);
+        $this->assertContains('follow_up_task_ref', $f['evidence_needed']);
+    }
+
+    public function test_maturity_regression_with_follow_up_not_flagged(): void
+    {
+        $entry = array_merge($this->entry('core', 'known', 5, true, 'team-a', 'emerging'), [
+            'previous_maturity_band' => 'advanced',
+            'has_follow_up_task'     => true,
+        ]);
+
+        $r = $this->svc()->detect(['map_entries' => [$entry], 'queued_areas' => []]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertNotContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MATURITY_REGRESSION, $driftTypes);
+    }
+
+    public function test_no_regression_when_current_band_is_same_or_higher(): void
+    {
+        $entry = array_merge($this->entry('core', 'known', 5, true, 'team-a', 'advanced'), [
+            'previous_maturity_band' => 'emerging',
+            'has_follow_up_task'     => false,
+        ]);
+
+        $r = $this->svc()->detect(['map_entries' => [$entry], 'queued_areas' => []]);
+
+        $driftTypes = array_column($r['findings'], 'drift_type');
+        $this->assertNotContains(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MATURITY_REGRESSION, $driftTypes);
+    }
+
+    // ── retired_blocked_queue_conflict ────────────────────────────────────────
+
+    public function test_queued_area_targeting_retired_map_entry_is_high_impact(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('old-module', 'retired')],
+            'queued_areas' => ['old-module'],
+        ]);
+
+        $f = $this->findingFor($r, 'old-module');
+        $this->assertNotNull($f);
+        $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_RETIRED_BLOCKED_QUEUE, $f['drift_type']);
+        $this->assertSame('high', $f['impact_level']);
+        $this->assertContains('queue_redirect', $f['evidence_needed']);
+    }
+
+    public function test_queued_area_targeting_blocked_map_entry_is_high_impact(): void
+    {
+        $r = $this->svc()->detect([
+            'map_entries' => [$this->entry('gated-module', 'blocked')],
+            'queued_areas' => ['gated-module'],
+        ]);
+
+        $f = $this->findingFor($r, 'gated-module');
+        $this->assertNotNull($f);
+        $this->assertSame(AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_RETIRED_BLOCKED_QUEUE, $f['drift_type']);
+        $this->assertSame('high', $f['impact_level']);
+    }
+
+    public function test_retired_blocked_queue_conflict_ranks_above_stale_entries(): void
+    {
+        $threshold = AtlasExternalBrainCapabilityMapDriftDetector::STALE_AGE_THRESHOLD_DAYS;
+        $r = $this->svc()->detect([
+            'map_entries' => [
+                $this->entry('stale-area', 'known', $threshold + 5),
+                $this->entry('retired-area', 'retired', 5),
+            ],
+            'queued_areas' => ['retired-area'],
+        ]);
+
+        $impacts = array_column($r['findings'], 'impact_level');
+        $highIdx = array_search('high', $impacts, true);
+        $medIdx  = array_search('medium', $impacts, true);
+        $this->assertLessThan($medIdx, $highIdx);
+    }
+
+    public function test_queued_area_in_active_map_state_not_flagged_as_conflict(): void
+    {
+        foreach (['integrated', 'known', 'in_progress'] as $state) {
+            $r = $this->svc()->detect([
+                'map_entries' => [$this->entry('area', $state)],
+                'queued_areas' => ['area'],
+            ]);
+
+            $driftTypes = array_column($r['findings'], 'drift_type');
+            $this->assertNotContains(
+                AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_RETIRED_BLOCKED_QUEUE,
+                $driftTypes,
+                "state={$state} should not trigger retired_blocked_queue_conflict",
+            );
+        }
     }
 }
