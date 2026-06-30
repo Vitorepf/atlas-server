@@ -205,4 +205,70 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouterTest extends TestCase
         $r = $this->router()->route([['maturity' => 0.5]]);
         $this->assertSame([], $r['routes']);
     }
+
+    // ── AC1: priority, confidence, refusal_reason fields ──────────────────────
+
+    public function test_route_entries_have_priority_confidence_and_refusal_reason_keys(): void
+    {
+        $r = $this->router()->route([$this->area('a1')]);
+        $route = $r['routes'][0];
+
+        $this->assertArrayHasKey('priority', $route);
+        $this->assertArrayHasKey('confidence', $route);
+        $this->assertArrayHasKey('refusal_reason', $route);
+        $this->assertIsInt($route['priority']);
+        $this->assertIsFloat($route['confidence']);
+    }
+
+    public function test_refusal_reason_is_null_for_no_action(): void
+    {
+        $r = $this->router()->route([$this->area('a1')]);
+        $this->assertNull($r['routes'][0]['refusal_reason']);
+    }
+
+    public function test_refusal_reason_set_when_evidence_gap_blocks_task_chain_creation(): void
+    {
+        $r = $this->router()->route([$this->area('a1', [
+            'evidence_coverage' => 0.20,
+            'owner_clear' => false,
+        ])]);
+
+        $this->assertSame(AtlasExternalBrainKnowledgeDominanceGapRouter::ACTION_RUN_RESEARCH_GROUNDING, $r['routes'][0]['action']);
+        $this->assertNotNull($r['routes'][0]['refusal_reason']);
+    }
+
+    public function test_refusal_reason_set_when_blocked_dependencies_preempt_task_chain(): void
+    {
+        $r = $this->router()->route([$this->area('a1', [
+            'blocked_dependencies' => ['dep-1'],
+        ])]);
+
+        $this->assertSame(AtlasExternalBrainKnowledgeDominanceGapRouter::ACTION_MAESTRO_UNBLOCK, $r['routes'][0]['action']);
+        $this->assertNotNull($r['routes'][0]['refusal_reason']);
+    }
+
+    public function test_refusal_reason_null_for_create_task_chain(): void
+    {
+        $r = $this->router()->route([$this->area('a1', [
+            'maturity' => 0.10,
+            'owner_clear' => true,
+            'evidence_coverage' => 0.20,
+        ])]);
+
+        $this->assertSame(AtlasExternalBrainKnowledgeDominanceGapRouter::ACTION_CREATE_TASK_CHAIN, $r['routes'][0]['action']);
+        $this->assertNull($r['routes'][0]['refusal_reason']);
+    }
+
+    public function test_priority_matches_urgency_order_blocked_beats_create_task_chain(): void
+    {
+        $r = $this->router()->route([
+            $this->area('blocked-area', ['blocked_dependencies' => ['dep-1']]),
+            $this->area('task-area', ['maturity' => 0.10, 'owner_clear' => true, 'evidence_coverage' => 0.20]),
+        ]);
+
+        $blocked = array_values(array_filter($r['routes'], fn ($x) => $x['area_id'] === 'blocked-area'))[0];
+        $task    = array_values(array_filter($r['routes'], fn ($x) => $x['area_id'] === 'task-area'))[0];
+
+        $this->assertLessThan($task['priority'], $blocked['priority']);
+    }
 }

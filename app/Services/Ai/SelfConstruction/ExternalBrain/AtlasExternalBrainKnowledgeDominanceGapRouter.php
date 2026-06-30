@@ -70,6 +70,17 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouter
         self::ACTION_NO_ACTION => [],
     ];
 
+    /** Confidence in the routing decision itself — deterministic blocking signals score highest. */
+    private const CONFIDENCE_BY_ACTION = [
+        self::ACTION_MAESTRO_UNBLOCK => 0.95,
+        self::ACTION_REFRESH_CONTEXT => 0.90,
+        self::ACTION_SIMPLIFY_OR_CONSOLIDATE => 0.85,
+        self::ACTION_CREATE_TASK_CHAIN => 0.75,
+        self::ACTION_RUN_RESEARCH_GROUNDING => 0.70,
+        self::ACTION_RETIRE_STALE_WORK => 0.65,
+        self::ACTION_NO_ACTION => 0.50,
+    ];
+
     /**
      * @param  list<array<string,mixed>>  $areas
      * @return array{schema:string, routes:list<array{area_id:string, action:string, reason:string, required_evidence:list<string>}>}
@@ -127,11 +138,22 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouter
                 default => [self::ACTION_NO_ACTION, 'no actionable gap signal present'],
             };
 
+            // refusal_reason: explains why creating a task chain was refused for this area, when the
+            // signals that would normally route to create_task_chain were preempted by an unsafe
+            // condition (blocked deps, stale+high-risk context, or evidence gap).
+            $wouldBeUnsafeForTaskChain = $blockedDeps !== [] || ($stale && $riskLevel === 'high') || $evidenceGap;
+            $refusalReason = ($action !== self::ACTION_CREATE_TASK_CHAIN && $wouldBeUnsafeForTaskChain)
+                ? 'insufficient_evidence_or_stale_high_risk_context_blocks_task_chain_creation'
+                : null;
+
             $routes[] = [
                 'area_id' => $id,
                 'action' => $action,
                 'reason' => $reason,
                 'required_evidence' => self::REQUIRED_EVIDENCE[$action],
+                'priority' => self::URGENCY_ORDER[$action] ?? 99,
+                'confidence' => self::CONFIDENCE_BY_ACTION[$action] ?? 0.50,
+                'refusal_reason' => $refusalReason,
             ];
         }
 
