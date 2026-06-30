@@ -109,10 +109,55 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifierTest extends 
         $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
             ->classify($this->fact(['reason' => 'duplicate_capability:x']));
 
-        // Output must be EXACTLY the canonical 6 keys — no extra narrative.
+        // Output must be EXACTLY the canonical 7 keys — no extra narrative.
         $this->assertSame(
-            ['schema_version', 'class', 'packet_id', 'allowed_files', 'blocking_facts', 'evidence_refs'],
+            ['schema_version', 'class', 'action_hint', 'packet_id', 'allowed_files', 'blocking_facts', 'evidence_refs'],
             array_keys($verdict),
         );
+    }
+
+    public function test_forbidden_scope_class_produces_respec_allowed_files_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'forbidden_scope:files_outside_allowed_scope']));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_FORBIDDEN_SCOPE, $verdict['class']);
+        $this->assertSame('respec_allowed_files', $verdict['action_hint']);
+    }
+
+    public function test_missing_implementation_class_produces_enqueue_dependency_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'missing_implementation:AtlasLoopSomeOrgan']));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_MISSING_IMPLEMENTATION, $verdict['class']);
+        $this->assertSame('enqueue_dependency_packet', $verdict['action_hint']);
+    }
+
+    public function test_schema_drift_class_produces_fix_schema_contract_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'schema_drift:schema_version_mismatch_v1_vs_v2']));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_SCHEMA_DRIFT, $verdict['class']);
+        $this->assertSame('fix_schema_contract', $verdict['action_hint']);
+    }
+
+    public function test_worker_error_class_produces_worker_prompt_repair_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'worker_error:execution_error_in_PhpUnit']));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_WORKER_ERROR, $verdict['class']);
+        $this->assertSame('worker_prompt_repair', $verdict['action_hint']);
+    }
+
+    public function test_forbidden_target_class_produces_quarantine_poison_hint(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'forbidden_target:petreo_core_path']));
+
+        $this->assertSame(AtlasSelfConstructionLearningTransferGiveBackClassifier::CLASS_FORBIDDEN_TARGET, $verdict['class']);
+        $this->assertSame('quarantine_poison', $verdict['action_hint']);
     }
 }

@@ -39,6 +39,14 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
     public const CLASS_INSUFFICIENT_EVIDENCE = 'insufficient_evidence';
 
+    public const CLASS_FORBIDDEN_SCOPE = 'forbidden_scope';
+
+    public const CLASS_MISSING_IMPLEMENTATION = 'missing_implementation';
+
+    public const CLASS_SCHEMA_DRIFT = 'schema_drift';
+
+    public const CLASS_WORKER_ERROR = 'worker_error';
+
     public const CLASS_UNKNOWN = 'unknown';
 
     /**
@@ -58,11 +66,27 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
         return [
             'schema_version' => self::SCHEMA,
             'class' => $class,
+            'action_hint' => $this->actionHint($class),
             'packet_id' => $packetId,
             'allowed_files' => $allowedFiles,
             'blocking_facts' => $blockingFacts,
             'evidence_refs' => $evidenceRefs,
         ];
+    }
+
+    private function actionHint(string $class): string
+    {
+        return match ($class) {
+            self::CLASS_FORBIDDEN_SCOPE, self::CLASS_SCOPE_GAP => 'respec_allowed_files',
+            self::CLASS_SCHEMA_DRIFT => 'fix_schema_contract',
+            self::CLASS_DUPLICATE_CAPABILITY, self::CLASS_FORBIDDEN_TARGET => 'quarantine_poison',
+            self::CLASS_WORKER_ERROR => 'worker_prompt_repair',
+            self::CLASS_MISSING_DEPENDENCY, self::CLASS_MISSING_IMPLEMENTATION => 'enqueue_dependency_packet',
+            self::CLASS_CONTRADICTORY_ACCEPTANCE => 'revise_acceptance_contract',
+            self::CLASS_STALE_CONTEXT => 'refresh_context_pack',
+            self::CLASS_INSUFFICIENT_EVIDENCE => 'add_evidence_ref',
+            default => 'investigate',
+        };
     }
 
     /**
@@ -73,10 +97,14 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
         // Reason-string match takes precedence over signal heuristics so the classifier is deterministic.
         $rules = [
             self::CLASS_DUPLICATE_CAPABILITY => ['duplicate_capability', 'already_exists', 'reimplements_existing'],
+            self::CLASS_FORBIDDEN_SCOPE => ['forbidden_scope', 'files_outside_allowed_scope', 'scope_forbidden'],
             self::CLASS_SCOPE_GAP => ['scope_gap', 'allowed_files_insufficient', 'requires_files_outside_scope'],
             self::CLASS_FORBIDDEN_TARGET => ['forbidden_target', 'pétreo', 'petreo', 'forbidden_core'],
-            self::CLASS_CONTRADICTORY_ACCEPTANCE => ['contradictory_acceptance', 'breaks_sibling_tests', 'acceptance_contradicts_fixture'],
+            self::CLASS_CONTRADICTORY_ACCEPTANCE => ['contradictory_acceptance', 'breaks_sibling_tests', 'acceptance_contradicts_fixture', 'contradiction'],
             self::CLASS_MISSING_DEPENDENCY => ['missing_extractor', 'missing_dependency', 'missing_migration', 'missing_collaborator'],
+            self::CLASS_MISSING_IMPLEMENTATION => ['missing_implementation', 'method_not_found', 'class_not_implemented', 'not_yet_implemented'],
+            self::CLASS_SCHEMA_DRIFT => ['schema_drift', 'schema_mismatch', 'schema_version_mismatch', 'contract_drift'],
+            self::CLASS_WORKER_ERROR => ['worker_error', 'worker_crash', 'worker_bug', 'execution_error'],
             self::CLASS_STALE_CONTEXT => ['stale_context', 'context_pack_stale', 'code_index_stale', 'docs_stale'],
             self::CLASS_INSUFFICIENT_EVIDENCE => ['insufficient_evidence', 'verification_amber'],
         ];
