@@ -71,6 +71,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
         $organs          = is_array($inventory['organs'] ?? null) ? $inventory['organs'] : [];
         $dupThreshold    = max(2, (int) ($inventory['duplicate_threshold'] ?? self::DEFAULT_DUPLICATE_THRESHOLD));
         $growthThreshold = max(1, (int) ($inventory['growth_threshold']    ?? self::DEFAULT_GROWTH_THRESHOLD));
+        $workerFloorLow  = (bool) ($inventory['worker_floor_low'] ?? false);
 
         $organMeta = $this->buildOrganMeta($organs);
 
@@ -109,7 +110,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 continue;
             }
             $emittedMerges[$key] = true;
-            $candidates[]        = $this->buildMergeCandidate($uniqueIds, $organMeta, 'capability_label', $label);
+            $candidates[]        = $this->buildMergeCandidate($uniqueIds, $organMeta, 'capability_label', $label, $workerFloorLow);
         }
 
         // ── Pass 1b: merge by shared purpose_tag ──────────────────────────────
@@ -124,7 +125,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 continue;
             }
             $emittedMerges[$key] = true;
-            $candidates[]        = $this->buildMergeCandidate($uniqueIds, $organMeta, 'purpose_tag', $tag);
+            $candidates[]        = $this->buildMergeCandidate($uniqueIds, $organMeta, 'purpose_tag', $tag, $workerFloorLow);
         }
 
         // ── Pass 1c: merge by I/O semantic overlap ────────────────────────────
@@ -135,7 +136,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 continue;
             }
             $emittedMerges[$key] = true;
-            $candidates[]        = $this->buildMergeCandidate($groupIds, $organMeta, 'io_semantic_overlap', implode('+', $groupIds));
+            $candidates[]        = $this->buildMergeCandidate($groupIds, $organMeta, 'io_semantic_overlap', implode('+', $groupIds), $workerFloorLow);
         }
 
         // ── Pass 2: per-organ delete / simplify / keep ────────────────────────
@@ -149,12 +150,14 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             $behaviorUnique = (bool) ($organ['behavior_unique'] ?? false);
             $contracts      = is_array($organ['contracts'] ?? null) ? array_map('strval', $organ['contracts']) : [];
             $requiredTests  = is_array($organ['required_tests'] ?? null) ? array_map('strval', $organ['required_tests']) : [];
+            $feedsActiveWorkers = (bool) ($organ['feeds_active_workers'] ?? false);
+            $replacementClaimablePath = (bool) ($organ['replacement_claimable_path'] ?? false);
             sort($files);
             sort($contracts);
             sort($requiredTests);
 
             if ($isStale) {
-                if ($hasOwner && $hasCoverage) {
+                if ($hasOwner && $hasCoverage && ! ($workerFloorLow && $feedsActiveWorkers && ! $replacementClaimablePath)) {
                     $lineDelta = -$lineCount;
                     $candidates[] = [
                         'candidate_id'            => 'delete:'.$id,
@@ -168,6 +171,27 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'preserved_contracts'     => $contracts,
                         'required_tests'          => $requiredTests,
                         'retire_now'              => ! $behaviorUnique,
+                        'worker_feed_preserved'   => ! $feedsActiveWorkers || $replacementClaimablePath,
+                    ];
+                } elseif ($hasOwner && $hasCoverage) {
+                    // Worker-floor protection: this organ would otherwise be a safe delete, but it
+                    // feeds active workers with no replacement claimable path, and the worker floor
+                    // is currently low — stranding workers is never acceptable, so the delete is
+                    // rejected in favour of keep until a replacement path is supplied.
+                    $candidates[] = [
+                        'candidate_id'            => 'keep:'.$id.':worker_feed_capacity_protected',
+                        'action'                  => self::ACTION_KEEP,
+                        'impacted_files'          => $files,
+                        'expected_line_delta'     => 0,
+                        'risk_level'              => 'high',
+                        'evidence_floor'          => 'feeds_active_workers:true AND replacement_claimable_path:false AND worker_floor_low:true',
+                        'reason'                  => 'worker_feed_capacity_protected',
+                        'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
+                        'expected_line_reduction' => 0,
+                        'preserved_contracts'     => $contracts,
+                        'required_tests'          => $requiredTests,
+                        'retire_now'              => false,
+                        'worker_feed_preserved'   => false,
                     ];
                 } else {
                     $reason = ! $hasOwner ? 'no_replacement_owner' : 'missing_test_coverage';
@@ -289,14 +313,19 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
         array  $organMeta,
         string $groupType,
         string $groupLabel,
+        bool   $workerFloorLow = false,
     ): array {
         $files      = [];
         $totalLines = 0;
         $contracts  = [];
         $reqTests   = [];
+        $groupFeedsActiveWorkers = false;
+        $groupHasReplacementClaimablePath = false;
 
         foreach ($uniqueIds as $id) {
             $meta = $organMeta[$id] ?? [];
+            $groupFeedsActiveWorkers = $groupFeedsActiveWorkers || ($meta['feeds_active_workers'] ?? false);
+            $groupHasReplacementClaimablePath = $groupHasReplacementClaimablePath || ($meta['replacement_claimable_path'] ?? false);
             foreach ($meta['files'] ?? [] as $f) {
                 if ($f !== '' && ! in_array($f, $files, true)) {
                     $files[] = $f;
@@ -320,6 +349,32 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
 
         $mergeDelta = -(int) round($totalLines * 0.20);
         $mergeRisk  = count($uniqueIds) > 3 ? 'high' : 'medium';
+        $workerFeedPreserved = ! $groupFeedsActiveWorkers || $groupHasReplacementClaimablePath;
+
+        if ($workerFloorLow && $groupFeedsActiveWorkers && ! $groupHasReplacementClaimablePath) {
+            // Worker-floor protection: merging these organs would temporarily strand active
+            // workers with no replacement claimable path while the worker floor is breached —
+            // reject the merge in favour of keep until a replacement path is supplied.
+            return [
+                'candidate_id'            => 'keep:merge_blocked:'.$groupType.':'.implode('+', $uniqueIds),
+                'action'                  => self::ACTION_KEEP,
+                'impacted_files'          => $files,
+                'expected_line_delta'     => 0,
+                'risk_level'              => 'high',
+                'evidence_floor'          => 'feeds_active_workers:true AND replacement_claimable_path:false AND worker_floor_low:true',
+                'reason'                  => 'worker_feed_capacity_protected',
+                'group_type'              => $groupType,
+                'group_label'             => $groupLabel,
+                'organ_ids'               => $uniqueIds,
+                'duplicate_label'         => $groupLabel,
+                'expected_line_reduction' => 0,
+                'preserved_contracts'     => $contracts,
+                'required_tests'          => $reqTests,
+                'retire_now'              => false,
+                'worker_feed_preserved'   => false,
+                'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', false, true),
+            ];
+        }
 
         return [
             'candidate_id'            => 'merge:'.$groupType.':'.implode('+', $uniqueIds),
@@ -336,6 +391,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             'preserved_contracts'     => $contracts,
             'required_tests'          => $reqTests,
             'retire_now'              => false,
+            'worker_feed_preserved'   => $workerFeedPreserved,
             'compression_score'       => $this->scoreCandidate(self::ACTION_MERGE, $mergeDelta, $mergeRisk, false, true),
         ];
     }
@@ -431,6 +487,8 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 'line_count'     => max(0, (int) ($organ['line_count'] ?? 0)),
                 'contracts'      => is_array($organ['contracts'] ?? null) ? array_map('strval', (array) $organ['contracts']) : [],
                 'required_tests' => is_array($organ['required_tests'] ?? null) ? array_map('strval', (array) $organ['required_tests']) : [],
+                'feeds_active_workers' => (bool) ($organ['feeds_active_workers'] ?? false),
+                'replacement_claimable_path' => (bool) ($organ['replacement_claimable_path'] ?? false),
             ];
         }
 

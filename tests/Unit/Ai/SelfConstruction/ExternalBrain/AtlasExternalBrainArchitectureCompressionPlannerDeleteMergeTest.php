@@ -66,4 +66,105 @@ final class AtlasExternalBrainArchitectureCompressionPlannerDeleteMergeTest exte
         $this->assertTrue($result['ranked'][0]['is_additive_proposal']);
         $this->assertSame('new-missing-capability', $result['ranked'][0]['proposal_id']);
     }
+
+    // ── worker-feed preservation ──────────────────────────────────────────────
+
+    public function test_worker_feed_preserved_true_only_when_replacement_path_explicit(): void
+    {
+        $inventory = [
+            'organs' => [
+                ['id' => 'a', 'capability_labels' => ['dup'], 'files' => ['app/A.php'], 'line_count' => 50, 'feeds_active_workers' => true, 'replacement_claimable_path' => true],
+                ['id' => 'b', 'capability_labels' => ['dup'], 'files' => ['app/B.php'], 'line_count' => 50, 'feeds_active_workers' => true, 'replacement_claimable_path' => true],
+            ],
+        ];
+
+        $result = $this->planner()->plan($inventory);
+        $merge = $result['candidates'][0];
+
+        $this->assertSame('merge', $merge['action']);
+        $this->assertTrue($merge['worker_feed_preserved']);
+    }
+
+    public function test_delete_candidate_without_worker_feed_facts_is_preserved_by_default(): void
+    {
+        $inventory = [
+            'organs' => [
+                ['id' => 'stale-a', 'stale_scaffold_marker' => true, 'replacement_owner' => 'team-x', 'test_coverage' => true, 'files' => ['app/StaleA.php'], 'line_count' => 30],
+            ],
+        ];
+
+        $result = $this->planner()->plan($inventory);
+        $delete = $result['candidates'][0];
+
+        $this->assertSame('delete', $delete['action']);
+        $this->assertTrue($delete['worker_feed_preserved']);
+    }
+
+    public function test_compression_plan_rejects_delete_that_would_strand_active_workers_at_low_floor(): void
+    {
+        $inventory = [
+            'worker_floor_low' => true,
+            'organs' => [
+                [
+                    'id' => 'stale-feeder',
+                    'stale_scaffold_marker' => true,
+                    'replacement_owner' => 'team-x',
+                    'test_coverage' => true,
+                    'files' => ['app/StaleFeeder.php'],
+                    'line_count' => 40,
+                    'feeds_active_workers' => true,
+                    'replacement_claimable_path' => false,
+                ],
+            ],
+        ];
+
+        $result = $this->planner()->plan($inventory);
+        $candidate = $result['candidates'][0];
+
+        $this->assertSame('keep', $candidate['action']);
+        $this->assertSame('worker_feed_capacity_protected', $candidate['reason']);
+        $this->assertFalse($candidate['worker_feed_preserved']);
+    }
+
+    public function test_compression_plan_allows_delete_at_low_floor_when_replacement_path_present(): void
+    {
+        $inventory = [
+            'worker_floor_low' => true,
+            'organs' => [
+                [
+                    'id' => 'stale-feeder',
+                    'stale_scaffold_marker' => true,
+                    'replacement_owner' => 'team-x',
+                    'test_coverage' => true,
+                    'files' => ['app/StaleFeeder.php'],
+                    'line_count' => 40,
+                    'feeds_active_workers' => true,
+                    'replacement_claimable_path' => true,
+                ],
+            ],
+        ];
+
+        $result = $this->planner()->plan($inventory);
+        $candidate = $result['candidates'][0];
+
+        $this->assertSame('delete', $candidate['action']);
+        $this->assertTrue($candidate['worker_feed_preserved']);
+    }
+
+    public function test_compression_plan_rejects_merge_that_would_strand_active_workers_at_low_floor(): void
+    {
+        $inventory = [
+            'worker_floor_low' => true,
+            'organs' => [
+                ['id' => 'a', 'capability_labels' => ['dup'], 'files' => ['app/A.php'], 'line_count' => 50, 'feeds_active_workers' => true, 'replacement_claimable_path' => false],
+                ['id' => 'b', 'capability_labels' => ['dup'], 'files' => ['app/B.php'], 'line_count' => 50],
+            ],
+        ];
+
+        $result = $this->planner()->plan($inventory);
+        $candidate = $result['candidates'][0];
+
+        $this->assertSame('keep', $candidate['action']);
+        $this->assertSame('worker_feed_capacity_protected', $candidate['reason']);
+    }
 }
