@@ -169,6 +169,61 @@ final class AtlasLoopWorkClassPriorService
     }
 
     /**
+     * PURE aggregation for muscle-worker task outcome rows. Parallel to {@see aggregate} but consumes
+     * the task-outcome format {target_path, outcome, tests_or_gates_result, worker_id} instead of
+     * exploration attempt_metrics.
+     *
+     * Counting rules (anti-fabrication, fail-closed):
+     *   - outcome success|committed WITH non-empty tests_or_gates_result AND non-empty worker_id → real+1, certified+1
+     *   - outcome give_back|poison WITH non-empty worker_id → real+1, certified unchanged
+     *   - success|committed with empty evidence, OR empty worker_id → silently skipped (fabricated)
+     *
+     * @param  list<array{target_path:string, outcome:string, tests_or_gates_result:string, worker_id:string}>  $outcomeRows
+     * @return array<string, array{work_class:string, real_attempts:int, certified:int, landing_rate:float,
+     *                  wilson_lower:float, enough_samples:bool, hopeless:bool, min_attempts:int, floor_rate:float}>
+     */
+    public function aggregateTaskOutcomes(array $outcomeRows, int $minAttempts, float $floorRate): array
+    {
+        $minAttempts = max(1, $minAttempts);
+        $floorRate = max(0.0, min(1.0, $floorRate));
+
+        /** @var array<string, array{real:int, certified:int}> $tally */
+        $tally = [];
+        foreach ($outcomeRows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $workerId = trim((string) ($row['worker_id'] ?? ''));
+            $targetPath = trim((string) ($row['target_path'] ?? ''));
+            $outcome = trim((string) ($row['outcome'] ?? ''));
+            $evidence = trim((string) ($row['tests_or_gates_result'] ?? ''));
+
+            if ($workerId === '' || $targetPath === '') {
+                continue; // fabricated: no worker or no target
+            }
+
+            $class = $this->workClass($targetPath);
+
+            if (in_array($outcome, ['success', 'committed'], true) && $evidence !== '') {
+                $tally[$class] ??= ['real' => 0, 'certified' => 0];
+                $tally[$class]['real']++;
+                $tally[$class]['certified']++;
+            } elseif (in_array($outcome, ['give_back', 'poison'], true)) {
+                $tally[$class] ??= ['real' => 0, 'certified' => 0];
+                $tally[$class]['real']++;
+            }
+            // success/committed with no evidence OR unrecognised outcome → skip (fabricated)
+        }
+
+        $out = [];
+        foreach (array_filter($tally, static fn (array $t): bool => $t['real'] > 0) as $class => $t) {
+            $out[$class] = $this->summarizeClassPrior($class, (int) $t['real'], (int) $t['certified'], $minAttempts, $floorRate);
+        }
+
+        return $out;
+    }
+
+    /**
      * A normalized de-prioritization weight in [0,1] for a prior: 0 when not hopeless (no nudge), rising toward
      * 1 as the Wilson-LB falls further below the floor. Deterministic; the caller multiplies it against the
      * band OFFSET so the nudge can never cross a shape band.

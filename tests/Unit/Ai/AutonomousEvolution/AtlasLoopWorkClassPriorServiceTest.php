@@ -110,6 +110,62 @@ final class AtlasLoopWorkClassPriorServiceTest extends TestCase
         $this->assertTrue($prior['hopeless']);
     }
 
+    public function test_aggregate_task_outcomes_counts_green_commits_as_real_and_certified(): void
+    {
+        $rows = [
+            ['target_path' => 'app/Services/Ai/Foo.php', 'outcome' => 'success', 'tests_or_gates_result' => '5/5 green', 'worker_id' => 'claude-muscle-1'],
+            ['target_path' => 'app/Services/Ai/Bar.php', 'outcome' => 'committed', 'tests_or_gates_result' => '3/3 green', 'worker_id' => 'claude-muscle-1'],
+        ];
+        $byClass = $this->svc()->aggregateTaskOutcomes($rows, 1, 0.15);
+
+        $this->assertArrayHasKey('app/Services/Ai', $byClass);
+        $prior = $byClass['app/Services/Ai'];
+        $this->assertSame(2, $prior['real_attempts']);
+        $this->assertSame(2, $prior['certified']);
+        $this->assertSame(1.0, $prior['landing_rate']);
+    }
+
+    public function test_aggregate_task_outcomes_give_back_and_poison_count_real_not_certified(): void
+    {
+        $rows = [
+            ['target_path' => 'app/Services/Ai/Foo.php', 'outcome' => 'give_back', 'tests_or_gates_result' => '', 'worker_id' => 'claude-muscle-1'],
+            ['target_path' => 'app/Services/Ai/Bar.php', 'outcome' => 'poison', 'tests_or_gates_result' => '', 'worker_id' => 'claude-muscle-2'],
+        ];
+        $byClass = $this->svc()->aggregateTaskOutcomes($rows, 1, 0.15);
+
+        $prior = $byClass['app/Services/Ai'];
+        $this->assertSame(2, $prior['real_attempts']);
+        $this->assertSame(0, $prior['certified']);
+        $this->assertSame(0.0, $prior['landing_rate']);
+    }
+
+    public function test_aggregate_task_outcomes_fabricated_rows_are_silently_skipped(): void
+    {
+        $rows = [
+            ['target_path' => 'app/Services/Ai/Foo.php', 'outcome' => 'success', 'tests_or_gates_result' => '5/5 green', 'worker_id' => ''],
+            ['target_path' => 'app/Services/Ai/Bar.php', 'outcome' => 'success', 'tests_or_gates_result' => '', 'worker_id' => 'claude-muscle-1'],
+            ['target_path' => 'app/Services/Ai/Baz.php', 'outcome' => 'pending', 'tests_or_gates_result' => '5/5 green', 'worker_id' => 'claude-muscle-1'],
+        ];
+        $byClass = $this->svc()->aggregateTaskOutcomes($rows, 1, 0.15);
+
+        $this->assertSame([], $byClass, 'fabricated or unrecognised rows must produce an empty prior');
+    }
+
+    public function test_aggregate_task_outcomes_hopeless_class_from_give_backs(): void
+    {
+        $rows = [];
+        for ($i = 0; $i < 8; $i++) {
+            $rows[] = ['target_path' => "app/Services/Ai/F{$i}.php", 'outcome' => 'give_back', 'tests_or_gates_result' => '', 'worker_id' => 'w1'];
+        }
+        $byClass = $this->svc()->aggregateTaskOutcomes($rows, 8, 0.15);
+
+        $prior = $byClass['app/Services/Ai'];
+        $this->assertSame(8, $prior['real_attempts']);
+        $this->assertSame(0, $prior['certified']);
+        $this->assertTrue($prior['enough_samples']);
+        $this->assertTrue($prior['hopeless']);
+    }
+
     public function test_deprioritization_weight_scales_with_distance_below_floor(): void
     {
         $svc = $this->svc();
