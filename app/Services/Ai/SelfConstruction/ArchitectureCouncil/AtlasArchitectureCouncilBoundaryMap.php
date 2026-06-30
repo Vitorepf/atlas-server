@@ -52,25 +52,41 @@ final class AtlasArchitectureCouncilBoundaryMap
      */
     public function map(array $contracts): array
     {
+        // Pass 1: collect declared organs + non-authority risks.
         $organs = [];
-        $allowed = [];
-        $forbidden = [];
         $risks = [];
 
-        foreach ($contracts as $c) {
+        foreach ($contracts as $idx => $c) {
             if (! is_array($c)) {
                 continue;
             }
             $organ = trim((string) ($c['organ'] ?? ''));
             if ($organ === '') {
-                $risks[] = 'missing_organ:contract_index_'.array_search($c, $contracts, true);
+                $risks[] = 'missing_organ:contract_index_'.$idx;
 
                 continue;
             }
             if (! in_array($organ, $organs, true)) {
                 $organs[] = $organ;
             }
+            $nonAuth = is_array($c['non_authority'] ?? null) ? $c['non_authority'] : [];
+            if ($nonAuth === []) {
+                $risks[] = 'boundary_risk:'.$organ.':missing_non_authority';
+            }
+        }
 
+        $declaredOrgans = $organs;
+
+        // Pass 2: process integrations with dedup + undeclared-organ risk.
+        $allowed = [];
+        $forbidden = [];
+        $seenAllowed = [];
+        $seenForbidden = [];
+
+        foreach ($contracts as $c) {
+            if (! is_array($c) || trim((string) ($c['organ'] ?? '')) === '') {
+                continue;
+            }
             $integrations = is_array($c['integrations'] ?? null) ? $c['integrations'] : [];
             foreach ($integrations as $edge) {
                 if (! is_array($edge)) {
@@ -82,18 +98,27 @@ final class AtlasArchitectureCouncilBoundaryMap
                 if ($from === '' || $to === '' || $action === '') {
                     continue;
                 }
+
+                if (! in_array($from, $declaredOrgans, true)) {
+                    $risks[] = 'boundary_risk:undeclared_organ:'.$from;
+                }
+                if (! in_array($to, $declaredOrgans, true)) {
+                    $risks[] = 'boundary_risk:undeclared_organ:'.$to;
+                }
+
                 $key = $from.'|'.$to.'|'.$action;
                 if (isset(self::FORBIDDEN_EDGES[$key])) {
-                    $forbidden[] = ['edge' => compact('from', 'to', 'action'), 'reason' => self::FORBIDDEN_EDGES[$key]];
+                    if (! isset($seenForbidden[$key])) {
+                        $seenForbidden[$key] = true;
+                        $forbidden[] = ['edge' => compact('from', 'to', 'action'), 'reason' => self::FORBIDDEN_EDGES[$key]];
+                    }
 
                     continue;
                 }
-                $allowed[] = compact('from', 'to', 'action');
-            }
-
-            $nonAuth = is_array($c['non_authority'] ?? null) ? $c['non_authority'] : [];
-            if ($nonAuth === []) {
-                $risks[] = 'boundary_risk:'.$organ.':missing_non_authority';
+                if (! isset($seenAllowed[$key])) {
+                    $seenAllowed[$key] = true;
+                    $allowed[] = compact('from', 'to', 'action');
+                }
             }
         }
 

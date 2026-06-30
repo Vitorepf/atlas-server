@@ -97,4 +97,38 @@ final class AtlasArchitectureCouncilBoundaryMapTest extends TestCase
         $this->assertContains('evidence_ledger', $r['shared_artifacts']);
         $this->assertContains('receipts_index', $r['shared_artifacts']);
     }
+
+    public function test_duplicate_allowed_edges_collapse_to_one(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['x'], 'integrations' => [
+                ['from' => 'Task Fabric', 'to' => 'Task Fabric', 'action' => 'self_notify'],
+                ['from' => 'Task Fabric', 'to' => 'Task Fabric', 'action' => 'self_notify'],
+            ]],
+        ]);
+        $this->assertCount(1, $r['allowed_edges']);
+    }
+
+    public function test_duplicate_forbidden_edges_collapse_to_one_preserving_reason(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Worker Swarm', 'non_authority' => ['x'], 'integrations' => [
+                ['from' => 'Worker Swarm', 'to' => 'Merge Governor', 'action' => 'execute_merge'],
+                ['from' => 'Worker Swarm', 'to' => 'Merge Governor', 'action' => 'execute_merge'],
+            ]],
+        ]);
+        $this->assertCount(1, $r['forbidden_edges']);
+        $this->assertSame('workers_may_not_merge', $r['forbidden_edges'][0]['reason']);
+    }
+
+    public function test_integration_referencing_undeclared_organ_adds_boundary_risk(): void
+    {
+        $r = (new AtlasArchitectureCouncilBoundaryMap)->map([
+            ['organ' => 'Task Fabric', 'non_authority' => ['x'], 'integrations' => [
+                ['from' => 'Task Fabric', 'to' => 'Ghost Organ', 'action' => 'call'],
+            ]],
+        ]);
+        $risksStr = implode('|', $r['boundary_risks']);
+        $this->assertStringContainsString('Ghost Organ', $risksStr);
+    }
 }
