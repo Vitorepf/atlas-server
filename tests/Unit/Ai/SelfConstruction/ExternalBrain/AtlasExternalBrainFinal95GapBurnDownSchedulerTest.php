@@ -417,4 +417,104 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
             $result['burn_down_schedule'][0]['resolution_approach'],
         );
     }
+
+    // ── AC3 named scenarios: blocked / missing-evidence / replay / consolidation / stale / new-feature-last ──
+
+    public function test_scenario_blocked_unblocks_dependency_and_records_blocker(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'blocker-organ', 'gap_type' => 'blocked', 'blocker' => 'dep-organ-77'],
+        ]);
+
+        $entry = $result['burn_down_schedule'][0];
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_UNBLOCK_DEPENDENCY, $entry['resolution_approach']);
+        $this->assertSame('dep-organ-77', $entry['blocker']);
+        $this->assertSame('blocker_resolved', $entry['stop_condition']);
+        $this->assertStringContainsString('blocker-organ', $entry['cheapest_next_proof']);
+    }
+
+    public function test_scenario_missing_evidence_routes_to_backfill_when_available(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'missing-organ', 'gap_type' => 'missing', 'can_evidence_backfill' => true],
+        ]);
+
+        $entry = $result['burn_down_schedule'][0];
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_EVIDENCE_BACKFILL, $entry['resolution_approach']);
+        $this->assertSame('first_green_evidence_captured', $entry['stop_condition']);
+    }
+
+    public function test_scenario_stale_proof_replayed_when_can_replay(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'stale-organ', 'gap_type' => 'stale', 'can_proof_replay' => true],
+        ]);
+
+        $entry = $result['burn_down_schedule'][0];
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_PROOF_REPLAY, $entry['resolution_approach']);
+        $this->assertSame('existing_proof_returns_green', $entry['stop_condition']);
+    }
+
+    public function test_scenario_consolidation_for_thin_gap(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'thin-organ', 'gap_type' => 'thin', 'can_consolidate' => true],
+        ]);
+
+        $entry = $result['burn_down_schedule'][0];
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_CONSOLIDATION, $entry['resolution_approach']);
+        $this->assertSame('duplicate_count_reduced_to_one', $entry['stop_condition']);
+    }
+
+    /** AC2: new_feature_work only appears when every cheaper route is unavailable. */
+    public function test_scenario_new_feature_work_is_absolute_last_resort(): void
+    {
+        // With all cheap flags ON, new_feature_work must NOT be chosen.
+        $result = $this->scheduler()->schedule([[
+            'organ_id'               => 'x',
+            'gap_type'               => 'missing',
+            'can_evidence_backfill'  => true,
+            'can_proof_replay'       => true,
+            'can_consolidate'        => true,
+            'can_doc_sync'           => true,
+            'can_integration_wiring' => true,
+        ]]);
+        $this->assertNotSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_NEW_FEATURE_WORK,
+            $result['burn_down_schedule'][0]['resolution_approach'],
+        );
+
+        // With no cheap flags, new_feature_work IS chosen.
+        $result2 = $this->scheduler()->schedule([
+            ['organ_id' => 'y', 'gap_type' => 'missing'],
+        ]);
+        $this->assertSame(
+            AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_NEW_FEATURE_WORK,
+            $result2['burn_down_schedule'][0]['resolution_approach'],
+        );
+    }
+
+    /** AC2 + AC3: preference order strictly holds across all approach tiers. */
+    public function test_approach_preference_order_evidence_backfill_first(): void
+    {
+        // backfill beats everything else.
+        foreach ([
+            'can_proof_replay'       => true,
+            'can_consolidate'        => true,
+            'can_doc_sync'           => true,
+            'can_integration_wiring' => true,
+        ] as $otherFlag => $_) {
+            $result = $this->scheduler()->schedule([[
+                'organ_id'              => 'x',
+                'gap_type'              => 'missing',
+                'can_evidence_backfill' => true,
+                $otherFlag              => true,
+            ]]);
+            $this->assertSame(
+                AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_EVIDENCE_BACKFILL,
+                $result['burn_down_schedule'][0]['resolution_approach'],
+                "evidence_backfill must win over {$otherFlag}",
+            );
+        }
+    }
 }
