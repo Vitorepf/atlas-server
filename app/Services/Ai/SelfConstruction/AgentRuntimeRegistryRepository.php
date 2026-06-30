@@ -423,6 +423,153 @@ final class AgentRuntimeRegistryRepository
         });
     }
 
+    /** A worker in an active status with no heartbeat for this long is treated as stale evidence, not live capacity. */
+    private const HEARTBEAT_STALENESS_CEILING_SECONDS = 300;
+
+    /** Statuses where the worker is expected to be actively reachable. */
+    private const ACTIVE_STATUSES = ['available', 'busy'];
+
+    /**
+     * Records a heartbeat for one worker. Only touches that worker's own
+     * record — never any other agent. If the worker was marked `stale` and
+     * is heartbeating again, it is restored to `available` so heartbeat
+     * state and status stay consistent.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, mixed>
+     */
+    public function heartbeat(string $agentId, array $metadata = []): array
+    {
+        return $this->withLock(function () use ($agentId, $metadata): array {
+            if (! $this->isValidAgentId($agentId)) {
+                return $this->envelopeError('invalid_agent_id', $agentId);
+            }
+
+            $record = $this->readAgentFile($agentId);
+            if ($record === null) {
+                return $this->envelopeError('agent_not_found', $agentId);
+            }
+            if ((bool) ($record['corrupt'] ?? false)) {
+                return $this->envelopeError('agent_record_corrupt', $agentId, [
+                    'corrupt_reason' => (string) ($record['corrupt_reason'] ?? 'unknown'),
+                ]);
+            }
+
+            $now = CarbonImmutable::now()->toIso8601String();
+            $previousStatus = (string) ($record['status'] ?? '');
+            $record['last_heartbeat_at'] = $now;
+            $record['updated_at'] = $now;
+
+            if ($previousStatus === 'stale') {
+                $record['status'] = 'available';
+            }
+
+            $record['history'][] = [
+                'event' => 'heartbeat',
+                'at' => $now,
+                'previous_status' => $previousStatus,
+                'status' => $record['status'],
+                'metadata' => $metadata,
+            ];
+
+            $this->writeAgentFile($agentId, $record);
+            $this->updateRegistryEntry($agentId, $record);
+
+            return $this->envelopeOk('heartbeat_recorded', $record);
+        });
+    }
+
+    /**
+     * Compact, read-only consistency check across registration, heartbeat,
+     * quarantine and capability state. Never mutates a single worker —
+     * every finding carries a repair_hint describing the safe fix instead.
+     *
+     * @return array<string, mixed>
+     */
+    public function consistencyCheck(): array
+    {
+        $registry = $this->loadRegistry();
+        $entries = (array) ($registry['entries'] ?? []);
+        $now = CarbonImmutable::now();
+
+        $issues = [];
+        $checkedCount = 0;
+
+        foreach ($entries as $entry) {
+            $agentId = (string) ($entry['agent_id'] ?? '');
+            if ($agentId === '') {
+                continue;
+            }
+            $record = $this->readAgentFile($agentId);
+            if ($record === null) {
+                continue;
+            }
+            $checkedCount++;
+
+            if ((bool) ($record['corrupt'] ?? false)) {
+                $issues[] = $this->issue($agentId, 'corrupt_record', (string) ($record['corrupt_reason'] ?? 'unknown'), 'reread_or_re-register_this_agent_only');
+
+                continue;
+            }
+
+            $status = (string) ($record['status'] ?? '');
+            $registryStatus = (string) ($entry['status'] ?? '');
+            if ($registryStatus !== $status) {
+                $issues[] = $this->issue($agentId, 'registry_agent_status_mismatch', "registry={$registryStatus} agent_file={$status}", 'rewrite_registry_entry_from_agent_file_for_this_agent_only');
+            }
+
+            $maxParallel = (int) ($record['max_parallel_tasks'] ?? 0);
+            $currentTasks = (int) ($record['current_task_count'] ?? 0);
+            if ($currentTasks > $maxParallel) {
+                $issues[] = $this->issue($agentId, 'task_count_exceeds_capacity', "current={$currentTasks} max={$maxParallel}", 'clamp_current_task_count_to_max_parallel_tasks_for_this_agent_only');
+            }
+
+            $heartbeatRequired = (bool) ($record['heartbeat_required'] ?? true);
+            $lastHeartbeatAt = $record['last_heartbeat_at'] ?? null;
+            if ($heartbeatRequired && in_array($status, self::ACTIVE_STATUSES, true)) {
+                if ($lastHeartbeatAt === null) {
+                    $issues[] = $this->issue($agentId, 'active_status_missing_heartbeat', "status={$status}", 'require_heartbeat_or_transition_this_agent_to_stale');
+                } else {
+                    $ageSeconds = abs($now->diffInSeconds(CarbonImmutable::parse((string) $lastHeartbeatAt)));
+                    if ($ageSeconds > self::HEARTBEAT_STALENESS_CEILING_SECONDS) {
+                        $issues[] = $this->issue($agentId, 'stale_heartbeat_with_active_status', sprintf('status=%s age_seconds=%d', $status, (int) $ageSeconds), 'transition_this_agent_to_stale_until_next_heartbeat');
+                    }
+                }
+            }
+
+            if ($status === 'quarantined' && $currentTasks > 0) {
+                $issues[] = $this->issue($agentId, 'quarantined_with_active_task_count', "current_task_count={$currentTasks}", 'drain_or_reassign_this_agent_tasks_before_quarantine_completes');
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'checked_count' => $checkedCount,
+            'inconsistent_count' => count($issues),
+            'consistent_count' => $checkedCount - count(array_unique(array_column($issues, 'agent_id'))),
+            'consistent' => $issues === [],
+            'issues' => $issues,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
+    }
+
+    /** @return array<string, string> */
+    private function issue(string $agentId, string $issueType, string $detail, string $repairHint): array
+    {
+        return [
+            'agent_id' => $agentId,
+            'issue_type' => $issueType,
+            'detail' => $detail,
+            'repair_hint' => $repairHint,
+        ];
+    }
+
     public function isAvailable(): bool
     {
         try {

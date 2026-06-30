@@ -399,4 +399,124 @@ final class AgentRuntimeRegistryRepositoryTest extends TestCase
             'evidence_required' => true,
         ];
     }
+
+    // ── heartbeat() ────────────────────────────────────────────────────────────
+
+    public function test_heartbeat_records_timestamp_on_own_agent_only(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+        $repo->register(array_merge($this->validAgent(), ['agent_id' => 'agent-b']));
+
+        $result = $repo->heartbeat('agent-a');
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertNotEmpty($result['record']['last_heartbeat_at']);
+        $this->assertNull($repo->get('agent-b')['last_heartbeat_at'] ?? null);
+    }
+
+    public function test_heartbeat_restores_stale_agent_to_available(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+        $repo->updateStatus('agent-a', 'stale');
+
+        $result = $repo->heartbeat('agent-a');
+
+        $this->assertSame('available', $result['record']['status']);
+    }
+
+    public function test_heartbeat_unknown_agent_blocks(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+
+        $result = $repo->heartbeat('does-not-exist');
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('agent_not_found', $result['reason']);
+    }
+
+    public function test_heartbeat_invalid_agent_id_blocks(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+
+        $result = $repo->heartbeat('');
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('invalid_agent_id', $result['reason']);
+    }
+
+    // ── consistencyCheck() ───────────────────────────────────────────────────
+
+    public function test_consistency_check_reports_clean_registry_as_consistent(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register($this->validAgent());
+        $repo->heartbeat('agent-a');
+
+        $result = $repo->consistencyCheck();
+
+        $this->assertTrue($result['consistent']);
+        $this->assertSame([], $result['issues']);
+        $this->assertSame(1, $result['checked_count']);
+    }
+
+    public function test_consistency_check_flags_active_status_with_no_heartbeat(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register(array_merge($this->validAgent(), ['status' => 'available']));
+
+        $result = $repo->consistencyCheck();
+
+        $this->assertFalse($result['consistent']);
+        $issueTypes = array_column($result['issues'], 'issue_type');
+        $this->assertContains('active_status_missing_heartbeat', $issueTypes);
+    }
+
+    public function test_consistency_check_flags_task_count_exceeding_capacity(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register(array_merge($this->validAgent(), [
+            'max_parallel_tasks' => 2,
+            'current_task_count' => 1,
+        ]));
+        // Force an inconsistent state directly via updateStatus metadata, since
+        // register() clamps current_task_count to max_parallel_tasks.
+        $repo->updateStatus('agent-a', 'busy', ['current_task_count' => 5]);
+        $record = $repo->get('agent-a');
+        $record['current_task_count'] = 5;
+        Storage::disk('local')->put(
+            \App\Services\Ai\SelfConstruction\AgentRuntimeRegistryRepository::STORAGE_PREFIX.'/agent_agent-a.json',
+            json_encode($record),
+        );
+
+        $result = $repo->consistencyCheck();
+
+        $issueTypes = array_column($result['issues'], 'issue_type');
+        $this->assertContains('task_count_exceeds_capacity', $issueTypes);
+    }
+
+    public function test_consistency_check_flags_quarantined_agent_with_active_tasks(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register(array_merge($this->validAgent(), ['max_parallel_tasks' => 3, 'current_task_count' => 2]));
+        $repo->updateStatus('agent-a', 'quarantined');
+
+        $result = $repo->consistencyCheck();
+
+        $issueTypes = array_column($result['issues'], 'issue_type');
+        $this->assertContains('quarantined_with_active_task_count', $issueTypes);
+    }
+
+    public function test_consistency_check_does_not_mutate_any_agent(): void
+    {
+        $repo = new AgentRuntimeRegistryRepository;
+        $repo->register(array_merge($this->validAgent(), ['status' => 'available']));
+        $before = $repo->get('agent-a');
+
+        $repo->consistencyCheck();
+        $after = $repo->get('agent-a');
+
+        $this->assertSame($before, $after);
+    }
 }
