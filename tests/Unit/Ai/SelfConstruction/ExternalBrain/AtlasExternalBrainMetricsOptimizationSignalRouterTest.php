@@ -257,6 +257,120 @@ final class AtlasExternalBrainMetricsOptimizationSignalRouterTest extends TestCa
         $this->assertSame($this->router()->route($input), $this->router()->route($input));
     }
 
+    // ── AC3/AC4: each signal emits signal_type, action, confidence, anti_goodhart_reason ──
+
+    public function test_each_signal_emits_signal_type_action_confidence_and_anti_goodhart_reason(): void
+    {
+        $result = $this->router()->route(['metrics' => ['give_back_rate' => 0.90]]);
+
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_REDUCE_GIVE_BACK);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_TYPE_OUTCOME_QUALITY, $signal['signal_type']);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::ACTION_REPAIR_QUEUE, $signal['action']);
+        $this->assertSame('high', $signal['confidence']);
+        $this->assertNotEmpty($signal['anti_goodhart_reason']);
+    }
+
+    // ── AC1/AC2: contextual volume metrics — vanity without companion context ──
+
+    public function test_task_count_alone_is_vanity_without_quality_context(): void
+    {
+        $result = $this->router()->route(['metrics' => ['task_count' => 50]]);
+
+        $this->assertSame([], $result['ordered_signals']);
+        $this->assertContains('task_count', $result['skipped_vanity_metrics']);
+    }
+
+    public function test_task_count_with_low_quality_context_triggers_stop_volume_growth(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['task_count' => 50],
+            'context' => ['task_quality_rate' => 0.20],
+        ]);
+
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_STOP_VOLUME_GROWTH);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::ACTION_STOP_VOLUME_GROWTH, $signal['action']);
+        $this->assertNotContains('task_count', $result['skipped_vanity_metrics']);
+    }
+
+    public function test_task_count_with_healthy_quality_context_is_vanity(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['task_count' => 50],
+            'context' => ['task_quality_rate' => 0.90],
+        ]);
+
+        $this->assertSame([], $result['ordered_signals']);
+        $this->assertContains('task_count', $result['skipped_vanity_metrics']);
+    }
+
+    public function test_green_commits_alone_is_vanity_without_give_back_context(): void
+    {
+        $result = $this->router()->route(['metrics' => ['green_commits' => 30]]);
+
+        $this->assertSame([], $result['ordered_signals']);
+        $this->assertContains('green_commits', $result['skipped_vanity_metrics']);
+    }
+
+    public function test_green_commits_with_high_give_back_rate_triggers_repair_queue(): void
+    {
+        $result = $this->router()->route(['metrics' => [
+            'green_commits'   => 30,
+            'give_back_rate'  => 0.50,
+        ]]);
+
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_REPAIR_QUEUE_DEPTH);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::ACTION_REPAIR_QUEUE, $signal['action']);
+    }
+
+    public function test_queue_depth_alone_is_vanity_without_saturation_context(): void
+    {
+        $result = $this->router()->route(['metrics' => ['queue_depth' => 200]]);
+
+        $this->assertSame([], $result['ordered_signals']);
+        $this->assertContains('queue_depth', $result['skipped_vanity_metrics']);
+    }
+
+    public function test_queue_depth_with_high_saturation_triggers_simplify(): void
+    {
+        $result = $this->router()->route(['metrics' => [
+            'queue_depth'      => 200,
+            'queue_saturation' => 0.95,
+        ]]);
+
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_SIMPLIFY_QUEUE);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::ACTION_SIMPLIFY, $signal['action']);
+    }
+
+    public function test_model_lift_without_accepted_evidence_type_triggers_calibrate_model(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['model_lift' => 0.30],
+            'context' => ['evidence_type' => 'self_declared'],
+        ]);
+
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_CALIBRATE_MODEL);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::ACTION_CALIBRATE_MODEL, $signal['action']);
+    }
+
+    public function test_model_lift_without_any_evidence_type_triggers_calibrate_model(): void
+    {
+        $result = $this->router()->route(['metrics' => ['model_lift' => 0.30]]);
+
+        $signal = $this->findSignal($result, AtlasExternalBrainMetricsOptimizationSignalRouter::SIGNAL_CALIBRATE_MODEL);
+        $this->assertSame(AtlasExternalBrainMetricsOptimizationSignalRouter::ACTION_CALIBRATE_MODEL, $signal['action']);
+    }
+
+    public function test_model_lift_with_accepted_evidence_type_is_not_a_signal(): void
+    {
+        $result = $this->router()->route([
+            'metrics' => ['model_lift' => 0.30],
+            'context' => ['evidence_type' => 'before_after_benchmark'],
+        ]);
+
+        $this->assertSame([], $result['ordered_signals']);
+        $this->assertContains('model_lift', $result['skipped_vanity_metrics']);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private function findSignal(array $result, string $signalId): array
