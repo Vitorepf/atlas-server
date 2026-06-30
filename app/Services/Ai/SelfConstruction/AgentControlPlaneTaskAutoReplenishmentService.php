@@ -25,6 +25,9 @@ final class AgentControlPlaneTaskAutoReplenishmentService
 
     public const MODE = 'persistent_local_agent_control_plane_task_auto_replenishment';
 
+    /** Terminal statuses that block a seed from being reissued unless allow_terminal_reissue=true. */
+    private const TERMINAL_BLOCKING_STATUSES = ['completed_dry_run', 'cancelled'];
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly AgentControlPlaneTaskPacketQueueRepository $queue,
@@ -75,10 +78,11 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             : $this->countClaimableWithTags($queueTags);
         $totalBefore = (int) data_get($registryBefore, 'total_count', 0);
         $existingSeedIndex = $this->existingAutoReplenishmentSeedIndex($queueTags);
+        $allowTerminalReissue = (bool) ($options['allow_terminal_reissue'] ?? false);
 
         $sources = $this->sources($context);
         $rawPlan = $this->plan($sources, $targetMinClaimable, $maxNewTasks, $claimableBefore, $totalBefore);
-        $planEvaluation = $this->evaluatePlan($rawPlan, $existingSeedIndex);
+        $planEvaluation = $this->evaluatePlan($rawPlan, $existingSeedIndex, $allowTerminalReissue);
         $planEvaluation = $this->withCompletionOperatorHandoffSeeds($planEvaluation, $sources);
         $plan = (array) $planEvaluation['accepted_seeds'];
         $operatorHandoffSeeds = (array) $planEvaluation['operator_handoff_seeds'];
@@ -281,9 +285,10 @@ final class AgentControlPlaneTaskAutoReplenishmentService
      * @param  array<string, mixed>  $existingSeedIndex
      * @return array<string, mixed>
      */
-    private function evaluatePlan(array $plan, array $existingSeedIndex): array
+    private function evaluatePlan(array $plan, array $existingSeedIndex, bool $allowTerminalReissue = false): array
     {
         $activeSeedKeys = (array) ($existingSeedIndex['active_seed_keys'] ?? []);
+        $terminalSeedKeys = (array) ($existingSeedIndex['terminal_seed_keys'] ?? []);
         $accepted = [];
         $operatorHandoff = [];
         $skipped = [];
@@ -320,6 +325,23 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                     'reason' => 'auto_replenishment_seed_already_active',
                     'existing_task_packet_id' => (string) data_get($activeSeedKeys, $seedKey.'.task_packet_id', ''),
                     'existing_status' => (string) data_get($activeSeedKeys, $seedKey.'.status', ''),
+                ];
+
+                continue;
+            }
+
+            // 'released' is deliberately excluded — a released lease must mint a fresh task_packet_id
+            // so the work is retried, never silently starved (see test_released_auto_replenishment_
+            // seed_does_not_starve_future_supply). Only successful-terminal statuses block reissue.
+            if (! $allowTerminalReissue
+                && isset($terminalSeedKeys[$seedKey])
+                && in_array((string) data_get($terminalSeedKeys, $seedKey.'.status', ''), self::TERMINAL_BLOCKING_STATUSES, true)
+            ) {
+                $skipped[] = [
+                    'seed_key' => $seedKey,
+                    'reason' => 'auto_replenishment_seed_already_terminal',
+                    'existing_task_packet_id' => (string) data_get($terminalSeedKeys, $seedKey.'.task_packet_id', ''),
+                    'existing_status' => (string) data_get($terminalSeedKeys, $seedKey.'.status', ''),
                 ];
 
                 continue;
