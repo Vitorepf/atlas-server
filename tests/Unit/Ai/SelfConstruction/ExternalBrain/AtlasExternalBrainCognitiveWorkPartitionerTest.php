@@ -168,6 +168,79 @@ final class AtlasExternalBrainCognitiveWorkPartitionerTest extends TestCase
         $this->assertContains('risky', $r['fallback_plan']['degraded_phases']);
     }
 
+    // ── AC2: high risk escalates all phase types (not just synthesis) ─────────
+
+    public function test_extraction_with_high_ambiguity_escalates_to_frontier(): void
+    {
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['type' => 'extraction'])],
+            'risk_profile' => ['ambiguity' => 0.80],
+        ]);
+        $this->assertSame('escalation',     $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
+    }
+
+    public function test_verification_with_conflicting_evidence_escalates_to_frontier(): void
+    {
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['type' => 'verification'])],
+            'risk_profile' => ['conflicting_evidence' => true],
+        ]);
+        $this->assertSame('escalation',     $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
+    }
+
+    public function test_critique_with_high_ambiguity_escalates_to_frontier(): void
+    {
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['type' => 'critique'])],
+            'risk_profile' => ['ambiguity' => 0.70],
+        ]);
+        $this->assertSame('escalation',     $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
+    }
+
+    public function test_extraction_stays_small_model_when_risk_low(): void
+    {
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['type' => 'extraction'])],
+            'risk_profile' => ['ambiguity' => 0.30, 'conflicting_evidence' => false],
+        ]);
+        $this->assertSame('extraction',  $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('small_model', $r['phase_plan'][0]['model_tier']);
+    }
+
+    public function test_keyword_inferred_extraction_with_high_risk_escalates(): void
+    {
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['description' => 'gather all relevant evidence'])],
+            'risk_profile' => ['ambiguity' => 0.75],
+        ]);
+        $this->assertSame('escalation',     $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
+    }
+
+    public function test_keyword_inferred_verification_with_conflicting_evidence_escalates(): void
+    {
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['description' => 'validate output against spec'])],
+            'risk_profile' => ['conflicting_evidence' => true],
+        ]);
+        $this->assertSame('escalation',     $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
+    }
+
+    public function test_escalation_explicit_type_unaffected_by_risk_profile(): void
+    {
+        // Explicit 'escalation' must never be double-escalated or demoted by risk profile.
+        $r = $this->partitioner()->partition([
+            'phases'       => [$this->phase(['type' => 'escalation'])],
+            'risk_profile' => ['ambiguity' => 0.95, 'conflicting_evidence' => true],
+        ]);
+        $this->assertSame('escalation',     $r['phase_plan'][0]['phase_type']);
+        $this->assertSame('frontier_model', $r['phase_plan'][0]['model_tier']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void

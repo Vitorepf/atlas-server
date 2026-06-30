@@ -128,11 +128,11 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
         $explicit = strtolower(trim((string) ($raw['type'] ?? '')));
         $known    = ['extraction', 'verification', 'critique', 'synthesis', 'escalation'];
         if (in_array($explicit, $known, true)) {
-            // Still escalate a synthesis if mission risk is high.
-            if ($explicit === 'synthesis' && $this->missionHighRisk($ambiguity, $conflicting)) {
+            if ($explicit !== 'escalation' && $blastRadius >= self::ESCALATION_BLAST) {
                 return 'escalation';
             }
-            if ($explicit !== 'escalation' && $blastRadius >= self::ESCALATION_BLAST) {
+            // AC2: high mission risk escalates any phase type (extraction/verification included).
+            if ($explicit !== 'escalation' && $this->missionHighRisk($ambiguity, $conflicting)) {
                 return 'escalation';
             }
             return $explicit;
@@ -148,8 +148,8 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
         foreach (self::KEYWORDS as $type => $words) {
             foreach ($words as $word) {
                 if (str_contains($lower, $word)) {
-                    // Synthesis with high mission risk → escalate.
-                    if ($type === 'synthesis' && $this->missionHighRisk($ambiguity, $conflicting)) {
+                    // AC2: high mission risk escalates any inferred type.
+                    if ($this->missionHighRisk($ambiguity, $conflicting)) {
                         return 'escalation';
                     }
                     return $type;
@@ -157,7 +157,7 @@ final class AtlasExternalBrainCognitiveWorkPartitioner
             }
         }
 
-        return 'synthesis'; // safest default: scaffold tier (not small)
+        return $this->missionHighRisk($ambiguity, $conflicting) ? 'escalation' : 'synthesis';
     }
 
     private function assignTier(string $type): string
