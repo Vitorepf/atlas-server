@@ -67,6 +67,14 @@ class AtlasSelfDivergenceModelService
         'ready' => 3,
     ];
 
+    public const KIND_PRIORITY = [
+        self::DIVERGENCE_MISSING => 0,
+        self::DIVERGENCE_DOWNGRADED => 1,
+        self::DIVERGENCE_DRIFT => 2,
+    ];
+
+    public const HIGHEST_PRIORITY_LIMIT = 5;
+
     private ?string $logPathOverride = null;
 
     private ?string $targetPathOverride = null;
@@ -213,6 +221,38 @@ class AtlasSelfDivergenceModelService
             }
         }
 
+        $sortedDivergences = $divergences;
+        usort($sortedDivergences, static function (array $a, array $b): int {
+            $aRank = self::KIND_PRIORITY[$a['kind']] ?? 99;
+            $bRank = self::KIND_PRIORITY[$b['kind']] ?? 99;
+            if ($aRank !== $bRank) {
+                return $aRank <=> $bRank;
+            }
+            if ($a['kind'] === self::DIVERGENCE_DOWNGRADED) {
+                $aGap = array_sum(array_column($a['delta'] ?? [], 'gap'));
+                $bGap = array_sum(array_column($b['delta'] ?? [], 'gap'));
+                if ($aGap !== $bGap) {
+                    return $bGap <=> $aGap;
+                }
+            }
+            return strcmp((string) ($a['acronym'] ?? ''), (string) ($b['acronym'] ?? ''));
+        });
+        $highestPriority = array_slice($sortedDivergences, 0, self::HIGHEST_PRIORITY_LIMIT);
+        $reasonMap = [
+            self::DIVERGENCE_MISSING => 'subsystem absent from current state',
+            self::DIVERGENCE_DOWNGRADED => 'current dimensions below target',
+            self::DIVERGENCE_DRIFT => 'non-target subsystem with non-ready dimensions',
+        ];
+        $lever = null;
+        if ($highestPriority !== []) {
+            $top = $highestPriority[0];
+            $lever = [
+                'kind' => $top['kind'],
+                'acronym' => $top['acronym'] ?? null,
+                'reason' => $reasonMap[$top['kind']] ?? 'unknown',
+            ];
+        }
+
         $envelope = [
             'schema_version' => self::MEASUREMENT_SCHEMA,
             'measured_at' => $generatedAt,
@@ -226,6 +266,8 @@ class AtlasSelfDivergenceModelService
                 self::DIVERGENCE_DRIFT => count(array_filter($divergences, fn ($d) => $d['kind'] === self::DIVERGENCE_DRIFT)),
             ],
             'divergences' => $divergences,
+            'highest_priority_divergences' => $highestPriority,
+            'next_convergence_lever' => $lever,
             'kernel_hash' => $this->kernel->kernelHash(),
             'scorecard_hash' => $report['scorecard_hash'] ?? null,
             'claim_policy' => $this->claimPolicy(),

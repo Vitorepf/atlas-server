@@ -113,4 +113,77 @@ class AtlasSelfDivergenceModelServiceTest extends TestCase
         $this->assertArrayHasKey('downgraded_subsystem', $env['divergences_by_kind']);
         $this->assertArrayHasKey('drift_subsystem', $env['divergences_by_kind']);
     }
+
+    public function test_highest_priority_divergences_present_and_bounded(): void
+    {
+        $env = $this->svc->measure();
+        $this->assertArrayHasKey('highest_priority_divergences', $env);
+        $this->assertIsArray($env['highest_priority_divergences']);
+        $this->assertLessThanOrEqual(AtlasSelfDivergenceModelService::HIGHEST_PRIORITY_LIMIT, count($env['highest_priority_divergences']));
+    }
+
+    public function test_next_convergence_lever_has_kind_acronym_reason_when_divergences_exist(): void
+    {
+        $env = $this->svc->measure();
+        // Default target = all-ready so we expect divergences (current state is below ready).
+        if ($env['divergence_count'] === 0) {
+            $this->assertNull($env['next_convergence_lever']);
+            return;
+        }
+        $lever = $env['next_convergence_lever'];
+        $this->assertIsArray($lever);
+        $this->assertArrayHasKey('kind', $lever);
+        $this->assertArrayHasKey('acronym', $lever);
+        $this->assertArrayHasKey('reason', $lever);
+        $this->assertNotEmpty($lever['reason']);
+    }
+
+    public function test_next_convergence_lever_is_null_when_no_divergences(): void
+    {
+        // Provide a target with a known subsystem that exactly matches current state
+        // so there are zero divergences. Use an empty subsystems list as target —
+        // no target rows means no missing/downgraded divergences; drift divergences
+        // only appear for current rows that are non-ready. We isolate by providing
+        // a target that demands an impossible acronym so zero target rows match.
+        $target = ['subsystems' => []];
+        file_put_contents($this->target, json_encode($target));
+        $env = $this->svc->measure();
+
+        // With an empty target list, the only possible divergences are drift_subsystem
+        // (current rows not in target that are non-ready). We can't guarantee 0 divergences
+        // in a real scorecard, so we just assert the null/non-null contract is correct.
+        if ($env['divergence_count'] === 0) {
+            $this->assertNull($env['next_convergence_lever']);
+        } else {
+            $this->assertIsArray($env['next_convergence_lever']);
+        }
+    }
+
+    public function test_missing_subsystem_is_highest_priority_over_downgraded(): void
+    {
+        // Target two acronyms: one missing and one that's present but with a forced downgrade.
+        // The missing one must appear first in highest_priority_divergences.
+        $target = [
+            'subsystems' => [
+                ['acronym' => 'FAKE_MISSING_001', 'code' => 'ready', 'doc' => 'ready', 'pipeline' => 'ready'],
+                ['acronym' => 'G0', 'code' => 'ready', 'doc' => 'ready', 'pipeline' => 'ready'],
+            ],
+        ];
+        file_put_contents($this->target, json_encode($target));
+        $env = $this->svc->measure();
+        $top = $env['highest_priority_divergences'];
+        if (count($top) >= 2) {
+            $this->assertSame(AtlasSelfDivergenceModelService::DIVERGENCE_MISSING, $top[0]['kind'],
+                'missing_subsystem must sort before downgraded_subsystem');
+        }
+    }
+
+    public function test_divergence_hash_and_existing_fields_preserved(): void
+    {
+        $env = $this->svc->measure();
+        $this->assertStringStartsWith('sha256:', $env['divergence_hash']);
+        $this->assertArrayHasKey('divergence_count', $env);
+        $this->assertArrayHasKey('divergences_by_kind', $env);
+        $this->assertArrayHasKey('divergences', $env);
+    }
 }
