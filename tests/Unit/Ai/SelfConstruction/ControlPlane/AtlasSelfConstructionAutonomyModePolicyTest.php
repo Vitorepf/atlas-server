@@ -106,4 +106,104 @@ final class AtlasSelfConstructionAutonomyModePolicyTest extends TestCase
         ]);
         $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_OBSERVE, $r['mode']);
     }
+
+    // ---------- dependency guard ----------
+
+    private function allOrgansReady(): array
+    {
+        return [
+            'task_fabric'              => $this->organ(true),
+            'maestro'                  => $this->organ(true),
+            'verification_court'       => $this->organ(true),
+            'merge_governor'           => $this->organ(true),
+            'native_worker'            => $this->organ(true),
+            'rollback'                 => $this->organ(true),
+            'server_side_verification' => $this->organ(true),
+            'knowledge_sync'           => $this->organ(true),
+        ];
+    }
+
+    public function test_human_dependency_blocks_execute_guarded_and_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['human_dependency' => true])
+        );
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertContains('dependency:human_dependency', $r['blockers']);
+    }
+
+    public function test_operator_dependency_blocks_execute_guarded_and_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['operator_dependency' => true])
+        );
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertContains('dependency:operator_dependency', $r['blockers']);
+    }
+
+    public function test_external_provider_dependency_blocks_execute_guarded_and_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['external_provider_dependency' => true])
+        );
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertContains('dependency:external_provider_dependency', $r['blockers']);
+    }
+
+    public function test_dependency_in_nested_dependency_facts_map_also_blocks(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['dependency_facts' => ['human_dependency' => true]])
+        );
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertContains('dependency:human_dependency', $r['blockers']);
+    }
+
+    public function test_dependency_with_all_organs_ready_falls_to_propose(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['human_dependency' => true])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
+        $this->assertContains('propose:dependency_block', $r['reasons']);
+        $this->assertContains('dependency:human_dependency', $r['blockers']);
+    }
+
+    public function test_dependency_with_no_basic_organs_yields_observe(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(['human_dependency' => true]);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_OBSERVE, $r['mode']);
+        $this->assertContains('observe:dependency_block', $r['reasons']);
+        $this->assertContains('dependency:human_dependency', $r['blockers']);
+    }
+
+    public function test_full_readiness_without_dependency_facts_still_yields_execute_continuous(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($this->allOrgansReady());
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_force_disabled_takes_precedence_over_dependency_guard(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'operator_overrides' => ['force_disabled' => true],
+            'human_dependency'   => true,
+        ]);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_DISABLED, $r['mode']);
+    }
+
+    public function test_force_observe_takes_precedence_over_dependency_guard(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), [
+                'operator_overrides'           => ['force_observe' => true],
+                'external_provider_dependency' => true,
+            ])
+        );
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_OBSERVE, $r['mode']);
+    }
 }

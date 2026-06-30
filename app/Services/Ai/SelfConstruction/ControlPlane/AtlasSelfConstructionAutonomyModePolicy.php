@@ -84,25 +84,53 @@ final class AtlasSelfConstructionAutonomyModePolicy
             return $this->envelope(self::MODE_OBSERVE, $blockers, $reasons, $facts, $summary);
         }
 
+        // Dependency guard: human, operator, or external-provider dependency blocks execute_guarded
+        // and execute_continuous — keeps the Atlas-native runtime honest.
+        $depBlockers = $this->extractDependencyBlockers($facts);
+        foreach ($depBlockers as $b) {
+            $blockers[] = $b;
+        }
+        $hasDependencyBlock = $depBlockers !== [];
+
         $basicReady = $taskFabric && $maestro && $verCourt && $mergeGovernor;
         $guardedReady = $basicReady && $nativeWorker && $rollback;
         $continuousReady = $guardedReady && $serverVer && $knowledgeSync;
 
         $mode = self::MODE_OBSERVE;
-        if ($continuousReady) {
+        if (! $hasDependencyBlock && $continuousReady) {
             $mode = self::MODE_EXECUTE_CONTINUOUS;
             $reasons[] = 'all_organs_ready';
-        } elseif ($guardedReady) {
+        } elseif (! $hasDependencyBlock && $guardedReady) {
             $mode = self::MODE_EXECUTE_GUARDED;
             $reasons[] = 'execute_guarded:native_worker+rollback_ready';
         } elseif ($basicReady) {
             $mode = self::MODE_PROPOSE;
-            $reasons[] = 'propose:basic_organs_ready';
+            $reasons[] = $hasDependencyBlock ? 'propose:dependency_block' : 'propose:basic_organs_ready';
         } else {
-            $reasons[] = 'observe:basic_organs_unready';
+            $reasons[] = $hasDependencyBlock ? 'observe:dependency_block' : 'observe:basic_organs_unready';
         }
 
         return $this->envelope($mode, $blockers, $reasons, $facts, $summary);
+    }
+
+    /**
+     * Returns named blockers for each dependency kind present in facts.
+     * Checks top-level keys AND the nested `dependency_facts` map.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return list<string>
+     */
+    private function extractDependencyBlockers(array $facts): array
+    {
+        $nested = is_array($facts['dependency_facts'] ?? null) ? $facts['dependency_facts'] : [];
+        $blockers = [];
+        foreach (['human_dependency', 'operator_dependency', 'external_provider_dependency'] as $dep) {
+            if (! empty($facts[$dep]) || ! empty($nested[$dep])) {
+                $blockers[] = 'dependency:'.$dep;
+            }
+        }
+
+        return $blockers;
     }
 
     /**
