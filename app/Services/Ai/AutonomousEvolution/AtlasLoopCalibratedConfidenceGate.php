@@ -37,30 +37,45 @@ final class AtlasLoopCalibratedConfidenceGate
      * Decide whether a certified proposal must ABSTAIN (park) on calibrated confidence. Reads the cert-time
      * delivery_confidence from the proposal quality envelope and compares it to the fit threshold.
      *
+     * Reason values: disabled | no_prediction | no_threshold | too_few_samples | uncalibrated_model | below_threshold | at_or_above_threshold
+     * Evidence quality values: none | too_few_samples | uncalibrated_model | calibrated
+     *
      * @param  mixed  $quality  the proposal.quality envelope (array or json) carrying delivery_confidence.confidence
-     * @return array{abstain:bool, predicted:?float, threshold:?float, calibrated:bool}
+     * @return array{abstain:bool, predicted:?float, threshold:?float, calibrated:bool, reason:string, evidence_quality:string}
      */
     public function abstain(mixed $quality): array
     {
-        $no = ['abstain' => false, 'predicted' => null, 'threshold' => null, 'calibrated' => false];
+        $no = ['abstain' => false, 'predicted' => null, 'threshold' => null, 'calibrated' => false, 'reason' => 'disabled', 'evidence_quality' => 'none'];
 
         if (! (bool) config('atlas.loop.calibrated_confidence_gate_enabled', false)) {
             return $no;
         }
         $predicted = data_get($quality, 'delivery_confidence.confidence');
         if (! is_numeric($predicted)) {
-            return $no; // no cert-time confidence signal => never abstain
+            return array_merge($no, ['reason' => 'no_prediction']); // no cert-time confidence signal => fail-open
         }
-        $threshold = $this->resolveThreshold();
+        $resolved = $this->resolveThresholdWithReason();
+        $threshold = $resolved['threshold'];
+        $evidenceQuality = $resolved['quality'];
+
         if ($threshold === null) {
-            return $no; // not enough real outcomes to fit an honest band => never abstain on no evidence
+            // Propagate the specific null cause (too_few_samples / uncalibrated_model) as the reason.
+            $reason = in_array($evidenceQuality, ['too_few_samples', 'uncalibrated_model'], true)
+                ? $evidenceQuality
+                : 'no_threshold';
+
+            return array_merge($no, ['reason' => $reason, 'evidence_quality' => $evidenceQuality]);
         }
 
+        $abstain = $this->wouldAbstain($predicted, $threshold);
+
         return [
-            'abstain' => $this->wouldAbstain($predicted, $threshold),
+            'abstain' => $abstain,
             'predicted' => (float) $predicted,
             'threshold' => $threshold,
             'calibrated' => true,
+            'reason' => $abstain ? 'below_threshold' : 'at_or_above_threshold',
+            'evidence_quality' => 'calibrated',
         ];
     }
 
@@ -109,5 +124,55 @@ final class AtlasLoopCalibratedConfidenceGate
         $threshold = $calibration['recommended_threshold'] ?? null;
 
         return is_numeric($threshold) ? (float) $threshold : null;
+    }
+
+    /**
+     * PURE — like recommendFrom() but explains WHY the threshold is null.
+     * null_reason: 'too_few_samples' | 'uncalibrated_model' | null (threshold available)
+     *
+     * @param  list<array{predicted:float, correct:bool}>  $samples
+     * @return array{threshold:?float, null_reason:?string}
+     */
+    public function recommendFromWithReason(array $samples, float $targetPrecision = 0.93, int $minSamples = 20): array
+    {
+        if (count($samples) < $minSamples) {
+            return ['threshold' => null, 'null_reason' => 'too_few_samples'];
+        }
+        $threshold = $this->recommendFrom($samples, $targetPrecision, $minSamples);
+
+        return ['threshold' => $threshold, 'null_reason' => $threshold === null ? 'uncalibrated_model' : null];
+    }
+
+    /**
+     * Like resolveThreshold() but propagates evidence quality for abstain() to expose.
+     *
+     * @return array{threshold:?float, quality:string}
+     */
+    private function resolveThresholdWithReason(): array
+    {
+        try {
+            if (! DatabaseTableAvailability::has('atlas_loop_confidence_samples')) {
+                return ['threshold' => null, 'quality' => 'none'];
+            }
+            $targetPrecision = max(0.0, min(1.0, (float) config('atlas.loop.calibrated_confidence_target_precision', 0.93)));
+            $minSamples = max(2, (int) config('atlas.loop.calibrated_confidence_min_samples', 20));
+            $windowDays = max(1, (int) config('atlas.loop.calibrated_confidence_window_days', 30));
+
+            $samples = DB::table('atlas_loop_confidence_samples')
+                ->where('created_at', '>=', Carbon::now()->subDays($windowDays))
+                ->limit(5000)
+                ->get(['predicted', 'correct'])
+                ->map(static fn ($r): array => ['predicted' => (float) $r->predicted, 'correct' => (bool) $r->correct])
+                ->all();
+
+            $resolved = $this->recommendFromWithReason($samples, $targetPrecision, $minSamples);
+            if ($resolved['threshold'] !== null) {
+                return ['threshold' => $resolved['threshold'], 'quality' => 'calibrated'];
+            }
+
+            return ['threshold' => null, 'quality' => $resolved['null_reason'] ?? 'none'];
+        } catch (Throwable) {
+            return ['threshold' => null, 'quality' => 'none'];
+        }
     }
 }

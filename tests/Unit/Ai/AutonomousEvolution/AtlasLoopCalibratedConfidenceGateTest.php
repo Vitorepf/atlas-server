@@ -71,4 +71,31 @@ final class AtlasLoopCalibratedConfidenceGateTest extends TestCase
         $this->assertFalse($g->wouldAbstain(0.10, null), 'no calibrated threshold => never abstain');
         $this->assertFalse($g->wouldAbstain('not-a-number', 0.95), 'no numeric prediction => never abstain');
     }
+
+    public function test_recommend_from_with_reason_distinguishes_too_few_samples_from_uncalibrated(): void
+    {
+        $g = $this->gate();
+
+        // Too few total samples (3 < minSamples 4) => too_few_samples.
+        $r = $g->recommendFromWithReason($this->samples(0.95, true, 3), 0.9, 4);
+        $this->assertNull($r['threshold']);
+        $this->assertSame('too_few_samples', $r['null_reason']);
+
+        // Enough samples but coin-flip precision => no band clears target => uncalibrated_model.
+        $r2 = $g->recommendFromWithReason(
+            array_merge($this->samples(0.8, true, 10), $this->samples(0.8, false, 10)),
+            0.9, 4
+        );
+        $this->assertNull($r2['threshold']);
+        $this->assertSame('uncalibrated_model', $r2['null_reason']);
+
+        // Happy path — threshold found => null_reason is null.
+        $r3 = $g->recommendFromWithReason(
+            array_merge($this->samples(0.95, true, 6), $this->samples(0.55, false, 6)),
+            0.9, 4
+        );
+        $this->assertNotNull($r3['threshold']);
+        $this->assertNull($r3['null_reason']);
+    }
+
 }
