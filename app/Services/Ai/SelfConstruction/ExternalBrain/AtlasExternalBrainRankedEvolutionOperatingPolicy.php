@@ -53,6 +53,115 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicy
     private const GIVE_BACK_RISK_CEILING = 0.70;
     private const UNKNOWN_TIER           = 99;
 
+    public const MODE_CREATE      = 'create';
+    public const MODE_CONSOLIDATE = 'consolidate';
+    public const MODE_SIMPLIFY    = 'simplify';
+    public const MODE_RESEARCH    = 'research';
+    public const MODE_REPAIR      = 'repair';
+    public const MODE_BENCHMARK   = 'benchmark';
+    public const MODE_PAUSE       = 'pause';
+    public const MODE_ESCALATE    = 'escalate';
+
+    /** @var list<string> */
+    public const OPERATING_MODES = [
+        self::MODE_CREATE, self::MODE_CONSOLIDATE, self::MODE_SIMPLIFY, self::MODE_RESEARCH,
+        self::MODE_REPAIR, self::MODE_BENCHMARK, self::MODE_PAUSE, self::MODE_ESCALATE,
+    ];
+
+    private const CREATE_BLOCK_SATURATION_FLOOR = 0.70;
+    private const CREATE_BLOCK_MARGINAL_VALUE_CEILING = 0.20;
+
+    /**
+     * Choose the single next operating mode from current queue/outcome/value/risk/maturity
+     * facts, ranking all 8 modes and explaining why the winner beats the runner-up.
+     *
+     * @param  array{
+     *   queue_saturation?: float,
+     *   marginal_value?: float,
+     *   outcome_failure_rate?: float,
+     *   complexity_debt?: float,
+     *   consolidation_opportunity?: float,
+     *   research_gap?: float,
+     *   unproven_claims?: float,
+     *   blocking_risk?: float,
+     *   critical_incident?: bool,
+     * }  $facts
+     * @return array{schema:string, ranked_modes:list<array<string,mixed>>, chosen_mode:string, why_top_beats_runner_up:string, evidence_that_would_change_decision:string, create_blocked:bool, create_blocked_reason:?string}
+     */
+    public function chooseOperatingMode(array $facts): array
+    {
+        $queueSaturation     = $this->clamp01((float) ($facts['queue_saturation']     ?? 0.0));
+        $marginalValue       = $this->clamp01((float) ($facts['marginal_value']       ?? 0.0));
+        $outcomeFailureRate  = $this->clamp01((float) ($facts['outcome_failure_rate'] ?? 0.0));
+        $complexityDebt      = $this->clamp01((float) ($facts['complexity_debt']      ?? 0.0));
+        $consolidationOpp    = $this->clamp01((float) ($facts['consolidation_opportunity'] ?? 0.0));
+        $researchGap         = $this->clamp01((float) ($facts['research_gap']         ?? 0.0));
+        $unprovenClaims      = $this->clamp01((float) ($facts['unproven_claims']      ?? 0.0));
+        $blockingRisk        = $this->clamp01((float) ($facts['blocking_risk']        ?? 0.0));
+        $criticalIncident    = (bool) ($facts['critical_incident'] ?? false);
+
+        // AC4: create is hard-blocked (never wins) when the queue is saturated AND
+        // there is little marginal value left to create — more volume would not help.
+        $createBlocked = $queueSaturation >= self::CREATE_BLOCK_SATURATION_FLOOR
+            && $marginalValue <= self::CREATE_BLOCK_MARGINAL_VALUE_CEILING;
+        $createBlockedReason = $createBlocked
+            ? 'queue_saturation >= 0.70 and marginal_value <= 0.20: more creation would not be absorbed or would not pay off'
+            : null;
+
+        $scores = [
+            self::MODE_CREATE      => $createBlocked ? 0.0 : $marginalValue * (1.0 - $queueSaturation),
+            self::MODE_CONSOLIDATE => $consolidationOpp * $queueSaturation,
+            self::MODE_SIMPLIFY    => $complexityDebt,
+            self::MODE_RESEARCH    => $researchGap,
+            self::MODE_REPAIR      => $outcomeFailureRate,
+            self::MODE_BENCHMARK   => $unprovenClaims,
+            self::MODE_PAUSE       => $criticalIncident ? 0.0 : $blockingRisk,
+            self::MODE_ESCALATE    => $criticalIncident ? 1.0 : $blockingRisk * 0.5,
+        ];
+
+        $ranked = [];
+        foreach (self::OPERATING_MODES as $mode) {
+            $ranked[] = ['mode' => $mode, 'score' => round($scores[$mode], 4)];
+        }
+        usort($ranked, static fn (array $a, array $b): int => $b['score'] !== $a['score']
+            ? $b['score'] <=> $a['score']
+            : strcmp($a['mode'], $b['mode']));
+
+        $top      = $ranked[0];
+        $runnerUp = $ranked[1];
+        $margin   = round($top['score'] - $runnerUp['score'], 4);
+
+        $why = $margin > 0
+            ? sprintf(
+                '%s (score %.4f) beats %s (score %.4f) by a margin of %.4f based on the current facts.',
+                $top['mode'], $top['score'], $runnerUp['mode'], $runnerUp['score'], $margin,
+            )
+            : sprintf(
+                '%s and %s are tied at score %.4f; %s wins the deterministic tie-break (alphabetical).',
+                $top['mode'], $runnerUp['mode'], $top['score'], $top['mode'],
+            );
+
+        $evidenceHint = sprintf(
+            'if %s rose enough to exceed %.4f (current top score), %s would become the chosen mode instead.',
+            $runnerUp['mode'], $top['score'], $runnerUp['mode'],
+        );
+
+        return [
+            'schema'                              => self::SCHEMA,
+            'ranked_modes'                        => $ranked,
+            'chosen_mode'                         => $top['mode'],
+            'why_top_beats_runner_up'             => $why,
+            'evidence_that_would_change_decision' => $evidenceHint,
+            'create_blocked'                      => $createBlocked,
+            'create_blocked_reason'               => $createBlockedReason,
+        ];
+    }
+
+    private function clamp01(float $v): float
+    {
+        return max(0.0, min(1.0, $v));
+    }
+
     /**
      * @param  list<array<string,mixed>>  $candidates
      * @return array<string,mixed>

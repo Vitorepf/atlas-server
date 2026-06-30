@@ -271,4 +271,80 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicyTest extends TestCas
             json_encode($this->policy()->rank($candidates)),
         );
     }
+
+    // ── chooseOperatingMode() ───────────────────────────────────────────────────
+
+    public function test_ranks_all_eight_operating_modes(): void
+    {
+        $result = $this->policy()->chooseOperatingMode([]);
+
+        $this->assertCount(8, $result['ranked_modes']);
+        $modes = array_column($result['ranked_modes'], 'mode');
+        foreach (AtlasExternalBrainRankedEvolutionOperatingPolicy::OPERATING_MODES as $mode) {
+            $this->assertContains($mode, $modes);
+        }
+    }
+
+    public function test_high_marginal_value_low_saturation_chooses_create(): void
+    {
+        $result = $this->policy()->chooseOperatingMode(['marginal_value' => 0.9, 'queue_saturation' => 0.1]);
+
+        $this->assertSame('create', $result['chosen_mode']);
+        $this->assertFalse($result['create_blocked']);
+    }
+
+    public function test_saturation_and_low_marginal_value_blocks_create(): void
+    {
+        $result = $this->policy()->chooseOperatingMode([
+            'queue_saturation' => 0.9,
+            'marginal_value'   => 0.05,
+            'outcome_failure_rate' => 0.6,
+        ]);
+
+        $this->assertTrue($result['create_blocked']);
+        $this->assertNotEmpty($result['create_blocked_reason']);
+        $this->assertNotSame('create', $result['chosen_mode']);
+
+        $createEntry = array_values(array_filter($result['ranked_modes'], fn (array $m) => $m['mode'] === 'create'))[0];
+        $this->assertSame(0.0, $createEntry['score']);
+    }
+
+    public function test_critical_incident_chooses_escalate(): void
+    {
+        $result = $this->policy()->chooseOperatingMode(['critical_incident' => true]);
+
+        $this->assertSame('escalate', $result['chosen_mode']);
+    }
+
+    public function test_high_outcome_failure_rate_chooses_repair(): void
+    {
+        $result = $this->policy()->chooseOperatingMode(['outcome_failure_rate' => 0.95]);
+
+        $this->assertSame('repair', $result['chosen_mode']);
+    }
+
+    public function test_explains_why_top_beats_runner_up(): void
+    {
+        $result = $this->policy()->chooseOperatingMode(['outcome_failure_rate' => 0.95]);
+
+        $this->assertNotEmpty($result['why_top_beats_runner_up']);
+        $this->assertStringContainsString('repair', $result['why_top_beats_runner_up']);
+    }
+
+    public function test_explains_evidence_that_would_change_decision(): void
+    {
+        $result = $this->policy()->chooseOperatingMode(['outcome_failure_rate' => 0.95]);
+
+        $this->assertNotEmpty($result['evidence_that_would_change_decision']);
+    }
+
+    public function test_choose_operating_mode_output_is_deterministic(): void
+    {
+        $facts = ['outcome_failure_rate' => 0.4, 'complexity_debt' => 0.4];
+
+        $this->assertSame(
+            json_encode($this->policy()->chooseOperatingMode($facts)),
+            json_encode($this->policy()->chooseOperatingMode($facts)),
+        );
+    }
 }
