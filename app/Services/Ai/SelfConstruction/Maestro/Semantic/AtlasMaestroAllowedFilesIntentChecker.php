@@ -6,8 +6,14 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Semantic;
 
 final class AtlasMaestroAllowedFilesIntentChecker
 {
-    public function __construct(private readonly ?AtlasMaestroSemanticSymbolResolver $resolver = null)
-    {
+    /** @var callable|null */
+    private $pathExistsCallback;
+
+    public function __construct(
+        private readonly ?AtlasMaestroSemanticSymbolResolver $resolver = null,
+        ?callable $pathExistsCallback = null,
+    ) {
+        $this->pathExistsCallback = $pathExistsCallback;
     }
 
     /**
@@ -46,7 +52,32 @@ final class AtlasMaestroAllowedFilesIntentChecker
         return [
             'ok' => true,
             'matched_symbols' => $matched,
+            'warnings' => $this->companionWarnings($allowedFiles),
         ];
+    }
+
+    /** @param list<string> $allowedFiles */
+    private function companionWarnings(array $allowedFiles): array
+    {
+        $testBasenames = [];
+        foreach ($allowedFiles as $f) {
+            if (str_starts_with($f, 'tests/')) {
+                $testBasenames[] = basename($f);
+            }
+        }
+
+        $warnings = [];
+        foreach ($allowedFiles as $f) {
+            if (! str_starts_with($f, 'app/')) {
+                continue;
+            }
+            $expected = basename($f, '.php').'Test.php';
+            if (! in_array($expected, $testBasenames, true)) {
+                $warnings[] = ['kind' => 'missing_test_companion', 'impl_file' => $f, 'expected_test_basename' => $expected];
+            }
+        }
+
+        return $warnings;
     }
 
     /**
@@ -92,12 +123,10 @@ final class AtlasMaestroAllowedFilesIntentChecker
     private function resolvePath(string $path): array
     {
         $path = ltrim($path, '/');
+        $cb = $this->pathExistsCallback;
+        $exists = $cb !== null ? (bool) $cb($path) : is_file(base_path($path));
 
-        return [
-            'symbol' => $path,
-            'file' => $path,
-            'exists' => is_file(base_path($path)),
-        ];
+        return ['symbol' => $path, 'file' => $path, 'exists' => $exists];
     }
 
     /**
