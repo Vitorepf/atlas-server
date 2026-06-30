@@ -15,6 +15,50 @@ class AgentCodexRealInvokerPostStartImplementationBoundaryGate
     ) {}
 
     /**
+     * Pure comparison: compares proposed post-start writes against the
+     * task's allowed_files and forbidden scopes, rejecting any scope
+     * expansion unless the packet explicitly allows it via
+     * scope_expansion_authorized. A proposed path is blocked when it is in
+     * forbidden_files, OR it is not in allowed_files and scope expansion is
+     * not explicitly authorized.
+     *
+     * @param  array<string,mixed>  $context  { allowed_files?: list<string>,
+     *   forbidden_files?: list<string>, proposed_write_paths?: list<string>,
+     *   scope_expansion_authorized?: bool }
+     * @return array<string,mixed>
+     */
+    public function evaluatePostStartWriteBoundary(array $context): array
+    {
+        $allowedFiles = array_values(array_unique(array_map('strval', (array) ($context['allowed_files'] ?? []))));
+        $forbiddenFiles = array_values(array_unique(array_map('strval', (array) ($context['forbidden_files'] ?? []))));
+        $proposedPaths = array_values(array_map('strval', (array) ($context['proposed_write_paths'] ?? [])));
+        $scopeExpansionAuthorized = (bool) ($context['scope_expansion_authorized'] ?? false);
+
+        $blockedPaths = [];
+        foreach ($proposedPaths as $path) {
+            if (in_array($path, $forbiddenFiles, true)) {
+                $blockedPaths[] = $path;
+
+                continue;
+            }
+
+            if (! in_array($path, $allowedFiles, true) && ! $scopeExpansionAuthorized) {
+                $blockedPaths[] = $path;
+            }
+        }
+
+        $sortedAllowedFiles = $allowedFiles;
+        sort($sortedAllowedFiles);
+        $allowedScopeDigest = hash('sha256', implode('|', $sortedAllowedFiles));
+
+        return [
+            'boundary_status' => $blockedPaths === [] ? 'within_boundary' : 'scope_expansion_blocked',
+            'blocked_paths' => $blockedPaths,
+            'allowed_scope_digest' => $allowedScopeDigest,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */

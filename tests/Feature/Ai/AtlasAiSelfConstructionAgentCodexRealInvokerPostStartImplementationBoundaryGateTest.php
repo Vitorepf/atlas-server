@@ -416,6 +416,71 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartImplementationBoundar
         ];
     }
 
+    public function test_write_boundary_within_allowed_files_passes(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
+            ->evaluatePostStartWriteBoundary([
+                'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+                'proposed_write_paths' => ['app/Foo.php'],
+            ]);
+
+        $this->assertSame('within_boundary', $result['boundary_status']);
+        $this->assertSame([], $result['blocked_paths']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result['allowed_scope_digest']);
+    }
+
+    public function test_write_boundary_blocks_forbidden_path(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
+            ->evaluatePostStartWriteBoundary([
+                'allowed_files' => ['app/Foo.php'],
+                'forbidden_files' => ['app/Secret.php'],
+                'proposed_write_paths' => ['app/Secret.php'],
+            ]);
+
+        $this->assertSame('scope_expansion_blocked', $result['boundary_status']);
+        $this->assertSame(['app/Secret.php'], $result['blocked_paths']);
+    }
+
+    public function test_write_boundary_blocks_unscoped_path_expansion(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
+            ->evaluatePostStartWriteBoundary([
+                'allowed_files' => ['app/Foo.php'],
+                'proposed_write_paths' => ['app/Foo.php', 'app/Other.php'],
+            ]);
+
+        $this->assertSame('scope_expansion_blocked', $result['boundary_status']);
+        $this->assertSame(['app/Other.php'], $result['blocked_paths']);
+    }
+
+    public function test_write_boundary_allows_expansion_when_explicitly_authorized(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
+            ->evaluatePostStartWriteBoundary([
+                'allowed_files' => ['app/Foo.php'],
+                'proposed_write_paths' => ['app/Foo.php', 'app/Other.php'],
+                'scope_expansion_authorized' => true,
+            ]);
+
+        $this->assertSame('within_boundary', $result['boundary_status']);
+        $this->assertSame([], $result['blocked_paths']);
+    }
+
+    public function test_write_boundary_forbidden_file_blocked_even_when_expansion_authorized(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartImplementationBoundaryGate::class)
+            ->evaluatePostStartWriteBoundary([
+                'allowed_files' => ['app/Foo.php'],
+                'forbidden_files' => ['app/Secret.php'],
+                'proposed_write_paths' => ['app/Secret.php'],
+                'scope_expansion_authorized' => true,
+            ]);
+
+        $this->assertSame('scope_expansion_blocked', $result['boundary_status']);
+        $this->assertSame(['app/Secret.php'], $result['blocked_paths']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
