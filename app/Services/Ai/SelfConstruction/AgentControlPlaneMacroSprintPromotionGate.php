@@ -263,6 +263,153 @@ final class AgentControlPlaneMacroSprintPromotionGate
         return $payload;
     }
 
+    private const MIN_BATCH_SIZE = 2;
+
+    private const MIN_EVIDENCE_STRENGTH = 0.50;
+
+    private const MIN_AUTONOMY_GAIN = 0.05;
+
+    /**
+     * Evaluates a batch of completed tasks for a STRUCTURAL leap — not
+     * merely "many green tasks". Promotes only when the batch is connected
+     * across at least two distinct capability areas, every task carries
+     * honest runnable evidence, queue health did not regress, and autonomy
+     * gain is measurable. A pile of isolated green tasks in the same
+     * capability area, or tasks with weak/self-declared evidence, is never
+     * promoted.
+     *
+     * DECISION (first matching rule wins):
+     *   fewer than MIN_BATCH_SIZE (2) tasks                       -> reject (batch_too_small_for_structural_leap)
+     *   any task lacks runnable_evidence or has evidence_strength
+     *     below MIN_EVIDENCE_STRENGTH (0.50)                       -> reject (weak_or_self_declared_evidence)
+     *   queue_health_score < queue_health_baseline                 -> reject (queue_health_did_not_improve)
+     *   tasks do not form one connected component spanning
+     *     >= 2 distinct capability_area values                     -> consolidate_more (capabilities_not_connected_many_isolated_green_tasks)
+     *   autonomy_gain < MIN_AUTONOMY_GAIN (0.05)                   -> consolidate_more (no_measurable_autonomy_gain)
+     *   otherwise                                                   -> promote (missing_leap_reason=null)
+     *
+     * Pure: no I/O, no side effects.
+     *
+     * @param  array<string, mixed>  $batch  { tasks: list<{task_id,
+     *   capability_area?, connected_to?: list<string>,
+     *   evidence_strength?: float, runnable_evidence?: bool}>,
+     *   queue_health_score?: float, queue_health_baseline?: float,
+     *   autonomy_gain?: float }
+     * @return array{decision: string, missing_leap_reason: string|null, connected: bool, evidence_honest: bool, queue_healthy: bool, autonomy_gain_present: bool}
+     */
+    public function evaluateBatchStructuralLeap(array $batch): array
+    {
+        $tasks = is_array($batch['tasks'] ?? null) ? $batch['tasks'] : [];
+        $queueHealthScore = (float) ($batch['queue_health_score'] ?? 0.0);
+        $queueHealthBaseline = (float) ($batch['queue_health_baseline'] ?? 0.0);
+        $autonomyGain = (float) ($batch['autonomy_gain'] ?? 0.0);
+
+        if (count($tasks) < self::MIN_BATCH_SIZE) {
+            return $this->leapResult('reject', 'batch_too_small_for_structural_leap', false, false, false, false);
+        }
+
+        $evidenceHonest = true;
+        foreach ($tasks as $task) {
+            $runnable = (bool) ($task['runnable_evidence'] ?? false);
+            $strength = (float) ($task['evidence_strength'] ?? 0.0);
+            if (! $runnable || $strength < self::MIN_EVIDENCE_STRENGTH) {
+                $evidenceHonest = false;
+                break;
+            }
+        }
+        if (! $evidenceHonest) {
+            return $this->leapResult('reject', 'weak_or_self_declared_evidence', false, false, false, false);
+        }
+
+        $queueHealthy = $queueHealthScore >= $queueHealthBaseline;
+        if (! $queueHealthy) {
+            return $this->leapResult('reject', 'queue_health_did_not_improve', false, true, false, false);
+        }
+
+        $connected = $this->isStructurallyConnected($tasks);
+        $autonomyGainPresent = $autonomyGain >= self::MIN_AUTONOMY_GAIN;
+
+        if (! $connected) {
+            return $this->leapResult('consolidate_more', 'capabilities_not_connected_many_isolated_green_tasks', false, true, true, $autonomyGainPresent);
+        }
+        if (! $autonomyGainPresent) {
+            return $this->leapResult('consolidate_more', 'no_measurable_autonomy_gain', true, true, true, false);
+        }
+
+        return $this->leapResult('promote', null, true, true, true, true);
+    }
+
+    /** @return array{decision: string, missing_leap_reason: string|null, connected: bool, evidence_honest: bool, queue_healthy: bool, autonomy_gain_present: bool} */
+    private function leapResult(string $decision, ?string $reason, bool $connected, bool $evidenceHonest, bool $queueHealthy, bool $autonomyGainPresent): array
+    {
+        return [
+            'decision' => $decision,
+            'missing_leap_reason' => $reason,
+            'connected' => $connected,
+            'evidence_honest' => $evidenceHonest,
+            'queue_healthy' => $queueHealthy,
+            'autonomy_gain_present' => $autonomyGainPresent,
+        ];
+    }
+
+    /**
+     * True when every task is reachable from any other via connected_to
+     * edges (undirected, task_id-keyed) AND the resulting component spans
+     * at least two distinct capability_area values — a single connected
+     * blob in one capability area is not a cross-capability structural
+     * leap.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     */
+    private function isStructurallyConnected(array $tasks): bool
+    {
+        $ids = [];
+        $adjacency = [];
+        $capabilityByTask = [];
+        foreach ($tasks as $task) {
+            $id = (string) ($task['task_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $ids[] = $id;
+            $capabilityByTask[$id] = (string) ($task['capability_area'] ?? '');
+            $adjacency[$id] = array_values(array_map('strval', (array) ($task['connected_to'] ?? [])));
+        }
+
+        if ($ids === []) {
+            return false;
+        }
+
+        $visited = [];
+        $queue = [$ids[0]];
+        while ($queue !== []) {
+            $current = array_pop($queue);
+            if (isset($visited[$current])) {
+                continue;
+            }
+            $visited[$current] = true;
+            foreach ($adjacency[$current] ?? [] as $neighbor) {
+                if (! isset($visited[$neighbor]) && isset($adjacency[$neighbor])) {
+                    $queue[] = $neighbor;
+                }
+            }
+            // Treat the edge as undirected: also walk neighbors that point to $current.
+            foreach ($adjacency as $candidateId => $neighbors) {
+                if (! isset($visited[$candidateId]) && in_array($current, $neighbors, true)) {
+                    $queue[] = $candidateId;
+                }
+            }
+        }
+
+        if (count($visited) !== count($ids)) {
+            return false;
+        }
+
+        $distinctCapabilities = array_unique(array_values($capabilityByTask));
+
+        return count($distinctCapabilities) >= 2;
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>

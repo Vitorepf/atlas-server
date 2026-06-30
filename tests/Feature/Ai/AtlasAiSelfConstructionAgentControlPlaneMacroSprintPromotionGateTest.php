@@ -577,4 +577,158 @@ final class AtlasAiSelfConstructionAgentControlPlaneMacroSprintPromotionGateTest
 
         return $gate->evaluate();
     }
+
+    // ── evaluateBatchStructuralLeap ─────────────────────────────────────────────
+
+    private function leapTask(string $id, array $overrides = []): array
+    {
+        return array_merge([
+            'task_id' => $id,
+            'capability_area' => 'external_brain',
+            'connected_to' => [],
+            'evidence_strength' => 0.8,
+            'runnable_evidence' => true,
+        ], $overrides);
+    }
+
+    public function test_too_few_tasks_is_rejected(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [$this->leapTask('t1')],
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('reject', $result['decision']);
+        $this->assertSame('batch_too_small_for_structural_leap', $result['missing_leap_reason']);
+    }
+
+    public function test_weak_evidence_is_rejected(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1', ['evidence_strength' => 0.1]),
+                $this->leapTask('t2', ['capability_area' => 'queue', 'connected_to' => ['t1']]),
+            ],
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('reject', $result['decision']);
+        $this->assertSame('weak_or_self_declared_evidence', $result['missing_leap_reason']);
+    }
+
+    public function test_self_declared_evidence_without_runnable_proof_is_rejected(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1', ['runnable_evidence' => false]),
+                $this->leapTask('t2', ['capability_area' => 'queue', 'connected_to' => ['t1']]),
+            ],
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('reject', $result['decision']);
+        $this->assertSame('weak_or_self_declared_evidence', $result['missing_leap_reason']);
+    }
+
+    public function test_queue_health_regression_is_rejected(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1'),
+                $this->leapTask('t2', ['capability_area' => 'queue', 'connected_to' => ['t1']]),
+            ],
+            'queue_health_score' => 0.4,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('reject', $result['decision']);
+        $this->assertSame('queue_health_did_not_improve', $result['missing_leap_reason']);
+    }
+
+    public function test_isolated_same_area_green_tasks_are_consolidate_more_not_promoted(): void
+    {
+        // Two tasks, same capability area, NOT connected to each other —
+        // "many green tasks" without a structural leap.
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1', ['capability_area' => 'external_brain', 'connected_to' => []]),
+                $this->leapTask('t2', ['capability_area' => 'external_brain', 'connected_to' => []]),
+            ],
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('consolidate_more', $result['decision']);
+        $this->assertSame('capabilities_not_connected_many_isolated_green_tasks', $result['missing_leap_reason']);
+        $this->assertFalse($result['connected']);
+    }
+
+    public function test_connected_but_single_capability_area_is_consolidate_more(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1', ['capability_area' => 'external_brain']),
+                $this->leapTask('t2', ['capability_area' => 'external_brain', 'connected_to' => ['t1']]),
+            ],
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('consolidate_more', $result['decision']);
+        $this->assertSame('capabilities_not_connected_many_isolated_green_tasks', $result['missing_leap_reason']);
+    }
+
+    public function test_connected_cross_capability_batch_without_autonomy_gain_is_consolidate_more(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1', ['capability_area' => 'external_brain']),
+                $this->leapTask('t2', ['capability_area' => 'queue_governance', 'connected_to' => ['t1']]),
+            ],
+            'queue_health_score' => 0.9,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.0,
+        ]);
+
+        $this->assertSame('consolidate_more', $result['decision']);
+        $this->assertSame('no_measurable_autonomy_gain', $result['missing_leap_reason']);
+    }
+
+    public function test_full_structural_leap_promotes(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([
+            'tasks' => [
+                $this->leapTask('t1', ['capability_area' => 'external_brain']),
+                $this->leapTask('t2', ['capability_area' => 'queue_governance', 'connected_to' => ['t1']]),
+                $this->leapTask('t3', ['capability_area' => 'evidence_layer', 'connected_to' => ['t2']]),
+            ],
+            'queue_health_score' => 0.95,
+            'queue_health_baseline' => 0.9,
+            'autonomy_gain' => 0.1,
+        ]);
+
+        $this->assertSame('promote', $result['decision']);
+        $this->assertNull($result['missing_leap_reason']);
+        $this->assertTrue($result['connected']);
+        $this->assertTrue($result['evidence_honest']);
+        $this->assertTrue($result['queue_healthy']);
+        $this->assertTrue($result['autonomy_gain_present']);
+    }
+
+    public function test_empty_batch_is_rejected(): void
+    {
+        $result = $this->newGate()->evaluateBatchStructuralLeap([]);
+
+        $this->assertSame('reject', $result['decision']);
+        $this->assertSame('batch_too_small_for_structural_leap', $result['missing_leap_reason']);
+    }
 }
