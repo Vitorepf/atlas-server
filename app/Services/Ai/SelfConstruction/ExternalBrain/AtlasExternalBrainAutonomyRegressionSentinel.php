@@ -15,6 +15,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   provider_dependency       — always requires external provider in steady state
  *   prompt_only_memory        — memory lives only in prompts (no Atlas-native store)
  *   external_tool_only        — execution only via external tools
+ *   ungated_bootstrap_muscle  — bootstrap used but not atlas_native-owned + not evidence-gated
  *
  * AC2: bootstrap_muscle_used is ALLOWED when:
  *   - final_runtime_owner = 'atlas_native'
@@ -76,14 +77,17 @@ final class AtlasExternalBrainAutonomyRegressionSentinel
             $regressions[] = 'operator_seeding_required';
         }
 
-        // Provider dependency: always-required external provider, OR bootstrap muscle
-        // that is not properly constrained (not atlas_native-owned + not evidence-gated).
+        // Provider dependency: always-required external provider in steady state.
+        if ($externalAlways) {
+            $regressions[] = 'provider_dependency';
+        }
+
+        // Ungated bootstrap muscle: bootstrap used but not properly constrained.
+        // Allowed only when atlas_native is the final owner AND evidence-gated.
         $allowedBootstrap = $bootstrapUsed && $finalOwner === 'atlas_native' && $evidenceGated;
 
-        if ($externalAlways || ($bootstrapUsed && ! $allowedBootstrap)) {
-            if (! in_array('provider_dependency', $regressions, true)) {
-                $regressions[] = 'provider_dependency';
-            }
+        if ($bootstrapUsed && ! $allowedBootstrap) {
+            $regressions[] = 'ungated_bootstrap_muscle';
         }
 
         if ($promptOnlyMemory) {

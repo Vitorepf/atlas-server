@@ -135,7 +135,8 @@ final class AtlasExternalBrainAutonomyRegressionSentinelTest extends TestCase
         $result = $this->sentinel->scan($input);
 
         $this->assertFalse($result['allowed_bootstrap']);
-        $this->assertContains('provider_dependency', $result['regression_types']);
+        $this->assertContains('ungated_bootstrap_muscle', $result['regression_types']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::VERDICT_FAIL, $result['sentinel_verdict']);
     }
 
     public function test_bootstrap_muscle_blocked_when_external_provider_owned(): void
@@ -148,7 +149,46 @@ final class AtlasExternalBrainAutonomyRegressionSentinelTest extends TestCase
         $result = $this->sentinel->scan($input);
 
         $this->assertFalse($result['allowed_bootstrap']);
+        $this->assertContains('ungated_bootstrap_muscle', $result['regression_types']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::VERDICT_FAIL, $result['sentinel_verdict']);
+    }
+
+    public function test_ungated_bootstrap_muscle_is_blocking_severity(): void
+    {
+        $input = $this->clean();
+        $input['bootstrap_muscle_used'] = true;
+        $input['evidence_gated']        = false;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertContains('ungated_bootstrap_muscle', $result['regression_types']);
+        $this->assertSame(AtlasExternalBrainAutonomyRegressionSentinel::SEVERITY_BLOCKING, $result['severity']);
+    }
+
+    public function test_ungated_bootstrap_does_not_also_add_provider_dependency(): void
+    {
+        $input = $this->clean();
+        $input['bootstrap_muscle_used']             = true;
+        $input['evidence_gated']                    = false;
+        $input['requires_external_provider_always'] = false;
+
+        $result = $this->sentinel->scan($input);
+
+        $this->assertContains('ungated_bootstrap_muscle', $result['regression_types']);
+        $this->assertNotContains('provider_dependency', $result['regression_types']);
+    }
+
+    public function test_provider_dependency_and_ungated_bootstrap_can_coexist(): void
+    {
+        $input = $this->clean();
+        $input['requires_external_provider_always'] = true;
+        $input['bootstrap_muscle_used']             = true;
+        $input['evidence_gated']                    = false;
+
+        $result = $this->sentinel->scan($input);
+
         $this->assertContains('provider_dependency', $result['regression_types']);
+        $this->assertContains('ungated_bootstrap_muscle', $result['regression_types']);
     }
 
     // ── Prompt-only memory ────────────────────────────────────────────────────
