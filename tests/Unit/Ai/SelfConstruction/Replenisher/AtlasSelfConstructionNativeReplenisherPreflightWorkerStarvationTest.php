@@ -64,4 +64,53 @@ final class AtlasSelfConstructionNativeReplenisherPreflightWorkerStarvationTest 
         $this->assertFalse($result['allowed']);
         $this->assertSame(AtlasSelfConstructionNativeReplenisherPreflight::REASON_WAIT_OK, $result['reason']);
     }
+
+    public function test_buffer_below_target_overrides_wait_with_buffer_shortfall_reason(): void
+    {
+        $preflight = new AtlasSelfConstructionNativeReplenisherPreflight();
+        $result = $preflight->evaluateWaitOverride([
+            'maestro_urgency' => 'wait',
+            'claimable_per_active_worker' => 3,
+            'worker_buffer_target_per_worker' => 5,
+        ]);
+
+        $this->assertTrue($result['allowed']);
+        $this->assertSame(AtlasSelfConstructionNativeReplenisherPreflight::REASON_BUFFER_BELOW_TARGET, $result['reason']);
+    }
+
+    public function test_buffer_meeting_target_remains_not_allowed(): void
+    {
+        $preflight = new AtlasSelfConstructionNativeReplenisherPreflight();
+        $result = $preflight->evaluateWaitOverride([
+            'maestro_urgency' => 'wait',
+            'claimable_per_active_worker' => 5,
+            'worker_buffer_target_per_worker' => 5,
+        ]);
+
+        $this->assertFalse($result['allowed']);
+        $this->assertSame(AtlasSelfConstructionNativeReplenisherPreflight::REASON_WAIT_OK, $result['reason']);
+    }
+
+    public function test_buffer_facts_omitted_does_not_affect_wait_ok_default(): void
+    {
+        $preflight = new AtlasSelfConstructionNativeReplenisherPreflight();
+        $result = $preflight->evaluateWaitOverride(['maestro_urgency' => 'wait']);
+
+        $this->assertFalse($result['allowed']);
+        $this->assertSame(AtlasSelfConstructionNativeReplenisherPreflight::REASON_WAIT_OK, $result['reason']);
+    }
+
+    public function test_hard_floor_takes_priority_over_buffer_target_check(): void
+    {
+        $preflight = new AtlasSelfConstructionNativeReplenisherPreflight();
+        $result = $preflight->evaluateWaitOverride([
+            'maestro_urgency' => 'wait',
+            'worker_floor_breach' => true,
+            'claimable_per_active_worker' => 5,
+            'worker_buffer_target_per_worker' => 5,
+        ]);
+
+        $this->assertTrue($result['allowed']);
+        $this->assertSame(AtlasSelfConstructionNativeReplenisherPreflight::REASON_WORKER_STARVATION_RISK, $result['reason']);
+    }
 }

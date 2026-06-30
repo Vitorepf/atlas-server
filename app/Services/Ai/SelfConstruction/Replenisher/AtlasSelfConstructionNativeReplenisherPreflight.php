@@ -109,12 +109,19 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
 
     public const REASON_MAESTRO_URGENCY_NOT_WAIT = 'maestro_urgency_not_wait';
 
+    public const REASON_BUFFER_BELOW_TARGET = 'buffer_below_target';
+
     /**
      * Maestro's "wait" advice must never silently suppress replenishment when the
      * claimable buffer is thin enough that active workers risk draining to
-     * no_claimable_task. worker_floor_breach / replenish_soon signals OVERRIDE wait.
+     * no_claimable_task. worker_floor_breach / replenish_soon signals OVERRIDE wait
+     * (hard floor — unconditional). A buffer below the DESIRED target
+     * (worker_buffer_target_per_worker), while still above the hard floor, also
+     * overrides wait — but only when both buffer facts are actually supplied; this
+     * is a softer, opt-in signal and never assumed from absent facts.
      *
-     * @param  array{maestro_urgency?: string, worker_floor_breach?: bool, replenish_soon?: bool}  $input
+     * @param  array{maestro_urgency?: string, worker_floor_breach?: bool, replenish_soon?: bool,
+     *                claimable_per_active_worker?: float, worker_buffer_target_per_worker?: float}  $input
      * @return array{schema:string, allowed:bool, reason:string}
      */
     public function evaluateWaitOverride(array $input): array
@@ -129,6 +136,14 @@ final class AtlasSelfConstructionNativeReplenisherPreflight
 
         if ($workerFloorBreach || $replenishSoon) {
             return ['schema' => self::SCHEMA, 'allowed' => true, 'reason' => self::REASON_WORKER_STARVATION_RISK];
+        }
+
+        if (array_key_exists('claimable_per_active_worker', $input) && array_key_exists('worker_buffer_target_per_worker', $input)) {
+            $claimablePerActiveWorker = (float) $input['claimable_per_active_worker'];
+            $workerBufferTargetPerWorker = (float) $input['worker_buffer_target_per_worker'];
+            if ($claimablePerActiveWorker < $workerBufferTargetPerWorker) {
+                return ['schema' => self::SCHEMA, 'allowed' => true, 'reason' => self::REASON_BUFFER_BELOW_TARGET];
+            }
         }
 
         return ['schema' => self::SCHEMA, 'allowed' => false, 'reason' => self::REASON_WAIT_OK];
