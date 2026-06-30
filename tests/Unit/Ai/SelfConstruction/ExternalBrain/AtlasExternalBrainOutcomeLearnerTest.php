@@ -240,4 +240,216 @@ final class AtlasExternalBrainOutcomeLearnerTest extends TestCase
         $this->assertSame('alpha', $adj['pattern_family']);
         $this->assertGreaterThan(0.30, $adj['delta'], 'two delivered outcomes must accumulate above single high-impact delta');
     }
+
+    // ── new fields present in output ──────────────────────────────────────────
+
+    public function test_output_includes_new_family_fields(): void
+    {
+        $r = $this->learner->learn([]);
+
+        foreach (['family_performance', 'give_back_risk', 'poison_family_hints', 'worker_fit_hints', 'next_wave_adjustments'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key '{$key}' in learn() output");
+            $this->assertIsArray($r[$key]);
+        }
+    }
+
+    // ── family_success_rate computed per task_family ──────────────────────────
+
+    public function test_family_performance_tracks_delivered_and_give_back(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'architecture'],
+        ]);
+
+        $perf = $this->findByKey($r['family_performance'], 'task_family', 'architecture');
+        $this->assertSame(3, $perf['total']);
+        $this->assertSame(2, $perf['delivered']);
+        $this->assertSame(1, $perf['give_back']);
+        $this->assertEqualsWithDelta(0.667, $perf['success_rate'], 0.001);
+    }
+
+    public function test_family_performance_success_rate_zero_when_all_give_back(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bug_fix'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bug_fix'],
+        ]);
+
+        $perf = $this->findByKey($r['family_performance'], 'task_family', 'bug_fix');
+        $this->assertSame(0.0, $perf['success_rate']);
+    }
+
+    // ── give_back_risk per task_family ────────────────────────────────────────
+
+    public function test_give_back_risk_high_when_rate_exceeds_60pct(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'template'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'template'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'template'],
+        ]);
+
+        $risk = $this->findByKey($r['give_back_risk'], 'task_family', 'template');
+        $this->assertSame('high', $risk['risk_level']);
+    }
+
+    public function test_give_back_risk_low_when_all_delivered(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+        ]);
+
+        $risk = $this->findByKey($r['give_back_risk'], 'task_family', 'evolution');
+        $this->assertSame('low', $risk['risk_level']);
+    }
+
+    // ── poison_family_hints emitted for repeated give_backs ───────────────────
+
+    public function test_poison_family_hints_emitted_when_give_back_count_reaches_threshold(): void
+    {
+        $outcomes = [];
+        for ($i = 0; $i < 3; $i++) {
+            $outcomes[] = ['task_packet_id' => "t{$i}", 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'proxy_heavy'];
+        }
+
+        $r = $this->learner->learn($outcomes);
+
+        $poisonFamilies = array_column($r['poison_family_hints'], 'task_family');
+        $this->assertContains('proxy_heavy', $poisonFamilies, 'family with 3+ give_backs must produce a poison hint');
+    }
+
+    public function test_poison_hint_does_not_affect_high_performing_family(): void
+    {
+        $outcomes = [
+            // poison family: 3 give_backs
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bad_family'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bad_family'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'bad_family'],
+            // high-performing family: all delivered
+            ['task_packet_id' => 't4', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'good_family'],
+            ['task_packet_id' => 't5', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'good_family'],
+        ];
+
+        $r = $this->learner->learn($outcomes);
+
+        $poisonFamilies = array_column($r['poison_family_hints'], 'task_family');
+        $this->assertContains('bad_family', $poisonFamilies, 'bad_family should be poisoned');
+        $this->assertNotContains('good_family', $poisonFamilies, 'good_family must NOT be poisoned');
+
+        // good_family must still have a positive next_wave adjustment
+        $goodAdj = $this->findByKey($r['next_wave_adjustments'], 'task_family', 'good_family');
+        $this->assertGreaterThan(0.0, $goodAdj['priority_delta']);
+    }
+
+    // ── worker_fit_hints per worker/client ────────────────────────────────────
+
+    public function test_worker_fit_strong_when_success_rate_high(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture', 'worker_id' => 'claude-muscle-3'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture', 'worker_id' => 'claude-muscle-3'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'architecture', 'worker_id' => 'claude-muscle-3'],
+        ]);
+
+        $fit = $this->findWorkerFit($r['worker_fit_hints'], 'claude-muscle-3', 'architecture');
+        $this->assertSame('strong', $fit['fit']);
+        $this->assertSame(1.0, $fit['success_rate']);
+    }
+
+    public function test_worker_fit_weak_when_success_rate_low(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'multi_file', 'worker_id' => 'codex-worker-1'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'multi_file', 'worker_id' => 'codex-worker-1'],
+            ['task_packet_id' => 't3', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'multi_file', 'worker_id' => 'codex-worker-1'],
+            ['task_packet_id' => 't4', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'multi_file', 'worker_id' => 'codex-worker-1'],
+        ]);
+
+        $fit = $this->findWorkerFit($r['worker_fit_hints'], 'codex-worker-1', 'multi_file');
+        $this->assertSame('weak', $fit['fit']);
+    }
+
+    public function test_worker_fit_accepts_client_id_as_alias_for_worker_id(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution', 'client_id' => 'claude-muscle-3'],
+        ]);
+
+        $fits = array_column($r['worker_fit_hints'], 'worker_id');
+        $this->assertContains('claude-muscle-3', $fits);
+    }
+
+    // ── next_wave_adjustments reflects family_success_rate ────────────────────
+
+    public function test_next_wave_adjustment_positive_for_high_success_family(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'delivered', 'task_family' => 'evolution'],
+        ]);
+
+        $adj = $this->findByKey($r['next_wave_adjustments'], 'task_family', 'evolution');
+        $this->assertGreaterThan(0.0, $adj['priority_delta']);
+    }
+
+    public function test_next_wave_adjustment_negative_for_low_success_family(): void
+    {
+        $r = $this->learner->learn([
+            ['task_packet_id' => 't1', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'template'],
+            ['task_packet_id' => 't2', 'pattern_family' => 'pf', 'outcome' => 'give_back', 'task_family' => 'template'],
+        ]);
+
+        $adj = $this->findByKey($r['next_wave_adjustments'], 'task_family', 'template');
+        $this->assertLessThan(0.0, $adj['priority_delta']);
+    }
+
+    // ── existing priority_adjustments still present ───────────────────────────
+
+    public function test_existing_priority_adjustments_preserved_alongside_new_fields(): void
+    {
+        $r = $this->learner->learn([
+            [
+                'task_packet_id' => 't1',
+                'pattern_family' => 'contract_hunt',
+                'outcome'        => 'delivered',
+                'impact'         => 'high',
+                'task_family'    => 'architecture',
+                'worker_id'      => 'claude-muscle-3',
+            ],
+        ]);
+
+        // Existing fields intact
+        $this->assertNotEmpty($r['priority_adjustments']);
+        $this->assertSame('contract_hunt', $r['priority_adjustments'][0]['pattern_family']);
+        $this->assertContains('contract_hunt', $r['promoted']);
+
+        // New fields also present
+        $this->assertNotEmpty($r['family_performance']);
+        $this->assertNotEmpty($r['worker_fit_hints']);
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    private function findByKey(array $list, string $key, string $value): array
+    {
+        foreach ($list as $item) {
+            if (($item[$key] ?? null) === $value) {
+                return $item;
+            }
+        }
+        $this->fail("No item with {$key}='{$value}' found in list");
+    }
+
+    private function findWorkerFit(array $hints, string $workerId, string $taskFamily): array
+    {
+        foreach ($hints as $hint) {
+            if ($hint['worker_id'] === $workerId && $hint['task_family'] === $taskFamily) {
+                return $hint;
+            }
+        }
+        $this->fail("No worker_fit_hint for worker='{$workerId}', task_family='{$taskFamily}'");
+    }
 }
