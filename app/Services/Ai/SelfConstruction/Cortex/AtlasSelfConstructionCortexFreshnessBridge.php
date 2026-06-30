@@ -52,6 +52,17 @@ final class AtlasSelfConstructionCortexFreshnessBridge
         $window = (int) ($facts['freshness_window_seconds'] ?? self::DEFAULT_WINDOW_SECONDS);
         $sources = is_array($facts['sources'] ?? null) ? $facts['sources'] : [];
 
+        // Fail closed: a non-positive window is an impossible freshness contract.
+        if ($window <= 0) {
+            $rows = array_map(
+                static fn (string $s): array => ['source_id' => $s, 'readiness' => self::BLOCKED, 'reason' => 'invalid_freshness_window'],
+                self::REQUIRED_SOURCES,
+            );
+            usort($rows, static fn (array $a, array $b): int => strcmp($a['source_id'], $b['source_id']));
+
+            return ['schema' => self::SCHEMA, 'all_fresh' => false, 'rows' => $rows];
+        }
+
         $rows = [];
         foreach (self::REQUIRED_SOURCES as $sourceId) {
             $row = is_array($sources[$sourceId] ?? null) ? $sources[$sourceId] : null;
@@ -66,7 +77,14 @@ final class AtlasSelfConstructionCortexFreshnessBridge
 
                 continue;
             }
-            $age = $now > 0 ? ($now - (int) $row['last_unix']) : 0;
+            $lastUnix = (int) $row['last_unix'];
+            // Fail closed: a last_unix in the future cannot be fresh.
+            if ($now > 0 && $lastUnix > $now) {
+                $rows[] = ['source_id' => $sourceId, 'readiness' => self::BLOCKED, 'reason' => 'future_timestamp'];
+
+                continue;
+            }
+            $age = $now > 0 ? ($now - $lastUnix) : 0;
             if ($now > 0 && $age > $window) {
                 $rows[] = ['source_id' => $sourceId, 'readiness' => self::STALE, 'reason' => 'age_'.$age.'s_exceeds_window_'.$window.'s'];
 

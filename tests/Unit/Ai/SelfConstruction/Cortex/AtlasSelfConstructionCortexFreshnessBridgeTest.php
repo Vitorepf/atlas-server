@@ -97,4 +97,59 @@ final class AtlasSelfConstructionCortexFreshnessBridgeTest extends TestCase
         $f = ['now_unix' => $now, 'sources' => $this->freshSources($now)];
         $this->assertSame(json_encode($b->adapt($f)), json_encode($b->adapt($f)));
     }
+
+    public function test_future_last_unix_yields_blocked_with_future_timestamp_reason(): void
+    {
+        $now = time();
+        $sources = $this->freshSources($now);
+        $sources['docs']['last_unix'] = $now + 9999; // in the future
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt(['now_unix' => $now, 'sources' => $sources]);
+        $byId = array_column($r['rows'], null, 'source_id');
+        $this->assertSame(AtlasSelfConstructionCortexFreshnessBridge::BLOCKED, $byId['docs']['readiness']);
+        $this->assertSame('future_timestamp', $byId['docs']['reason']);
+        $this->assertFalse($r['all_fresh']);
+    }
+
+    public function test_zero_freshness_window_yields_all_blocked_with_invalid_window_reason(): void
+    {
+        $now = time();
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt([
+            'now_unix' => $now,
+            'freshness_window_seconds' => 0,
+            'sources' => $this->freshSources($now),
+        ]);
+        $this->assertFalse($r['all_fresh']);
+        foreach ($r['rows'] as $row) {
+            $this->assertSame(AtlasSelfConstructionCortexFreshnessBridge::BLOCKED, $row['readiness']);
+            $this->assertSame('invalid_freshness_window', $row['reason']);
+        }
+    }
+
+    public function test_negative_freshness_window_yields_all_blocked(): void
+    {
+        $now = time();
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt([
+            'now_unix' => $now,
+            'freshness_window_seconds' => -1,
+            'sources' => $this->freshSources($now),
+        ]);
+        $this->assertFalse($r['all_fresh']);
+        foreach ($r['rows'] as $row) {
+            $this->assertSame(AtlasSelfConstructionCortexFreshnessBridge::BLOCKED, $row['readiness']);
+        }
+    }
+
+    public function test_invalid_window_rows_are_sorted_by_source_id(): void
+    {
+        $now = time();
+        $r = (new AtlasSelfConstructionCortexFreshnessBridge)->adapt([
+            'now_unix' => $now,
+            'freshness_window_seconds' => 0,
+            'sources' => $this->freshSources($now),
+        ]);
+        $ids = array_column($r['rows'], 'source_id');
+        $sorted = $ids;
+        sort($sorted, SORT_STRING);
+        $this->assertSame($sorted, $ids);
+    }
 }
