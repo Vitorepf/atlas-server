@@ -16,6 +16,12 @@ use RuntimeException;
  */
 final class AtlasMaestroProviderBidProposer
 {
+    private const TIER_RANK = ['easy' => 0, 'hard' => 1, 'hardest' => 2];
+
+    private const KIND_MIN_TIER = ['loop' => 'hard', 'maestro' => 'hard', 'cortex' => 'easy'];
+
+    private const KIND_EVIDENCE_BURDEN = ['loop' => 80, 'maestro' => 60, 'cortex' => 40];
+
     /**
      * @param  list<ProviderProfile>  $profiles
      */
@@ -68,6 +74,20 @@ final class AtlasMaestroProviderBidProposer
             $reasons[] = 'load_saturated';
         }
 
+        // Tier fit: provider must meet or exceed the minimum tier for this task kind.
+        $minTier = self::KIND_MIN_TIER[$task->kind] ?? 'easy';
+        $profileTier = (string) ($profile->extras['tier'] ?? 'easy');
+        if ((self::TIER_RANK[$profileTier] ?? 0) < (self::TIER_RANK[$minTier] ?? 0)) {
+            $reasons[] = 'tier_mismatch';
+        }
+
+        // Evidence burden: provider must declare sufficient evidence capacity.
+        $burden = self::KIND_EVIDENCE_BURDEN[$task->kind] ?? 50;
+        $evidenceMax = (int) ($profile->extras['evidence_burden_max'] ?? 100);
+        if ($evidenceMax < $burden) {
+            $reasons[] = 'evidence_burden_exceeded';
+        }
+
         $eligibility = $reasons === [];
         $costUnits = $this->declaredCostUnits($task, $profile);
         $etaMs = $this->declaredEtaMs($profile);
@@ -114,11 +134,14 @@ final class AtlasMaestroProviderBidProposer
             default => ['in' => 500, 'out' => 200],
         };
 
-        return (int) round(
-            ($estimate['in'] * $profile->observedCostPerTokenIn)
-            + ($estimate['out'] * $profile->observedCostPerTokenOut),
-            0,
-        );
+        $base = ($estimate['in'] * $profile->observedCostPerTokenIn)
+            + ($estimate['out'] * $profile->observedCostPerTokenOut);
+
+        // Recent failure penalty: each failure adds 10% to declared cost.
+        $failures = max(0, (int) ($profile->extras['recent_failure_count'] ?? 0));
+        $penaltyMultiplier = 1 + ($failures * 0.10);
+
+        return (int) round($base * $penaltyMultiplier, 0);
     }
 
     private function declaredEtaMs(ProviderProfile $profile): int
