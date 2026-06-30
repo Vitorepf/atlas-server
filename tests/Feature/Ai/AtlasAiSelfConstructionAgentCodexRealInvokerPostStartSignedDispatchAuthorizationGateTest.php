@@ -47,6 +47,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthori
         $this->assertTrue($result['provider_started']);
         $this->assertFalse($result['provider_process_call_allowed']);
         $this->assertFalse($result['dispatch_allowed']);
+        $this->assertTrue($result['authorization_valid']);
+        $this->assertNull($result['rejection_reason']);
+        $this->assertNotSame('', $result['signature_digest']);
 
         $run = AtlasSelfConstructionAgentRun::query()
             ->where('run_key', 'provider-start:attempt-001')
@@ -155,6 +158,63 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthori
             ->authorizePostStartSignedDispatch($this->validInput());
     }
 
+    public function test_post_start_signed_dispatch_authorization_rejects_lease_id_mismatch(): void
+    {
+        $this->createDispatchReleaseGateRun();
+
+        $result = app(AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate::class)
+            ->authorizePostStartSignedDispatch(array_merge($this->validInput(), [
+                'lease_id' => 'lease-from-a-different-task',
+            ]));
+
+        $this->assertSame('codex_real_invoker_post_start_signed_dispatch_authorization_rejected', $result['status']);
+        $this->assertFalse($result['authorization_valid']);
+        $this->assertSame('signature_lease_id_mismatch', $result['rejection_reason']);
+        $this->assertNotSame('', $result['signature_digest']);
+        $this->assertDatabaseCount('atlas_ledger_events', 0);
+    }
+
+    public function test_post_start_signed_dispatch_authorization_rejects_stale_signature(): void
+    {
+        $this->createDispatchReleaseGateRun();
+
+        $result = app(AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate::class)
+            ->authorizePostStartSignedDispatch(array_merge($this->validInput(), [
+                'signature_issued_at' => CarbonImmutable::now()->subMinutes(30)->toIso8601String(),
+            ]));
+
+        $this->assertSame('codex_real_invoker_post_start_signed_dispatch_authorization_rejected', $result['status']);
+        $this->assertFalse($result['authorization_valid']);
+        $this->assertSame('signature_stale', $result['rejection_reason']);
+    }
+
+    public function test_post_start_signed_dispatch_authorization_rejects_reused_signature_across_leases(): void
+    {
+        $this->createDispatchReleaseGateRun();
+        $this->createDispatchReleaseGateRun([
+            'run_key' => 'provider-start:attempt-002',
+            'reservation_id' => 'lease-002',
+            'metadata' => $this->metadataWithDispatchReleaseGate([
+                'dispatch_release_gate_id' => 'codex-real-invoker-post-start-dispatch-release-gate-002',
+            ]),
+        ]);
+
+        $gate = app(AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate::class);
+        $gate->authorizePostStartSignedDispatch($this->validInput());
+
+        $result = $gate->authorizePostStartSignedDispatch(array_merge($this->validInput(), [
+            'run_key' => 'provider-start:attempt-002',
+            'task_id' => 'AP-001',
+            'lease_id' => 'lease-002',
+            'dispatch_release_gate_id' => 'codex-real-invoker-post-start-dispatch-release-gate-002',
+            'signed_dispatch_authorization_id' => 'codex-real-invoker-post-start-signed-dispatch-auth-002',
+        ]));
+
+        $this->assertSame('codex_real_invoker_post_start_signed_dispatch_authorization_rejected', $result['status']);
+        $this->assertSame('signature_reused_across_leases', $result['rejection_reason']);
+        $this->assertDatabaseCount('atlas_ledger_events', 1);
+    }
+
     public function test_post_start_signed_dispatch_authorization_rolls_back_metadata_when_ledger_write_fails(): void
     {
         $this->createDispatchReleaseGateRun();
@@ -185,7 +245,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthori
         AtlasSelfConstructionAgentRun::query()->create(array_merge([
             'run_key' => 'provider-start:attempt-001',
             'packet_id' => 'AP-001',
-            'reservation_id' => null,
+            'reservation_id' => 'lease-001',
             'actor' => 'codex-a',
             'provider' => 'codex',
             'provider_role' => 'implementation',
@@ -273,6 +333,11 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSignedDispatchAuthori
             'dispatch_replay_guard_hash' => str_repeat('d', 64),
             'dispatch_kill_switch_hash' => str_repeat('e', 64),
             'no_direct_provider_call_attestation_hash' => str_repeat('5', 64),
+            'task_id' => 'AP-001',
+            'lease_id' => 'lease-001',
+            'worker_id' => 'codex-a',
+            'allowed_scope_hash' => str_repeat('d', 64),
+            'signature_issued_at' => CarbonImmutable::now()->toIso8601String(),
             'actor' => 'codex-a',
             'session' => 'session-a',
             'reason' => 'record_signed_dispatch_authorization_without_dispatching_codex',

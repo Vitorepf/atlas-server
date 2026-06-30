@@ -5,10 +5,13 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+
+use function hash;
 
 class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
 {
@@ -55,7 +58,14 @@ class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
 
             $this->assertDispatchReleaseGate($run, $metadata, $normalized);
 
+            $signatureCheck = $this->validateSignatureBinding($run, $normalized);
+
+            if (! $signatureCheck['valid']) {
+                return $this->rejectedResult($run, $signatureCheck);
+            }
+
             $metadata['codex_real_invoker_post_start_signed_dispatch_authorization'] = [
+                'signature_digest' => $signatureCheck['digest'],
                 'signed_dispatch_authorization_id' => $normalized['signed_dispatch_authorization_id'],
                 'dispatch_release_gate_id' => $normalized['dispatch_release_gate_id'],
                 'post_start_liveness_monitor_id' => $normalized['post_start_liveness_monitor_id'],
@@ -170,6 +180,11 @@ class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
             'dispatch_replay_guard_hash',
             'dispatch_kill_switch_hash',
             'no_direct_provider_call_attestation_hash',
+            'task_id',
+            'lease_id',
+            'worker_id',
+            'allowed_scope_hash',
+            'signature_issued_at',
             'actor',
             'session',
             'reason',
@@ -213,6 +228,11 @@ class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
             'post_start_liveness_monitor_id' => (string) $input['post_start_liveness_monitor_id'],
             'dispatch_release_gate_id' => (string) $input['dispatch_release_gate_id'],
             'signed_dispatch_authorization_id' => (string) $input['signed_dispatch_authorization_id'],
+            'task_id' => (string) $input['task_id'],
+            'lease_id' => (string) $input['lease_id'],
+            'worker_id' => (string) $input['worker_id'],
+            'allowed_scope_hash' => strtolower(trim((string) $input['allowed_scope_hash'])),
+            'signature_issued_at' => (string) $input['signature_issued_at'],
             'actor' => (string) $input['actor'],
             'session' => (string) $input['session'],
             'reason' => (string) $input['reason'],
@@ -283,6 +303,78 @@ class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
     }
 
     /**
+     * @param  array<string,mixed>  $normalized
+     * @return array{valid: bool, reason: ?string, digest: string}
+     */
+    private function validateSignatureBinding(AtlasSelfConstructionAgentRun $run, array $normalized): array
+    {
+        $digest = hash('sha256', implode('|', [
+            $normalized['task_id'],
+            $normalized['lease_id'],
+            $normalized['worker_id'],
+            $normalized['allowed_scope_hash'],
+            $normalized['human_dispatch_signature_hash'],
+        ]));
+
+        if ($normalized['task_id'] !== (string) $run->packet_id) {
+            return ['valid' => false, 'reason' => 'signature_task_id_mismatch', 'digest' => $digest];
+        }
+
+        if ($normalized['lease_id'] !== (string) $run->reservation_id) {
+            return ['valid' => false, 'reason' => 'signature_lease_id_mismatch', 'digest' => $digest];
+        }
+
+        if ($normalized['worker_id'] !== (string) $run->actor) {
+            return ['valid' => false, 'reason' => 'signature_worker_id_mismatch', 'digest' => $digest];
+        }
+
+        if ($normalized['allowed_scope_hash'] !== (string) $run->allowed_files_hash) {
+            return ['valid' => false, 'reason' => 'signature_allowed_scope_mismatch', 'digest' => $digest];
+        }
+
+        $issuedAt = CarbonImmutable::parse($normalized['signature_issued_at']);
+
+        if (abs(CarbonImmutable::now()->diffInSeconds($issuedAt)) > 900) {
+            return ['valid' => false, 'reason' => 'signature_stale', 'digest' => $digest];
+        }
+
+        $reused = AtlasSelfConstructionAgentRun::query()
+            ->where('run_key', '!=', $run->run_key)
+            ->where('metadata->codex_real_invoker_post_start_signed_dispatch_authorization->human_dispatch_signature_hash', $normalized['human_dispatch_signature_hash'])
+            ->exists();
+
+        if ($reused) {
+            return ['valid' => false, 'reason' => 'signature_reused_across_leases', 'digest' => $digest];
+        }
+
+        return ['valid' => true, 'reason' => null, 'digest' => $digest];
+    }
+
+    /**
+     * @param  array{valid: bool, reason: ?string, digest: string}  $signatureCheck
+     * @return array<string,mixed>
+     */
+    private function rejectedResult(AtlasSelfConstructionAgentRun $run, array $signatureCheck): array
+    {
+        return [
+            'status' => 'codex_real_invoker_post_start_signed_dispatch_authorization_rejected',
+            'idempotent' => false,
+            'authorization_valid' => false,
+            'rejection_reason' => $signatureCheck['reason'],
+            'signature_digest' => $signatureCheck['digest'],
+            'agent_run_id' => (string) $run->id,
+            'run_key' => $run->run_key,
+            'run_status' => $run->status,
+            'signed_dispatch_authorization_recorded' => false,
+            'future_dispatch_authorized' => false,
+            'actual_process_start_allowed' => false,
+            'token_spend_allowed' => false,
+            'provider_process_call_allowed' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function result(AtlasSelfConstructionAgentRun $run, bool $idempotent, ?string $ledgerEventId): array
@@ -290,6 +382,9 @@ class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate
         return [
             'status' => 'codex_real_invoker_post_start_signed_dispatch_authorization_recorded',
             'idempotent' => $idempotent,
+            'authorization_valid' => true,
+            'rejection_reason' => null,
+            'signature_digest' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_signed_dispatch_authorization.signature_digest'),
             'signed_dispatch_authorization_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_signed_dispatch_authorization.signed_dispatch_authorization_id'),
             'dispatch_release_gate_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_signed_dispatch_authorization.dispatch_release_gate_id'),
             'post_start_liveness_monitor_id' => (string) data_get($run->metadata, 'codex_real_invoker_post_start_signed_dispatch_authorization.post_start_liveness_monitor_id'),
