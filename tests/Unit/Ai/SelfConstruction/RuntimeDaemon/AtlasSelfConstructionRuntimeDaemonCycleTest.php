@@ -210,4 +210,104 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertContains('git', $withheldKinds);
         $this->assertContains('atlas_native_brain_recovery', $appliedKinds);
     }
+
+    // --- action_feedback tests ---
+
+    public function test_output_has_action_feedback_key(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick($this->readyFacts());
+
+        $this->assertArrayHasKey('action_feedback', $out);
+        $this->assertIsArray($out['action_feedback']);
+    }
+
+    public function test_dry_run_action_feedback_has_withheld_retryable_entry(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick($this->readyFacts());
+
+        $fb = $out['action_feedback'];
+        $this->assertCount(1, $fb);
+        $this->assertSame('native_tick', $fb[0]['kind']);
+        $this->assertSame('withheld',    $fb[0]['outcome_class']);
+        $this->assertTrue($fb[0]['retryable']);
+        $this->assertStringContainsString('native_tick', $fb[0]['next_safe_action']);
+        $this->assertIsArray($fb[0]['receipt_refs']);
+    }
+
+    public function test_applied_action_feedback_has_applied_entry_not_retryable(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(),
+            ['apply' => true, 'action_callbacks' => ['native_tick' => static fn () => ['ok' => true]]],
+        );
+
+        $fb = array_column($out['action_feedback'], null, 'outcome_class');
+        $this->assertArrayHasKey('applied', $fb);
+        $this->assertSame('native_tick', $fb['applied']['kind']);
+        $this->assertFalse($fb['applied']['retryable']);
+        $this->assertStringContainsString('verify_applied_outcome', $fb['applied']['next_safe_action']);
+    }
+
+    public function test_refused_action_kind_feedback_is_withheld_not_retryable(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(['planned_actions' => [['kind' => 'git']]]),
+            ['apply' => true, 'action_callbacks' => ['git' => static fn () => []]],
+        );
+
+        $fb = $out['action_feedback'];
+        $this->assertCount(1, $fb);
+        $this->assertSame('git', $fb[0]['kind']);
+        $this->assertSame('withheld', $fb[0]['outcome_class']);
+        $this->assertFalse($fb[0]['retryable']);
+        $this->assertStringContainsString('permanently_refused', $fb[0]['next_safe_action']);
+    }
+
+    public function test_blocked_action_feedback_is_retryable(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(),
+            [
+                'apply' => true,
+                'action_callbacks' => [
+                    'native_tick' => static function (): never {
+                        throw new \RuntimeException('simulated callback failure');
+                    },
+                ],
+            ],
+        );
+
+        $fb = array_column($out['action_feedback'], null, 'outcome_class');
+        $this->assertArrayHasKey('blocked', $fb);
+        $this->assertSame('native_tick', $fb['blocked']['kind']);
+        $this->assertTrue($fb['blocked']['retryable']);
+        $this->assertStringContainsString('inspect_callback_error', $fb['blocked']['next_safe_action']);
+    }
+
+    public function test_feedback_entry_has_all_required_keys(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick($this->readyFacts());
+
+        foreach ($out['action_feedback'] as $entry) {
+            foreach (['kind', 'outcome_class', 'retryable', 'next_safe_action', 'receipt_refs'] as $key) {
+                $this->assertArrayHasKey($key, $entry);
+            }
+            $this->assertIsBool($entry['retryable']);
+            $this->assertIsArray($entry['receipt_refs']);
+        }
+    }
+
+    public function test_no_callback_supplied_yields_withheld_not_retryable(): void
+    {
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle)->tick(
+            $this->readyFacts(),
+            ['apply' => true],  // no callbacks
+        );
+
+        $fb = $out['action_feedback'];
+        $this->assertCount(1, $fb);
+        $this->assertSame('withheld', $fb[0]['outcome_class']);
+        $this->assertFalse($fb[0]['retryable']);
+        $this->assertStringContainsString('supply_callback', $fb[0]['next_safe_action']);
+    }
 }

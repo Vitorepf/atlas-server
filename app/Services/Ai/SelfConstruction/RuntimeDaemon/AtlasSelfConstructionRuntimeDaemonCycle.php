@@ -149,6 +149,7 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
             'applied_actions' => $appliedActions,
             'withheld_actions' => $withheldActions,
             'blocked_actions' => $blockedActions,
+            'action_feedback' => $this->buildActionFeedback($appliedActions, $withheldActions, $blockedActions),
             'heartbeat_event' => $heartbeatEvent,
             'cycle_receipt_hash' => $cycleReceiptHash,
             'cycle_blocked_reasons' => $cycleBlockedReasons,
@@ -207,5 +208,87 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         }
 
         return $value;
+    }
+
+    /**
+     * Build deterministic action_feedback entries for every action in the tick.
+     *
+     * Each entry has:
+     *   kind             string   — the action kind
+     *   outcome_class    string   — 'applied' | 'withheld' | 'blocked'
+     *   retryable        bool     — whether a retry is meaningful
+     *   next_safe_action string   — deterministic next-step hint
+     *   receipt_refs     string[] — any receipt references from the result
+     *
+     * @param  list<array<string,mixed>>  $appliedActions
+     * @param  list<array<string,mixed>>  $withheldActions
+     * @param  list<array<string,mixed>>  $blockedActions
+     * @return list<array<string,mixed>>
+     */
+    private function buildActionFeedback(array $appliedActions, array $withheldActions, array $blockedActions): array
+    {
+        $feedback = [];
+
+        foreach ($appliedActions as $a) {
+            $kind = (string) ($a['kind'] ?? '');
+            $refs = [];
+            if (isset($a['result']['receipt'])) {
+                $refs[] = (string) $a['result']['receipt'];
+            }
+            $feedback[] = [
+                'kind'             => $kind,
+                'outcome_class'    => 'applied',
+                'retryable'        => false,
+                'next_safe_action' => 'verify_applied_outcome:'.$kind,
+                'receipt_refs'     => $refs,
+            ];
+        }
+
+        foreach ($withheldActions as $w) {
+            $kind   = (string) ($w['kind'] ?? '');
+            $reason = (string) ($w['reason'] ?? '');
+            [$retryable, $next] = $this->withheldRetryProfile($reason, $kind);
+            $feedback[] = [
+                'kind'             => $kind,
+                'outcome_class'    => 'withheld',
+                'retryable'        => $retryable,
+                'next_safe_action' => $next,
+                'receipt_refs'     => [],
+            ];
+        }
+
+        foreach ($blockedActions as $b) {
+            $kind = (string) ($b['kind'] ?? '');
+            $feedback[] = [
+                'kind'             => $kind,
+                'outcome_class'    => 'blocked',
+                'retryable'        => true,
+                'next_safe_action' => 'inspect_callback_error_and_retry:'.$kind,
+                'receipt_refs'     => [],
+            ];
+        }
+
+        return $feedback;
+    }
+
+    /**
+     * @return array{0:bool, 1:string}
+     */
+    private function withheldRetryProfile(string $reason, string $kind): array
+    {
+        if (str_starts_with($reason, 'refused_action_kind:')) {
+            return [false, 'action_kind_permanently_refused:'.$kind];
+        }
+        if ($reason === 'dry_run') {
+            return [true, 'retry_with_apply_true:'.$kind];
+        }
+        if (str_starts_with($reason, 'cycle_blocked:')) {
+            return [true, 'retry_when_cycle_unblocked:'.$kind];
+        }
+        if ($reason === 'no_callback_supplied') {
+            return [false, 'supply_callback_for:'.$kind];
+        }
+
+        return [true, 'retry_after_investigating_reason:'.$reason];
     }
 }
