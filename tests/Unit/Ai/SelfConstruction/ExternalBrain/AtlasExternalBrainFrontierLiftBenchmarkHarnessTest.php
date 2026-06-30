@@ -189,6 +189,86 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarnessTest extends TestCase
         $this->assertSame([], $r['failing_dimensions']);
     }
 
+    // ── lift_result (AC4) ────────────────────────────────────────────────────
+
+    private function heldOutChallenge(array $small, array $scaffolded, array $frontier): array
+    {
+        return [
+            'held_out' => true,
+            'small_model' => $small,
+            'scaffolded_small' => $scaffolded,
+            'frontier' => $frontier,
+        ];
+    }
+
+    public function test_lift_result_is_inconclusive_below_sample_size_guard(): void
+    {
+        $challenges = array_fill(0, 2, $this->heldOutChallenge(
+            $this->tierScores(4, 4, 4, 4, 4),
+            $this->tierScores(5, 5, 5, 5, 5),
+            $this->tierScores(9, 9, 9, 9, 9),
+        ));
+
+        $r = $this->measure($challenges);
+
+        $this->assertSame(AtlasExternalBrainFrontierLiftBenchmarkHarness::LIFT_RESULT_INCONCLUSIVE, $r['lift_result']);
+        $this->assertSame(2, $r['held_out_sample_count']);
+    }
+
+    public function test_lift_result_is_inconclusive_when_no_challenges_are_held_out(): void
+    {
+        // Plenty of samples, but none marked held_out — training-data "proof" never counts.
+        $challenges = array_fill(0, 6, $this->challenge(
+            $this->tierScores(4, 4, 4, 4, 4),
+            $this->tierScores(5, 5, 5, 5, 5),
+            $this->tierScores(9, 9, 9, 9, 9),
+        ));
+
+        $r = $this->measure($challenges);
+
+        $this->assertSame(AtlasExternalBrainFrontierLiftBenchmarkHarness::LIFT_RESULT_INCONCLUSIVE, $r['lift_result']);
+        $this->assertSame(0, $r['held_out_sample_count']);
+    }
+
+    public function test_lift_result_is_scaffold_sufficient_when_scaffolded_meets_floor(): void
+    {
+        $challenges = array_fill(0, 6, $this->heldOutChallenge(
+            $this->tierScores(4, 4, 4, 4, 4),
+            $this->tierScores(8, 8, 8, 8, 8),
+            $this->tierScores(9, 9, 9, 9, 9),
+        ));
+
+        $r = $this->measure($challenges);
+
+        $this->assertSame(AtlasExternalBrainFrontierLiftBenchmarkHarness::LIFT_RESULT_SCAFFOLD_SUFFICIENT, $r['lift_result']);
+    }
+
+    public function test_lift_result_is_frontier_wins_when_frontier_clears_margin_over_scaffold(): void
+    {
+        $challenges = array_fill(0, 6, $this->heldOutChallenge(
+            $this->tierScores(3, 3, 3, 3, 3),
+            $this->tierScores(5, 5, 5, 5, 5),
+            $this->tierScores(9, 9, 9, 9, 9),
+        ));
+
+        $r = $this->measure($challenges);
+
+        $this->assertSame(AtlasExternalBrainFrontierLiftBenchmarkHarness::LIFT_RESULT_FRONTIER_WINS, $r['lift_result']);
+    }
+
+    public function test_lift_result_is_inconclusive_when_frontier_does_not_clear_margin(): void
+    {
+        $challenges = array_fill(0, 6, $this->heldOutChallenge(
+            $this->tierScores(4, 4, 4, 4, 4),
+            $this->tierScores(5, 5, 5, 5, 5),
+            $this->tierScores(5, 5, 5, 5, 5),
+        ));
+
+        $r = $this->measure($challenges);
+
+        $this->assertSame(AtlasExternalBrainFrontierLiftBenchmarkHarness::LIFT_RESULT_INCONCLUSIVE, $r['lift_result']);
+    }
+
     public function test_schema_version_present(): void
     {
         $r = $this->svc()->measure([]);

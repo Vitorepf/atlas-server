@@ -33,6 +33,16 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
 
     public const ACCEPTABLE_FLOOR = 7.0;
 
+    public const LIFT_RESULT_FRONTIER_WINS       = 'frontier_wins';
+    public const LIFT_RESULT_SCAFFOLD_SUFFICIENT = 'scaffold_sufficient';
+    public const LIFT_RESULT_INCONCLUSIVE        = 'inconclusive';
+
+    /** Minimum held-out (non-training) challenges required before a lift_result can be anything but inconclusive. */
+    public const MIN_HELD_OUT_SAMPLES = 5;
+
+    /** Frontier must beat scaffolded_small by at least this margin to count as a real win, not noise. */
+    private const FRONTIER_WIN_MARGIN = 0.5;
+
     private const TIERS = ['small_model', 'scaffolded_small', 'frontier'];
 
     /**
@@ -51,6 +61,8 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
                 'lift_summary' => ['lift_from_scaffold' => 0.0, 'frontier_multiplier' => null],
                 'failing_dimensions' => [],
                 'next_scaffold_improvement' => null,
+                'lift_result' => self::LIFT_RESULT_INCONCLUSIVE,
+                'held_out_sample_count' => 0,
             ];
         }
 
@@ -102,6 +114,11 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
             ? round($tierAvgs['frontier'] / $tierAvgs['small_model'], 3)
             : null;
 
+        // held_out: only challenges explicitly marked as NOT reused training examples are
+        // allowed to prove a lift_result — proxy "passed on training data" never counts.
+        $heldOutChallenges = array_values(array_filter($challenges, static fn ($c): bool => is_array($c) && (bool) ($c['held_out'] ?? false)));
+        $liftResult = $this->liftResult($heldOutChallenges);
+
         return [
             'schema_version' => self::SCHEMA,
             'tier_scores' => $tierAvgs,
@@ -111,6 +128,58 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
             ],
             'failing_dimensions' => $failingDimensions,
             'next_scaffold_improvement' => $worstDim,
+            'lift_result' => $liftResult,
+            'held_out_sample_count' => count($heldOutChallenges),
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $heldOutChallenges
+     */
+    private function liftResult(array $heldOutChallenges): string
+    {
+        if (count($heldOutChallenges) < self::MIN_HELD_OUT_SAMPLES) {
+            return self::LIFT_RESULT_INCONCLUSIVE;
+        }
+
+        $avgs = $this->tierAverages($heldOutChallenges);
+
+        if ($avgs['scaffolded_small'] >= self::ACCEPTABLE_FLOOR) {
+            return self::LIFT_RESULT_SCAFFOLD_SUFFICIENT;
+        }
+
+        if ($avgs['frontier'] >= $avgs['scaffolded_small'] + self::FRONTIER_WIN_MARGIN) {
+            return self::LIFT_RESULT_FRONTIER_WINS;
+        }
+
+        return self::LIFT_RESULT_INCONCLUSIVE;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $challenges
+     * @return array<string, float>
+     */
+    private function tierAverages(array $challenges): array
+    {
+        $n = count($challenges);
+        $tierTotals = array_fill_keys(self::TIERS, 0.0);
+
+        foreach ($challenges as $challenge) {
+            foreach (self::TIERS as $tier) {
+                $data = is_array($challenge[$tier] ?? null) ? $challenge[$tier] : [];
+                $dimSum = 0.0;
+                foreach (self::DIMENSIONS as $dim) {
+                    $dimSum += (float) ($data[$dim] ?? 0);
+                }
+                $tierTotals[$tier] += $dimSum / count(self::DIMENSIONS);
+            }
+        }
+
+        $avgs = [];
+        foreach (self::TIERS as $tier) {
+            $avgs[$tier] = $n > 0 ? round($tierTotals[$tier] / $n, 3) : 0.0;
+        }
+
+        return $avgs;
     }
 }
