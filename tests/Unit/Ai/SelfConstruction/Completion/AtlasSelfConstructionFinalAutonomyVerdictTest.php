@@ -157,4 +157,128 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
             $this->assertFalse($verdict['asks_for_human']);
         }
     }
+
+    // ── evidence_refs + readiness_95_blockers ─────────────────────────────────
+
+    private function allTrue(): array
+    {
+        return array_fill_keys(AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, true);
+    }
+
+    private function allEvidence(): array
+    {
+        return array_fill_keys(AtlasSelfConstructionFinalAutonomyVerdict::REQUIRED_CAPABILITY_LANES, ['evidence-ref-1']);
+    }
+
+    public function test_true_boolean_without_evidence_refs_is_insufficient_for_complete(): void
+    {
+        $evidence = $this->allEvidence();
+        $evidence['self_recovery'] = [];
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $evidence,
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('missing_evidence_for_lane:self_recovery', $verdict['blockers']);
+        $this->assertFalse($verdict['asks_for_human']);
+    }
+
+    public function test_complete_requires_all_lanes_with_evidence_when_evidence_tracking_active(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $this->allEvidence(),
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_readiness_95_blockers_keyed_by_missing_lane(): void
+    {
+        $lanes = $this->allTrue();
+        $lanes['frontier_import'] = false;
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $lanes,
+        );
+
+        $blocker = $verdict['readiness_95_blockers'][0] ?? [];
+        $this->assertSame('frontier_import', $blocker['lane']);
+        $this->assertSame('missing_lane', $blocker['type']);
+        $this->assertStringContainsString('frontier_import', $blocker['next_action']);
+    }
+
+    public function test_readiness_95_blockers_keyed_by_missing_evidence(): void
+    {
+        $evidence = $this->allEvidence();
+        $evidence['compounding'] = [];
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+            $evidence,
+        );
+
+        $byLane = array_column($verdict['readiness_95_blockers'], null, 'lane');
+        $this->assertArrayHasKey('compounding', $byLane);
+        $this->assertSame('missing_evidence', $byLane['compounding']['type']);
+        $this->assertStringContainsString('compounding', $byLane['compounding']['next_action']);
+    }
+
+    public function test_readiness_95_blockers_empty_on_complete_verdict(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+        );
+
+        $this->assertSame([], $verdict['readiness_95_blockers']);
+    }
+
+    public function test_next_action_present_for_each_readiness_95_blocker(): void
+    {
+        $lanes = $this->allTrue();
+        $lanes['task_repair'] = false;
+        $lanes['muscle_feedback_learning'] = false;
+
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $lanes,
+        );
+
+        foreach ($verdict['readiness_95_blockers'] as $b) {
+            $this->assertArrayHasKey('next_action', $b);
+            $this->assertNotEmpty($b['next_action']);
+        }
+        $this->assertCount(2, $verdict['readiness_95_blockers']);
+    }
+
+    public function test_backward_compat_no_evidence_param_still_admits_complete_with_all_true_lanes(): void
+    {
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+            $this->allTrue(),
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+    }
 }

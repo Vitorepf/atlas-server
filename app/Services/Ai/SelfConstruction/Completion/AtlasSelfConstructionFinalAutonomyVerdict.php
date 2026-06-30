@@ -45,10 +45,11 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
      * @param  array<string,mixed>  $auditVerdict
      * @param  array<string,mixed>  $transitionMap
      * @param  array<string,mixed>  $readinessPolicy
-     * @param  array<string,bool>  $capabilityFacts  Keyed by REQUIRED_CAPABILITY_LANES names; omit to skip check.
+     * @param  array<string,bool>  $capabilityFacts     Keyed by REQUIRED_CAPABILITY_LANES names; omit to skip check.
+     * @param  array<string,list<string>>  $capabilityEvidence  Lane → evidence refs; when non-empty, true booleans without refs are insufficient.
      * @return array<string,mixed>
      */
-    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = []): array
+    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = []): array
     {
         $atlasNative = (bool) ($auditVerdict['atlas_native'] ?? false);
         $auditBlockers = array_values((array) ($auditVerdict['blockers'] ?? []));
@@ -58,15 +59,27 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
         $readinessBlockers = array_values((array) ($readinessPolicy['blockers'] ?? []));
 
         $missingLanes = [];
+        $lanesWithoutEvidence = [];
         $score = 0;
         if ($capabilityFacts !== []) {
             foreach (self::REQUIRED_CAPABILITY_LANES as $lane) {
                 if (! (bool) ($capabilityFacts[$lane] ?? false)) {
                     $missingLanes[] = $lane;
+                } elseif ($capabilityEvidence !== [] && empty($capabilityEvidence[$lane])) {
+                    $lanesWithoutEvidence[] = $lane;
                 }
             }
             $metCount = count(self::REQUIRED_CAPABILITY_LANES) - count($missingLanes);
             $score = (int) floor($metCount / count(self::REQUIRED_CAPABILITY_LANES) * 100);
+        }
+
+        // Build readiness_95_blockers — emitted on every verdict for downstream consumers.
+        $readiness95Blockers = [];
+        foreach ($missingLanes as $lane) {
+            $readiness95Blockers[] = ['lane' => $lane, 'type' => 'missing_lane', 'next_action' => 'provision_capability_lane:'.$lane];
+        }
+        foreach ($lanesWithoutEvidence as $lane) {
+            $readiness95Blockers[] = ['lane' => $lane, 'type' => 'missing_evidence', 'next_action' => 'collect_evidence_for_lane:'.$lane];
         }
 
         $blockers = [];
@@ -87,20 +100,23 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             }
             $nextActions[] = 'route_atlas_native_replacement_capabilities';
 
-            return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions, $score);
+            return $this->envelope(self::VERDICT_UNSAFE, $blockers, $nextActions, $score, $readiness95Blockers);
         }
 
-        // INCOMPLETE — missing capability lanes block final readiness.
-        if ($missingLanes !== []) {
+        // INCOMPLETE — missing capability lanes OR lanes lacking evidence refs.
+        if ($missingLanes !== [] || $lanesWithoutEvidence !== []) {
             foreach ($missingLanes as $lane) {
                 $blockers[] = 'missing_capability_lane:'.$lane;
+            }
+            foreach ($lanesWithoutEvidence as $lane) {
+                $blockers[] = 'missing_evidence_for_lane:'.$lane;
             }
             foreach ($replacements as $r) {
                 $nextActions[] = (string) ($r['task_fabric_action'] ?? '');
             }
-            $nextActions[] = 'provision_missing_capability_lanes';
+            $nextActions[] = $missingLanes !== [] ? 'provision_missing_capability_lanes' : 'collect_missing_lane_evidence';
 
-            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score);
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, $readiness95Blockers);
         }
 
         // INCOMPLETE — atlas_native AND not blocked, but untransitioned deps OR readiness not explicitly ready.
@@ -131,9 +147,10 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
     /**
      * @param  list<string>  $blockers
      * @param  list<string>  $nextActions
+     * @param  list<array{lane:string,type:string,next_action:string}>  $readiness95Blockers
      * @return array<string,mixed>
      */
-    private function envelope(string $verdict, array $blockers, array $nextActions, int $score = 0): array
+    private function envelope(string $verdict, array $blockers, array $nextActions, int $score = 0, array $readiness95Blockers = []): array
     {
         return [
             'schema_version' => self::SCHEMA,
@@ -142,6 +159,7 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             'next_atlas_actions' => array_values(array_unique(array_filter($nextActions, static fn (string $s): bool => $s !== ''))),
             'asks_for_human' => false,
             'score' => $score,
+            'readiness_95_blockers' => $readiness95Blockers,
         ];
     }
 }
