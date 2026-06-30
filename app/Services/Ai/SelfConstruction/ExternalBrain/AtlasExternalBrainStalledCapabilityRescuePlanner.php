@@ -37,6 +37,7 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
     public const STALL_RETIRE_THRESHOLD      = 3;
     public const RESCUE_STALE_DAYS_THRESHOLD = 30;
     public const RESCUE_MAX_COST             = 1.0;
+    public const RESCUE_LOW_COST_THRESHOLD   = 0.5;
 
     private const PROGRESS_STATES   = ['implemented', 'tested'];
     private const PLANNED_STATES    = ['planned', 'queued'];
@@ -69,6 +70,7 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
             self::ACTION_RETIRE   => [],
             self::ACTION_MONITOR  => [],
         ];
+        $highPriorityRescueCount = 0;
 
         foreach ($capabilities as $cap) {
             $id                    = (string) ($cap['id']                         ?? '');
@@ -77,15 +79,21 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
             $replacementOwner      = (string) ($cap['replacement_owner_id']       ?? '');
             $replacementIntegrated = (bool) ($cap['replacement_owner_integrated'] ?? false);
             $duplicateOwnerCount   = max(0, (int) ($cap['duplicate_owner_count']  ?? 0));
+            $isProgressing         = (bool) ($cap['is_progressing']               ?? false);
 
             if (in_array($state, self::INTEGRATED_STATES, true)) {
                 continue;
             }
 
+            $unblockCause = $this->computeUnblockCause($cap);
+
             if ($replacementOwner !== '' && $replacementIntegrated) {
                 $action = self::ACTION_COLLAPSE;
             } elseif (in_array($state, self::PROGRESS_STATES, true)) {
-                if ($this->isRescueViable($cap)) {
+                // AC2: progressing without an explicit blocker → not stalled, monitor instead
+                if ($isProgressing && $unblockCause === 'unknown') {
+                    $action = self::ACTION_MONITOR;
+                } elseif ($this->isRescueViable($cap)) {
                     $action = self::ACTION_RESCUE;
                 } elseif ($duplicateOwnerCount > 0) {
                     $action = self::ACTION_COLLAPSE;
@@ -99,26 +107,59 @@ final class AtlasExternalBrainStalledCapabilityRescuePlanner
             }
 
             $entry = [
-                'capability_id'       => $id,
-                'action'              => $action,
-                'stall_count'         => $stallCount,
+                'capability_id'        => $id,
+                'action'               => $action,
+                'stall_count'          => $stallCount,
                 'evidence_requirements' => self::EVIDENCE_BY_ACTION[$action],
             ];
+
+            if ($action === self::ACTION_RESCUE) {
+                $impactLevel   = (string) ($cap['impact_level']         ?? 'medium');
+                $estimatedCost = max(0.0, (float) ($cap['estimated_rescue_cost'] ?? 1.0));
+                $rescuePriority = ($impactLevel === 'high' && $estimatedCost <= self::RESCUE_LOW_COST_THRESHOLD)
+                    ? 'high'
+                    : 'normal';
+
+                $entry['unblock_cause']   = $unblockCause;
+                $entry['rescue_priority'] = $rescuePriority;
+
+                if ($rescuePriority === 'high') {
+                    $highPriorityRescueCount++;
+                }
+            }
 
             if ($action === self::ACTION_COLLAPSE && $replacementOwner !== '') {
                 $entry['collapse_into'] = $replacementOwner;
             }
 
-            $entries[]          = $entry;
+            $entries[]           = $entry;
             $byAction[$action][] = $id;
         }
 
         return [
-            'schema_version'  => self::SCHEMA,
-            'total_evaluated' => count($entries),
-            'entries'         => $entries,
-            'by_action'       => $byAction,
+            'schema_version'             => self::SCHEMA,
+            'total_evaluated'            => count($entries),
+            'high_priority_rescue_count' => $highPriorityRescueCount,
+            'entries'                    => $entries,
+            'by_action'                  => $byAction,
         ];
+    }
+
+    private function computeUnblockCause(array $cap): string
+    {
+        if ((bool) ($cap['has_contradiction'] ?? false)) {
+            return 'contradiction';
+        }
+        if ((bool) ($cap['has_missing_file'] ?? false)) {
+            return 'missing_file';
+        }
+        if ((bool) ($cap['has_scope_gap'] ?? false)) {
+            return 'scope_gap';
+        }
+        if ((bool) ($cap['has_missing_test'] ?? false)) {
+            return 'missing_test';
+        }
+        return 'unknown';
     }
 
     private function isRescueViable(array $cap): bool
