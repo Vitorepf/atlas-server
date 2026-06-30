@@ -284,4 +284,205 @@ final class AtlasExternalBrainTaskGraphRoiSchedulerTest extends TestCase
         sort($allScheduled);
         $this->assertSame(['t1', 't2', 't3', 't4'], $allScheduled);
     }
+
+    // ── new output keys ───────────────────────────────────────────────────────
+
+    public function test_schedule_returns_new_chain_fields(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('t1')]);
+
+        $this->assertArrayHasKey('critical_path', $r);
+        $this->assertArrayHasKey('frontier_unlocks', $r);
+        $this->assertArrayHasKey('dependency_dead_end_warnings', $r);
+        $this->assertArrayHasKey('next_wave_candidate_reasons', $r);
+    }
+
+    public function test_empty_schedule_returns_empty_new_fields(): void
+    {
+        $r = $this->scheduler->schedule([]);
+
+        $this->assertSame([], $r['critical_path']);
+        $this->assertSame([], $r['frontier_unlocks']);
+        $this->assertSame([], $r['dependency_dead_end_warnings']);
+        $this->assertSame([], $r['next_wave_candidate_reasons']);
+    }
+
+    // ── critical_path ─────────────────────────────────────────────────────────
+
+    public function test_critical_path_follows_longest_chain(): void
+    {
+        // t1 → t2 → t3 is the only chain; t4 is isolated.
+        $tasks = [
+            $this->task('t1'),
+            $this->task('t2', ['depends_on' => ['t1']]),
+            $this->task('t3', ['depends_on' => ['t2']]),
+            $this->task('t4'),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertSame(['t1', 't2', 't3'], $r['critical_path']);
+    }
+
+    public function test_critical_path_for_single_task_is_that_task(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('only')]);
+
+        $this->assertSame(['only'], $r['critical_path']);
+    }
+
+    public function test_critical_path_picks_longer_branch(): void
+    {
+        // root → a → b → c  (length 4)
+        // root → x           (length 2)
+        $tasks = [
+            $this->task('root'),
+            $this->task('a', ['depends_on' => ['root']]),
+            $this->task('b', ['depends_on' => ['a']]),
+            $this->task('c', ['depends_on' => ['b']]),
+            $this->task('x', ['depends_on' => ['root']]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertSame(['root', 'a', 'b', 'c'], $r['critical_path']);
+        $this->assertNotContains('x', $r['critical_path']);
+    }
+
+    // ── frontier_unlocks ─────────────────────────────────────────────────────
+
+    public function test_frontier_unlocks_maps_task_to_direct_dependents(): void
+    {
+        $tasks = [
+            $this->task('t1'),
+            $this->task('t2', ['depends_on' => ['t1']]),
+            $this->task('t3', ['depends_on' => ['t1']]),
+        ];
+
+        $r    = $this->scheduler->schedule($tasks);
+        $unlocks = $r['frontier_unlocks'];
+
+        $this->assertSame(['t2', 't3'], $unlocks['t1']); // sorted
+        $this->assertSame([], $unlocks['t2']);
+        $this->assertSame([], $unlocks['t3']);
+    }
+
+    public function test_frontier_unlocks_entry_exists_for_every_task(): void
+    {
+        $tasks = [
+            $this->task('a'),
+            $this->task('b', ['depends_on' => ['a']]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertArrayHasKey('a', $r['frontier_unlocks']);
+        $this->assertArrayHasKey('b', $r['frontier_unlocks']);
+    }
+
+    // ── dependency_dead_end_warnings ──────────────────────────────────────────
+
+    public function test_dead_end_warning_emitted_for_leaf_with_zero_unlock_value(): void
+    {
+        $tasks = [
+            $this->task('root', ['unlock_value' => 0.5]),
+            $this->task('leaf', ['depends_on' => ['root'], 'unlock_value' => 0.0]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertContains('leaf', $r['dependency_dead_end_warnings']);
+        $this->assertNotContains('root', $r['dependency_dead_end_warnings']);
+    }
+
+    public function test_no_dead_end_warning_for_task_with_unlock_value(): void
+    {
+        $tasks = [
+            $this->task('t1', ['unlock_value' => 0.8]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertSame([], $r['dependency_dead_end_warnings']);
+    }
+
+    public function test_no_dead_end_warning_for_task_that_has_dependents(): void
+    {
+        // t1 has unlock_value=0 but t2 depends on it → NOT a dead end.
+        $tasks = [
+            $this->task('t1', ['unlock_value' => 0.0]),
+            $this->task('t2', ['depends_on' => ['t1']]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertNotContains('t1', $r['dependency_dead_end_warnings']);
+    }
+
+    // ── next_wave_candidate_reasons ───────────────────────────────────────────
+
+    public function test_next_wave_candidate_reasons_always_includes_roi_score(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('t1')]);
+
+        $reasons = $r['next_wave_candidate_reasons']['t1'];
+        $roiReasons = array_filter($reasons, fn (string $s): bool => str_starts_with($s, 'roi_score:'));
+
+        $this->assertCount(1, $roiReasons);
+    }
+
+    public function test_chain_unlocker_surfaced_in_reasons_even_when_raw_roi_is_lower(): void
+    {
+        // 'high_score_isolated': high impact, zero unlock → high ROI but no downstream.
+        // 'chain_unlocker': lower individual ROI but unlocks c1, c2, c3 transitively.
+        $tasks = [
+            $this->task('high_score_isolated', [
+                'expected_impact' => 0.9,
+                'cost_risk'       => 0.05,
+                'unlock_value'    => 0.0,
+                'allowed_files'   => ['app/A.php'],
+            ]),
+            $this->task('chain_unlocker', [
+                'expected_impact' => 0.4,
+                'cost_risk'       => 0.5,
+                'unlock_value'    => 0.3,
+                'allowed_files'   => ['app/B.php'],
+            ]),
+            $this->task('c1', ['depends_on' => ['chain_unlocker'], 'allowed_files' => ['app/C1.php']]),
+            $this->task('c2', ['depends_on' => ['chain_unlocker'], 'allowed_files' => ['app/C2.php']]),
+            $this->task('c3', ['depends_on' => ['c1'],             'allowed_files' => ['app/C3.php']]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        // Both high_score_isolated and chain_unlocker are in wave 0.
+        $wave0 = $r['waves'][0]['tasks'];
+        $this->assertContains('high_score_isolated', $wave0);
+        $this->assertContains('chain_unlocker', $wave0);
+
+        // chain_unlocker must have a chain_unlocker reason.
+        $chainReasons = $r['next_wave_candidate_reasons']['chain_unlocker'];
+        $chainUnlockerReasons = array_filter($chainReasons, fn (string $s): bool => str_starts_with($s, 'chain_unlocker:'));
+        $this->assertNotEmpty($chainUnlockerReasons, 'chain_unlocker must appear in next_wave_candidate_reasons');
+
+        // high_score_isolated should NOT have a chain_unlocker reason (it unlocks nothing).
+        $isolatedReasons = $r['next_wave_candidate_reasons']['high_score_isolated'];
+        $isolatedChain = array_filter($isolatedReasons, fn (string $s): bool => str_starts_with($s, 'chain_unlocker:'));
+        $this->assertEmpty($isolatedChain);
+    }
+
+    public function test_on_critical_path_reason_emitted_for_critical_path_members_in_wave0(): void
+    {
+        // root → mid → leaf: root is in wave 0 and on the critical path.
+        $tasks = [
+            $this->task('root'),
+            $this->task('mid',  ['depends_on' => ['root']]),
+            $this->task('leaf', ['depends_on' => ['mid']]),
+        ];
+
+        $r = $this->scheduler->schedule($tasks);
+
+        $reasons = $r['next_wave_candidate_reasons']['root'] ?? [];
+        $this->assertContains('on_critical_path', $reasons);
+    }
 }

@@ -28,11 +28,19 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   { worker_pressure?:float, max_wave_width?:int }
  *
  * OUTPUT:
- *   { schema, waves:list<Wave>, warnings:list<string> }
+ *   { schema, waves:list<Wave>, warnings:list<string>,
+ *     critical_path:list<string>, frontier_unlocks:array<string,list<string>>,
+ *     dependency_dead_end_warnings:list<string>,
+ *     next_wave_candidate_reasons:array<string,list<string>> }
  *
  * Wave:
  *   { wave_index:int, tasks:list<string>, parallel_safe:bool,
  *     collisions:list<string>, over_width:bool }
+ *
+ * critical_path             — longest dependency chain (task_ids in order)
+ * frontier_unlocks          — per-task: which tasks become available after it completes
+ * dependency_dead_end_warnings — leaf tasks with unlock_value=0 (no chain leverage)
+ * next_wave_candidate_reasons  — per wave-0 task: why it matters (roi, chain unlock, critical path)
  *
  * PURE / DETERMINISTIC (stable sort, deterministic tie-break on task_id). No I/O.
  */
@@ -74,7 +82,15 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         }
 
         if ($taskMap === []) {
-            return ['schema' => self::SCHEMA, 'waves' => [], 'warnings' => []];
+            return [
+                'schema'                       => self::SCHEMA,
+                'waves'                        => [],
+                'warnings'                     => [],
+                'critical_path'                => [],
+                'frontier_unlocks'             => [],
+                'dependency_dead_end_warnings' => [],
+                'next_wave_candidate_reasons'  => [],
+            ];
         }
 
         // ── Kahn's topological sort → layers ──────────────────────────────────
@@ -103,10 +119,20 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             }
         }
 
+        $frontierUnlocks          = $this->buildFrontierUnlocks($taskMap);
+        $criticalPath             = $this->computeCriticalPath($taskMap, $layers);
+        $deadEndWarnings          = $this->computeDeadEndWarnings($taskMap, $frontierUnlocks);
+        $downstreamReach          = $this->computeDownstreamReach($taskMap, $frontierUnlocks, $layers);
+        $nextWaveCandidateReasons = $this->computeNextWaveCandidateReasons($taskMap, $waves, $criticalPath, $downstreamReach);
+
         return [
-            'schema' => self::SCHEMA,
-            'waves' => $waves,
-            'warnings' => array_values(array_unique($warnings)),
+            'schema'                       => self::SCHEMA,
+            'waves'                        => $waves,
+            'warnings'                     => array_values(array_unique($warnings)),
+            'critical_path'                => $criticalPath,
+            'frontier_unlocks'             => $frontierUnlocks,
+            'dependency_dead_end_warnings' => $deadEndWarnings,
+            'next_wave_candidate_reasons'  => $nextWaveCandidateReasons,
         ];
     }
 
@@ -160,6 +186,149 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         }
 
         return $layers;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @return array<string, list<string>>
+     */
+    private function buildFrontierUnlocks(array $taskMap): array
+    {
+        $unlocks = array_fill_keys(array_keys($taskMap), []);
+        foreach ($taskMap as $id => $task) {
+            foreach ($task['depends_on'] as $dep) {
+                if (isset($unlocks[$dep])) {
+                    $unlocks[$dep][] = $id;
+                }
+            }
+        }
+        foreach ($unlocks as &$list) {
+            sort($list);
+        }
+        return $unlocks;
+    }
+
+    /**
+     * Longest dependency chain via DP over topological layers.
+     *
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  list<list<string>>  $layers
+     * @return list<string>
+     */
+    private function computeCriticalPath(array $taskMap, array $layers): array
+    {
+        $dist = array_fill_keys(array_keys($taskMap), 0);
+        $prev = array_fill_keys(array_keys($taskMap), null);
+
+        foreach ($layers as $layer) {
+            foreach ($layer as $id) {
+                foreach ($taskMap[$id]['depends_on'] as $dep) {
+                    if (isset($dist[$dep]) && $dist[$dep] + 1 > $dist[$id]) {
+                        $dist[$id] = $dist[$dep] + 1;
+                        $prev[$id] = $dep;
+                    }
+                }
+            }
+        }
+
+        $endNode = (string) array_key_first($dist);
+        foreach ($dist as $id => $d) {
+            if ($d > $dist[$endNode] || ($d === $dist[$endNode] && strcmp($id, $endNode) < 0)) {
+                $endNode = $id;
+            }
+        }
+
+        $path = [];
+        $cur  = $endNode;
+        while ($cur !== null) {
+            array_unshift($path, $cur);
+            $cur = $prev[$cur];
+        }
+
+        return $path;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  array<string, list<string>>  $frontierUnlocks
+     * @return list<string>
+     */
+    private function computeDeadEndWarnings(array $taskMap, array $frontierUnlocks): array
+    {
+        $warnings = [];
+        foreach ($taskMap as $id => $task) {
+            if ($frontierUnlocks[$id] === [] && $task['unlock_value'] == 0.0) {
+                $warnings[] = $id;
+            }
+        }
+        sort($warnings);
+        return $warnings;
+    }
+
+    /**
+     * Transitive downstream reach per task (count of all tasks unlocked transitively).
+     * Processed in reverse topological order so children are resolved before parents.
+     *
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  array<string, list<string>>  $frontierUnlocks
+     * @param  list<list<string>>  $layers
+     * @return array<string, int>
+     */
+    private function computeDownstreamReach(array $taskMap, array $frontierUnlocks, array $layers): array
+    {
+        $reach = array_fill_keys(array_keys($taskMap), 0);
+        foreach (array_reverse($layers) as $layer) {
+            foreach ($layer as $id) {
+                $direct = $frontierUnlocks[$id];
+                $count  = count($direct);
+                foreach ($direct as $dep) {
+                    $count += $reach[$dep] ?? 0;
+                }
+                $reach[$id] = $count;
+            }
+        }
+        return $reach;
+    }
+
+    /**
+     * Per wave-0 task: list of reasons it belongs in the next wave.
+     * Always emits roi_score; adds chain_unlocker when downstream reach > 0;
+     * adds on_critical_path when applicable.
+     *
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  list<array<string, mixed>>  $waves
+     * @param  list<string>  $criticalPath
+     * @param  array<string, int>  $downstreamReach
+     * @return array<string, list<string>>
+     */
+    private function computeNextWaveCandidateReasons(
+        array $taskMap,
+        array $waves,
+        array $criticalPath,
+        array $downstreamReach
+    ): array {
+        $reasons     = [];
+        $firstWave   = $waves[0]['tasks'] ?? [];
+        $criticalSet = array_flip($criticalPath);
+
+        foreach ($firstWave as $id) {
+            $task        = $taskMap[$id];
+            $roi         = $task['expected_impact'] * $task['unlock_value'] / ($task['cost_risk'] + 0.01);
+            $taskReasons = [sprintf('roi_score:%.3f', round($roi, 3))];
+
+            $reach = $downstreamReach[$id] ?? 0;
+            if ($reach > 0) {
+                $taskReasons[] = "chain_unlocker:unlocks_{$reach}_downstream_tasks";
+            }
+
+            if (isset($criticalSet[$id])) {
+                $taskReasons[] = 'on_critical_path';
+            }
+
+            $reasons[$id] = $taskReasons;
+        }
+
+        return $reasons;
     }
 
     /**
