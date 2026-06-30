@@ -224,4 +224,100 @@ final class AtlasExternalBrainAntiGoodhartAuditorTest extends TestCase
         $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::SCHEMA, $result['schema']);
         $this->assertIsArray($result['findings']);
     }
+
+    // ── template_similarity_farm ──────────────────────────────────────────────
+
+    /**
+     * Task with a CamelCase class name — same structural objective, different noun.
+     * Each uses a distinct dir so the existing template_farm check stays silent.
+     */
+    private function renamedNounTask(string $className, string $dirSegment): array
+    {
+        return [
+            'label'           => "codex-meta-implement-{$className}-20260630",
+            'objective'       => "Implement {$className} to extend Atlas capability for autonomous wiring",
+            'category'        => 'architecture_unlock',
+            'allowed_files'   => [
+                "app/Services/Ai/SelfConstruction/Adapters/{$dirSegment}/{$className}.php",
+                "tests/Unit/Ai/SelfConstruction/Adapters/{$dirSegment}/{$className}Test.php",
+            ],
+            'value_mechanism' => "new_capability:adapter_wiring_{$className}",
+            'final_score'     => 0.75,
+        ];
+    }
+
+    public function test_similarity_farm_detected_for_renamed_noun_batch(): void
+    {
+        // 6 tasks in distinct dirs (template_farm is silent) but structurally identical.
+        $batch = [
+            $this->renamedNounTask('FooServiceAdapter', 'foo'),
+            $this->renamedNounTask('BarServiceAdapter', 'bar'),
+            $this->renamedNounTask('BazServiceAdapter', 'baz'),
+            $this->renamedNounTask('QuxServiceAdapter', 'qux'),
+            $this->renamedNounTask('FrobServiceAdapter', 'frob'),
+            $this->renamedNounTask('NorfServiceAdapter', 'norf'),
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertContains('template_similarity_farm', $findingNames,
+            'renamed-noun template farm must be detected even across distinct directories');
+
+        foreach ($result['findings'] as $f) {
+            if ($f['finding'] === 'template_similarity_farm') {
+                $this->assertSame('critical', $f['severity']);
+                $this->assertGreaterThanOrEqual(3, $f['affected']);
+                $this->assertNotEmpty($f['repair_hint']);
+                break;
+            }
+        }
+
+        $this->assertSame(AtlasExternalBrainAntiGoodhartAuditor::VERDICT_REJECT, $result['verdict'],
+            'critical similarity farm must produce reject verdict');
+    }
+
+    public function test_diverse_batch_has_no_similarity_farm(): void
+    {
+        $batch = [
+            [
+                'label'           => 'fix-async-timeout',
+                'objective'       => 'Fix async task timeout so lease recovery never stalls',
+                'category'        => 'bug_fix',
+                'allowed_files'   => ['app/Services/Task/AtlasLeaseRecovery.php', 'tests/Unit/Task/AtlasLeaseRecoveryTest.php'],
+                'value_mechanism' => 'closes_runtime_gap:lease_timeout',
+                'final_score'     => 0.8,
+            ],
+            [
+                'label'           => 'add-brain-saturation-meter',
+                'objective'       => 'Add surface saturation detection so the brain rotates mining surfaces autonomously',
+                'category'        => 'architecture_unlock',
+                'allowed_files'   => ['app/Services/Ai/ExternalBrain/SaturationMeter.php', 'tests/Unit/ExternalBrain/SaturationMeterTest.php'],
+                'value_mechanism' => 'new_capability:surface_saturation_detection',
+                'final_score'     => 0.9,
+            ],
+            [
+                'label'           => 'update-loop-docs',
+                'objective'       => 'Update loop canonical definition docs to reflect the autonomy tier split',
+                'category'        => 'docs_sync',
+                'allowed_files'   => ['docs/loop-canonical-definition.md'],
+                'value_mechanism' => 'docs_accuracy:loop_definition',
+                'final_score'     => 0.6,
+            ],
+            [
+                'label'           => 'add-evidence-intake-gate',
+                'objective'       => 'Add evidence intake validation gate to reject chat_memory stream at ingest time',
+                'category'        => 'runtime_continuity',
+                'allowed_files'   => ['app/Services/Ai/ExternalBrain/EvidenceIntakeGate.php', 'tests/Unit/ExternalBrain/EvidenceIntakeGateTest.php'],
+                'value_mechanism' => 'closes_runtime_gap:evidence_stream_validation',
+                'final_score'     => 0.85,
+            ],
+        ];
+
+        $result = $this->auditor()->audit($batch);
+
+        $findingNames = array_column($result['findings'], 'finding');
+        $this->assertNotContains('template_similarity_farm', $findingNames,
+            'genuinely diverse batch must not trigger similarity farm');
+    }
 }

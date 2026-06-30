@@ -32,7 +32,7 @@ final class AtlasExternalBrainAntiGoodhartAuditor
     public const VERDICT_REPAIR_REQUIRED = 'repair_required';
     public const VERDICT_REJECT          = 'reject';
 
-    private const CRITICAL_FINDINGS = ['template_farm', 'low_variety'];
+    private const CRITICAL_FINDINGS = ['template_farm', 'template_similarity_farm', 'low_variety'];
 
     /** @param list<array<string,mixed>> $batch */
     public function audit(array $batch): array
@@ -43,6 +43,7 @@ final class AtlasExternalBrainAntiGoodhartAuditor
         if ($total > 0) {
             $findings = array_filter([
                 $this->checkTemplateFarm($batch, $total),
+                $this->checkTemplateSimilarityFarm($batch, $total),
                 $this->checkLowVariety($batch, $total),
                 $this->checkTestPadding($batch, $total),
                 $this->checkUnverifiableClaims($batch, $total),
@@ -232,6 +233,83 @@ final class AtlasExternalBrainAntiGoodhartAuditor
             'fraction'    => round($count / $total, 3),
             'repair_hint' => "{$count} task(s) target already-satisfied capabilities ({$labels}). Remove and replace with unsatisfied gaps from the capability rubric.",
         ];
+    }
+
+    /**
+     * Catches renamed-noun template farms: batches where tasks differ only in proper nouns
+     * (e.g., AtlasFooService → AtlasBarService) but share identical structural patterns.
+     * Fires when ≥3 tasks and >50% share the same similarity fingerprint.
+     *
+     * @param list<array<string,mixed>> $batch
+     */
+    private function checkTemplateSimilarityFarm(array $batch, int $total): ?array
+    {
+        if ($total < 3) {
+            return null;
+        }
+
+        $buckets = [];
+        foreach ($batch as $t) {
+            $fp = $this->similarityFingerprint($t);
+            $buckets[$fp] = ($buckets[$fp] ?? 0) + 1;
+        }
+
+        arsort($buckets);
+        $topCount = $buckets[(string) array_key_first($buckets)];
+        $fraction = $topCount / $total;
+
+        if ($fraction <= 0.50 || $topCount < 3) {
+            return null;
+        }
+
+        return [
+            'finding'     => 'template_similarity_farm',
+            'severity'    => 'critical',
+            'affected'    => $topCount,
+            'fraction'    => round($fraction, 3),
+            'repair_hint' => "{$topCount} tasks share the same structural fingerprint (normalized objective, category, value_mechanism pattern, file suffix family) — they are renamed-noun clones. Replace with tasks that target genuinely distinct capabilities, categories, or file families.",
+        ];
+    }
+
+    private function similarityFingerprint(array $task): string
+    {
+        $text = (string) ($task['objective'] ?? ($task['label'] ?? ''));
+        // normalize BEFORE lowercasing so CamelCase identifiers are caught by the regex.
+        $normText = strtolower($this->normalizeProperNouns($text));
+        $category = (string) ($task['category'] ?? '');
+        $vm       = strtolower($this->normalizeProperNouns((string) ($task['value_mechanism'] ?? '')));
+        $suffix   = $this->fileSuffixPattern($task);
+
+        return "{$normText}|{$category}|{$vm}|{$suffix}";
+    }
+
+    private function normalizeProperNouns(string $text): string
+    {
+        // Replace CamelCase / PascalCase identifiers with {N}.
+        // Use (?<![a-z]) rather than \b because \b treats _ as a word char,
+        // missing patterns like _FooServiceAdapter in snake_case value_mechanism strings.
+        return preg_replace('/(?<![a-z])[A-Z][a-zA-Z0-9]{2,}/', '{N}', $text) ?? $text;
+    }
+
+    private function fileSuffixPattern(array $task): string
+    {
+        $files = (array) ($task['allowed_files'] ?? []);
+        if ($files === []) {
+            return '';
+        }
+        $suffixes = [];
+        foreach ($files as $f) {
+            $base = basename((string) $f);
+            // Extract trailing CamelCase word before .php (Service.php, Test.php, Repository.php…).
+            if (preg_match('/([A-Z][a-z]+\.php)$/', $base, $m)) {
+                $suffixes[] = $m[1];
+            } else {
+                $suffixes[] = pathinfo((string) $f, PATHINFO_EXTENSION);
+            }
+        }
+        sort($suffixes);
+
+        return implode(',', array_unique($suffixes));
     }
 
     private function topDirPrefix(array $task): string
