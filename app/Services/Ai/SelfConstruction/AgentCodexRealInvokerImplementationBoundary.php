@@ -14,9 +14,97 @@ class AgentCodexRealInvokerImplementationBoundary
 {
     private const LEDGER_TABLE = 'atlas_ledger_events';
 
+    public const BOUNDARY_STATUS_CLEAN = 'clean';
+    public const BOUNDARY_STATUS_BLOCKED = 'blocked';
+
     public function __construct(
         private readonly AtlasEvidenceLedger $ledger,
     ) {}
+
+    /**
+     * Pure invoker-contract evaluator (AC1/AC2/AC3): exposes the allowed_files/forbidden_files/
+     * required_evidence contract a Codex implementation plan must honor, rejects plans that write
+     * outside that scope, and rejects "evidence-free success" — a plan that claims success without
+     * attaching the evidence the task required. Does not touch the database or the ledger; this is
+     * the pre-report-stage contract check the boundary exists to enforce.
+     *
+     * INPUT:
+     *   allowed_files?: list<string>
+     *   forbidden_files?: list<string>
+     *   required_evidence?: list<string>
+     *   planned_writes?: list<string>   — paths the implementation plan intends to touch
+     *   claims_success?: bool (default false)
+     *   evidence_provided?: list<string>
+     *
+     * A planned write is in-scope when it exactly matches an allowed_files entry, or the entry
+     * ends with '/' and the write path starts with it (directory prefix). Any planned write that
+     * matches forbidden_files, OR fails to match allowed_files (when allowed_files is non-empty),
+     * is a cross-scope write.
+     *
+     * OUTPUT:
+     *   { boundary_status, blocked_paths, required_evidence_summary, allowed_files,
+     *     forbidden_files, required_evidence }
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluateImplementationPlan(array $input): array
+    {
+        $allowedFiles = array_values(array_map('strval', (array) ($input['allowed_files'] ?? [])));
+        $forbiddenFiles = array_values(array_map('strval', (array) ($input['forbidden_files'] ?? [])));
+        $requiredEvidence = array_values(array_map('strval', (array) ($input['required_evidence'] ?? [])));
+        $plannedWrites = array_values(array_map('strval', (array) ($input['planned_writes'] ?? [])));
+        $claimsSuccess = (bool) ($input['claims_success'] ?? false);
+        $evidenceProvided = array_values(array_map('strval', (array) ($input['evidence_provided'] ?? [])));
+
+        $blockedPaths = [];
+        foreach ($plannedWrites as $path) {
+            $forbiddenHit = $this->matchesAny($path, $forbiddenFiles);
+            $allowedHit = $allowedFiles === [] || $this->matchesAny($path, $allowedFiles);
+
+            if ($forbiddenHit || ! $allowedHit) {
+                $blockedPaths[] = $path;
+            }
+        }
+
+        $evidenceSatisfied = $requiredEvidence === [] || array_diff($requiredEvidence, $evidenceProvided) === [];
+        $evidenceFreeSuccess = $claimsSuccess && ! $evidenceSatisfied;
+
+        $requiredEvidenceSummary = [
+            'required' => $requiredEvidence,
+            'provided' => $evidenceProvided,
+            'missing' => array_values(array_diff($requiredEvidence, $evidenceProvided)),
+            'satisfied' => $evidenceSatisfied,
+        ];
+
+        $boundaryStatus = ($blockedPaths !== [] || $evidenceFreeSuccess)
+            ? self::BOUNDARY_STATUS_BLOCKED
+            : self::BOUNDARY_STATUS_CLEAN;
+
+        return [
+            'boundary_status' => $boundaryStatus,
+            'blocked_paths' => $blockedPaths,
+            'evidence_free_success' => $evidenceFreeSuccess,
+            'required_evidence_summary' => $requiredEvidenceSummary,
+            'allowed_files' => $allowedFiles,
+            'forbidden_files' => $forbiddenFiles,
+            'required_evidence' => $requiredEvidence,
+        ];
+    }
+
+    private function matchesAny(string $path, array $patterns): bool
+    {
+        foreach ($patterns as $pattern) {
+            if ($pattern === $path) {
+                return true;
+            }
+            if (str_ends_with($pattern, '/') && str_starts_with($path, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /**
      * @param  array<string,mixed>  $input

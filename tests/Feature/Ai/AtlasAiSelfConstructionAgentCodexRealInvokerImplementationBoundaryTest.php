@@ -245,6 +245,108 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerImplementationBoundaryTest ext
         ];
     }
 
+    // ── AC1/AC2/AC3: evaluateImplementationPlan — pure invoker contract check ──
+
+    public function test_clean_plan_within_scope_with_evidence_is_clean(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'planned_writes' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+            'claims_success' => true,
+            'evidence_provided' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerImplementationBoundary::BOUNDARY_STATUS_CLEAN, $result['boundary_status']);
+        $this->assertSame([], $result['blocked_paths']);
+    }
+
+    public function test_write_outside_allowed_files_is_blocked(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+            'planned_writes' => ['app/Services/Ai/SelfConstruction/Foo.php', 'app/Services/Ai/Other/Sneaky.php'],
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerImplementationBoundary::BOUNDARY_STATUS_BLOCKED, $result['boundary_status']);
+        $this->assertSame(['app/Services/Ai/Other/Sneaky.php'], $result['blocked_paths']);
+    }
+
+    public function test_write_matching_forbidden_files_is_blocked_even_if_allowed(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+            'forbidden_files' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+            'planned_writes' => ['app/Services/Ai/SelfConstruction/Foo.php'],
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerImplementationBoundary::BOUNDARY_STATUS_BLOCKED, $result['boundary_status']);
+        $this->assertContains('app/Services/Ai/SelfConstruction/Foo.php', $result['blocked_paths']);
+    }
+
+    public function test_directory_prefix_allowed_files_matches_writes_inside_it(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'allowed_files' => ['app/Services/Ai/SelfConstruction/'],
+            'planned_writes' => ['app/Services/Ai/SelfConstruction/Nested/Foo.php'],
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerImplementationBoundary::BOUNDARY_STATUS_CLEAN, $result['boundary_status']);
+    }
+
+    public function test_evidence_free_success_is_blocked(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'required_evidence' => ['tests_or_gates_result'],
+            'claims_success' => true,
+            'evidence_provided' => [],
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerImplementationBoundary::BOUNDARY_STATUS_BLOCKED, $result['boundary_status']);
+        $this->assertTrue($result['evidence_free_success']);
+        $this->assertFalse($result['required_evidence_summary']['satisfied']);
+        $this->assertSame(['tests_or_gates_result'], $result['required_evidence_summary']['missing']);
+    }
+
+    public function test_missing_evidence_without_success_claim_does_not_block(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'required_evidence' => ['tests_or_gates_result'],
+            'claims_success' => false,
+            'evidence_provided' => [],
+        ]);
+
+        $this->assertSame(AgentCodexRealInvokerImplementationBoundary::BOUNDARY_STATUS_CLEAN, $result['boundary_status']);
+        $this->assertFalse($result['evidence_free_success']);
+    }
+
+    public function test_exposes_allowed_forbidden_and_required_evidence_to_contract(): void
+    {
+        $result = app(AgentCodexRealInvokerImplementationBoundary::class)->evaluateImplementationPlan([
+            'allowed_files' => ['app/Foo.php'],
+            'forbidden_files' => ['app/Bar.php'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame(['app/Foo.php'], $result['allowed_files']);
+        $this->assertSame(['app/Bar.php'], $result['forbidden_files']);
+        $this->assertSame(['tests_or_gates_result'], $result['required_evidence']);
+    }
+
+    public function test_evaluate_implementation_plan_is_deterministic(): void
+    {
+        $boundary = app(AgentCodexRealInvokerImplementationBoundary::class);
+        $input = [
+            'allowed_files' => ['app/Foo.php'],
+            'planned_writes' => ['app/Foo.php'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'claims_success' => true,
+            'evidence_provided' => ['tests_or_gates_result'],
+        ];
+
+        $this->assertSame($boundary->evaluateImplementationPlan($input), $boundary->evaluateImplementationPlan($input));
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
