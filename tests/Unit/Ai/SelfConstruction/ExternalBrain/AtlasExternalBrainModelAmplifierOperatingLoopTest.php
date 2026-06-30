@@ -177,4 +177,121 @@ final class AtlasExternalBrainModelAmplifierOperatingLoopTest extends TestCase
         $r = $this->svc()->decide([]);
         $this->assertSame(AtlasExternalBrainModelAmplifierOperatingLoop::SCHEMA, $r['schema_version']);
     }
+
+    // ── AC2: next_run_plan always present ─────────────────────────────────────
+
+    public function test_next_run_plan_key_always_present(): void
+    {
+        $r = $this->svc()->decide([]);
+
+        $this->assertArrayHasKey('next_run_plan', $r);
+        $plan = $r['next_run_plan'];
+        foreach (['scaffold_variant', 'context_budget', 'regression_suite', 'repair_policy', 'promotion_blocked'] as $k) {
+            $this->assertArrayHasKey($k, $plan);
+        }
+    }
+
+    public function test_next_run_plan_defaults(): void
+    {
+        $r = $this->svc()->decide([]);
+        $plan = $r['next_run_plan'];
+
+        $this->assertSame('default', $plan['scaffold_variant']);
+        $this->assertSame(0, $plan['context_budget']);
+        $this->assertSame([], $plan['regression_suite']);
+        $this->assertSame('retry_with_stronger_scaffold', $plan['repair_policy']);
+        $this->assertFalse($plan['promotion_blocked']);
+    }
+
+    // ── AC4: clean promote-ready plan ─────────────────────────────────────────
+
+    public function test_promote_ready_plan_all_clear(): void
+    {
+        $r = $this->svc()->decide([
+            'scaffold_variant'              => 'v2',
+            'context_budget'               => 8192,
+            'regression_suite'             => ['test_a', 'test_b'],
+            'repair_policy'                => 'abort_on_fail',
+            'held_out_regressions_failing' => false,
+            'weak_output_repair_refusing'  => false,
+            'give_back_risk'               => 0.10,
+        ]);
+
+        $this->assertFalse($r['next_run_plan']['promotion_blocked']);
+        $this->assertSame('v2', $r['next_run_plan']['scaffold_variant']);
+        $this->assertSame(8192, $r['next_run_plan']['context_budget']);
+        $this->assertSame(['test_a', 'test_b'], $r['next_run_plan']['regression_suite']);
+    }
+
+    // ── AC3: regression-blocked plan ─────────────────────────────────────────
+
+    public function test_promotion_blocked_when_held_out_regressions_failing(): void
+    {
+        $r = $this->svc()->decide(['held_out_regressions_failing' => true]);
+
+        $this->assertTrue($r['next_run_plan']['promotion_blocked']);
+    }
+
+    public function test_promotion_blocked_when_weak_output_repair_refusing(): void
+    {
+        $r = $this->svc()->decide(['weak_output_repair_refusing' => true]);
+
+        $this->assertTrue($r['next_run_plan']['promotion_blocked']);
+    }
+
+    public function test_promotion_blocked_when_give_back_risk_exceeds_threshold(): void
+    {
+        $r = $this->svc()->decide(['give_back_risk' => 0.50, 'give_back_risk_threshold' => 0.30]);
+
+        $this->assertTrue($r['next_run_plan']['promotion_blocked']);
+    }
+
+    public function test_promotion_not_blocked_when_give_back_risk_at_threshold(): void
+    {
+        // strictly greater than threshold blocks; equal does not
+        $r = $this->svc()->decide(['give_back_risk' => 0.30, 'give_back_risk_threshold' => 0.30]);
+
+        $this->assertFalse($r['next_run_plan']['promotion_blocked']);
+    }
+
+    // ── AC4: repair-required plan ─────────────────────────────────────────────
+
+    public function test_repair_required_plan_has_promotion_blocked(): void
+    {
+        $r = $this->svc()->decide([
+            'scaffold_evidence'            => ['repair_signal' => true],
+            'held_out_regressions_failing' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelAmplifierOperatingLoop::DECISION_REPAIR_SCAFFOLD, $r['decision']);
+        $this->assertTrue($r['next_run_plan']['promotion_blocked']);
+    }
+
+    // ── AC4: degradation plan ─────────────────────────────────────────────────
+
+    public function test_degradation_plan_escalates_frontier_with_custom_policy(): void
+    {
+        $r = $this->svc()->decide([
+            'benchmark_score'              => 0.50,
+            'frontier_available'           => true,
+            'escalation_budget_remaining'  => true,
+            'repair_policy'                => 'escalate_and_retry',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainModelAmplifierOperatingLoop::DECISION_ESCALATE_FRONTIER, $r['decision']);
+        $this->assertSame('escalate_and_retry', $r['next_run_plan']['repair_policy']);
+    }
+
+    // ── AC4: deterministic ────────────────────────────────────────────────────
+
+    public function test_next_run_plan_is_deterministic(): void
+    {
+        $input = [
+            'scaffold_variant'  => 'v3',
+            'context_budget'    => 4096,
+            'give_back_risk'    => 0.15,
+        ];
+
+        $this->assertSame($this->svc()->decide($input), $this->svc()->decide($input));
+    }
 }

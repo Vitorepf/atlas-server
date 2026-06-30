@@ -19,6 +19,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * Frontier is NEVER required for steady-state autonomy; it is only used when
  * explicitly available, budget allows, AND the benchmark warrants escalation.
+ *
+ * CLOSED FEEDBACK (AC2/AC3):
+ *   next_run_plan includes scaffold_variant, context_budget, regression_suite,
+ *   repair_policy, and promotion_blocked.
+ *   promotion_blocked = true when:
+ *     held_out_regressions_failing=true  OR
+ *     weak_output_repair_refusing=true   OR
+ *     give_back_risk > give_back_risk_threshold (default 0.30)
  */
 final class AtlasExternalBrainModelAmplifierOperatingLoop
 {
@@ -39,14 +47,28 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
     public function decide(array $input): array
     {
         $se = is_array($input['scaffold_evidence'] ?? null) ? $input['scaffold_evidence'] : [];
-        $proxyLeak = (bool) ($input['proxy_leak_detected'] ?? false);
-        $benchmark = (float) ($input['benchmark_score'] ?? 1.0);
-        $frontierAvail = (bool) ($input['frontier_available'] ?? false);
-        $escalationBudget = (bool) ($input['escalation_budget_remaining'] ?? false);
-        $scaffoldAvail = (bool) ($input['scaffold_available'] ?? false);
-        $lift = (float) ($se['lift_score'] ?? 0.0);
-        $retireSignal = (bool) ($se['retire_signal'] ?? false);
-        $repairSignal = (bool) ($se['repair_signal'] ?? false);
+        $proxyLeak        = (bool)  ($input['proxy_leak_detected']          ?? false);
+        $benchmark        = (float) ($input['benchmark_score']              ?? 1.0);
+        $frontierAvail    = (bool)  ($input['frontier_available']           ?? false);
+        $escalationBudget = (bool)  ($input['escalation_budget_remaining']  ?? false);
+        $scaffoldAvail    = (bool)  ($input['scaffold_available']           ?? false);
+        $lift             = (float) ($se['lift_score']                      ?? 0.0);
+        $retireSignal     = (bool)  ($se['retire_signal']                   ?? false);
+        $repairSignal     = (bool)  ($se['repair_signal']                   ?? false);
+
+        // AC2/AC3: closed-feedback plan fields.
+        $scaffoldVariant          = (string) ($input['scaffold_variant']           ?? 'default');
+        $contextBudget            = (int)    ($input['context_budget']             ?? 0);
+        $regressionSuite          = is_array($input['regression_suite'] ?? null) ? $input['regression_suite'] : [];
+        $repairPolicy             = (string) ($input['repair_policy']              ?? 'retry_with_stronger_scaffold');
+        $heldOutFailing           = (bool)   ($input['held_out_regressions_failing'] ?? false);
+        $weakOutputRefusing       = (bool)   ($input['weak_output_repair_refusing']  ?? false);
+        $giveBackRisk             = (float)  ($input['give_back_risk']             ?? 0.0);
+        $giveBackRiskThreshold    = (float)  ($input['give_back_risk_threshold']   ?? 0.30);
+
+        $promotionBlocked = $heldOutFailing
+            || $weakOutputRefusing
+            || $giveBackRisk > $giveBackRiskThreshold;
 
         $decision = match (true) {
             $proxyLeak                                                  => self::DECISION_REPAIR_SCAFFOLD,
@@ -67,15 +89,22 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
         };
 
         return [
-            'schema_version' => self::SCHEMA,
-            'decision' => $decision,
-            'rationale' => $rationale,
+            'schema_version'  => self::SCHEMA,
+            'decision'        => $decision,
+            'rationale'       => $rationale,
             'frontier_required' => false,
-            'receipt' => [
+            'receipt'         => [
                 'proxy_leak_detected' => $proxyLeak,
-                'frontier_available' => $frontierAvail,
-                'scaffold_available' => $scaffoldAvail,
-                'benchmark_score' => $benchmark,
+                'frontier_available'  => $frontierAvail,
+                'scaffold_available'  => $scaffoldAvail,
+                'benchmark_score'     => $benchmark,
+            ],
+            'next_run_plan'   => [
+                'scaffold_variant'  => $scaffoldVariant,
+                'context_budget'    => $contextBudget,
+                'regression_suite'  => $regressionSuite,
+                'repair_policy'     => $repairPolicy,
+                'promotion_blocked' => $promotionBlocked,
             ],
         ];
     }
