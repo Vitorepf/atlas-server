@@ -23,22 +23,46 @@ namespace App\Services\Ai\AutonomousEvolution;
 final class AtlasLoopBudgetScheduler
 {
     /**
-     * @param  list<array{id:string, value?:float, costs?:array<string,float>}>  $obras  per-provider est cost
-     * @return array{scheduled:list<array{id:string, provider:string, cost:float, value:float, ratio:float}>, deferred:list<string>, spent:float, expected_value:float, budget:float}
+     * @param  list<array{id:string, value?:float, costs?:array<string,float>, depends_on?:list<string>}>  $obras  per-provider est cost
+     * @param  list<string>  $satisfiedDependencyIds  dependency IDs already satisfied outside this batch
+     * @return array{scheduled:list<array{id:string, provider:string, cost:float, value:float, ratio:float}>, deferred:list<string>, spent:float, expected_value:float, budget:float, deferred_reasons:array<string,string>}
      */
-    public function schedule(array $obras, float $budget, int $maxConcurrent): array
+    public function schedule(array $obras, float $budget, int $maxConcurrent, array $satisfiedDependencyIds = []): array
     {
         $budget = max(0.0, $budget);
         $maxConcurrent = max(1, $maxConcurrent);
 
-        // Per obra, pick the CHEAPEST configured provider and its value/cost ratio.
+        // Dep-satisfaction set: pre-satisfied ids + ALL ids in this batch (within-batch deps are considered in-flight together).
+        $batchIds = [];
+        foreach ($obras as $obra) {
+            if (is_array($obra)) {
+                $bid = trim((string) ($obra['id'] ?? ''));
+                if ($bid !== '') {
+                    $batchIds[$bid] = true;
+                }
+            }
+        }
+        $depSatisfied = array_merge(array_flip($satisfiedDependencyIds), $batchIds);
+
+        // Per obra, check deps first then pick the CHEAPEST configured provider and its value/cost ratio.
         $candidates = [];
-        $unschedulable = []; // obras with no usable provider/cost — DEFERRED, never silently dropped.
+        $unschedulable = []; // obras with no usable provider/cost or blocked deps — DEFERRED, never silently dropped.
+        $deferredReasons = [];
         foreach ($obras as $obra) {
             if (! is_array($obra) || trim((string) ($obra['id'] ?? '')) === '') {
                 continue;
             }
             $id = trim((string) $obra['id']);
+
+            // Dependency check — an obra with any unmet dep is deferred immediately, never mis-scheduled.
+            foreach ((array) ($obra['depends_on'] ?? []) as $dep) {
+                if (! isset($depSatisfied[(string) $dep])) {
+                    $unschedulable[] = $id;
+                    $deferredReasons[$id] = 'dependency_blocked';
+                    continue 2;
+                }
+            }
+
             $rawValue = (float) ($obra['value'] ?? 1.0);
             $value = is_finite($rawValue) ? max(0.0, $rawValue) : 0.0; // NaN/INF value => 0 (never poisons the sort)
             $costs = is_array($obra['costs'] ?? null) ? $obra['costs'] : [];
@@ -59,6 +83,7 @@ final class AtlasLoopBudgetScheduler
             }
             if ($bestProvider === null) {
                 $unschedulable[] = $id; // no finite/positive provider cost => deferred (the honest invariant)
+                $deferredReasons[$id] = 'no_provider';
 
                 continue;
             }
@@ -87,6 +112,7 @@ final class AtlasLoopBudgetScheduler
                 $expectedValue = round($expectedValue + $c['value'], 6);
             } else {
                 $deferred[] = $c['id'];
+                $deferredReasons[$c['id']] = count($scheduled) >= $maxConcurrent ? 'concurrency_limit' : 'budget_exceeded';
             }
         }
 
@@ -96,6 +122,7 @@ final class AtlasLoopBudgetScheduler
             'spent' => $spent,
             'expected_value' => $expectedValue,
             'budget' => $budget,
+            'deferred_reasons' => $deferredReasons,
         ];
     }
 }

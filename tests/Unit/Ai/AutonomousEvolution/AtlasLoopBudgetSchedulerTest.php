@@ -78,6 +78,44 @@ final class AtlasLoopBudgetSchedulerTest extends TestCase
         $this->assertEqualsWithDelta(4.0, $r['scheduled'][0]['cost'], 0.0001);
     }
 
+    public function test_unmet_external_dependency_defers_obra_with_dependency_blocked_reason(): void
+    {
+        // B has a high value but depends on 'external-gate' which is neither in the batch nor satisfied.
+        $r = (new AtlasLoopBudgetScheduler)->schedule([
+            ['id' => 'A', 'value' => 1.0, 'costs' => ['m' => 1.0]],
+            ['id' => 'B', 'value' => 9.0, 'costs' => ['m' => 1.0], 'depends_on' => ['external-gate']],
+        ], 100.0, 4);
+
+        $scheduledIds = array_column($r['scheduled'], 'id');
+        $this->assertContains('A', $scheduledIds, 'A has no deps — must be scheduled');
+        $this->assertNotContains('B', $scheduledIds, 'B has unmet dep — must not be scheduled before it');
+        $this->assertContains('B', $r['deferred'], 'B must appear in deferred (never silently dropped)');
+        $this->assertArrayHasKey('deferred_reasons', $r);
+        $this->assertSame('dependency_blocked', $r['deferred_reasons']['B']);
+    }
+
+    public function test_dep_in_same_batch_or_in_satisfied_ids_allows_normal_scheduling(): void
+    {
+        // Sub-case 1: B depends on A — both in same batch → both eligible.
+        $r1 = (new AtlasLoopBudgetScheduler)->schedule([
+            ['id' => 'A', 'value' => 1.0, 'costs' => ['m' => 1.0]],
+            ['id' => 'B', 'value' => 5.0, 'costs' => ['m' => 1.0], 'depends_on' => ['A']],
+        ], 100.0, 4);
+        $ids1 = array_column($r1['scheduled'], 'id');
+        $this->assertContains('A', $ids1);
+        $this->assertContains('B', $ids1, 'dep A is in same batch — B must be eligible');
+        $this->assertSame([], $r1['deferred']);
+
+        // Sub-case 2: B depends on 'pre-done', listed in satisfiedDependencyIds.
+        $r2 = (new AtlasLoopBudgetScheduler)->schedule([
+            ['id' => 'B', 'value' => 5.0, 'costs' => ['m' => 1.0], 'depends_on' => ['pre-done']],
+        ], 100.0, 4, ['pre-done']);
+        $this->assertContains('B', array_column($r2['scheduled'], 'id'), 'dep pre-done is pre-satisfied');
+        $this->assertSame([], $r2['deferred']);
+        $this->assertArrayHasKey('deferred_reasons', $r2);
+        $this->assertSame([], $r2['deferred_reasons']);
+    }
+
     public function test_unschedulable_obra_is_deferred_not_silently_dropped(): void
     {
         // (workflow fix #19) an obra with no usable (finite/positive) provider cost must appear in deferred,
