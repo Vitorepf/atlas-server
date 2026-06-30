@@ -89,6 +89,51 @@ final class AtlasTaskMaestroSemanticAuditCommandTest extends TestCase
         $this->assertStringContainsString('pkt-42', $out, 'receipt must use --packet-id fallback, not blank');
     }
 
+    public function test_json_pass_output_includes_status_passed_and_panel_votes(): void
+    {
+        $file = $this->writePacket('good-json', [
+            'task_packet_id' => 'good-json-1',
+            'objective' => 'Audit a packet for semantic correctness and report.',
+            'allowed_files' => ['app/Console/Commands/AtlasTaskMaestroSemanticAuditCommand.php'],
+            'acceptance_criteria' => ['Runs AtlasMaestroSemanticAuditPanel and asserts the quorum.'],
+        ]);
+
+        [$exit, $out] = $this->runCommand(['--packet-file' => $file, '--json' => true]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('passed', $decoded['status'] ?? null, '--json pass must include status=passed');
+        $this->assertIsArray($decoded['panel_votes'] ?? null, '--json pass must include panel_votes list');
+    }
+
+    public function test_json_rejected_output_includes_status_rejected_and_receipt_fields(): void
+    {
+        $file = $this->writePacket('bad-json', [
+            'task_packet_id' => 'bad-json-1',
+            'objective' => 'Refactor AtlasMaestroSemanticAuditPanel internals.',
+            'allowed_files' => ['app/Nowhere/Unrelated.php'],
+            'acceptance_criteria' => ['Calls AtlasMaestroTotallyFabricatedSymbolXyz to do the work.'],
+        ]);
+
+        [$exit, $out] = $this->runCommand(['--packet-file' => $file, '--json' => true]);
+
+        $this->assertSame(1, $exit, $out);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('rejected', $decoded['status'] ?? null, '--json rejection must include status=rejected');
+        $this->assertArrayHasKey('rejected_voters', $decoded, '--json rejection must include rejected_voters');
+        $this->assertArrayHasKey('panel_votes', $decoded, '--json rejection must include panel_votes');
+    }
+
+    public function test_json_missing_packet_includes_status_missing_packet_and_reason_exits_two(): void
+    {
+        [$exit, $out] = $this->runCommand(['--packet-file' => $this->dir.'/does-not-exist.json', '--json' => true]);
+
+        $this->assertSame(2, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame('missing_packet', $decoded['status'] ?? null, '--json missing must include status=missing_packet');
+        $this->assertNotEmpty($decoded['reason'] ?? '', '--json missing must include a reason');
+    }
+
     /**
      * @param  array<string,mixed>  $packet
      */

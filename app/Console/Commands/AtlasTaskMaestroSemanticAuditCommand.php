@@ -28,14 +28,23 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
 {
     private const RECEIPT_DIR = 'atlas/maestro/semantic-rejections';
 
-    protected $signature = 'atlas:task:maestro-semantic-audit {--packet-file= : Path to a packet JSON file} {--packet-id= : task_packet_id to load from the serving queue}';
+    protected $signature = 'atlas:task:maestro-semantic-audit {--packet-file= : Path to a packet JSON file} {--packet-id= : task_packet_id to load from the serving queue} {--json : Emit machine-readable JSON instead of human text}';
 
     protected $description = 'Run the Maestro semantic v+3 gate over one task packet (exit 0=pass, 1=rejected, 2=missing/invalid).';
 
+    /** Reason text for a missing/invalid packet — set by loadPacket() before returning null. */
+    private string $missingReason = 'no_packet_specified';
+
     public function handle(): int
     {
+        $json = (bool) $this->option('json');
+
         $packet = $this->loadPacket();
         if ($packet === null) {
+            if ($json) {
+                $this->line((string) json_encode(['status' => 'missing_packet', 'reason' => $this->missingReason], JSON_UNESCAPED_SLASHES));
+            }
+
             return 2;
         }
 
@@ -43,7 +52,11 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
         $votes = array_map(static fn (mixed $v): int => $v ? 1 : 0, array_values((array) ($result['votes'] ?? [])));
 
         if (($result['pass'] ?? false) === true) {
-            $this->line('PASS panel_votes=['.implode(',', $votes).']');
+            if ($json) {
+                $this->line((string) json_encode(['status' => 'passed', 'panel_votes' => $votes], JSON_UNESCAPED_SLASHES));
+            } else {
+                $this->line('PASS panel_votes=['.implode(',', $votes).']');
+            }
 
             return 0;
         }
@@ -52,28 +65,42 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
         $packetId = $rawId !== '' ? $rawId : ((string) $this->option('packet-id') ?: 'unknown');
         $receipt = (new AtlasMaestroSemanticRejectionReceipt)->compose($packetId, $result);
         $this->persistReceipt($packetId, $receipt);
-        $this->line($receipt);
+
+        if ($json) {
+            $decoded = (array) json_decode($receipt, true, 512);
+            $decoded['status'] = 'rejected';
+            $this->line((string) json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->line($receipt);
+        }
 
         return 1;
     }
 
     /**
-     * @return array<string,mixed>|null  null ⇒ already emitted a packet_not_found line + the caller returns 2
+     * @return array<string,mixed>|null  null ⇒ sets $this->missingReason and (in non-json mode) emits a text line
      */
     private function loadPacket(): ?array
     {
         $file = trim((string) $this->option('packet-file'));
         $id = trim((string) $this->option('packet-id'));
+        $json = (bool) $this->option('json');
 
         if ($file !== '') {
             if (! is_file($file)) {
-                $this->line('packet_not_found reason=file_missing path='.$file);
+                $this->missingReason = 'file_missing';
+                if (! $json) {
+                    $this->line('packet_not_found reason=file_missing path='.$file);
+                }
 
                 return null;
             }
             $decoded = json_decode((string) @file_get_contents($file), true);
             if (! is_array($decoded)) {
-                $this->line('packet_not_found reason=invalid_json path='.$file);
+                $this->missingReason = 'invalid_json';
+                if (! $json) {
+                    $this->line('packet_not_found reason=invalid_json path='.$file);
+                }
 
                 return null;
             }
@@ -89,7 +116,10 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
             }
             $packet = is_array($record) ? (array) ($record['task_packet'] ?? []) : [];
             if ($packet === []) {
-                $this->line('packet_not_found reason=id_not_in_queue id='.$id);
+                $this->missingReason = 'id_not_in_queue';
+                if (! $json) {
+                    $this->line('packet_not_found reason=id_not_in_queue id='.$id);
+                }
 
                 return null;
             }
@@ -97,7 +127,10 @@ final class AtlasTaskMaestroSemanticAuditCommand extends Command
             return $packet;
         }
 
-        $this->line('packet_not_found reason=no_packet_specified');
+        $this->missingReason = 'no_packet_specified';
+        if (! $json) {
+            $this->line('packet_not_found reason=no_packet_specified');
+        }
 
         return null;
     }
