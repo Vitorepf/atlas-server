@@ -72,7 +72,7 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
 
         [$status, $topRisks] = $this->resolveStatus(
             $queuePressure, $simplPressure, $amplifierStatus,
-            $workerSuccessRate, $giveBackRate, $taskValueDegrading, $muscleOutcomeDegrading,
+            $workerSuccessRate, $giveBackRate, $malformedRate, $taskValueDegrading, $muscleOutcomeDegrading,
         );
 
         $nextDecision = $this->resolveDecision($queuePressure, $simplPressure, $maturityGapCount);
@@ -104,6 +104,7 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         string $amplifierStatus,
         float  $workerSuccessRate,
         float  $giveBackRate,
+        float  $malformedRate,
         bool   $taskValueDegrading,
         bool   $muscleOutcomeDegrading,
     ): array {
@@ -112,6 +113,9 @@ final class AtlasExternalBrainUnifiedControlPlaneSnapshot
         // RED conditions
         if ($giveBackRate > self::GIVE_BACK_RED_FLOOR) {
             $risks[] = sprintf('give_back_rate:%.4f>%.2f', $giveBackRate, self::GIVE_BACK_RED_FLOOR);
+        }
+        if ($malformedRate > self::MALFORMED_RED_FLOOR) {
+            $risks[] = sprintf('malformed_rate:%.4f>%.2f', $malformedRate, self::MALFORMED_RED_FLOOR);
         }
         if ($workerSuccessRate < self::SUCCESS_RATE_RED_CEILING) {
             $risks[] = sprintf('worker_success_rate:%.4f<%.2f', $workerSuccessRate, self::SUCCESS_RATE_RED_CEILING);
