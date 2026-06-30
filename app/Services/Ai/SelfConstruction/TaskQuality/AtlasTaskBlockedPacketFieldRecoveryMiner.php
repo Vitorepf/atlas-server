@@ -35,6 +35,8 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         $existingAcceptance = array_values(array_map('strval', (array) ($packet['acceptance_criteria'] ?? [])));
         $existingEvidence = array_values(array_map('strval', (array) ($packet['required_evidence'] ?? [])));
         $scopeIn = array_values(array_map('strval', (array) ($packet['scope_in'] ?? [])));
+        $knownExistingPaths = array_values(array_map('strval', (array) ($packet['known_existing_paths'] ?? [])));
+        $sourcePacketId = trim((string) ($packet['source_packet_id'] ?? ''));
 
         $evidenceSources = [];
         $refusalReasons = [];
@@ -43,11 +45,18 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         $recoveredAllowed = $this->recoverAllowedFiles(
             $existingAllowed,
             $scopeIn,
+            $knownExistingPaths,
             $objective,
             $evidenceSources,
             $refusalReasons,
             $confidence,
         );
+
+        if ($recoveredAllowed !== [] && $sourcePacketId !== '') {
+            // A source_packet_id alone never fabricates a field — it only corroborates a recovery
+            // that already happened from a concrete path signal.
+            $evidenceSources[] = 'source_packet_id_corroboration';
+        }
 
         $recoveredAllowed = $this->applyForbiddenGuard(
             $packet,
@@ -78,6 +87,17 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         $evidenceSources = array_values(array_unique($evidenceSources));
         sort($evidenceSources, SORT_STRING);
 
+        $missingFields = [];
+        if ($recoveredAllowed === []) {
+            $missingFields[] = 'allowed_files';
+        }
+        if ($recoveredAcceptance === []) {
+            $missingFields[] = 'acceptance_criteria';
+        }
+        if ($recoveredEvidence === []) {
+            $missingFields[] = 'required_evidence';
+        }
+
         return [
             'schema' => self::SCHEMA,
             'recovered_fields' => [
@@ -88,12 +108,14 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
             'confidence' => $confidence,
             'evidence_sources' => $evidenceSources,
             'refusal_reasons' => $refusalReasons,
+            'missing_fields' => $missingFields,
         ];
     }
 
     /**
      * @param  list<string>  $existingAllowed
      * @param  list<string>  $scopeIn
+     * @param  list<string>  $knownExistingPaths
      * @param  list<string>  $evidenceSources
      * @param  list<string>  $refusalReasons
      * @return list<string>
@@ -101,6 +123,7 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
     private function recoverAllowedFiles(
         array $existingAllowed,
         array $scopeIn,
+        array $knownExistingPaths,
         string $objective,
         array &$evidenceSources,
         array &$refusalReasons,
@@ -118,6 +141,14 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         }
         $usedScopeIn = $candidates !== [];
 
+        $knownPathCandidates = [];
+        foreach ($knownExistingPaths as $p) {
+            if (str_ends_with($p, '.php')) {
+                $knownPathCandidates[] = $p;
+            }
+        }
+        $candidates = array_merge($candidates, $knownPathCandidates);
+
         $objectivePaths = [];
         if (preg_match_all('#[A-Za-z0-9_\-/]+\.php#', $objective, $matches) !== false) {
             $objectivePaths = $matches[0];
@@ -128,9 +159,29 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
         if ($usedScopeIn) {
             $evidenceSources[] = 'scope_in';
         }
+        if ($knownPathCandidates !== []) {
+            $evidenceSources[] = 'known_existing_code_or_test_paths';
+        }
         if ($objectivePaths !== []) {
             $evidenceSources[] = 'objective_path_mention';
         }
+
+        // A class-like target (e.g. AtlasFooBarValidator) mentioned in the objective, corroborated
+        // by a known/scope_in test path whose basename matches that class name, is a safe recovery
+        // signal even though the objective text itself carries no literal .php path.
+        if (preg_match('/\bAtlas[A-Za-z0-9]+\b/', $objective, $classMatch) === 1) {
+            $className = $classMatch[0];
+            foreach (array_merge($knownPathCandidates, $candidates) as $p) {
+                if (basename($p) === $className.'Test.php' && ! in_array($p, $candidates, true)) {
+                    $candidates[] = $p;
+                }
+            }
+            if (in_array($className.'Test.php', array_map('basename', $candidates), true)) {
+                $evidenceSources[] = 'class_target_matched_test_path';
+            }
+        }
+        $candidates = array_values(array_unique($candidates));
+        sort($candidates, SORT_STRING);
 
         if ($candidates === []) {
             $refusalReasons[] = preg_match('/\bAtlas[A-Za-z0-9]+\b/', $objective) === 1
