@@ -9,7 +9,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * duplicate, scaffold-compliance, and task-fabric checks before acceptance.
  *
  * Input facts:
- *   proposals              — list of {id, target_file?, objective, evidence?, scaffold_score?, blast_radius?}.
+ *   proposals              — list of {id, target_file?, objective, evidence?, scaffold_score?,
+ *                             blast_radius?, leverage?, implementability?, risk?}.
  *   existing_queue_targets — list of target_file strings already in the live queue (duplicate check).
  *   min_scaffold_score     — minimum scaffold_score for compliance (default 0.60).
  *   require_evidence       — whether evidence must be present (default true).
@@ -21,7 +22,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   3. task_fabric_check  : blast_radius > max_blast_radius OR objective empty.
  *   4. evidence_check     : evidence absent or empty AND require_evidence=true.
  *
- * AC3 — a proposal is accepted only when all four checks pass.
+ * AC3 — accepted proposals are ranked by arena_score:
+ *   arena_score = leverage*0.30 + implementability*0.25 + (1-risk)*0.25 + evidence_factor*0.20
+ *   evidence_factor = min(1, evidence_count / EVIDENCE_SATURATION)
+ *   Defaults: leverage=0.5, implementability=0.5, risk=0.5.
  *
  * Repairability: rejected proposals are repairable when:
  *   - The only rejection reason is scaffold_compliance (score can be improved), OR
@@ -29,7 +33,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   Non-repairable: duplicate_target or task_fabric_check violations.
  *
  * AC4 outputs: accepted_proposals, rejected_proposals, replay_checks,
- *   repairable_proposals, court_verdict.
+ *   repairable_proposals, arena_ranking, court_verdict.
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -40,6 +44,7 @@ final class AtlasExternalBrainProposalReplayCourt
     private const DEFAULT_MIN_SCAFFOLD    = 0.60;
     private const DEFAULT_MAX_BLAST       = 0.90;
     private const DEFAULT_REQUIRE_EVIDENCE = true;
+    private const EVIDENCE_SATURATION    = 5;
 
     private const CHECK_NAMES = [
         'duplicate_target',
@@ -63,6 +68,7 @@ final class AtlasExternalBrainProposalReplayCourt
         $accepted    = [];
         $rejected    = [];
         $repairable  = [];
+        $arenaScores = []; // id => arena_score
 
         // Per-check counters.
         $checkStats = [];
@@ -71,13 +77,16 @@ final class AtlasExternalBrainProposalReplayCourt
         }
 
         foreach ($proposals as $proposal) {
-            $id          = (string) ($proposal['id']            ?? '');
-            $targetFile  = (string) ($proposal['target_file']   ?? '');
-            $objective   = trim((string) ($proposal['objective'] ?? ''));
-            $evidence    = is_array($proposal['evidence'] ?? null) ? $proposal['evidence'] : (is_string($proposal['evidence'] ?? null) ? [$proposal['evidence']] : []);
-            $evidence    = array_filter($evidence, static fn ($e) => trim((string) $e) !== '');
-            $scaffold    = (float) ($proposal['scaffold_score'] ?? 0.0);
-            $blastRadius = (float) ($proposal['blast_radius']   ?? 0.0);
+            $id              = (string) ($proposal['id']              ?? '');
+            $targetFile      = (string) ($proposal['target_file']     ?? '');
+            $objective       = trim((string) ($proposal['objective']   ?? ''));
+            $evidence        = is_array($proposal['evidence'] ?? null) ? $proposal['evidence'] : (is_string($proposal['evidence'] ?? null) ? [$proposal['evidence']] : []);
+            $evidence        = array_filter($evidence, static fn ($e) => trim((string) $e) !== '');
+            $scaffold        = (float) ($proposal['scaffold_score']   ?? 0.0);
+            $blastRadius     = (float) ($proposal['blast_radius']     ?? 0.0);
+            $leverage        = (float) ($proposal['leverage']         ?? 0.5);
+            $implementability = (float) ($proposal['implementability'] ?? 0.5);
+            $risk            = (float) ($proposal['risk']             ?? 0.5);
 
             $failures = [];
 
@@ -119,6 +128,12 @@ final class AtlasExternalBrainProposalReplayCourt
 
             if (empty($failures)) {
                 $accepted[] = $id;
+                // AC3: arena_score for ranking.
+                $evidenceFactor = min(1.0, count($evidence) / self::EVIDENCE_SATURATION);
+                $arenaScores[$id] = round(
+                    $leverage * 0.30 + $implementability * 0.25 + (1.0 - $risk) * 0.25 + $evidenceFactor * 0.20,
+                    4,
+                );
             } else {
                 $rejected[] = ['id' => $id, 'rejection_reasons' => $failures];
                 $repairHint = $this->repairHint($failures);
@@ -130,13 +145,22 @@ final class AtlasExternalBrainProposalReplayCourt
 
         $verdict = $this->verdict(count($proposals), count($accepted));
 
+        // AC3: sort accepted proposals by arena_score descending, then id for determinism.
+        arsort($arenaScores);
+        $arenaRanking = [];
+        $rank = 1;
+        foreach ($arenaScores as $id => $score) {
+            $arenaRanking[] = ['rank' => $rank++, 'id' => $id, 'arena_score' => $score];
+        }
+
         return [
-            'schema_version'      => self::SCHEMA,
-            'accepted_proposals'  => $accepted,
-            'rejected_proposals'  => $rejected,
-            'replay_checks'       => $checkStats,
+            'schema_version'       => self::SCHEMA,
+            'accepted_proposals'   => $accepted,
+            'rejected_proposals'   => $rejected,
+            'replay_checks'        => $checkStats,
             'repairable_proposals' => $repairable,
-            'court_verdict'       => $verdict,
+            'arena_ranking'        => $arenaRanking,
+            'court_verdict'        => $verdict,
         ];
     }
 

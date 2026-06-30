@@ -198,4 +198,62 @@ final class AtlasExternalBrainProposalReplayCourtTest extends TestCase
         $b = $this->court()->adjudicate($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC4: arena_ranking always present ─────────────────────────────────────
+
+    public function test_arena_ranking_key_always_present(): void
+    {
+        $r = $this->court()->adjudicate([]);
+
+        $this->assertArrayHasKey('arena_ranking', $r);
+        $this->assertSame([], $r['arena_ranking']);
+    }
+
+    public function test_arena_ranking_empty_when_all_rejected(): void
+    {
+        $r = $this->court()->adjudicate(['proposals' => [
+            ['id' => 'p1', 'objective' => '', 'scaffold_score' => 0.9, 'evidence' => ['e']],
+        ]]);
+
+        $this->assertSame([], $r['arena_ranking']);
+    }
+
+    // ── AC3: arena_score and ranking order ────────────────────────────────────
+
+    public function test_accepted_proposal_appears_in_arena_ranking(): void
+    {
+        $r = $this->court()->adjudicate(['proposals' => [$this->good(['id' => 'p1'])]]);
+
+        $this->assertCount(1, $r['arena_ranking']);
+        $this->assertSame('p1', $r['arena_ranking'][0]['id']);
+        $this->assertArrayHasKey('arena_score', $r['arena_ranking'][0]);
+        $this->assertSame(1, $r['arena_ranking'][0]['rank']);
+    }
+
+    public function test_arena_ranking_sorted_by_score_descending(): void
+    {
+        $r = $this->court()->adjudicate(['proposals' => [
+            array_merge($this->good(['id' => 'low']),  ['leverage' => 0.1, 'implementability' => 0.1, 'risk' => 0.9]),
+            array_merge($this->good(['id' => 'high']), ['leverage' => 0.9, 'implementability' => 0.9, 'risk' => 0.1]),
+        ]]);
+
+        $this->assertSame('high', $r['arena_ranking'][0]['id']);
+        $this->assertSame('low',  $r['arena_ranking'][1]['id']);
+        $this->assertGreaterThan($r['arena_ranking'][1]['arena_score'], $r['arena_ranking'][0]['arena_score']);
+    }
+
+    public function test_arena_score_uses_evidence_count(): void
+    {
+        $r1 = $this->court()->adjudicate(['proposals' => [
+            $this->good(['id' => 'no-ev',   'evidence' => []]),
+        ], 'require_evidence' => false]);
+        $r2 = $this->court()->adjudicate(['proposals' => [
+            $this->good(['id' => 'with-ev', 'evidence' => ['e1', 'e2', 'e3', 'e4', 'e5']]),
+        ]]);
+
+        $this->assertGreaterThan(
+            $r1['arena_ranking'][0]['arena_score'],
+            $r2['arena_ranking'][0]['arena_score'],
+        );
+    }
 }
