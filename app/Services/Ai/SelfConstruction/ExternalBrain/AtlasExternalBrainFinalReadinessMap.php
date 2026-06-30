@@ -11,7 +11,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Refuses overall final_ready when any critical area lacks direct evidence or has unresolved issues.
  *
  * CRITICAL AREAS (auto-critical regardless of input flag):
- *   originator, task_fabric, maestro, learning, anti_goodhart, runtime, consolidation
+ *   originator, task_fabric, maestro, learning, anti_goodhart, runtime, consolidation,
+ *   workers, gates, receipts, memory_docs_sync, model_amplifier
  *
  * INPUT: map<area_name, evidence_record>
  *   evidence_record:
@@ -65,6 +66,7 @@ final class AtlasExternalBrainFinalReadinessMap
     private const AUTO_CRITICAL_AREAS = [
         'originator', 'task_fabric', 'maestro', 'learning',
         'anti_goodhart', 'runtime', 'consolidation',
+        'workers', 'gates', 'receipts', 'memory_docs_sync', 'model_amplifier',
     ];
 
     /** Evidence signals that every critical proven area must supply. */

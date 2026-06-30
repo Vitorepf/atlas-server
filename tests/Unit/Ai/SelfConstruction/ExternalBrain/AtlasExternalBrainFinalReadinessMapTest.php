@@ -14,10 +14,13 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         return new AtlasExternalBrainFinalReadinessMap();
     }
 
-    /** All 7 critical areas fully proven with all evidence signals. */
+    /** All 12 critical areas fully proven with all evidence signals. */
     private function allProven(): array
     {
-        $areas    = ['anti_goodhart', 'consolidation', 'learning', 'maestro', 'originator', 'runtime', 'task_fabric'];
+        $areas    = [
+            'anti_goodhart', 'consolidation', 'learning', 'maestro', 'originator', 'runtime', 'task_fabric',
+            'workers', 'gates', 'receipts', 'memory_docs_sync', 'model_amplifier',
+        ];
         $evidence = [];
         foreach ($areas as $a) {
             $evidence[$a] = [
@@ -146,7 +149,10 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_auto_critical_areas_are_flagged_critical(): void
     {
-        $autoCritical = ['originator', 'task_fabric', 'maestro', 'learning', 'anti_goodhart', 'runtime', 'consolidation'];
+        $autoCritical = [
+            'originator', 'task_fabric', 'maestro', 'learning', 'anti_goodhart', 'runtime', 'consolidation',
+            'workers', 'gates', 'receipts', 'memory_docs_sync', 'model_amplifier',
+        ];
         $evidence     = [];
         foreach ($autoCritical as $a) {
             $evidence[$a] = ['status' => 'proven'];
@@ -366,7 +372,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
     public function test_final_readiness_percent_reflects_proportion_of_fully_ready_critical_areas(): void
     {
-        // 6 of 7 critical areas fully proven; 1 missing runnable proof.
+        // 11 of 12 critical areas fully proven; 1 missing runnable proof.
         $evidence               = $this->allProven();
         $evidence['originator'] = [
             'status'                  => 'proven',
@@ -378,8 +384,8 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
 
         $result = $this->map()->map($evidence);
 
-        // 6/7 ≈ 85.71%
-        $this->assertEqualsWithDelta(85.71, $result['final_readiness_percent'], 0.1);
+        // 11/12 ≈ 91.67%
+        $this->assertEqualsWithDelta(91.67, $result['final_readiness_percent'], 0.1);
         $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
     }
 
@@ -420,5 +426,41 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
             $this->map()->map($evidence),
             $this->map()->map($evidence),
         );
+    }
+
+    // ── new Self-Construction OS domains ──────────────────────────────────────
+
+    public function test_workers_domain_missing_blocks_final_ready(): void
+    {
+        $evidence = $this->allProven();
+        $evidence['workers'] = ['status' => 'missing'];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertContains('workers', $result['blocking_areas']);
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+    }
+
+    public function test_gates_receipts_and_memory_docs_sync_are_auto_critical(): void
+    {
+        $result = $this->map()->map([
+            'gates'            => ['status' => 'proven'],
+            'receipts'         => ['status' => 'proven'],
+            'memory_docs_sync' => ['status' => 'proven'],
+        ]);
+
+        foreach ($result['area_readiness'] as $entry) {
+            $this->assertTrue($entry['is_critical'], "area {$entry['area']} must be auto-critical");
+        }
+    }
+
+    public function test_model_amplifier_domain_missing_blocks_final_ready(): void
+    {
+        $evidence = $this->allProven();
+        $evidence['model_amplifier'] = ['status' => 'partially_proven'];
+
+        $result = $this->map()->map($evidence);
+
+        $this->assertContains('model_amplifier', $result['blocking_areas']);
     }
 }
