@@ -5,29 +5,29 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure causal ablation study. Compares historical task batches and estimates
- * which controlled dimensions cause positive or negative outcomes.
+ * Causal ablation study for batch-design dimensions. Learns which dimensions
+ * cause real Atlas improvement by correlating each against 6 outcome dimensions.
  *
- * Method (AC2):
- *   For each numeric/boolean dimension present in all batches, compute the
- *   Pearson correlation coefficient against outcome_metric across all batches.
- *   Dimensions with corr >= POSITIVE_THRESHOLD are likely positive causes;
- *   corr <= NEGATIVE_THRESHOLD are likely negative causes; the rest are neutral.
+ * Outcome dimensions accepted per batch (AC2):
+ *   Good (higher = better): value_proof_rate, commit_success_rate, compounding_impact
+ *   Bad  (lower  = better): give_back_rate, poison_rate, implementation_cost
  *
- * Confounders (AC2):
- *   Two dimensions are considered confounded when their inter-dimension
- *   correlation exceeds CONFOUNDER_THRESHOLD (default 0.80) AND both correlate
- *   with the outcome. Both are labelled confounders.
+ * Composite score per design dimension:
+ *   score = avg_corr(dim, good_outcomes) − avg_corr(dim, bad_outcomes)
+ *
+ * A dimension is a likely positive cause when score >= POSITIVE_THRESHOLD and
+ * a likely negative cause when score <= NEGATIVE_THRESHOLD.
+ *
+ * Confounders (AC3): design dimensions whose inter-correlation >= CONFOUNDER_THRESHOLD
+ * AND both show a meaningful composite score are labelled confounders and excluded
+ * from causal lists.
  *
  * Confidence (AC3):
- *   WEAK   — sample_size < min_sample_size, OR ≥ half of causal dimensions are confounders.
- *   MEDIUM — sample_size >= min_sample_size AND some confounders.
- *   HIGH   — sample_size >= min_sample_size AND no confounders.
+ *   weak   — sample_size < min_sample_size, OR confounders dominate causal signals
+ *   medium — adequate sample with some confounders
+ *   high   — adequate sample, no confounders
  *
- * AC4 outputs: likely_positive_causes, likely_negative_causes, confounders,
- *   confidence, confidence_reason, sample_size, studied_dimensions.
- *
- * Pure, deterministic (input order preserved), no providers, no I/O.
+ * Pure, deterministic, no I/O, no providers.
  */
 final class AtlasExternalBrainCausalAblationBatchStudy
 {
@@ -38,51 +38,65 @@ final class AtlasExternalBrainCausalAblationBatchStudy
     private const NEGATIVE_THRESHOLD   = -0.30;
     private const CONFOUNDER_THRESHOLD =  0.80;
 
-    /**
-     * @param  array<string,mixed>  $facts
-     * @return array<string,mixed>
-     */
+    private const GOOD_OUTCOMES = ['value_proof_rate', 'commit_success_rate', 'compounding_impact'];
+    private const BAD_OUTCOMES  = ['give_back_rate', 'poison_rate', 'implementation_cost'];
+
     public function study(array $facts): array
     {
         $batches       = is_array($facts['batches'] ?? null) ? $facts['batches'] : [];
-        $minSample     = max(1, (int) ($facts['min_sample_size'] ?? self::MIN_SAMPLE_DEFAULT));
+        $minSample     = max(1, (int)   ($facts['min_sample_size']                   ?? self::MIN_SAMPLE_DEFAULT));
         $confThreshold = max(0.0, min(1.0, (float) ($facts['confounder_correlation_threshold'] ?? self::CONFOUNDER_THRESHOLD)));
 
         $sampleSize = count($batches);
 
-        // Extract outcomes and dimension vectors.
-        $outcomes   = [];
-        $dimVectors = []; // dim -> float[]
+        $dimVectors     = []; // design_dim  → float[]
+        $outcomeVectors = []; // outcome_dim → float[]
 
         foreach ($batches as $batch) {
-            $outcomes[] = max(0.0, min(1.0, (float) ($batch['outcome_metric'] ?? 0.0)));
+            $outcomes = is_array($batch['outcome_dimensions'] ?? null) ? $batch['outcome_dimensions'] : [];
+            foreach (array_merge(self::GOOD_OUTCOMES, self::BAD_OUTCOMES) as $od) {
+                $outcomeVectors[$od][] = max(0.0, min(1.0, (float) ($outcomes[$od] ?? 0.0)));
+            }
             $dims = is_array($batch['dimensions'] ?? null) ? $batch['dimensions'] : [];
             foreach ($dims as $dim => $val) {
                 $dimVectors[$dim][] = is_bool($val) ? ($val ? 1.0 : 0.0) : (float) $val;
             }
         }
 
-        // Keep only dimensions present in ALL batches.
-        $fullDimensions = [];
-        foreach ($dimVectors as $dim => $vals) {
-            if (count($vals) === $sampleSize) {
-                $fullDimensions[$dim] = $vals;
-            }
-        }
-
+        $fullDimensions    = array_filter($dimVectors, fn ($v) => count($v) === $sampleSize);
         $studiedDimensions = array_keys($fullDimensions);
 
-        if ($sampleSize === 0 || empty($fullDimensions)) {
+        if ($sampleSize === 0 || $fullDimensions === []) {
             return $this->emptyResult($sampleSize, $studiedDimensions, $minSample);
         }
 
-        // Correlations of each dim with outcome.
-        $dimCorrelations = [];
+        $compositeScores  = [];
+        $outcomeCorrelMap = [];
+
         foreach ($fullDimensions as $dim => $vals) {
-            $dimCorrelations[$dim] = $this->pearson($vals, $outcomes);
+            $goodCorrs = [];
+            $badCorrs  = [];
+            $allCorrs  = [];
+
+            foreach (self::GOOD_OUTCOMES as $od) {
+                $c = $this->pearson($vals, $outcomeVectors[$od]);
+                $goodCorrs[] = $c;
+                $allCorrs[$od] = round($c, 4);
+            }
+            foreach (self::BAD_OUTCOMES as $od) {
+                $c = $this->pearson($vals, $outcomeVectors[$od]);
+                $badCorrs[]    = $c;
+                $allCorrs[$od] = round($c, 4);
+            }
+
+            $composite = ($goodCorrs !== [] ? array_sum($goodCorrs) / count($goodCorrs) : 0.0)
+                       - ($badCorrs  !== [] ? array_sum($badCorrs)  / count($badCorrs)  : 0.0);
+
+            $compositeScores[$dim]  = $composite;
+            $outcomeCorrelMap[$dim] = $allCorrs;
         }
 
-        // Inter-dimension correlations to find confounders.
+        // Inter-dimension confounders.
         $confounderSet = [];
         $dimList = array_keys($fullDimensions);
         foreach ($dimList as $i => $dimA) {
@@ -90,14 +104,12 @@ final class AtlasExternalBrainCausalAblationBatchStudy
                 if ($j <= $i) {
                     continue;
                 }
-                $interCorr = abs($this->pearson($fullDimensions[$dimA], $fullDimensions[$dimB]));
-                if ($interCorr >= $confThreshold) {
-                    // Both must have a meaningful correlation with outcome to be confounders.
-                    if (abs($dimCorrelations[$dimA]) >= abs(self::POSITIVE_THRESHOLD)
-                        && abs($dimCorrelations[$dimB]) >= abs(self::POSITIVE_THRESHOLD)) {
-                        $confounderSet[$dimA] = "correlated_with_$dimB (r=" . round($interCorr, 3) . ')';
-                        $confounderSet[$dimB] = "correlated_with_$dimA (r=" . round($interCorr, 3) . ')';
-                    }
+                $interCorr = $this->pearson($fullDimensions[$dimA], $fullDimensions[$dimB]);
+                if ($interCorr >= $confThreshold
+                    && abs($compositeScores[$dimA]) >= self::POSITIVE_THRESHOLD
+                    && abs($compositeScores[$dimB]) >= self::POSITIVE_THRESHOLD) {
+                    $confounderSet[$dimA] = "correlated_with_$dimB (r=" . round($interCorr, 3) . ')';
+                    $confounderSet[$dimB] = "correlated_with_$dimA (r=" . round($interCorr, 3) . ')';
                 }
             }
         }
@@ -105,34 +117,35 @@ final class AtlasExternalBrainCausalAblationBatchStudy
         $positiveCauses = [];
         $negativeCauses = [];
 
-        foreach ($dimCorrelations as $dim => $corr) {
+        foreach ($compositeScores as $dim => $score) {
             if (isset($confounderSet[$dim])) {
-                continue; // confounders are excluded from causal lists
+                continue;
             }
-            $entry = ['dimension' => $dim, 'correlation' => round($corr, 4), 'strength' => $this->strength($corr)];
-            if ($corr >= self::POSITIVE_THRESHOLD) {
+            $entry = [
+                'dimension'            => $dim,
+                'composite_score'      => round($score, 4),
+                'strength'             => $this->strength($score),
+                'outcome_correlations' => $outcomeCorrelMap[$dim],
+            ];
+            if ($score >= self::POSITIVE_THRESHOLD) {
                 $positiveCauses[] = $entry;
-            } elseif ($corr <= self::NEGATIVE_THRESHOLD) {
+            } elseif ($score <= self::NEGATIVE_THRESHOLD) {
                 $negativeCauses[] = $entry;
             }
         }
 
-        // Sort by absolute correlation descending.
-        usort($positiveCauses, static fn ($a, $b) => $b['correlation'] <=> $a['correlation']);
-        usort($negativeCauses, static fn ($a, $b) => $a['correlation'] <=> $b['correlation']);
+        usort($positiveCauses, static fn ($a, $b) => $b['composite_score'] <=> $a['composite_score']);
+        usort($negativeCauses, static fn ($a, $b) => $a['composite_score'] <=> $b['composite_score']);
 
         $confounders = array_map(
-            static fn (string $dim, string $reason): array => ['dimension' => $dim, 'reason' => $reason],
-            array_keys($confounderSet), array_values($confounderSet)
+            static fn (string $d, string $r): array => ['dimension' => $d, 'reason' => $r],
+            array_keys($confounderSet), array_values($confounderSet),
         );
 
-        // Confidence (AC3).
         $causalCount     = count($positiveCauses) + count($negativeCauses);
         $confounderCount = count($confounderSet);
 
-        [$confidence, $confidenceReason] = $this->confidence(
-            $sampleSize, $minSample, $confounderCount, $causalCount
-        );
+        [$confidence, $confidenceReason] = $this->confidence($sampleSize, $minSample, $confounderCount, $causalCount);
 
         return [
             'schema_version'         => self::SCHEMA,
@@ -146,7 +159,6 @@ final class AtlasExternalBrainCausalAblationBatchStudy
         ];
     }
 
-    /** Pearson correlation coefficient; returns 0.0 when undefined. */
     private function pearson(array $x, array $y): float
     {
         $n = count($x);
@@ -155,9 +167,7 @@ final class AtlasExternalBrainCausalAblationBatchStudy
         }
         $mx = array_sum($x) / $n;
         $my = array_sum($y) / $n;
-        $num = 0.0;
-        $dx2 = 0.0;
-        $dy2 = 0.0;
+        $num = $dx2 = $dy2 = 0.0;
         for ($i = 0; $i < $n; $i++) {
             $dx   = $x[$i] - $mx;
             $dy   = $y[$i] - $my;
@@ -170,9 +180,9 @@ final class AtlasExternalBrainCausalAblationBatchStudy
         return $denom < 1e-12 ? 0.0 : $num / $denom;
     }
 
-    private function strength(float $corr): string
+    private function strength(float $score): string
     {
-        $abs = abs($corr);
+        $abs = abs($score);
         if ($abs >= 0.7) return 'strong';
         if ($abs >= 0.4) return 'moderate';
 
@@ -195,10 +205,9 @@ final class AtlasExternalBrainCausalAblationBatchStudy
         return ['high', 'adequate_sample_no_confounders'];
     }
 
-    /** @return array<string,mixed> */
     private function emptyResult(int $n, array $dims, int $min): array
     {
-        [$confidence, $reason] = $n < $min
+        [$conf, $reason] = $n < $min
             ? ['weak', "sample_size $n below minimum $min"]
             : ['weak', 'no_studied_dimensions'];
 
@@ -209,7 +218,7 @@ final class AtlasExternalBrainCausalAblationBatchStudy
             'likely_positive_causes' => [],
             'likely_negative_causes' => [],
             'confounders'            => [],
-            'confidence'             => $confidence,
+            'confidence'             => $conf,
             'confidence_reason'      => $reason,
         ];
     }
