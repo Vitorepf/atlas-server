@@ -223,4 +223,124 @@ final class AtlasExternalBrainScaffoldOverfitDetectorTest extends TestCase
         $this->assertSame([], $result['benchmark_to_heldout_gap']);
         $this->assertSame('none', $result['recommended_action']);
     }
+
+    // ── AC2: gate-keyword stuffing detection ─────────────────────────────────
+
+    public function test_gate_keyword_stuffing_is_flagged_as_suspect(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_keyword_density' => 0.75, // > 0.60
+        ]));
+
+        $this->assertTrue($result['overfit_detected']);
+        $reasons = $result['suspect_scaffolds'][0]['reasons'];
+        $this->assertContains('gate_keyword_stuffing', $reasons);
+    }
+
+    public function test_low_gate_keyword_density_does_not_flag(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_keyword_density' => 0.40,
+        ]));
+
+        $this->assertFalse($result['overfit_detected']);
+    }
+
+    // ── AC2: schema-only scaffold detection ──────────────────────────────────
+
+    public function test_schema_only_with_no_quality_improvement_is_suspect(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'schema_change_only'       => true,
+            'evidence_quality_delta'   => 0.0,
+            'replay_accuracy_delta'    => 0.0,
+            'escalation_quality_delta' => 0.0,
+        ]));
+
+        $this->assertTrue($result['overfit_detected']);
+        $reasons = $result['suspect_scaffolds'][0]['reasons'];
+        $this->assertContains('schema_only_scaffold', $reasons);
+    }
+
+    // ── AC3: schema change WITH quality improvement is permitted ─────────────
+
+    public function test_schema_change_with_positive_evidence_delta_is_clean(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'schema_change_only'     => true,
+            'evidence_quality_delta' => 0.15, // positive → not schema-only
+        ]));
+
+        $this->assertFalse($result['overfit_detected']);
+    }
+
+    public function test_schema_change_with_positive_replay_accuracy_is_clean(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'schema_change_only'    => true,
+            'replay_accuracy_delta' => 0.10,
+        ]));
+
+        $this->assertFalse($result['overfit_detected']);
+    }
+
+    // ── AC4: risk_score, blocking_reason, repair_hints ───────────────────────
+
+    public function test_output_has_risk_score_blocking_reason_repair_hints(): void
+    {
+        $result = $this->detector->detect([]);
+
+        $this->assertArrayHasKey('risk_score', $result);
+        $this->assertArrayHasKey('blocking_reason', $result);
+        $this->assertArrayHasKey('repair_hints', $result);
+        $this->assertIsFloat($result['risk_score']);
+        $this->assertIsString($result['blocking_reason']);
+        $this->assertIsArray($result['repair_hints']);
+    }
+
+    public function test_clean_scaffold_has_zero_risk_score_and_empty_blocking_reason(): void
+    {
+        $result = $this->detect($this->metric('v1'));
+
+        $this->assertSame(0.0, $result['risk_score']);
+        $this->assertSame('', $result['blocking_reason']);
+    }
+
+    public function test_suspect_scaffold_has_nonzero_risk_score(): void
+    {
+        $result = $this->detect($this->metric('v1', [
+            'gate_pass_rate'      => 0.90,
+            'commit_success_rate' => 0.50,
+        ]));
+
+        $this->assertGreaterThan(0.0, $result['risk_score']);
+    }
+
+    public function test_repair_hints_always_has_at_least_one_element(): void
+    {
+        $clean   = $this->detect($this->metric('v1'));
+        $suspect = $this->detect($this->metric('v2', ['gate_pass_rate' => 0.90, 'commit_success_rate' => 0.50]));
+
+        $this->assertNotEmpty($clean['repair_hints']);
+        $this->assertNotEmpty($suspect['repair_hints']);
+    }
+
+    public function test_gate_stuffing_repair_hint_is_present(): void
+    {
+        $result = $this->detect($this->metric('v1', ['gate_keyword_density' => 0.80]));
+
+        $this->assertContains(
+            'remove_gate_keyword_saturation_and_add_concrete_capability_proof',
+            $result['repair_hints'],
+        );
+    }
+
+    public function test_blocking_reason_matches_recommended_action(): void
+    {
+        $template = $this->detect($this->metric('v1', ['template_repetition_score' => 0.90]));
+        $this->assertStringContainsString('template_farm', $template['blocking_reason']);
+
+        $heldout = $this->detect($this->metric('v2', ['benchmark_pass_rate' => 0.95, 'heldout_pass_rate' => 0.50]));
+        $this->assertStringContainsString('heldout_gap', $heldout['blocking_reason']);
+    }
 }
