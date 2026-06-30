@@ -256,4 +256,139 @@ final class AtlasExternalBrainPatternTransferEvaluatorTest extends TestCase
 
         $this->assertSame($this->evaluator()->evaluate($input), $this->evaluator()->evaluate($input));
     }
+
+    // ── AC2: new rejection reasons ────────────────────────────────────────────
+
+    private function transferablePattern(string $id = 'P1'): array
+    {
+        return [
+            'pattern_id'         => $id,
+            'source_area'        => 'autonomy',
+            'destination_area'   => 'evidence',
+            'destination_fit_score' => 0.80,
+            'adaptation_risk'    => 0.10,
+            'cross_class_outcomes' => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
+            ],
+        ];
+    }
+
+    public function test_no_source_evidence_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['source_evidence_count' => 0]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $r['results'][0]['transfer_decision']);
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_NO_SOURCE_EVIDENCE, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_missing_behaviour_contract_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['has_behaviour_contract' => false]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $r['results'][0]['transfer_decision']);
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_MISSING_BEHAVIOUR_CONTRACT, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_low_destination_fit_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['destination_fit_score' => 0.40]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $r['results'][0]['transfer_decision']);
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_LOW_DESTINATION_FIT, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_high_adaptation_risk_rejects(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern(), ['adaptation_risk' => 0.80]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainPatternTransferEvaluator::DECISION_REJECTED, $r['results'][0]['transfer_decision']);
+        $this->assertContains(AtlasExternalBrainPatternTransferEvaluator::REJECTION_HIGH_ADAPTATION_RISK, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    public function test_multiple_rejection_reasons_combined(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id'           => 'multi',
+            'source_evidence_count' => 0,
+            'has_behaviour_contract' => false,
+            'destination_fit_score'  => 0.20,
+        ]]]);
+
+        $this->assertCount(3, $r['rejected_transfers'][0]['rejection_reasons']);
+    }
+
+    // ── AC3: accepted_transfers fields ────────────────────────────────────────
+
+    public function test_direct_safe_transfer_goes_to_accepted_transfers(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [$this->transferablePattern('PAT')]]);
+
+        $this->assertCount(1, $r['accepted_transfers']);
+        $at = $r['accepted_transfers'][0];
+        $this->assertSame('PAT', $at['pattern_id']);
+        $this->assertSame('autonomy', $at['source_area']);
+        $this->assertSame('evidence', $at['destination_area']);
+        $this->assertArrayHasKey('transfer_score', $at);
+        $this->assertArrayHasKey('required_adaptations', $at);
+        $this->assertArrayHasKey('proof_of_source_success', $at);
+    }
+
+    public function test_transfer_score_computed_from_fit_and_risk(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [[
+            'pattern_id'           => 'X',
+            'destination_fit_score' => 0.80,
+            'adaptation_risk'       => 0.20,
+            'cross_class_outcomes'  => [
+                ['task_class' => 'A', 'evidence_count' => 5, 'positive_ratio' => 0.90],
+            ],
+        ]]]);
+
+        // 0.80 * (1 - 0.20) = 0.64
+        $this->assertSame(0.64, $r['accepted_transfers'][0]['transfer_score']);
+    }
+
+    public function test_adaptation_required_transfer_accepted_with_required_adaptations(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [array_merge(
+            $this->transferablePattern(),
+            ['required_adaptations' => ['adjust-threshold', 'remap-context']],
+        )]]);
+
+        $this->assertCount(1, $r['accepted_transfers']);
+        $this->assertSame(['adjust-threshold', 'remap-context'], $r['accepted_transfers'][0]['required_adaptations']);
+    }
+
+    // ── AC4: deterministic ranking ────────────────────────────────────────────
+
+    public function test_accepted_transfers_sorted_by_transfer_score_descending(): void
+    {
+        $r = $this->evaluator()->evaluate(['patterns' => [
+            array_merge($this->transferablePattern('LOW'),  ['destination_fit_score' => 0.61, 'adaptation_risk' => 0.0]),
+            array_merge($this->transferablePattern('HIGH'), ['destination_fit_score' => 0.95, 'adaptation_risk' => 0.0]),
+        ]]);
+
+        $this->assertSame('HIGH', $r['accepted_transfers'][0]['pattern_id']);
+        $this->assertSame('LOW',  $r['accepted_transfers'][1]['pattern_id']);
+    }
+
+    // ── new output keys always present ────────────────────────────────────────
+
+    public function test_accepted_and_rejected_transfers_keys_always_present(): void
+    {
+        $r = $this->evaluator()->evaluate([]);
+
+        $this->assertArrayHasKey('accepted_transfers', $r);
+        $this->assertArrayHasKey('rejected_transfers', $r);
+        $this->assertSame([], $r['accepted_transfers']);
+        $this->assertSame([], $r['rejected_transfers']);
+    }
 }
