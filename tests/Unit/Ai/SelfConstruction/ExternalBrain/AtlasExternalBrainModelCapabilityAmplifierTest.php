@@ -127,6 +127,81 @@ final class AtlasExternalBrainModelCapabilityAmplifierTest extends TestCase
         $this->assertContains('proxy_risk', $r['critique_passes']);
     }
 
+    // ── AC1: proxy_guard_strength ─────────────────────────────────────────────
+
+    public function test_proxy_guard_strength_high_for_small(): void
+    {
+        $this->assertSame('high', $this->amplify('small')['proxy_guard_strength']);
+    }
+
+    public function test_proxy_guard_strength_medium_for_mid(): void
+    {
+        $this->assertSame('medium', $this->amplify('mid')['proxy_guard_strength']);
+    }
+
+    public function test_proxy_guard_strength_low_for_frontier(): void
+    {
+        $this->assertSame('low', $this->amplify('frontier')['proxy_guard_strength']);
+    }
+
+    // ── AC1: evidence_confidence_floor ────────────────────────────────────────
+
+    public function test_small_evidence_confidence_floor_higher_than_frontier(): void
+    {
+        $this->assertGreaterThan(
+            $this->amplify('frontier')['evidence_confidence_floor'],
+            $this->amplify('small')['evidence_confidence_floor']
+        );
+    }
+
+    public function test_mid_evidence_confidence_floor_between_frontier_and_small(): void
+    {
+        $frontier = $this->amplify('frontier')['evidence_confidence_floor'];
+        $mid      = $this->amplify('mid')['evidence_confidence_floor'];
+        $small    = $this->amplify('small')['evidence_confidence_floor'];
+
+        $this->assertGreaterThan($frontier, $mid);
+        $this->assertLessThan($small, $mid);
+    }
+
+    // ── AC1: critique_passes_minimum ──────────────────────────────────────────
+
+    public function test_small_critique_passes_minimum_greater_than_frontier(): void
+    {
+        $this->assertGreaterThan(
+            $this->amplify('frontier')['critique_passes_minimum'],
+            $this->amplify('small')['critique_passes_minimum']
+        );
+    }
+
+    public function test_critique_passes_minimum_matches_critique_passes_count_for_small(): void
+    {
+        $r = $this->amplify('small');
+        $this->assertSame(count($r['critique_passes']), $r['critique_passes_minimum']);
+    }
+
+    // ── AC2: numeric strictness ordering ─────────────────────────────────────
+
+    public function test_evidence_confidence_floor_strictly_ordered_small_gt_mid_gt_frontier(): void
+    {
+        $frontier = $this->amplify('frontier')['evidence_confidence_floor'];
+        $mid      = $this->amplify('mid')['evidence_confidence_floor'];
+        $small    = $this->amplify('small')['evidence_confidence_floor'];
+
+        $this->assertGreaterThan($frontier, $mid);
+        $this->assertGreaterThan($mid, $small - 0.001); // small > mid
+    }
+
+    public function test_critique_passes_minimum_strictly_ordered(): void
+    {
+        $frontier = $this->amplify('frontier')['critique_passes_minimum'];
+        $mid      = $this->amplify('mid')['critique_passes_minimum'];
+        $small    = $this->amplify('small')['critique_passes_minimum'];
+
+        $this->assertGreaterThan($frontier, $mid);   // mid > frontier
+        $this->assertGreaterThan($mid, $small);      // small > mid
+    }
+
     // ── schema ────────────────────────────────────────────────────────────────
 
     public function test_schema_version_present(): void
