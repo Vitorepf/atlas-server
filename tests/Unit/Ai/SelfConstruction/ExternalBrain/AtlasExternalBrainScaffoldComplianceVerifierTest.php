@@ -348,4 +348,119 @@ final class AtlasExternalBrainScaffoldComplianceVerifierTest extends TestCase
         $this->assertContains('semantic_dedup_proof',        $result['missing_steps']);
         $this->assertContains('implementability_simulation', $result['missing_steps']);
     }
+
+    // ── verifyAmplificationScaffold: small-model scaffold quality contract ────
+
+    private function fullScaffold(array $overrides = []): array
+    {
+        return [
+            'sections' => array_merge([
+                'replay' => ['steps' => ['re_run_deterministically']],
+                'critique' => ['reviewers' => ['adversarial']],
+                'anti_proxy' => ['checks' => ['no_proxy_metric_gaming']],
+                'escalation' => ['fallback_tier' => 'frontier_model'],
+                'evidence_capture' => ['records' => ['runnable_proof']],
+            ], $overrides),
+        ];
+    }
+
+    public function test_scaffold_with_all_five_sections_is_trusted(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold($this->fullScaffold());
+
+        $this->assertSame('trusted', $result['compliance_status']);
+        $this->assertTrue($result['trusted']);
+        $this->assertSame([], $result['missing_sections']);
+        $this->assertSame([], $result['repair_hints']);
+    }
+
+    public function test_missing_replay_section_is_blocking(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold(['sections' => [
+            'critique' => ['reviewers' => ['adversarial']],
+            'anti_proxy' => ['checks' => ['x']],
+            'escalation' => ['fallback_tier' => 'frontier_model'],
+            'evidence_capture' => ['records' => ['x']],
+        ]]);
+
+        $this->assertSame('blocked', $result['compliance_status']);
+        $this->assertFalse($result['trusted']);
+        $this->assertContains('replay', $result['missing_sections']);
+        $this->assertArrayHasKey('replay', $result['repair_hints']);
+    }
+
+    public function test_missing_critique_section_is_blocking(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold([
+            'sections' => array_diff_key($this->fullScaffold()['sections'], ['critique' => true]),
+        ]);
+
+        $this->assertSame('blocked', $result['compliance_status']);
+        $this->assertContains('critique', $result['missing_sections']);
+    }
+
+    public function test_missing_anti_proxy_section_is_blocking(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold([
+            'sections' => array_diff_key($this->fullScaffold()['sections'], ['anti_proxy' => true]),
+        ]);
+
+        $this->assertSame('blocked', $result['compliance_status']);
+        $this->assertContains('anti_proxy', $result['missing_sections']);
+    }
+
+    public function test_missing_escalation_section_is_blocking(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold([
+            'sections' => array_diff_key($this->fullScaffold()['sections'], ['escalation' => true]),
+        ]);
+
+        $this->assertSame('blocked', $result['compliance_status']);
+        $this->assertContains('escalation', $result['missing_sections']);
+    }
+
+    public function test_missing_evidence_capture_section_is_blocking(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold([
+            'sections' => array_diff_key($this->fullScaffold()['sections'], ['evidence_capture' => true]),
+        ]);
+
+        $this->assertSame('blocked', $result['compliance_status']);
+        $this->assertContains('evidence_capture', $result['missing_sections']);
+    }
+
+    public function test_empty_section_value_counts_as_missing(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold($this->fullScaffold(['replay' => []]));
+
+        $this->assertContains('replay', $result['missing_sections']);
+    }
+
+    public function test_empty_scaffold_reports_all_five_sections_missing_with_hints(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold([]);
+
+        $this->assertSame('blocked', $result['compliance_status']);
+        $this->assertSame(['replay', 'critique', 'anti_proxy', 'escalation', 'evidence_capture'], $result['missing_sections']);
+        $this->assertCount(5, $result['repair_hints']);
+        foreach ($result['missing_sections'] as $section) {
+            $this->assertNotEmpty($result['repair_hints'][$section]);
+        }
+    }
+
+    public function test_required_sections_constant_is_exposed(): void
+    {
+        $verifier = new AtlasExternalBrainScaffoldComplianceVerifier;
+        $result = $verifier->verifyAmplificationScaffold($this->fullScaffold());
+
+        $this->assertSame(['replay', 'critique', 'anti_proxy', 'escalation', 'evidence_capture'], $result['required_sections']);
+    }
 }

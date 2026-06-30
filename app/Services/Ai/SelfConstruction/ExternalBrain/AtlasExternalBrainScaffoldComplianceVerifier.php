@@ -45,6 +45,17 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
 
     private const RUNNABLE_INDICATORS = ['phpunit', 'artisan', 'vendor/bin', './vendor'];
 
+    /** Mandatory sections for a small-model amplification scaffold to be trusted. */
+    private const REQUIRED_AMPLIFICATION_SECTIONS = ['replay', 'critique', 'anti_proxy', 'escalation', 'evidence_capture'];
+
+    private const AMPLIFICATION_REPAIR_HINTS = [
+        'replay' => 'add_replay_section_that_re-runs_the_attempt_deterministically_against_recorded_inputs',
+        'critique' => 'add_critique_section_with_at_least_one_independent_adversarial_reviewer',
+        'anti_proxy' => 'add_anti_proxy_section_that_checks_for_proxy_metric_gaming_not_just_green_status',
+        'escalation' => 'add_escalation_section_naming_the_frontier_tier_fallback_and_its_trigger',
+        'evidence_capture' => 'add_evidence_capture_section_that_records_runnable_proof_for_every_credited_task',
+    ];
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -177,6 +188,41 @@ final class AtlasExternalBrainScaffoldComplianceVerifier
             'weak_artifacts'  => $weakArtifacts,
             'credited_tasks'  => $creditedTasks,
             'refused_tasks'   => $refusedTasks,
+        ];
+    }
+
+    /**
+     * Verifies a small-model amplification scaffold definition has all five
+     * mandatory sections (replay, critique, anti_proxy, escalation,
+     * evidence_capture) before it can be trusted. A missing section is
+     * always blocking — there is no advisory tier.
+     *
+     * @param  array<string,mixed>  $scaffold
+     * @return array<string,mixed>
+     */
+    public function verifyAmplificationScaffold(array $scaffold): array
+    {
+        $sections = is_array($scaffold['sections'] ?? null) ? $scaffold['sections'] : [];
+
+        $missingSections = [];
+        $repairHints = [];
+        foreach (self::REQUIRED_AMPLIFICATION_SECTIONS as $section) {
+            $present = array_key_exists($section, $sections) && ! $this->isEmpty($sections[$section]);
+            if (! $present) {
+                $missingSections[] = $section;
+                $repairHints[$section] = self::AMPLIFICATION_REPAIR_HINTS[$section];
+            }
+        }
+
+        $complianceStatus = $missingSections === [] ? 'trusted' : 'blocked';
+
+        return [
+            'schema' => self::SCHEMA,
+            'compliance_status' => $complianceStatus,
+            'trusted' => $complianceStatus === 'trusted',
+            'required_sections' => self::REQUIRED_AMPLIFICATION_SECTIONS,
+            'missing_sections' => $missingSections,
+            'repair_hints' => $repairHints,
         ];
     }
 
