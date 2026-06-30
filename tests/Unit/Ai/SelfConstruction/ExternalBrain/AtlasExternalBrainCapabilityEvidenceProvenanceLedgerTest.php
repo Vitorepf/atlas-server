@@ -122,9 +122,76 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedgerTest extends Tes
     {
         $r = $this->ledger()->assess($this->capability());
 
-        foreach (['capability_id', 'evidence_tier', 'freshness_status', 'confidence', 'refresh_required', 'leverage_proven'] as $key) {
+        foreach (['capability_id', 'evidence_tier', 'freshness_status', 'confidence', 'refresh_required',
+                  'refresh_priority', 'leverage_proven', 'evidence_refs', 'source_surfaces', 'downstream_leverage_score'] as $key) {
             $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
         }
+    }
+
+    // ── raw_queue_count is weak, even with downstream uses ────────────────────
+
+    public function test_raw_queue_count_never_yields_high_confidence(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'raw_queue_count', 'age_days' => 1, 'source_surface' => 'task_queue']],
+        ]));
+
+        $this->assertNotSame('high', $r['confidence']);
+    }
+
+    public function test_raw_queue_count_without_downstream_uses_is_not_leverage_proven(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'raw_queue_count', 'age_days' => 1]],
+            'downstream_uses' => [],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainCapabilityEvidenceProvenanceLedger::LEVERAGE_UNPROVEN, $r['leverage_proven']);
+        $this->assertSame(0.0, $r['downstream_leverage_score']);
+    }
+
+    // ── evidence_refs / source_surfaces ────────────────────────────────────────
+
+    public function test_evidence_refs_and_source_surfaces_are_collected(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [
+                ['type' => 'runnable_test_or_gate', 'age_days' => 1, 'source_surface' => 'phpunit'],
+                ['type' => 'docs_only', 'age_days' => 5, 'source_surface' => 'wiki'],
+            ],
+        ]));
+
+        $this->assertCount(2, $r['evidence_refs']);
+        $this->assertSame(['phpunit', 'wiki'], $r['source_surfaces']);
+    }
+
+    // ── refresh_priority ───────────────────────────────────────────────────────
+
+    public function test_refresh_priority_is_high_for_stale_weak_evidence(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'evidence' => [['type' => 'raw_queue_count', 'age_days' => 99]],
+        ]));
+
+        $this->assertSame('high', $r['refresh_priority']);
+    }
+
+    public function test_refresh_priority_is_none_for_fresh_evidence(): void
+    {
+        $r = $this->ledger()->assess($this->capability());
+
+        $this->assertSame('none', $r['refresh_priority']);
+    }
+
+    // ── downstream_leverage_score ──────────────────────────────────────────────
+
+    public function test_downstream_leverage_score_scales_with_downstream_use_count(): void
+    {
+        $r = $this->ledger()->assess($this->capability([
+            'downstream_uses' => ['organ-a', 'organ-b'],
+        ]));
+
+        $this->assertGreaterThan(0.0, $r['downstream_leverage_score']);
     }
 
     // ── no evidence ───────────────────────────────────────────────────────────

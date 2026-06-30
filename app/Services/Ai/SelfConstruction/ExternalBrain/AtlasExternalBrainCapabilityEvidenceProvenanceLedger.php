@@ -90,6 +90,25 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedger
 
         $strongest = $this->strongestEvidence($evidenceList);
 
+        $evidenceRefs = [];
+        $sourceSurfaces = [];
+        foreach ($evidenceList as $e) {
+            if (! is_array($e)) {
+                continue;
+            }
+            $surface = trim((string) ($e['source_surface'] ?? ''));
+            $evidenceRefs[] = [
+                'type'           => (string) ($e['type'] ?? ''),
+                'age_days'       => (int) ($e['age_days'] ?? 0),
+                'source_surface' => $surface,
+            ];
+            if ($surface !== '') {
+                $sourceSurfaces[$surface] = true;
+            }
+        }
+        $sourceSurfaces = array_values(array_keys($sourceSurfaces));
+        sort($sourceSurfaces);
+
         if ($strongest === null) {
             $tier = self::TIER_NO_EVIDENCE;
             $freshness = self::FRESHNESS_UNKNOWN;
@@ -105,6 +124,16 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedger
             $refreshRequired = $stale;
         }
 
+        $leverageProven = $downstreamUses !== [] ? self::LEVERAGE_PROVEN : self::LEVERAGE_UNPROVEN;
+
+        // downstream_leverage_score: scales with number of downstream consumers, capped at 1.0;
+        // 0.0 when leverage isn't proven at all (no evidence or no downstream use).
+        $downstreamLeverageScore = $leverageProven === self::LEVERAGE_PROVEN
+            ? round(min(1.0, count($downstreamUses) * 0.25), 4)
+            : 0.0;
+
+        $refreshPriority = $this->refreshPriority($tier, $freshness);
+
         return [
             'schema' => self::SCHEMA,
             'capability_id' => $id,
@@ -112,8 +141,30 @@ final class AtlasExternalBrainCapabilityEvidenceProvenanceLedger
             'freshness_status' => $freshness,
             'confidence' => $confidence,
             'refresh_required' => $refreshRequired,
-            'leverage_proven' => $downstreamUses !== [] ? self::LEVERAGE_PROVEN : self::LEVERAGE_UNPROVEN,
+            'refresh_priority' => $refreshPriority,
+            'leverage_proven' => $leverageProven,
+            'evidence_refs' => $evidenceRefs,
+            'source_surfaces' => $sourceSurfaces,
+            'downstream_leverage_score' => $downstreamLeverageScore,
         ];
+    }
+
+    /** Refresh priority is highest for weak/stale evidence — refresh the cheapest-to-doubt claims first. */
+    private function refreshPriority(string $tier, string $freshness): string
+    {
+        if ($tier === self::TIER_NO_EVIDENCE) {
+            return 'none';
+        }
+        if ($freshness !== self::FRESHNESS_STALE) {
+            return 'none';
+        }
+
+        return match ($tier) {
+            self::TIER_RUNNABLE_PROOF => 'low',
+            self::TIER_DOCS_ONLY      => 'medium',
+            self::TIER_SCREENSHOT, self::TIER_RAW_QUEUE_COUNT => 'high',
+            default => 'medium',
+        };
     }
 
     /**
