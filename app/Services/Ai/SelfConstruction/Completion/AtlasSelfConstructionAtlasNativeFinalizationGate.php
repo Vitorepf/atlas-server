@@ -48,6 +48,12 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
     /** @var list<string> */
     private const REQUIRED_AUTONOMY_LEVELS = ['atlas_native_bounded', 'atlas_native_24_7'];
 
+    public const MIN_SOAK_HOURS = 24;
+
+    public const MIN_UNATTENDED_RECOVERY_EVENTS = 1;
+
+    public const MIN_QUEUE_DRAIN_CYCLES = 1;
+
     public function __construct(
         private readonly ?AtlasSelfConstructionAtlasNativeEvidenceVerifier $evidenceVerifier = null,
         private readonly ?AtlasSelfConstructionHumanDependencyRegressionGate $dependencyGate = null,
@@ -110,6 +116,32 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
             }
         }
 
+        // 24/7 soak proof checks — missing or insufficient → hold (refreshable by running more soak).
+        $soakFacts = is_array($facts['soak_proof'] ?? null) ? $facts['soak_proof'] : [];
+        $soakHours = isset($soakFacts['runtime_soak_hours']) ? (int) $soakFacts['runtime_soak_hours'] : null;
+        $recoveryEvents = isset($soakFacts['unattended_recovery_events']) ? (int) $soakFacts['unattended_recovery_events'] : null;
+        $drainCycles = isset($soakFacts['queue_drain_cycles']) ? (int) $soakFacts['queue_drain_cycles'] : null;
+        if ($soakHours === null || $soakHours < self::MIN_SOAK_HOURS) {
+            $holdRequested = true;
+            $nextActions[] = 'extend_runtime_soak_to_minimum_hours';
+        }
+        if ($recoveryEvents === null || $recoveryEvents < self::MIN_UNATTENDED_RECOVERY_EVENTS) {
+            $holdRequested = true;
+            $nextActions[] = 'record_unattended_recovery_events';
+        }
+        if ($drainCycles === null || $drainCycles < self::MIN_QUEUE_DRAIN_CYCLES) {
+            $holdRequested = true;
+            $nextActions[] = 'complete_queue_drain_cycles';
+        }
+
+        // No-human dependency proof — any status other than 'pass' → blocked.
+        $humanDepRegression = is_array($facts['human_dependency_regression'] ?? null) ? $facts['human_dependency_regression'] : [];
+        $humanDepStatus = (string) ($humanDepRegression['status'] ?? '');
+        $humanDepRegressionFailed = $humanDepStatus !== 'pass';
+        if ($humanDepRegressionFailed) {
+            $blockers[] = 'human_dependency_regression_not_passed:'.($humanDepStatus === '' ? 'missing' : $humanDepStatus);
+        }
+
         $finalState = self::FINAL_READY;
         if ($blockers !== []) {
             // If only refreshable-style blockers (none from ledger blocking keys, none dependency contract),
@@ -117,6 +149,7 @@ final class AtlasSelfConstructionAtlasNativeFinalizationGate
             // contract failure or any LEDGER_BLOCKING_KEYS trigger.
             $hasContractBlocker = $autonomyContractBlocked
                 || ! (bool) $dependency['passed']
+                || $humanDepRegressionFailed
                 || in_array('autonomy_level_below_floor:'.$level, $blockers, true)
                 || ((string) ($evidence['status'] ?? '') === AtlasSelfConstructionAtlasNativeEvidenceVerifier::STATUS_BLOCKED)
                 || $sourceCoverage['blocked_sources'] !== [];

@@ -154,6 +154,64 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
         self::assertContains('docs_health', $verdict['source_coverage']['hold_sources']);
     }
 
+    // --- soak proof + human dependency regression ---
+
+    public function test_missing_soak_proof_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['soak_proof']);
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('extend_runtime_soak_to_minimum_hours', $verdict['next_atlas_actions']);
+        self::assertContains('record_unattended_recovery_events', $verdict['next_atlas_actions']);
+        self::assertContains('complete_queue_drain_cycles', $verdict['next_atlas_actions']);
+    }
+
+    public function test_insufficient_soak_hours_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['soak_proof']['runtime_soak_hours'] = 10; // below MIN_SOAK_HOURS (24)
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('extend_runtime_soak_to_minimum_hours', $verdict['next_atlas_actions']);
+    }
+
+    public function test_missing_unattended_recovery_events_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['soak_proof']['unattended_recovery_events'] = 0;
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('record_unattended_recovery_events', $verdict['next_atlas_actions']);
+    }
+
+    public function test_missing_queue_drain_cycles_yields_hold(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['soak_proof']['queue_drain_cycles'] = 0;
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_HOLD, $verdict['final_state']);
+        self::assertContains('complete_queue_drain_cycles', $verdict['next_atlas_actions']);
+    }
+
+    public function test_human_dependency_regression_fail_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        $facts['human_dependency_regression'] = ['status' => 'fail'];
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('human_dependency_regression_not_passed:fail', $verdict['blockers']);
+    }
+
+    public function test_missing_human_dependency_regression_yields_blocked(): void
+    {
+        $facts = $this->readyFacts();
+        unset($facts['human_dependency_regression']);
+        $verdict = (new AtlasSelfConstructionAtlasNativeFinalizationGate)->finalize($facts);
+        self::assertSame(AtlasSelfConstructionAtlasNativeFinalizationGate::FINAL_BLOCKED, $verdict['final_state']);
+        self::assertContains('human_dependency_regression_not_passed:missing', $verdict['blockers']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -198,6 +256,12 @@ class AtlasSelfConstructionAtlasNativeFinalizationGateTest extends TestCase
                 ],
             ],
             'autonomy_verdict' => ['level' => 'atlas_native_bounded'],
+            'soak_proof' => [
+                'runtime_soak_hours' => 24,
+                'unattended_recovery_events' => 3,
+                'queue_drain_cycles' => 5,
+            ],
+            'human_dependency_regression' => ['status' => 'pass'],
             'ledger' => [
                 'queue_blocker' => false,
                 'rollback_blocker' => false,
