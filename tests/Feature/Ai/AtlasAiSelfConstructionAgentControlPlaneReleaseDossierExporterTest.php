@@ -207,6 +207,107 @@ final class AtlasAiSelfConstructionAgentControlPlaneReleaseDossierExporterTest e
         $this->assertSame('atlas/self-construction/agent-control-plane/dossiers', AgentControlPlaneReleaseDossierExporter::ALLOWED_PREFIX);
     }
 
+    // ── exportTaskBatch ───────────────────────────────────────────────────────
+
+    public function test_export_task_batch_includes_task_id_scopes_proof_outcome_lift_and_hint(): void
+    {
+        $result = $this->newService()->exportTaskBatch([[
+            'task_packet_id' => 'task-1',
+            'touched_scopes' => ['app/Foo.php'],
+            'proof_commands' => ['php artisan test tests/Unit/FooTest.php'],
+            'outcome' => 'success',
+            'lift_signal' => 0.8,
+            'evidence_refs' => ['evidence-1'],
+            'follow_up_hint' => 'route similar work to this family',
+        ]]);
+
+        $entry = $result['entries'][0];
+        $this->assertSame('task-1', $entry['task_packet_id']);
+        $this->assertSame(['app/Foo.php'], $entry['touched_scopes']);
+        $this->assertSame(['php artisan test tests/Unit/FooTest.php'], $entry['proof_commands']);
+        $this->assertSame('success', $entry['outcome_class']);
+        $this->assertSame(0.8, $entry['lift_signal']);
+        $this->assertSame('route similar work to this family', $entry['follow_up_learning_hint']);
+        $this->assertTrue($entry['ready_for_dossier']);
+        $this->assertNull($entry['not_ready_reason']);
+    }
+
+    public function test_export_task_batch_excludes_raw_provider_prompt_content(): void
+    {
+        $result = $this->newService()->exportTaskBatch([[
+            'task_packet_id' => 'task-2',
+            'outcome' => 'success',
+            'proof_commands' => ['php artisan test'],
+            'evidence_refs' => ['ev'],
+            'raw_provider_prompt' => 'SECRET SYSTEM PROMPT CONTENT',
+            'raw_transcript' => 'private transcript content',
+        ]]);
+
+        $encoded = json_encode($result);
+        $this->assertStringNotContainsString('SECRET SYSTEM PROMPT CONTENT', (string) $encoded);
+        $this->assertStringNotContainsString('private transcript content', (string) $encoded);
+        $this->assertTrue($result['provider_safe']);
+    }
+
+    public function test_export_task_batch_marks_failed_outcome_not_ready(): void
+    {
+        $result = $this->newService()->exportTaskBatch([[
+            'task_packet_id' => 'task-3',
+            'outcome' => 'give_back',
+            'proof_commands' => ['php artisan test'],
+            'evidence_refs' => ['ev'],
+        ]]);
+
+        $entry = $result['entries'][0];
+        $this->assertFalse($entry['ready_for_dossier']);
+        $this->assertSame('outcome_not_success', $entry['not_ready_reason']);
+    }
+
+    public function test_export_task_batch_marks_missing_proof_commands_not_ready(): void
+    {
+        $result = $this->newService()->exportTaskBatch([[
+            'task_packet_id' => 'task-4',
+            'outcome' => 'success',
+            'proof_commands' => [],
+            'evidence_refs' => ['ev'],
+        ]]);
+
+        $this->assertSame('no_proof_commands', $result['entries'][0]['not_ready_reason']);
+    }
+
+    public function test_export_task_batch_marks_missing_evidence_refs_not_ready(): void
+    {
+        $result = $this->newService()->exportTaskBatch([[
+            'task_packet_id' => 'task-5',
+            'outcome' => 'success',
+            'proof_commands' => ['php artisan test'],
+            'evidence_refs' => [],
+        ]]);
+
+        $this->assertSame('incomplete_evidence', $result['entries'][0]['not_ready_reason']);
+    }
+
+    public function test_export_task_batch_counts_ready_and_not_ready(): void
+    {
+        $result = $this->newService()->exportTaskBatch([
+            ['task_packet_id' => 'ok-1', 'outcome' => 'success', 'proof_commands' => ['cmd'], 'evidence_refs' => ['ev']],
+            ['task_packet_id' => 'bad-1', 'outcome' => 'give_back', 'proof_commands' => [], 'evidence_refs' => []],
+        ]);
+
+        $this->assertSame(2, $result['entry_count']);
+        $this->assertSame(1, $result['ready_count']);
+        $this->assertSame(1, $result['not_ready_count']);
+    }
+
+    public function test_export_task_batch_runtime_flags_all_false(): void
+    {
+        $result = $this->newService()->exportTaskBatch([]);
+
+        foreach (['runtime_execution_allowed', 'dispatch_allowed', 'provider_call_allowed', 'token_spend_allowed', 'self_programming_allowed', 'ledger_write_allowed'] as $flag) {
+            $this->assertFalse($result[$flag]);
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

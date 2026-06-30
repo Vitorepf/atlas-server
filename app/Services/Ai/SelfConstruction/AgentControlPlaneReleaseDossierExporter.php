@@ -122,6 +122,87 @@ final class AgentControlPlaneReleaseDossierExporter
         return $payload;
     }
 
+    // Fields that may carry raw provider/private prompt content and must NEVER
+    // appear in a task-batch dossier entry, no matter what the caller sends.
+    private const EXCLUDED_RAW_FIELDS = [
+        'raw_provider_prompt', 'raw_prompt', 'prompt', 'system_prompt',
+        'raw_transcript', 'transcript', 'raw_response', 'provider_response_raw',
+    ];
+
+    /**
+     * Builds a compact, provider-safe evidence dossier for a BATCH of
+     * completed muscle work — for learning, audit and next-batch
+     * prioritization. Pure: takes already-collected task facts, performs no
+     * I/O, calls no provider.
+     *
+     * Per-task entry includes ONLY: task_packet_id, touched_scopes,
+     * proof_commands, outcome_class, lift_signal, follow_up_learning_hint,
+     * ready_for_dossier, not_ready_reason. Raw provider/prompt content
+     * (see EXCLUDED_RAW_FIELDS) is stripped even if present in the input —
+     * this method never echoes it back.
+     *
+     * ready_for_dossier = true only when ALL of:
+     *   outcome === 'success'
+     *   proof_commands is non-empty (a runnable command was actually run)
+     *   evidence_refs is non-empty (the run left a verifiable trace)
+     * Anything else is marked not ready with the concrete reason, never
+     * silently promoted.
+     *
+     * @param  list<array<string, mixed>>  $tasks
+     * @return array<string, mixed>
+     */
+    public function exportTaskBatch(array $tasks): array
+    {
+        $entries = [];
+        foreach ($tasks as $task) {
+            if (! is_array($task)) {
+                continue;
+            }
+
+            $outcome = (string) ($task['outcome'] ?? 'unknown');
+            $proofCommands = array_values(array_filter(array_map('strval', (array) ($task['proof_commands'] ?? []))));
+            $evidenceRefs = array_values(array_filter(array_map('strval', (array) ($task['evidence_refs'] ?? []))));
+            $touchedScopes = array_values(array_filter(array_map('strval', (array) ($task['touched_scopes'] ?? []))));
+
+            $notReadyReason = match (true) {
+                $outcome !== 'success' => 'outcome_not_success',
+                $proofCommands === [] => 'no_proof_commands',
+                $evidenceRefs === [] => 'incomplete_evidence',
+                default => null,
+            };
+
+            $entries[] = [
+                'task_packet_id' => (string) ($task['task_packet_id'] ?? 'unknown'),
+                'touched_scopes' => $touchedScopes,
+                'proof_commands' => $proofCommands,
+                'outcome_class' => $outcome,
+                'lift_signal' => (float) ($task['lift_signal'] ?? 0.0),
+                'follow_up_learning_hint' => (string) ($task['follow_up_hint'] ?? ''),
+                'ready_for_dossier' => $notReadyReason === null,
+                'not_ready_reason' => $notReadyReason,
+            ];
+        }
+
+        $readyCount = count(array_filter($entries, static fn (array $e): bool => $e['ready_for_dossier']));
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'mode' => self::MODE,
+            'entries' => $entries,
+            'entry_count' => count($entries),
+            'ready_count' => $readyCount,
+            'not_ready_count' => count($entries) - $readyCount,
+            'provider_safe' => true,
+            'excluded_raw_fields' => self::EXCLUDED_RAW_FIELDS,
+            'runtime_execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'provider_call_allowed' => false,
+            'token_spend_allowed' => false,
+            'self_programming_allowed' => false,
+            'ledger_write_allowed' => false,
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $dossier
      */
