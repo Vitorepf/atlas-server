@@ -30,6 +30,8 @@ final class AtlasSelfConstructionNativeImplementationCommand extends Command
 
     public const EXIT_USAGE = 2;
 
+    private const JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+
     protected $signature = 'atlas:self-construction:native-implementation {action : templates|plan|materialize|repair|patch-plan} {--packet=} {--facts=} {--json}';
 
     protected $description = 'Read-only native-implementation CLI: templates | plan | materialize | repair | patch-plan.';
@@ -50,7 +52,7 @@ final class AtlasSelfConstructionNativeImplementationCommand extends Command
             default => null,
         };
         if ($payload === null) {
-            $this->error('unknown action: '.$action);
+            $this->emitError('refused', 'unknown_action:'.$action);
 
             return self::EXIT_USAGE;
         }
@@ -182,24 +184,33 @@ final class AtlasSelfConstructionNativeImplementationCommand extends Command
     {
         $path = (string) $this->option($option);
         if ($path === '' || ! is_file($path)) {
-            $this->error('--'.$option.'=<path> is required for this action');
+            $this->emitError('usage_error', '--'.$option.'=<path> is required for this action');
 
             return null;
         }
         try {
             $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable $e) {
-            $this->error($option.' payload not valid JSON: '.mb_substr($e->getMessage(), 0, 200));
+            $this->emitError('usage_error', $option.'_payload_not_valid_json');
 
             return null;
         }
         if (! is_array($decoded)) {
-            $this->error($option.' payload root must be a JSON object');
+            $this->emitError('usage_error', $option.'_payload_root_must_be_object');
 
             return null;
         }
 
         return $decoded;
+    }
+
+    private function emitError(string $status, string $reason): void
+    {
+        if ($this->option('json')) {
+            $this->line((string) json_encode(['status' => $status, 'reason' => $reason], self::JSON_FLAGS));
+        } else {
+            $this->error($reason);
+        }
     }
 
     /**

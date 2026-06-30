@@ -155,6 +155,51 @@ final class AtlasSelfConstructionNativeImplementationCommandTest extends TestCas
         $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
     }
 
+    public function test_materialize_json_missing_packet_emits_usage_error_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'materialize', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'output must be valid JSON when --json and packet missing');
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
+
+    public function test_repair_json_missing_facts_emits_usage_error_envelope(): void
+    {
+        $packet = $this->fixture(['allowed_files' => ['app/Foo.php']]);
+        [$exit, $out] = $this->runCmd(['action' => 'repair', '--packet' => $packet, '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
+
+    public function test_patch_plan_json_missing_packet_emits_usage_error_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'patch-plan', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded);
+        $this->assertSame('usage_error', $decoded['status']);
+        $this->assertNotEmpty($decoded['reason']);
+    }
+
+    public function test_unknown_action_json_emits_refused_envelope(): void
+    {
+        [$exit, $out] = $this->runCmd(['action' => 'BOGUS', '--json' => true]);
+
+        $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_USAGE, $exit);
+        $decoded = json_decode(trim($out), true);
+        $this->assertIsArray($decoded, 'unknown action with --json must emit valid JSON');
+        $this->assertSame('refused', $decoded['status']);
+        $this->assertStringContainsString('BOGUS', $decoded['reason']);
+    }
+
     public function test_cli_source_makes_no_provider_or_git_calls(): void
     {
         $src = (string) file_get_contents(base_path('app/Console/Commands/AtlasSelfConstructionNativeImplementationCommand.php'));
