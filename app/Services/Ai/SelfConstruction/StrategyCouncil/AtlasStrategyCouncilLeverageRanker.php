@@ -13,8 +13,9 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  *   {candidate_id, organ, capability_gap, user_impact, autonomy_unlock, waste_reduction, risk,
  *    evidence_refs:list<string>, dependency_count:int, proxy_signals?:list<string>}
  *
- * Output: {schema_version, ranked:list<{candidate_id, reasons:list<string>, factors:array<string,mixed>}>,
- *          rejected:list<{candidate_id, reasons:list<string>}>}
+ * Output: {schema_version,
+ *   ranked:list<{candidate_id, reasons:list<string>, factors:array<string,mixed>, dominance_trace:string|null}>,
+ *   rejected:list<{candidate_id, reasons:list<string>, rejected_proxy_summary?:array<string,mixed>}>}
  *
  * REJECTION rules:
  *   - empty evidence_refs ⇒ rejected (no real-leverage evidence).
@@ -23,6 +24,13 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  * RANKING rules (lex order — autonomy_unlock DESC, capability_gap DESC, user_impact DESC,
  * waste_reduction DESC, dependency_count ASC, risk ASC, candidate_id ASC). Each factor appears as a
  * reason in the candidate's reasons list, so the operator can read why one beat another.
+ *
+ * dominance_trace: set after sorting; names which real-leverage factor(s) caused this candidate to
+ * outrank the next one. "last_in_ranking" for the final item. Never contains composite score fields.
+ *
+ * rejected_proxy_summary: on proxy-only rejections; names the proxy signals present and which real
+ * levers (autonomy_unlock, unblocks_count, capability_gap, waste_reduction, risk_reduction) were zero.
+ * Never promotes task_count or novelty as positive evidence.
  */
 final class AtlasStrategyCouncilLeverageRanker
 {
@@ -60,7 +68,22 @@ final class AtlasStrategyCouncilLeverageRanker
                 || (int) ($c['autonomy_unlock'] ?? 0) > 0;
             if ($proxyOnly && ! $hasRealLever) {
                 $reasons[] = 'rejected:proxy_signals_only:'.implode(',', $proxySignals);
-                $rejected[] = ['candidate_id' => $id, 'reasons' => $reasons];
+                $zeroLevers = array_keys(array_filter([
+                    'autonomy_unlock'  => (int) ($c['autonomy_unlock'] ?? 0) === 0,
+                    'unblocks_count'   => (int) ($c['unblocks_count'] ?? 0) === 0,
+                    'capability_gap'   => (int) ($c['capability_gap'] ?? 0) === 0,
+                    'waste_reduction'  => (int) ($c['waste_reduction'] ?? 0) === 0,
+                    'risk_reduction'   => (int) ($c['risk_reduction'] ?? 0) === 0,
+                ]));
+                $rejected[] = [
+                    'candidate_id'           => $id,
+                    'reasons'                => $reasons,
+                    'rejected_proxy_summary' => [
+                        'proxy_signals_present' => $proxySignals,
+                        'zero_real_levers'      => array_values($zeroLevers),
+                        'verdict'               => 'no_real_leverage_evidence',
+                    ],
+                ];
 
                 continue;
             }
@@ -107,6 +130,9 @@ final class AtlasStrategyCouncilLeverageRanker
                 'risk='.$row['factors']['risk'],
                 'evidence_refs_count='.$row['factors']['evidence_refs_count'],
             ];
+            $accepted[$i]['dominance_trace'] = isset($accepted[$i + 1])
+                ? $this->dominanceTrace($row['factors'], $accepted[$i + 1]['factors'])
+                : 'last_in_ranking';
         }
 
         return [
@@ -114,5 +140,39 @@ final class AtlasStrategyCouncilLeverageRanker
             'ranked' => $accepted,
             'rejected' => $rejected,
         ];
+    }
+
+    /**
+     * Explain which real-leverage factors made $winner outrank $next.
+     * Checks factors in ranking-priority order; stops after the first differentiator
+     * (matching the actual sort logic so the trace is honest).
+     *
+     * @param  array<string,mixed>  $w   winner factors
+     * @param  array<string,mixed>  $n   next factors
+     */
+    private function dominanceTrace(array $w, array $n): string
+    {
+        // DESC comparisons (higher is better)
+        $descFactors = ['autonomy_unlock', 'unblocks_count', 'capability_gap',
+                        'user_impact', 'waste_reduction', 'risk_reduction'];
+        foreach ($descFactors as $f) {
+            $wv = (int) ($w[$f] ?? 0);
+            $nv = (int) ($n[$f] ?? 0);
+            if ($wv !== $nv) {
+                return $f.'='.$wv.'_beats_'.$nv;
+            }
+        }
+
+        // ASC comparisons (lower is better)
+        foreach (['dependency_count', 'risk'] as $f) {
+            $wv = (int) ($w[$f] ?? 0);
+            $nv = (int) ($n[$f] ?? 0);
+            if ($wv !== $nv) {
+                return $f.'='.$wv.'_beats_'.$nv;
+            }
+        }
+
+        // Tiebreak by candidate_id (not a factor, handled by the sort; trace is deterministic)
+        return 'tied_on_all_factors_candidate_id_tiebreak';
     }
 }

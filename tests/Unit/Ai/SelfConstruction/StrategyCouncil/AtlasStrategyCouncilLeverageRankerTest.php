@@ -188,4 +188,136 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
         $this->assertSame([], $verdict['ranked']);
         $this->assertCount(1, $verdict['rejected']);
     }
+
+    // ── dominance_trace ───────────────────────────────────────────────────────
+
+    public function test_dominance_trace_present_on_each_ranked_item(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'alpha', 'autonomy_unlock' => 5]),
+            $this->candidate(['candidate_id' => 'beta',  'autonomy_unlock' => 1]),
+        ]);
+
+        $this->assertArrayHasKey('dominance_trace', $verdict['ranked'][0]);
+        $this->assertArrayHasKey('dominance_trace', $verdict['ranked'][1]);
+    }
+
+    public function test_dominance_trace_last_item_is_last_in_ranking(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'alpha', 'autonomy_unlock' => 5]),
+            $this->candidate(['candidate_id' => 'beta',  'autonomy_unlock' => 1]),
+        ]);
+
+        $this->assertSame('last_in_ranking', $verdict['ranked'][1]['dominance_trace']);
+    }
+
+    public function test_dominance_trace_names_differentiating_factor(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'winner', 'autonomy_unlock' => 9]),
+            $this->candidate(['candidate_id' => 'loser',  'autonomy_unlock' => 2]),
+        ]);
+
+        $trace = $verdict['ranked'][0]['dominance_trace'];
+        $this->assertStringContainsString('autonomy_unlock', $trace);
+        $this->assertStringContainsString('9', $trace);
+        $this->assertStringContainsString('2', $trace);
+    }
+
+    public function test_dominance_trace_uses_capability_gap_when_autonomy_ties(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'hi-gap', 'capability_gap' => 8]),
+            $this->candidate(['candidate_id' => 'lo-gap', 'capability_gap' => 2]),
+        ]);
+
+        // Both have same default autonomy_unlock=1, so capability_gap is the first differentiator
+        $trace = $verdict['ranked'][0]['dominance_trace'];
+        $this->assertStringContainsString('capability_gap', $trace);
+    }
+
+    public function test_dominance_trace_two_strong_candidates(): void
+    {
+        // Acceptance-criteria fixture: two strong candidates — winner must explain why it won
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'    => 'arch-unlock',
+                'autonomy_unlock' => 9,
+                'unblocks_count'  => 7,
+                'capability_gap'  => 8,
+                'evidence_refs'   => ['receipt:arch-1', 'receipt:arch-2'],
+            ]),
+            $this->candidate([
+                'candidate_id'    => 'cert-gate',
+                'autonomy_unlock' => 5,
+                'unblocks_count'  => 3,
+                'capability_gap'  => 6,
+                'evidence_refs'   => ['receipt:cert-1'],
+            ]),
+        ]);
+
+        $this->assertSame('arch-unlock', $verdict['ranked'][0]['candidate_id']);
+        $trace = $verdict['ranked'][0]['dominance_trace'];
+        $this->assertNotEmpty($trace);
+        $this->assertNotSame('last_in_ranking', $trace);
+        $this->assertStringContainsString('autonomy_unlock', $trace);
+        // No composite score in trace
+        $this->assertStringNotContainsString('composite', $trace);
+        $this->assertStringNotContainsString('total_score', $trace);
+    }
+
+    // ── rejected_proxy_summary ────────────────────────────────────────────────
+
+    public function test_proxy_rejection_carries_rejected_proxy_summary(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'   => 'proxy-only',
+                'proxy_signals'  => ['task_count', 'novelty'],
+                'capability_gap' => 0,
+                'user_impact'    => 0,
+                'autonomy_unlock'=> 0,
+            ]),
+        ]);
+
+        $rejected = $verdict['rejected'][0];
+        $this->assertArrayHasKey('rejected_proxy_summary', $rejected);
+
+        $summary = $rejected['rejected_proxy_summary'];
+        $this->assertSame(['task_count', 'novelty'], $summary['proxy_signals_present']);
+        $this->assertContains('autonomy_unlock', $summary['zero_real_levers']);
+        $this->assertContains('capability_gap',  $summary['zero_real_levers']);
+        $this->assertSame('no_real_leverage_evidence', $summary['verdict']);
+    }
+
+    public function test_proxy_summary_does_not_promote_task_count_as_positive(): void
+    {
+        // The summary must list task_count as a proxy signal, not as a positive factor
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id'   => 'tc-only',
+                'proxy_signals'  => ['task_count'],
+                'capability_gap' => 0,
+                'user_impact'    => 0,
+                'autonomy_unlock'=> 0,
+            ]),
+        ]);
+
+        $summary = $verdict['rejected'][0]['rejected_proxy_summary'];
+        // task_count should be in proxy_signals_present (named as a problem, not a feature)
+        $this->assertContains('task_count', $summary['proxy_signals_present']);
+        // zero_real_levers shows what's missing, not what the proxy has
+        $this->assertNotContains('task_count', $summary['zero_real_levers']);
+    }
+
+    public function test_no_evidence_rejection_has_no_rejected_proxy_summary(): void
+    {
+        // Only proxy-only rejections get the summary; no_evidence_refs does not
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate(['candidate_id' => 'no-ev', 'evidence_refs' => []]),
+        ]);
+
+        $this->assertArrayNotHasKey('rejected_proxy_summary', $verdict['rejected'][0]);
+    }
 }
