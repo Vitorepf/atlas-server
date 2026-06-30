@@ -28,6 +28,12 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
 
     public const DEFAULT_MAX_APPLIED = 10;
 
+    /** At/below this claimable-per-active-worker ratio, downstream workers are about to starve. */
+    private const DEFAULT_WORKER_FEED_FLOOR_RATIO = 2.0;
+
+    /** Minimum value for an unlocked follow-up to count as "high-value" under starvation pressure. */
+    private const DEFAULT_HIGH_VALUE_FLOOR = 7;
+
     public function __construct(
         private readonly ?AtlasSelfConstructionTaskGraphDraftEnqueuePlan $planBuilder = null,
     ) {}
@@ -115,6 +121,62 @@ final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
             'coverage_facts_status' => (string) ($coverageFacts['status'] ?? ''),
             'replenisher_hash' => $replenisherHash,
         ];
+    }
+
+    /**
+     * Orders dependency-unlocked candidate packets for replenishment, factoring in the worker feed
+     * floor: when downstream workers are about to starve (claimable_per_active_worker at/below the
+     * floor ratio), unlocked high-value follow-ups are preferred over speculative low-value branches
+     * — even if the speculative branch would otherwise rank higher on value/dependency_count alone.
+     * With a comfortable buffer, the existing value/dependency ordering is unchanged.
+     *
+     * @param  list<array<string,mixed>>  $candidates  {task_packet_id, value:int, dependency_count:int,
+     *                                                   is_unlocked_follow_up?:bool, speculative?:bool}
+     * @param  array<string,mixed>  $workerFloorFacts  {claimable_per_active_worker?:float,
+     *                                                   worker_feed_floor_ratio?:float, high_value_floor?:int}
+     * @return array<string,mixed>
+     */
+    public function prioritizeUnlockedFollowUps(array $candidates, array $workerFloorFacts = []): array
+    {
+        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $workerFloorFacts)
+            ? (float) $workerFloorFacts['claimable_per_active_worker']
+            : null;
+        $floorRatio = (float) ($workerFloorFacts['worker_feed_floor_ratio'] ?? self::DEFAULT_WORKER_FEED_FLOOR_RATIO);
+        $highValueFloor = (int) ($workerFloorFacts['high_value_floor'] ?? self::DEFAULT_HIGH_VALUE_FLOOR);
+
+        $workerFeedThin = $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $floorRatio;
+
+        $ordered = array_values(array_filter($candidates, 'is_array'));
+
+        usort($ordered, function (array $a, array $b) use ($workerFeedThin, $highValueFloor): int {
+            if ($workerFeedThin) {
+                $aPriority = $this->isHighValueUnlockedFollowUp($a, $highValueFloor) ? 1 : 0;
+                $bPriority = $this->isHighValueUnlockedFollowUp($b, $highValueFloor) ? 1 : 0;
+                if ($aPriority !== $bPriority) {
+                    return $bPriority <=> $aPriority;
+                }
+            }
+
+            return ((int) ($b['value'] ?? 0)) <=> ((int) ($a['value'] ?? 0))
+                ?: ((int) ($a['dependency_count'] ?? 0)) <=> ((int) ($b['dependency_count'] ?? 0))
+                ?: strcmp((string) ($a['task_packet_id'] ?? ''), (string) ($b['task_packet_id'] ?? ''));
+        });
+
+        return [
+            'schema' => self::SCHEMA,
+            'ordered' => array_values($ordered),
+            'worker_feed_thin' => $workerFeedThin,
+            'claimable_per_active_worker' => $claimablePerActiveWorker,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     */
+    private function isHighValueUnlockedFollowUp(array $candidate, int $highValueFloor): bool
+    {
+        return (bool) ($candidate['is_unlocked_follow_up'] ?? false)
+            && (int) ($candidate['value'] ?? 0) >= $highValueFloor;
     }
 
     /**
