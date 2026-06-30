@@ -220,18 +220,35 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
 
     public function test_cosmetic_only_true_marks_unverifiable_with_reason(): void
     {
-        $result = $this->tracer()->trace($this->fullInput(['cosmetic_only' => true]));
+        // No falsification_signal → override incomplete → proxy fires
+        $result = $this->tracer()->trace($this->fullInput(['cosmetic_only' => true, 'falsification_signal' => '']));
 
         $this->assertFalse($result['verifiable']);
-        $this->assertContains('cosmetic_only_impact', $result['unverifiable_reasons']);
+        $this->assertContains('cosmetic_only_proxy', $result['unverifiable_reasons']);
+    }
+
+    public function test_cosmetic_only_verifiable_when_cap_delta_and_falsification_override_present(): void
+    {
+        // fullInput has both capability_delta and falsification_signal → proxy suppressed
+        $result = $this->tracer()->trace($this->fullInput(['cosmetic_only' => true]));
+
+        $this->assertNotContains('cosmetic_only_proxy', $result['unverifiable_reasons']);
     }
 
     public function test_metric_only_true_marks_unverifiable_with_reason(): void
     {
-        $result = $this->tracer()->trace($this->fullInput(['metric_only' => true]));
+        // No falsification_signal → override incomplete → proxy fires
+        $result = $this->tracer()->trace($this->fullInput(['metric_only' => true, 'falsification_signal' => '']));
 
         $this->assertFalse($result['verifiable']);
-        $this->assertContains('metric_only_impact', $result['unverifiable_reasons']);
+        $this->assertContains('metric_only_proxy', $result['unverifiable_reasons']);
+    }
+
+    public function test_metric_only_verifiable_when_overrides_present(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['metric_only' => true]));
+
+        $this->assertNotContains('metric_only_proxy', $result['unverifiable_reasons']);
     }
 
     public function test_falsification_signal_passed_through_in_output(): void
@@ -239,5 +256,47 @@ final class AtlasExternalBrainSpecImpactTraceTest extends TestCase
         $result = $this->tracer()->trace($this->fullInput());
 
         $this->assertStringContainsString('LeverageScorer', $result['falsification_signal']);
+    }
+
+    // ── new pillar blockers ───────────────────────────────────────────────────
+
+    public function test_missing_downstream_unlocks_marks_unverifiable(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['downstream_unlocks' => []]));
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertContains('no_downstream_unlocks', $result['unverifiable_reasons']);
+    }
+
+    public function test_missing_risk_reduction_marks_unverifiable(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['risk_reduction' => '']));
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertContains('no_risk_reduction', $result['unverifiable_reasons']);
+    }
+
+    public function test_missing_falsification_signal_marks_unverifiable(): void
+    {
+        $result = $this->tracer()->trace($this->fullInput(['falsification_signal' => '']));
+
+        $this->assertFalse($result['verifiable']);
+        $this->assertContains('no_falsification_signal', $result['unverifiable_reasons']);
+    }
+
+    // ── audit reason_counts ───────────────────────────────────────────────────
+
+    public function test_audit_stats_include_reason_counts(): void
+    {
+        $specs = [
+            $this->fullInput(['task_id' => 'ok']),
+            $this->fullInput(['task_id' => 'bad-a', 'evidence_refs' => []]),
+            $this->fullInput(['task_id' => 'bad-b', 'evidence_refs' => []]),
+        ];
+
+        $result = $this->tracer()->audit($specs);
+
+        $this->assertArrayHasKey('reason_counts', $result['stats']);
+        $this->assertSame(2, $result['stats']['reason_counts']['no_evidence_origin']);
     }
 }

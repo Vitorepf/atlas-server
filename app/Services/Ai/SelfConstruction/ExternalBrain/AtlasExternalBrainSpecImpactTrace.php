@@ -87,7 +87,7 @@ final class AtlasExternalBrainSpecImpactTrace
         $cosmeticOnly = (bool) ($input['cosmetic_only'] ?? false);
         $metricOnly   = (bool) ($input['metric_only'] ?? false);
 
-        $unverifiableReasons = $this->computeUnverifiableReasons($evidenceRefs, $capDelta, $acceptance, $evidenceAfterCommit, $cosmeticOnly, $metricOnly);
+        $unverifiableReasons = $this->computeUnverifiableReasons($evidenceRefs, $capDelta, $downstreamUnlocks, $riskReduction, $evidenceAfterCommit, $falsificationSignal, $acceptance, $cosmeticOnly, $metricOnly);
 
         return [
             'schema'                => self::SCHEMA,
@@ -132,26 +132,38 @@ final class AtlasExternalBrainSpecImpactTrace
             }
         }
 
+        $reasonCounts = [];
+        foreach ($unverifiable as $t) {
+            foreach ($t['unverifiable_reasons'] as $r) {
+                $reasonCounts[$r] = ($reasonCounts[$r] ?? 0) + 1;
+            }
+        }
+
         return [
             'verifiable'   => $verifiable,
             'unverifiable' => $unverifiable,
             'stats'        => [
-                'total'           => count($specs),
-                'verifiable_count' => count($verifiable),
-                'unverifiable_count' => count($unverifiable),
+                'total'               => count($specs),
+                'verifiable_count'    => count($verifiable),
+                'unverifiable_count'  => count($unverifiable),
+                'reason_counts'       => $reasonCounts,
             ],
         ];
     }
 
     /**
      * @param  string[]  $evidenceRefs
+     * @param  string[]  $downstreamUnlocks
      * @return list<string>
      */
     private function computeUnverifiableReasons(
         array $evidenceRefs,
         string $capDelta,
-        string $acceptance,
+        array $downstreamUnlocks,
+        string $riskReduction,
         string $evidenceAfterCommit,
+        string $falsificationSignal,
+        string $acceptance,
         bool $cosmeticOnly,
         bool $metricOnly,
     ): array {
@@ -160,25 +172,30 @@ final class AtlasExternalBrainSpecImpactTrace
         if ($evidenceRefs === []) {
             $reasons[] = 'no_evidence_origin';
         }
-
         if ($capDelta === '') {
             $reasons[] = 'no_capability_delta';
         }
-
-        if (mb_strlen($acceptance) < self::MIN_ACCEPTANCE_LENGTH) {
-            $reasons[] = 'no_falsifiable_acceptance';
+        if ($downstreamUnlocks === []) {
+            $reasons[] = 'no_downstream_unlocks';
         }
-
+        if ($riskReduction === '') {
+            $reasons[] = 'no_risk_reduction';
+        }
         if ($evidenceAfterCommit === '') {
             $reasons[] = 'no_evidence_after_commit';
         }
-
-        if ($cosmeticOnly) {
-            $reasons[] = 'cosmetic_only_impact';
+        if ($falsificationSignal === '') {
+            $reasons[] = 'no_falsification_signal';
         }
-
-        if ($metricOnly) {
-            $reasons[] = 'metric_only_impact';
+        if (mb_strlen($acceptance) < self::MIN_ACCEPTANCE_LENGTH) {
+            $reasons[] = 'no_falsifiable_acceptance';
+        }
+        // AC3: cosmetic/metric proxies are unverifiable UNLESS explicit cap delta + falsification override both present.
+        if ($cosmeticOnly && ($capDelta === '' || $falsificationSignal === '')) {
+            $reasons[] = 'cosmetic_only_proxy';
+        }
+        if ($metricOnly && ($capDelta === '' || $falsificationSignal === '')) {
+            $reasons[] = 'metric_only_proxy';
         }
 
         return $reasons;
