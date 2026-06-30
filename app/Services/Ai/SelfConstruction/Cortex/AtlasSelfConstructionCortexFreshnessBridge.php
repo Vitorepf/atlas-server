@@ -38,7 +38,7 @@ final class AtlasSelfConstructionCortexFreshnessBridge
 
     public const BLOCKED = 'blocked';
 
-    public const REQUIRED_SOURCES = ['docs', 'code_index', 'queue', 'receipts', 'runtime_evidence'];
+    public const REQUIRED_SOURCES = ['docs', 'code_index', 'queue', 'receipts', 'runtime_evidence', 'worker_outcome', 'project_lane'];
 
     public const DEFAULT_WINDOW_SECONDS = 86400;
 
@@ -102,13 +102,24 @@ final class AtlasSelfConstructionCortexFreshnessBridge
         usort($rows, static fn (array $a, array $b): int => strcmp($a['source_id'], $b['source_id']));
 
         $allFresh = ! array_filter($rows, static fn (array $r): bool => $r['readiness'] !== self::FRESH);
+        $fullPlan = $this->buildRefreshPlan($rows);
+
+        // Split the refresh plan into blocking (unknown/blocked) and advisory (stale).
+        $blockingPlan = array_values(array_filter($fullPlan, static fn (array $p): bool => ! $p['safe_to_origin_tasks']));
+        $advisoryPlan = array_values(array_filter($fullPlan, static fn (array $p): bool => $p['safe_to_origin_tasks']));
+
+        // stale_but_usable: stale sources with hash present can still be read (with caveats).
+        $staleButUsable = ! empty($advisoryPlan) && ! $allFresh;
 
         return [
             'schema'                          => self::SCHEMA,
             'all_fresh'                       => $allFresh,
             'safe_to_origin_tasks'            => $allFresh,
+            'stale_but_usable'                => $staleButUsable,
             'rows'                            => $rows,
-            'knowledge_dominance_refresh_plan' => $this->buildRefreshPlan($rows),
+            'blocking_refresh_plan'           => $blockingPlan,
+            'advisory_refresh_plan'           => $advisoryPlan,
+            'knowledge_dominance_refresh_plan' => $fullPlan,
         ];
     }
 
