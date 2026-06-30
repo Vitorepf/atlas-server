@@ -108,6 +108,40 @@ final class AtlasExternalBrainControlPlaneSnapshot
         $domainFacts = (array) ($inputs['domain_facts'] ?? []);
         $hasMissingLedger = ! array_key_exists('ledger_summary', $inputs) || $inputs['ledger_summary'] === null;
 
+        // AC1/AC2/AC3: explicit control-plane summary fields
+        $giveBackRate       = array_key_exists('queue_health', $inputs)
+            ? (float) ($inputs['queue_health']['give_back_rate'] ?? 0.0)
+            : null;
+        $queueHealthSummary = [
+            'status'         => $queueStatus !== '' ? $queueStatus : 'unknown',
+            'give_back_rate' => $giveBackRate,
+        ];
+        $workerState = array_key_exists('worker_state', $inputs)
+            ? (string) ($inputs['worker_state']['status'] ?? 'unknown')
+            : 'unknown';
+        $highGiveBack = $giveBackRate !== null && $giveBackRate > 0.30;
+        $risk = 'low';
+        if ($queueStatus === 'stalled' || $highGiveBack) {
+            $risk = 'high';
+        } elseif ($queueStatus === 'degraded' || ($giveBackRate !== null && $giveBackRate > 0.10)) {
+            $risk = 'medium';
+        }
+        $quality = match ($auditVerdict) {
+            'pass'            => 'good',
+            'repair_required' => 'degraded',
+            'reject'          => 'blocked',
+            default           => 'unknown',
+        };
+        if ($queueStatus === 'stalled' || $risk === 'high') {
+            $recommendedDecision = 'repair_queue_before_creating_more';
+        } elseif ($queueStatus === 'degraded' || $risk === 'medium') {
+            $recommendedDecision = 'reduce_risk_before_creating_more';
+        } elseif ($blockers !== []) {
+            $recommendedDecision = 'resolve_blockers_before_creating_more';
+        } else {
+            $recommendedDecision = 'create_more_tasks';
+        }
+
         return [
             'schema'                    => self::SCHEMA,
             'maturity_band'             => $band,
@@ -126,8 +160,14 @@ final class AtlasExternalBrainControlPlaneSnapshot
                 'ledger_present' => ! $hasMissingLedger,
                 'stalled_yield'  => ! empty($inputs['stalled_yield']),
             ],
-            'domain_map'                => $this->buildDomainMap($domainFacts),
-            'prioritized_next_actions'  => $this->buildPrioritizedActions(
+            'queue_health'              => $queueHealthSummary,
+            'worker_state'             => $workerState,
+            'risk'                     => $risk,
+            'maturity_gaps'            => $evidenceGaps,
+            'quality'                  => $quality,
+            'recommended_decision'     => $recommendedDecision,
+            'domain_map'               => $this->buildDomainMap($domainFacts),
+            'prioritized_next_actions' => $this->buildPrioritizedActions(
                 $queueStatus,
                 $auditVerdict,
                 $hasMissingLedger,
