@@ -25,6 +25,9 @@ final class AgentControlPlaneDeterministicChainReplayService
 
     public const MODE = 'read_only_agent_control_plane_deterministic_chain_replay';
 
+    /** Volatile fields stripped before computing deterministic_replay_hash. */
+    public const DETERMINISTIC_HASH_EXCLUDED_FIELDS = ['replay_id', 'generated_at'];
+
     public function __construct(
         private readonly AgentControlPlaneChainIntegrityAuditService $audit,
         private readonly AtlasSelfConstructionReadinessService $readiness,
@@ -203,6 +206,7 @@ final class AgentControlPlaneDeterministicChainReplayService
         $payload['proof_bundle_hash'] = $proofBundle === null ? null : $this->stableHash($proofBundle);
         $payload['replay_hash'] = $this->stableHash($this->normalizeForReplayHash($payload));
         $payload['deterministic_replay_hash'] = $this->stableHash($this->normalizeForDeterministicHash($payload));
+        $payload['deterministic_hash_exclusions'] = self::DETERMINISTIC_HASH_EXCLUDED_FIELDS;
 
         return $payload;
     }
@@ -441,13 +445,10 @@ final class AgentControlPlaneDeterministicChainReplayService
         // (generated_at, replay_id) so the hash only changes when the
         // structural state of the chain changes.
         $clone = $payload;
-        unset(
-            $clone['replay_hash'],
-            $clone['deterministic_replay_hash'],
-            $clone['proof_bundle_hash'],
-            $clone['generated_at'],
-            $clone['replay_id'],
-        );
+        unset($clone['replay_hash'], $clone['deterministic_replay_hash'], $clone['proof_bundle_hash']);
+        foreach (self::DETERMINISTIC_HASH_EXCLUDED_FIELDS as $field) {
+            unset($clone[$field]);
+        }
 
         return $this->recursivelyKsort($clone);
     }
