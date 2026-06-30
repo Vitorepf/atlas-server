@@ -22,6 +22,10 @@ final class AtlasExternalBrainDoneSetDiversityLearner
 
     public const UNDERREPRESENTED_THRESHOLD = 0.1;
 
+    public const TEMPLATE_FARM_THRESHOLD = 0.5;
+
+    private const HIGH_LEVERAGE_FAMILIES = ['bug-hunt', 'gate-impl', 'research'];
+
     private const KNOWN_FAMILIES = [
         'bug-hunt',
         'discovery',
@@ -46,23 +50,44 @@ final class AtlasExternalBrainDoneSetDiversityLearner
 
         if ($total === 0) {
             return [
-                'schema_version' => self::SCHEMA,
-                'diversity_score' => 1.0,
-                'concentrated_families' => [],
-                'high_negative_signal_families' => [],
+                'schema_version'                 => self::SCHEMA,
+                'diversity_score'                => 1.0,
+                'concentrated_families'          => [],
+                'high_negative_signal_families'  => [],
                 'missing_family_recommendations' => self::KNOWN_FAMILIES,
+                'template_concentration'         => 0.0,
+                'template_farm_detected'         => false,
+                'top_template_signature'         => null,
+                'capability_family_coverage'     => 0.0,
+                'dominant_objective_shape'       => null,
             ];
         }
 
-        $familyCounts = [];
-        $negativeCounts = [];
+        $familyCounts     = [];
+        $negativeCounts   = [];
+        $templateCounts   = [];
+        $capFamiliesSeen  = [];
+        $shapeCounts      = [];
 
         foreach ($doneSet as $task) {
-            $family = (string) ($task['task_family'] ?? 'unknown');
-            $outcome = (string) ($task['outcome'] ?? 'served');
+            $family  = (string) ($task['task_family']       ?? 'unknown');
+            $outcome = (string) ($task['outcome']           ?? 'served');
+            $sig     = trim((string) ($task['template_signature'] ?? ''));
+            $capFam  = trim((string) ($task['capability_family']  ?? ''));
+            $shape   = trim((string) ($task['objective_shape']    ?? ''));
+
             $familyCounts[$family] = ($familyCounts[$family] ?? 0) + 1;
             if (in_array($outcome, self::NEGATIVE_OUTCOMES, true)) {
                 $negativeCounts[$family] = ($negativeCounts[$family] ?? 0) + 1;
+            }
+            if ($sig !== '') {
+                $templateCounts[$sig] = ($templateCounts[$sig] ?? 0) + 1;
+            }
+            if ($capFam !== '') {
+                $capFamiliesSeen[$capFam] = true;
+            }
+            if ($shape !== '') {
+                $shapeCounts[$shape] = ($shapeCounts[$shape] ?? 0) + 1;
             }
         }
 
@@ -96,12 +121,51 @@ final class AtlasExternalBrainDoneSetDiversityLearner
             }
         }
 
+        // AC1: template_signature concentration.
+        $templateConcentration = 0.0;
+        $topTemplateSig        = null;
+        if ($templateCounts !== []) {
+            $topSigCount           = max($templateCounts);
+            $templateConcentration = round($topSigCount / $total, 3);
+            $topTemplateSig        = array_search($topSigCount, $templateCounts, true);
+        }
+        $templateFarmDetected = $templateConcentration > self::TEMPLATE_FARM_THRESHOLD;
+
+        // AC1: capability_family coverage over KNOWN_FAMILIES set.
+        $capFamilyCoverage = count($capFamiliesSeen) / count(self::KNOWN_FAMILIES);
+
+        // AC1: dominant objective_shape (>50% of tasks with a shape).
+        $dominantShape = null;
+        if ($shapeCounts !== []) {
+            $topShapeCount = max($shapeCounts);
+            if ($topShapeCount / $total > self::CONCENTRATION_THRESHOLD) {
+                $dominantShape = (string) array_search($topShapeCount, $shapeCounts, true);
+            }
+        }
+
+        // AC2: when template farm detected, sort missing to put high-leverage families first.
+        if ($templateFarmDetected && $missing !== []) {
+            usort($missing, static function (string $a, string $b): int {
+                $aHigh = in_array($a, self::HIGH_LEVERAGE_FAMILIES, true);
+                $bHigh = in_array($b, self::HIGH_LEVERAGE_FAMILIES, true);
+                if ($aHigh === $bHigh) {
+                    return 0;
+                }
+                return $aHigh ? -1 : 1;
+            });
+        }
+
         return [
-            'schema_version' => self::SCHEMA,
-            'diversity_score' => $diversityScore,
-            'concentrated_families' => $concentrated,
-            'high_negative_signal_families' => $highNegative,
+            'schema_version'                 => self::SCHEMA,
+            'diversity_score'                => $diversityScore,
+            'concentrated_families'          => $concentrated,
+            'high_negative_signal_families'  => $highNegative,
             'missing_family_recommendations' => $missing,
+            'template_concentration'         => $templateConcentration,
+            'template_farm_detected'         => $templateFarmDetected,
+            'top_template_signature'         => $topTemplateSig,
+            'capability_family_coverage'     => round($capFamilyCoverage, 3),
+            'dominant_objective_shape'       => $dominantShape,
         ];
     }
 }
