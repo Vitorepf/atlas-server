@@ -169,6 +169,8 @@ final class AtlasExternalBrainQueuePressureGovernor
     {
         $malformedCount = max(0, (int) ($health['malformed_count'] ?? 0));
         $claimablePerActiveWorker = $health['claimable_per_active_worker'] ?? null;
+        $activeLeases = (int) ($health['active_leases'] ?? 0);
+        $replenishSignal = (string) ($health['replenish_action'] ?? $health['replenish_recommendation'] ?? '');
 
         if ($malformedCount > 0) {
             return [
@@ -179,11 +181,21 @@ final class AtlasExternalBrainQueuePressureGovernor
             ];
         }
 
-        if ($claimablePerActiveWorker !== null && (float) $claimablePerActiveWorker <= self::WORKER_FLOOR_RATIO) {
+        $thinBuffer = $claimablePerActiveWorker !== null && (float) $claimablePerActiveWorker <= self::WORKER_FLOOR_RATIO;
+        $urgentReplenishSignal = $replenishSignal === 'replenish_soon' || $replenishSignal === 'replenish_urgently';
+
+        // Bridge from Maestro replenish-urgency facts: even when serve telemetry is blind (no
+        // direct serve_rate to read), active workers near starvation are a non-wait signal on
+        // their own — request a bounded batch instead of defaulting to passive wait/hold.
+        if ($activeLeases > 0 && ($thinBuffer || $urgentReplenishSignal)) {
+            $reason = $thinBuffer
+                ? "claimable_per_active_worker={$claimablePerActiveWorker} at or below worker floor={$this->floorAsString()} with active_leases={$activeLeases}; request bounded batch to avoid starvation"
+                : "replenish_signal={$replenishSignal} with active_leases={$activeLeases}; request bounded batch ahead of worker starvation";
+
             return [
                 'schema' => self::SCHEMA,
                 'action' => self::ACTION_REQUEST_BOUNDED_BATCH,
-                'reason' => "claimable_per_active_worker={$claimablePerActiveWorker} at or below worker floor={$this->floorAsString()}; request bounded batch to avoid starvation",
+                'reason' => $reason,
                 'max_tasks' => self::BOUNDED_BATCH_MAX_TASKS,
             ];
         }
