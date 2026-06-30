@@ -216,4 +216,52 @@ class AtlasSelfConstructionCompletionCriterionReporterTest extends TestCase
         $row = collect($checklist)->firstWhere('requirement', 'multi-agent terminal loop wired (claim/complete/replenish/bootstrap/health-digest/recover/one-shot/multi-agent-cert)');
         self::assertSame('passed', $row['evidence_status']);
     }
+
+    public function test_final_brain_report_classifies_complete_missing_and_blocked_criteria(): void
+    {
+        $criteria = [
+            // Technical criterion — passed → complete
+            ['id' => 'release_dossier_green', 'requirement' => 'release dossier green', 'passed' => true],
+            // Technical criterion — unmet → missing (AI-actionable)
+            ['id' => 'mutation_guard_green', 'requirement' => 'mutation guard green', 'passed' => false],
+            // Human criterion — unmet → blocked (operator action)
+            ['id' => 'human_signed_os_complete_receipt_present', 'requirement' => 'human signed receipt', 'passed' => false],
+        ];
+
+        $report = AtlasSelfConstructionCompletionCriterionReporter::finalBrainReport($criteria);
+
+        self::assertSame('atlas.self_construction.completion_criterion_report.final_brain.v1', $report['schema']);
+        self::assertCount(1, $report['complete']);
+        self::assertCount(1, $report['missing']);
+        self::assertCount(1, $report['blocked']);
+        self::assertSame(3, $report['total_criteria']);
+        self::assertFalse($report['all_complete']);
+
+        self::assertSame('release_dossier_green', $report['complete'][0]['id']);
+        self::assertSame('mutation_guard_green', $report['missing'][0]['id']);
+        self::assertSame('human_signed_os_complete_receipt_present', $report['blocked'][0]['id']);
+    }
+
+    public function test_final_brain_report_proof_command_and_next_packet_hint_for_every_unmet_criterion(): void
+    {
+        $criteria = [
+            ['id' => 'release_dossier_green', 'requirement' => 'release dossier green', 'passed' => false],
+            ['id' => 'human_signed_os_complete_receipt_present', 'requirement' => 'human signed receipt', 'passed' => false],
+        ];
+
+        $report = AtlasSelfConstructionCompletionCriterionReporter::finalBrainReport($criteria);
+
+        // Every unmet criterion in missing/blocked must carry proof_command and next_packet_hint.
+        foreach (array_merge($report['missing'], $report['blocked']) as $entry) {
+            self::assertArrayHasKey('proof_command', $entry, "criterion {$entry['id']} must have proof_command");
+            self::assertArrayHasKey('next_packet_hint', $entry, "criterion {$entry['id']} must have next_packet_hint");
+            self::assertNotEmpty($entry['proof_command'], "criterion {$entry['id']} proof_command must not be empty");
+            self::assertNotEmpty($entry['next_packet_hint'], "criterion {$entry['id']} next_packet_hint must not be empty");
+        }
+
+        // Lane scores must be present.
+        self::assertArrayHasKey('lane_scores', $report);
+        self::assertArrayHasKey('technical', $report['lane_scores']);
+        self::assertArrayHasKey('human', $report['lane_scores']);
+    }
 }

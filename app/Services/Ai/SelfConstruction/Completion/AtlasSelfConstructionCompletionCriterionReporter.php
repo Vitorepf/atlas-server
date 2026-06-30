@@ -405,6 +405,93 @@ final class AtlasSelfConstructionCompletionCriterionReporter
     }
 
     /**
+     * Report final-brain completion criteria with actionable gaps, lane scores, and exact proof
+     * commands for every unmet criterion.
+     *
+     * Classification:
+     *   complete : criterion passed=true
+     *   missing  : criterion passed=false, blocker_type=technical  (Atlas can run the proof command)
+     *   blocked  : criterion passed=false, blocker_type=human|real_provider (operator action needed)
+     *
+     * @param  list<array<string, mixed>>  $criteria  each: {id, requirement, passed, evidence?}
+     * @return array<string, mixed>
+     */
+    public static function finalBrainReport(array $criteria): array
+    {
+        $meta = self::criterionMetadata();
+        $complete = [];
+        $missing = [];
+        $blocked = [];
+        $laneScores = [];
+
+        foreach ($criteria as $criterion) {
+            $id = (string) ($criterion['id'] ?? '');
+            $passed = (bool) ($criterion['passed'] ?? false);
+            $m = $meta[$id] ?? [
+                'blocker_type' => 'technical',
+                'doc_anchor' => '',
+                'remediation_command' => '',
+                'expected_receipt_schema' => '',
+                'why_blocking' => '',
+            ];
+            $lane = (string) $m['blocker_type'];
+            $laneScores[$lane] ??= ['total' => 0, 'complete' => 0];
+            $laneScores[$lane]['total']++;
+
+            if ($passed) {
+                $laneScores[$lane]['complete']++;
+                $complete[] = [
+                    'id' => $id,
+                    'requirement' => (string) ($criterion['requirement'] ?? ''),
+                    'lane' => $lane,
+                ];
+
+                continue;
+            }
+
+            $proofCommand = (string) $m['remediation_command'];
+            $entry = [
+                'id' => $id,
+                'requirement' => (string) ($criterion['requirement'] ?? ''),
+                'lane' => $lane,
+                'proof_command' => $proofCommand,
+                'next_packet_hint' => $lane === 'technical'
+                    ? 'atlas-task: run '.$proofCommand.' to satisfy criterion '.$id
+                    : 'operator-action-required: '.(string) $m['why_blocking'],
+                'why_blocking' => (string) $m['why_blocking'],
+                'doc_anchor' => (string) $m['doc_anchor'],
+            ];
+
+            if ($lane === 'technical') {
+                $missing[] = $entry;
+            } else {
+                $blocked[] = $entry;
+            }
+        }
+
+        $total = count($criteria);
+        $completeCount = count($complete);
+
+        foreach ($laneScores as &$s) {
+            $s['score'] = $s['total'] > 0 ? round($s['complete'] / $s['total'], 4) : 0.0;
+        }
+        unset($s);
+
+        return [
+            'schema' => 'atlas.self_construction.completion_criterion_report.final_brain.v1',
+            'total_criteria' => $total,
+            'complete_count' => $completeCount,
+            'missing_count' => count($missing),
+            'blocked_count' => count($blocked),
+            'all_complete' => $total > 0 && $completeCount === $total,
+            'complete' => $complete,
+            'missing' => $missing,
+            'blocked' => $blocked,
+            'lane_scores' => $laneScores,
+        ];
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $criteria
      * @param  array<string, mixed>  $controlPlane
      * @param  array<string, mixed>  $releaseDossier
