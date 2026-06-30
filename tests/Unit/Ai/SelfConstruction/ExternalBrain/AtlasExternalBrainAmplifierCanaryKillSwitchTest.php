@@ -34,7 +34,11 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitchTest extends TestCase
     {
         $result = $this->switch->evaluate($this->allGood());
 
-        foreach (['schema', 'action', 'breached_thresholds', 'rollback_scope', 'sample_size', 'next_safe_variant'] as $k) {
+        foreach ([
+            'schema', 'action', 'breached_thresholds', 'rollback_scope',
+            'sample_size', 'next_safe_variant',
+            'kill_switch_active', 'kill_reason', 'recovery_condition', 'safe_mode_policy',
+        ] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
         $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::SCHEMA, $result['schema']);
@@ -183,5 +187,127 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitchTest extends TestCase
         $result = $this->switch->evaluate($this->allGood(42));
 
         $this->assertSame(42, $result['sample_size']);
+    }
+
+    // ── Kill switch: safe state ───────────────────────────────────────────────
+
+    public function test_kill_switch_inactive_when_all_safe(): void
+    {
+        $result = $this->switch->evaluate($this->allGood(20));
+
+        $this->assertFalse($result['kill_switch_active']);
+        $this->assertNull($result['kill_reason']);
+        $this->assertSame('normal_operation', $result['safe_mode_policy']);
+        $this->assertSame('no_recovery_needed', $result['recovery_condition']);
+    }
+
+    // ── Kill switch: rollback telemetry ───────────────────────────────────────
+
+    public function test_rollback_telemetry_triggers_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['rollback_telemetry' => true]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertTrue($result['kill_switch_active']);
+        $this->assertSame('rollback_telemetry', $result['kill_reason']);
+        $this->assertSame('disable_amplifier_immediately', $result['safe_mode_policy']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+    }
+
+    // ── Kill switch: proxy leak ceiling breach ────────────────────────────────
+
+    public function test_proxy_leak_rate_above_ceiling_triggers_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['proxy_leak_rate' => 0.20]); // > 0.15
+        $result = $this->switch->evaluate($input);
+
+        $this->assertTrue($result['kill_switch_active']);
+        $this->assertSame('proxy_leak_ceiling_breach', $result['kill_reason']);
+        $this->assertSame(AtlasExternalBrainAmplifierCanaryKillSwitch::ACTION_ROLLBACK, $result['action']);
+    }
+
+    public function test_proxy_leak_rate_at_ceiling_does_not_trigger_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['proxy_leak_rate' => 0.15]); // exactly at ceiling
+        $result = $this->switch->evaluate($input);
+
+        $this->assertFalse($result['kill_switch_active']);
+    }
+
+    // ── Kill switch: held-out failure streak ──────────────────────────────────
+
+    public function test_failure_streak_at_limit_triggers_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['held_out_failure_streak' => 3]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertTrue($result['kill_switch_active']);
+        $this->assertSame('held_out_failure_streak', $result['kill_reason']);
+        $this->assertStringContainsString('zero_consecutive_failures', $result['recovery_condition']);
+    }
+
+    public function test_failure_streak_below_limit_does_not_trigger(): void
+    {
+        $input = array_merge($this->allGood(20), ['held_out_failure_streak' => 2]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertFalse($result['kill_switch_active']);
+    }
+
+    // ── Kill switch: regression spike ─────────────────────────────────────────
+
+    public function test_regression_spike_triggers_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['regression_spike' => true]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertTrue($result['kill_switch_active']);
+        $this->assertSame('regression_spike', $result['kill_reason']);
+        $this->assertStringContainsString('regression_absent', $result['recovery_condition']);
+    }
+
+    // ── Kill switch: missing mandatory telemetry ──────────────────────────────
+
+    public function test_missing_mandatory_telemetry_triggers_kill_switch(): void
+    {
+        $input = array_merge($this->allGood(20), ['has_mandatory_telemetry' => false]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertTrue($result['kill_switch_active']);
+        $this->assertSame('missing_mandatory_telemetry', $result['kill_reason']);
+        $this->assertSame('block_canary_until_telemetry_restored', $result['safe_mode_policy']);
+        $this->assertSame('all_mandatory_telemetry_present', $result['recovery_condition']);
+    }
+
+    public function test_has_mandatory_telemetry_true_does_not_trigger(): void
+    {
+        $input = array_merge($this->allGood(20), ['has_mandatory_telemetry' => true]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertFalse($result['kill_switch_active']);
+    }
+
+    // ── Kill switch: determinism ──────────────────────────────────────────────
+
+    public function test_kill_reason_is_deterministic_for_same_input(): void
+    {
+        $input = array_merge($this->allGood(20), ['rollback_telemetry' => true, 'regression_spike' => true]);
+
+        $this->assertSame(
+            $this->switch->evaluate($input)['kill_reason'],
+            $this->switch->evaluate($input)['kill_reason'],
+        );
+    }
+
+    public function test_first_triggered_reason_wins_when_multiple_kill_switches_fire(): void
+    {
+        // rollback_telemetry fires first (priority order)
+        $input = array_merge($this->allGood(20), [
+            'rollback_telemetry' => true,
+            'regression_spike'   => true,
+        ]);
+        $result = $this->switch->evaluate($input);
+
+        $this->assertSame('rollback_telemetry', $result['kill_reason']);
     }
 }

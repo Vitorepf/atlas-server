@@ -33,6 +33,10 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
     private const WEAK_EVIDENCE_CEILING   = 0.30;
     private const LOW_VALUE_CEILING       = 0.30;
 
+    // Kill-switch thresholds
+    private const PROXY_LEAK_CEILING      = 0.15;
+    private const FAILURE_STREAK_LIMIT    = 3;
+
     /**
      * @param  array{
      *   sample_size?: int,
@@ -41,8 +45,13 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
      *   malformed_rate?: float,
      *   weak_evidence_rate?: float,
      *   low_value_rate?: float,
+     *   rollback_telemetry?: bool,
+     *   proxy_leak_rate?: float,
+     *   held_out_failure_streak?: int,
+     *   regression_spike?: bool,
+     *   has_mandatory_telemetry?: bool,
      * }  $input
-     * @return array{schema:string, action:string, breached_thresholds:list<string>, rollback_scope:string|null, sample_size:int, next_safe_variant:string}
+     * @return array{schema:string, action:string, breached_thresholds:list<string>, rollback_scope:string|null, sample_size:int, next_safe_variant:string, kill_switch_active:bool, kill_reason:string|null, recovery_condition:string, safe_mode_policy:string}
      */
     public function evaluate(array $input): array
     {
@@ -53,8 +62,39 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
         $weakEvidenceRate = max(0.0, min(1.0, (float) ($input['weak_evidence_rate'] ?? 0.0)));
         $lowValueRate     = max(0.0, min(1.0, (float) ($input['low_value_rate']     ?? 0.0)));
 
-        $breached = [];
+        // Kill-switch triggers (evaluated in priority order).
+        $rollbackTelemetry    = (bool) ($input['rollback_telemetry']         ?? false);
+        $proxyLeakRate        = max(0.0, min(1.0, (float) ($input['proxy_leak_rate'] ?? 0.0)));
+        $failureStreak        = max(0, (int) ($input['held_out_failure_streak']      ?? 0));
+        $regressionSpike      = (bool) ($input['regression_spike']           ?? false);
+        $hasMandatoryTelemetry= array_key_exists('has_mandatory_telemetry', $input)
+            ? (bool) $input['has_mandatory_telemetry']
+            : true;
 
+        $killTriggers = [];
+        if ($rollbackTelemetry) {
+            $killTriggers[] = ['reason' => 'rollback_telemetry', 'recovery' => 'telemetry_confirms_stability', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if ($proxyLeakRate > self::PROXY_LEAK_CEILING) {
+            $killTriggers[] = ['reason' => 'proxy_leak_ceiling_breach', 'recovery' => 'proxy_leak_rate_below_ceiling_for_2_cycles', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if ($failureStreak >= self::FAILURE_STREAK_LIMIT) {
+            $killTriggers[] = ['reason' => 'held_out_failure_streak', 'recovery' => 'zero_consecutive_failures_for_5_tasks', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if ($regressionSpike) {
+            $killTriggers[] = ['reason' => 'regression_spike', 'recovery' => 'regression_absent_for_10_tasks', 'policy' => 'disable_amplifier_immediately'];
+        }
+        if (! $hasMandatoryTelemetry) {
+            $killTriggers[] = ['reason' => 'missing_mandatory_telemetry', 'recovery' => 'all_mandatory_telemetry_present', 'policy' => 'block_canary_until_telemetry_restored'];
+        }
+
+        $killSwitchActive  = $killTriggers !== [];
+        $killReason        = $killSwitchActive ? $killTriggers[0]['reason']   : null;
+        $recoveryCondition = $killSwitchActive ? $killTriggers[0]['recovery'] : 'no_recovery_needed';
+        $safeModePolicy    = $killSwitchActive ? $killTriggers[0]['policy']   : 'normal_operation';
+
+        // Ceiling breach checks (existing logic).
+        $breached = [];
         if ($duplicateRate > self::DUPLICATE_CEILING) {
             $breached[] = sprintf('duplicate_rate:%.4f>%.2f', $duplicateRate, self::DUPLICATE_CEILING);
         }
@@ -71,7 +111,8 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             $breached[] = sprintf('low_value_rate:%.4f>%.2f', $lowValueRate, self::LOW_VALUE_CEILING);
         }
 
-        if ($breached !== []) {
+        // Kill switch overrides action to rollback immediately.
+        if ($killSwitchActive || $breached !== []) {
             return [
                 'schema'              => self::SCHEMA,
                 'action'              => self::ACTION_ROLLBACK,
@@ -79,6 +120,10 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
                 'rollback_scope'      => 'canary_only',
                 'sample_size'         => $sampleSize,
                 'next_safe_variant'   => 'baseline',
+                'kill_switch_active'  => $killSwitchActive,
+                'kill_reason'         => $killReason,
+                'recovery_condition'  => $recoveryCondition,
+                'safe_mode_policy'    => $safeModePolicy,
             ];
         }
 
@@ -90,6 +135,10 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
                 'rollback_scope'      => null,
                 'sample_size'         => $sampleSize,
                 'next_safe_variant'   => 'current_canary',
+                'kill_switch_active'  => false,
+                'kill_reason'         => null,
+                'recovery_condition'  => 'no_recovery_needed',
+                'safe_mode_policy'    => 'normal_operation',
             ];
         }
 
@@ -100,6 +149,10 @@ final class AtlasExternalBrainAmplifierCanaryKillSwitch
             'rollback_scope'      => null,
             'sample_size'         => $sampleSize,
             'next_safe_variant'   => 'current_canary',
+            'kill_switch_active'  => false,
+            'kill_reason'         => null,
+            'recovery_condition'  => 'no_recovery_needed',
+            'safe_mode_policy'    => 'normal_operation',
         ];
     }
 }
