@@ -16,7 +16,7 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
             'lease_id' => 'lease-xyz',
             'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
             'forbidden_files' => ['config/atlas.php'],
-            'gates' => ['phpunit', 'php-lint'],
+            'gates' => ['/opt/homebrew/bin/php artisan test tests/FooTest.php', 'php-lint'],
             'evidence_requirements' => ['phpunit_green'],
             'rollback_plan' => ['mode' => 'revert_commit'],
             'worker_capability' => ['worker_id' => 'w-alpha', 'capabilities' => ['php']],
@@ -83,6 +83,52 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
         $b = $svc->compose($this->input(['lease_id' => 'lease-2']));
 
         $this->assertNotSame($a['envelope_hash'], $b['envelope_hash']);
+    }
+
+    public function test_traversal_path_in_allowed_files_blocks(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'allowed_files' => ['../secret.php', 'app/Foo.php', 'tests/FooTest.php'],
+        ]));
+        $this->assertFalse($env['valid']);
+        $this->assertContains('unsafe_path:../secret.php', $env['blockers']);
+    }
+
+    public function test_absolute_path_in_allowed_files_blocks(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'allowed_files' => ['/etc/passwd', 'app/Foo.php', 'tests/FooTest.php'],
+        ]));
+        $this->assertFalse($env['valid']);
+        $this->assertContains('unsafe_path:/etc/passwd', $env['blockers']);
+    }
+
+    public function test_no_artisan_proof_in_gates_or_evidence_blocks(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'gates' => ['phpunit', 'php-lint'],
+            'evidence_requirements' => ['phpunit_green'],
+        ]));
+        $this->assertFalse($env['valid']);
+        $this->assertContains('no_artisan_proof_in_gates_or_evidence', $env['blockers']);
+    }
+
+    public function test_duplicate_paths_are_deduplicated(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'allowed_files' => ['app/Foo.php', 'app/Foo.php', 'tests/FooTest.php'],
+        ]));
+        $this->assertTrue($env['valid']);
+        $this->assertSame(['app/Foo.php', 'tests/FooTest.php'], $env['allowed_files']);
+    }
+
+    public function test_allowed_files_input_order_does_not_affect_hash(): void
+    {
+        $svc = new AtlasSelfConstructionWorkerScopedExecutionEnvelope;
+        $a = $svc->compose($this->input(['allowed_files' => ['tests/FooTest.php', 'app/Foo.php']]));
+        $b = $svc->compose($this->input(['allowed_files' => ['app/Foo.php', 'tests/FooTest.php']]));
+        $this->assertTrue($a['valid']);
+        $this->assertSame($a['envelope_hash'], $b['envelope_hash']);
     }
 
     public function test_envelope_hash_is_independent_of_associative_key_order(): void

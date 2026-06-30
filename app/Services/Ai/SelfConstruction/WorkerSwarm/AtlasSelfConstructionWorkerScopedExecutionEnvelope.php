@@ -41,8 +41,8 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
     {
         $taskId = (string) ($input['task_id'] ?? '');
         $leaseId = (string) ($input['lease_id'] ?? '');
-        $allowed = array_values((array) ($input['allowed_files'] ?? []));
-        $forbidden = array_values((array) ($input['forbidden_files'] ?? []));
+        $allowed = $this->normalizePaths((array) ($input['allowed_files'] ?? []));
+        $forbidden = $this->normalizePaths((array) ($input['forbidden_files'] ?? []));
         $gates = array_values((array) ($input['gates'] ?? []));
         $evidence = array_values((array) ($input['evidence_requirements'] ?? []));
         $rollback = is_array($input['rollback_plan'] ?? null) ? $input['rollback_plan'] : [];
@@ -55,12 +55,27 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
         if ($allowed === []) {
             $blockers[] = 'allowed_files_empty';
         }
+        foreach (array_merge($allowed, $forbidden) as $path) {
+            if (str_starts_with($path, '/') || str_contains($path, '../')) {
+                $blockers[] = 'unsafe_path:'.$path;
+            }
+        }
         $overlap = array_values(array_intersect($allowed, $forbidden));
         if ($overlap !== []) {
             $blockers[] = 'allowed_forbidden_overlap:'.implode(',', $overlap);
         }
         if ($gates === []) {
             $blockers[] = 'gates_missing';
+        }
+        $hasArtisan = false;
+        foreach (array_merge($gates, $evidence) as $item) {
+            if (str_contains((string) $item, 'php artisan')) {
+                $hasArtisan = true;
+                break;
+            }
+        }
+        if (! $hasArtisan) {
+            $blockers[] = 'no_artisan_proof_in_gates_or_evidence';
         }
 
         $envelope = [
@@ -79,6 +94,16 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
         $envelope['envelope_hash'] = hash('sha256', $this->canonicalJson($envelope));
 
         return $envelope;
+    }
+
+    /** @return list<string> */
+    private function normalizePaths(array $paths): array
+    {
+        $paths = array_filter(array_map('strval', $paths), static fn (string $p): bool => $p !== '');
+        $paths = array_values(array_unique($paths));
+        sort($paths, SORT_STRING);
+
+        return $paths;
     }
 
     private function canonicalJson(mixed $value): string
