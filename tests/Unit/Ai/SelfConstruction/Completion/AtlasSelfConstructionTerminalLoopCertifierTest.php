@@ -303,6 +303,51 @@ class AtlasSelfConstructionTerminalLoopCertifierTest extends TestCase
         self::assertContains('invalid_or_missing_operational_proof_hash', $result['validation_violations']);
     }
 
+    public function test_certify_final_brain_loop_refuses_when_recovery_receipts_absent(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyFinalBrainLoop([
+            'no_stale_heartbeat' => true,
+            'no_queue_jam' => true,
+            'balanced_lane_generation' => true,
+            'muscle_feedback_success' => true,
+            // recovery_receipts intentionally absent
+        ]);
+
+        $this->assertFalse($result['certified']);
+        $this->assertContains('missing_or_false:recovery_receipts', $result['blockers']);
+    }
+
+    public function test_certify_final_brain_loop_refuses_when_balanced_lane_generation_false(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyFinalBrainLoop([
+            'no_stale_heartbeat' => true,
+            'no_queue_jam' => true,
+            'balanced_lane_generation' => false,
+            'muscle_feedback_success' => true,
+            'recovery_receipts' => true,
+        ]);
+
+        $this->assertFalse($result['certified']);
+        $this->assertContains('missing_or_false:balanced_lane_generation', $result['blockers']);
+    }
+
+    public function test_certify_final_brain_loop_accepts_complete_deterministic_evidence_bundle(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyFinalBrainLoop([
+            'no_stale_heartbeat' => true,
+            'no_queue_jam' => true,
+            'balanced_lane_generation' => true,
+            'muscle_feedback_success' => true,
+            'recovery_receipts' => true,
+        ]);
+
+        $this->assertTrue($result['certified']);
+        $this->assertSame([], $result['blockers']);
+        $this->assertSame(AtlasSelfConstructionTerminalLoopCertifier::FINAL_BRAIN_LOOP_SCHEMA, $result['schema_version']);
+        $this->assertCount(5, $result['evidence_summary']);
+        $this->assertTrue(array_reduce($result['evidence_summary'], fn (bool $carry, bool $v): bool => $carry && $v, true));
+    }
+
     public function test_terminal_loop_operational_proof_evidence_flags_post_cycle_not_zero(): void
     {
         $proof = [

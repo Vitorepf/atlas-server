@@ -291,6 +291,45 @@ final class AtlasSelfConstructionTerminalLoopCertifier
         return $invariants;
     }
 
+    public const FINAL_BRAIN_LOOP_SCHEMA = 'atlas.self_construction.terminal_loop_certifier.final_brain.v1';
+
+    /** @var list<string> */
+    public const FINAL_BRAIN_LOOP_REQUIRED_EVIDENCE = [
+        'no_stale_heartbeat',
+        'no_queue_jam',
+        'balanced_lane_generation',
+        'muscle_feedback_success',
+        'recovery_receipts',
+    ];
+
+    /**
+     * Certify the final external-brain loop against a reproducible evidence bundle.
+     * All five dimensions must be explicitly present and true; any absent or false
+     * dimension produces a blocker and prevents certification.
+     *
+     * @param  array<string,mixed>  $evidence
+     * @return array<string,mixed>
+     */
+    public static function certifyFinalBrainLoop(array $evidence): array
+    {
+        $blockers = [];
+        $summary = [];
+        foreach (self::FINAL_BRAIN_LOOP_REQUIRED_EVIDENCE as $dimension) {
+            $met = array_key_exists($dimension, $evidence) && (bool) $evidence[$dimension];
+            $summary[$dimension] = $met;
+            if (! $met) {
+                $blockers[] = 'missing_or_false:'.$dimension;
+            }
+        }
+
+        return [
+            'schema_version' => self::FINAL_BRAIN_LOOP_SCHEMA,
+            'certified' => $blockers === [],
+            'blockers' => $blockers,
+            'evidence_summary' => $summary,
+        ];
+    }
+
     public static function terminalLoopInvariantExpectation(string $name): bool
     {
         return true;
