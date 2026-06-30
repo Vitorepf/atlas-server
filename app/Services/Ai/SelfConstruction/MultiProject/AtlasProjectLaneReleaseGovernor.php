@@ -54,18 +54,20 @@ final class AtlasProjectLaneReleaseGovernor
 
         $reasons = [];
 
-        // QUARANTINE: cross-lane refusals OR failure streak.
+        // QUARANTINE: explicit cross-lane leak facts, cross-lane refusals, OR failure streak.
+        $crossLaneLeakFacts = is_array($facts['cross_lane_leak_facts'] ?? null) ? array_values(array_map('strval', $facts['cross_lane_leak_facts'])) : [];
         $crossLane = is_array($facts['cross_lane_refusal_flags'] ?? null) ? array_values(array_map('strval', $facts['cross_lane_refusal_flags'])) : [];
         $streak = (int) ($facts['repeated_failure_streak'] ?? 0);
-        if ($crossLane !== []) {
-            foreach ($crossLane as $f) {
-                $reasons[] = 'cross_lane_refusal:'.$f;
-            }
+        foreach ($crossLaneLeakFacts as $lf) {
+            $reasons[] = 'cross_lane_leak:'.$lf;
+        }
+        foreach ($crossLane as $f) {
+            $reasons[] = 'cross_lane_refusal:'.$f;
         }
         if ($streak >= self::QUARANTINE_FAILURE_STREAK) {
             $reasons[] = 'repeated_failure_streak:'.$streak;
         }
-        $quarantine = $crossLane !== [] || $streak >= self::QUARANTINE_FAILURE_STREAK;
+        $quarantine = $crossLaneLeakFacts !== [] || $crossLane !== [] || $streak >= self::QUARANTINE_FAILURE_STREAK;
         if ($quarantine) {
             sort($reasons, SORT_STRING);
 
@@ -101,6 +103,16 @@ final class AtlasProjectLaneReleaseGovernor
             foreach ((array) ($ks['blockers'] ?? []) as $b) {
                 $reasons[] = 'knowledge_sync:'.(string) $b;
             }
+        }
+
+        // Queue namespace must be isolated before merge is granted.
+        if (! (bool) ($facts['queue_namespace_isolated'] ?? false)) {
+            $reasons[] = 'queue_namespace_not_isolated';
+        }
+
+        // Cross-lane leak check must have passed before merge is granted.
+        if (! (bool) ($facts['cross_lane_leak_check_passed'] ?? false)) {
+            $reasons[] = 'cross_lane_leak_check_not_passed';
         }
 
         // autonomy_readiness must be 'ready' before merge is granted.

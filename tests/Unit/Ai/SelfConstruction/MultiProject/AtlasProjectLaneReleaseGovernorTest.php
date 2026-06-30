@@ -26,6 +26,8 @@ final class AtlasProjectLaneReleaseGovernorTest extends TestCase
             'autonomy_readiness_facts' => ['status' => 'ready'],
             'cross_lane_refusal_flags' => [],
             'repeated_failure_streak' => 0,
+            'queue_namespace_isolated' => true,
+            'cross_lane_leak_check_passed' => true,
         ];
     }
 
@@ -116,6 +118,55 @@ final class AtlasProjectLaneReleaseGovernorTest extends TestCase
         foreach ($forbidden as $source) {
             $this->assertContains('finality_provider_forbidden:'.$source, $r['reasons']);
         }
+    }
+
+    // --- queue namespace + cross-lane leak checks ---
+
+    public function test_missing_queue_namespace_isolated_yields_hold(): void
+    {
+        $f = $this->cleanFacts();
+        unset($f['queue_namespace_isolated']);
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_HOLD, $r['decision']);
+        $this->assertContains('queue_namespace_not_isolated', $r['reasons']);
+    }
+
+    public function test_queue_namespace_isolated_false_yields_hold(): void
+    {
+        $f = $this->cleanFacts();
+        $f['queue_namespace_isolated'] = false;
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_HOLD, $r['decision']);
+        $this->assertContains('queue_namespace_not_isolated', $r['reasons']);
+    }
+
+    public function test_missing_cross_lane_leak_check_passed_yields_hold(): void
+    {
+        $f = $this->cleanFacts();
+        unset($f['cross_lane_leak_check_passed']);
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_HOLD, $r['decision']);
+        $this->assertContains('cross_lane_leak_check_not_passed', $r['reasons']);
+    }
+
+    public function test_cross_lane_leak_facts_yield_quarantine_with_pause_lane(): void
+    {
+        $f = $this->cleanFacts();
+        $f['cross_lane_leak_facts'] = ['lane-b/secret.php', 'lane-c/config.php'];
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_QUARANTINE, $r['decision']);
+        $this->assertContains('cross_lane_leak:lane-b/secret.php', $r['reasons']);
+        $this->assertContains('cross_lane_leak:lane-c/config.php', $r['reasons']);
+        $this->assertContains('pause_lane_until_respec', $r['next_actions']);
+    }
+
+    public function test_all_lane_scoped_finality_facts_yield_merge_ready_deterministically(): void
+    {
+        $svc = new AtlasProjectLaneReleaseGovernor;
+        $a = $svc->decide($this->cleanFacts());
+        $b = $svc->decide($this->cleanFacts());
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_MERGE, $a['decision']);
+        $this->assertSame(json_encode($a), json_encode($b));
     }
 
     public function test_hold_decisions_include_deterministic_next_actions(): void
