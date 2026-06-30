@@ -23,6 +23,8 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
 {
     public const SCHEMA = 'atlas.continuous_runtime.worker_integration.v1';
 
+    public const PACKET_EVAL_SCHEMA = 'atlas.continuous_runtime.worker_integration.packet_eval.v1';
+
     public const NATIVE_POOL_SCHEMA = 'atlas.native_worker.pool_supervisor.v1';
 
     public const WORKER_HEARTBEAT_STALE_SECONDS = 300;
@@ -161,6 +163,68 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
                 'heartbeat_age_seconds' => $heartbeatAge,
                 'worker_readiness_safe' => $workerReadinessSafe,
             ],
+        ];
+    }
+
+    /**
+     * Evaluate a packet's fitness for dispatch without claiming it.
+     *
+     * Produces structured readiness verdict, scope safety, evidence requirements,
+     * feedback hooks, and abstain reasons. A packet is NOT recommended when
+     * allowed_files is empty, runnable proof is absent, or no safe feedback path exists.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array<string,mixed>
+     */
+    public function evaluatePacket(array $packet): array
+    {
+        $allowed = array_values(array_filter(array_map('strval', (array) ($packet['allowed_files'] ?? [])), static fn (string $f): bool => $f !== ''));
+        $required = array_values(array_filter(array_map('strval', (array) ($packet['required_evidence_kinds'] ?? [])), static fn (string $k): bool => $k !== ''));
+        $quality = is_array($packet['quality_facts'] ?? null) ? $packet['quality_facts'] : [];
+        $feedbackHooks = is_array($packet['feedback_hooks'] ?? null) ? array_values($packet['feedback_hooks']) : [];
+
+        $biteProof = (bool) ($quality['bite_proof'] ?? false);
+        $hasAcceptance = is_array($quality['acceptance_contract'] ?? null) && $quality['acceptance_contract'] !== [];
+        $hasRunnableProof = $biteProof || $hasAcceptance;
+
+        $broadPaths = array_values(array_filter($allowed, static fn (string $f): bool => str_ends_with($f, '/') || ! str_contains(basename($f), '.')));
+        $scopeSafe = $allowed !== [] && $broadPaths === [];
+        $feedbackSafe = $feedbackHooks !== [];
+
+        $abstainReasons = [];
+        if ($allowed === []) {
+            $abstainReasons[] = 'no_allowed_files';
+        }
+        if (! $hasRunnableProof) {
+            $abstainReasons[] = 'no_runnable_proof';
+        }
+        if (! $feedbackSafe) {
+            $abstainReasons[] = 'no_safe_feedback_path';
+        }
+        sort($abstainReasons, SORT_STRING);
+
+        return [
+            'schema_version' => self::PACKET_EVAL_SCHEMA,
+            'dispatch_recommended' => $abstainReasons === [],
+            'readiness_verdict' => [
+                'ready' => $abstainReasons === [],
+                'allowed_files_ok' => $allowed !== [],
+                'runnable_proof_ok' => $hasRunnableProof,
+                'feedback_path_safe' => $feedbackSafe,
+                'scope_safe' => $scopeSafe,
+            ],
+            'scope_safety' => [
+                'safe' => $scopeSafe,
+                'allowed_files_count' => count($allowed),
+                'broad_paths_found' => $broadPaths !== [],
+            ],
+            'evidence_requirements' => [
+                'required_kinds' => $required,
+                'min_count' => count($required),
+                'satisfied' => $required !== [],
+            ],
+            'feedback_hooks' => $feedbackHooks,
+            'abstain_reasons' => $abstainReasons,
         ];
     }
 
