@@ -6,7 +6,9 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedPacketFamilyClassifier;
+use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedPacketFieldRecoveryMiner;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedQueueRespecDrafter;
+use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskBlockedReplacementDraftCompleter;
 use Illuminate\Console\Command;
 
 /**
@@ -69,8 +71,16 @@ final class AtlasTaskBlockedRespecPlanCommand extends Command
 
         $draftResult = (new AtlasTaskBlockedQueueRespecDrafter)->draft($classified);
 
+        $packetsById = [];
+        foreach ($packetsForClassifier as $packet) {
+            $packetsById[(string) ($packet['task_packet_id'] ?? '')] = $packet;
+        }
+
+        $miner = new AtlasTaskBlockedPacketFieldRecoveryMiner;
+        $completer = new AtlasTaskBlockedReplacementDraftCompleter;
+
         $annotatedDrafts = array_map(
-            static function (array $draft): array {
+            function (array $draft) use ($packetsById, $miner, $completer): array {
                 $missingFields = array_values(
                     array_filter(
                         self::DRAFT_REQUIRED_FIELDS,
@@ -78,9 +88,52 @@ final class AtlasTaskBlockedRespecPlanCommand extends Command
                     ),
                 );
 
-                return array_merge($draft, [
+                $draft = array_merge($draft, [
                     'can_submit'    => $missingFields === [],
                     'missing_fields' => $missingFields,
+                ]);
+
+                $sourceIds = (array) ($draft['source_packet_ids'] ?? []);
+                if ($missingFields === [] || count($sourceIds) !== 1) {
+                    return $draft;
+                }
+
+                $packet = $packetsById[(string) $sourceIds[0]] ?? null;
+                if ($packet === null) {
+                    return $draft;
+                }
+
+                $recovery = $miner->recover([
+                    'objective' => (string) ($packet['objective'] ?? ''),
+                    'allowed_files' => (array) ($draft['allowed_files'] ?? []),
+                    'acceptance_criteria' => (array) ($draft['acceptance_criteria'] ?? []),
+                    'required_evidence' => (array) ($draft['required_evidence'] ?? []),
+                    'scope_in' => (array) ($packet['scope_in'] ?? []),
+                    'metadata' => (array) ($packet['metadata'] ?? []),
+                    'source_packet_id' => (string) $sourceIds[0],
+                ]);
+
+                $fieldRecovery = array_merge($recovery['recovered_fields'], [
+                    'trust' => $recovery['refusal_reasons'] === [] ? AtlasTaskBlockedReplacementDraftCompleter::TRUST_TRUSTED : 'untrusted',
+                    'confidence' => $recovery['confidence'],
+                ]);
+
+                $completed = $completer->complete([
+                    ['draft' => array_merge($draft, ['task_packet_id' => (string) $sourceIds[0]]), 'field_recovery' => $fieldRecovery],
+                ])['completed_drafts'][0] ?? null;
+
+                if ($completed === null) {
+                    return $draft;
+                }
+
+                return array_merge($draft, [
+                    'can_submit' => (bool) $completed['can_submit'],
+                    'missing_fields' => (array) $completed['missing_fields'],
+                    'allowed_files' => (array) $completed['allowed_files'],
+                    'acceptance_criteria' => (array) $completed['acceptance_criteria'],
+                    'required_evidence' => (array) $completed['required_evidence'],
+                    'refusal_reasons' => (array) $completed['refusal_reasons'],
+                    'replacement_task_packet_id' => $completed['replacement_task_packet_id'],
                 ]);
             },
             $draftResult['drafts'],
