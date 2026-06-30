@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierPromotionGate;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
 {
@@ -14,18 +14,25 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         return new AtlasExternalBrainAmplifierPromotionGate;
     }
 
-    /** Passing input — all conditions satisfied. */
+    /** Passing input — all conditions satisfied (legacy + new gates). */
     private function passing(): array
     {
         return [
-            'shadow_runs' => 30,
+            // Legacy
+            'shadow_runs'          => 30,
             'sustained_lift_ratio' => 0.15,
-            'slo_passed' => true,
-            'replay_court_passed' => true,
-            'scaffold_compliance' => true,
-            'overfit_detected' => false,
-            'give_back_delta' => 0.00,
-            'poison_delta' => 0.00,
+            'slo_passed'           => true,
+            'replay_court_passed'  => true,
+            'scaffold_compliance'  => true,
+            'overfit_detected'     => false,
+            'give_back_delta'      => 0.00,
+            'poison_delta'         => 0.00,
+            // New gates
+            'heldout_pass_rate'    => 0.90,
+            'green_commit_rate'    => 0.95,
+            'proxy_leak_rate'      => 0.05,
+            'sample_count'         => 60,
+            'quality_lift_delta'   => 0.10,
         ];
     }
 
@@ -172,5 +179,116 @@ final class AtlasExternalBrainAmplifierPromotionGateTest extends TestCase
         $r = $this->svc()->evaluate([]);
 
         $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::SCHEMA, $r['schema_version']);
+    }
+
+    // ── AC1: decision field ───────────────────────────────────────────────────
+
+    public function test_decision_is_promote_when_all_gates_pass(): void
+    {
+        $r = $this->evaluate();
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertTrue($r['promote']);
+    }
+
+    public function test_decision_is_shadow_more_when_heldout_below_floor(): void
+    {
+        $r = $this->evaluate(['heldout_pass_rate' => 0.60]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_SHADOW_MORE, $r['decision']);
+        $this->assertFalse($r['promote']);
+    }
+
+    public function test_decision_is_rollback_when_proxy_leak_above_ceiling(): void
+    {
+        $r = $this->evaluate(['proxy_leak_rate' => 0.20]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+        $this->assertFalse($r['promote']);
+    }
+
+    public function test_decision_is_rollback_when_quality_regression(): void
+    {
+        $r = $this->evaluate(['quality_lift_delta' => -0.05]);
+
+        $this->assertSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_ROLLBACK, $r['decision']);
+    }
+
+    // ── AC1: reasons and missing_evidence fields ──────────────────────────────
+
+    public function test_reasons_and_missing_evidence_are_present_in_output(): void
+    {
+        $r = $this->evaluate();
+
+        $this->assertArrayHasKey('reasons',          $r);
+        $this->assertArrayHasKey('missing_evidence', $r);
+    }
+
+    public function test_promote_has_empty_reasons(): void
+    {
+        $r = $this->evaluate();
+
+        $this->assertSame([], $r['reasons']);
+        $this->assertSame([], $r['missing_evidence']);
+    }
+
+    public function test_heldout_pass_rate_below_floor_in_reasons_and_missing_evidence(): void
+    {
+        $r = $this->evaluate(['heldout_pass_rate' => 0.50]);
+
+        $this->assertContains('heldout_pass_rate_below_floor', $r['reasons']);
+        $reasonsStr = implode(' ', $r['missing_evidence']);
+        $this->assertStringContainsString('heldout', $reasonsStr);
+    }
+
+    public function test_proxy_leak_ceiling_in_reasons_and_missing_evidence(): void
+    {
+        $r = $this->evaluate(['proxy_leak_rate' => 0.20]);
+
+        $this->assertContains('proxy_leak_ceiling_breached', $r['reasons']);
+        $this->assertStringContainsString('proxy', implode(' ', $r['missing_evidence']));
+    }
+
+    // ── AC1: new gate inputs ──────────────────────────────────────────────────
+
+    public function test_green_commit_rate_below_floor_blocks(): void
+    {
+        $r = $this->evaluate(['green_commit_rate' => 0.70]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('green_commit_rate_below_floor', $r['blocking_reasons']);
+    }
+
+    public function test_low_sample_count_blocks(): void
+    {
+        $r = $this->evaluate(['sample_count' => 10]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('sample_count_insufficient', $r['blocking_reasons']);
+    }
+
+    public function test_quality_lift_delta_below_floor_blocks(): void
+    {
+        $r = $this->evaluate(['quality_lift_delta' => 0.02]);
+
+        $this->assertFalse($r['promote']);
+        $this->assertContains('quality_lift_delta_below_floor', $r['blocking_reasons']);
+    }
+
+    // ── AC2: never promote on pass-rate alone ─────────────────────────────────
+
+    public function test_never_promote_when_sample_count_insufficient_even_if_pass_rate_perfect(): void
+    {
+        $r = $this->evaluate(['heldout_pass_rate' => 1.0, 'sample_count' => 5]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
+        $this->assertFalse($r['promote']);
+    }
+
+    public function test_never_promote_when_proxy_leak_above_ceiling_even_if_pass_rate_perfect(): void
+    {
+        $r = $this->evaluate(['heldout_pass_rate' => 1.0, 'proxy_leak_rate' => 0.50]);
+
+        $this->assertNotSame(AtlasExternalBrainAmplifierPromotionGate::DECISION_PROMOTE, $r['decision']);
     }
 }
