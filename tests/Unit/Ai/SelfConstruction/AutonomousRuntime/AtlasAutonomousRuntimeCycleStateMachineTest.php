@@ -86,6 +86,52 @@ final class AtlasAutonomousRuntimeCycleStateMachineTest extends TestCase
         $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::OBSERVE, $sm->state());
     }
 
+    public function test_snapshot_exposes_four_required_fields_in_normal_state(): void
+    {
+        $sm = new AtlasAutonomousRuntimeCycleStateMachine;
+        $snap = $sm->snapshot();
+
+        $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::OBSERVE, $snap['current_state']);
+        $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::DECIDE, $snap['expected_next_state']);
+        $this->assertFalse($snap['safety_stop']);
+        $this->assertSame('advance_to_next_in_cycle', $snap['allowed_resume_condition']);
+    }
+
+    public function test_snapshot_safety_stop_sets_flag_and_nulls_expected_next_state(): void
+    {
+        $sm = new AtlasAutonomousRuntimeCycleStateMachine;
+        $sm->transitionTo(AtlasAutonomousRuntimeCycleStateMachine::SAFETY_STOP);
+        $snap = $sm->snapshot();
+
+        $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::SAFETY_STOP, $snap['current_state']);
+        $this->assertNull($snap['expected_next_state']);
+        $this->assertTrue($snap['safety_stop']);
+        $this->assertStringContainsString('atlas_native_resume=true', $snap['allowed_resume_condition']);
+    }
+
+    public function test_provider_resume_and_human_resume_facts_cannot_exit_safety_stop(): void
+    {
+        $sm = new AtlasAutonomousRuntimeCycleStateMachine;
+        $sm->transitionTo(AtlasAutonomousRuntimeCycleStateMachine::SAFETY_STOP);
+
+        $viaProvider = $sm->transitionTo(
+            AtlasAutonomousRuntimeCycleStateMachine::OBSERVE,
+            ['provider_resume' => true],
+        );
+        $this->assertFalse($viaProvider['accepted']);
+        $this->assertSame('safety_stop_requires_atlas_native_resume_fact', $viaProvider['reason']);
+
+        $viaHuman = $sm->transitionTo(
+            AtlasAutonomousRuntimeCycleStateMachine::OBSERVE,
+            ['human_resume' => true],
+        );
+        $this->assertFalse($viaHuman['accepted']);
+        $this->assertSame('safety_stop_requires_atlas_native_resume_fact', $viaHuman['reason']);
+
+        // state must remain safety_stop throughout
+        $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::SAFETY_STOP, $sm->state());
+    }
+
     public function test_safety_stop_to_safety_stop_is_a_named_rejection(): void
     {
         $sm = new AtlasAutonomousRuntimeCycleStateMachine;

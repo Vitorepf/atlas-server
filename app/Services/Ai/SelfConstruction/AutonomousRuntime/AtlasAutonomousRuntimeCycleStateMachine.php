@@ -66,6 +66,26 @@ final class AtlasAutonomousRuntimeCycleStateMachine
     }
 
     /**
+     * Deterministic cycle snapshot for the unattended runtime.
+     * Exposes enough context to resume, explain, and enforce safety_stop without any provider shortcuts.
+     *
+     * @return array{current_state:string, expected_next_state:string|null, safety_stop:bool, allowed_resume_condition:string}
+     */
+    public function snapshot(): array
+    {
+        $stopped = $this->state === self::SAFETY_STOP;
+
+        return [
+            'current_state' => $this->state,
+            'expected_next_state' => $stopped ? null : $this->nextDeclared($this->state),
+            'safety_stop' => $stopped,
+            'allowed_resume_condition' => $stopped
+                ? 'atlas_native_resume=true AND target=observe'
+                : 'advance_to_next_in_cycle',
+        ];
+    }
+
+    /**
      * Attempt a transition. Returns a verdict envelope.
      *
      * @param  array<string,mixed>  $fact  optional facts the caller attached to the transition request
