@@ -119,4 +119,63 @@ final class AtlasExternalBrainCapabilityRubricTest extends TestCase
         $result = $this->rubric->evaluate($scores, ['nonexistent_gate']);
         $this->assertTrue($result['final'], 'unknown gates must not trigger fail-closed');
     }
+
+    // ── AC1: weak_dimensions reported ────────────────────────────────────────
+
+    public function test_weak_dimensions_empty_when_all_scores_above_floor(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $result = $this->rubric->evaluate($scores);
+        $this->assertSame([], $result['weak_dimensions']);
+    }
+
+    public function test_weak_dimensions_lists_dimension_below_floor(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $scores['strategic_origination'] = 0.50; // below FINALITY_FLOOR
+        $result = $this->rubric->evaluate($scores);
+        $this->assertContains('strategic_origination', $result['weak_dimensions']);
+    }
+
+    public function test_weak_dimensions_lists_all_dimensions_when_all_zero(): void
+    {
+        $result = $this->rubric->evaluate([]);
+        $this->assertCount(count($this->rubric->dimensions()), $result['weak_dimensions']);
+    }
+
+    public function test_dimension_exactly_at_floor_is_not_weak(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $scores['autonomous_continuation'] = AtlasExternalBrainCapabilityRubric::FINALITY_FLOOR;
+        $result = $this->rubric->evaluate($scores);
+        $this->assertNotContains('autonomous_continuation', $result['weak_dimensions']);
+    }
+
+    // ── AC2: final blocked when any dimension below floor ────────────────────
+
+    public function test_final_false_when_weak_dimension_despite_high_weighted_score(): void
+    {
+        // research_pattern_expansion (weight=0.05) at 0 → weighted sum = 0.95 (at threshold)
+        // but the dimension is below floor → final must be false
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $scores['research_pattern_expansion'] = 0.0;
+        $result = $this->rubric->evaluate($scores);
+        $this->assertGreaterThanOrEqual(AtlasExternalBrainCapabilityRubric::FINAL_THRESHOLD, $result['weighted_score']);
+        $this->assertNotEmpty($result['weak_dimensions']);
+        $this->assertFalse($result['final']);
+    }
+
+    public function test_final_true_only_when_high_score_and_no_weak_dimensions(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $result = $this->rubric->evaluate($scores);
+        $this->assertSame([], $result['weak_dimensions']);
+        $this->assertTrue($result['final']);
+    }
+
+    public function test_evaluate_output_has_weak_dimensions_key(): void
+    {
+        $result = $this->rubric->evaluate([]);
+        $this->assertArrayHasKey('weak_dimensions', $result);
+    }
 }

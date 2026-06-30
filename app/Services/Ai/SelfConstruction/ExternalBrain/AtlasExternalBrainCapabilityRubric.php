@@ -20,6 +20,9 @@ final class AtlasExternalBrainCapabilityRubric
 {
     public const FINAL_THRESHOLD = 0.95;
 
+    /** Any dimension below this score is flagged as weak and blocks final=true. */
+    public const FINALITY_FLOOR = 0.60;
+
     public const SCHEMA = 'atlas.external_brain.capability_rubric.v1';
 
     /**
@@ -119,11 +122,15 @@ final class AtlasExternalBrainCapabilityRubric
             ];
         }
 
-        $weightedSum = 0.0;
+        $weightedSum    = 0.0;
+        $weakDimensions = [];
         foreach ($this->dimensions() as $dim) {
             $score = (float) ($dimensionScores[$dim['name']] ?? 0.0);
             $score = max(0.0, min(1.0, $score));
             $weightedSum += $score * (float) $dim['weight'];
+            if ($score < self::FINALITY_FLOOR) {
+                $weakDimensions[] = $dim['name'];
+            }
         }
 
         $band = [
@@ -132,11 +139,12 @@ final class AtlasExternalBrainCapabilityRubric
         ];
 
         return [
-            'schema' => self::SCHEMA,
-            'band' => $band,
-            'weighted_score' => round($weightedSum, 4),
-            'final' => $weightedSum >= self::FINAL_THRESHOLD,
-            'triggered_gates' => [],
+            'schema'           => self::SCHEMA,
+            'band'             => $band,
+            'weighted_score'   => round($weightedSum, 4),
+            'weak_dimensions'  => $weakDimensions,
+            'final'            => $weightedSum >= self::FINAL_THRESHOLD && $weakDimensions === [],
+            'triggered_gates'  => [],
         ];
     }
 }
