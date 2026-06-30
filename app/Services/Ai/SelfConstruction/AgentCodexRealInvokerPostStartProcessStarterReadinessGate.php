@@ -156,9 +156,78 @@ class AgentCodexRealInvokerPostStartProcessStarterReadinessGate
         'max_runtime_policy_hash',
     ];
 
+    private const REQUIRED_READINESS_PROOFS = [
+        'queue_health',
+        'active_lease',
+        'scoped_envelope',
+        'observable_liveness_plan',
+    ];
+
+    private const READINESS_REPAIR_HINTS = [
+        'queue_health' => 'wait_for_queue_health_recovery',
+        'active_lease' => 'reclaim_or_renew_active_lease',
+        'scoped_envelope' => 'rebuild_scoped_envelope_from_authorized_task',
+        'observable_liveness_plan' => 'attach_observable_liveness_plan',
+    ];
+
+    private const MAX_READINESS_PROOF_AGE_SECONDS = 3600;
+
     public function __construct(
         private readonly AgentCodexRealInvokerProcessStarterReadinessGate $processStarterReadinessGate,
     ) {}
+
+    /**
+     * Pure decision: post-start process starter readiness requires current
+     * queue health, an active lease, a scoped envelope and an observable
+     * liveness plan — all present, fresh, and (for the lease) matching the
+     * task it claims to authorize. Any missing, stale or mismatched proof
+     * blocks readiness.
+     *
+     * @param  array<string,mixed>  $proofs  { queue_health_present?: bool,
+     *   queue_health_age_seconds?: int, active_lease_present?: bool,
+     *   active_lease_age_seconds?: int, active_lease_task_id?: string,
+     *   expected_task_id?: string, scoped_envelope_present?: bool,
+     *   scoped_envelope_age_seconds?: int,
+     *   observable_liveness_plan_present?: bool,
+     *   observable_liveness_plan_age_seconds?: int }
+     * @return array<string,mixed>
+     */
+    public function evaluateReadiness(array $proofs): array
+    {
+        foreach (self::REQUIRED_READINESS_PROOFS as $proof) {
+            $present = (bool) ($proofs[$proof.'_present'] ?? false);
+            $ageSeconds = (int) ($proofs[$proof.'_age_seconds'] ?? PHP_INT_MAX);
+
+            if (! $present || $ageSeconds > self::MAX_READINESS_PROOF_AGE_SECONDS) {
+                return $this->readinessResult($proof);
+            }
+        }
+
+        $activeLeaseTaskId = (string) ($proofs['active_lease_task_id'] ?? '');
+        $expectedTaskId = (string) ($proofs['expected_task_id'] ?? '');
+
+        if ($expectedTaskId !== '' && $activeLeaseTaskId !== $expectedTaskId) {
+            return $this->readinessResult('active_lease');
+        }
+
+        return [
+            'readiness_status' => 'ready',
+            'missing_proof' => null,
+            'repair_hint' => null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function readinessResult(string $missingProof): array
+    {
+        return [
+            'readiness_status' => 'not_ready',
+            'missing_proof' => $missingProof,
+            'repair_hint' => self::READINESS_REPAIR_HINTS[$missingProof],
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $input

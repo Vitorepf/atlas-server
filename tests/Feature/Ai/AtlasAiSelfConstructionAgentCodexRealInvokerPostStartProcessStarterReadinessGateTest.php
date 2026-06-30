@@ -418,6 +418,70 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStarterReadine
         ];
     }
 
+    private function readyProofs(): array
+    {
+        return [
+            'queue_health_present' => true,
+            'queue_health_age_seconds' => 60,
+            'active_lease_present' => true,
+            'active_lease_age_seconds' => 60,
+            'active_lease_task_id' => 'AP-001',
+            'expected_task_id' => 'AP-001',
+            'scoped_envelope_present' => true,
+            'scoped_envelope_age_seconds' => 60,
+            'observable_liveness_plan_present' => true,
+            'observable_liveness_plan_age_seconds' => 60,
+        ];
+    }
+
+    public function test_evaluate_readiness_ready_when_all_proofs_present_fresh_and_matching(): void
+    {
+        $result = app(AgentCodexRealInvokerPostStartProcessStarterReadinessGate::class)
+            ->evaluateReadiness($this->readyProofs());
+
+        $this->assertSame('ready', $result['readiness_status']);
+        $this->assertNull($result['missing_proof']);
+        $this->assertNull($result['repair_hint']);
+    }
+
+    public function test_evaluate_readiness_blocks_on_missing_proof(): void
+    {
+        $proofs = $this->readyProofs();
+        $proofs['queue_health_present'] = false;
+
+        $result = app(AgentCodexRealInvokerPostStartProcessStarterReadinessGate::class)
+            ->evaluateReadiness($proofs);
+
+        $this->assertSame('not_ready', $result['readiness_status']);
+        $this->assertSame('queue_health', $result['missing_proof']);
+        $this->assertSame('wait_for_queue_health_recovery', $result['repair_hint']);
+    }
+
+    public function test_evaluate_readiness_blocks_on_stale_proof(): void
+    {
+        $proofs = $this->readyProofs();
+        $proofs['scoped_envelope_age_seconds'] = 7200;
+
+        $result = app(AgentCodexRealInvokerPostStartProcessStarterReadinessGate::class)
+            ->evaluateReadiness($proofs);
+
+        $this->assertSame('not_ready', $result['readiness_status']);
+        $this->assertSame('scoped_envelope', $result['missing_proof']);
+    }
+
+    public function test_evaluate_readiness_blocks_on_lease_task_mismatch(): void
+    {
+        $proofs = $this->readyProofs();
+        $proofs['active_lease_task_id'] = 'AP-999';
+
+        $result = app(AgentCodexRealInvokerPostStartProcessStarterReadinessGate::class)
+            ->evaluateReadiness($proofs);
+
+        $this->assertSame('not_ready', $result['readiness_status']);
+        $this->assertSame('active_lease', $result['missing_proof']);
+        $this->assertSame('reclaim_or_renew_active_lease', $result['repair_hint']);
+    }
+
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
