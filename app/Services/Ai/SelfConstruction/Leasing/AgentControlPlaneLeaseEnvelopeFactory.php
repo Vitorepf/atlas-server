@@ -90,10 +90,26 @@ class AgentControlPlaneLeaseEnvelopeFactory
             'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
             'lease_status' => (string) ($lease['lease_status'] ?? ''),
             'lease' => $lease,
+            'lease_integrity_hash' => $this->computeLeaseIntegrityHash($lease),
             'runtime_execution_allowed' => false,
             'dispatch_allowed' => false,
             'ledger_write_allowed' => false,
         ], $extra);
+    }
+
+    private function computeLeaseIntegrityHash(array $lease): string
+    {
+        $allowedFiles = array_values(array_map('strval', (array) ($lease['allowed_files'] ?? [])));
+        sort($allowedFiles);
+        $payload = [
+            'allowed_files_hash' => hash('sha256', (string) json_encode($allowedFiles, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'client_id' => (string) ($lease['client_id'] ?? ''),
+            'expires_at_unix' => (int) ($lease['expires_at_unix'] ?? 0),
+            'lease_id' => (string) ($lease['lease_id'] ?? ''),
+            'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
+        ];
+
+        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**

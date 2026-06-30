@@ -228,6 +228,85 @@ final class AgentControlPlaneLeaseEnvelopeFactoryTest extends TestCase
         $this->factory->encode(['r' => fopen('php://memory', 'r')]);
     }
 
+    // --- lease_integrity_hash ---------------------------------------------
+
+    private function baseLease(): array
+    {
+        return [
+            'task_packet_id' => 'TP1',
+            'lease_id' => 'L1',
+            'client_id' => 'agent-1',
+            'allowed_files' => ['app/Foo.php', 'app/Bar.php'],
+            'expires_at_unix' => 1751284800,
+            'lease_status' => 'active',
+        ];
+    }
+
+    public function test_envelope_ok_includes_lease_integrity_hash(): void
+    {
+        $env = $this->factory->envelopeOk('lease_claimed', $this->baseLease());
+
+        $this->assertArrayHasKey('lease_integrity_hash', $env);
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $env['lease_integrity_hash']);
+    }
+
+    public function test_lease_integrity_hash_is_deterministic_for_identical_facts(): void
+    {
+        $a = $this->factory->envelopeOk('lease_claimed', $this->baseLease());
+        $b = $this->factory->envelopeOk('lease_renewed', $this->baseLease());
+
+        $this->assertSame($a['lease_integrity_hash'], $b['lease_integrity_hash'], 'hash must not depend on event string');
+        $this->assertSame(json_encode($a['lease_integrity_hash']), json_encode($b['lease_integrity_hash']));
+    }
+
+    public function test_lease_integrity_hash_changes_when_task_packet_id_changes(): void
+    {
+        $base = $this->factory->envelopeOk('e', $this->baseLease());
+        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['task_packet_id' => 'TP2']));
+
+        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+    }
+
+    public function test_lease_integrity_hash_changes_when_lease_id_changes(): void
+    {
+        $base = $this->factory->envelopeOk('e', $this->baseLease());
+        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['lease_id' => 'L2']));
+
+        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+    }
+
+    public function test_lease_integrity_hash_changes_when_client_id_changes(): void
+    {
+        $base = $this->factory->envelopeOk('e', $this->baseLease());
+        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['client_id' => 'agent-2']));
+
+        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+    }
+
+    public function test_lease_integrity_hash_changes_when_allowed_files_changes(): void
+    {
+        $base = $this->factory->envelopeOk('e', $this->baseLease());
+        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['allowed_files' => ['app/Other.php']]));
+
+        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+    }
+
+    public function test_lease_integrity_hash_changes_when_expires_at_unix_changes(): void
+    {
+        $base = $this->factory->envelopeOk('e', $this->baseLease());
+        $diff = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['expires_at_unix' => 9999999999]));
+
+        $this->assertNotSame($base['lease_integrity_hash'], $diff['lease_integrity_hash']);
+    }
+
+    public function test_lease_integrity_hash_is_order_insensitive_for_allowed_files(): void
+    {
+        $forward = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['allowed_files' => ['app/A.php', 'app/B.php']]));
+        $reversed = $this->factory->envelopeOk('e', array_merge($this->baseLease(), ['allowed_files' => ['app/B.php', 'app/A.php']]));
+
+        $this->assertSame($forward['lease_integrity_hash'], $reversed['lease_integrity_hash']);
+    }
+
     // --- composition: SCHEMA_VERSION consistency between envelopes --------
 
     public function test_all_three_envelope_helpers_emit_same_schema_version(): void
