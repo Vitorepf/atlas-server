@@ -177,6 +177,19 @@ final class AtlasSelfConstructionNamingPolicyGateTest extends TestCase
         $this->assertCount(10, $result['existing_violations']['sample']);
     }
 
+    public function test_subdirectory_long_name_is_counted_in_existing_violations(): void
+    {
+        $subDir = $this->sandbox.'/SubDir';
+        mkdir($subDir, 0775, true);
+        file_put_contents($this->sandbox.'/ShortFile.php', '<?php');
+        file_put_contents($subDir.'/'.str_repeat('B', 60).'.php', '<?php'); // >50 chars, in a subdir
+
+        $result = $this->gate->evaluate([]);
+
+        $this->assertSame(2, $result['summary']['scanned_existing'], 'recursive scan must count files in subdirectories');
+        $this->assertSame(1, $result['summary']['existing_violation_count'], 'long-named class in subdir must be counted as a violation');
+    }
+
     public function test_empty_input_yields_ok_status(): void
     {
         $result = $this->gate->evaluate([]);

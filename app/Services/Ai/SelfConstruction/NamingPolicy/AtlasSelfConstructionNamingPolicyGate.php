@@ -183,19 +183,17 @@ final class AtlasSelfConstructionNamingPolicyGate
         }
 
         $files = [];
-        $items = scandir($this->absoluteRoot);
-        if ($items === false) {
-            return [];
-        }
-
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..' || str_starts_with($item, '_')) {
+        $dirIt = new \RecursiveDirectoryIterator($this->absoluteRoot, \RecursiveDirectoryIterator::SKIP_DOTS);
+        // skip any entry (file or directory) whose name starts with '_' — e.g. _quarantine
+        $filterIt = new \RecursiveCallbackFilterIterator($dirIt, static fn (\SplFileInfo $f): bool => ! str_starts_with($f->getFilename(), '_'));
+        foreach (new \RecursiveIteratorIterator($filterIt) as $file) {
+            /** @var \SplFileInfo $file */
+            if (! $file->isFile() || ! str_ends_with($file->getFilename(), '.php')) {
                 continue;
             }
-            $full = $this->absoluteRoot.DIRECTORY_SEPARATOR.$item;
-            if (is_file($full) && str_ends_with($item, '.php')) {
-                $files[] = self::TARGET_ROOT.'/'.$item;
-            }
+            // build the relative path by replacing the absolute root prefix with TARGET_ROOT
+            $relative = self::TARGET_ROOT.str_replace(DIRECTORY_SEPARATOR, '/', substr($file->getPathname(), strlen($this->absoluteRoot)));
+            $files[] = $relative;
         }
 
         sort($files);
