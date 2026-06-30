@@ -197,6 +197,138 @@ final class AtlasExternalBrainEvidenceIntakeMapTest extends TestCase
         $this->assertContains('poison_packet_detection', $stream['influences']);
     }
 
+    // ── freshness_status + trust_tier ────────────────────────────────────────
+
+    public function test_validate_returns_freshness_status_and_trust_tier_keys(): void
+    {
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => 1751290000,
+        ]);
+
+        $this->assertArrayHasKey('freshness_status', $r);
+        $this->assertArrayHasKey('trust_tier', $r);
+        $this->assertArrayHasKey('usable_for_origination', $r);
+        $this->assertArrayHasKey('staleness_reason', $r);
+    }
+
+    public function test_validate_fresh_record_has_fresh_status(): void
+    {
+        $now = 1751290000;
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+        ], $now);
+
+        $this->assertSame('fresh', $r['freshness_status']);
+        $this->assertNull($r['staleness_reason']);
+        $this->assertTrue($r['usable_for_origination']);
+    }
+
+    public function test_validate_freshness_unknown_when_no_now_provided(): void
+    {
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => 1751290000,
+        ]); // nowUnix defaults to 0
+
+        $this->assertSame('unknown', $r['freshness_status']);
+    }
+
+    public function test_validate_freshness_unknown_when_timestamp_field_absent(): void
+    {
+        $now = 1751290000;
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0,
+            // oldest_queued_at_unix intentionally omitted
+        ], $now);
+
+        $this->assertSame('unknown', $r['freshness_status']);
+    }
+
+    public function test_validate_trust_tier_verified_for_task_serving_disk_streams(): void
+    {
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => 1751290000,
+        ]);
+
+        $this->assertSame('verified', $r['trust_tier']);
+    }
+
+    public function test_validate_trust_tier_audited_for_evidence_ledger_stream(): void
+    {
+        $r = $this->map->validate('runtime_receipts', [
+            'event_type' => 'cert_passed', 'subject_id' => 't1',
+            'recorded_at_unix' => 1751290000, 'payload_hash' => 'abc',
+        ]);
+
+        $this->assertSame('audited', $r['trust_tier']);
+    }
+
+    public function test_validate_trust_tier_derived_for_code_intelligence_stream(): void
+    {
+        $r = $this->map->validate('code_facts', [
+            'workspace' => 'atlas-server', 'symbol_count' => 100,
+            'orphan_count' => 5, 'indexed_at_unix' => 1751290000,
+        ]);
+
+        $this->assertSame('derived', $r['trust_tier']);
+    }
+
+    // ── AC2: stale + origination-sensitive = not usable ──────────────────────
+
+    public function test_stale_queue_health_is_not_usable_for_origination(): void
+    {
+        $now = 1751290000;
+        // oldest_queued_at_unix is 1000 seconds ago — exceeds real_time TTL of 300s
+        $r = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 1000,
+        ], $now);
+
+        $this->assertSame('stale', $r['freshness_status']);
+        $this->assertFalse($r['usable_for_origination']);
+        $this->assertNotNull($r['staleness_reason'], 'staleness reason must be visible');
+        $this->assertStringContainsString('1000s', $r['staleness_reason']);
+    }
+
+    public function test_stale_code_facts_is_not_usable_for_origination(): void
+    {
+        $now = 1751290000;
+        // indexed 7200 seconds ago — exceeds hourly TTL of 3600s
+        $r = $this->map->validate('code_facts', [
+            'workspace' => 'atlas-server', 'symbol_count' => 100,
+            'orphan_count' => 5, 'indexed_at_unix' => $now - 7200,
+        ], $now);
+
+        $this->assertSame('stale', $r['freshness_status']);
+        $this->assertFalse($r['usable_for_origination']);
+        $this->assertNotNull($r['staleness_reason']);
+    }
+
+    public function test_stale_muscle_outcomes_is_not_usable_for_origination(): void
+    {
+        $now = 1751290000;
+        // reported 600 seconds ago — exceeds real_time TTL of 300s
+        $r = $this->map->validate('muscle_outcomes', [
+            'task_packet_id' => 't1', 'outcome' => 'success',
+            'worker_id' => 'w1', 'reported_at_unix' => $now - 600,
+        ], $now);
+
+        $this->assertSame('stale', $r['freshness_status']);
+        $this->assertFalse($r['usable_for_origination']);
+    }
+
+    public function test_stale_docs_drift_is_still_usable_for_origination(): void
+    {
+        // docs_drift is NOT in ORIGINATION_SENSITIVE_STREAMS — stale is still usable
+        $now = 1751290000;
+        $r = $this->map->validate('docs_drift', [
+            'doc_path' => 'docs/foo.md', 'last_modified_unix' => $now - 172800, // 2 days
+            'drift_score' => 0.3,
+        ], $now);
+
+        $this->assertSame('stale', $r['freshness_status']);
+        $this->assertTrue($r['usable_for_origination'], 'docs_drift stale is still usable');
+        $this->assertNotNull($r['staleness_reason'], 'staleness reason must still be visible');
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function findStream(string $id): array
