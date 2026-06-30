@@ -103,6 +103,15 @@ final class AtlasLoopV3GraderPromotionGateTest extends TestCase
         $this->assertStringStartsWith('candidate_threw:boom', $result['reason']);
     }
 
+    public function test_empty_planted_claims_fails_closed_no_leak_probe(): void
+    {
+        $result = $this->gate(fn (): object => $this->candidate(real: true, planted: false))
+            ->evaluate(PromotionGateSpecPassingShell::class, [$this->realClaim()], [], '/repo');
+
+        $this->assertFalse($result['promote']);
+        $this->assertSame('no_leak_probe', $result['reason']);
+    }
+
     public function test_empty_real_previously_rejected_claims_fail_closed(): void
     {
         $result = $this->gate(fn (): object => $this->candidate(real: true, planted: false))

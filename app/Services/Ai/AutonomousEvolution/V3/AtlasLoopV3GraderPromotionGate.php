@@ -54,6 +54,10 @@ final class AtlasLoopV3GraderPromotionGate
                 return $this->result(false, 'no_new_admission', 0, 0, true);
             }
 
+            if ($plantedFalseClaims === []) {
+                return $this->result(false, 'no_leak_probe', $admitsReal, 0, true);
+            }
+
             $rejectsPlanted = 0;
             foreach ($plantedFalseClaims as $claim) {
                 if (! $this->isMaterial($candidate->validateClaim($claim, $repoRoot))) {
