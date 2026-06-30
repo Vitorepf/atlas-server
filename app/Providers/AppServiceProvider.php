@@ -311,7 +311,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
             return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(
                 static function (): iterable {
-                    $leaseRepo = new \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
+                    $leaseRepo = new \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository(
+                        \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::disk()
+                    );
                     foreach ($leaseRepo->activeLeases() as $lease) {
                         yield [
                             'client_id' => (string) ($lease['agent_id'] ?? ''),

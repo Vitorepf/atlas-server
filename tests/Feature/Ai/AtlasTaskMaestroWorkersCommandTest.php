@@ -147,6 +147,49 @@ final class AtlasTaskMaestroWorkersCommandTest extends TestCase
         $this->assertGreaterThan(0, $decoded['total_in_flight'], 'active leases must produce nonzero in_flight count');
     }
 
+    public function test_serving_disk_active_lease_surfaces_via_app_service_provider_binding(): void
+    {
+        $testDisk = 'atlas_maestro_probe_serving_test';
+        config()->set('atlas.task_serving.queue_disk', $testDisk);
+        Storage::fake($testDisk);
+
+        $prefix = AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX;
+        $leaseId = 'lease_maestro_probe_live_01';
+        $lease = [
+            'lease_id' => $leaseId,
+            'agent_id' => 'probe-client-live',
+            'task_packet_id' => 'probe-task-live',
+            'lease_status' => 'active',
+            'acquired_at_unix' => time() - 30,
+            'acquired_at' => date('c', time() - 30),
+            'expires_at_unix' => time() + 1800,
+            'released_at' => null,
+            'receipts' => [],
+            'history' => [],
+        ];
+        Storage::disk($testDisk)->put($prefix.'/'.$leaseId.'.json', (string) json_encode($lease));
+        Storage::disk($testDisk)->put($prefix.'/registry.json', (string) json_encode([
+            'entries' => [[
+                'lease_id' => $leaseId,
+                'agent_id' => 'probe-client-live',
+                'task_packet_id' => 'probe-task-live',
+                'lease_status' => 'active',
+                'expires_at_unix' => time() + 1800,
+            ]],
+        ]));
+
+        // Drop setUp-injected mocks so the AppServiceProvider singleton resolves fresh.
+        $this->app->forgetInstance(AtlasMaestroWorkerFleetProbe::class);
+        $this->app->forgetInstance(AtlasMaestroWorkerFairnessAuditor::class);
+
+        [$exit, $out] = $this->runCmd(['action' => 'probe', '--json' => true]);
+        $this->assertSame(AtlasTaskMaestroWorkersCommand::EXIT_OK, $exit, $out);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertGreaterThan(0, $decoded['workers'], 'serving-disk lease must produce nonzero worker count without override');
+        $this->assertGreaterThan(0, $decoded['total_in_flight'], 'serving-disk lease must produce nonzero in_flight count without override');
+    }
+
     public function test_every_action_triggers_zero_queue_mutations(): void
     {
         // Tripwire: any DB write inside the command would surface here. The command never resolves
