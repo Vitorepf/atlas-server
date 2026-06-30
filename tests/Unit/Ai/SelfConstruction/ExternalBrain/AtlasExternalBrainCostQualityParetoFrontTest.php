@@ -38,9 +38,29 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
         $result = $this->front()->compute([]);
 
         foreach (['schema', 'pareto_options', 'dominated_options', 'recommended_option',
-                  'quality_cost_tradeoffs', 'risk_notes'] as $k) {
+                  'floor_recommended_option', 'quality_cost_tradeoffs', 'risk_notes',
+                  'escalation_triggers', 'dominated_frontier_dependency'] as $k) {
             $this->assertArrayHasKey($k, $result);
         }
+    }
+
+    public function test_benchmark_failure_excludes_scaffolded_small_model_from_floor_recommendation(): void
+    {
+        $result = $this->front()->compute([
+            'quality_floor'    => 0.70,
+            'benchmark_failed' => true,
+            'options' => [
+                array_merge(
+                    $this->option('scaffolded-cheap', 0.80, 1.0),
+                    ['is_scaffolded_small_model' => true],
+                ),
+                $this->option('non-small-frontier', 0.90, 5.0),
+            ],
+        ]);
+
+        $this->assertContains('benchmark_miss', $result['escalation_triggers']);
+        $this->assertNotSame('scaffolded-cheap', $result['recommended_option']);
+        $this->assertSame('non-small-frontier', $result['recommended_option']);
     }
 
     public function test_empty_options_yields_empty_result(): void

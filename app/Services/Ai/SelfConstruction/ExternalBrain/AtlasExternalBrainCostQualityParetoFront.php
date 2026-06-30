@@ -162,6 +162,10 @@ final class AtlasExternalBrainCostQualityParetoFront
             }
         }
 
+        // Unsafe small-model amplification: benchmark/proxy/repair-loop failure makes a
+        // scaffolded small model untrustworthy even if it's the cheapest floor-meeting option.
+        $smallModelUnsafe = $benchmarkFailed || $proxyFailed || $repairLoopFailed;
+
         // Floor-based recommendation (model-amplifier policy).
         $floorRecommended = null;
         if ($floorsActive) {
@@ -169,6 +173,7 @@ final class AtlasExternalBrainCostQualityParetoFront
                 $o['quality']  >= $qualityFloor
                 && $o['safety']  >= $safetyFloor
                 && $o['autonomy'] >= $autonomyFloor
+                && ! ($smallModelUnsafe && $o['is_scaffolded_small_model'])
             );
             if ($floorMeeting !== []) {
                 usort($floorMeeting, static fn (array $a, array $b): int => $a['cost'] <=> $b['cost']);
@@ -204,23 +209,13 @@ final class AtlasExternalBrainCostQualityParetoFront
             }
         }
 
-        // Escalation triggers: only recommended when a frontier option clears the
-        // quality-delta or risk-reduction threshold (AC3 — justify the cost).
+        // Escalation triggers: AC3 — benchmark/proxy/repair-loop failure for the small-model
+        // path always escalates, regardless of frontier lift, so an unsafe cheap option is
+        // never silently recommended.
         $escalationTriggers = [];
-        $frontierClearsThreshold = false;
-        foreach ($paretoFront as $o) {
-            if ($o['expected_lift'] >= self::ESCALATION_QUALITY_DELTA_THRESHOLD
-                || $o['risk_reduction'] >= self::ESCALATION_RISK_REDUCTION_THRESHOLD
-            ) {
-                $frontierClearsThreshold = true;
-                break;
-            }
-        }
-        if ($frontierClearsThreshold) {
-            if ($benchmarkFailed)  $escalationTriggers[] = 'benchmark_miss';
-            if ($proxyFailed)      $escalationTriggers[] = 'proxy_leakage';
-            if ($repairLoopFailed) $escalationTriggers[] = 'repair_loop_failure';
-        }
+        if ($benchmarkFailed)  $escalationTriggers[] = 'benchmark_miss';
+        if ($proxyFailed)      $escalationTriggers[] = 'proxy_leakage';
+        if ($repairLoopFailed) $escalationTriggers[] = 'repair_loop_failure';
 
         // Risk notes.
         $riskNotes = [];
@@ -248,15 +243,13 @@ final class AtlasExternalBrainCostQualityParetoFront
             'pareto_options'               => $paretoFront,
             'dominated_options'            => array_values($dominated),
             'recommended_option'           => $recommended,
+            'floor_recommended_option'     => $floorRecommended,
             'quality_cost_tradeoffs'       => $tradeoffs,
             'risk_notes'                   => $riskNotes,
             'escalation_triggers'          => $escalationTriggers,
             'dominated_frontier_dependency' => $dominatedFrontierDependency,
         ];
     }
-
-    private const ESCALATION_QUALITY_DELTA_THRESHOLD    = 0.10;
-    private const ESCALATION_RISK_REDUCTION_THRESHOLD   = 0.10;
 
     /** @param array<string,mixed> $a @param array<string,mixed> $b */
     private function dominates(array $a, array $b): bool
@@ -276,6 +269,7 @@ final class AtlasExternalBrainCostQualityParetoFront
             'pareto_options'               => [],
             'dominated_options'            => [],
             'recommended_option'           => null,
+            'floor_recommended_option'     => null,
             'quality_cost_tradeoffs'       => [],
             'risk_notes'                   => [],
             'escalation_triggers'          => [],
