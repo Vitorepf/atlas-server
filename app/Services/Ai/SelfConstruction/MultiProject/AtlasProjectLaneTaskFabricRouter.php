@@ -29,6 +29,10 @@ final class AtlasProjectLaneTaskFabricRouter
      */
     public function route(array $lane, array $candidate): array
     {
+        if (! (bool) ($lane['admitted'] ?? false)) {
+            throw new RuntimeException('atlas_project_lane_task_fabric:lane_not_admitted');
+        }
+
         $projectId = (string) ($lane['project_id'] ?? '');
         if ($projectId === '') {
             throw new RuntimeException('atlas_project_lane_task_fabric:lane_project_id_required');
@@ -40,13 +44,22 @@ final class AtlasProjectLaneTaskFabricRouter
         }
 
         $objective = trim((string) ($candidate['objective'] ?? ''));
-        $allowedFiles = array_values((array) ($candidate['allowed_files'] ?? []));
-        $scopeIn = array_values((array) ($candidate['scope_in'] ?? []));
-        $acceptance = (array) ($candidate['acceptance_criteria'] ?? []);
-        $evidence = (array) ($candidate['required_evidence'] ?? []);
+        // Deduplicate and sort deterministically before containment checks.
+        $allowedFiles = array_values(array_unique(array_values((array) ($candidate['allowed_files'] ?? []))));
+        sort($allowedFiles);
+        $scopeIn = array_values(array_unique(array_values((array) ($candidate['scope_in'] ?? []))));
+        sort($scopeIn);
+        $acceptance = array_values((array) ($candidate['acceptance_criteria'] ?? []));
+        $evidence = array_values((array) ($candidate['required_evidence'] ?? []));
 
         if ($objective === '' || $allowedFiles === []) {
             throw new RuntimeException('atlas_project_lane_task_fabric:candidate_must_have_objective_and_allowed_files');
+        }
+        if ($acceptance === []) {
+            throw new RuntimeException('atlas_project_lane_task_fabric:candidate_must_have_runnable_acceptance_criteria');
+        }
+        if ($evidence === []) {
+            throw new RuntimeException('atlas_project_lane_task_fabric:candidate_must_have_required_evidence');
         }
 
         foreach ([...$allowedFiles, ...$scopeIn] as $path) {

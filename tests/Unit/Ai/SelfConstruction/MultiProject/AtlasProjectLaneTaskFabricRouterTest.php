@@ -14,6 +14,7 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
     {
         return [
             'project_id' => 'atlas-server',
+            'admitted' => true,
             'allowed_scope_roots' => ['/repos/atlas-server/app', '/repos/atlas-server/tests'],
         ];
     }
@@ -89,6 +90,60 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/escapes_lane_scope/');
         (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $candidate);
+    }
+
+    public function test_unadmitted_lane_is_refused(): void
+    {
+        $lane = array_replace($this->lane(), ['admitted' => false]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/lane_not_admitted/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($lane, $this->candidate());
+    }
+
+    public function test_missing_admitted_flag_defaults_to_refused(): void
+    {
+        $lane = $this->lane();
+        unset($lane['admitted']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/lane_not_admitted/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($lane, $this->candidate());
+    }
+
+    public function test_empty_acceptance_criteria_is_refused(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/runnable_acceptance_criteria/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate(['acceptance_criteria' => []]));
+    }
+
+    public function test_empty_required_evidence_is_refused(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/required_evidence/');
+        (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate(['required_evidence' => []]));
+    }
+
+    public function test_duplicate_allowed_files_are_normalized_to_unique_sorted(): void
+    {
+        $out = (new AtlasProjectLaneTaskFabricRouter)->route($this->lane(), $this->candidate([
+            'allowed_files' => [
+                '/repos/atlas-server/tests/FooTest.php',
+                '/repos/atlas-server/app/Foo.php',
+                '/repos/atlas-server/app/Foo.php', // duplicate
+            ],
+            'scope_in' => [
+                '/repos/atlas-server/app/Foo.php',
+                '/repos/atlas-server/app/Foo.php', // duplicate
+            ],
+        ]));
+
+        $this->assertSame([
+            '/repos/atlas-server/app/Foo.php',
+            '/repos/atlas-server/tests/FooTest.php',
+        ], $out['allowed_files'], 'duplicates removed, sorted ascending');
+        $this->assertSame(['/repos/atlas-server/app/Foo.php'], $out['scope_in'], 'duplicate scope_in removed');
     }
 
     public function test_acceptance_and_evidence_fields_are_preserved(): void
