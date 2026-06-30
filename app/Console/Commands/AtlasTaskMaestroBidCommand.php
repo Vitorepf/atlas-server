@@ -211,7 +211,11 @@ final class AtlasTaskMaestroBidCommand extends Command
 
     private function refuse(string $reason): int
     {
-        $this->getOutput()->writeln($reason);
+        if ($this->option('json')) {
+            $this->getOutput()->writeln((string) json_encode(['status' => 'refused', 'reason' => $reason], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        } else {
+            $this->getOutput()->writeln($reason);
+        }
 
         return self::EXIT_REFUSED;
     }

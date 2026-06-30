@@ -167,4 +167,26 @@ class AtlasTaskMaestroBidCommandTest extends TestCase
         self::assertSame(AtlasTaskMaestroBidCommand::EXIT_REFUSED, $r['exit']);
         self::assertStringContainsString('unknown_action', $r['output']);
     }
+
+    public function test_history_without_provider_json_emits_refused_envelope(): void
+    {
+        // Regression: refusal paths must emit a JSON envelope when --json is set.
+        $r = $this->runCmd(['action' => 'history', '--json' => true]);
+
+        self::assertSame(AtlasTaskMaestroBidCommand::EXIT_REFUSED, $r['exit']);
+        $payload = json_decode(trim($r['output']), true);
+        self::assertIsArray($payload, 'output must be valid JSON when --json is passed on refusal');
+        self::assertSame('refused', $payload['status']);
+        self::assertSame('missing_provider', $payload['reason']);
+    }
+
+    public function test_history_without_provider_plain_text_still_works(): void
+    {
+        // Preserve existing behavior: no --json → raw string.
+        $r = $this->runCmd(['action' => 'history']);
+        self::assertSame(AtlasTaskMaestroBidCommand::EXIT_REFUSED, $r['exit']);
+        self::assertStringContainsString('missing_provider', $r['output']);
+        // Must NOT be JSON.
+        self::assertNull(json_decode(trim($r['output'])));
+    }
 }
