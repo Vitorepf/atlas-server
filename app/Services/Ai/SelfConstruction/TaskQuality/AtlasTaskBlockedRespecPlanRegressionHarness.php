@@ -116,4 +116,97 @@ final class AtlasTaskBlockedRespecPlanRegressionHarness
     {
         return $this->fixtures()[$name] ?? null;
     }
+
+    public const FIXTURE_LIVE_SHAPE_ALL_UNKNOWN_BLOCKED = 'live_shape_all_unknown_blocked';
+
+    /**
+     * Names this regression case: the current live failure shape where a whole blocked
+     * plan collapses to family=unknown and every replacement draft comes back
+     * review_recommended / can_submit=false because allowed_files, acceptance_criteria
+     * and required_evidence were never recoverable from the source packet.
+     *
+     * @return array{blocked_count:int, blocked_counts:array<string,int>, replacement_drafts:list<array<string,mixed>>, can_submit:bool}
+     */
+    public function liveShapeBlockedPlan(): array
+    {
+        $missingFields = ['allowed_files', 'acceptance_criteria', 'required_evidence'];
+        $drafts = [];
+        for ($i = 0; $i < 5; $i++) {
+            $drafts[] = [
+                'source_packet_id' => 'blocked-'.$i,
+                'family' => 'unknown',
+                'recommendation' => 'review_recommended',
+                'can_submit' => false,
+                'missing_fields' => $missingFields,
+                'recovered_fields' => [],
+            ];
+        }
+
+        return [
+            'blocked_count' => count($drafts),
+            'blocked_counts' => ['unknown' => count($drafts)],
+            'replacement_drafts' => $drafts,
+            'can_submit' => false,
+        ];
+    }
+
+    /**
+     * The repaired counterpart: classifier + field recovery + completer together produce
+     * at least one submit-ready replacement draft, with recovered_field_count tracking how
+     * many previously-missing fields were actually filled in.
+     *
+     * @return array{blocked_count:int, blocked_counts:array<string,int>, replacement_drafts:list<array<string,mixed>>, can_submit:bool, recovered_field_count:int}
+     */
+    public function repairedLiveShapeBlockedPlan(): array
+    {
+        $plan = $this->liveShapeBlockedPlan();
+
+        $plan['replacement_drafts'][0] = [
+            'source_packet_id' => 'blocked-0',
+            'family' => 'recoverable_implementation_gap',
+            'recommendation' => 'resubmit_with_recovered_fields',
+            'can_submit' => true,
+            'missing_fields' => [],
+            'recovered_fields' => ['allowed_files', 'acceptance_criteria', 'required_evidence'],
+        ];
+        $plan['blocked_counts'] = [
+            'unknown' => count($plan['replacement_drafts']) - 1,
+            'recoverable_implementation_gap' => 1,
+        ];
+        $plan['can_submit'] = true;
+
+        return array_merge($plan, [
+            'recovered_field_count' => $this->evaluatePlan($plan)['recovered_field_count'],
+        ]);
+    }
+
+    /**
+     * Evaluates ANY blocked plan shape (live, fixture, or future) against the harness's
+     * pass condition: at least one submit-ready replacement draft.
+     *
+     * @param  array{replacement_drafts?: list<array<string,mixed>>}  $plan
+     * @return array{passes:bool, submit_ready_count:int, recovered_field_count:int}
+     */
+    public function evaluatePlan(array $plan): array
+    {
+        $drafts = is_array($plan['replacement_drafts'] ?? null) ? $plan['replacement_drafts'] : [];
+
+        $submitReadyCount = 0;
+        $recoveredFieldCount = 0;
+        foreach ($drafts as $draft) {
+            if (! is_array($draft)) {
+                continue;
+            }
+            if (($draft['can_submit'] ?? false) === true) {
+                $submitReadyCount++;
+            }
+            $recoveredFieldCount += count((array) ($draft['recovered_fields'] ?? []));
+        }
+
+        return [
+            'passes' => $submitReadyCount >= 1,
+            'submit_ready_count' => $submitReadyCount,
+            'recovered_field_count' => $recoveredFieldCount,
+        ];
+    }
 }
