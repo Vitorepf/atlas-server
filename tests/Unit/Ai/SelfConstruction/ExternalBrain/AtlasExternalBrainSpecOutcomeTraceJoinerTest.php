@@ -184,4 +184,57 @@ final class AtlasExternalBrainSpecOutcomeTraceJoinerTest extends TestCase
             $this->assertStringNotContainsString($forbidden, $src, "joiner must not call {$forbidden}");
         }
     }
+
+    // ── weak_green / poison / failed_gate + learning_signal ──────────────────
+
+    public function test_weak_green_outcome_has_required_fields(): void
+    {
+        $result = $this->joiner()->join($this->spec(), ['status' => 'weak_green']);
+
+        foreach (['status', 'success', 'task_shape', 'worker', 'model', 'decision_changed', 'evidence_strength', 'learning_signal'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+        $this->assertSame(AtlasExternalBrainSpecOutcomeTraceJoiner::STATUS_WEAK_GREEN, $result['status']);
+        $this->assertFalse($result['success']);
+    }
+
+    public function test_poison_outcome_has_required_fields(): void
+    {
+        $result = $this->joiner()->join($this->spec(), ['status' => 'poison']);
+
+        foreach (['status', 'success', 'task_shape', 'worker', 'model', 'decision_changed', 'evidence_strength', 'learning_signal'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+        $this->assertSame(AtlasExternalBrainSpecOutcomeTraceJoiner::STATUS_POISON, $result['status']);
+        $this->assertFalse($result['success']);
+    }
+
+    public function test_failed_gate_outcome_has_required_fields(): void
+    {
+        $result = $this->joiner()->join($this->spec(), ['status' => 'failed_gate']);
+
+        foreach (['status', 'success', 'task_shape', 'worker', 'model', 'decision_changed', 'evidence_strength', 'learning_signal'] as $key) {
+            $this->assertArrayHasKey($key, $result, "Missing key: {$key}");
+        }
+        $this->assertSame(AtlasExternalBrainSpecOutcomeTraceJoiner::STATUS_FAILED_GATE, $result['status']);
+        $this->assertFalse($result['success']);
+    }
+
+    public function test_success_outcome_has_learning_signal(): void
+    {
+        $result = $this->joiner()->join($this->spec(), ['status' => 'success']);
+
+        $this->assertArrayHasKey('learning_signal', $result);
+        $this->assertNotEmpty($result['learning_signal']);
+    }
+
+    public function test_give_back_repair_candidate_learning_signal_differs_from_worker_error(): void
+    {
+        $specDefect = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'root_cause_hint' => 'scope_too_broad']);
+        $workerError = $this->joiner()->join($this->spec(), ['status' => 'give_back', 'root_cause_hint' => 'worker_timeout']);
+
+        $this->assertTrue($specDefect['repair_candidate']);
+        $this->assertFalse($workerError['repair_candidate']);
+        $this->assertNotSame($specDefect['learning_signal'], $workerError['learning_signal']);
+    }
 }

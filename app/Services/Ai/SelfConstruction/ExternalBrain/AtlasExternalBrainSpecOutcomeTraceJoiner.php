@@ -39,6 +39,12 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
 
     public const STATUS_GIVE_BACK = 'give_back';
 
+    public const STATUS_WEAK_GREEN = 'weak_green';
+
+    public const STATUS_POISON = 'poison';
+
+    public const STATUS_FAILED_GATE = 'failed_gate';
+
     private const SPEC_SHAPE_DEFECT_PATTERN = '/scope|acceptance|objective|ambig|missing_test|contradict|malformed/i';
 
     /** Evidence keys whose presence increases the strength of a success record. */
@@ -68,23 +74,25 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
 
         $status = (string) $status;
 
-        if ($status === self::STATUS_SUCCESS) {
-            $evidence = is_array($outcome['evidence'] ?? null) ? $outcome['evidence'] : [];
-            $commitSha = (string) ($outcome['commit_sha'] ?? '');
-            if ($commitSha !== '') {
-                $evidence['commit_sha'] = $commitSha;
-            }
+        $evidence = is_array($outcome['evidence'] ?? null) ? $outcome['evidence'] : [];
+        $commitSha = (string) ($outcome['commit_sha'] ?? '');
+        if ($commitSha !== '') {
+            $evidence['commit_sha'] = $commitSha;
+        }
+        $evidenceStrength = $this->evidenceStrength($evidence);
 
+        if ($status === self::STATUS_SUCCESS) {
             return [
                 'schema' => self::SCHEMA,
                 'status' => self::STATUS_SUCCESS,
                 'success' => true,
-                'evidence_strength' => $this->evidenceStrength($evidence),
+                'evidence_strength' => $evidenceStrength,
                 'commit_evidence' => $commitSha,
                 'task_shape' => $taskShape,
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
+                'learning_signal' => 'reinforce_task_shape_and_worker_pairing',
             ];
         }
 
@@ -97,6 +105,7 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'schema' => self::SCHEMA,
                 'status' => self::STATUS_GIVE_BACK,
                 'success' => false,
+                'evidence_strength' => $evidenceStrength,
                 'give_back_reason' => $giveBackReason,
                 'root_cause_hint' => $rootCauseHint,
                 'repair_candidate' => $repairCandidate,
@@ -104,6 +113,51 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
                 'worker' => $worker,
                 'model' => $model,
                 'decision_changed' => $decisionChanged,
+                'learning_signal' => $repairCandidate
+                    ? 'repair_spec_shape_before_resubmitting'
+                    : 'investigate_worker_or_environment_issue',
+            ];
+        }
+
+        if ($status === self::STATUS_WEAK_GREEN) {
+            return [
+                'schema' => self::SCHEMA,
+                'status' => self::STATUS_WEAK_GREEN,
+                'success' => false,
+                'evidence_strength' => $evidenceStrength,
+                'task_shape' => $taskShape,
+                'worker' => $worker,
+                'model' => $model,
+                'decision_changed' => $decisionChanged,
+                'learning_signal' => 'evidence_too_weak_trust_only_partially',
+            ];
+        }
+
+        if ($status === self::STATUS_POISON) {
+            return [
+                'schema' => self::SCHEMA,
+                'status' => self::STATUS_POISON,
+                'success' => false,
+                'evidence_strength' => $evidenceStrength,
+                'task_shape' => $taskShape,
+                'worker' => $worker,
+                'model' => $model,
+                'decision_changed' => $decisionChanged,
+                'learning_signal' => 'quarantine_pattern_before_reuse',
+            ];
+        }
+
+        if ($status === self::STATUS_FAILED_GATE) {
+            return [
+                'schema' => self::SCHEMA,
+                'status' => self::STATUS_FAILED_GATE,
+                'success' => false,
+                'evidence_strength' => $evidenceStrength,
+                'task_shape' => $taskShape,
+                'worker' => $worker,
+                'model' => $model,
+                'decision_changed' => $decisionChanged,
+                'learning_signal' => 'strengthen_acceptance_or_gate_alignment',
             ];
         }
 
