@@ -112,6 +112,8 @@ final class AtlasSelfConstructionAutonomousSoakContinuityPolicyTest extends Test
 
         $this->assertSame(AtlasSelfConstructionAutonomousSoakContinuityPolicy::ACTION_REPLENISH, $result['action']);
         $this->assertTrue($result['replenishment_needed']);
+        $this->assertNotEmpty($result['safety_reasons'], 'replenish must emit machine-readable reasons');
+        $this->assertStringContainsString('claimable_depth', implode(' ', $result['safety_reasons']));
     }
 
     public function test_no_replenish_when_depth_at_floor(): void
@@ -147,6 +149,8 @@ final class AtlasSelfConstructionAutonomousSoakContinuityPolicyTest extends Test
         ]));
 
         $this->assertSame(AtlasSelfConstructionAutonomousSoakContinuityPolicy::ACTION_SLOW_DOWN, $result['action']);
+        $this->assertNotEmpty($result['safety_reasons'], 'slow_down must emit machine-readable worker_pressure reasons');
+        $this->assertStringContainsString('queue_saturation', implode(' ', $result['safety_reasons']));
     }
 
     public function test_slow_down_when_worker_contention_at_threshold(): void
@@ -157,6 +161,8 @@ final class AtlasSelfConstructionAutonomousSoakContinuityPolicyTest extends Test
         ]));
 
         $this->assertSame(AtlasSelfConstructionAutonomousSoakContinuityPolicy::ACTION_SLOW_DOWN, $result['action']);
+        $this->assertNotEmpty($result['safety_reasons'], 'slow_down must emit machine-readable worker_pressure reasons');
+        $this->assertStringContainsString('worker_contention_rate', implode(' ', $result['safety_reasons']));
     }
 
     // ── replenishment_needed (independent of action) ──────────────────────────

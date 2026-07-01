@@ -105,12 +105,22 @@ final class AtlasSelfConstructionAutonomousSoakContinuityPolicy
 
         // Priority 2: replenish.
         if ($replenishmentNeeded) {
-            return $this->result(self::ACTION_REPLENISH, [], $replenishmentNeeded, $workerPressure, $evidenceFreshness);
+            $replenishReasons = [sprintf('claimable_depth=%d < claimable_floor=%d', $claimableDepth, $claimableFloor)];
+
+            return $this->result(self::ACTION_REPLENISH, $replenishReasons, $replenishmentNeeded, $workerPressure, $evidenceFreshness);
         }
 
         // Priority 3: slow_down.
         if ($queueSaturation >= $queueSaturationThr || $workerContention >= $workerContentionThr) {
-            return $this->result(self::ACTION_SLOW_DOWN, [], $replenishmentNeeded, $workerPressure, $evidenceFreshness);
+            $slowDownReasons = [];
+            if ($queueSaturation >= $queueSaturationThr) {
+                $slowDownReasons[] = sprintf('queue_saturation=%.2f >= threshold=%.2f', $queueSaturation, $queueSaturationThr);
+            }
+            if ($workerContention >= $workerContentionThr) {
+                $slowDownReasons[] = sprintf('worker_contention_rate=%.2f >= threshold=%.2f', $workerContention, $workerContentionThr);
+            }
+
+            return $this->result(self::ACTION_SLOW_DOWN, $slowDownReasons, $replenishmentNeeded, $workerPressure, $evidenceFreshness);
         }
 
         // Default: continue.
