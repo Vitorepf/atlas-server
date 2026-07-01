@@ -130,7 +130,15 @@ final class AgentControlPlaneCycleHorizonAnalyzer
             $unintentionalCycleDetected = true;
         }
 
-        $cycleOk = $cycleViolations === [] && ! $unintentionalCycleDetected;
+        if ($repeatedSliceFamilies !== []) {
+            $cycleWarnings[] = [
+                'code' => 'repeated_slice_family_detected',
+                'detail' => 'A slice_key was reprocessed more than once in the deep chain, which can mask circular work as progress.',
+                'repeated_slice_families' => $repeatedSliceFamilies,
+            ];
+        }
+
+        $cycleOk = $cycleViolations === [] && ! $unintentionalCycleDetected && $cycleWarnings === [];
         $status = $cycleOk
             ? 'ok'
             : ($unintentionalCycleDetected ? 'blocked' : 'warning');

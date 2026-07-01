@@ -50,6 +50,8 @@ class AgentControlPlaneCycleHorizonAnalyzerTest extends TestCase
 
         self::assertCount(1, $result['repeated_slice_families']);
         self::assertSame('a', $result['repeated_slice_families'][0]['slice_key']);
+        self::assertSame('warning', $result['status'], 'a repeated slice family must not report status ok — it can mask circular work as progress');
+        self::assertFalse($result['cycle_ok']);
     }
 
     public function test_cycle_integrity_has_terminal_horizons(): void
