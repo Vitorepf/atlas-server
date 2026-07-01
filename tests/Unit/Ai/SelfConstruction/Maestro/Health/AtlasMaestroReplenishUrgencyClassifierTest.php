@@ -398,6 +398,97 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         $this->assertSame(3, $result['inputs']['active_claimed_workers']);
     }
 
+    // ── classifyReplenishDecision: active drain / quality floor / high-value targets ──────
+
+    public function test_sufficient_depth_but_high_drain_with_valuable_targets_recommends_originate_more(): void
+    {
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'claimable_depth' => 200,           // depth looks plenty sufficient
+            'active_muscle_count' => 4,
+            'drain_forecast' => 3,               // 4 - 3 = 1 projected active, at/below floor
+            'worker_floor' => 2,
+            'high_value_unqueued_targets' => 5,
+        ]);
+
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_ORIGINATE_MORE, $result['decision']);
+        $this->assertSame('drain_threatens_worker_floor_with_valuable_targets', $result['reason']);
+    }
+
+    public function test_safe_hold_when_active_muscles_stay_above_floor(): void
+    {
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'claimable_depth' => 50,
+            'active_muscle_count' => 10,
+            'drain_forecast' => 1,
+            'worker_floor' => 2,
+            'high_value_unqueued_targets' => 5,
+        ]);
+
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_SUFFICIENT, $result['decision']);
+        $this->assertNull($result['reason']);
+    }
+
+    public function test_repair_first_wins_over_drain_threat_when_quality_floor_breached(): void
+    {
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'claimable_depth' => 200,
+            'active_muscle_count' => 4,
+            'drain_forecast' => 3,
+            'worker_floor' => 2,
+            'high_value_unqueued_targets' => 5,
+            'task_quality_floor_breached' => true,
+        ]);
+
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_HOLD_OR_REPAIR, $result['decision']);
+        $this->assertSame('task_quality_floor_breached', $result['reason']);
+    }
+
+    public function test_poison_risk_unsafe_recommends_hold_or_repair(): void
+    {
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'claimable_depth' => 0,
+            'poison_risk_unsafe' => true,
+        ]);
+
+        // Safety gate must win even over the queue_dry branch.
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_HOLD_OR_REPAIR, $result['decision']);
+        $this->assertSame('poison_risk_unsafe', $result['reason']);
+    }
+
+    public function test_malformed_risk_unsafe_recommends_hold_or_repair(): void
+    {
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'malformed_risk_unsafe' => true,
+        ]);
+
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_HOLD_OR_REPAIR, $result['decision']);
+        $this->assertSame('malformed_risk_unsafe', $result['reason']);
+    }
+
+    public function test_dry_queue_recommends_urgent_originate_more(): void
+    {
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'claimable_depth' => 0,
+        ]);
+
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_ORIGINATE_MORE, $result['decision']);
+        $this->assertSame('queue_dry', $result['reason']);
+    }
+
+    public function test_drain_threat_without_valuable_targets_stays_sufficient(): void
+    {
+        // Drain threatens the floor, but there's nothing valuable to originate — no point flagging.
+        $result = (new AtlasMaestroReplenishUrgencyClassifier)->classifyReplenishDecision([
+            'claimable_depth' => 50,
+            'active_muscle_count' => 4,
+            'drain_forecast' => 3,
+            'worker_floor' => 2,
+            'high_value_unqueued_targets' => 0,
+        ]);
+
+        $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::DECISION_SUFFICIENT, $result['decision']);
+    }
+
     public function test_active_claimed_workers_key_takes_precedence_over_active_workers_when_both_present(): void
     {
         $result = $this->classifier(

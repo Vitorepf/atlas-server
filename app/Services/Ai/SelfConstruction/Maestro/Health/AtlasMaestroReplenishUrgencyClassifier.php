@@ -203,6 +203,67 @@ final class AtlasMaestroReplenishUrgencyClassifier
         return ['schema' => self::SCHEMA, 'replenish_action' => 'monitor_idle_supply', 'reason' => null];
     }
 
+    public const DECISION_ORIGINATE_MORE = 'originate_more';
+
+    public const DECISION_HOLD_OR_REPAIR = 'hold_or_repair';
+
+    public const DECISION_SUFFICIENT = 'sufficient';
+
+    /**
+     * Pure, facts-only replenish decision that looks past static claimable depth: active muscle
+     * drain, a quality/malformed/poison safety gate, and high-value unqueued target availability
+     * all factor in — a queue that "looks" deep enough can still need origination if the muscles
+     * working it are about to drain below the worker floor, and a queue must never get MORE work
+     * piled onto it while the safety gate is unsafe.
+     *
+     * Priority: safety gate (hold_or_repair) → queue_dry → drain-threatens-floor → sufficient.
+     *
+     * @param  array{
+     *     active_muscle_count?: int, drain_forecast?: int, worker_floor?: int,
+     *     high_value_unqueued_targets?: int, claimable_depth?: int,
+     *     task_quality_floor_breached?: bool, malformed_risk_unsafe?: bool, poison_risk_unsafe?: bool,
+     * }  $facts
+     * @return array{schema:string, decision:string, reason:?string}
+     */
+    public function classifyReplenishDecision(array $facts): array
+    {
+        $qualityFloorBreached = (bool) ($facts['task_quality_floor_breached'] ?? false);
+        $malformedRiskUnsafe = (bool) ($facts['malformed_risk_unsafe'] ?? false);
+        $poisonRiskUnsafe = (bool) ($facts['poison_risk_unsafe'] ?? false);
+
+        // Safety gate wins over everything else — never pile more origination onto a pipeline
+        // that can't be trusted to process it correctly.
+        if ($qualityFloorBreached || $malformedRiskUnsafe || $poisonRiskUnsafe) {
+            $reason = match (true) {
+                $poisonRiskUnsafe => 'poison_risk_unsafe',
+                $malformedRiskUnsafe => 'malformed_risk_unsafe',
+                default => 'task_quality_floor_breached',
+            };
+
+            return ['schema' => self::SCHEMA, 'decision' => self::DECISION_HOLD_OR_REPAIR, 'reason' => $reason];
+        }
+
+        $claimableDepth = max(0, (int) ($facts['claimable_depth'] ?? 0));
+        if ($claimableDepth === 0) {
+            return ['schema' => self::SCHEMA, 'decision' => self::DECISION_ORIGINATE_MORE, 'reason' => 'queue_dry'];
+        }
+
+        $activeMuscleCount = max(0, (int) ($facts['active_muscle_count'] ?? 0));
+        $drainForecast = max(0, (int) ($facts['drain_forecast'] ?? 0));
+        $workerFloor = max(0, (int) ($facts['worker_floor'] ?? 0));
+        $highValueUnqueuedTargets = max(0, (int) ($facts['high_value_unqueued_targets'] ?? 0));
+
+        $projectedActiveAfterDrain = $activeMuscleCount - $drainForecast;
+
+        // Even when current depth "looks" sufficient, active muscles about to drain below the
+        // worker floor — with real high-value work waiting to be queued — must trigger origination.
+        if ($projectedActiveAfterDrain <= $workerFloor && $highValueUnqueuedTargets > 0) {
+            return ['schema' => self::SCHEMA, 'decision' => self::DECISION_ORIGINATE_MORE, 'reason' => 'drain_threatens_worker_floor_with_valuable_targets'];
+        }
+
+        return ['schema' => self::SCHEMA, 'decision' => self::DECISION_SUFFICIENT, 'reason' => null];
+    }
+
     /** @return array<string,mixed> */
     private function facts(object $source, string $method): array
     {
