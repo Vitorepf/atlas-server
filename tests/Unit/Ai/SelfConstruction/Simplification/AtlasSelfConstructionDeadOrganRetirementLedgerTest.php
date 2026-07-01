@@ -147,4 +147,106 @@ final class AtlasSelfConstructionDeadOrganRetirementLedgerTest extends TestCase
 
         $this->assertNotSame($first['receipt_hash'], $second['receipt_hash']);
     }
+
+    // ── AC: safe_to_retire only when all four evidence gates are present ──────
+
+    private function retireCandidate(array $overrides = []): array
+    {
+        return array_merge([
+            'organ_id' => 'proxy-organ',
+            'proxy_only' => true,
+        ], $overrides);
+    }
+
+    public function test_safe_retirement_when_all_four_evidence_gates_confirmed(): void
+    {
+        $result = $this->ledger()->classify([
+            'organs' => [$this->retireCandidate([
+                'consumer_impact_assessed' => true,
+                'behavior_parity_confirmed' => true,
+                'rollback_plan_present' => true,
+                'knowledge_sync_confirmed' => true,
+            ])],
+        ]);
+
+        $row = $result['organs'][0];
+        $this->assertSame(AtlasSelfConstructionDeadOrganRetirementLedger::VERDICT_SAFE_TO_RETIRE, $row['verdict']);
+        $this->assertTrue($row['safe_to_retire']);
+        $this->assertSame([], $row['blocking_reasons']);
+    }
+
+    public function test_blocked_retirement_when_no_evidence_gates_confirmed(): void
+    {
+        $result = $this->ledger()->classify([
+            'organs' => [$this->retireCandidate([
+                'consumer_impact_assessed' => false,
+                'behavior_parity_confirmed' => false,
+                'rollback_plan_present' => false,
+                'knowledge_sync_confirmed' => false,
+            ])],
+        ]);
+
+        $row = $result['organs'][0];
+        $this->assertSame(AtlasSelfConstructionDeadOrganRetirementLedger::VERDICT_REVIEW_NEEDED, $row['verdict']);
+        $this->assertFalse($row['safe_to_retire']);
+        $this->assertCount(4, $row['blocking_reasons']);
+    }
+
+    public function test_review_needed_retirement_when_evidence_partially_confirmed(): void
+    {
+        $result = $this->ledger()->classify([
+            'organs' => [$this->retireCandidate([
+                'consumer_impact_assessed' => true,
+                'behavior_parity_confirmed' => true,
+                'rollback_plan_present' => false,
+                'knowledge_sync_confirmed' => false,
+            ])],
+        ]);
+
+        $row = $result['organs'][0];
+        $this->assertSame(AtlasSelfConstructionDeadOrganRetirementLedger::VERDICT_REVIEW_NEEDED, $row['verdict']);
+        $this->assertFalse($row['safe_to_retire']);
+        $this->assertContains('rollback_plan_present', $row['blocking_reasons']);
+        $this->assertContains('knowledge_sync_confirmed', $row['blocking_reasons']);
+        $this->assertNotContains('consumer_impact_assessed', $row['blocking_reasons']);
+    }
+
+    public function test_legacy_callers_without_any_evidence_gate_keep_bare_retire_or_convert(): void
+    {
+        // No evidence-gate keys supplied at all — must match pre-existing behavior exactly.
+        $result = $this->ledger()->classify([
+            'organs' => [$this->retireCandidate()],
+        ]);
+
+        $row = $result['organs'][0];
+        $this->assertSame(AtlasSelfConstructionDeadOrganRetirementLedger::VERDICT_RETIRE_OR_CONVERT, $row['verdict']);
+        $this->assertFalse($row['safe_to_retire']);
+        $this->assertSame([], $row['blocking_reasons']);
+    }
+
+    // ── AC: tamper-resistant provider-safe receipt fields ─────────────────────
+
+    public function test_receipt_never_includes_provider_sensitive_keys(): void
+    {
+        $result = $this->ledger()->recordRetirement($this->completeRetirementRecord());
+
+        foreach (['raw_prompt', 'provider_trace', 'conversation_text', 'secret', 'api_key'] as $sensitiveKey) {
+            $this->assertArrayNotHasKey($sensitiveKey, $result);
+        }
+    }
+
+    public function test_receipt_hash_detects_tampering_with_any_single_proof_field(): void
+    {
+        $baseline = $this->ledger()->recordRetirement($this->completeRetirementRecord())['receipt_hash'];
+
+        foreach (['evidence_refs', 'consumer_scan_result', 'parity_decision', 'rollback_receipt', 'knowledge_sync_status'] as $field) {
+            $originalValue = $this->completeRetirementRecord()[$field];
+            $tamperedValue = is_array($originalValue) ? ['tampered' => true] : 'tampered-value';
+            $tampered = $this->ledger()->recordRetirement($this->completeRetirementRecord([
+                $field => $tamperedValue,
+            ]))['receipt_hash'];
+
+            $this->assertNotSame($baseline, $tampered, "tampering '{$field}' must change the receipt hash");
+        }
+    }
 }

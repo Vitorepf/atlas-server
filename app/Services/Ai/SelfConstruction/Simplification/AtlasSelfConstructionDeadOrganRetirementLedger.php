@@ -37,6 +37,22 @@ final class AtlasSelfConstructionDeadOrganRetirementLedger
 
     public const VERDICT_RETIRE_OR_CONVERT = 'retire_or_convert';
 
+    /** All four evidence gates confirmed — safe for autonomous deletion. */
+    public const VERDICT_SAFE_TO_RETIRE = 'safe_to_retire';
+
+    /** Retirement candidate, but at least one evidence gate is opt-in-supplied and unmet — blocked
+     *  from autonomous deletion pending review. */
+    public const VERDICT_REVIEW_NEEDED = 'review_needed';
+
+    /** @var list<string> opt-in evidence-gate fact keys — when NONE is supplied, legacy behavior
+     *  (bare retire_or_convert) is preserved exactly for existing callers. */
+    private const EVIDENCE_GATE_FIELDS = [
+        'consumer_impact_assessed',
+        'behavior_parity_confirmed',
+        'rollback_plan_present',
+        'knowledge_sync_confirmed',
+    ];
+
     public const STATUS_RECORDED = 'recorded';
 
     public const STATUS_REJECTED = 'rejected';
@@ -165,8 +181,36 @@ final class AtlasSelfConstructionDeadOrganRetirementLedger
                 $retireReasons[] = 'unused_no_consumers_no_proof';
             }
 
+            $blockingReasons = [];
+            $safeToRetire = false;
+
             if ($retireReasons !== []) {
-                $verdict = self::VERDICT_RETIRE_OR_CONVERT;
+                $evidenceKeysSupplied = array_filter(
+                    self::EVIDENCE_GATE_FIELDS,
+                    static fn (string $key): bool => array_key_exists($key, $raw),
+                );
+
+                if ($evidenceKeysSupplied === []) {
+                    // Legacy path: no evidence gate ever supplied — preserve the bare verdict
+                    // string exactly as before for existing callers.
+                    $verdict = self::VERDICT_RETIRE_OR_CONVERT;
+                } else {
+                    $missingEvidence = [];
+                    foreach (self::EVIDENCE_GATE_FIELDS as $field) {
+                        if (! (bool) ($raw[$field] ?? false)) {
+                            $missingEvidence[] = $field;
+                        }
+                    }
+
+                    if ($missingEvidence === []) {
+                        $verdict = self::VERDICT_SAFE_TO_RETIRE;
+                        $safeToRetire = true;
+                    } else {
+                        $verdict = self::VERDICT_REVIEW_NEEDED;
+                        $blockingReasons = $missingEvidence;
+                    }
+                }
+
                 $retireCount++;
                 $retainReasons = [];
             } else {
@@ -186,6 +230,8 @@ final class AtlasSelfConstructionDeadOrganRetirementLedger
                 'verdict' => $verdict,
                 'retire_reasons' => $retireReasons,
                 'retain_reasons' => $retainReasons,
+                'safe_to_retire' => $safeToRetire,
+                'blocking_reasons' => $blockingReasons,
             ];
         }
 
