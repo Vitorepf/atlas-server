@@ -7,7 +7,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 /**
  * Generates deterministic scenario portfolios for evaluating brain-originated batches.
  *
- * Twelve canonical scenario families (7 original + 5 post-muscle outcome classes):
+ * Fifteen canonical scenario families (7 original + 5 post-muscle outcome classes + 3
+ * hardening additions):
  *   high_yield              — many high-leverage tasks, good learning signal
  *   low_yield               — bug-hunt-only, no evolutionary leap
  *   adversarial             — noisy fabricated input, Goodhart disguise
@@ -20,16 +21,20 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   quarantine_respec       — task quarantined; brain produces a valid respec that unblocks it
  *   proxy_green_commit      — proxy metrics pass (green tests / lint) but real impact is absent
  *   model_tier_failure      — brain output quality degrades because model tier is insufficient
+ *   malformed_queue_repair  — queue holds structurally malformed packets; brain repairs, never crashes/blindly-serves
+ *   frontier_exhaustion     — reactive backlog and unexplored surfaces both run out; brain must originate, not stall/pad
+ *   simplification_first    — deletion/simplification leverage must be preferred over feature-add when capability is preserved
  *
  * Each scenario carries:
  *   scenario_id      — unique string identifier
- *   family           — one of the twelve family constants
+ *   family           — one of the fifteen family constants
  *   description      — human-readable summary
  *   failure_modes    — what can go wrong in this scenario
  *   evidence_inputs  — data shape needed to exercise the scenario
  *   success_criteria — falsifiable conditions that mark the scenario passed
  *   evidence_floor   — minimum evidence shape to exercise this scenario
  *   expected_failure_mode — the most likely failure mode
+ *   passing_behavior — one-sentence description of what "passed" looks like (AC4 new)
  *   capability_delta — measurable before→after change
  *
  * DEDUPLICATION: generate() accepts optional extra scenarios and drops any
@@ -61,6 +66,11 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
     public const FAMILY_PROXY_GREEN_COMMIT   = 'proxy_green_commit';
     public const FAMILY_MODEL_TIER_FAILURE   = 'model_tier_failure';
 
+    // ── 3 hardening additions (AC2 new) ───────────────────────────────────────
+    public const FAMILY_MALFORMED_QUEUE_REPAIR = 'malformed_queue_repair';
+    public const FAMILY_FRONTIER_EXHAUSTION    = 'frontier_exhaustion';
+    public const FAMILY_SIMPLIFICATION_FIRST   = 'simplification_first';
+
     /** All canonical families — used for narrowness detection. */
     public const CANONICAL_FAMILIES = [
         self::FAMILY_HIGH_YIELD,
@@ -75,6 +85,9 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
         self::FAMILY_QUARANTINE_RESPEC,
         self::FAMILY_PROXY_GREEN_COMMIT,
         self::FAMILY_MODEL_TIER_FAILURE,
+        self::FAMILY_MALFORMED_QUEUE_REPAIR,
+        self::FAMILY_FRONTIER_EXHAUSTION,
+        self::FAMILY_SIMPLIFICATION_FIRST,
     ];
 
     /**
@@ -175,6 +188,9 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             $this->quarantineRespecScenario(),
             $this->proxyGreenCommitScenario(),
             $this->modelTierFailureScenario(),
+            $this->malformedQueueRepairScenario(),
+            $this->frontierExhaustionScenario(),
+            $this->simplificationFirstScenario(),
         ];
     }
 
@@ -206,6 +222,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'high_leverage_ratio:gte_0.70 AND ledger_outcome_count:gte_5',
             'expected_failure_mode' => 'quota_padding',
+            'passing_behavior'      => 'At least 70% of the batch is genuinely high-leverage with a passing anti-Goodhart verdict.',
             'capability_delta'      => 'high_leverage_ratio sustains above 0.70 with anti_goodhart_verdict:pass',
         ];
     }
@@ -231,6 +248,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'high_leverage_ratio:lt_0.20 AND architecture_task_count:0',
             'expected_failure_mode' => 'bug_hunt_only',
+            'passing_behavior'      => 'The brain correctly flags the batch as low-yield instead of silently accepting it.',
             'capability_delta'      => 'low_yield_pattern_detection_rate increases from 0 to gt_0.80',
         ];
     }
@@ -254,6 +272,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'anti_goodhart_verdict:fail AND noise_ratio:gte_0.30',
             'expected_failure_mode' => 'goodhart_proxy_disguised_as_leap',
+            'passing_behavior'      => 'Every fabricated or adversarial claim is flagged with a reason and never accepted as real progress.',
             'capability_delta'      => 'adversarial_input_detection_rate increases from 0 to gt_0.90',
         ];
     }
@@ -278,6 +297,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'distinct_project_count:gte_2 AND cross_project_task_count:gte_1',
             'expected_failure_mode' => 'single_project_isolation',
+            'passing_behavior'      => 'The batch demonstrably reaches at least two distinct projects with real wiring, not a claim alone.',
             'capability_delta'      => 'cross_project_reach_dimension passes with at_least_2_projects',
         ];
     }
@@ -303,6 +323,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'give_back_rate:gte_0.50 AND queue_status:stalled',
             'expected_failure_mode' => 'give_back_loop',
+            'passing_behavior'      => 'Poison packets are named with a reason and the queue drains back to healthy without looping.',
             'capability_delta'      => 'give_back_rate drops below 0.20 after brain drain intervention',
         ];
     }
@@ -328,6 +349,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'doc_certification_blocked:true AND evidence_gaps:non_empty',
             'expected_failure_mode' => 'doc_drift',
+            'passing_behavior'      => 'A doc proposal is drafted covering every gap and the certification blocker clears.',
             'capability_delta'      => 'doc_proposal_drafted becomes true and certification_blocked clears',
         ];
     }
@@ -353,6 +375,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'anti_goodhart_verdict:pass AND capability_delta_present:true',
             'expected_failure_mode' => 'incremental_not_leap',
+            'passing_behavior'      => 'A genuine architectural advance is proven with a measurable, falsifiable before/after claim.',
             'capability_delta'      => 'qualitative architecture advance proven with measurable before_after delta',
         ];
     }
@@ -378,6 +401,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'task_outcome:success AND capability_delta_score:lt_0.10 AND leverage_score:lt_0.20',
             'expected_failure_mode' => 'proxy_success_accepted_as_real',
+            'passing_behavior'      => 'The brain distinguishes green-test success from real capability advance and flags the low delta.',
             'capability_delta'      => 'brain distinguishes green-test success from real capability advance',
         ];
     }
@@ -402,6 +426,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'task_outcome:give_back AND diagnostic_emitted:true',
             'expected_failure_mode' => 'give_back_without_diagnosis',
+            'passing_behavior'      => 'Every give_back carries a structured root cause and a concrete repair action that unblocks the queue.',
             'capability_delta'      => 'give_back-with-diagnosis unblock rate increases vs give_back-without',
         ];
     }
@@ -426,6 +451,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'quarantine_count:gte_2 AND respec_proposed:true',
             'expected_failure_mode' => 'respec_too_similar_to_original',
+            'passing_behavior'      => 'A structurally different, verified respec passes the admission gate and unquarantines the task.',
             'capability_delta'      => 'quarantine-to-respec unblock rate reaches gt_0.70',
         ];
     }
@@ -451,6 +477,7 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'tests_green:true AND impact_score:lte_0.05 AND anti_goodhart_verdict:fail',
             'expected_failure_mode' => 'green_tests_mask_zero_impact',
+            'passing_behavior'      => 'A zero-impact commit is rejected by the impact-score gate despite green tests and clean lint.',
             'capability_delta'      => 'proxy_green_commit detection rate increases from 0 to gt_0.85',
         ];
     }
@@ -475,7 +502,83 @@ final class AtlasExternalBrainScenarioPortfolioGenerator
             ],
             'evidence_floor'        => 'model_tier:small AND task_complexity:high AND output_quality:lt_0.50',
             'expected_failure_mode' => 'insufficient_model_tier',
+            'passing_behavior'      => 'Quality degradation is caught before commit and escalation is triggered for the insufficient tier.',
             'capability_delta'      => 'model-tier-failure detection triggers escalation in gt_0.90 of cases',
+        ];
+    }
+
+    private function malformedQueueRepairScenario(): array
+    {
+        return [
+            'scenario_id'           => 'scenario:malformed_queue_repair:v1',
+            'family'                => self::FAMILY_MALFORMED_QUEUE_REPAIR,
+            'description'           => 'Queue holds structurally malformed packets (missing required fields); brain must detect and repair, never crash or serve them blindly.',
+            'failure_modes'         => ['malformed_packet_served_blindly', 'crash_on_malformed_input', 'repair_action_missing'],
+            'evidence_inputs'       => [
+                'malformed_packet_count'    => 4,
+                'missing_required_fields'   => ['allowed_files', 'acceptance_criteria'],
+                'queue_crash_on_serve'       => false,
+                'repair_action_proposed'    => true,
+            ],
+            'success_criteria'      => [
+                'malformed_packets_detected_before_serving',
+                'repair_action_proposed_per_malformed_packet',
+                'no_crash_on_malformed_input',
+            ],
+            'evidence_floor'        => 'malformed_packet_count:gte_1 AND repair_action_proposed:true',
+            'expected_failure_mode' => 'malformed_packet_served_blindly',
+            'passing_behavior'      => 'Every malformed packet is detected and repaired before serving, with no crash anywhere in the path.',
+            'capability_delta'      => 'malformed_packet_detection_rate increases from 0 to gt_0.95 before serving',
+        ];
+    }
+
+    private function frontierExhaustionScenario(): array
+    {
+        return [
+            'scenario_id'           => 'scenario:frontier_exhaustion:v1',
+            'family'                => self::FAMILY_FRONTIER_EXHAUSTION,
+            'description'           => 'Reactive backlog and unexplored surfaces both run out; the brain must originate the next leap rather than stall or pad the queue.',
+            'failure_modes'         => ['stalls_when_reactive_work_exhausted', 'pads_queue_with_low_value_filler', 'fails_to_originate_next_leap'],
+            'evidence_inputs'       => [
+                'reactive_backlog_remaining'     => 0,
+                'unexplored_surfaces_remaining'  => 0,
+                'consecutive_low_yield_cycles'   => 3,
+                'origination_attempted'          => true,
+            ],
+            'success_criteria'      => [
+                'brain_originates_next_leap_instead_of_stalling',
+                'no_low_value_filler_padding_detected',
+                'ambition_faculty_triggered_on_exhaustion',
+            ],
+            'evidence_floor'        => 'reactive_backlog_remaining:0 AND unexplored_surfaces_remaining:0',
+            'expected_failure_mode' => 'stalls_when_reactive_work_exhausted',
+            'passing_behavior'      => 'When reactive work is exhausted, the brain originates a genuine next-leap task instead of stalling or padding.',
+            'capability_delta'      => 'origination-on-exhaustion rate increases from 0 to gt_0.80',
+        ];
+    }
+
+    private function simplificationFirstScenario(): array
+    {
+        return [
+            'scenario_id'           => 'scenario:simplification_first:v1',
+            'family'                => self::FAMILY_SIMPLIFICATION_FIRST,
+            'description'           => 'A deletion/simplification opportunity exists alongside a feature-add option; the brain must prefer simplification when capability is preserved.',
+            'failure_modes'         => ['feature_add_preferred_over_simplification', 'simplification_opportunity_missed', 'deletion_leverage_undervalued'],
+            'evidence_inputs'       => [
+                'deletion_leverage_available'    => true,
+                'complexity_reduction_score'     => 0.6,
+                'capability_preserved'           => true,
+                'batch_prefers_simplification'   => true,
+            ],
+            'success_criteria'      => [
+                'batch_selects_simplification_over_feature_add_when_available',
+                'capability_preserved_after_simplification',
+                'complexity_reduction_score_positive',
+            ],
+            'evidence_floor'        => 'deletion_leverage_available:true AND capability_preserved:true',
+            'expected_failure_mode' => 'feature_add_preferred_over_simplification',
+            'passing_behavior'      => 'The batch selects the simplification/deletion path over a feature-add when capability is preserved either way.',
+            'capability_delta'      => 'simplification-first selection rate increases from 0 to gt_0.75 when deletion leverage is available',
         ];
     }
 
