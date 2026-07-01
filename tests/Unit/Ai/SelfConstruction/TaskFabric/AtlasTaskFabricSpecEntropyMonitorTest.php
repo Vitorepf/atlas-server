@@ -95,6 +95,58 @@ final class AtlasTaskFabricSpecEntropyMonitorTest extends TestCase
         $this->assertLessThan(3, $result['recommended_batch_size']);
     }
 
+    // ── AC: evidence requirements are a measured entropy dimension ─────────────
+
+    public function test_repeated_evidence_shape_alone_drags_a_batch_into_low_entropy(): void
+    {
+        // Objective, acceptance, allowed_files, and behavior verbs are all genuinely diverse — the
+        // ONLY repeated dimension across the whole batch is required_evidence (same evidence list
+        // verbatim, no class-name variance). That alone must be measured, not ignored.
+        $batch = [
+            [
+                'objective' => 'Rank candidates by autonomy unlock and reject proxy-only signals',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/StrategyCouncil/Ranker.php'],
+                'acceptance_criteria' => ['high autonomy_unlock ranks first', 'proxy-only candidates are rejected'],
+                'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            ],
+            [
+                'objective' => 'Detect circular dependencies and sequence tasks by unlock value',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/TaskGraph/Sequencer.php'],
+                'acceptance_criteria' => ['circular dependencies are blocked with a cycle path', 'unlock value orders the chain'],
+                'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            ],
+        ];
+
+        $withRepeatedEvidence = $this->monitor()->monitor($batch);
+
+        $batch[1]['required_evidence'] = ['tests_or_gates_result', 'constitution_gate_receipt'];
+        $withDiverseEvidence = $this->monitor()->monitor($batch);
+
+        $this->assertLessThan($withDiverseEvidence['entropy_score'], $withRepeatedEvidence['entropy_score']);
+    }
+
+    public function test_diverse_evidence_requirements_contribute_to_a_diverse_verdict(): void
+    {
+        $batch = [
+            [
+                'objective' => 'Rank candidates by autonomy unlock and reject proxy-only signals',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/StrategyCouncil/Ranker.php'],
+                'acceptance_criteria' => ['high autonomy_unlock ranks first', 'proxy-only candidates are rejected'],
+                'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            ],
+            [
+                'objective' => 'Detect circular dependencies and sequence tasks by unlock value',
+                'allowed_files' => ['app/Services/Ai/SelfConstruction/TaskGraph/Sequencer.php'],
+                'acceptance_criteria' => ['circular dependencies are blocked with a cycle path', 'unlock value orders the chain'],
+                'required_evidence' => ['tests_or_gates_result', 'constitution_gate_receipt'],
+            ],
+        ];
+
+        $result = $this->monitor()->monitor($batch);
+
+        $this->assertSame(AtlasTaskFabricSpecEntropyMonitor::VERDICT_DIVERSE, $result['verdict']);
+    }
+
     public function test_service_performs_no_io_and_is_deterministic(): void
     {
         $monitor = $this->monitor();

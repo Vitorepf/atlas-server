@@ -10,7 +10,7 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * objective vocabulary, allowed_files families, acceptance shapes, behavior verbs, and evidence
  * requirements. Performs no queue, git, or provider I/O — it only reads the in-memory candidate list.
  *
- * Input candidate shape: {objective:string, allowed_files?:list<string>, acceptance_criteria?:list<string>}
+ * Input candidate shape: {objective:string, allowed_files?:list<string>, acceptance_criteria?:list<string>, required_evidence?:list<string>}
  */
 final class AtlasTaskFabricSpecEntropyMonitor
 {
@@ -38,6 +38,7 @@ final class AtlasTaskFabricSpecEntropyMonitor
 
         $objectiveSkeletons = [];
         $acceptanceShapes = [];
+        $evidenceShapes = [];
         $fileFamilySignatures = [];
         $combinedAcceptanceText = '';
 
@@ -50,6 +51,14 @@ final class AtlasTaskFabricSpecEntropyMonitor
             $acceptanceShapes[] = implode('|', $shapeParts);
             $combinedAcceptanceText .= ' '.implode(' ', $criteria);
 
+            // Evidence-requirement shape: same anti-template-farm collapse as acceptance shapes,
+            // over required_evidence, so a batch that repeats the same evidence list with only the
+            // class name varying (already caught elsewhere via <ID>) does not read as diverse.
+            $evidence = array_map('strval', (array) ($candidate['required_evidence'] ?? []));
+            $evidenceParts = array_map(fn (string $e): string => $this->skeleton($e), $evidence);
+            sort($evidenceParts);
+            $evidenceShapes[] = implode('|', $evidenceParts);
+
             $files = array_map('strval', (array) ($candidate['allowed_files'] ?? []));
             $families = array_unique(array_map(static fn (string $f): string => dirname($f), $files));
             sort($families);
@@ -58,6 +67,7 @@ final class AtlasTaskFabricSpecEntropyMonitor
 
         $uniqueObjectiveSkeletons = array_unique($objectiveSkeletons);
         $uniqueAcceptanceShapes = array_unique($acceptanceShapes);
+        $uniqueEvidenceShapes = array_unique($evidenceShapes);
         $uniqueFileFamilies = array_unique($fileFamilySignatures);
 
         $haystack = strtolower($combinedAcceptanceText);
@@ -69,10 +79,11 @@ final class AtlasTaskFabricSpecEntropyMonitor
 
         $objectiveRatio = count($uniqueObjectiveSkeletons) / $count;
         $acceptanceRatio = count($uniqueAcceptanceShapes) / $count;
+        $evidenceRatio = count($uniqueEvidenceShapes) / $count;
         $familyRatio = count($uniqueFileFamilies) / $count;
         $verbRatio = min(1.0, count($uniqueBehaviorVerbs) / $count);
 
-        $entropyScore = round(($objectiveRatio + $acceptanceRatio + $familyRatio + $verbRatio) / 4, 2);
+        $entropyScore = round(($objectiveRatio + $acceptanceRatio + $evidenceRatio + $familyRatio + $verbRatio) / 5, 2);
 
         $skeletonCounts = array_count_values($objectiveSkeletons);
         $repeatedShapes = array_values(array_filter(array_keys($skeletonCounts), static fn (string $s): bool => $skeletonCounts[$s] > 1));
