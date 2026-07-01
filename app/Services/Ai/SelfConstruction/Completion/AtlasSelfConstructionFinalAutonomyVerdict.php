@@ -41,6 +41,9 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
         'compounding',
     ];
 
+    /** Worker-feed evidence older than this is considered stale, never trusted for a final verdict. */
+    private const WORKER_FEED_EVIDENCE_STALE_SECONDS = 3600;
+
     /**
      * @param  array<string,mixed>  $auditVerdict
      * @param  array<string,mixed>  $transitionMap
@@ -48,9 +51,14 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
      * @param  array<string,bool>  $capabilityFacts     Keyed by REQUIRED_CAPABILITY_LANES names; omit to skip check.
      * @param  array<string,list<string>>  $capabilityEvidence  Lane → evidence refs; when non-empty, true booleans without refs are insufficient.
      * @param  array<string,mixed>  $regressionFacts    {status:'pass'|'fail'|'pending', ...}. Omit to skip check (backward compat).
+     * @param  array<string,mixed>  $workerFeedEvidence {age_seconds?:int, claimable_per_active_worker?:float,
+     *         worker_feed_floor?:float, no_claimable_task_repaired?:bool}. Omit to skip check (backward compat).
+     *         A final autonomy claim may NEVER assert worker-feed continuity is healthy from stale,
+     *         missing, or sub-floor evidence — only fresh healthy floor metrics or an explicit
+     *         no_claimable_task_repaired receipt satisfy this gate.
      * @return array<string,mixed>
      */
-    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = [], array $regressionFacts = []): array
+    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = [], array $regressionFacts = [], array $workerFeedEvidence = []): array
     {
         $atlasNative = (bool) ($auditVerdict['atlas_native'] ?? false);
         $auditBlockers = array_values((array) ($auditVerdict['blockers'] ?? []));
@@ -166,7 +174,54 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, [], $evidenceDemands);
         }
 
+        // INCOMPLETE — worker-feed continuity evidence provided but stale, missing, or below floor.
+        // A final autonomy claim can never assert workers are being fed from evidence that can't
+        // prove it right now.
+        if ($workerFeedEvidence !== []) {
+            $workerFeedReason = $this->workerFeedUnhealthyReason($workerFeedEvidence);
+            if ($workerFeedReason !== null) {
+                $blockers = ['worker_feed_evidence:'.$workerFeedReason];
+                $nextActions[] = 'refresh_worker_feed_continuity_evidence';
+                $evidenceDemands[] = 'provide_fresh_worker_feed_floor_metrics_or_repaired_no_claimable_task_receipt';
+
+                return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, [], $evidenceDemands);
+            }
+        }
+
         return $this->envelope(self::VERDICT_COMPLETE, [], [], $score, [], $evidenceDemands);
+    }
+
+    /**
+     * Returns null when worker-feed evidence is trustworthy enough for a final claim; otherwise a
+     * machine-readable reason string. Repaired no_claimable_task receipts satisfy the gate even
+     * when the raw floor ratio is thin — a repair receipt IS the fresh healthy signal.
+     *
+     * @param  array<string,mixed>  $evidence
+     */
+    private function workerFeedUnhealthyReason(array $evidence): ?string
+    {
+        if (! array_key_exists('age_seconds', $evidence)) {
+            return 'missing_age';
+        }
+        $ageSeconds = (int) $evidence['age_seconds'];
+        if ($ageSeconds > self::WORKER_FEED_EVIDENCE_STALE_SECONDS) {
+            return 'stale';
+        }
+
+        if ((bool) ($evidence['no_claimable_task_repaired'] ?? false)) {
+            return null;
+        }
+
+        if (! array_key_exists('claimable_per_active_worker', $evidence) || ! array_key_exists('worker_feed_floor', $evidence)) {
+            return 'missing_floor_metrics';
+        }
+        $claimablePerActiveWorker = (float) $evidence['claimable_per_active_worker'];
+        $workerFeedFloor = (float) $evidence['worker_feed_floor'];
+        if ($claimablePerActiveWorker < $workerFeedFloor) {
+            return 'below_floor';
+        }
+
+        return null;
     }
 
     /**

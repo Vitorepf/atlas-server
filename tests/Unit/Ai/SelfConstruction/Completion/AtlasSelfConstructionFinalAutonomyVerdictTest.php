@@ -384,4 +384,82 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
 
         $this->assertContains('provision_capability_lane:compounding', $verdict['next_evidence_demands']);
     }
+
+    // ── worker-feed continuity evidence ──────────────────────────────────────
+
+    private function readyArgs(): array
+    {
+        return [
+            ['atlas_native' => true, 'blockers' => []],
+            ['replacements' => [], 'untransitioned' => []],
+            ['state' => 'ready', 'blockers' => []],
+        ];
+    }
+
+    public function test_refuses_final_autonomy_when_worker_feed_evidence_missing_age(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness, [], [], [],
+            ['claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('worker_feed_evidence:missing_age', $verdict['blockers']);
+    }
+
+    public function test_refuses_final_autonomy_when_worker_feed_evidence_stale(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness, [], [], [],
+            ['age_seconds' => 9999, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('worker_feed_evidence:stale', $verdict['blockers']);
+    }
+
+    public function test_refuses_final_autonomy_when_worker_feed_below_floor_and_not_repaired(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness, [], [], [],
+            ['age_seconds' => 60, 'claimable_per_active_worker' => 1.0, 'worker_feed_floor' => 2.0],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_INCOMPLETE, $verdict['verdict']);
+        $this->assertContains('worker_feed_evidence:below_floor', $verdict['blockers']);
+        $this->assertContains('refresh_worker_feed_continuity_evidence', $verdict['next_atlas_actions']);
+    }
+
+    public function test_accepts_final_autonomy_with_fresh_healthy_floor_metrics(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness, [], [], [],
+            ['age_seconds' => 60, 'claimable_per_active_worker' => 10.0, 'worker_feed_floor' => 2.0],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+    }
+
+    public function test_accepts_final_autonomy_with_repaired_no_claimable_task_receipt_despite_thin_floor(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
+            $audit, $transition, $readiness, [], [], [],
+            ['age_seconds' => 60, 'claimable_per_active_worker' => 0.5, 'worker_feed_floor' => 2.0, 'no_claimable_task_repaired' => true],
+        );
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+    }
+
+    public function test_omitting_worker_feed_evidence_does_not_block_complete(): void
+    {
+        [$audit, $transition, $readiness] = $this->readyArgs();
+        $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose($audit, $transition, $readiness);
+
+        $this->assertSame(AtlasSelfConstructionFinalAutonomyVerdict::VERDICT_COMPLETE, $verdict['verdict']);
+    }
 }
