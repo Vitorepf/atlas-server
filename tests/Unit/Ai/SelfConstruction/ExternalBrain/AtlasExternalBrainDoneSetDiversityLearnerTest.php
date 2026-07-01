@@ -296,4 +296,107 @@ final class AtlasExternalBrainDoneSetDiversityLearnerTest extends TestCase
         $this->assertGreaterThanOrEqual(0.5, $r['diversity_score']);
         $this->assertSame('continue_or_compound', $r['recommendation']);
     }
+
+    // ── AC2: risk reduced, autonomy gained, downstream unlocks per family ────
+
+    public function test_structural_impact_by_family_aggregates_risk_autonomy_and_unlocks(): void
+    {
+        $r = $this->svc()->learn([
+            array_merge($this->task('gate-impl'), ['risk_reduced' => true]),
+            array_merge($this->task('gate-impl'), ['autonomy_gained' => true, 'downstream_unlocks' => 2]),
+            $this->task('discovery'),
+        ]);
+
+        $this->assertSame(1, $r['structural_impact_by_family']['gate-impl']['risk_reduced_count']);
+        $this->assertSame(1, $r['structural_impact_by_family']['gate-impl']['autonomy_gained_count']);
+        $this->assertSame(2, $r['structural_impact_by_family']['gate-impl']['downstream_unlocks_sum']);
+        $this->assertContains('gate-impl', $r['high_impact_families']);
+        $this->assertNotContains('discovery', $r['high_impact_families']);
+    }
+
+    public function test_family_with_only_repeated_commits_is_not_high_impact(): void
+    {
+        $r = $this->svc()->learn([
+            $this->task('gate-impl'),
+            $this->task('gate-impl'),
+            $this->task('gate-impl'),
+        ]);
+
+        $this->assertSame([], $r['high_impact_families']);
+    }
+
+    // ── AC4: discounting duplicated wrappers, cosmetic CLIs, behavior-neutral tasks ──
+
+    public function test_duplicate_wrapper_tasks_are_discounted_from_diversity_score(): void
+    {
+        $r = $this->svc()->learn([
+            $this->task('discovery'),
+            array_merge($this->task('gate-impl'), ['is_duplicate_wrapper' => true]),
+            array_merge($this->task('gate-impl'), ['is_duplicate_wrapper' => true]),
+        ]);
+
+        // Only the single non-discounted 'discovery' task counts toward diversity — one
+        // family out of one surviving task is fully concentrated (score 0.0), not diverse.
+        $this->assertEqualsWithDelta(0.0, $r['diversity_score'], 0.001);
+        $this->assertSame(2, $r['discounted_task_count']);
+        $this->assertSame(3, $r['total_delivered']);
+    }
+
+    public function test_cosmetic_cli_and_behavior_neutral_tasks_are_also_discounted(): void
+    {
+        $r = $this->svc()->learn([
+            array_merge($this->task('gate-impl'), ['is_cosmetic_cli' => true]),
+            array_merge($this->task('gate-impl'), ['is_behavior_neutral' => true]),
+        ]);
+
+        $this->assertSame(2, $r['discounted_task_count']);
+        $this->assertSame(0, $r['total_delivered'] - $r['discounted_task_count']);
+        $this->assertEqualsWithDelta(1.0, $r['diversity_score'], 0.001);
+    }
+
+    public function test_discounted_task_count_zero_and_total_delivered_matches_when_nothing_discounted(): void
+    {
+        $r = $this->svc()->learn([
+            $this->task('gate-impl'),
+            $this->task('discovery'),
+        ]);
+
+        $this->assertSame(0, $r['discounted_task_count']);
+        $this->assertSame(2, $r['total_delivered']);
+    }
+
+    // ── AC3: recommended next originator focus ────────────────────────────────
+
+    public function test_recommended_focus_prefers_under_served_high_leverage_family(): void
+    {
+        // Only gate-impl delivered; bug-hunt, research, gate-impl itself are high-leverage —
+        // gate-impl is present so it must not be recommended; bug-hunt should win as it is
+        // first among KNOWN_FAMILIES that is also high-leverage and missing.
+        $r = $this->svc()->learn([
+            $this->task('gate-impl'),
+            $this->task('gate-impl'),
+            $this->task('gate-impl'),
+        ]);
+
+        $this->assertSame('bug-hunt', $r['recommended_next_originator_focus']);
+    }
+
+    public function test_recommended_focus_is_null_when_nothing_missing(): void
+    {
+        $tasks = [];
+        foreach (['bug-hunt', 'discovery', 'gate-certification', 'gate-impl', 'gate-wiring', 'origination', 'research', 'telemetry-wiring', 'trend-measurement'] as $family) {
+            $tasks[] = $this->task($family);
+        }
+
+        $r = $this->svc()->learn($tasks);
+
+        $this->assertNull($r['recommended_next_originator_focus']);
+    }
+
+    public function test_recommended_focus_present_on_empty_done_set(): void
+    {
+        $r = $this->svc()->learn([]);
+
+        $this->assertSame('bug-hunt', $r['recommended_next_originator_focus']);
+    }
 }

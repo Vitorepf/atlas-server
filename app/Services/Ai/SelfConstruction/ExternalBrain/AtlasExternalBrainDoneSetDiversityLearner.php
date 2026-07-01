@@ -19,6 +19,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   shift_pattern       — naming concentrated AND capability_impact concentrated (no diversity in impact)
  *   continue_or_compound — naming concentrated but capability_impact is diverse (repeated naming ≠ repeated impact)
  *                          OR both dimensions are diverse
+ *
+ * Structural-impact discounting: tasks flagged is_duplicate_wrapper, is_cosmetic_cli or
+ * is_behavior_neutral are excluded from every diversity/concentration calculation — they
+ * are counted separately in discounted_task_count and total_delivered so the score cannot
+ * be inflated by commit count alone. Surviving tasks contribute risk_reduced,
+ * autonomy_gained and downstream_unlocks into structural_impact_by_family / high_impact_families,
+ * and recommended_next_originator_focus names the single best next family (high-leverage
+ * under-served families win over ordinary under-served ones).
  */
 final class AtlasExternalBrainDoneSetDiversityLearner
 {
@@ -52,22 +60,32 @@ final class AtlasExternalBrainDoneSetDiversityLearner
      */
     public function learn(array $doneSet): array
     {
-        $total = count($doneSet);
+        $rawTotal = count($doneSet);
+
+        $effectiveDoneSet = array_values(array_filter($doneSet, static fn (array $task): bool => ! self::isDiscounted($task)));
+        $discountedCount = $rawTotal - count($effectiveDoneSet);
+
+        $total = count($effectiveDoneSet);
 
         if ($total === 0) {
             return [
-                'schema_version'                 => self::SCHEMA,
-                'diversity_score'                => 1.0,
-                'capability_impact_score'        => 1.0,
-                'recommendation'                 => 'continue_or_compound',
-                'concentrated_families'          => [],
-                'high_negative_signal_families'  => [],
-                'missing_family_recommendations' => self::KNOWN_FAMILIES,
-                'template_concentration'         => 0.0,
-                'template_farm_detected'         => false,
-                'top_template_signature'         => null,
-                'capability_family_coverage'     => 0.0,
-                'dominant_objective_shape'       => null,
+                'schema_version'                     => self::SCHEMA,
+                'diversity_score'                    => 1.0,
+                'capability_impact_score'             => 1.0,
+                'recommendation'                      => 'continue_or_compound',
+                'concentrated_families'               => [],
+                'high_negative_signal_families'       => [],
+                'missing_family_recommendations'      => self::KNOWN_FAMILIES,
+                'template_concentration'              => 0.0,
+                'template_farm_detected'              => false,
+                'top_template_signature'              => null,
+                'capability_family_coverage'          => 0.0,
+                'dominant_objective_shape'             => null,
+                'discounted_task_count'               => $discountedCount,
+                'total_delivered'                     => $rawTotal,
+                'structural_impact_by_family'         => [],
+                'high_impact_families'                => [],
+                'recommended_next_originator_focus'   => $this->recommendedFocusFrom(self::KNOWN_FAMILIES),
             ];
         }
 
@@ -77,13 +95,17 @@ final class AtlasExternalBrainDoneSetDiversityLearner
         $capFamiliesSeen     = [];
         $capFamilyCounts     = [];   // capability_family impact concentration
         $shapeCounts         = [];
+        $structuralImpactByFamily = [];
 
-        foreach ($doneSet as $task) {
+        foreach ($effectiveDoneSet as $task) {
             $family  = (string) ($task['task_family']       ?? 'unknown');
             $outcome = (string) ($task['outcome']           ?? 'served');
             $sig     = trim((string) ($task['template_signature'] ?? ''));
             $capFam  = trim((string) ($task['capability_family']  ?? ''));
             $shape   = trim((string) ($task['objective_shape']    ?? ''));
+            $riskReduced       = (bool) ($task['risk_reduced'] ?? false);
+            $autonomyGained    = (bool) ($task['autonomy_gained'] ?? false);
+            $downstreamUnlocks = max(0, (int) ($task['downstream_unlocks'] ?? 0));
 
             $familyCounts[$family] = ($familyCounts[$family] ?? 0) + 1;
             if (in_array($outcome, self::NEGATIVE_OUTCOMES, true)) {
@@ -99,6 +121,19 @@ final class AtlasExternalBrainDoneSetDiversityLearner
             if ($shape !== '') {
                 $shapeCounts[$shape] = ($shapeCounts[$shape] ?? 0) + 1;
             }
+
+            $structuralImpactByFamily[$family] ??= [
+                'risk_reduced_count'     => 0,
+                'autonomy_gained_count'  => 0,
+                'downstream_unlocks_sum' => 0,
+            ];
+            if ($riskReduced) {
+                $structuralImpactByFamily[$family]['risk_reduced_count']++;
+            }
+            if ($autonomyGained) {
+                $structuralImpactByFamily[$family]['autonomy_gained_count']++;
+            }
+            $structuralImpactByFamily[$family]['downstream_unlocks_sum'] += $downstreamUnlocks;
         }
 
         $maxConcentration = max(array_map(static fn (int $c): float => $c / $total, $familyCounts));
@@ -180,19 +215,52 @@ final class AtlasExternalBrainDoneSetDiversityLearner
             ? 'shift_pattern'
             : 'continue_or_compound';
 
+        // AC2: high-impact families are those where at least one surviving (non-discounted)
+        // task actually reduced risk, grew autonomy or unlocked downstream work — not merely
+        // repeated commits under the same family name.
+        $highImpactFamilies = [];
+        foreach ($structuralImpactByFamily as $family => $impact) {
+            if ($impact['risk_reduced_count'] > 0 || $impact['autonomy_gained_count'] > 0 || $impact['downstream_unlocks_sum'] > 0) {
+                $highImpactFamilies[] = $family;
+            }
+        }
+        sort($highImpactFamilies);
+
         return [
-            'schema_version'                 => self::SCHEMA,
-            'diversity_score'                => $diversityScore,
-            'capability_impact_score'        => $capImpactScore,
-            'recommendation'                 => $recommendation,
-            'concentrated_families'          => $concentrated,
-            'high_negative_signal_families'  => $highNegative,
-            'missing_family_recommendations' => $missing,
-            'template_concentration'         => $templateConcentration,
-            'template_farm_detected'         => $templateFarmDetected,
-            'top_template_signature'         => $topTemplateSig,
-            'capability_family_coverage'     => round($capFamilyCoverage, 3),
-            'dominant_objective_shape'       => $dominantShape,
+            'schema_version'                     => self::SCHEMA,
+            'diversity_score'                    => $diversityScore,
+            'capability_impact_score'             => $capImpactScore,
+            'recommendation'                      => $recommendation,
+            'concentrated_families'               => $concentrated,
+            'high_negative_signal_families'       => $highNegative,
+            'missing_family_recommendations'      => $missing,
+            'template_concentration'              => $templateConcentration,
+            'template_farm_detected'              => $templateFarmDetected,
+            'top_template_signature'              => $topTemplateSig,
+            'capability_family_coverage'          => round($capFamilyCoverage, 3),
+            'dominant_objective_shape'             => $dominantShape,
+            'discounted_task_count'               => $discountedCount,
+            'total_delivered'                     => $rawTotal,
+            'structural_impact_by_family'         => $structuralImpactByFamily,
+            'high_impact_families'                => $highImpactFamilies,
+            'recommended_next_originator_focus'   => $this->recommendedFocusFrom($missing),
         ];
+    }
+
+    private static function isDiscounted(array $task): bool
+    {
+        return (bool) ($task['is_duplicate_wrapper'] ?? false)
+            || (bool) ($task['is_cosmetic_cli'] ?? false)
+            || (bool) ($task['is_behavior_neutral'] ?? false);
+    }
+
+    /**
+     * @param  list<string>  $missing
+     */
+    private function recommendedFocusFrom(array $missing): ?string
+    {
+        $highLeverageMissing = array_values(array_intersect($missing, self::HIGH_LEVERAGE_FAMILIES));
+
+        return $highLeverageMissing[0] ?? ($missing[0] ?? null);
     }
 }
