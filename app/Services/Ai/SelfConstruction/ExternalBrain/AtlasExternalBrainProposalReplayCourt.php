@@ -32,8 +32,22 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   - The only reason is evidence_check (evidence can be added).
  *   Non-repairable: duplicate_target or task_fabric_check violations.
  *
+ * Historical replay (AC2/AC3): each proposal is additionally compared against
+ * success_patterns, poison_patterns, give_back_patterns, and low_value_patterns
+ * (substring match against "objective target_file", case-insensitive) before a
+ * final per-proposal decision is emitted:
+ *   admit  — no failing check, no poison match (may match a success pattern).
+ *   reject — matches a poison pattern, OR a non-repairable check failed
+ *            (duplicate_target / task_fabric_check).
+ *   revise — only repairable checks failed (scaffold_compliance and/or evidence_check).
+ *   split  — the only failure is scope_breadth_check (target_files count exceeds
+ *            split_file_threshold, default 3) — the proposal is too wide to admit
+ *            as-is but does not need to be rejected, only broken up.
+ * Each decision carries evidence_refs (the proposal's own evidence) and
+ * replay_findings (which historical patterns/checks fired during replay).
+ *
  * AC4 outputs: accepted_proposals, rejected_proposals, replay_checks,
- *   repairable_proposals, arena_ranking, court_verdict.
+ *   repairable_proposals, arena_ranking, court_verdict, decisions.
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -51,7 +65,19 @@ final class AtlasExternalBrainProposalReplayCourt
         'scaffold_compliance',
         'task_fabric_check',
         'evidence_check',
+        'scope_breadth_check',
+        'success_pattern_check',
+        'poison_pattern_check',
+        'give_back_pattern_check',
+        'low_value_pattern_check',
     ];
+
+    private const DEFAULT_SPLIT_FILE_THRESHOLD = 3;
+
+    public const DECISION_ADMIT  = 'admit';
+    public const DECISION_REVISE = 'revise';
+    public const DECISION_REJECT = 'reject';
+    public const DECISION_SPLIT  = 'split';
 
     /**
      * @param  array<string,mixed>  $facts
@@ -64,10 +90,16 @@ final class AtlasExternalBrainProposalReplayCourt
         $minScaffold     = (float) ($facts['min_scaffold_score'] ?? self::DEFAULT_MIN_SCAFFOLD);
         $requireEvidence = (bool)  ($facts['require_evidence']   ?? self::DEFAULT_REQUIRE_EVIDENCE);
         $maxBlast        = (float) ($facts['max_blast_radius']    ?? self::DEFAULT_MAX_BLAST);
+        $splitThreshold  = (int)   ($facts['split_file_threshold'] ?? self::DEFAULT_SPLIT_FILE_THRESHOLD);
+        $successPatterns  = array_map('strtolower', is_array($facts['success_patterns']   ?? null) ? $facts['success_patterns']   : []);
+        $poisonPatterns   = array_map('strtolower', is_array($facts['poison_patterns']     ?? null) ? $facts['poison_patterns']     : []);
+        $giveBackPatterns = array_map('strtolower', is_array($facts['give_back_patterns']  ?? null) ? $facts['give_back_patterns']  : []);
+        $lowValuePatterns = array_map('strtolower', is_array($facts['low_value_patterns']  ?? null) ? $facts['low_value_patterns']  : []);
 
         $accepted    = [];
         $rejected    = [];
         $repairable  = [];
+        $decisions   = [];
         $arenaScores = []; // id => arena_score
 
         // Per-check counters.
@@ -126,6 +158,66 @@ final class AtlasExternalBrainProposalReplayCourt
                 $checkStats['evidence_check']['passed']++;
             }
 
+            // 5. Scope breadth check: too many target files to admit as a single task.
+            $targetFiles = is_array($proposal['target_files'] ?? null)
+                ? $proposal['target_files']
+                : ($targetFile !== '' ? [$targetFile] : []);
+            $isOverwide = count($targetFiles) > $splitThreshold;
+            $checkStats['scope_breadth_check']['checked']++;
+            if ($isOverwide) {
+                $failures[] = 'scope_breadth_check';
+                $checkStats['scope_breadth_check']['failed']++;
+            } else {
+                $checkStats['scope_breadth_check']['passed']++;
+            }
+
+            // 6. Historical replay: compare against success/poison/give_back/low_value patterns.
+            $haystack = strtolower($objective.' '.$targetFile);
+            $matchedSuccess  = $this->matchesAnyPattern($haystack, $successPatterns);
+            $matchedPoison   = $this->matchesAnyPattern($haystack, $poisonPatterns);
+            $matchedGiveBack = $this->matchesAnyPattern($haystack, $giveBackPatterns);
+            $matchedLowValue = $this->matchesAnyPattern($haystack, $lowValuePatterns);
+
+            $checkStats['success_pattern_check']['checked']++;
+            $matchedSuccess ? $checkStats['success_pattern_check']['passed']++ : $checkStats['success_pattern_check']['failed']++;
+            $checkStats['poison_pattern_check']['checked']++;
+            $matchedPoison ? $checkStats['poison_pattern_check']['failed']++ : $checkStats['poison_pattern_check']['passed']++;
+            $checkStats['give_back_pattern_check']['checked']++;
+            $matchedGiveBack ? $checkStats['give_back_pattern_check']['failed']++ : $checkStats['give_back_pattern_check']['passed']++;
+            $checkStats['low_value_pattern_check']['checked']++;
+            $matchedLowValue ? $checkStats['low_value_pattern_check']['failed']++ : $checkStats['low_value_pattern_check']['passed']++;
+
+            if ($matchedPoison) {
+                $failures[] = 'poison_pattern_match';
+            }
+
+            $replayFindings = [];
+            if ($matchedSuccess) {
+                $replayFindings[] = 'matches a known success pattern';
+            }
+            if ($matchedPoison) {
+                $replayFindings[] = 'matches a known poison pattern';
+            }
+            if ($matchedGiveBack) {
+                $replayFindings[] = 'matches a known give_back pattern';
+            }
+            if ($matchedLowValue) {
+                $replayFindings[] = 'matches a known low_value pattern';
+            }
+            if ($isOverwide) {
+                $replayFindings[] = sprintf('target_files count (%d) exceeds split threshold (%d)', count($targetFiles), $splitThreshold);
+            }
+            if ($replayFindings === []) {
+                $replayFindings[] = 'no historical pattern match; standard replay checks applied';
+            }
+
+            $decisions[] = [
+                'id'              => $id,
+                'decision'        => $this->assembleCourtDecision($failures, $matchedPoison),
+                'evidence_refs'   => array_values($evidence),
+                'replay_findings' => $replayFindings,
+            ];
+
             if (empty($failures)) {
                 $accepted[] = $id;
                 // AC3: arena_score for ranking.
@@ -168,7 +260,39 @@ final class AtlasExternalBrainProposalReplayCourt
             'repairable_proposals' => $repairable,
             'arena_ranking'        => $arenaRanking,
             'court_verdict'        => $verdict,
+            'decisions'            => $decisions,
         ];
+    }
+
+    /** @param list<string> $failures */
+    private function assembleCourtDecision(array $failures, bool $matchedPoison): string
+    {
+        if ($matchedPoison) {
+            return self::DECISION_REJECT;
+        }
+        if ($failures === []) {
+            return self::DECISION_ADMIT;
+        }
+        if ($failures === ['scope_breadth_check']) {
+            return self::DECISION_SPLIT;
+        }
+        if ($this->repairHint($failures) !== null) {
+            return self::DECISION_REVISE;
+        }
+
+        return self::DECISION_REJECT;
+    }
+
+    /** @param list<string> $patterns */
+    private function matchesAnyPattern(string $haystack, array $patterns): bool
+    {
+        foreach ($patterns as $pattern) {
+            if ($pattern !== '' && str_contains($haystack, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function repairHint(array $failures): ?string

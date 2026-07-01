@@ -400,4 +400,72 @@ final class AtlasExternalBrainProposalReplayCourtTest extends TestCase
 
         $this->assertFalse($r['rejected_proposals'][0]['safe_to_resubmit']);
     }
+
+    // ── AC2/AC3/AC4: historical replay decisions (admit/reject/revise/split) ──
+
+    public function test_admitted_proposal_matching_success_pattern(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'        => [$this->good(['objective' => 'Implement FooService safely'])],
+            'success_patterns' => ['implement fooservice'],
+        ]);
+
+        $decision = $r['decisions'][0];
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_ADMIT, $decision['decision']);
+        $this->assertContains('p1', $r['accepted_proposals']);
+        $this->assertContains('matches a known success pattern', $decision['replay_findings']);
+        $this->assertSame(['phpunit:FooTest'], $decision['evidence_refs']);
+    }
+
+    public function test_rejected_poison_like_proposal(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'       => [$this->good(['objective' => 'Rewrite the entire billing engine from scratch'])],
+            'poison_patterns' => ['rewrite the entire billing engine'],
+        ]);
+
+        $decision = $r['decisions'][0];
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_REJECT, $decision['decision']);
+        $this->assertContains('poison_pattern_match', $r['rejected_proposals'][0]['rejection_reasons']);
+        $this->assertContains('matches a known poison pattern', $decision['replay_findings']);
+        $this->assertNotContains('p1', $r['accepted_proposals']);
+    }
+
+    public function test_revise_on_weak_evidence(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'        => [$this->good(['evidence' => []])],
+            'require_evidence' => true,
+        ]);
+
+        $decision = $r['decisions'][0];
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_REVISE, $decision['decision']);
+    }
+
+    public function test_split_overwide_proposal(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals' => [$this->good([
+                'target_files' => ['app/A.php', 'app/B.php', 'app/C.php', 'app/D.php'],
+            ])],
+        ]);
+
+        $decision = $r['decisions'][0];
+        $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_SPLIT, $decision['decision']);
+        $this->assertNotContains('p1', $r['accepted_proposals']);
+        $this->assertStringContainsString('exceeds split threshold', $decision['replay_findings'][0]);
+    }
+
+    public function test_give_back_and_low_value_patterns_are_recorded_as_findings(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'           => [$this->good(['objective' => 'polish comments in FooService'])],
+            'give_back_patterns'  => ['polish comments'],
+            'low_value_patterns'  => ['polish comments'],
+        ]);
+
+        $decision = $r['decisions'][0];
+        $this->assertContains('matches a known give_back pattern', $decision['replay_findings']);
+        $this->assertContains('matches a known low_value pattern', $decision['replay_findings']);
+    }
 }
