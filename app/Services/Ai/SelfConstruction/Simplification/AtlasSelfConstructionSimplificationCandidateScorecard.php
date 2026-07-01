@@ -55,6 +55,11 @@ final class AtlasSelfConstructionSimplificationCandidateScorecard
 
     private const WEIGHT_CONSUMER_RISK_PENALTY = 0.20;
 
+    /** High consumer_count without behavior_parity/rollback_ready proof loses this fraction of the score. */
+    private const HIGH_CONSUMER_COUNT_FLOOR = 5;
+
+    private const WEIGHT_UNPROVEN_HIGH_CONSUMER_PENALTY = 0.35;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -70,12 +75,18 @@ final class AtlasSelfConstructionSimplificationCandidateScorecard
                 continue;
             }
 
-            $lineReduction = max(0, (int) ($raw['line_reduction'] ?? 0));
-            $duplicationCollapse = $this->clamp01((float) ($raw['duplication_collapse_score'] ?? 0.0));
+            // AC1/AC2: removable_lines/duplicate_surface/proof_coverage/rollback_ready/behavior_parity
+            // are the deletion-first field names; they alias onto (and take priority over) the older
+            // additive-cleanup field names so a proven deletion candidate is scored on real evidence.
+            $lineReduction = max(0, (int) ($raw['removable_lines'] ?? $raw['line_reduction'] ?? 0));
+            $duplicationCollapse = $this->clamp01((float) ($raw['duplicate_surface'] ?? $raw['duplication_collapse_score'] ?? 0.0));
             $consumerRisk = $this->clamp01((float) ($raw['consumer_risk'] ?? 0.0));
-            $proofReadiness = $this->clamp01((float) ($raw['proof_readiness'] ?? 0.0));
+            $proofReadiness = $this->clamp01((float) ($raw['proof_coverage'] ?? $raw['proof_readiness'] ?? 0.0));
             $autonomyGain = $this->clamp01((float) ($raw['autonomy_gain'] ?? 0.0));
-            $rollbackReadiness = $this->clamp01((float) ($raw['rollback_readiness'] ?? 0.0));
+            $rollbackReady = array_key_exists('rollback_ready', $raw) ? (bool) $raw['rollback_ready'] : null;
+            $rollbackReadiness = $rollbackReady !== null ? ($rollbackReady ? 1.0 : 0.0) : $this->clamp01((float) ($raw['rollback_readiness'] ?? 0.0));
+            $behaviorParity = (bool) ($raw['behavior_parity'] ?? false);
+            $consumerCount = max(0, (int) ($raw['consumer_count'] ?? 0));
             $renameOrWrapOnly = (bool) ($raw['rename_or_wrap_only'] ?? false);
 
             $disqualifiers = [];
@@ -94,19 +105,31 @@ final class AtlasSelfConstructionSimplificationCandidateScorecard
                 'consumer_risk_penalty' => round(-1 * $consumerRisk * self::WEIGHT_CONSUMER_RISK_PENALTY, 4),
             ];
 
+            $usedFactors = ['duplication_collapse', 'autonomy_gain', 'proof_readiness', 'rollback_readiness', 'line_reduction', 'consumer_risk_penalty'];
+
+            // AC3: high consumer_count without proven behavior_parity AND rollback_ready is a
+            // real-world blast-radius risk — it must lower the score even when removable_lines is large.
+            if ($consumerCount >= self::HIGH_CONSUMER_COUNT_FLOOR && ! ($behaviorParity && $rollbackReady === true)) {
+                $componentScores['unproven_high_consumer_count_penalty'] = round(-1 * self::WEIGHT_UNPROVEN_HIGH_CONSUMER_PENALTY, 4);
+                $usedFactors[] = 'unproven_high_consumer_count_penalty';
+            }
+
             $totalScore = $disqualifiers !== []
                 ? 0.0
-                : round(array_sum($componentScores), 4);
+                : max(0.0, round(array_sum($componentScores), 4));
 
             $rationale = $disqualifiers !== []
                 ? 'disqualified: '.implode(', ', $disqualifiers)
                 : sprintf(
-                    'duplication_collapse=%.2f autonomy_gain=%.2f proof_readiness=%.2f rollback_readiness=%.2f consumer_risk=%.2f',
+                    'factors=[%s] duplication_collapse=%.2f autonomy_gain=%.2f proof_readiness=%.2f rollback_readiness=%.2f consumer_risk=%.2f consumer_count=%d behavior_parity=%s',
+                    implode(',', $usedFactors),
                     $duplicationCollapse,
                     $autonomyGain,
                     $proofReadiness,
                     $rollbackReadiness,
                     $consumerRisk,
+                    $consumerCount,
+                    $behaviorParity ? 'true' : 'false',
                 );
 
             $rows[] = [
