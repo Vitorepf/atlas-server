@@ -125,4 +125,65 @@ final class AtlasExternalBrainResearchToTaskCommandTest extends TestCase
 
         $this->assertSame(1, $result['promoted_count']);
     }
+
+    // ── source-trust ranker gate ────────────────────────────────────────────
+
+    public function test_low_trust_frontier_row_is_rejected_before_triage(): void
+    {
+        $result = $this->callCommand(['frontier_rows' => [
+            $this->promisingFrontierRow('r1', [
+                'source_type' => 'blog',
+                'is_hype_heavy' => true,
+                'has_concrete_claim' => false,
+                'has_source_url' => false,
+            ]),
+        ]]);
+
+        $this->assertSame(0, $result['promoted_count']);
+        $this->assertCount(1, $result['rejected_by_trust_ranker']);
+        $this->assertSame('r1', $result['rejected_by_trust_ranker'][0]['id']);
+    }
+
+    public function test_high_trust_frontier_row_still_reaches_triage_and_digestor(): void
+    {
+        $result = $this->callCommand(['frontier_rows' => [
+            $this->promisingFrontierRow('r1', [
+                'source_type' => 'repo_local_evidence',
+                'has_concrete_claim' => true,
+                'has_source_url' => true,
+                'grounding' => 'repo_local',
+            ]),
+        ]]);
+
+        $this->assertSame(1, $result['promoted_count']);
+        $this->assertSame([], $result['rejected_by_trust_ranker']);
+    }
+
+    // ── research_ideas → grounder pathway ───────────────────────────────────
+
+    public function test_grounded_idea_with_local_symbols_and_owner_becomes_grounded_task_candidate(): void
+    {
+        $result = $this->callCommand(['research_ideas' => [[
+            'idea_id' => 'idea-1',
+            'atlas_capability_gap' => 'no retry backoff',
+            'local_symbols' => ['App\\Services\\Ai\\RetryService'],
+            'allowed_files_candidate' => ['app/Services/Ai/RetryService.php'],
+            'runnable_evidence_path' => './vendor/bin/phpunit tests/Unit/RetryServiceTest.php',
+            'owner_files' => ['app/Services/Ai/RetryService.php'],
+        ]]]);
+
+        $this->assertCount(1, $result['grounded_task_candidates']);
+        $this->assertSame('idea-1', $result['grounded_task_candidates'][0]['idea_id']);
+    }
+
+    public function test_hype_idea_is_rejected_by_grounder(): void
+    {
+        $result = $this->callCommand(['research_ideas' => [[
+            'idea_id' => 'idea-2',
+            'is_hype' => true,
+        ]]]);
+
+        $this->assertCount(0, $result['grounded_task_candidates']);
+        $this->assertCount(1, $result['grounded_rejected']);
+    }
 }

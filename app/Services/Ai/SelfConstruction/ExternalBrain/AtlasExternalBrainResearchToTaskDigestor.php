@@ -16,7 +16,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   hype_only                — no atlas_failure_mode; item has no Atlas-specific problem statement
  *   no_target_path           — target_path is missing or empty
  *   no_runnable_acceptance   — no runnable acceptance evidence (artisan/phpunit/vendor command)
- *   incomplete_candidate     — missing adaptation_notes, allowed_files, test_path, or anti_goodhart_risks
+ *   incomplete_candidate     — missing adaptation_notes, allowed_files, test_path, source_type, or anti_goodhart_risks
  *
  * Pure: no I/O, no side effects. Operates on supplied arrays, no network access.
  */
@@ -112,7 +112,7 @@ final class AtlasExternalBrainResearchToTaskDigestor
             return [false, self::REJECTION_PROVIDER_STEADY_STATE_DEPENDENCY];
         }
 
-        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '') {
+        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '' || $sourceType === '') {
             return [false, self::REJECTION_INCOMPLETE_CANDIDATE];
         }
 
