@@ -115,16 +115,36 @@ final class AtlasSelfConstructionAutonomyModePolicy
             return $this->envelope(self::MODE_EXECUTE_GUARDED, $blockers, $reasons, $facts, $summary);
         }
 
+        // Would-be-continuous except knowledge_sync: every other continuous requirement holds,
+        // so passively falling back to a generic guarded reason would hide the ONE actionable
+        // fix — refreshing knowledge sync — behind an undifferentiated "native worker ready"
+        // message. Name it explicitly so the next cycle knows exactly what to run first.
+        $blockedOnlyByKnowledgeSync = $guardedReady && $serverVer && ! $knowledgeSync;
+
+        // A healthy runtime never idles in observe/hold when there is productive work it could
+        // safely originate: low queue supply while the basic organs are ready is originator work
+        // waiting to be proposed, not a reason to sit still.
+        $lowSupply = (bool) data_get($facts, 'queue_health.low_supply', false);
+
         $mode = self::MODE_OBSERVE;
         if (! $hasDependencyBlock && $continuousReady) {
             $mode = self::MODE_EXECUTE_CONTINUOUS;
             $reasons[] = 'all_organs_ready';
+        } elseif (! $hasDependencyBlock && $blockedOnlyByKnowledgeSync) {
+            $mode = self::MODE_EXECUTE_GUARDED;
+            $reasons[] = 'execute_guarded:knowledge_sync_first_required';
         } elseif (! $hasDependencyBlock && $guardedReady) {
             $mode = self::MODE_EXECUTE_GUARDED;
             $reasons[] = 'execute_guarded:native_worker+rollback_ready';
         } elseif ($basicReady) {
             $mode = self::MODE_PROPOSE;
-            $reasons[] = $hasDependencyBlock ? 'propose:dependency_block' : 'propose:basic_organs_ready';
+            if ($hasDependencyBlock) {
+                $reasons[] = 'propose:dependency_block';
+            } elseif ($lowSupply) {
+                $reasons[] = 'propose:originator_replenish_required';
+            } else {
+                $reasons[] = 'propose:basic_organs_ready';
+            }
         } else {
             $reasons[] = $hasDependencyBlock ? 'observe:dependency_block' : 'observe:basic_organs_unready';
         }

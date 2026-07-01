@@ -313,6 +313,101 @@ final class AtlasSelfConstructionAutonomyModePolicyTest extends TestCase
         $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
     }
 
+    // ── no dumb hold: low supply proposes originator/replenish work ───────────
+
+    public function test_basic_organs_ready_with_low_queue_supply_proposes_originator_replenish(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric' => $this->organ(true),
+            'maestro' => $this->organ(true),
+            'verification_court' => $this->organ(true),
+            'merge_governor' => $this->organ(true),
+            'queue_health' => ['low_supply' => true],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
+        $this->assertContains('propose:originator_replenish_required', $r['reasons']);
+        $this->assertNotContains('observe:basic_organs_unready', $r['reasons']);
+    }
+
+    public function test_basic_organs_ready_without_low_supply_uses_generic_propose_reason(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric' => $this->organ(true),
+            'maestro' => $this->organ(true),
+            'verification_court' => $this->organ(true),
+            'merge_governor' => $this->organ(true),
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
+        $this->assertContains('propose:basic_organs_ready', $r['reasons']);
+    }
+
+    // ── no dumb hold: knowledge-sync-first downgrade from continuous ──────────
+
+    public function test_continuous_ready_but_knowledge_sync_stale_downgrades_with_knowledge_sync_first_reason(): void
+    {
+        $facts = $this->allOrgansReady();
+        $facts['knowledge_sync'] = $this->organ(false, ['stale']);
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($facts);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertContains('execute_guarded:knowledge_sync_first_required', $r['reasons']);
+        $this->assertContains('knowledge_sync:stale', $r['blockers']);
+    }
+
+    public function test_knowledge_sync_downgrade_does_not_fire_when_server_verification_also_unready(): void
+    {
+        // Only knowledge_sync missing triggers the specific reason; if server_side_verification
+        // is ALSO unready, the generic guarded reason applies instead (nothing "specifically"
+        // blocks on knowledge_sync alone).
+        $facts = $this->allOrgansReady();
+        $facts['knowledge_sync'] = $this->organ(false);
+        $facts['server_side_verification'] = $this->organ(false);
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide($facts);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+        $this->assertNotContains('execute_guarded:knowledge_sync_first_required', $r['reasons']);
+        $this->assertContains('execute_guarded:native_worker+rollback_ready', $r['reasons']);
+    }
+
+    // ── dirty queue health still allows guarded when repair execution is safe ──
+
+    public function test_dirty_queue_health_blocks_continuous_but_allows_guarded_when_safe(): void
+    {
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide(
+            array_merge($this->allOrgansReady(), ['queue_health' => ['poison_packets' => 1]])
+        );
+
+        $this->assertNotSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_CONTINUOUS, $r['mode']);
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_EXECUTE_GUARDED, $r['mode']);
+    }
+
+    public function test_dirty_queue_health_without_guarded_readiness_falls_to_propose_not_hold(): void
+    {
+        // Dirty queue + basic organs ready but native_worker/rollback missing ⇒ guarded is not
+        // achievable; the safest productive mode is propose, not observe/hold.
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'task_fabric' => $this->organ(true),
+            'maestro' => $this->organ(true),
+            'verification_court' => $this->organ(true),
+            'merge_governor' => $this->organ(true),
+            'queue_health' => ['poison_packets' => 1],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_PROPOSE, $r['mode']);
+    }
+
+    public function test_dirty_queue_health_without_any_organs_ready_still_holds(): void
+    {
+        // No safe productive mode is possible at all — hold really is the safest choice here.
+        $r = (new AtlasSelfConstructionAutonomyModePolicy)->decide([
+            'queue_health' => ['poison_packets' => 1],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionAutonomyModePolicy::MODE_OBSERVE, $r['mode']);
+    }
+
     public function test_dirty_queue_health_without_continuous_readiness_does_not_affect_mode(): void
     {
         // Only basic organs ready (→ propose); dirty queue_health adds blockers but doesn't change mode.
