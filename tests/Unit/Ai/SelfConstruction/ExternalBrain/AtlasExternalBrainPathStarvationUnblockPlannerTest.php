@@ -279,4 +279,36 @@ final class AtlasExternalBrainPathStarvationUnblockPlannerTest extends TestCase
         $this->assertSame([], $result['recommendations']);
         $this->assertSame(0, $result['neglected_lane_count']);
     }
+
+    // ── AC: evidence_coverage floor ────────────────────────────────────────────
+
+    public function test_sufficient_value_but_low_evidence_coverage_returns_defer_with_reason(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('a', ['value_potential' => 0.9, 'evidence_coverage' => 0.1]),
+        ]]);
+
+        $rec = $this->recFor($result, 'a');
+        $this->assertSame('defer_with_reason', $rec['recommendation']);
+    }
+
+    public function test_low_value_potential_still_returns_retire_lane_before_evidence_checks(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('a', ['value_potential' => 0.1, 'evidence_coverage' => 0.1]),
+        ]]);
+
+        $rec = $this->recFor($result, 'a');
+        $this->assertSame('retire_lane', $rec['recommendation']);
+    }
+
+    public function test_value_and_evidence_and_no_blockers_returns_unblock(): void
+    {
+        $result = $this->planner->recommendNeglectedLanes(['lanes' => [
+            $this->lane('a', ['value_potential' => 0.9, 'evidence_coverage' => 0.9]),
+        ]]);
+
+        $rec = $this->recFor($result, 'a');
+        $this->assertSame('unblock', $rec['recommendation']);
+    }
 }

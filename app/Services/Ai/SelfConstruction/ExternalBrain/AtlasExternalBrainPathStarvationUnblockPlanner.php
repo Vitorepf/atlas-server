@@ -124,6 +124,8 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
 
     private const DEFAULT_LOW_VALUE_THRESHOLD = 0.3;
 
+    private const DEFAULT_EVIDENCE_COVERAGE_FLOOR = 0.5;
+
     /**
      * Detects path starvation per lane from last_seen, value potential,
      * blocked dependencies and repeated non-selection, and recommends
@@ -150,6 +152,7 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
         $starvationThresholdCycles = max(1, (int) ($input['starvation_threshold_cycles'] ?? self::DEFAULT_STARVATION_CYCLES));
         $nonSelectionThreshold = max(1, (int) ($input['non_selection_threshold'] ?? self::DEFAULT_NON_SELECTION_THRESHOLD));
         $lowValueThreshold = max(0.0, min(1.0, (float) ($input['low_value_threshold'] ?? self::DEFAULT_LOW_VALUE_THRESHOLD)));
+        $evidenceCoverageFloor = max(0.0, min(1.0, (float) ($input['evidence_coverage_floor'] ?? self::DEFAULT_EVIDENCE_COVERAGE_FLOOR)));
 
         $recommendations = [];
         foreach ($lanes as $lane) {
@@ -162,6 +165,9 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
             $valuePotential = max(0.0, min(1.0, (float) ($lane['value_potential'] ?? 0.0)));
             $blockedDependencies = is_array($lane['blocked_dependencies'] ?? null) ? array_values($lane['blocked_dependencies']) : [];
             $nonSelectionCount = max(0, (int) ($lane['non_selection_count'] ?? 0));
+            $evidenceCoverage = array_key_exists('evidence_coverage', $lane)
+                ? max(0.0, min(1.0, (float) $lane['evidence_coverage']))
+                : 1.0;
 
             $starved = $lastSeenCyclesAgo >= $starvationThresholdCycles || $nonSelectionCount >= $nonSelectionThreshold;
             if (! $starved) {
@@ -171,6 +177,7 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
             [$recommendation, $reason] = match (true) {
                 $valuePotential < $lowValueThreshold => ['retire_lane', 'low_value_potential_age_alone_does_not_justify_promotion'],
                 $blockedDependencies !== [] => ['defer_with_reason', 'blocked_by_dependencies: '.implode(',', $blockedDependencies)],
+                $evidenceCoverage < $evidenceCoverageFloor => ['defer_with_reason', "evidence_coverage={$evidenceCoverage}_below_floor={$evidenceCoverageFloor}"],
                 default => ['unblock', 'starved_lane_with_sufficient_value_and_no_blockers'],
             };
 
@@ -181,6 +188,7 @@ final class AtlasExternalBrainPathStarvationUnblockPlanner
                 'value_potential' => $valuePotential,
                 'blocked_dependencies' => $blockedDependencies,
                 'non_selection_count' => $nonSelectionCount,
+                'evidence_coverage' => $evidenceCoverage,
                 'recommendation' => $recommendation,
                 'reason' => $reason,
             ];
