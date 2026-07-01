@@ -17,6 +17,12 @@ use Throwable;
  *   - WRITE-TEMP-THEN-RENAME — readers never see a torn write.
  *   - Snapshot key ordering: client_id ascending — byte-identical for same logical state.
  *   - declaredMaxTier ∈ {easy, hard, hardest} — anything else throws and IS NOT PERSISTED.
+ *
+ * Capability drift: recordCapabilityEvidence() attaches an observed_max_tier + evidence_recorded_at
+ * to an already-registered client (re-register() intentionally WIPES stale evidence — a fresh
+ * declaration requires fresh proof again). driftReport() compares declared vs observed tier and
+ * evidence freshness to produce a deterministic upgrade/downgrade recommendation, reading ONLY
+ * tier ranks and timestamps — never `meta` — so provider-sensitive meta content can never leak.
  */
 final class AtlasMaestroWorkerTierRegistry
 {
@@ -41,7 +47,9 @@ final class AtlasMaestroWorkerTierRegistry
             throw new RuntimeException('declaredMaxTier outside allowed set: '.$declaredMaxTier);
         }
         $snapshot = $this->loadSnapshot();
-        $snapshot[$clientId] = ['client_id' => $clientId, 'declared_max_tier' => $declaredMaxTier, 'meta' => $meta];
+        // Re-declaring intentionally wipes prior observed_max_tier/evidence_recorded_at — a fresh
+        // declaration requires fresh proof again.
+        $snapshot[$clientId] = ['client_id' => $clientId, 'declared_max_tier' => $declaredMaxTier, 'meta' => $meta, 'observed_max_tier' => '', 'evidence_recorded_at' => ''];
         $this->persistSnapshot($snapshot);
 
         return new WorkerTierRecord($clientId, $declaredMaxTier, $meta);
@@ -59,6 +67,8 @@ final class AtlasMaestroWorkerTierRegistry
             (string) $row['client_id'],
             (string) $row['declared_max_tier'],
             (array) ($row['meta'] ?? []),
+            (string) ($row['observed_max_tier'] ?? ''),
+            (string) ($row['evidence_recorded_at'] ?? ''),
         );
     }
 
@@ -73,10 +83,100 @@ final class AtlasMaestroWorkerTierRegistry
                 (string) $row['client_id'],
                 (string) $row['declared_max_tier'],
                 (array) ($row['meta'] ?? []),
+                (string) ($row['observed_max_tier'] ?? ''),
+                (string) ($row['evidence_recorded_at'] ?? ''),
             );
         }
 
         return $out;
+    }
+
+    /**
+     * Attaches proven current-capability evidence to an already-registered client — never creates
+     * a new registration (returns null when the client is unknown, mirroring revoke()'s fail-open
+     * bool-ish semantics). Declared tier and meta are left untouched.
+     */
+    public function recordCapabilityEvidence(string $clientId, string $observedMaxTier, string $evidenceRecordedAt): ?WorkerTierRecord
+    {
+        if (! in_array($observedMaxTier, self::ALLOWED_TIERS, true)) {
+            throw new RuntimeException('observedMaxTier outside allowed set: '.$observedMaxTier);
+        }
+        $snapshot = $this->loadSnapshot();
+        if (! isset($snapshot[$clientId])) {
+            return null;
+        }
+        $snapshot[$clientId]['observed_max_tier'] = $observedMaxTier;
+        $snapshot[$clientId]['evidence_recorded_at'] = $evidenceRecordedAt;
+        $this->persistSnapshot($snapshot);
+
+        return new WorkerTierRecord(
+            $clientId,
+            (string) $snapshot[$clientId]['declared_max_tier'],
+            (array) $snapshot[$clientId]['meta'],
+            $observedMaxTier,
+            $evidenceRecordedAt,
+        );
+    }
+
+    /**
+     * Compares declared tier against the most recent observed capability evidence + its freshness
+     * to produce a deterministic drift status and upgrade/downgrade recommendation. Reads ONLY tier
+     * ranks and timestamps — never `meta` — so provider-sensitive meta content can never leak here.
+     *
+     * @return array{client_id:string, declared_max_tier:string, observed_max_tier:string, evidence_freshness:string, freshness_seconds:int|null, drift_status:string, recommendation:string}|null
+     */
+    public function driftReport(string $clientId, ?string $nowIso = null, int $staleAfterSeconds = 604800): ?array
+    {
+        $record = $this->lookup($clientId);
+        if ($record === null) {
+            return null;
+        }
+
+        $now = $nowIso !== null ? strtotime($nowIso) : time();
+        $recordedAt = $record->evidenceRecordedAt !== '' ? strtotime($record->evidenceRecordedAt) : false;
+        $freshnessSeconds = ($recordedAt !== false && $now !== false) ? max(0, $now - $recordedAt) : null;
+        $isStale = $freshnessSeconds === null || $freshnessSeconds > $staleAfterSeconds;
+        $evidenceFreshness = $isStale ? 'stale' : 'fresh';
+
+        $declaredRank = $this->tierRank($record->declaredMaxTier);
+        $observedRank = $record->observedMaxTier !== '' ? $this->tierRank($record->observedMaxTier) : null;
+
+        if ($isStale) {
+            $driftStatus = 'unverified';
+            $recommendation = $declaredRank > 0 ? 'downgrade' : 'keep';
+        } elseif ($observedRank === null) {
+            $driftStatus = 'no_observed_signal';
+            $recommendation = 'keep';
+        } elseif ($observedRank > $declaredRank) {
+            $driftStatus = 'drifted_up';
+            $recommendation = 'upgrade';
+        } elseif ($observedRank < $declaredRank) {
+            $driftStatus = 'drifted_down';
+            $recommendation = 'downgrade';
+        } else {
+            $driftStatus = 'aligned';
+            $recommendation = 'keep';
+        }
+
+        return [
+            'client_id' => $record->clientId,
+            'declared_max_tier' => $record->declaredMaxTier,
+            'observed_max_tier' => $record->observedMaxTier,
+            'evidence_freshness' => $evidenceFreshness,
+            'freshness_seconds' => $freshnessSeconds,
+            'drift_status' => $driftStatus,
+            'recommendation' => $recommendation,
+        ];
+    }
+
+    private function tierRank(string $tier): int
+    {
+        return match ($tier) {
+            AtlasMaestroTaskTierClassifier::TIER_EASY => 0,
+            AtlasMaestroTaskTierClassifier::TIER_HARD => 1,
+            AtlasMaestroTaskTierClassifier::TIER_HARDEST => 2,
+            default => -1,
+        };
     }
 
     /**
@@ -238,6 +338,8 @@ final class AtlasMaestroWorkerTierRegistry
                 'client_id' => (string) $row['client_id'],
                 'declared_max_tier' => (string) ($row['declared_max_tier'] ?? ''),
                 'meta' => (array) ($row['meta'] ?? []),
+                'observed_max_tier' => (string) ($row['observed_max_tier'] ?? ''),
+                'evidence_recorded_at' => (string) ($row['evidence_recorded_at'] ?? ''),
             ];
         }
 
@@ -283,5 +385,7 @@ final class WorkerTierRecord
         public readonly string $clientId,
         public readonly string $declaredMaxTier,
         public readonly array $meta = [],
+        public readonly string $observedMaxTier = '',
+        public readonly string $evidenceRecordedAt = '',
     ) {}
 }

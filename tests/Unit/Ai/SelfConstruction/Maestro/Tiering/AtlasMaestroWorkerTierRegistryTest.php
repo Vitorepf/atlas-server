@@ -253,4 +253,131 @@ final class AtlasMaestroWorkerTierRegistryTest extends TestCase
         $this->assertStringNotContainsString('"rank"', $json);
         $this->assertStringNotContainsString('"percent"', $json);
     }
+
+    // ---------- capability drift: recordCapabilityEvidence() / driftReport() ----------
+
+    public function test_lookup_and_list_still_work_after_capability_drift_extension(): void
+    {
+        $this->registry->register('a', 'easy', ['model' => 'x']);
+
+        $hit = $this->registry->lookup('a');
+        $this->assertSame('a', $hit->clientId);
+        $this->assertSame('easy', $hit->declaredMaxTier);
+        $this->assertSame(['model' => 'x'], $hit->meta);
+        $this->assertSame('', $hit->observedMaxTier);
+        $this->assertSame('', $hit->evidenceRecordedAt);
+
+        $rows = $this->registry->list();
+        $this->assertCount(1, $rows);
+        $this->assertSame('', $rows[0]->observedMaxTier);
+    }
+
+    public function test_record_capability_evidence_returns_null_for_unknown_client(): void
+    {
+        $this->assertNull($this->registry->recordCapabilityEvidence('ghost', 'hard', '2026-06-30T00:00:00+00:00'));
+    }
+
+    public function test_record_capability_evidence_updates_observed_tier_without_touching_declared_or_meta(): void
+    {
+        $this->registry->register('a', 'easy', ['model' => 'x']);
+        $updated = $this->registry->recordCapabilityEvidence('a', 'hardest', '2026-06-30T00:00:00+00:00');
+
+        $this->assertNotNull($updated);
+        $this->assertSame('easy', $updated->declaredMaxTier, 'declared tier untouched');
+        $this->assertSame('hardest', $updated->observedMaxTier);
+        $this->assertSame('2026-06-30T00:00:00+00:00', $updated->evidenceRecordedAt);
+
+        $reloaded = $this->registry->lookup('a');
+        $this->assertSame('hardest', $reloaded->observedMaxTier);
+        $this->assertSame(['model' => 'x'], $reloaded->meta, 'meta untouched');
+    }
+
+    public function test_record_capability_evidence_rejects_invalid_tier(): void
+    {
+        $this->registry->register('a', 'easy');
+
+        try {
+            $this->registry->recordCapabilityEvidence('a', 'opus-supreme', '2026-06-30T00:00:00+00:00');
+            $this->fail('expected exception');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('observedMaxTier outside allowed set', $e->getMessage());
+        }
+    }
+
+    public function test_re_registering_wipes_prior_capability_evidence(): void
+    {
+        $this->registry->register('a', 'easy');
+        $this->registry->recordCapabilityEvidence('a', 'hardest', '2026-06-30T00:00:00+00:00');
+        $this->registry->register('a', 'hard');
+
+        $reloaded = $this->registry->lookup('a');
+        $this->assertSame('hard', $reloaded->declaredMaxTier);
+        $this->assertSame('', $reloaded->observedMaxTier, 'evidence wiped by re-declaration');
+        $this->assertSame('', $reloaded->evidenceRecordedAt);
+    }
+
+    public function test_drift_report_is_null_for_unknown_client(): void
+    {
+        $this->assertNull($this->registry->driftReport('ghost'));
+    }
+
+    public function test_drift_report_recommends_downgrade_when_evidence_is_stale(): void
+    {
+        $this->registry->register('a', 'hard');
+        $this->registry->recordCapabilityEvidence('a', 'hard', '2026-01-01T00:00:00+00:00');
+
+        $report = $this->registry->driftReport('a', '2026-06-30T00:00:00+00:00', staleAfterSeconds: 604800);
+
+        $this->assertSame('stale', $report['evidence_freshness']);
+        $this->assertSame('unverified', $report['drift_status']);
+        $this->assertSame('downgrade', $report['recommendation']);
+    }
+
+    public function test_drift_report_recommends_upgrade_for_strong_recent_evidence(): void
+    {
+        $this->registry->register('a', 'easy');
+        $this->registry->recordCapabilityEvidence('a', 'hardest', '2026-06-29T23:00:00+00:00');
+
+        $report = $this->registry->driftReport('a', '2026-06-30T00:00:00+00:00', staleAfterSeconds: 604800);
+
+        $this->assertSame('fresh', $report['evidence_freshness']);
+        $this->assertSame('drifted_up', $report['drift_status']);
+        $this->assertSame('upgrade', $report['recommendation']);
+        $this->assertSame(3600, $report['freshness_seconds']);
+    }
+
+    public function test_drift_report_recommends_downgrade_for_fresh_evidence_below_declared_tier(): void
+    {
+        $this->registry->register('a', 'hardest');
+        $this->registry->recordCapabilityEvidence('a', 'easy', '2026-06-29T23:00:00+00:00');
+
+        $report = $this->registry->driftReport('a', '2026-06-30T00:00:00+00:00', staleAfterSeconds: 604800);
+
+        $this->assertSame('fresh', $report['evidence_freshness']);
+        $this->assertSame('drifted_down', $report['drift_status']);
+        $this->assertSame('downgrade', $report['recommendation']);
+    }
+
+    public function test_drift_report_recommends_keep_when_aligned_with_fresh_evidence(): void
+    {
+        $this->registry->register('a', 'hard');
+        $this->registry->recordCapabilityEvidence('a', 'hard', '2026-06-29T23:00:00+00:00');
+
+        $report = $this->registry->driftReport('a', '2026-06-30T00:00:00+00:00', staleAfterSeconds: 604800);
+
+        $this->assertSame('aligned', $report['drift_status']);
+        $this->assertSame('keep', $report['recommendation']);
+    }
+
+    public function test_drift_report_never_leaks_raw_provider_meta(): void
+    {
+        $this->registry->register('a', 'easy', ['provider' => 'gpt-5.5-secret-internal', 'api_key' => 'sk-super-secret']);
+        $this->registry->recordCapabilityEvidence('a', 'hard', '2026-06-29T23:00:00+00:00');
+
+        $report = $this->registry->driftReport('a', '2026-06-30T00:00:00+00:00');
+
+        $encoded = (string) json_encode($report);
+        $this->assertStringNotContainsString('gpt-5.5-secret-internal', $encoded);
+        $this->assertStringNotContainsString('sk-super-secret', $encoded);
+    }
 }
