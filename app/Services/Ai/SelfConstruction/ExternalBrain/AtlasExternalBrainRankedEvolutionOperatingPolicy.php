@@ -162,6 +162,78 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicy
         return max(0.0, min(1.0, $v));
     }
 
+    private const WEAK_EVIDENCE_FLOOR = 0.30;
+    private const LOW_READINESS_FLOOR = 0.30;
+
+    /**
+     * Ranks candidate next-evolution moves by evidence-backed leverage rather than
+     * hype: a move claiming huge impact but backed by weak evidence or that isn't
+     * actually implementable yet is rejected outright, never promoted on narrative alone.
+     *
+     * @param  list<array<string,mixed>>  $moves
+     * @return array{schema:string, ranked_moves:list<array<string,mixed>>, selected_move:?array<string,mixed>, rejected_move_reasons:array<string,list<string>>}
+     */
+    public function rankMoves(array $moves): array
+    {
+        $ranked = [];
+        $rejectedReasons = [];
+
+        foreach ($moves as $move) {
+            $id = (string) ($move['id'] ?? '');
+            $evidenceStrength = $this->clamp01((float) ($move['evidence_strength'] ?? 0.0));
+            $leverageScore = $this->clamp01((float) ($move['leverage_score'] ?? 0.0));
+            $autonomyGain = $this->clamp01((float) ($move['autonomy_gain'] ?? 0.0));
+            $riskReduction = $this->clamp01((float) ($move['risk_reduction'] ?? 0.0));
+            $simplificationGain = $this->clamp01((float) ($move['simplification_gain'] ?? 0.0));
+            $readiness = $this->clamp01((float) ($move['readiness'] ?? 0.0));
+
+            $reasons = [];
+            if ($evidenceStrength < self::WEAK_EVIDENCE_FLOOR) {
+                $reasons[] = 'weak_evidence';
+            }
+            if ($readiness < self::LOW_READINESS_FLOOR) {
+                $reasons[] = 'low_implementability';
+            }
+
+            if ($reasons !== []) {
+                $rejectedReasons[$id] = $reasons;
+
+                continue;
+            }
+
+            $score = round(
+                $evidenceStrength * 0.25
+                + $leverageScore * 0.25
+                + $autonomyGain * 0.20
+                + $riskReduction * 0.15
+                + $simplificationGain * 0.15,
+                4,
+            );
+
+            $ranked[] = [
+                'id' => $id,
+                'score' => $score,
+                'evidence_strength' => $evidenceStrength,
+                'leverage_score' => $leverageScore,
+                'autonomy_gain' => $autonomyGain,
+                'risk_reduction' => $riskReduction,
+                'simplification_gain' => $simplificationGain,
+                'readiness' => $readiness,
+            ];
+        }
+
+        usort($ranked, static fn (array $a, array $b): int => $a['score'] !== $b['score']
+            ? $b['score'] <=> $a['score']
+            : strcmp($a['id'], $b['id']));
+
+        return [
+            'schema' => self::SCHEMA,
+            'ranked_moves' => $ranked,
+            'selected_move' => $ranked[0] ?? null,
+            'rejected_move_reasons' => $rejectedReasons,
+        ];
+    }
+
     /**
      * @param  list<array<string,mixed>>  $candidates
      * @return array<string,mixed>

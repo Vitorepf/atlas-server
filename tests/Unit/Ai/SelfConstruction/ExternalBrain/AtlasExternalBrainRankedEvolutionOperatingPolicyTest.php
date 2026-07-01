@@ -347,4 +347,63 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicyTest extends TestCas
             json_encode($this->policy()->chooseOperatingMode($facts)),
         );
     }
+
+    // ── AC: rankMoves() ranks by evidence-backed leverage, rejects hype ─────────────
+
+    private function strongMove(array $overrides = []): array
+    {
+        return array_merge([
+            'id' => 'strong-move',
+            'evidence_strength' => 0.8,
+            'leverage_score' => 0.7,
+            'autonomy_gain' => 0.6,
+            'risk_reduction' => 0.5,
+            'simplification_gain' => 0.4,
+            'readiness' => 0.9,
+        ], $overrides);
+    }
+
+    public function test_rank_moves_orders_by_evidence_leverage_autonomy_risk_and_simplification(): void
+    {
+        $weaker = $this->strongMove(['id' => 'weaker', 'leverage_score' => 0.2, 'autonomy_gain' => 0.2, 'risk_reduction' => 0.1, 'simplification_gain' => 0.1]);
+        $stronger = $this->strongMove(['id' => 'stronger']);
+
+        $result = $this->policy()->rankMoves([$weaker, $stronger]);
+
+        $this->assertSame('stronger', $result['ranked_moves'][0]['id']);
+        $this->assertSame('stronger', $result['selected_move']['id']);
+        $this->assertSame([], $result['rejected_move_reasons']);
+    }
+
+    public function test_rank_moves_rejects_high_hype_move_with_weak_evidence(): void
+    {
+        $hype = $this->strongMove(['id' => 'hype-move', 'evidence_strength' => 0.1, 'leverage_score' => 1.0]);
+
+        $result = $this->policy()->rankMoves([$hype]);
+
+        $this->assertSame([], $result['ranked_moves']);
+        $this->assertNull($result['selected_move']);
+        $this->assertContains('weak_evidence', $result['rejected_move_reasons']['hype-move']);
+    }
+
+    public function test_rank_moves_rejects_move_with_low_implementability(): void
+    {
+        $notReady = $this->strongMove(['id' => 'not-ready', 'readiness' => 0.05]);
+
+        $result = $this->policy()->rankMoves([$notReady]);
+
+        $this->assertSame([], $result['ranked_moves']);
+        $this->assertContains('low_implementability', $result['rejected_move_reasons']['not-ready']);
+    }
+
+    public function test_rank_moves_output_includes_ranked_moves_selected_move_and_rejected_reasons(): void
+    {
+        $result = $this->policy()->rankMoves([$this->strongMove(), $this->strongMove(['id' => 'hype', 'evidence_strength' => 0.0])]);
+
+        $this->assertArrayHasKey('ranked_moves', $result);
+        $this->assertArrayHasKey('selected_move', $result);
+        $this->assertArrayHasKey('rejected_move_reasons', $result);
+        $this->assertSame('strong-move', $result['selected_move']['id']);
+        $this->assertArrayHasKey('hype', $result['rejected_move_reasons']);
+    }
 }
