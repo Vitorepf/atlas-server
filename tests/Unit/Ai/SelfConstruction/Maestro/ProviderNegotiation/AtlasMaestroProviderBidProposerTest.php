@@ -230,6 +230,89 @@ final class AtlasMaestroProviderBidProposerTest extends TestCase
         $this->assertCount(0, $eligible, 'no eligible worker must surface as empty eligible set');
     }
 
+    public function test_atlas_native_ineligible_for_hard_loop_work_without_capability_proof(): void
+    {
+        $task = new TaskEnvelope(
+            taskId: 't-atlas-native',
+            kind: 'loop',
+            requiredCapabilities: ['php'],
+            deadline: '2026-06-30T10:00:00Z',
+            localOnly: false,
+            sensitivityClass: 'public',
+        );
+        $noProof = new ProviderProfile(
+            providerId: 'atlas_native',
+            declaredCapabilities: ['php'],
+            observedCostPerTokenIn: 1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'local',
+            sensitivityAllowed: ['public'],
+            extras: ['tier' => 'hard'],
+        );
+
+        $bid = (new AtlasMaestroProviderBidProposer)->propose($task, [$noProof])->bids[0];
+
+        $this->assertFalse($bid->eligibilityBool);
+        $this->assertContains('atlas_native_capability_proof_required', $bid->ineligibilityReasons);
+    }
+
+    public function test_atlas_native_eligible_for_hard_maestro_work_with_capability_proof(): void
+    {
+        $task = new TaskEnvelope(
+            taskId: 't-atlas-native-proof',
+            kind: 'maestro',
+            requiredCapabilities: ['php'],
+            deadline: '2026-06-30T10:00:00Z',
+            localOnly: false,
+            sensitivityClass: 'public',
+        );
+        $withProof = new ProviderProfile(
+            providerId: 'atlas_native',
+            declaredCapabilities: ['php'],
+            observedCostPerTokenIn: 1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'local',
+            sensitivityAllowed: ['public'],
+            extras: ['tier' => 'hard', 'atlas_native_capability_proof' => 'evidence_ref-123'],
+        );
+
+        $bid = (new AtlasMaestroProviderBidProposer)->propose($task, [$withProof])->bids[0];
+
+        $this->assertTrue($bid->eligibilityBool);
+        $this->assertNotContains('atlas_native_capability_proof_required', $bid->ineligibilityReasons);
+    }
+
+    public function test_atlas_native_easy_work_does_not_require_capability_proof(): void
+    {
+        $task = new TaskEnvelope(
+            taskId: 't-atlas-native-easy',
+            kind: 'cortex',
+            requiredCapabilities: ['php'],
+            deadline: '2026-06-30T10:00:00Z',
+            localOnly: false,
+            sensitivityClass: 'public',
+        );
+        $noProof = new ProviderProfile(
+            providerId: 'atlas_native',
+            declaredCapabilities: ['php'],
+            observedCostPerTokenIn: 1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'local',
+            sensitivityAllowed: ['public'],
+            extras: [],
+        );
+
+        $bid = (new AtlasMaestroProviderBidProposer)->propose($task, [$noProof])->bids[0];
+
+        $this->assertNotContains('atlas_native_capability_proof_required', $bid->ineligibilityReasons);
+    }
+
     private function taskEnvelope(): TaskEnvelope
     {
         return new TaskEnvelope(

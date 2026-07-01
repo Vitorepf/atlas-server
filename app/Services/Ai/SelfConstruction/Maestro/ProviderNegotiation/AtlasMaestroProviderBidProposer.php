@@ -88,6 +88,16 @@ final class AtlasMaestroProviderBidProposer
             $reasons[] = 'evidence_burden_exceeded';
         }
 
+        // atlas_native must declare local capability proof for non-easy Maestro/Loop work —
+        // otherwise it can silently claim hard work it cannot actually perform locally.
+        if ($profile->providerId === 'atlas_native'
+            && in_array($task->kind, ['loop', 'maestro'], true)
+            && (self::TIER_RANK[$minTier] ?? 0) >= (self::TIER_RANK['hard'] ?? 1)
+            && empty($profile->extras['atlas_native_capability_proof'])
+        ) {
+            $reasons[] = 'atlas_native_capability_proof_required';
+        }
+
         $eligibility = $reasons === [];
         $costUnits = $this->declaredCostUnits($task, $profile);
         $etaMs = $this->declaredEtaMs($profile);
