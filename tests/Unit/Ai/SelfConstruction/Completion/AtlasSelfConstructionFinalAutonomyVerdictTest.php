@@ -14,6 +14,25 @@ final class AtlasSelfConstructionFinalAutonomyVerdictTest extends TestCase
         return ['status' => 'pass', 'age_seconds' => 60];
     }
 
+    public function test_compose_does_not_mutate_its_input_arrays(): void
+    {
+        $audit = ['atlas_native' => true, 'blockers' => []];
+        $transitionMap = ['replacements' => [], 'untransitioned' => []];
+        $readinessPolicy = ['state' => 'ready', 'blockers' => []];
+        $soak = $this->freshSoak();
+        $auditBefore = $audit;
+        $transitionMapBefore = $transitionMap;
+        $readinessPolicyBefore = $readinessPolicy;
+        $soakBefore = $soak;
+
+        (new AtlasSelfConstructionFinalAutonomyVerdict)->compose($audit, $transitionMap, $readinessPolicy, soakEvidence: $soak);
+
+        $this->assertSame($auditBefore, $audit);
+        $this->assertSame($transitionMapBefore, $transitionMap);
+        $this->assertSame($readinessPolicyBefore, $readinessPolicy);
+        $this->assertSame($soakBefore, $soak);
+    }
+
     public function test_complete_when_audit_native_no_untransitioned_and_ready(): void
     {
         $verdict = (new AtlasSelfConstructionFinalAutonomyVerdict)->compose(
