@@ -21,13 +21,17 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *
  * RANKING (best leverage first):
  *   1. action tier: respec_and_resubmit > retire > manual_review
- *   2. within tier: expected_unblocked DESC, waste_reduction_score DESC, packet_count DESC
+ *   2. within tier: combined_score DESC, waste_reduction_score DESC, packet_count DESC
+ *      combined_score = expected_unblocked (recovered_claimable_value) + leverage * LEVERAGE_WEIGHT
+ *      — a small family with high leverage (unblocks a lot of downstream real work) can outrank
+ *      a larger, low-leverage family within the same tier.
  *
  * This guarantees high-confidence replaceable families outrank manual-review unknowns, and
  * repeated-give-back poison outranks cosmetic low-impact repairs (within the retire tier).
  *
  * OUTPUT: { schema, ranked_actions:list<{action, family, packet_count, expected_unblocked,
- *   waste_reduction_score, risk, reason_codes}> }
+ *   recovered_claimable_value, leverage, avoided_token_waste, waste_reduction_score,
+ *   combined_score, risk, reason_codes}> }
  *
  * Pure: read-only, deterministic, no provider calls, no queue/git mutation.
  */
@@ -50,6 +54,14 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
     private const POISON_GIVE_BACK_THRESHOLD = 5;
 
     private const RISK_RANK = ['low' => 0, 'medium' => 1, 'high' => 2];
+
+    /** Weight applied to leverage when ranking within a tier — a small family that unlocks a lot
+     *  of downstream real work can outrank a larger, low-leverage family. */
+    private const LEVERAGE_WEIGHT = 5.0;
+
+    /** Rough tokens wasted per repeated give_back cycle; used only to produce a relative
+     *  avoided_token_waste metric, not an absolute cost figure. */
+    private const TOKEN_WASTE_PER_GIVE_BACK = 1500.0;
 
     /**
      * @param  list<array<string,mixed>>  $families
@@ -78,6 +90,7 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
             $canSubmitReplacement = (bool) ($f['can_submit_replacement'] ?? false);
             $targetCriticality = (string) ($f['target_criticality'] ?? 'low');
             $implementationRisk = (string) ($f['implementation_risk'] ?? 'low');
+            $leverage = max(0.0, (float) ($f['leverage'] ?? 0.0));
 
             $reasonCodes = [];
             if ($canSubmitReplacement && in_array($confidence, ['high', 'medium'], true)) {
@@ -103,12 +116,21 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
             // Retiring a critical target is riskier than its raw implementation_risk suggests.
             $risk = ($action === self::ACTION_RETIRE && $targetCriticality === 'high') ? 'high' : $implementationRisk;
 
+            $avoidedTokenWaste = round($giveBackTotal * self::TOKEN_WASTE_PER_GIVE_BACK, 2);
+            // Leverage-weighted score: a small family that unlocks a lot of downstream real work
+            // can outrank a larger, low-leverage family within the same action tier.
+            $combinedScore = round($expectedUnblocked + $leverage * self::LEVERAGE_WEIGHT, 4);
+
             $rankedActions[] = [
                 'action' => $action,
                 'family' => $family,
                 'packet_count' => $packetCount,
                 'expected_unblocked' => $expectedUnblocked,
+                'recovered_claimable_value' => $expectedUnblocked,
+                'leverage' => $leverage,
+                'avoided_token_waste' => $avoidedTokenWaste,
                 'waste_reduction_score' => $giveBackTotal,
+                'combined_score' => $combinedScore,
                 'risk' => $risk,
                 'reason_codes' => $reasonCodes,
             ];
@@ -119,7 +141,7 @@ final class AtlasTaskBlockedBacklogBurnDownRanker
             $tb = self::ACTION_TIER[$b['action']] ?? 99;
 
             return $ta <=> $tb
-                ?: $b['expected_unblocked'] <=> $a['expected_unblocked']
+                ?: $b['combined_score'] <=> $a['combined_score']
                 ?: $b['waste_reduction_score'] <=> $a['waste_reduction_score']
                 ?: $b['packet_count'] <=> $a['packet_count']
                 ?: strcmp($a['family'], $b['family']);

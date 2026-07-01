@@ -198,4 +198,62 @@ final class AtlasTaskBlockedBacklogBurnDownRankerTest extends TestCase
         $this->assertSame('retire', $r['ranked_actions'][0]['action']);
         $this->assertNotContains('worker_feed_opportunity', $r['ranked_actions'][0]['reason_codes']);
     }
+
+    // ── AC2/AC3: leverage and avoided_token_waste scoring ─────────────────────
+
+    public function test_low_count_high_leverage_family_outranks_high_count_low_value_family(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('high-count-low-value', ['packet_count' => 20]),
+            $this->family('low-count-high-leverage', ['packet_count' => 2, 'leverage' => 10.0]),
+        ]);
+
+        $this->assertSame('low-count-high-leverage', $r['ranked_actions'][0]['family']);
+        $this->assertSame('high-count-low-value', $r['ranked_actions'][1]['family']);
+    }
+
+    public function test_zero_leverage_preserves_existing_ranking_by_expected_unblocked(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('a', ['packet_count' => 3]),
+            $this->family('b', ['packet_count' => 9]),
+        ]);
+
+        $this->assertSame('b', $r['ranked_actions'][0]['family']);
+        $this->assertSame('a', $r['ranked_actions'][1]['family']);
+    }
+
+    public function test_avoided_token_waste_reflects_give_back_total(): void
+    {
+        $r = $this->ranker()->rank([$this->family('a', ['give_back_total' => 4])]);
+        $this->assertGreaterThan(0.0, $r['ranked_actions'][0]['avoided_token_waste']);
+    }
+
+    public function test_recovered_claimable_value_matches_expected_unblocked(): void
+    {
+        $r = $this->ranker()->rank([$this->family('a', ['packet_count' => 6])]);
+        $this->assertSame($r['ranked_actions'][0]['expected_unblocked'], $r['ranked_actions'][0]['recovered_claimable_value']);
+    }
+
+    public function test_unrepairable_family_gets_retire_regardless_of_leverage(): void
+    {
+        $r = $this->ranker()->rank([
+            $this->family('unrepairable', ['can_submit_replacement' => false, 'give_back_total' => 10, 'leverage' => 8.0]),
+        ]);
+
+        $this->assertSame(AtlasTaskBlockedBacklogBurnDownRanker::ACTION_RETIRE, $r['ranked_actions'][0]['action']);
+    }
+
+    public function test_deterministic_tie_breaking_with_leverage(): void
+    {
+        $families = [
+            $this->family('high-count-low-value', ['packet_count' => 20]),
+            $this->family('low-count-high-leverage', ['packet_count' => 2, 'leverage' => 10.0]),
+        ];
+
+        $x = $this->ranker()->rank($families);
+        $y = $this->ranker()->rank($families);
+
+        $this->assertSame(json_encode($x), json_encode($y));
+    }
 }
