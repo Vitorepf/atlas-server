@@ -39,16 +39,33 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *
  * INPUT:
  *   muscles: list<{
- *     muscle_id:               string
- *     throughput_per_hour?:    float (default 0.0)
- *     reliability_score?:      float (default 0.0)
- *     active_lease_count?:     int (default 0)
- *     give_back_rate?:         float (default 0.0)
+ *     muscle_id:                  string
+ *     throughput_per_hour?:       float (default 0.0)
+ *     reliability_score?:         float (default 0.0)
+ *     active_lease_count?:        int (default 0)
+ *     give_back_rate?:            float (default 0.0)
+ *     specialist_task_families?:  list<string> (default [])
+ *     primary_task_family?:       string (default '')
  *   }>
+ *   task_families?: list<{family_id: string, queue_depth?: int (default 0), queue_value?: float (default 1.0)}>
+ *
+ * fairness_adjustments / starvation_warnings are ADVISORY — they never mutate
+ * recommended_distribution; they name where a raw throughput-driven share would starve a sole
+ * specialist or over-reward a muscle grinding a low-value queue, without redistributing the pie
+ * out from under the primary formula.
+ *
+ *   specialist_reserved_capacity <- exactly one muscle lists a family in specialist_task_families,
+ *                                    that family has queue_depth > 0, and the muscle's raw share
+ *                                    is below RESERVED_SPECIALIST_FLOOR
+ *   throttled_low_value_family   <- a muscle's primary_task_family has queue_value below
+ *                                    LOW_VALUE_QUEUE_FLOOR and its raw share exceeds
+ *                                    LOW_VALUE_THROTTLE_CEILING
+ *   family_starving (warning)    <- a task_family has queue_depth > 0 but zero muscles list it in
+ *                                    specialist_task_families
  *
  * OUTPUT:
  *   { schema, recommended_distribution, fairness_score, overload_warnings,
- *     next_task_family_preferences }
+ *     next_task_family_preferences, fairness_adjustments, starvation_warnings }
  *
  * Pure: no I/O, no lease mutation, no side effects.
  */
@@ -65,6 +82,15 @@ final class AtlasExternalBrainMuscleThroughputFairnessBalancer
     private const PROVEN_RELIABILITY_THRESHOLD = 0.7;
 
     private const PROVEN_GIVE_BACK_RATE_THRESHOLD = 0.2;
+
+    /** Minimum recommended share for the sole specialist of a family with pending queue depth. */
+    private const RESERVED_SPECIALIST_FLOOR = 0.15;
+
+    /** Below this queue_value, a family counts as low-value for throttling purposes. */
+    private const LOW_VALUE_QUEUE_FLOOR = 0.3;
+
+    /** Maximum recommended share for a muscle whose primary_task_family is low-value. */
+    private const LOW_VALUE_THROTTLE_CEILING = 0.2;
 
     /**
      * @param  array<string,mixed>  $input
@@ -124,12 +150,95 @@ final class AtlasExternalBrainMuscleThroughputFairnessBalancer
             $nextTaskFamilyPreferences[$id] = $proven ? 'high_risk_eligible' : 'low_risk_only';
         }
 
+        [$fairnessAdjustments, $starvationWarnings] = $this->fairnessAdjustmentsAndStarvation($muscles, $input, $distribution);
+
         return [
             'schema' => self::SCHEMA,
             'recommended_distribution' => $distribution,
             'fairness_score' => $fairnessScore,
             'overload_warnings' => $overloadWarnings,
             'next_task_family_preferences' => $nextTaskFamilyPreferences,
+            'fairness_adjustments' => $fairnessAdjustments,
+            'starvation_warnings' => $starvationWarnings,
         ];
+    }
+
+    /**
+     * @param  list<mixed>            $muscles
+     * @param  array<string,mixed>    $input
+     * @param  array<string,float>    $distribution
+     * @return array{0:list<array<string,mixed>>, 1:list<string>}
+     */
+    private function fairnessAdjustmentsAndStarvation(array $muscles, array $input, array $distribution): array
+    {
+        $specialistFamilies = [];
+        $primaryFamily = [];
+        foreach ($muscles as $muscle) {
+            if (! is_array($muscle) || ! isset($muscle['muscle_id'])) {
+                continue;
+            }
+            $id = (string) $muscle['muscle_id'];
+            $specialistFamilies[$id] = array_values(array_map('strval', (array) ($muscle['specialist_task_families'] ?? [])));
+            $primaryFamily[$id] = (string) ($muscle['primary_task_family'] ?? '');
+        }
+
+        $taskFamilies = is_array($input['task_families'] ?? null) ? $input['task_families'] : [];
+        $familyById = [];
+        foreach ($taskFamilies as $family) {
+            if (! is_array($family) || ! isset($family['family_id'])) {
+                continue;
+            }
+            $familyById[(string) $family['family_id']] = [
+                'queue_depth' => max(0, (int) ($family['queue_depth'] ?? 0)),
+                'queue_value' => max(0.0, min(1.0, (float) ($family['queue_value'] ?? 1.0))),
+            ];
+        }
+
+        $adjustments = [];
+        $warnings = [];
+
+        foreach ($familyById as $familyId => $family) {
+            if ($family['queue_depth'] <= 0) {
+                continue;
+            }
+            $capable = array_keys(array_filter($specialistFamilies, static fn (array $f): bool => in_array($familyId, $f, true)));
+
+            if ($capable === []) {
+                $warnings[] = "family_starving:{$familyId}";
+
+                continue;
+            }
+
+            if (count($capable) === 1) {
+                $soleId = $capable[0];
+                $share = $distribution[$soleId] ?? 0.0;
+                if ($share < self::RESERVED_SPECIALIST_FLOOR) {
+                    $adjustments[] = [
+                        'muscle_id' => $soleId,
+                        'adjustment' => 'specialist_reserved_capacity',
+                        'family_id' => $familyId,
+                        'reason' => "sole specialist for {$familyId} with pending queue; raw share {$share} is below the reserved floor ".self::RESERVED_SPECIALIST_FLOOR,
+                    ];
+                }
+            }
+        }
+
+        foreach ($primaryFamily as $id => $familyId) {
+            if ($familyId === '' || ! isset($familyById[$familyId])) {
+                continue;
+            }
+            $queueValue = $familyById[$familyId]['queue_value'];
+            $share = $distribution[$id] ?? 0.0;
+            if ($queueValue < self::LOW_VALUE_QUEUE_FLOOR && $share > self::LOW_VALUE_THROTTLE_CEILING) {
+                $adjustments[] = [
+                    'muscle_id' => $id,
+                    'adjustment' => 'throttled_low_value_family',
+                    'family_id' => $familyId,
+                    'reason' => "primary family {$familyId} has low queue_value {$queueValue}; raw share {$share} exceeds the throttle ceiling ".self::LOW_VALUE_THROTTLE_CEILING,
+                ];
+            }
+        }
+
+        return [$adjustments, $warnings];
     }
 }
