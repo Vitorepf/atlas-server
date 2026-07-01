@@ -355,4 +355,67 @@ final class AtlasExternalBrainLearningRetentionPolicyTest extends TestCase
         $this->assertSame(1, $r['decaying_count']);
         $this->assertSame('contradicted_by_outcome_evidence', $r['decaying'][0]['reason']);
     }
+
+    // ── AC: poison-amplifying lessons are retired, not retained as poison-avoidance ──
+
+    public function test_poison_amplifying_lesson_is_retired_not_retained(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'type'              => 'poison_pattern',
+                'age_days'          => 30,
+                'actionable'        => true,
+                'poison_amplifying' => true,
+            ]),
+        ]]);
+
+        $this->assertSame(1, $r['retired_count']);
+        $this->assertSame(0, $r['retained_count']);
+        $this->assertSame('poison_amplifying_lesson_retired', $r['retired'][0]['reason']);
+    }
+
+    public function test_poison_amplifying_flag_ignored_for_non_poison_type(): void
+    {
+        // poison_amplifying only matters for POISON_TYPES; a regular hint ignores it.
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'type'              => 'success_note',
+                'utility_score'     => 0.9,
+                'age_days'          => 5,
+                'poison_amplifying' => true,
+            ]),
+        ]]);
+
+        $this->assertSame(1, $r['retained_count']);
+        $this->assertSame('high_utility_recent', $r['retained'][0]['reason']);
+    }
+
+    public function test_non_amplifying_poison_pattern_still_retained_via_longevity(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'type'              => 'poison_pattern',
+                'age_days'          => 30,
+                'poison_amplifying' => false,
+            ]),
+        ]]);
+
+        $this->assertSame(1, $r['retained_count']);
+        $this->assertSame('poison_pattern_longevity', $r['retained'][0]['reason']);
+    }
+
+    public function test_poison_amplifying_takes_priority_over_overridden_check_order(): void
+    {
+        // overridden still wins outright (checked first) — poison_amplifying is priority 2.5.
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'type'              => 'poison_pattern',
+                'age_days'          => 30,
+                'overridden'        => true,
+                'poison_amplifying' => true,
+            ]),
+        ]]);
+
+        $this->assertSame('overridden_by_newer_learning', $r['retired'][0]['reason']);
+    }
 }

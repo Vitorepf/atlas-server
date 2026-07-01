@@ -11,6 +11,8 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Classification priority (first match wins):
  *   1. retired:              overridden === true                     → overridden_by_newer_learning
  *   2. retired:              age_days > MAX_AGE_DAYS (180)           → exceeded_maximum_age
+ *   2.5 retired:             type is a POISON type AND poison_amplifying === true
+ *                                                                     → poison_amplifying_lesson_retired (AC new)
  *   3. retained:             type is a POISON type AND actionable AND
  *                            age_days <= POISON_RETENTION_DAYS (90)  → poison_pattern_longevity
  *   3.5 revalidation_needed: utility >= HIGH_UTILITY AND age > RECENT_DAYS AND !confirmed
@@ -62,13 +64,14 @@ final class AtlasExternalBrainLearningRetentionPolicy
             $confirmed           = (bool) ($rec['confirmed'] ?? false);
             $overridden          = (bool) ($rec['overridden'] ?? false);
             $actionable          = (bool) ($rec['actionable'] ?? true);
+            $poisonAmplifying    = (bool) ($rec['poison_amplifying'] ?? false);
             $contradictionEvidence = array_values(array_filter(
                 array_map('trim', (array) ($rec['contradiction_evidence'] ?? [])),
                 static fn (string $s): bool => $s !== '',
             ));
 
             [$disposition, $reason] = $this->classify(
-                $type, $utility, $ageDays, $confirmed, $overridden, $actionable, $contradictionEvidence,
+                $type, $utility, $ageDays, $confirmed, $overridden, $actionable, $contradictionEvidence, $poisonAmplifying,
             );
 
             $entry = ['id' => $id, 'type' => $type, 'utility_score' => $utility, 'age_days' => $ageDays, 'reason' => $reason];
@@ -130,6 +133,7 @@ final class AtlasExternalBrainLearningRetentionPolicy
         string $type, float $utility, int $ageDays,
         bool $confirmed, bool $overridden, bool $actionable,
         array $contradictionEvidence = [],
+        bool $poisonAmplifying = false,
     ): array {
         // 1. Overridden → retire.
         if ($overridden) {
@@ -139,6 +143,12 @@ final class AtlasExternalBrainLearningRetentionPolicy
         // 2. Too old → retire.
         if ($ageDays > self::MAX_AGE_DAYS) {
             return ['retired', 'exceeded_maximum_age'];
+        }
+
+        // 2.5. Poison-type lesson that itself amplifies poison → retire, never retain it
+        //      as if it were poison-avoidance wisdom.
+        if (in_array($type, self::POISON_TYPES, true) && $poisonAmplifying) {
+            return ['retired', 'poison_amplifying_lesson_retired'];
         }
 
         // 3. Poison pattern still actionable and within its extended window → retain.
