@@ -125,4 +125,108 @@ final class AtlasAutonomousRuntimeOrganPipelineComposerTest extends TestCase
         $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($this->allOrgans());
         $this->assertNull($r['first_blocked_stage']);
     }
+
+    // ── AC3: optional organ (learning_transfer) missing does not block the plan ──
+
+    public function test_missing_optional_organ_does_not_block_plan(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['learning_transfer']);
+
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $this->assertSame(AtlasAutonomousRuntimeOrganPipelineComposer::STATUS_READY, $r['plan_status']);
+        $this->assertNull($r['first_blocked_stage']);
+        $this->assertSame([], $r['blockers']);
+        $this->assertContains('learning_transfer', $r['missing_organs']);
+        $this->assertContains('learning_transfer', $r['missing_optional_organs']);
+        $this->assertSame([], $r['missing_required_organs']);
+    }
+
+    public function test_readiness_rows_mark_required_flag_per_organ(): void
+    {
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($this->allOrgans());
+
+        $byOrgan = array_column($r['readiness_rows'], null, 'organ');
+        $this->assertFalse($byOrgan['learning_transfer']['required']);
+        $this->assertTrue($byOrgan['control_plane']['required']);
+        $this->assertTrue($byOrgan['verification_court']['required']);
+    }
+
+    public function test_missing_optional_organ_reason_is_distinct_from_required(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['learning_transfer']);
+
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $byOrgan = array_column($r['readiness_rows'], null, 'organ');
+        $this->assertSame('missing_facts_optional', $byOrgan['learning_transfer']['reason']);
+        $this->assertFalse($byOrgan['learning_transfer']['ready']);
+    }
+
+    public function test_missing_required_organ_still_blocks_even_with_optional_also_missing(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['learning_transfer'], $organs['merge_governor']);
+
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $this->assertSame(AtlasAutonomousRuntimeOrganPipelineComposer::STATUS_BLOCKED, $r['plan_status']);
+        $this->assertContains('missing_organ:merge_governor', $r['blockers']);
+        $this->assertNotContains('missing_organ:learning_transfer', $r['blockers']);
+    }
+
+    // ── AC4: evidence capture points for queue, task_fabric, worker, proof_system, knowledge_sync ──
+
+    public function test_evidence_capture_points_present_for_all_five_named_capture_points(): void
+    {
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($this->allOrgans());
+
+        $byPoint = array_column($r['evidence_capture_points'], null, 'capture_point');
+        foreach (['queue', 'task_fabric', 'worker', 'proof_system', 'knowledge_sync'] as $point) {
+            $this->assertArrayHasKey($point, $byPoint, "missing evidence capture point: {$point}");
+            $this->assertTrue($byPoint[$point]['present']);
+        }
+        $this->assertSame('maestro', $byPoint['queue']['organ']);
+        $this->assertSame('worker_swarm', $byPoint['worker']['organ']);
+        $this->assertSame('verification_court', $byPoint['proof_system']['organ']);
+    }
+
+    public function test_evidence_capture_point_reports_absent_when_backing_organ_missing(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['worker_swarm']);
+
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $byPoint = array_column($r['evidence_capture_points'], null, 'capture_point');
+        $this->assertFalse($byPoint['worker']['present']);
+    }
+
+    // ── AC3: stop conditions surfaced with their monitoring organ + activity status ──
+
+    public function test_stop_conditions_are_surfaced_and_active_when_monitoring_organ_present(): void
+    {
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($this->allOrgans());
+
+        $byCondition = array_column($r['stop_conditions'], null, 'condition');
+        foreach (['queue_starvation', 'poison_signal_detected', 'budget_exceeded', 'proof_regression'] as $condition) {
+            $this->assertArrayHasKey($condition, $byCondition, "missing stop condition: {$condition}");
+            $this->assertTrue($byCondition[$condition]['active']);
+            $this->assertNotEmpty($byCondition[$condition]['description']);
+        }
+    }
+
+    public function test_stop_condition_is_inactive_when_its_monitoring_organ_is_missing(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['verification_court']);
+
+        $r = (new AtlasAutonomousRuntimeOrganPipelineComposer)->compose($organs);
+
+        $byCondition = array_column($r['stop_conditions'], null, 'condition');
+        $this->assertFalse($byCondition['poison_signal_detected']['active']);
+        $this->assertFalse($byCondition['proof_regression']['active']);
+    }
 }
