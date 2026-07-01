@@ -2,13 +2,13 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
-use InvalidArgumentException;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 
 class AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker
 {
     public function __construct(
         private readonly AgentDispatchExecutorReceiptUseWriter $receiptUseWriter,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -61,21 +61,11 @@ class AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker
             'reason',
         ];
 
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        foreach (['receipt_hash', 'executor_contract_hash', 'executor_release_authorization_hash'] as $hashField) {
-            $hash = strtolower((string) $input[$hashField]);
-
-            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$hashField);
-            }
-
-            $input[$hashField] = $hash;
-        }
+        $input = $this->inputNormalizer->normalize(
+            $input,
+            $required,
+            ['receipt_hash', 'executor_contract_hash', 'executor_release_authorization_hash'],
+        );
 
         return [
             'receipt_hash' => (string) $input['receipt_hash'],

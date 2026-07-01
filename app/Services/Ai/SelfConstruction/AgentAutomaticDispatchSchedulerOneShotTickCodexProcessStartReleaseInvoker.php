@@ -2,13 +2,13 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
-use InvalidArgumentException;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker
 {
     public function __construct(
         private readonly AgentCodexProcessStartReleaseGate $processStartReleaseGate,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -62,21 +62,11 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseIn
             'reason',
         ];
 
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        foreach (['operator_release_receipt_hash', 'codex_execution_contract_hash'] as $hashField) {
-            $hash = strtolower(trim((string) $input[$hashField]));
-
-            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$hashField);
-            }
-
-            $input[$hashField] = $hash;
-        }
+        $input = $this->inputNormalizer->normalize(
+            $input,
+            $required,
+            ['operator_release_receipt_hash', 'codex_execution_contract_hash'],
+        );
 
         return [
             'run_key' => (string) $input['run_key'],
