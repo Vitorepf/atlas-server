@@ -125,4 +125,65 @@ final class AtlasMaestroGiveBackRetryReceiptLedgerTest extends TestCase
         $this->assertCount(3, $ledger->export('pkt-1', 3));
         $this->assertCount(5, $ledger->forTask('pkt-1'));
     }
+
+    // ── AC: receipts include root_cause_family and respec_fields ──────────────
+
+    public function test_receipt_includes_root_cause_family_and_respec_fields(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        $ledger->append($this->facts([
+            'root_cause_family' => 'scope_missing_impl',
+            'respec_fields' => ['allowed_files', 'acceptance_criteria'],
+        ]));
+
+        $row = $ledger->forTask('pkt-1')[0];
+        $this->assertSame('scope_missing_impl', $row['root_cause_family']);
+        $this->assertSame(['allowed_files', 'acceptance_criteria'], $row['respec_fields']);
+    }
+
+    // ── AC: repeated retries beyond threshold mark the task quarantined ────────
+
+    public function test_repeated_retries_beyond_threshold_mark_stored_row_quarantined(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        $threshold = AtlasMaestroGiveBackRetryReceiptLedger::QUARANTINE_THRESHOLD;
+
+        for ($i = 1; $i < $threshold; $i++) {
+            $ledger->append($this->facts(['attempt_index' => $i, 'reshape_fingerprint' => "fp-{$i}"]));
+        }
+        $rowsBeforeThreshold = $ledger->forTask('pkt-1');
+        foreach ($rowsBeforeThreshold as $row) {
+            $this->assertFalse($row['quarantined']);
+        }
+
+        $ledger->append($this->facts(['attempt_index' => $threshold, 'reshape_fingerprint' => 'fp-threshold']));
+        $rows = $ledger->forTask('pkt-1');
+        $this->assertTrue($rows[count($rows) - 1]['quarantined']);
+        $this->assertTrue($ledger->isQuarantined('pkt-1'));
+    }
+
+    // ── AC: forFamily aggregates retry and quarantine counts ──────────────────
+
+    public function test_family_summary_aggregates_retry_and_quarantine_counts(): void
+    {
+        $ledger = new AtlasMaestroGiveBackRetryReceiptLedger();
+        $threshold = AtlasMaestroGiveBackRetryReceiptLedger::QUARANTINE_THRESHOLD;
+
+        for ($i = 1; $i <= $threshold; $i++) {
+            $ledger->append($this->facts(['task_packet_id' => 'alpha-task-1', 'attempt_index' => $i, 'reshape_fingerprint' => "fp-a-{$i}"]));
+        }
+        $ledger->append($this->facts(['task_packet_id' => 'alpha-task-2', 'reshape_fingerprint' => 'fp-b-1']));
+
+        $summary = $ledger->familySummary('alpha');
+
+        $this->assertSame('alpha', $summary['family']);
+        $this->assertSame($threshold + 1, $summary['total_retry_count']);
+        $this->assertContains('alpha-task-1', $summary['quarantined_task_ids']);
+        $this->assertNotContains('alpha-task-2', $summary['quarantined_task_ids']);
+        $this->assertSame(1, $summary['quarantined_count']);
+        $this->assertSame($threshold, $summary['per_task']['alpha-task-1']['retry_count']);
+        $this->assertTrue($summary['per_task']['alpha-task-1']['quarantined']);
+        $this->assertSame(1, $summary['per_task']['alpha-task-2']['retry_count']);
+        $this->assertFalse($summary['per_task']['alpha-task-2']['quarantined']);
+    }
 }

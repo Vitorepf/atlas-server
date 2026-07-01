@@ -29,7 +29,8 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
      * @param  array<string,mixed>  $facts {
      *   task_packet_id, attempt_index, reshape_fingerprint,
      *   original_allowed_files, reshaped_allowed_files,
-     *   decision, policy_reason, give_back_evidence_hash
+     *   decision, policy_reason, give_back_evidence_hash,
+     *   root_cause_family?, respec_fields?
      * }
      */
     public function append(array $facts): RetryReceipt
@@ -42,6 +43,8 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
         $decision = (string) ($facts['decision'] ?? '');
         $policyReason = (string) ($facts['policy_reason'] ?? '');
         $giveBackEvidenceHash = (string) ($facts['give_back_evidence_hash'] ?? '');
+        $rootCauseFamily = (string) ($facts['root_cause_family'] ?? '');
+        $respecFields = array_values(array_map('strval', (array) ($facts['respec_fields'] ?? [])));
 
         $receiptId = $this->receiptId([
             'task_packet_id' => $taskPacketId,
@@ -52,6 +55,8 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
             'decision' => $decision,
             'policy_reason' => $policyReason,
             'give_back_evidence_hash' => $giveBackEvidenceHash,
+            'root_cause_family' => $rootCauseFamily,
+            'respec_fields' => $respecFields,
         ]);
 
         // Duplicate suppression — same canonical body → return existing without re-appending.
@@ -86,7 +91,7 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
             giveBackEvidenceHash: $giveBackEvidenceHash,
             seq: $seq,
         );
-        $this->appendLine($taskPacketId, $receipt);
+        $this->appendLine($taskPacketId, $receipt, $rootCauseFamily, $respecFields, $seq >= self::QUARANTINE_THRESHOLD);
 
         return $receipt;
     }
@@ -138,6 +143,41 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
     }
 
     /**
+     * Aggregates forFamily()'s flat receipt list into per-task retry counts and family-wide
+     * quarantine evidence — so a caller can see "how bad is this family" in one call.
+     *
+     * @return array{family:string, total_retry_count:int, quarantined_task_ids:list<string>, quarantined_count:int, per_task:array<string,array{retry_count:int,quarantined:bool}>}
+     */
+    public function familySummary(string $family): array
+    {
+        $rows = $this->forFamily($family);
+        $perTask = [];
+
+        foreach ($rows as $row) {
+            $taskId = (string) ($row['task_packet_id'] ?? '');
+            if ($taskId === '') {
+                continue;
+            }
+            $perTask[$taskId]['retry_count'] = ($perTask[$taskId]['retry_count'] ?? 0) + 1;
+            $perTask[$taskId]['quarantined'] = $perTask[$taskId]['retry_count'] >= self::QUARANTINE_THRESHOLD;
+        }
+
+        $quarantinedTaskIds = array_values(array_keys(array_filter(
+            $perTask,
+            static fn (array $t): bool => $t['quarantined'],
+        )));
+        sort($quarantinedTaskIds, SORT_STRING);
+
+        return [
+            'family' => $family,
+            'total_retry_count' => count($rows),
+            'quarantined_task_ids' => $quarantinedTaskIds,
+            'quarantined_count' => count($quarantinedTaskIds),
+            'per_task' => $perTask,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $canonical
      */
     public function receiptId(array $canonical): string
@@ -153,14 +193,22 @@ final class AtlasMaestroGiveBackRetryReceiptLedger
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function appendLine(string $taskPacketId, RetryReceipt $receipt): void
+    /**
+     * @param  list<string>  $respecFields
+     */
+    private function appendLine(string $taskPacketId, RetryReceipt $receipt, string $rootCauseFamily, array $respecFields, bool $quarantined): void
     {
         $path = $this->pathFor($taskPacketId);
         $dir = \dirname($path);
         if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
             throw new \RuntimeException('retry_receipt_mkdir_failed:'.$dir);
         }
-        $line = (string) json_encode($receipt->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $row = array_merge($receipt->toArray(), [
+            'root_cause_family' => $rootCauseFamily,
+            'respec_fields' => $respecFields,
+            'quarantined' => $quarantined,
+        ]);
+        $line = (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         @file_put_contents($path, $line."\n", FILE_APPEND | LOCK_EX);
     }
 
