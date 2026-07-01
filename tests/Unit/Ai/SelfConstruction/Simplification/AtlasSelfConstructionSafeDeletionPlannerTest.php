@@ -137,6 +137,7 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
             'replacement_owner' => 'NewOrgan',
             'allowed_files' => ['app/Services/Old.php'],
             'required_tests' => ['tests/Unit/OldTest.php'],
+            'rollback_path' => 'git revert <merge_commit_sha>',
         ]);
 
         $this->assertSame('safe_delete', $plan['action']);
@@ -144,6 +145,7 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
         $this->assertSame(['remove_imports_of:OldOrgan_from:app/Services/Old.php'], $plan['import_cleanup_steps']);
         $this->assertSame(['php artisan test tests/Unit/OldTest.php'], $plan['replay_gates']);
         $this->assertTrue($plan['rollback_receipt_required']);
+        $this->assertSame('git revert <merge_commit_sha>', $plan['rollback_path']);
         $this->assertSame([], $plan['risk_reasons']);
     }
 
@@ -154,11 +156,106 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
             'replacement_owner' => 'NewOrgan',
             'allowed_files' => ['app/Services/Old.php'],
             'required_tests' => ['tests/Unit/OldTest.php'],
+            'rollback_path' => 'git revert <merge_commit_sha>',
         ];
 
         $first = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion($input);
         $second = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion($input);
 
         $this->assertSame($first['plan_hash'], $second['plan_hash']);
+    }
+
+    // ── AC1: zero-reference candidates still require a guard test and rollback path ──
+
+    public function test_zero_reference_candidate_without_guard_test_is_blocked(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'replacement_owner' => 'NewOrgan',
+            'rollback_path' => 'git revert <merge_commit_sha>',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('guard_test_missing', $plan['risk_reasons']);
+    }
+
+    public function test_zero_reference_candidate_without_rollback_path_is_blocked(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'replacement_owner' => 'NewOrgan',
+            'required_tests' => ['tests/Unit/OldTest.php'],
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('rollback_path_missing', $plan['risk_reasons']);
+    }
+
+    // ── AC3: unresolved dynamic consumers also block deletion ─────────────────
+
+    public function test_unresolved_dynamic_consumer_blocks_deletion(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'dynamic_consumers' => ['AtlasSomeReflectiveDispatcher'],
+            'replacement_owner' => 'NewOrgan',
+            'required_tests' => ['tests/Unit/OldTest.php'],
+            'rollback_path' => 'git revert <merge_commit_sha>',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('unresolved_dynamic_consumer_present:AtlasSomeReflectiveDispatcher', $plan['risk_reasons']);
+    }
+
+    // ── AC2: wrapper retirement plans name replacement target + consumer update path ──
+
+    public function test_wrapper_retirement_plan_names_replacement_target_and_consumer_update_path(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planWrapperRetirement([
+            'candidate_id' => 'OldWrapper',
+            'replacement_target' => 'AtlasNewDirectService',
+            'consumer_update_path' => 'update callers to invoke AtlasNewDirectService::handle() directly',
+            'consumers_to_migrate' => ['CallerA', 'CallerB'],
+        ]);
+
+        $this->assertSame('retire_wrapper', $plan['action']);
+        $this->assertSame('AtlasNewDirectService', $plan['replacement_target']);
+        $this->assertSame('update callers to invoke AtlasNewDirectService::handle() directly', $plan['consumer_update_path']);
+        $this->assertSame(['CallerA', 'CallerB'], $plan['consumers_to_migrate']);
+        $this->assertSame([], $plan['risk_reasons']);
+    }
+
+    public function test_wrapper_retirement_blocked_without_replacement_target(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planWrapperRetirement([
+            'candidate_id' => 'OldWrapper',
+            'consumer_update_path' => 'update callers',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('replacement_target_missing', $plan['risk_reasons']);
+    }
+
+    public function test_wrapper_retirement_blocked_without_consumer_update_path(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planWrapperRetirement([
+            'candidate_id' => 'OldWrapper',
+            'replacement_target' => 'AtlasNewDirectService',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('consumer_update_path_missing', $plan['risk_reasons']);
+    }
+
+    public function test_wrapper_retirement_plan_hash_is_deterministic(): void
+    {
+        $input = [
+            'candidate_id' => 'OldWrapper',
+            'replacement_target' => 'AtlasNewDirectService',
+            'consumer_update_path' => 'update callers',
+        ];
+        $planner = new AtlasSelfConstructionSafeDeletionPlanner;
+
+        $this->assertSame($planner->planWrapperRetirement($input)['plan_hash'], $planner->planWrapperRetirement($input)['plan_hash']);
     }
 }
