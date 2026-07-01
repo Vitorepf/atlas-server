@@ -31,11 +31,24 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * process-local scope). The gate itself never calls a provider:
  * provider_call_allowed is always false.
  *
+ * client_descriptor (new, optional, default []): an arbitrary provider/client config payload
+ * (e.g. from an accidental copy-paste) scanned for secret-like FIELD NAMES (token/api_key/
+ * password/secret/credential, case-insensitive) — never for value content. A match adds
+ * 'raw_secret_in_payload' to blockers (the same blocker credential_value_present triggers — same
+ * underlying risk) and records the field name (never its value) in redacted_diagnostics as
+ * "{field}=[REDACTED]". A descriptor containing only capability/invocation-boundary metadata
+ * (headless_supported, model_hints, local_invocation_supported, etc.) triggers no new blocker.
+ *
+ * billing_required (new, optional, default false): true means the provider assumes a paid
+ * steady-state dependency — adds 'disallowed_steady_state_dependency' to blockers.
+ *
  * Pure: no I/O, no network calls, no logging, no secret reads.
  */
 final class AtlasExternalBrainProviderPoolCredentialSafetyGate
 {
     public const SCHEMA = 'atlas.external_brain.provider_pool_credential_safety_gate.v1';
+
+    private const SECRET_LIKE_KEY_PATTERN = '/token|api[_-]?key|password|secret|credential/i';
 
     /**
      * @param  array<string,mixed>  $input
@@ -72,8 +85,28 @@ final class AtlasExternalBrainProviderPoolCredentialSafetyGate
             $blockers[] = 'provider_required_for_steady_state';
         }
 
+        // AC2: scan an optional client_descriptor payload for secret-like FIELD NAMES — never
+        // for value content, and the raw value is never placed in the diagnostic.
+        $clientDescriptor = is_array($input['client_descriptor'] ?? null) ? $input['client_descriptor'] : [];
+        $redactedDiagnostics = [];
+        foreach (array_keys($clientDescriptor) as $key) {
+            if (preg_match(self::SECRET_LIKE_KEY_PATTERN, (string) $key) === 1) {
+                $redactedDiagnostics[] = "{$key}=[REDACTED]";
+            }
+        }
+        if ($redactedDiagnostics !== [] && ! in_array('raw_secret_in_payload', $blockers, true)) {
+            $blockers[] = 'raw_secret_in_payload';
+        }
+
+        // AC3: a billing-required provider assumption is a disallowed steady-state dependency.
+        $billingRequired = (bool) ($input['billing_required'] ?? false);
+        if ($billingRequired) {
+            $blockers[] = 'disallowed_steady_state_dependency';
+        }
+
         $fallbackAvailable = $facts['local_client_logged_in'] && $facts['environment_scope'];
-        $safeToProbe = ! $facts['credential_value_present'] && $facts['redaction_status'] && $fallbackAvailable;
+        $safeToProbe = ! $facts['credential_value_present'] && $facts['redaction_status'] && $fallbackAvailable
+            && $redactedDiagnostics === [] && ! $billingRequired;
 
         return [
             'schema' => self::SCHEMA,
@@ -83,6 +116,7 @@ final class AtlasExternalBrainProviderPoolCredentialSafetyGate
             'safe_to_probe' => $safeToProbe,
             'fallback_available' => $fallbackAvailable,
             'provider_call_allowed' => false,
+            'redacted_diagnostics' => $redactedDiagnostics,
         ];
     }
 }
