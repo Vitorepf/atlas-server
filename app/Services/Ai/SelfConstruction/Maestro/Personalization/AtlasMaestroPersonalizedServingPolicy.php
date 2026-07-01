@@ -19,16 +19,38 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Personalization;
  * The caller decides; this is just a sidecar opinion.
  *
  * Personalization extensions (via optional $workerContext):
- *   - skill_scores      : {family => 0.0–1.0} overrides tier signal when present.
- *   - consecutive_claimed: triggers hogging_risk reason when >= HOGGING_THRESHOLD.
+ *   - skill_scores        : {family => 0.0–1.0} overrides tier signal when present; also doubles
+ *                           as the "proven capability" signal for risk gating below.
+ *   - consecutive_claimed : triggers hogging_risk reason when >= HOGGING_THRESHOLD.
+ *   - preferred_families  : list<string> (AC3 new) — families the worker prefers.
+ *   - family_poison_rate  : {family => 0.0-1.0} (AC3 new) — recent poison/give-back rate per family.
  *
  * Anti-starvation: packets with starved_ticks >= STARVATION_THRESHOLD get a floor score.
+ *
+ * AC2 new (risk gate, evaluated LAST — the strongest override in this policy): packet.risk_level
+ * === 'high' requires skill_scores[task_family] >= PROVEN_CAPABILITY_THRESHOLD. Without it, the
+ * packet is deferred (deferred=true, defer_reason='capability_mismatch', shape_match forced to
+ * 0.0) regardless of any starvation floor, value floor, or preference boost computed above — a
+ * starved or high-value high-risk packet must still never be routed to an unproven worker.
+ *
+ * AC3 new: task_family in preferred_families only boosts shape_match when family_poison_rate for
+ * that family is <= PREFERRED_FAMILY_POISON_CEILING (default 0.0 when unsupplied, i.e. clean).
+ * A preferred family with high poison history gets NO boost.
+ *
+ * AC4 new: packet.value_score >= HIGH_VALUE_THRESHOLD guarantees shape_match >= HIGH_VALUE_FLOOR,
+ * so a high-value packet is never crushed to near-zero purely because a worker's file/loc/tier
+ * preferences are narrow.
  */
 final class AtlasMaestroPersonalizedServingPolicy
 {
     public const STARVATION_THRESHOLD = 5;
     public const STARVATION_FLOOR = 0.5;
     public const HOGGING_THRESHOLD = 3;
+    public const PROVEN_CAPABILITY_THRESHOLD = 0.6;
+    public const PREFERRED_FAMILY_POISON_CEILING = 0.2;
+    public const PREFERRED_FAMILY_BOOST = 0.1;
+    public const HIGH_VALUE_THRESHOLD = 0.8;
+    public const HIGH_VALUE_FLOOR = 0.5;
 
     public function __construct(private readonly AtlasMaestroWorkerPreferenceRegistry $registry) {}
 
@@ -110,12 +132,53 @@ final class AtlasMaestroPersonalizedServingPolicy
             $reasons[] = sprintf('hogging_risk:consecutive=%d', $consecutiveClaimed);
         }
 
+        // AC4: a high-value packet is never crushed to near-zero purely because a worker's
+        // structural preferences are narrow.
+        $valueScore = (float) ($packet['value_score'] ?? 0.0);
+        if ($valueScore >= self::HIGH_VALUE_THRESHOLD) {
+            $shapeMatch = max($shapeMatch, self::HIGH_VALUE_FLOOR);
+            $reasons[] = sprintf('high_value_floor:%.2f', $valueScore);
+        }
+
+        // AC3: preferred families only boost score when poison history for that family is low.
+        $preferredFamilies = array_map('strval', (array) ($workerContext['preferred_families'] ?? []));
+        $familyPoisonRates = (array) ($workerContext['family_poison_rate'] ?? []);
+        if ($taskFamily !== '' && in_array($taskFamily, $preferredFamilies, true)) {
+            $familyPoisonRate = (float) ($familyPoisonRates[$taskFamily] ?? 0.0);
+            if ($familyPoisonRate <= self::PREFERRED_FAMILY_POISON_CEILING) {
+                $shapeMatch = min(1.0, $shapeMatch + self::PREFERRED_FAMILY_BOOST);
+                $reasons[] = sprintf('preferred_family_boost:%s', $taskFamily);
+            } else {
+                $reasons[] = sprintf('preferred_family_poison_blocked:%s=%.2f', $taskFamily, $familyPoisonRate);
+            }
+        }
+
+        // AC2 (strongest override, evaluated last): a high-risk task requires a proven
+        // capability for its family. Without one, defer rather than serve — this overrides
+        // every floor/boost computed above, including starvation and high-value.
+        $riskLevel = (string) ($packet['risk_level'] ?? '');
+        $deferred = false;
+        $deferReason = null;
+        if ($riskLevel === 'high') {
+            $provenCapability = $taskFamily !== ''
+                && array_key_exists($taskFamily, $skillScores)
+                && (float) $skillScores[$taskFamily] >= self::PROVEN_CAPABILITY_THRESHOLD;
+            if (! $provenCapability) {
+                $shapeMatch = 0.0;
+                $deferred = true;
+                $deferReason = 'capability_mismatch';
+                $reasons[] = 'capability_mismatch';
+            }
+        }
+
         return [
             'advisory' => true,
             'shape_match' => $shapeMatch,
             'reasons' => $reasons,
             'client_id' => $clientId,
             'packet_id' => $packetId,
+            'deferred' => $deferred,
+            'defer_reason' => $deferReason,
         ];
     }
 }
