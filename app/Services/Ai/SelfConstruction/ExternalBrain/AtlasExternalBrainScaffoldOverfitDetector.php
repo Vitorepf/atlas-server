@@ -97,7 +97,7 @@ final class AtlasExternalBrainScaffoldOverfitDetector
             if ($compounding  < self::COMPOUNDING_THRESHOLD) {
                 $decliningMetrics[] = 'compounding_impact';
             }
-            if ($structuralLeverage < self::STRUCTURAL_LEVERAGE_THRESHOLD) {
+            if (array_key_exists('structural_leverage_score', $m) && $structuralLeverage < self::STRUCTURAL_LEVERAGE_THRESHOLD) {
                 $decliningMetrics[] = 'structural_leverage_score';
             }
             if ($giveBackRate > self::GIVE_BACK_THRESHOLD) {

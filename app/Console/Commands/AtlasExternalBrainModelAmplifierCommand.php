@@ -1,0 +1,82 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Console\Commands;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainModelCapabilityAmplifier;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldOverfitDetector;
+use Illuminate\Console\Command;
+
+/**
+ * Read-only operator entry point combining {@see AtlasExternalBrainModelCapabilityAmplifier}
+ * (does the model+scaffold combination PROVE a real lift, or must it escalate to frontier/human
+ * review?) with {@see AtlasExternalBrainScaffoldOverfitDetector} (is the claimed lift itself
+ * overfit, low-confidence, or proxy-prone?) — so a smaller model is only trusted to operate
+ * autonomously with scaffold when BOTH checks are clean.
+ *
+ * Never mutates files, calls providers, or runs git — read-only reporting only.
+ *
+ * Input: a single JSON file (--input=PATH) with keys:
+ *   { amplifier:{...AtlasExternalBrainModelCapabilityAmplifier::amplify input...},
+ *     scaffold_metrics:list<array<string,mixed>> }
+ * Missing/absent sections default to empty/defaults and simply produce no overfit findings.
+ */
+final class AtlasExternalBrainModelAmplifierCommand extends Command
+{
+    /** @var string */
+    protected $signature = 'atlas:external-brain:model-amplifier
+        {--input= : Path to a JSON file with amplifier and scaffold_metrics sections}';
+
+    /** @var string */
+    protected $description = 'Read-only model-capability amplification + scaffold-overfit report: proves when a smaller model can safely operate with scaffold, and when escalation is mandatory.';
+
+    public function handle(
+        AtlasExternalBrainModelCapabilityAmplifier $amplifier,
+        AtlasExternalBrainScaffoldOverfitDetector $overfitDetector,
+    ): int {
+        $inputPath = trim((string) $this->option('input'));
+        if ($inputPath === '' || ! is_file($inputPath)) {
+            $this->error('--input=<path> required and must exist');
+
+            return self::FAILURE;
+        }
+
+        $decoded = json_decode((string) file_get_contents($inputPath), true);
+        if (! is_array($decoded)) {
+            $this->error('invalid input JSON');
+
+            return self::FAILURE;
+        }
+
+        $amplifierInput = is_array($decoded['amplifier'] ?? null) ? $decoded['amplifier'] : [];
+        $scaffoldMetrics = is_array($decoded['scaffold_metrics'] ?? null) ? $decoded['scaffold_metrics'] : [];
+
+        $amplification = $amplifier->amplify($amplifierInput);
+        $overfit = $overfitDetector->detect(['scaffold_metrics' => $scaffoldMetrics]);
+
+        // Mandatory escalation whenever EITHER check demands it — an overfit-detected scaffold
+        // can never be waved through just because the amplifier's own escalation trigger stayed
+        // clean, and vice versa.
+        $mustEscalate = (bool) $amplification['escalation_recommendation']['escalate'] || $overfit['overfit_detected'];
+        $safeToOperateAutonomously = $amplification['autonomous_execution_allowed'] && ! $overfit['overfit_detected'];
+
+        $payload = [
+            'status' => 'ok',
+            'model_profile' => $amplification['model_profile'],
+            'amplifier_escalation' => $amplification['escalation_recommendation'],
+            'heldout_lift_proof' => $amplification['heldout_lift_proof'],
+            'autonomous_execution_allowed' => $amplification['autonomous_execution_allowed'],
+            'overfit_detected' => $overfit['overfit_detected'],
+            'suspect_scaffolds' => $overfit['suspect_scaffolds'],
+            'overfit_recommended_action' => $overfit['recommended_action'],
+            'overfit_risk_score' => $overfit['risk_score'],
+            'must_escalate' => $mustEscalate,
+            'safe_to_operate_autonomously' => $safeToOperateAutonomously,
+        ];
+
+        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return self::SUCCESS;
+    }
+}
