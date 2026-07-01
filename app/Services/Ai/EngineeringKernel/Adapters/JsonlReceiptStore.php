@@ -41,12 +41,13 @@ final class JsonlReceiptStore implements ReceiptLedger
 
     /**
      * Run $build under the exclusive write lock, giving it the current last raw line (null on an
-     * empty ledger), and append its returned payload as one canonical JSON line.
+     * empty ledger), and append its returned payload as one canonical JSON line. A null return
+     * from $build skips the write (idempotent ledgers dedup INSIDE the lock and abort).
      *
-     * @param  callable(?string):array<string,mixed>  $build
-     * @return string the raw line written
+     * @param  callable(?string):(array<string,mixed>|null)  $build
+     * @return string|null the raw line written, or null when $build aborted
      */
-    public function appendWith(callable $build): string
+    public function appendWith(callable $build): ?string
     {
         $dir = \dirname($this->path);
         if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
@@ -63,6 +64,9 @@ final class JsonlReceiptStore implements ReceiptLedger
             $lines = $this->rawLines();
             $last = $lines === [] ? null : (string) end($lines);
             $payload = $build($last);
+            if ($payload === null) {
+                return null;
+            }
             $line = (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             fseek($fh, 0, SEEK_END);
             fwrite($fh, $line."\n");

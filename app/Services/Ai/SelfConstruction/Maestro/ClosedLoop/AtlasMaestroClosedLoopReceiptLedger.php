@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\ClosedLoop;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use DomainException;
 use Generator;
 use Throwable;
@@ -40,14 +41,22 @@ final class AtlasMaestroClosedLoopReceiptLedger
         $entry['outcome'] = $this->sanitizeOutcome($payload['outcome'] ?? null, $entry['guarded_pass_or_reject']);
         $entry['entry_hash'] = $this->entryHash($entry);
 
-        // Chain linkage is derived from ledger POSITION at append time, not caller input — kept out
-        // of entry_hash (see entryHash()) so identical payloads still produce identical entry_hash
-        // regardless of where in the ledger they land.
-        $previous = $this->lastEntry();
-        $entry['sequence'] = $previous !== null ? ((int) ($previous['sequence'] ?? 0)) + 1 : 1;
-        $entry['previous_hash'] = $previous !== null ? (string) ($previous['entry_hash'] ?? '') : '';
+        try {
+            // Chain linkage is derived from ledger POSITION at append time, not caller input — kept
+            // out of entry_hash (see entryHash()) so identical payloads still produce identical
+            // entry_hash regardless of where in the ledger they land. appendWith() hands us the
+            // current tail INSIDE the write lock, so concurrent writers can't fork the chain.
+            $this->store()->appendWith(function (?string $lastLine) use (&$entry): array {
+                $previous = $lastLine !== null ? json_decode($lastLine, true) : null;
+                $previous = is_array($previous) ? $previous : null;
+                $entry['sequence'] = $previous !== null ? ((int) ($previous['sequence'] ?? 0)) + 1 : 1;
+                $entry['previous_hash'] = $previous !== null ? (string) ($previous['entry_hash'] ?? '') : '';
 
-        $this->append($entry);
+                return $entry;
+            });
+        } catch (Throwable $exception) {
+            throw new DomainException('closed_loop_receipt_ledger_append_failed', previous: $exception);
+        }
 
         return $entry;
     }
@@ -108,63 +117,12 @@ final class AtlasMaestroClosedLoopReceiptLedger
      */
     public function stream(): Generator
     {
-        $path = $this->ledgerPath();
-        if (! is_file($path)) {
-            return;
-        }
-
-        $handle = fopen($path, 'rb');
-        if ($handle === false) {
-            return;
-        }
-
-        try {
-            while (($line = fgets($handle)) !== false) {
-                $row = json_decode($line, true);
-                if (is_array($row)) {
-                    yield $row;
-                }
-            }
-        } finally {
-            fclose($handle);
-        }
+        yield from $this->store()->replay();
     }
 
-    /**
-     * @param  array<string,mixed>  $entry
-     */
-    private function append(array $entry): void
+    private function store(): JsonlReceiptStore
     {
-        $path = $this->ledgerPath();
-        $dir = dirname($path);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0o775, true);
-        }
-
-        $lockPath = $path.'.lock';
-        $lock = fopen($lockPath, 'c');
-        if ($lock === false) {
-            throw new DomainException('closed_loop_receipt_ledger_lock_open_failed');
-        }
-
-        try {
-            if (! flock($lock, LOCK_EX)) {
-                throw new DomainException('closed_loop_receipt_ledger_lock_failed');
-            }
-
-            $line = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-            $current = is_file($path) ? (string) file_get_contents($path) : '';
-            $tmp = $path.'.tmp.'.bin2hex(random_bytes(4));
-            file_put_contents($tmp, $current.$line.PHP_EOL, LOCK_EX);
-            rename($tmp, $path);
-        } catch (Throwable $exception) {
-            throw $exception instanceof DomainException
-                ? $exception
-                : new DomainException('closed_loop_receipt_ledger_append_failed', previous: $exception);
-        } finally {
-            flock($lock, LOCK_UN);
-            fclose($lock);
-        }
+        return new JsonlReceiptStore($this->ledgerPath());
     }
 
     /**

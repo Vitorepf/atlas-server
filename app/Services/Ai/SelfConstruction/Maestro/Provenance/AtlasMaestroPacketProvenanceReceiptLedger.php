@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Provenance;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -39,14 +40,18 @@ final class AtlasMaestroPacketProvenanceReceiptLedger
         if ($packetId === '' || $recordHash === '') {
             throw new RuntimeException('append_requires_packet_id_and_record_hash');
         }
-        $handle = $this->openLocked();
-        try {
-            $rows = $this->readAllFromHandle($handle);
+        $store = new JsonlReceiptStore($this->ledgerPath);
+        $result = null;
+        // Idempotency, collision detection and chain derivation all run INSIDE the write lock.
+        $store->appendWith(function (?string $lastLine) use ($store, $packetId, $sequenceNo, $recordHash, $verdict, $writtenAtIso, &$result): ?array {
+            $rows = $store->replay();
 
             // Idempotency: same (packet_id, record_hash) returns existing receipt.
             foreach ($rows as $row) {
                 if ((string) ($row['packet_id'] ?? '') === $packetId && (string) ($row['record_hash'] ?? '') === $recordHash) {
-                    return $row;
+                    $result = $row;
+
+                    return null;
                 }
             }
 
@@ -72,16 +77,12 @@ final class AtlasMaestroPacketProvenanceReceiptLedger
             // breaks validateChain() from that point forward.
             $prevChainHash = $rows === [] ? '' : (string) ($rows[array_key_last($rows)]['chain_hash'] ?? '');
             $receipt['chain_hash'] = $this->computeChainHash($prevChainHash, $receipt);
-
-            fseek($handle, 0, SEEK_END);
-            fwrite($handle, (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($handle);
+            $result = $receipt;
 
             return $receipt;
-        } finally {
-            flock($handle, LOCK_UN);
-            fclose($handle);
-        }
+        });
+
+        return $result;
     }
 
     /**
@@ -208,53 +209,7 @@ final class AtlasMaestroPacketProvenanceReceiptLedger
      */
     private function readAll(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $rows = [];
-        foreach ((array) file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @return resource
-     */
-    private function openLocked()
-    {
-        $handle = fopen($this->ledgerPath, 'c+');
-        if ($handle === false) {
-            throw new RuntimeException('ledger_open_failed:'.$this->ledgerPath);
-        }
-        if (! flock($handle, LOCK_EX)) {
-            fclose($handle);
-            throw new RuntimeException('ledger_lock_failed:'.$this->ledgerPath);
-        }
-
-        return $handle;
-    }
-
-    /**
-     * @param  resource  $handle
-     * @return list<array<string,mixed>>
-     */
-    private function readAllFromHandle($handle): array
-    {
-        rewind($handle);
-        $rows = [];
-        while (($line = fgets($handle)) !== false) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->ledgerPath))->replay();
     }
 }
 

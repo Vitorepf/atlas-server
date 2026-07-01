@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Maestro\Tiering;
 
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
-use RuntimeException;
 
 /**
  * Append-only audit ledger that records EVERY tier-mismatch refusal surfaced by the routing policy. Allow
  * verdicts (allow / allow_unknown_worker) are deliberately NOT recorded — signal-to-noise.
  *
  * PÉTREO: the class exposes record() + history() and nothing else — no update, no delete, no truncate
- * code path exists. Persistence uses fopen('a') + flock(LOCK_EX) so existing bytes are never overwritten.
+ * code path exists. Persistence is the kernel JsonlReceiptStore (flock LOCK_EX, seek-to-end append) so
+ * existing bytes are never overwritten.
  */
 final class AtlasMaestroTierMismatchLedger
 {
@@ -53,12 +54,17 @@ final class AtlasMaestroTierMismatchLedger
         ksort($canonical);
         $row['content_hash'] = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-        // Duplicate suppression — same content_hash already recorded → skip.
-        if ($this->contentHashExists($row['content_hash'])) {
-            return;
-        }
+        $store = new JsonlReceiptStore($this->ledgerPath);
+        // Duplicate suppression runs INSIDE the write lock — same content_hash already recorded → skip.
+        $store->appendWith(function (?string $lastLine) use ($store, $row): ?array {
+            foreach ($store->replay() as $existing) {
+                if (($existing['content_hash'] ?? '') === $row['content_hash']) {
+                    return null;
+                }
+            }
 
-        $this->appendOnly($row);
+            return $row;
+        });
     }
 
     /**
@@ -139,43 +145,6 @@ final class AtlasMaestroTierMismatchLedger
         }
 
         return $out;
-    }
-
-    private function contentHashExists(string $hash): bool
-    {
-        foreach ($this->allRows() as $row) {
-            if (($row['content_hash'] ?? '') === $hash) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $row
-     */
-    private function appendOnly(array $row): void
-    {
-        $dir = dirname($this->ledgerPath);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fh = @fopen($this->ledgerPath, 'a');
-        if ($fh === false) {
-            throw new RuntimeException('Cannot open Maestro tier-mismatch ledger for append');
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new RuntimeException('Cannot acquire LOCK_EX on Maestro tier-mismatch ledger');
-            }
-            fwrite($fh, (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
     }
 
 }
