@@ -13,12 +13,24 @@ use Throwable;
  *
  *   record(clientId, taskPacketId, payloadHash)        — append-only; never rewrites prior bytes.
  *   latest(clientId)                                   — most recent entry (highest sequence) for that worker.
- *   resumeFrom(clientId)                               — most recent entry whose task is NOT in the released
+ *   resumeFrom(clientId, expectedPayloadHash?, staleAfterSeconds?)
+ *                                                        — most recent entry whose task is NOT in the released
  *                                                        leases set, so a restart picks up exactly where it
  *                                                        left off (and doesn't try to "resume" a finished task).
+ *     - expectedPayloadHash (optional): the caller recomputes the CURRENT hash of the candidate
+ *       task's content and passes it in; a mismatch against the checkpoint's stored payload_hash
+ *       means the task changed since the checkpoint was written, so resuming would be unsafe —
+ *       returns null instead of the checkpoint. Omitted ⇒ no verification (legacy behavior).
+ *     - staleAfterSeconds (optional): annotates the returned row with `age_seconds` (int, computed
+ *       from wall_clock via the same clock record() uses) and `stale` (bool). Omitted ⇒ the row is
+ *       returned byte-identical to the legacy shape, no extra keys.
  *
  * Closes the gap that today a killed worker has no durable mark of where it stopped and the serving service
  * picks a fresh packet rather than resuming.
+ *
+ * record() only ever persists task_packet_id + an opaque payload_hash + a fixed whitelist of scalar
+ * meta keys (see normalizeMeta()) — raw task objective text or provider-sensitive payloads are never
+ * accepted into the ledger, even if passed in $meta.
  */
 final class AtlasMaestroWorkerCheckpointLedger
 {
@@ -106,19 +118,44 @@ final class AtlasMaestroWorkerCheckpointLedger
     /**
      * Most recent entry whose task_packet_id is NOT in the released-leases set for this worker.
      *
+     * @param  string|null  $expectedPayloadHash  if given, resume is refused (null returned) unless
+     *                                             it matches the checkpoint's stored payload_hash.
+     * @param  int|null  $staleAfterSeconds  if given, annotates the row with `age_seconds` + `stale`.
      * @return array<string,mixed>|null
      */
-    public function resumeFrom(string $clientId): ?array
+    public function resumeFrom(string $clientId, ?string $expectedPayloadHash = null, ?int $staleAfterSeconds = null): ?array
     {
         $released = $this->releasedSet($clientId);
         $rows = $this->all($clientId);
         for ($i = count($rows) - 1; $i >= 0; $i--) {
-            if (! isset($released[(string) ($rows[$i]['task_packet_id'] ?? '')])) {
-                return $rows[$i];
+            if (isset($released[(string) ($rows[$i]['task_packet_id'] ?? '')])) {
+                continue;
             }
+            $row = $rows[$i];
+            if ($expectedPayloadHash !== null && (string) ($row['payload_hash'] ?? '') !== $expectedPayloadHash) {
+                return null;
+            }
+            if ($staleAfterSeconds !== null) {
+                $ageSeconds = $this->ageSeconds((string) ($row['wall_clock'] ?? ''));
+                $row['age_seconds'] = $ageSeconds;
+                $row['stale'] = $ageSeconds >= $staleAfterSeconds;
+            }
+
+            return $row;
         }
 
         return null;
+    }
+
+    private function ageSeconds(string $wallClock): int
+    {
+        $recorded = strtotime($wallClock);
+        $current = strtotime($this->now());
+        if ($recorded === false || $current === false) {
+            return 0;
+        }
+
+        return max(0, $current - $recorded);
     }
 
     /**
