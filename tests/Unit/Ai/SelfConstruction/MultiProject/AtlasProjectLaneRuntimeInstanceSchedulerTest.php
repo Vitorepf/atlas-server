@@ -405,6 +405,25 @@ final class AtlasProjectLaneRuntimeInstanceSchedulerTest extends TestCase
         $this->assertSame('merely-high', $r['blocked_lanes'][0]['lane_id']);
     }
 
+    public function test_fairness_reasons_flat_list_names_the_starving_lane_that_preempted(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('merely-high', 'p1'),
+            $this->laneInstance('starved', 'p2'),
+        ], [
+            'max_parallel_lanes' => 1,
+            'lane_health' => [
+                'merely-high' => ['urgency' => 6],
+                'starved' => ['urgency' => 3, 'starvation_count' => AtlasProjectLaneRuntimeInstanceScheduler::HARD_STARVATION_COUNT_THRESHOLD],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('fairness_reasons', $r['fairness_facts']);
+        $this->assertCount(1, $r['fairness_facts']['fairness_reasons']);
+        $this->assertStringStartsWith('starved:', $r['fairness_facts']['fairness_reasons'][0]);
+        $this->assertStringContainsString('starvation_count', $r['fairness_facts']['fairness_reasons'][0]);
+    }
+
     public function test_critical_urgency_lane_still_wins_over_hard_starved_lane(): void
     {
         $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([

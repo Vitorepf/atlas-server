@@ -239,6 +239,13 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
             . count($held) . ' held by isolation/safety holds; '
             . count($starvationRiskLanes) . ' capacity-blocked (starvation risk).';
 
+        // Flat, per-lane fairness_reasons list — one explicit "lane_id: reason1, reason2" line per
+        // scheduled lane, so a caller can see WHY each lane ticked without walking the keyed map.
+        $fairnessReasons = [];
+        foreach ($tickNowFairnessReasons as $laneId => $laneReasons) {
+            $fairnessReasons[] = "{$laneId}: ".implode(', ', $laneReasons);
+        }
+
         $payload = [
             'schema_version' => self::SCHEMA,
             'status' => 'ok',
@@ -255,6 +262,7 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
                 'held_duration_hint'          => $heldDurationHints,
                 'starvation_risk_lanes'       => $starvationRiskLanes,
                 'fairness_reason'             => $fairnessReason,
+                'fairness_reasons'            => $fairnessReasons,
                 'next_lane_to_unblock'        => $starvationRiskLanes[0] ?? null,
                 'tick_now_fairness_reasons'   => $tickNowFairnessReasons,
             ],
