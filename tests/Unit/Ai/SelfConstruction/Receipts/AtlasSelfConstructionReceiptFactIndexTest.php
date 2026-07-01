@@ -114,4 +114,36 @@ final class AtlasSelfConstructionReceiptFactIndexTest extends TestCase
         $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
         $this->assertContains('merge_receipts:blank_decision_ref:m-1', $r['blockers']);
     }
+
+    public function test_decision_link_summary_counts_bound_looking_rows(): void
+    {
+        $f = $this->completeFacts();
+        $f['task_receipts'][0]['decision_ref'] = 'd-1';
+        $f['task_receipts'][0]['decision_hash'] = 'h-d1';
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        $this->assertSame(1, $r['decision_link_summary']['bound_looking']);
+    }
+
+    public function test_decision_link_summary_counts_blank_rows_separately_and_still_produces_blockers(): void
+    {
+        $f = $this->completeFacts();
+        $f['merge_receipts'][0]['decision_ref'] = '  ';
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        $this->assertSame(1, $r['decision_link_summary']['blank']);
+        $this->assertContains('merge_receipts:blank_decision_ref:m-1', $r['blockers']);
+    }
+
+    public function test_unknown_chain_ref_blockers_remain_unchanged(): void
+    {
+        $f = $this->completeFacts();
+        $f['verification_receipts'][0]['chain_ref'] = 'ghost-decision';
+
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project($f);
+
+        $this->assertContains('verification_receipts:chain_ref_unknown:ghost-decision', $r['blockers']);
+    }
 }

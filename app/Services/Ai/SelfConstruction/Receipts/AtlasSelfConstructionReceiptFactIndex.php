@@ -64,6 +64,8 @@ final class AtlasSelfConstructionReceiptFactIndex
             }
         }
 
+        $decisionLinkSummary = ['bound_looking' => 0, 'blank' => 0, 'unknown' => 0];
+
         foreach (self::KINDS as $kind) {
             $rows = is_array($facts[$kind] ?? null) ? array_values($facts[$kind]) : [];
             $index[$kind] = [];
@@ -97,11 +99,20 @@ final class AtlasSelfConstructionReceiptFactIndex
                     }
                 }
                 if (in_array($kind, self::DECISION_LINKED_KINDS, true)) {
-                    if (array_key_exists('decision_ref', $r) && trim((string) ($r['decision_ref'] ?? '')) === '') {
+                    $decisionRef = trim((string) ($r['decision_ref'] ?? ''));
+                    $decisionHash = trim((string) ($r['decision_hash'] ?? ''));
+                    if (array_key_exists('decision_ref', $r) && $decisionRef === '') {
                         $blockers[] = $kind.':blank_decision_ref:'.$id;
                     }
-                    if (array_key_exists('decision_hash', $r) && trim((string) ($r['decision_hash'] ?? '')) === '') {
+                    if (array_key_exists('decision_hash', $r) && $decisionHash === '') {
                         $blockers[] = $kind.':blank_decision_hash:'.$id;
+                    }
+                    if ($decisionRef !== '' && $decisionHash !== '') {
+                        $decisionLinkSummary['bound_looking']++;
+                    } elseif (array_key_exists('decision_ref', $r) || array_key_exists('decision_hash', $r)) {
+                        $decisionLinkSummary['blank']++;
+                    } else {
+                        $decisionLinkSummary['unknown']++;
                     }
                 }
                 $index[$kind][$id] = $r;
@@ -117,6 +128,7 @@ final class AtlasSelfConstructionReceiptFactIndex
             'index' => $index,
             'blockers' => $blockers,
             'summary' => $summary,
+            'decision_link_summary' => $decisionLinkSummary,
         ];
     }
 }
