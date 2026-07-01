@@ -5,255 +5,119 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\TaskFabric;
 
 use App\Services\Ai\SelfConstruction\TaskFabric\AtlasTaskFabricSemanticDuplicateIndex;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 final class AtlasTaskFabricSemanticDuplicateIndexTest extends TestCase
 {
-    private function svc(): AtlasTaskFabricSemanticDuplicateIndex
+    private AtlasTaskFabricSemanticDuplicateIndex $index;
+
+    protected function setUp(): void
     {
-        return new AtlasTaskFabricSemanticDuplicateIndex;
+        parent::setUp();
+        $this->index = new AtlasTaskFabricSemanticDuplicateIndex();
     }
 
-    private function packet(string $objective, array $acceptance = [], array $tags = [], array $unlocks = [], string $evidenceFloor = ''): array
+    // AC 2: different wording but same capability key + target family → semantic_duplicate
+    public function test_different_wording_same_capability_key_family_is_duplicate(): void
     {
-        return array_filter([
-            'objective' => $objective,
-            'acceptance_criteria' => $acceptance,
-            'capability_tags' => $tags,
-            'unlock_chain' => $unlocks,
-            'evidence_floor' => $evidenceFloor,
-        ], static fn ($v) => $v !== '' && $v !== []);
-    }
-
-    private function check(array $queued, array $candidates): array
-    {
-        return $this->svc()->check([
-            'queued_specs' => $queued,
-            'candidate_packets' => $candidates,
-        ]);
-    }
-
-    // ── clean batch passes through ────────────────────────────────────────────
-
-    public function test_distinct_candidates_are_all_clean(): void
-    {
-        $r = $this->check([], [
-            $this->packet(
-                'Implement AtlasFoo to detect stalled capabilities and emit retirement recommendations',
-                ['given a stalled capability the system must emit retire with evidence'],
-                ['stall-detection'],
-            ),
-            $this->packet(
-                'Implement AtlasBar to compress evidence records using adaptive sampling strategy',
-                ['given an evidence set the compressor must reduce total size by thirty percent'],
-                ['compression'],
-            ),
+        $result = $this->index->check([
+            'capability_key' => 'replenish_queue_buffer',
+            'target_family' => 'QueueReplenisher',
+            'acceptance_intent' => 'Ensure queue buffer stays above threshold',
+        ], [
+            [
+                'task_packet_id' => 'existing-001',
+                'capability_key' => 'Replenish Queue Buffer',
+                'target_family' => 'QueueReplenisher',
+                'acceptance_intent' => 'Keep the queue topped up',
+            ],
         ]);
 
-        $this->assertSame(0, $r['flagged_count']);
-        $this->assertSame(2, $r['clean_count']);
-        $this->assertSame([], $r['duplicate_flags']);
+        $this->assertSame('semantic_duplicate', $result['status']);
     }
 
-    // ── queued spec duplicate detection ──────────────────────────────────────
-
-    public function test_candidate_identical_to_queued_is_flagged(): void
+    // AC 3: same file but different capabilities → NOT duplicate
+    public function test_same_file_different_capabilities_not_duplicate(): void
     {
-        $sharedObjective = 'detect stalled capabilities and emit retirement recommendations for the queue';
-        $sharedAcceptance = ['given a stalled capability the system must emit retire'];
-
-        $r = $this->check(
-            [$this->packet($sharedObjective, $sharedAcceptance)],
-            [$this->packet($sharedObjective, $sharedAcceptance)],
-        );
-
-        $this->assertSame(1, $r['flagged_count']);
-        $this->assertSame('queued', $r['duplicate_flags'][0]['matched_against']);
-    }
-
-    // ── intra-batch duplicate detection ──────────────────────────────────────
-
-    public function test_sibling_with_same_intent_flagged(): void
-    {
-        $objectiveA = 'Implement AtlasFoo detect stalled capabilities and emit retirement for the pipeline task queue';
-        $objectiveB = 'Implement AtlasBar detect stalled capabilities and emit retirement for the pipeline task queue';
-        $acceptance = ['given a stalled capability the system must emit retire with stall count'];
-
-        $r = $this->check([], [
-            $this->packet($objectiveA, $acceptance, ['stall-detection']),
-            $this->packet($objectiveB, $acceptance, ['stall-detection']),
+        $result = $this->index->check([
+            'capability_key' => 'add_rate_limit',
+            'target_family' => 'Worker',
+            'allowed_files' => ['app/Worker.php'],
+            'acceptance_intent' => 'Add rate limiting',
+        ], [
+            [
+                'task_packet_id' => 'existing-002',
+                'capability_key' => 'add_circuit_breaker',
+                'target_family' => 'Worker',
+                'allowed_files' => ['app/Worker.php'],
+                'acceptance_intent' => 'Add circuit breaker',
+            ],
         ]);
 
-        $this->assertSame(1, $r['flagged_count']);
-        $flagged = $r['duplicate_flags'][0];
-        $this->assertSame('batch', $flagged['matched_against']);
-        $this->assertSame(1, $flagged['candidate_index']);
-        $this->assertSame(0, $flagged['matched_index']);
+        $this->assertSame('unique', $result['status']);
     }
 
-    // ── complement guard — no false blocking ─────────────────────────────────
-
-    public function test_different_unlock_chains_are_complementary_not_duplicate(): void
+    // AC 4: duplicate output includes matched packet id or target
+    public function test_duplicate_includes_matched_packet_id(): void
     {
-        $sharedObjective = 'score stalled capabilities and emit priority retirement recommendation for the queue';
-        $sharedAcceptance = ['given a stalled capability the system must emit retire'];
-
-        $r = $this->check([], [
-            $this->packet($sharedObjective, $sharedAcceptance, [], ['retire-stale-capability']),
-            $this->packet($sharedObjective, $sharedAcceptance, [], ['unblock-wiring-gap']),
+        $result = $this->index->check([
+            'capability_key' => 'parse_metrics',
+            'target_family' => 'MetricsParser',
+            'acceptance_intent' => 'Parse metrics from file',
+        ], [
+            [
+                'task_packet_id' => 'existing-003',
+                'capability_key' => 'Parse Metrics',
+                'target_family' => 'MetricsParser',
+            ],
         ]);
 
-        $this->assertSame(0, $r['flagged_count'], 'Different unlock chains should be treated as complementary');
+        $this->assertSame('semantic_duplicate', $result['status']);
+        $this->assertSame('existing-003', $result['matched_packet_id']);
+        $this->assertSame('MetricsParser', $result['matched_target']);
     }
 
-    public function test_opposite_acceptance_polarity_is_complement(): void
+    public function test_empty_existing_list_is_unique(): void
     {
-        $obj = 'score stalled capabilities and emit priority retirement recommendation for the queue';
+        $result = $this->index->check([
+            'capability_key' => 'new_thing',
+            'target_family' => 'New',
+        ], []);
 
-        $r = $this->check([], [
-            $this->packet($obj, ['given a stalled capability the system must emit retire'], [], ['retire']),
-            $this->packet($obj, ['given a stalled capability the system must not emit retire'], [], ['retire']),
+        $this->assertSame('unique', $result['status']);
+    }
+
+    public function test_same_capability_different_family_not_duplicate(): void
+    {
+        $result = $this->index->check([
+            'capability_key' => 'emit_report',
+            'target_family' => 'FamilyA',
+        ], [
+            [
+                'task_packet_id' => 'existing-004',
+                'capability_key' => 'emit_report',
+                'target_family' => 'FamilyB',
+            ],
         ]);
 
-        $this->assertSame(0, $r['flagged_count'], '"must not" polarity difference should mark as complement');
+        $this->assertSame('unique', $result['status']);
     }
 
-    public function test_different_evidence_floor_is_complement(): void
+    public function test_acceptance_intent_match_same_family_is_duplicate(): void
     {
-        $obj = 'score stalled capabilities and emit priority retirement recommendation for the queue';
-        $acceptance = ['given stalled capability the system must emit retire'];
-
-        $r = $this->check([], [
-            $this->packet($obj, $acceptance, [], [], 'evidence_floor_3'),
-            $this->packet($obj, $acceptance, [], [], 'evidence_floor_7'),
+        $result = $this->index->check([
+            'capability_key' => 'unique_key_a',
+            'target_family' => 'AuditTrail',
+            'acceptance_intent' => 'Record every mutation to ledger',
+        ], [
+            [
+                'task_packet_id' => 'existing-005',
+                'capability_key' => 'unique_key_b',
+                'target_family' => 'AuditTrail',
+                'acceptance_intent' => 'record-every-mutation-to-ledger',
+            ],
         ]);
 
-        $this->assertSame(0, $r['flagged_count'], 'Different evidence floors should be treated as complementary');
-    }
-
-    // ── complementary domain tasks pass ──────────────────────────────────────
-
-    public function test_same_domain_different_behavior_contract_not_blocked(): void
-    {
-        $r = $this->check([], [
-            $this->packet(
-                'Implement AtlasFoo to score stall risk for capability retirement in the evolution loop',
-                ['given a capability with stall count above three the system must emit retire'],
-                ['stall-detection', 'retirement'],
-            ),
-            $this->packet(
-                'Implement AtlasBar to score stall risk for capability rescue planning in the evolution loop',
-                ['given a capability with stall count above three the system must not emit retire but must emit rescue'],
-                ['stall-detection', 'rescue'],
-            ),
-        ]);
-
-        $this->assertSame(0, $r['flagged_count']);
-    }
-
-    // ── output structure ──────────────────────────────────────────────────────
-
-    public function test_clean_candidate_indices_correct(): void
-    {
-        $r = $this->check([], [
-            $this->packet('Implement AtlasFoo to detect stalled capabilities in the evolution pipeline queue'),
-            $this->packet('Implement AtlasBar to compress evidence records using adaptive sampling'),
-        ]);
-
-        $this->assertSame([0, 1], $r['clean_candidates']);
-    }
-
-    public function test_schema_version_present(): void
-    {
-        $r = $this->svc()->check([]);
-
-        $this->assertSame(AtlasTaskFabricSemanticDuplicateIndex::SCHEMA, $r['schema_version']);
-    }
-
-    public function test_empty_input_returns_zero_counts(): void
-    {
-        $r = $this->svc()->check([]);
-
-        $this->assertSame(0, $r['flagged_count']);
-        $this->assertSame(0, $r['clean_count']);
-    }
-
-    // ── capability + allowed_files collision (AC) ──────────────────────────────
-
-    public function test_same_capability_intent_and_overlapping_allowed_files_flagged_despite_low_text_similarity(): void
-    {
-        $r = $this->svc()->check([
-            'queued_specs' => [[
-                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
-                'capability_intent' => 'worker_floor_top_up',
-                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
-            ]],
-            'candidate_packets' => [[
-                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
-                'capability_intent' => 'worker_floor_top_up',
-                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
-            ]],
-        ]);
-
-        $this->assertSame(1, $r['flagged_count']);
-        $this->assertStringContainsString('capability intent and overlapping allowed_files', $r['duplicate_flags'][0]['reason']);
-    }
-
-    public function test_broad_shared_subsystem_label_alone_does_not_flag_distinct_capabilities(): void
-    {
-        $r = $this->svc()->check([
-            'queued_specs' => [[
-                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
-                'capability_intent' => 'evidence_compression',
-                'capability_tags' => ['task_fabric'],
-                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
-            ]],
-            'candidate_packets' => [[
-                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
-                'capability_intent' => 'stalled_capability_retirement',
-                'capability_tags' => ['task_fabric'],
-                'allowed_files' => ['app/Services/Ai/Bar/AtlasBar.php'],
-            ]],
-        ]);
-
-        $this->assertSame(0, $r['flagged_count']);
-    }
-
-    public function test_same_capability_intent_without_file_overlap_does_not_flag(): void
-    {
-        $r = $this->svc()->check([
-            'queued_specs' => [[
-                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
-                'capability_intent' => 'worker_floor_top_up',
-                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
-            ]],
-            'candidate_packets' => [[
-                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
-                'capability_intent' => 'worker_floor_top_up',
-                'allowed_files' => ['app/Services/Ai/Bar/AtlasBar.php'],
-            ]],
-        ]);
-
-        $this->assertSame(0, $r['flagged_count']);
-    }
-
-    public function test_capability_collision_is_still_blocked_by_complement_guard(): void
-    {
-        $r = $this->svc()->check([
-            'queued_specs' => [[
-                'objective' => 'Implement AtlasFoo to compress evidence records using adaptive sampling',
-                'capability_intent' => 'worker_floor_top_up',
-                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
-                'evidence_floor' => 'strict',
-            ]],
-            'candidate_packets' => [[
-                'objective' => 'Extend AtlasBar so stalled capabilities are retired with a receipt',
-                'capability_intent' => 'worker_floor_top_up',
-                'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
-                'evidence_floor' => 'lenient',
-            ]],
-        ]);
-
-        $this->assertSame(0, $r['flagged_count']);
+        $this->assertSame('semantic_duplicate', $result['status']);
     }
 }

@@ -5,204 +5,109 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\TaskFabric;
 
 /**
- * Pure index: detects semantically duplicate task intent across queued specs and
- * candidate packets without relying on providers or file paths.
+ * Pure index that detects semantic duplicates by normalized capability keys,
+ * target families, and acceptance intent — catching renamed duplicates before
+ * they enter the queue.
  *
- * Similarity = intent_jaccard × 0.5 + acceptance_verb_jaccard × 0.3 + tag_jaccard × 0.2
- * Duplicate threshold: >= 0.60
- *
- * Complement guard (prevents false-blocking): tasks are complementary when
- *   - their unlock_chains are non-empty and differ, OR
- *   - one uses "must not" acceptance polarity and the other does not, OR
- *   - their evidence_floor values differ.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasTaskFabricSemanticDuplicateIndex
 {
     public const SCHEMA = 'atlas.task_fabric.semantic_duplicate_index.v1';
 
-    public const DUPLICATE_THRESHOLD = 0.60;
+    public const DUPLICATE_SEMANTIC = 'semantic_duplicate';
 
-    private const CLASS_PATTERN = '/\b[A-Z][A-Za-z]{4,}\b/';
-
-    private const STOP_WORDS = ['and', 'the', 'for', 'that', 'this', 'with', 'from', 'into', 'when', 'then', 'each', 'are', 'its', 'per', 'via', 'not', 'its', 'has', 'can', 'will'];
-
-    private const INTENT_WEIGHT = 0.5;
-
-    private const ACCEPTANCE_WEIGHT = 0.3;
-
-    private const TAG_WEIGHT = 0.2;
+    public const DUPLICATE_NONE = 'unique';
 
     /**
-     * @param  array<string,mixed>  $input  queued_specs + candidate_packets
-     * @return array<string,mixed>
+     * @param  array{
+     *   capability_key?:string,
+     *   target_family?:string,
+     *   allowed_files?:list<string>,
+     *   acceptance_intent?:string,
+     *   task_packet_id?:string,
+     * }  $candidate
+     * @param  list<array{
+     *   task_packet_id?:string,
+     *   capability_key?:string,
+     *   target_family?:string,
+     *   allowed_files?:list<string>,
+     *   acceptance_intent?:string,
+     * }>  $existing
+     * @return array{
+     *   schema:string,
+     *   status:string,
+     *   matched_packet_id:?string,
+     *   matched_target:?string,
+     *   reasons:list<string>,
+     * }
      */
-    public function check(array $input): array
+    public function check(array $candidate, array $existing): array
     {
-        $queuedSpecs = is_array($input['queued_specs'] ?? null) ? $input['queued_specs'] : [];
-        $candidates = is_array($input['candidate_packets'] ?? null) ? $input['candidate_packets'] : [];
+        $cCap = $this->normalizeKey((string) ($candidate['capability_key'] ?? ''));
+        $cFamily = (string) ($candidate['target_family'] ?? '');
+        $cIntent = $this->normalizeKey((string) ($candidate['acceptance_intent'] ?? ''));
+        $cFiles = $this->normalizeFiles($candidate['allowed_files'] ?? []);
 
-        $queuedFp = array_map([$this, 'fingerprint'], $queuedSpecs);
-        $candidateFp = array_map([$this, 'fingerprint'], $candidates);
+        foreach ($existing as $entry) {
+            $eCap = $this->normalizeKey((string) ($entry['capability_key'] ?? ''));
+            $eFamily = (string) ($entry['target_family'] ?? '');
+            $eIntent = $this->normalizeKey((string) ($entry['acceptance_intent'] ?? ''));
 
-        $duplicateFlags = [];
-        $flaggedIndices = [];
-
-        foreach ($candidates as $i => $candidate) {
-            $cf = $candidateFp[$i];
-
-            // Check against queued specs
-            foreach ($queuedSpecs as $j => $queued) {
-                $score = $this->similarity($cf, $queuedFp[$j]);
-                $isComplement = $this->isComplement($candidate, $queued);
-                $capabilityCollision = ! $isComplement && $this->hasCapabilityAndFileCollision($candidate, $queued);
-                if (($score >= self::DUPLICATE_THRESHOLD || $capabilityCollision) && ! $isComplement) {
-                    $duplicateFlags[] = [
-                        'candidate_index' => $i,
-                        'matched_against' => 'queued',
-                        'matched_index' => $j,
-                        'similarity_score' => round($score, 3),
-                        'reason' => $capabilityCollision && $score < self::DUPLICATE_THRESHOLD
-                            ? 'same capability intent and overlapping allowed_files as queued task'
-                            : 'objective intent and acceptance shape overlap with queued task',
-                    ];
-                    $flaggedIndices[$i] = true;
-                    break;
-                }
+            // Same capability key + same target family → semantic duplicate
+            if ($cCap !== '' && $cCap === $eCap && $cFamily === $eFamily) {
+                return $this->envelope(
+                    self::DUPLICATE_SEMANTIC,
+                    (string) ($entry['task_packet_id'] ?? ''),
+                    $eFamily,
+                    ['matched:capability_key+target_family:'.$cCap]
+                );
             }
 
-            if (isset($flaggedIndices[$i])) {
-                continue;
-            }
-
-            // Check against earlier candidates in same batch
-            for ($j = 0; $j < $i; $j++) {
-                $score = $this->similarity($cf, $candidateFp[$j]);
-                $isComplement = $this->isComplement($candidate, $candidates[$j]);
-                $capabilityCollision = ! $isComplement && $this->hasCapabilityAndFileCollision($candidate, $candidates[$j]);
-                if (($score >= self::DUPLICATE_THRESHOLD || $capabilityCollision) && ! $isComplement) {
-                    $duplicateFlags[] = [
-                        'candidate_index' => $i,
-                        'matched_against' => 'batch',
-                        'matched_index' => $j,
-                        'similarity_score' => round($score, 3),
-                        'reason' => $capabilityCollision && $score < self::DUPLICATE_THRESHOLD
-                            ? 'same capability intent and overlapping allowed_files as sibling candidate'
-                            : 'objective intent and acceptance shape overlap with sibling candidate',
-                    ];
-                    $flaggedIndices[$i] = true;
-                    break;
-                }
+            // Same acceptance intent + same target family → semantic duplicate
+            if ($cIntent !== '' && $cIntent === $eIntent && $cFamily === $eFamily && $cFamily !== '') {
+                return $this->envelope(
+                    self::DUPLICATE_SEMANTIC,
+                    (string) ($entry['task_packet_id'] ?? ''),
+                    $eFamily,
+                    ['matched:acceptance_intent+target_family:'.$cIntent]
+                );
             }
         }
 
-        $cleanCandidates = array_values(array_filter(
-            array_keys($candidates),
-            static fn (int $i): bool => ! isset($flaggedIndices[$i]),
-        ));
+        // Same files but different capabilities → NOT a duplicate (different non-overlapping work)
+        // This is the expected outcome and we return unique.
+
+        return $this->envelope(self::DUPLICATE_NONE, null, null, ['no_semantic_match']);
+    }
+
+    private function normalizeKey(string $key): string
+    {
+        $key = strtolower(trim($key));
+        $key = preg_replace('/[^a-z0-9]+/', '_', $key) ?? $key;
+
+        return trim($key, '_');
+    }
+
+    /** @param  list<string>  $files */
+    private function normalizeFiles(array $files): array
+    {
+        $normalized = array_map(fn ($f) => strtolower(trim((string) $f)), $files);
+        sort($normalized, SORT_STRING);
+
+        return $normalized;
+    }
+
+    private function envelope(string $status, ?string $matchedPacketId, ?string $matchedTarget, array $reasons): array
+    {
+        sort($reasons, SORT_STRING);
 
         return [
-            'schema_version' => self::SCHEMA,
-            'duplicate_flags' => $duplicateFlags,
-            'clean_candidates' => $cleanCandidates,
-            'flagged_count' => count($flaggedIndices),
-            'clean_count' => count($cleanCandidates),
+            'schema' => self::SCHEMA,
+            'status' => $status,
+            'matched_packet_id' => $matchedPacketId,
+            'matched_target' => $matchedTarget,
+            'reasons' => $reasons,
         ];
-    }
-
-    private function fingerprint(array $packet): array
-    {
-        return [
-            'intent_words' => $this->extractIntentWords((string) ($packet['objective'] ?? '')),
-            'acceptance_verbs' => $this->extractAcceptanceVerbs(
-                is_array($packet['acceptance_criteria'] ?? null) ? $packet['acceptance_criteria'] : [],
-            ),
-            'capability_tags' => array_map('strtolower', is_array($packet['capability_tags'] ?? null) ? $packet['capability_tags'] : []),
-        ];
-    }
-
-    private function extractIntentWords(string $objective): array
-    {
-        $cleaned = preg_replace(self::CLASS_PATTERN, '', $objective) ?? $objective;
-        $cleaned = strtolower(trim((string) preg_replace('/\s+/', ' ', $cleaned)));
-        $words = array_filter(
-            explode(' ', $cleaned),
-            static fn (string $w): bool => strlen($w) > 2 && ! in_array($w, self::STOP_WORDS, true),
-        );
-
-        return array_values(array_unique(array_values($words)));
-    }
-
-    private function extractAcceptanceVerbs(array $criteria): array
-    {
-        $verbs = [];
-        foreach ($criteria as $c) {
-            if (preg_match_all('/must\s+(not\s+)?(\w+)/i', (string) $c, $m)) {
-                foreach ($m[2] as $k => $verb) {
-                    $verbs[] = strtolower(($m[1][$k] !== '' ? 'not_' : '').$verb);
-                }
-            }
-        }
-
-        return array_values(array_unique($verbs));
-    }
-
-    private function jaccard(array $a, array $b): float
-    {
-        if ($a === [] && $b === []) {
-            return 0.0;
-        }
-        $inter = count(array_intersect($a, $b));
-        $union = count(array_unique(array_merge($a, $b)));
-
-        return $union === 0 ? 0.0 : $inter / $union;
-    }
-
-    private function similarity(array $a, array $b): float
-    {
-        return $this->jaccard($a['intent_words'], $b['intent_words']) * self::INTENT_WEIGHT
-            + $this->jaccard($a['acceptance_verbs'], $b['acceptance_verbs']) * self::ACCEPTANCE_WEIGHT
-            + $this->jaccard($a['capability_tags'], $b['capability_tags']) * self::TAG_WEIGHT;
-    }
-
-    /**
-     * True when two packets share the same SPECIFIC capability_intent (not a broad subsystem
-     * label from capability_tags) AND their allowed_files overlap — a near-duplicate even when
-     * the objective-text similarity score doesn't cross the jaccard threshold.
-     */
-    private function hasCapabilityAndFileCollision(array $a, array $b): bool
-    {
-        $aIntent = strtolower(trim((string) ($a['capability_intent'] ?? '')));
-        $bIntent = strtolower(trim((string) ($b['capability_intent'] ?? '')));
-        if ($aIntent === '' || $bIntent === '' || $aIntent !== $bIntent) {
-            return false;
-        }
-
-        $aFiles = array_map('strval', is_array($a['allowed_files'] ?? null) ? $a['allowed_files'] : []);
-        $bFiles = array_map('strval', is_array($b['allowed_files'] ?? null) ? $b['allowed_files'] : []);
-
-        return array_intersect($aFiles, $bFiles) !== [];
-    }
-
-    private function isComplement(array $a, array $b): bool
-    {
-        $aUnlocks = array_map('strtolower', is_array($a['unlock_chain'] ?? null) ? $a['unlock_chain'] : []);
-        $bUnlocks = array_map('strtolower', is_array($b['unlock_chain'] ?? null) ? $b['unlock_chain'] : []);
-        if ($aUnlocks !== [] && $bUnlocks !== [] && $aUnlocks !== $bUnlocks) {
-            return true;
-        }
-
-        $aText = strtolower(implode(' ', is_array($a['acceptance_criteria'] ?? null) ? $a['acceptance_criteria'] : []));
-        $bText = strtolower(implode(' ', is_array($b['acceptance_criteria'] ?? null) ? $b['acceptance_criteria'] : []));
-        if (str_contains($aText, 'must not') !== str_contains($bText, 'must not')) {
-            return true;
-        }
-
-        $aFloor = (string) ($a['evidence_floor'] ?? '');
-        $bFloor = (string) ($b['evidence_floor'] ?? '');
-        if ($aFloor !== '' && $bFloor !== '' && $aFloor !== $bFloor) {
-            return true;
-        }
-
-        return false;
     }
 }
