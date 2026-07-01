@@ -222,6 +222,90 @@ final class AtlasSelfConstructionToolGapBridgeService
     }
 
     /**
+     * Pure proposal-quality gate over already-observed loss patterns: rejects generic code-fix
+     * losses, requires each accepted gap to name the matched capability-gap signal, and collapses
+     * duplicate gap signals BEFORE max_proposals is applied so re-observing the same recurrent gap
+     * never pads the batch. Never calls the loss-observer or the builder — testable in isolation.
+     *
+     * @param  list<array<string,mixed>>  $patterns  same shape as loss-observer dominant_patterns
+     * @param  array{min_occurrences?:int, max_proposals?:int}  $options
+     * @return array<string,mixed>
+     */
+    public function evaluateProposalQuality(array $patterns, array $options = []): array
+    {
+        $minOccurrences = max(2, (int) ($options['min_occurrences'] ?? 3));
+        $maxProposals = max(1, (int) ($options['max_proposals'] ?? 5));
+
+        $accepted = [];
+        $skipped = [];
+        $seenSignals = [];
+        $duplicatesCollapsed = 0;
+
+        foreach ($patterns as $pattern) {
+            $reason = (string) ($pattern['reason'] ?? '');
+            $occurrences = (int) ($pattern['occurrences'] ?? 0);
+            $targetPath = trim((string) ($pattern['target_path'] ?? ''));
+            $signal = $this->capabilityGapSignal($reason, $targetPath);
+
+            if ($signal === null || $occurrences < $minOccurrences) {
+                $skipped[] = [
+                    'reason' => $reason,
+                    'occurrences' => $occurrences,
+                    'classification' => 'code_fix_intent',
+                    'proposal_quality' => ['accepted' => false, 'classification' => 'code_fix_intent'],
+                    'why' => $signal === null ? 'no_capability_gap_signal' : 'below_min_occurrences',
+                ];
+
+                continue;
+            }
+
+            // Duplicate collapse happens BEFORE the max_proposals slice — a signal that recurs
+            // across multiple observed patterns never buys extra slots in the capped batch.
+            $dedupKey = $signal.'|'.mb_strtolower(trim($reason));
+            if (isset($seenSignals[$dedupKey])) {
+                $duplicatesCollapsed++;
+
+                continue;
+            }
+            $seenSignals[$dedupKey] = true;
+
+            $accepted[] = [
+                'reason' => $reason,
+                'occurrences' => $occurrences,
+                'signal' => $signal,
+                'tool_acronym' => $this->toolAcronym($signal, $reason),
+                'tool_name' => $this->toolName($signal),
+                'proposal_quality' => [
+                    'accepted' => true,
+                    'classification' => 'recurrent_capability_gap',
+                    'matched_signal' => $signal,
+                ],
+            ];
+        }
+
+        usort(
+            $accepted,
+            static fn (array $a, array $b): int => [$b['occurrences'], $a['tool_acronym']] <=> [$a['occurrences'], $b['tool_acronym']],
+        );
+
+        $capped = array_slice($accepted, 0, $maxProposals);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'accepted_proposals' => $capped,
+            'accepted_count' => count($capped),
+            'skipped' => $skipped,
+            'duplicates_collapsed' => $duplicatesCollapsed,
+            'claim_policy' => [
+                'never_silent' => true,
+                'requires_human_approval' => true,
+                'auto_approved' => false,
+                'auto_promoted' => false,
+            ],
+        ];
+    }
+
+    /**
      * Return the matched capability-gap signal, or null if this loss is an
      * ordinary code-fix intent (a bug in an existing file).
      */
