@@ -44,6 +44,13 @@ final class AtlasExternalBrainCommitGreenLiftEvaluator
     public const COMMIT_VERDICT_REAL_VALUE_LIFT = 'real_value_lift';
     public const COMMIT_VERDICT_LOW_LIFT        = 'low_lift_cosmetic';
 
+    public const GREENWASHING_TEST_ONLY      = 'test_only_no_implementation_change';
+    public const GREENWASHING_COSMETIC       = 'cosmetic_no_lift_signal';
+    public const GREENWASHING_PROXY_ONLY     = 'proxy_evidence_only';
+    public const GREENWASHING_STALE_EVIDENCE = 'stale_evidence';
+
+    private const DEFAULT_MAX_EVIDENCE_AGE_SECONDS = 86400;
+
     /**
      * Evaluates a SINGLE green commit for real capability lift, downstream
      * unlock, simplification, or risk reduction — a green test suite alone
@@ -66,7 +73,27 @@ final class AtlasExternalBrainCommitGreenLiftEvaluator
         $hasRiskReduction = $riskReductionEvidence !== [];
 
         $signalCount = (int) $hasCapabilityLift + (int) $hasDownstreamUnlock + (int) $hasSimplification + (int) $hasRiskReduction;
-        $isLowLift = $signalCount === 0;
+
+        // AC1/AC2: a green test suite alone is never lift — implementation_change and
+        // relevant_tests default to true (assume a normal code commit) so existing callers that
+        // never set them are unaffected; a commit that explicitly declares no implementation
+        // change is test-only greenwashing regardless of how many "signals" it claims.
+        $implementationChange = (bool) ($commit['implementation_change'] ?? true);
+        $relevantTests = (bool) ($commit['relevant_tests'] ?? true);
+        $proxyEvidenceOnly = (bool) ($commit['proxy_evidence_only'] ?? false);
+        $evidenceAgeSeconds = isset($commit['evidence_age_seconds']) ? (int) $commit['evidence_age_seconds'] : null;
+        $maxEvidenceAgeSeconds = (int) ($commit['max_evidence_age_seconds'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_SECONDS);
+        $evidenceStale = $evidenceAgeSeconds !== null && $evidenceAgeSeconds > $maxEvidenceAgeSeconds;
+
+        $greenwashingReason = match (true) {
+            ! $implementationChange && $relevantTests => self::GREENWASHING_TEST_ONLY,
+            $proxyEvidenceOnly => self::GREENWASHING_PROXY_ONLY,
+            $evidenceStale => self::GREENWASHING_STALE_EVIDENCE,
+            $signalCount === 0 => self::GREENWASHING_COSMETIC,
+            default => null,
+        };
+        $isGreenwashing = $greenwashingReason !== null;
+        $isLowLift = $isGreenwashing;
         $verdict = $isLowLift ? self::COMMIT_VERDICT_LOW_LIFT : self::COMMIT_VERDICT_REAL_VALUE_LIFT;
 
         return [
@@ -77,6 +104,12 @@ final class AtlasExternalBrainCommitGreenLiftEvaluator
             'simplification_delta'    => round($simplificationDelta, 4),
             'risk_reduction_evidence' => $riskReductionEvidence,
             'signal_count'            => $signalCount,
+            'implementation_change'   => $implementationChange,
+            'relevant_tests'          => $relevantTests,
+            'proxy_evidence_only'     => $proxyEvidenceOnly,
+            'evidence_stale'          => $evidenceStale,
+            'is_greenwashing'         => $isGreenwashing,
+            'greenwashing_reason'     => $greenwashingReason,
             'is_low_lift'             => $isLowLift,
             'verdict'                 => $verdict,
             'learning_feedback'       => $this->commitLearningFeedback(

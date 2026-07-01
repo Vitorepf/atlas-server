@@ -287,4 +287,78 @@ final class AtlasExternalBrainCommitGreenLiftEvaluatorTest extends TestCase
 
         $this->assertContains('capability_lift_confirmed_author_more_in_this_family', $result['learning_feedback']);
     }
+
+    // ── AC1/AC2: implementation change + relevant tests + greenwashing flags ────
+
+    public function test_true_lift_with_implementation_and_tests_is_not_greenwashing(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'implementation_change' => true,
+            'relevant_tests' => true,
+            'capability_lift_evidence' => ['organ X now self-heals'],
+        ]);
+
+        $this->assertFalse($result['is_greenwashing']);
+        $this->assertNull($result['greenwashing_reason']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::COMMIT_VERDICT_REAL_VALUE_LIFT, $result['verdict']);
+    }
+
+    public function test_test_only_green_is_flagged_as_greenwashing(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'implementation_change' => false,
+            'relevant_tests' => true,
+            'capability_lift_evidence' => ['claims a lift but touched no impl'],
+        ]);
+
+        $this->assertTrue($result['is_greenwashing']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::GREENWASHING_TEST_ONLY, $result['greenwashing_reason']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::COMMIT_VERDICT_LOW_LIFT, $result['verdict']);
+    }
+
+    public function test_cosmetic_green_is_flagged_as_greenwashing(): void
+    {
+        $result = $this->evaluator->evaluateCommit([]);
+
+        $this->assertTrue($result['is_greenwashing']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::GREENWASHING_COSMETIC, $result['greenwashing_reason']);
+    }
+
+    public function test_proxy_only_green_is_flagged_as_greenwashing(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'capability_lift_evidence' => ['test_count=1200'],
+            'proxy_evidence_only' => true,
+        ]);
+
+        $this->assertTrue($result['is_greenwashing']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::GREENWASHING_PROXY_ONLY, $result['greenwashing_reason']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::COMMIT_VERDICT_LOW_LIFT, $result['verdict']);
+    }
+
+    public function test_stale_evidence_downgrades_lift_to_low_lift(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'capability_lift_evidence' => ['organ X now self-heals'],
+            'evidence_age_seconds' => 200_000,
+            'max_evidence_age_seconds' => 86_400,
+        ]);
+
+        $this->assertTrue($result['evidence_stale']);
+        $this->assertTrue($result['is_greenwashing']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::GREENWASHING_STALE_EVIDENCE, $result['greenwashing_reason']);
+        $this->assertSame(AtlasExternalBrainCommitGreenLiftEvaluator::COMMIT_VERDICT_LOW_LIFT, $result['verdict']);
+    }
+
+    public function test_fresh_evidence_within_window_is_not_stale(): void
+    {
+        $result = $this->evaluator->evaluateCommit([
+            'capability_lift_evidence' => ['organ X now self-heals'],
+            'evidence_age_seconds' => 100,
+            'max_evidence_age_seconds' => 86_400,
+        ]);
+
+        $this->assertFalse($result['evidence_stale']);
+        $this->assertFalse($result['is_greenwashing']);
+    }
 }
