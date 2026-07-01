@@ -45,13 +45,16 @@ final class TerminalLoopHealthDigestCommandComposer
      */
     public function queueTagArgs(array $queueTags): string
     {
-        if ($queueTags === []) {
+        // Blank tags carry no information and would otherwise be sanitized to a repeated
+        // literal 'queue' default — omit them entirely instead of polluting the command.
+        $nonEmptyTags = array_values(array_filter($queueTags, static fn (string $tag): bool => trim($tag) !== ''));
+        if ($nonEmptyTags === []) {
             return '';
         }
 
         return ' '.implode(' ', array_map(
             fn (string $tag): string => '--queue-tag='.$this->safeCommandToken($tag, 'queue'),
-            $queueTags,
+            $nonEmptyTags,
         ));
     }
 
