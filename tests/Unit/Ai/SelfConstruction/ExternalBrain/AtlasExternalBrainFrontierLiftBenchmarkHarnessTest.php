@@ -178,6 +178,95 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarnessTest extends TestCase
         $this->assertNull($r['next_scaffold_improvement']);
     }
 
+    // ── no lift ───────────────────────────────────────────────────────────────
+
+    public function test_no_lift_when_scaffolded_equals_small(): void
+    {
+        $r = $this->measure([
+            $this->challenge(
+                $this->tierScores(6, 6, 6, 6, 6),
+                $this->tierScores(6, 6, 6, 6, 6),
+                $this->tierScores(9, 9, 9, 9, 9),
+            ),
+        ]);
+
+        $this->assertSame(0.0, $r['lift_summary']['lift_from_scaffold']);
+        $this->assertSame([], $r['regression_flags']);
+    }
+
+    // ── regression_flags ──────────────────────────────────────────────────────
+
+    public function test_regression_flags_when_scaffolded_underperforms_small(): void
+    {
+        $r = $this->measure([
+            $this->challenge(
+                $this->tierScores(8, 6, 6, 6, 6),   // implementability small=8
+                $this->tierScores(5, 6, 6, 6, 6),   // implementability scaffolded=5 → regression
+                $this->tierScores(9, 9, 9, 9, 9),
+            ),
+        ]);
+
+        $dims = array_column($r['regression_flags'], 'dimension');
+        $this->assertContains('implementability', $dims);
+        $this->assertNotContains('non_duplication', $dims);
+    }
+
+    public function test_regression_flags_empty_when_scaffolded_never_underperforms(): void
+    {
+        $r = $this->measure([
+            $this->challenge(
+                $this->tierScores(4, 4, 4, 4, 4),
+                $this->tierScores(8, 8, 8, 8, 8),
+                $this->tierScores(9, 9, 9, 9, 9),
+            ),
+        ]);
+
+        $this->assertSame([], $r['regression_flags']);
+    }
+
+    // ── missing baseline/current evidence ────────────────────────────────────
+
+    public function test_challenge_missing_small_model_baseline_is_excluded_and_counted(): void
+    {
+        $r = $this->measure([
+            ['scaffolded_small' => $this->tierScores(8, 8, 8, 8, 8), 'frontier' => $this->tierScores(9, 9, 9, 9, 9)],
+            $this->challenge(
+                $this->tierScores(6, 6, 6, 6, 6),
+                $this->tierScores(8, 8, 8, 8, 8),
+                $this->tierScores(9, 9, 9, 9, 9),
+            ),
+        ]);
+
+        $this->assertSame(1, $r['missing_evidence_count']);
+        $this->assertEqualsWithDelta(6.0, $r['tier_scores']['small_model'], 0.01);
+    }
+
+    public function test_challenge_missing_scaffolded_current_is_excluded_and_counted(): void
+    {
+        $r = $this->measure([
+            ['small_model' => $this->tierScores(6, 6, 6, 6, 6), 'frontier' => $this->tierScores(9, 9, 9, 9, 9)],
+            $this->challenge(
+                $this->tierScores(6, 6, 6, 6, 6),
+                $this->tierScores(8, 8, 8, 8, 8),
+                $this->tierScores(9, 9, 9, 9, 9),
+            ),
+        ]);
+
+        $this->assertSame(1, $r['missing_evidence_count']);
+        $this->assertEqualsWithDelta(8.0, $r['tier_scores']['scaffolded_small'], 0.01);
+    }
+
+    public function test_all_challenges_missing_evidence_returns_safe_defaults(): void
+    {
+        $r = $this->measure([
+            ['frontier' => $this->tierScores(9, 9, 9, 9, 9)],
+        ]);
+
+        $this->assertSame([], $r['tier_scores']);
+        $this->assertSame(1, $r['missing_evidence_count']);
+        $this->assertSame([], $r['regression_flags']);
+    }
+
     // ── empty + schema ────────────────────────────────────────────────────────
 
     public function test_empty_challenges_returns_safe_defaults(): void

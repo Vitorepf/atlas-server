@@ -18,6 +18,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * frontier_multiplier: frontier avg ÷ small_model avg (null when small avg = 0).
  * failing_dimensions: scaffolded_small per-dimension avg below ACCEPTABLE_FLOOR (7.0).
  * next_scaffold_improvement: failing dimension with the lowest scaffolded_small avg.
+ * regression_flags: per-dimension avg where scaffolded_small scored below small_model —
+ *   the scaffold made the weak model worse, not just insufficiently better.
+ * missing_evidence_count: challenges missing a small_model or scaffolded_small tier are
+ *   excluded from every average instead of silently zero-filled, which would otherwise
+ *   fabricate a fake lift or regression.
  */
 final class AtlasExternalBrainFrontierLiftBenchmarkHarness
 {
@@ -51,7 +56,18 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
      */
     public function measure(array $input): array
     {
-        $challenges = is_array($input['benchmark_challenges'] ?? null) ? $input['benchmark_challenges'] : [];
+        $rawChallenges = is_array($input['benchmark_challenges'] ?? null) ? $input['benchmark_challenges'] : [];
+
+        $challenges = [];
+        $missingEvidenceCount = 0;
+        foreach ($rawChallenges as $c) {
+            if (! is_array($c) || ! is_array($c['small_model'] ?? null) || ! is_array($c['scaffolded_small'] ?? null)) {
+                $missingEvidenceCount++;
+                continue;
+            }
+            $challenges[] = $c;
+        }
+
         $n = count($challenges);
 
         if ($n === 0) {
@@ -61,8 +77,10 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
                 'lift_summary' => ['lift_from_scaffold' => 0.0, 'frontier_multiplier' => null],
                 'failing_dimensions' => [],
                 'next_scaffold_improvement' => null,
+                'regression_flags' => [],
                 'lift_result' => self::LIFT_RESULT_INCONCLUSIVE,
                 'held_out_sample_count' => 0,
+                'missing_evidence_count' => $missingEvidenceCount,
             ];
         }
 
@@ -114,6 +132,20 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
             ? round($tierAvgs['frontier'] / $tierAvgs['small_model'], 3)
             : null;
 
+        $regressionFlags = [];
+        foreach (self::DIMENSIONS as $dim) {
+            $smallAvg = round($dimTotals['small_model'][$dim] / $n, 3);
+            $scaffoldedAvg = round($dimTotals['scaffolded_small'][$dim] / $n, 3);
+            if ($scaffoldedAvg < $smallAvg) {
+                $regressionFlags[] = [
+                    'dimension' => $dim,
+                    'small_avg' => $smallAvg,
+                    'scaffolded_avg' => $scaffoldedAvg,
+                    'delta' => round($scaffoldedAvg - $smallAvg, 3),
+                ];
+            }
+        }
+
         // held_out: only challenges explicitly marked as NOT reused training examples are
         // allowed to prove a lift_result — proxy "passed on training data" never counts.
         $heldOutChallenges = array_values(array_filter($challenges, static fn ($c): bool => is_array($c) && (bool) ($c['held_out'] ?? false)));
@@ -128,8 +160,10 @@ final class AtlasExternalBrainFrontierLiftBenchmarkHarness
             ],
             'failing_dimensions' => $failingDimensions,
             'next_scaffold_improvement' => $worstDim,
+            'regression_flags' => $regressionFlags,
             'lift_result' => $liftResult,
             'held_out_sample_count' => count($heldOutChallenges),
+            'missing_evidence_count' => $missingEvidenceCount,
         ];
     }
 
