@@ -40,6 +40,8 @@ final class AtlasExternalBrainAutonomyDependencyInverter
     public const DEP_EXTERNAL_PROVIDER    = 'external_provider';
     public const DEP_OPTIONAL_ACCELERATOR = 'optional_accelerator';
     public const DEP_ATLAS_NATIVE         = 'atlas_native';
+    public const DEP_MUSCLE               = 'muscle';
+    public const DEP_MANUAL_WORKFLOW      = 'manual_workflow';
 
     public const SEV_CRITICAL = 'critical';
     public const SEV_HIGH     = 'high';
@@ -57,11 +59,15 @@ final class AtlasExternalBrainAutonomyDependencyInverter
         self::DEP_CLAUDE_CODEX,
         self::DEP_EXTERNAL_PROVIDER,
         self::DEP_OPTIONAL_ACCELERATOR,
+        self::DEP_MUSCLE,
+        self::DEP_MANUAL_WORKFLOW,
     ];
 
     private const SEVERITY_MAP = [
         self::DEP_HUMAN                => self::SEV_CRITICAL,
+        self::DEP_MANUAL_WORKFLOW      => self::SEV_CRITICAL,
         self::DEP_OPERATOR             => self::SEV_HIGH,
+        self::DEP_MUSCLE               => self::SEV_HIGH,
         self::DEP_CLAUDE_CODEX         => self::SEV_MEDIUM,
         self::DEP_EXTERNAL_PROVIDER    => self::SEV_MEDIUM,
         self::DEP_OPTIONAL_ACCELERATOR => self::SEV_LOW,
@@ -76,7 +82,9 @@ final class AtlasExternalBrainAutonomyDependencyInverter
 
     private const AUTONOMY_GAIN_SCORE = [
         self::DEP_HUMAN                => 1.0,
+        self::DEP_MANUAL_WORKFLOW      => 0.9,
         self::DEP_OPERATOR             => 0.8,
+        self::DEP_MUSCLE               => 0.7,
         self::DEP_CLAUDE_CODEX         => 0.5,
         self::DEP_EXTERNAL_PROVIDER    => 0.5,
         self::DEP_OPTIONAL_ACCELERATOR => 0.2,
@@ -84,7 +92,9 @@ final class AtlasExternalBrainAutonomyDependencyInverter
 
     private const REPLACEMENT_TEMPLATES = [
         self::DEP_HUMAN                => 'atlas_native_autonomous_decision_organ_for_%stage%',
+        self::DEP_MANUAL_WORKFLOW      => 'atlas_native_automated_workflow_for_%stage%',
         self::DEP_OPERATOR             => 'atlas_native_operator_free_%stage%_governor',
+        self::DEP_MUSCLE               => 'atlas_native_muscle_worker_for_%stage%',
         self::DEP_CLAUDE_CODEX         => 'atlas_native_minimax_or_local_llm_adapter_for_%stage%',
         self::DEP_EXTERNAL_PROVIDER    => 'atlas_native_%stage%_capability_organ',
         self::DEP_OPTIONAL_ACCELERATOR => 'atlas_native_optional_%stage%_organ',
@@ -92,10 +102,26 @@ final class AtlasExternalBrainAutonomyDependencyInverter
 
     private const TASK_FAMILY_TEMPLATES = [
         self::DEP_HUMAN                => 'autonomy:remove_human_gate_from_%stage%',
+        self::DEP_MANUAL_WORKFLOW      => 'autonomy:automate_manual_workflow_%stage%',
         self::DEP_OPERATOR             => 'autonomy:operator_free_%stage%',
+        self::DEP_MUSCLE               => 'autonomy:replace_external_muscle_%stage%_with_atlas_native',
         self::DEP_CLAUDE_CODEX         => 'provider:replace_claude_codex_%stage%_with_atlas_native',
         self::DEP_EXTERNAL_PROVIDER    => 'provider:replace_external_%stage%_dependency',
         self::DEP_OPTIONAL_ACCELERATOR => 'autonomy:internalize_optional_%stage%_accelerator',
+    ];
+
+    private const FEASIBILITY_SCORE = [
+        self::REMOVABILITY_REMOVABLE             => 3,
+        self::REMOVABILITY_FALLBACK_REQUIRED     => 2,
+        self::REMOVABILITY_CERTIFICATION_REQUIRED => 1,
+        self::REMOVABILITY_UNAVOIDABLE_EXCEPTION => 0,
+    ];
+
+    private const RISK_LEVEL = [
+        self::REMOVABILITY_REMOVABLE             => 'low',
+        self::REMOVABILITY_FALLBACK_REQUIRED     => 'medium',
+        self::REMOVABILITY_CERTIFICATION_REQUIRED => 'medium',
+        self::REMOVABILITY_UNAVOIDABLE_EXCEPTION => 'high',
     ];
 
     /**
@@ -168,6 +194,22 @@ final class AtlasExternalBrainAutonomyDependencyInverter
                 default                  => self::REMOVABILITY_UNAVOIDABLE_EXCEPTION,
             };
 
+            $feasibilityScore = self::FEASIBILITY_SCORE[$removabilityClassification] ?? 0;
+            $riskLevel        = self::RISK_LEVEL[$removabilityClassification] ?? 'high';
+            $proofPath        = [$this->evidenceFloor($depType, $stage)];
+            // AC2 composite ranking: autonomy lift dominates (x10 so it always outranks the
+            // 0-3 feasibility spread), feasibility breaks ties among equally-impactful
+            // dependencies. Never asserts a dependency is easy to remove merely because it is
+            // impactful — feasibility is a strictly additive tie-breaker, not an override.
+            $rankingScore = round($gainScore * 10 + $feasibilityScore, 4);
+
+            // AC3: any dependency not yet classified removable is preserved only as a temporary
+            // acceleration surface — it must carry an explicit sunset criterion, never become
+            // silent permanent architecture.
+            $sunsetCriteria = $removabilityClassification === self::REMOVABILITY_REMOVABLE
+                ? 'already_removable_no_sunset_wait_required'
+                : 'sunset_when: '.$this->evidenceFloor($depType, $stage);
+
             $inversions[] = [
                 'stage'                        => $stage,
                 'dependency_type'              => $depType,
@@ -190,13 +232,20 @@ final class AtlasExternalBrainAutonomyDependencyInverter
                 'removal_readiness'               => $removabilityClassification,
                 'missing_evidence_floors'         => [$this->evidenceFloor($depType, $stage)],
                 'first_task_to_remove_dependency' => $taskFamily,
+                // AC2: ranking dimensions — autonomy lift, feasibility, risk, proof path.
+                'feasibility_score'  => $feasibilityScore,
+                'risk_level'         => $riskLevel,
+                'proof_path'         => $proofPath,
+                'ranking_score'      => $rankingScore,
+                // AC3: external tools are never permanent architecture.
+                'temporary_acceleration_surface' => $removabilityClassification !== self::REMOVABILITY_REMOVABLE,
+                'sunset_criteria'                => $sunsetCriteria,
             ];
         }
 
-        // Sort: critical → high → medium → low, then stage asc.
-        $severityOrder = [self::SEV_CRITICAL => 0, self::SEV_HIGH => 1, self::SEV_MEDIUM => 2, self::SEV_LOW => 3];
-        usort($inversions, static function (array $a, array $b) use ($severityOrder): int {
-            $so = ($severityOrder[$a['severity']] ?? 4) <=> ($severityOrder[$b['severity']] ?? 4);
+        // Rank by composite score (autonomy lift + feasibility) descending, then stage asc.
+        usort($inversions, static function (array $a, array $b): int {
+            $so = $b['ranking_score'] <=> $a['ranking_score'];
 
             return $so !== 0 ? $so : strcmp($a['stage'], $b['stage']);
         });
@@ -214,7 +263,9 @@ final class AtlasExternalBrainAutonomyDependencyInverter
     {
         return match ($depType) {
             self::DEP_HUMAN                => 'atlas_native_'.$stage.'_runs_24h_without_human_input',
+            self::DEP_MANUAL_WORKFLOW      => 'atlas_native_'.$stage.'_completes_without_manual_workflow_step',
             self::DEP_OPERATOR             => 'atlas_native_'.$stage.'_approved_without_operator_prompt',
+            self::DEP_MUSCLE               => 'atlas_native_'.$stage.'_delivers_without_external_muscle_worker',
             self::DEP_CLAUDE_CODEX         => 'atlas_native_'.$stage.'_delivers_equivalent_output_to_codex',
             self::DEP_EXTERNAL_PROVIDER    => 'atlas_native_'.$stage.'_replicates_external_provider_output',
             self::DEP_OPTIONAL_ACCELERATOR => 'atlas_native_'.$stage.'_runs_without_optional_accelerator',
