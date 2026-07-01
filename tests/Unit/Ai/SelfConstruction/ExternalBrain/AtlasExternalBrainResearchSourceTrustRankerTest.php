@@ -233,6 +233,120 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
         $this->assertSame(AtlasExternalBrainResearchSourceTrustRanker::USE_ADOPT_DIRECTLY, $r['use_decision']);
     }
 
+    // ── AC1: task_admission_decision with machine-readable adopt/review/reject ──
+
+    public function test_clean_primary_doc_has_task_admission_decision_adopt_as_task(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    // ── AC2: high score alone insufficient — missing date/url/hype/grounding blocks adoption ──
+
+    public function test_high_score_blocked_from_adopt_as_task_by_missing_source_date(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+            'source_date' => '',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    public function test_high_score_blocked_from_adopt_as_task_by_missing_url(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'has_source_url' => false,
+            'grounding' => 'repo_verified',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    public function test_high_score_blocked_from_adopt_as_task_by_hype(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+            'source_date' => '2026-06-30',
+            'is_hype_heavy' => true,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    public function test_high_score_blocked_from_adopt_as_task_by_missing_grounding(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'has_source_url' => true,
+            'grounding' => 'none',
+            'source_date' => '2026-06-30',
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_ADOPT, $r['task_admission_decision']);
+    }
+
+    // ── AC3: atlas_adaptation_requirements is always present ────────────────
+
+    public function test_atlas_adaptation_requirements_always_present_even_for_adopted_source(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'primary_documentation',
+            'has_concrete_claim' => true,
+            'source_date' => '2026-06-30',
+            'has_source_url' => true,
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertNotEmpty($r['atlas_adaptation_requirements']);
+        $this->assertContains('translate_into_atlas_native_task_spec_before_admission', $r['atlas_adaptation_requirements']);
+        $this->assertContains('attach_runnable_test_or_gate_evidence', $r['atlas_adaptation_requirements']);
+    }
+
+    // ── AC4: generic summaries/blogs require primary_source_citation + repo_local_verification ──
+
+    public function test_generic_summary_requires_primary_source_citation_and_repo_local_verification(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'generic_summary',
+            'source_date' => '2026-06-30',
+            'grounding' => 'none',
+        ]);
+
+        $this->assertContains('requires_primary_source_citation', $r['grounding_requirements']);
+        $this->assertContains('requires_repo_local_verification', $r['grounding_requirements']);
+        $this->assertContains('requires_primary_source_citation', $r['atlas_adaptation_requirements']);
+        $this->assertContains('requires_repo_local_verification', $r['atlas_adaptation_requirements']);
+    }
+
+    public function test_blog_requires_primary_source_citation(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'blog',
+            'source_date' => '2026-06-30',
+            'grounding' => 'repo_verified',
+        ]);
+
+        $this->assertContains('requires_primary_source_citation', $r['grounding_requirements']);
+    }
+
     private function ranker(): AtlasExternalBrainResearchSourceTrustRanker
     {
         return new AtlasExternalBrainResearchSourceTrustRanker;

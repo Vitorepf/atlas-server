@@ -28,6 +28,10 @@ final class AtlasExternalBrainResearchSourceTrustRanker
     public const USE_REVIEW_FIRST   = 'review_first';
     public const USE_REJECT         = 'reject';
 
+    public const TASK_ADMISSION_ADOPT  = 'adopt_as_task';
+    public const TASK_ADMISSION_REVIEW = 'review_first';
+    public const TASK_ADMISSION_REJECT = 'reject';
+
     private const SCORE_PRIMARY_DOCS     = 8.0;
     private const SCORE_REPO_LOCAL       = 7.0;
     private const SCORE_MEASURED_REPORT  = 6.0;
@@ -168,15 +172,34 @@ final class AtlasExternalBrainResearchSourceTrustRanker
             }
         }
 
+        $taskAdmissionDecision = match ($useDecision) {
+            self::USE_ADOPT_DIRECTLY => self::TASK_ADMISSION_ADOPT,
+            self::USE_REVIEW_FIRST   => self::TASK_ADMISSION_REVIEW,
+            default                  => self::TASK_ADMISSION_REJECT,
+        };
+
+        // Even an adopted source is never runnable Atlas work as-is — it must always be
+        // translated into an Atlas-native task spec with runnable proof, plus whatever
+        // grounding is still owed for this candidate's shape.
+        $atlasAdaptationRequirements = array_values(array_unique(array_merge(
+            [
+                'translate_into_atlas_native_task_spec_before_admission',
+                'attach_runnable_test_or_gate_evidence',
+            ],
+            $groundingReqs,
+        )));
+
         return [
-            'schema'                 => self::SCHEMA,
-            'trust_score'            => $score,
-            'trust_tier'             => $tier,
-            'use_decision'           => $useDecision,
-            'penalties'              => array_values(array_unique($penalties)),
-            'grounding_requirements' => array_values(array_unique($groundingReqs)),
-            'rejection_reasons'      => array_values(array_unique($rejectionReasons)),
-            'adoption_blockers'      => array_values(array_unique($adoptionBlockers)),
+            'schema'                       => self::SCHEMA,
+            'trust_score'                  => $score,
+            'trust_tier'                   => $tier,
+            'use_decision'                 => $useDecision,
+            'task_admission_decision'      => $taskAdmissionDecision,
+            'penalties'                    => array_values(array_unique($penalties)),
+            'grounding_requirements'       => array_values(array_unique($groundingReqs)),
+            'rejection_reasons'            => array_values(array_unique($rejectionReasons)),
+            'adoption_blockers'            => array_values(array_unique($adoptionBlockers)),
+            'atlas_adaptation_requirements' => $atlasAdaptationRequirements,
         ];
     }
 
