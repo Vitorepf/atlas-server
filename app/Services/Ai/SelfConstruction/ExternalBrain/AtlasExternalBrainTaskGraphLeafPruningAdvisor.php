@@ -101,6 +101,10 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisor
                     'recommendation' => 'keep_leaf',
                     'reason' => 'has_downstream_unlocks_not_a_pruning_candidate',
                     'leverage_score' => null,
+                    'safe_pruning_evidence' => [],
+                    'merge_target_hint' => null,
+                    'retirement_blockers' => [],
+                    'preserves_capability' => true,
                 ];
 
                 continue;
@@ -111,6 +115,11 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisor
             $implementationEffort = max(0.0, min(1.0, (float) ($task['implementation_effort'] ?? 0.0)));
             $duplicationRisk = max(0.0, min(1.0, (float) ($task['duplication_risk'] ?? 0.0)));
             $isSafetyOrCertification = (bool) ($task['is_safety_or_certification'] ?? false);
+            $safePruningEvidence = array_values(array_filter(array_map(
+                'strval',
+                (array) ($task['safe_pruning_evidence'] ?? []),
+            ), static fn (string $e): bool => $e !== ''));
+            $mergeTargetHint = trim((string) ($task['merge_target_hint'] ?? ''));
 
             $leverageScore = max(0.0, min(1.0,
                 $evidenceValue * 0.4
@@ -127,11 +136,27 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisor
                 default => ['keep_leaf', 'sufficient_leverage_keep'],
             };
 
+            // retire_leaf additionally requires concrete safe_pruning_evidence — a low leverage
+            // score alone never proves it is safe to delete a leaf outright; without evidence
+            // the leaf is delayed instead, and the missing requirement is named as a blocker.
+            $retirementBlockers = [];
+            if ($recommendation === 'retire_leaf' && $safePruningEvidence === []) {
+                $recommendation = 'delay_leaf';
+                $reason = 'low_leverage_but_missing_safe_pruning_evidence';
+                $retirementBlockers[] = 'missing_safe_pruning_evidence';
+            }
+
+            $preservesCapability = in_array($recommendation, ['keep_leaf', 'merge_leaf', 'delay_leaf'], true);
+
             $recommendations[] = [
                 'task_id' => $taskId,
                 'recommendation' => $recommendation,
                 'reason' => $reason,
                 'leverage_score' => round($leverageScore, 4),
+                'safe_pruning_evidence' => $safePruningEvidence,
+                'merge_target_hint' => $recommendation === 'merge_leaf' ? ($mergeTargetHint !== '' ? $mergeTargetHint : null) : null,
+                'retirement_blockers' => $retirementBlockers,
+                'preserves_capability' => $preservesCapability,
             ];
         }
 

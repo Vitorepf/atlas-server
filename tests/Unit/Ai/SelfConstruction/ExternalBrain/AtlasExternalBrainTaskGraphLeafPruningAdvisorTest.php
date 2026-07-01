@@ -58,7 +58,7 @@ final class AtlasExternalBrainTaskGraphLeafPruningAdvisorTest extends TestCase
     {
         $result = (new AtlasExternalBrainTaskGraphLeafPruningAdvisor)->advise([
             'tasks' => [
-                ['task_id' => 't1', 'evidence_value' => 0.1, 'maturity_gap_coverage' => 0.1],
+                ['task_id' => 't1', 'evidence_value' => 0.1, 'maturity_gap_coverage' => 0.1, 'safe_pruning_evidence' => ['no_active_consumers']],
             ],
         ]);
 
