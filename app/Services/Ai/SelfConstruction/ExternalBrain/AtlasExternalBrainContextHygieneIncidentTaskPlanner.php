@@ -72,6 +72,9 @@ final class AtlasExternalBrainContextHygieneIncidentTaskPlanner
     /** Leakage-class issues affect every downstream worker — always high leverage. */
     private const LEAKAGE_CLASS = [self::ISSUE_RAW_HOSTILE_LANGUAGE, self::ISSUE_RAW_PROMPT_LEAKAGE];
 
+    /** what kind of recurring waste a repair-candidate log claims to remove. */
+    private const WASTE_CLASSES = ['operator_time', 'worker_tokens', 'queue_capacity'];
+
     /**
      * @param  list<array<string,mixed>>  $incidents
      * @return array{schema:string, task_plan:list<array<string,mixed>>}
@@ -171,5 +174,69 @@ final class AtlasExternalBrainContextHygieneIncidentTaskPlanner
         $base = $isLeakage ? 80 : 20;
 
         return $base + min(20, $evidenceCount * 5);
+    }
+
+    /**
+     * Converts raw incident logs (e.g. stale queue reads, repeated false-wait reasoning,
+     * context bloat) into concrete, runnable repair task specs. A log without a reproducible
+     * flow, an observed bad decision AND an implementable repair target is vague frustration —
+     * dropped, never turned into a task.
+     *
+     * @param  list<array<string,mixed>>  $logs
+     * @return array{schema:string, repair_tasks:list<array<string,mixed>>, rejected_count:int}
+     */
+    public function planRepairTasks(array $logs): array
+    {
+        $repairTasks = [];
+        $rejectedCount = 0;
+
+        foreach ($logs as $log) {
+            if (! is_array($log)) {
+                $rejectedCount++;
+                continue;
+            }
+
+            $reproducibleFlow = trim((string) ($log['reproducible_flow'] ?? ''));
+            $observedBadDecision = trim((string) ($log['observed_bad_decision'] ?? ''));
+            $repairTarget = trim((string) ($log['implementable_repair_target'] ?? ''));
+
+            if ($reproducibleFlow === '' || $observedBadDecision === '' || $repairTarget === '') {
+                $rejectedCount++;
+                continue;
+            }
+
+            $wasteClassRaw = (string) ($log['waste_class'] ?? '');
+            $wasteClass = in_array($wasteClassRaw, self::WASTE_CLASSES, true) ? $wasteClassRaw : 'unclassified';
+            $recurrenceCount = max(0, (int) ($log['recurrence_count'] ?? 0));
+
+            $repairTasks[] = [
+                'root_cause' => $observedBadDecision,
+                'affected_flow' => $reproducibleFlow,
+                'expected_waste_removed' => $wasteClass,
+                'runnable_proof' => 'reproduce: '.$reproducibleFlow.' | repair target: '.$repairTarget,
+                'implementable_repair_target' => $repairTarget,
+                'waste_class' => $wasteClass,
+                'recurrence_count' => $recurrenceCount,
+                'priority_score' => $this->repairPriorityScore($wasteClass, $recurrenceCount),
+            ];
+        }
+
+        usort($repairTasks, static function (array $a, array $b): int {
+            return $b['priority_score'] <=> $a['priority_score']
+                ?: strcmp($a['implementable_repair_target'], $b['implementable_repair_target']);
+        });
+
+        return [
+            'schema' => self::SCHEMA,
+            'repair_tasks' => $repairTasks,
+            'rejected_count' => $rejectedCount,
+        ];
+    }
+
+    private function repairPriorityScore(string $wasteClass, int $recurrenceCount): int
+    {
+        $base = $wasteClass === 'unclassified' ? 10 : 30;
+
+        return $base + min(50, $recurrenceCount * 10);
     }
 }

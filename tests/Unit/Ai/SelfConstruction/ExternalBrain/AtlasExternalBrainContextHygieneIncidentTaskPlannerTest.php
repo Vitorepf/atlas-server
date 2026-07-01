@@ -199,4 +199,85 @@ final class AtlasExternalBrainContextHygieneIncidentTaskPlannerTest extends Test
         $this->assertCount(1, $r['task_plan']);
         $this->assertSame(AtlasExternalBrainContextHygieneIncidentTaskPlanner::ISSUE_STALE_INSTRUCTIONS, $r['task_plan'][0]['issue_code']);
     }
+
+    // ── planRepairTasks(): incident logs → concrete repair tasks ──────────────
+
+    private function log(array $overrides = []): array
+    {
+        return array_merge([
+            'reproducible_flow' => 'atlas:task next returns stale index after registry moved',
+            'observed_bad_decision' => 'worker waited on a stale served-index read instead of reindexing',
+            'implementable_repair_target' => 'app/Console/Commands/AtlasTaskReindexCommand.php',
+            'waste_class' => 'worker_tokens',
+            'recurrence_count' => 4,
+        ], $overrides);
+    }
+
+    public function test_repair_task_has_root_cause_affected_flow_waste_removed_and_proof(): void
+    {
+        $r = $this->planner()->planRepairTasks([$this->log()]);
+
+        $task = $r['repair_tasks'][0];
+        foreach (['root_cause', 'affected_flow', 'expected_waste_removed', 'runnable_proof'] as $key) {
+            $this->assertArrayHasKey($key, $task, "Missing key: {$key}");
+        }
+        $this->assertSame('worker waited on a stale served-index read instead of reindexing', $task['root_cause']);
+        $this->assertSame('atlas:task next returns stale index after registry moved', $task['affected_flow']);
+    }
+
+    public function test_repair_tasks_prioritize_higher_recurrence_first(): void
+    {
+        $r = $this->planner()->planRepairTasks([
+            $this->log(['implementable_repair_target' => 'app/Foo/Low.php', 'recurrence_count' => 1]),
+            $this->log(['implementable_repair_target' => 'app/Foo/High.php', 'recurrence_count' => 9]),
+        ]);
+
+        $this->assertSame('app/Foo/High.php', $r['repair_tasks'][0]['implementable_repair_target']);
+    }
+
+    public function test_vague_log_missing_reproducible_flow_is_rejected(): void
+    {
+        $r = $this->planner()->planRepairTasks([
+            $this->log(['reproducible_flow' => '']),
+        ]);
+
+        $this->assertSame([], $r['repair_tasks']);
+        $this->assertSame(1, $r['rejected_count']);
+    }
+
+    public function test_vague_log_missing_observed_bad_decision_is_rejected(): void
+    {
+        $r = $this->planner()->planRepairTasks([
+            $this->log(['observed_bad_decision' => '']),
+        ]);
+
+        $this->assertSame([], $r['repair_tasks']);
+        $this->assertSame(1, $r['rejected_count']);
+    }
+
+    public function test_vague_log_missing_implementable_repair_target_is_rejected(): void
+    {
+        $r = $this->planner()->planRepairTasks([
+            $this->log(['implementable_repair_target' => '']),
+        ]);
+
+        $this->assertSame([], $r['repair_tasks']);
+        $this->assertSame(1, $r['rejected_count']);
+    }
+
+    public function test_complete_log_is_not_rejected(): void
+    {
+        $r = $this->planner()->planRepairTasks([$this->log()]);
+
+        $this->assertCount(1, $r['repair_tasks']);
+        $this->assertSame(0, $r['rejected_count']);
+    }
+
+    public function test_empty_logs_returns_empty_repair_tasks(): void
+    {
+        $r = $this->planner()->planRepairTasks([]);
+
+        $this->assertSame([], $r['repair_tasks']);
+        $this->assertSame(0, $r['rejected_count']);
+    }
 }
