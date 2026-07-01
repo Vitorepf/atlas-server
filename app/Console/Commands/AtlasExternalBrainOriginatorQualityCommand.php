@@ -17,6 +17,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCu
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCognitiveWorkPartitioner;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossModelConsensusNormalizer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextBudgetDistiller;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjectEvolutionProfile;
@@ -76,6 +77,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainCognitiveWorkPartitioner $cognitiveWorkPartitioner,
         AtlasExternalBrainConsolidationFirstCircuitBreaker $consolidationFirstCircuitBreaker,
         AtlasExternalBrainContextBudgetDistiller $contextBudgetDistiller,
+        AtlasExternalBrainCrossModelConsensusNormalizer $consensusNormalizer,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -298,6 +300,15 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
                     $profileInput,
                 );
             $payload['cross_project_evolution_profile'] = $profile->toArray();
+        }
+
+        // Optional cross-model consensus normalization: merges proposals from multiple
+        // models/scaffolds by evidence quality rather than naive majority vote. Distinct from
+        // the cross-project evolution profile above (multi-source proposal merge vs. single
+        // project's lane profile), so it only runs when the caller explicitly supplies a
+        // cross_model_consensus section.
+        if (is_array($decoded['cross_model_consensus'] ?? null)) {
+            $payload['cross_model_consensus'] = $consensusNormalizer->normalize($decoded['cross_model_consensus']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
