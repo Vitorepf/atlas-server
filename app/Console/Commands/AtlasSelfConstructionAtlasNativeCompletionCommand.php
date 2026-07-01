@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNative
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeEvidenceVerifier;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeFinalizationGate;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAtlasNativeReadinessPolicy;
+use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAutonomySoakPlanCompiler;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalEvidenceSourceRegistry;
 use Illuminate\Console\Command;
 use Throwable;
@@ -24,7 +25,7 @@ use Throwable;
 final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
 {
     /** @var string */
-    protected $signature = 'atlas:self-construction:atlas-native-completion {action : verify|gate|dossier|readiness} {--facts=} {--json}';
+    protected $signature = 'atlas:self-construction:atlas-native-completion {action : verify|gate|dossier|readiness|soak} {--facts=} {--json}';
 
     /** @var string */
     protected $description = 'Atlas-native completion CLI: verify | gate | dossier.';
@@ -47,6 +48,7 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
             'gate' => $this->gate($facts),
             'dossier' => $this->dossier($facts),
             'readiness' => $this->readiness($facts),
+            'soak' => $this->soak($facts),
             default => ['status' => 'unknown_action', 'action' => $action],
         };
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -136,6 +138,18 @@ final class AtlasSelfConstructionAtlasNativeCompletionCommand extends Command
         return [
             'mandatory_source_ids' => $mandatory,
             'source_blockers' => $blockers,
+        ];
+    }
+
+    /** @param array<string,mixed> $facts @return array<string,mixed> */
+    private function soak(array $facts): array
+    {
+        $verdict = $this->app()->make(AtlasSelfConstructionAutonomySoakPlanCompiler::class)->compile($facts);
+
+        return [
+            'status' => 'ok',
+            'is_soak_ready' => (bool) ($verdict['is_soak_ready'] ?? false),
+            'soak' => $verdict,
         ];
     }
 
