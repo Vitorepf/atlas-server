@@ -156,6 +156,47 @@ final class AtlasExternalBrainProviderPoolCostQualityRouterTest extends TestCase
         $this->assertSame('cheap-pool', $result['route_decision']['pool_id']);
     }
 
+    // ── AC: give_back risk floor ────────────────────────────────────────────────────
+
+    public function test_cheap_pool_above_max_give_back_rate_is_rejected_as_excessive_risk(): void
+    {
+        $result = $this->router()->route([
+            'candidates' => [$this->cheapPool(['give_back_rate' => 0.4]), $this->strongPool()],
+            'task_criticality' => 'low',
+            'max_give_back_rate' => 0.2,
+        ]);
+
+        $rejectedIds = array_column($result['rejected_candidates'], 'pool_id');
+        $reasons = array_column($result['rejected_candidates'], 'reason');
+        $this->assertContains('cheap-pool', $rejectedIds);
+        $this->assertContains('excessive_give_back_risk_for_task', $reasons);
+        $this->assertSame('strong-pool', $result['route_decision']['pool_id']);
+    }
+
+    public function test_frontier_pool_below_floor_is_selected_when_cheap_rejected(): void
+    {
+        $result = $this->router()->route([
+            'candidates' => [$this->cheapPool(['give_back_rate' => 0.4]), $this->frontierPool()],
+            'task_criticality' => 'low',
+            'max_give_back_rate' => 0.2,
+        ]);
+
+        $this->assertSame('frontier-pool', $result['route_decision']['pool_id']);
+    }
+
+    public function test_every_pool_over_floor_returns_atlas_native_fallback_when_available(): void
+    {
+        $result = $this->router()->route([
+            'candidates' => [$this->cheapPool(['give_back_rate' => 0.4]), $this->strongPool(['give_back_rate' => 0.5])],
+            'task_criticality' => 'low',
+            'max_give_back_rate' => 0.2,
+            'human_independent_atlas_native_fallback_available' => true,
+        ]);
+
+        $this->assertNull($result['route_decision']);
+        $this->assertSame('atlas_native_self_construction', $result['fallback_route']['pool_id']);
+    }
+
     public function test_no_safe_pool_falls_back_to_atlas_native_when_human_independent_available(): void
     {
         $result = $this->router()->route([

@@ -46,6 +46,7 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
         $requiredContextDepth = max(0.0, min(1.0, (float) ($facts['required_context_depth'] ?? 0.0)));
         $humanIndependentAtlasNativeFallbackAvailable = (bool) ($facts['human_independent_atlas_native_fallback_available'] ?? false);
         $isCriticalOrIrreversible = in_array($taskCriticality, self::CRITICAL_RISK_CLASSES, true) || $taskIrreversible;
+        $maxGiveBackRate = max(0.0, min(1.0, (float) ($facts['max_give_back_rate'] ?? 1.0)));
 
         $accepted = [];
         $rejected = [];
@@ -58,6 +59,7 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
                 requiredContextDepth: $requiredContextDepth,
                 isCriticalOrIrreversible: $isCriticalOrIrreversible,
                 humanIndependentAtlasNativeFallbackAvailable: $humanIndependentAtlasNativeFallbackAvailable,
+                maxGiveBackRate: $maxGiveBackRate,
             );
 
             if ($rejectionReason !== null) {
@@ -108,11 +110,13 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
         float $requiredContextDepth,
         bool $isCriticalOrIrreversible,
         bool $humanIndependentAtlasNativeFallbackAvailable,
+        float $maxGiveBackRate,
     ): ?string {
         $costTier = (string) ($candidate['cost_tier'] ?? '');
         $modelStrength = max(0.0, min(1.0, (float) ($candidate['model_strength'] ?? 0.0)));
         $proven = (bool) ($candidate['proven'] ?? false);
         $optionalProviderReady = (bool) ($candidate['optional_provider_ready'] ?? true);
+        $giveBackRate = max(0.0, min(1.0, (float) ($candidate['give_back_rate'] ?? 0.0)));
 
         if (! array_key_exists($costTier, self::COST_TIER_RANK)) {
             return 'unknown_cost_tier';
@@ -120,6 +124,10 @@ final class AtlasExternalBrainProviderPoolCostQualityRouter
 
         if ($isCriticalOrIrreversible && ! $proven && ! $humanIndependentAtlasNativeFallbackAvailable) {
             return 'unproven_pool_blocked_for_critical_irreversible_task_without_fallback';
+        }
+
+        if ($giveBackRate > $maxGiveBackRate) {
+            return 'excessive_give_back_risk_for_task';
         }
 
         if ($modelStrength < $requiredContextDepth) {
