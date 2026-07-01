@@ -96,4 +96,55 @@ final class AtlasSelfConstructionSimplificationProofCoverageIndexTest extends Te
         $this->assertFalse($result['safe_for_consolidation']);
         $this->assertSame([], $result['coverage_by_target']);
     }
+
+    public function test_delete_candidate_without_behavior_proof_is_blocked_for_simplification(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationProofCoverageIndex)->build([
+            [
+                'name' => 'DeadOrgan',
+                'action_type' => 'delete',
+                'test_proof' => false,
+                'replay_proof' => false,
+                'runtime_proof' => false,
+                'docs_proof' => true,
+                'rollback_proof' => true,
+            ],
+        ]);
+
+        $this->assertTrue($result['coverage_by_target']['DeadOrgan']['blocked_for_simplification']);
+    }
+
+    public function test_merge_candidate_with_behavior_proof_is_not_blocked_for_simplification(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationProofCoverageIndex)->build([
+            [
+                'name' => 'MergeableOrgan',
+                'action_type' => 'merge',
+                'test_proof' => true,
+                'replay_proof' => false,
+                'runtime_proof' => false,
+                'docs_proof' => true,
+                'rollback_proof' => true,
+            ],
+        ]);
+
+        $this->assertFalse($result['coverage_by_target']['MergeableOrgan']['blocked_for_simplification']);
+    }
+
+    public function test_non_simplification_action_is_never_blocked_for_simplification(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationProofCoverageIndex)->build([
+            [
+                'name' => 'KeepOrgan',
+                'action_type' => 'keep',
+                'test_proof' => false,
+                'replay_proof' => false,
+                'runtime_proof' => false,
+                'docs_proof' => false,
+                'rollback_proof' => false,
+            ],
+        ]);
+
+        $this->assertFalse($result['coverage_by_target']['KeepOrgan']['blocked_for_simplification']);
+    }
 }

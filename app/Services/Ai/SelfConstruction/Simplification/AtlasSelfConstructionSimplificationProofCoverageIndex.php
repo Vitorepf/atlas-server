@@ -17,6 +17,8 @@ final class AtlasSelfConstructionSimplificationProofCoverageIndex
 
     private const BEHAVIOR_PROOF_TYPES = ['test_proof', 'replay_proof', 'runtime_proof'];
 
+    private const SIMPLIFICATION_ACTION_TYPES = ['delete', 'merge'];
+
     /**
      * @param  array<int,array<string,mixed>>  $targets
      * @return array<string,mixed>
@@ -49,8 +51,14 @@ final class AtlasSelfConstructionSimplificationProofCoverageIndex
             }
 
             $safe = $behaviorProof && $flags['rollback_proof'];
+            $actionType = strtolower(trim((string) ($target['action_type'] ?? '')));
+            $isSimplificationAction = in_array($actionType, self::SIMPLIFICATION_ACTION_TYPES, true);
+            $blockedForSimplification = $isSimplificationAction && ! $behaviorProof;
+
             $flags['behavior_proof'] = $behaviorProof;
             $flags['safe_for_consolidation'] = $safe;
+            $flags['action_type'] = $actionType;
+            $flags['blocked_for_simplification'] = $blockedForSimplification;
             $coverageByTarget[$name] = $flags;
 
             if (! $safe) {
