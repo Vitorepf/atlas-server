@@ -9,6 +9,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
 use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
@@ -32,6 +33,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         {--repair-iteration= : Current repair-loop iteration to guard (max-3 contract before escalation)}
         {--veto-events= : Path to a JSON list of veto events to replay through the veto-propagation watchdog}
         {--doc-maturity= : Path to a JSON sections map to classify DOC L0..L4 maturity}
+        {--phase-gates= : Path to a JSON phase_outputs map (intent/spec_pack/task_pack) to evaluate runbook gate signals}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
@@ -47,6 +49,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasAaeosDepartmentQualityBarLevelClassifier $qualityBarLevelClassifier,
         AtlasVetoPropagationWatchdog $vetoPropagationWatchdog,
         AtlasAaeosDocMaturityClassifier $docMaturityClassifier,
+        AtlasAaeosGateSignalEvaluator $gateSignalEvaluator,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -101,6 +104,18 @@ class AtlasAaeosDepartmentStatusCommand extends Command
             $docMaturitySections = json_decode((string) file_get_contents($docMaturityFile), true);
             if (is_array($docMaturitySections)) {
                 $payload['doc_maturity'] = $docMaturityClassifier->classify($docMaturitySections);
+            }
+        }
+
+        // Optional: evaluate the AAEOS runbook phase gates (P1 intent clarity, P7 spec-pack
+        // acceptance criteria, P8 task-pack atomicity) over a phase_outputs map, so gate pass/fail
+        // is queryable alongside the maturity/quality-bar read-model instead of only living in the
+        // runbook doc as a hard-pass description.
+        $phaseGatesFile = trim((string) $this->option('phase-gates'));
+        if ($phaseGatesFile !== '' && is_file($phaseGatesFile)) {
+            $phaseOutputs = json_decode((string) file_get_contents($phaseGatesFile), true);
+            if (is_array($phaseOutputs)) {
+                $payload['phase_gates'] = $gateSignalEvaluator->evaluatePhaseGates($phaseOutputs);
             }
         }
 
