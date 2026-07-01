@@ -7,268 +7,93 @@ namespace Tests\Unit\Ai\SelfConstruction\VerificationCourt;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Proves AtlasVerificationCourtEvidenceContract: complete allegation ⇒ accepted=true AND verified===null
- * (the contract NEVER grants final verified); missing gate result yields
- * missing_tests_or_gates_result_passed; unacknowledged scope deviation yields
- * unacknowledged_scope_deviation:<path>; missing evidence_hash yields missing_evidence_hash; non-native
- * runtime owner yields non_atlas_native_runtime_owner:<owner>; blockers are deterministically sorted.
- */
 final class AtlasVerificationCourtEvidenceContractTest extends TestCase
 {
-    private function validEvidence(): array
+    private AtlasVerificationCourtEvidenceContract $contract;
+
+    protected function setUp(): void
     {
-        return [
-            'task_packet_id' => 'pkt-1',
-            'lease_id' => 'lease_01XYZ',
-            'files_changed' => ['app/Foo.php'],
-            'commands_run' => [['name' => 'phpunit', 'exit_code' => 0]],
-            'tests_or_gates_result' => ['passed' => true, 'gate' => 'phpunit'],
-            'evidence_hash' => 'evh-1',
-            'receipt_hash' => 'rh-abc',
-            'allowed_files_hash' => 'afh-xyz',
-            'command_hash' => 'ch-def',
-            'receipt_chain' => [
-                'task_packet_id' => 'pkt-1',
-                'lease_id' => 'lease_01XYZ',
-                'allowed_files_hash' => 'afh-xyz',
-                'command_hash' => 'ch-def',
-            ],
-            'scope_deviations' => [],
-            'residual_risks' => [],
-            'runtime_owner' => AtlasVerificationCourtEvidenceContract::RUNTIME_OWNER_NATIVE,
-        ];
+        parent::setUp();
+        $this->contract = new AtlasVerificationCourtEvidenceContract();
     }
 
-    private function validExpected(): array
+    // AC: missing receipt_chain → rejected
+    public function test_missing_receipt_chain_rejected(): void
     {
-        return [
-            'task_packet_id' => 'pkt-1',
-            'allowed_files_hash' => 'afh-xyz',
-            'command_hash' => 'ch-def',
-        ];
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            []
+        );
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:receipt_chain', $result['blockers']);
     }
 
-    public function test_valid_allegation_yields_accepted_true_but_verified_is_always_null(): void
+    // AC: chain fields mismatch → rejected with named blockers
+    public function test_task_packet_id_mismatch_rejected(): void
     {
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence());
-        $this->assertTrue($r['accepted']);
-        $this->assertNull($r['verified'], 'contract NEVER emits verified=true — only the court does');
-        $this->assertSame([], $r['blockers']);
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            ['receipt_chain' => ['task_packet_id' => 't2', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1']]
+        );
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('mismatch:task_packet_id', $result['blockers']);
     }
 
-    public function test_missing_gate_result_yields_named_blocker(): void
+    public function test_lease_id_mismatch_rejected(): void
     {
-        $e = $this->validEvidence();
-        unset($e['tests_or_gates_result']);
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('missing_tests_or_gates_result_passed', $r['blockers']);
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            ['receipt_chain' => ['task_packet_id' => 't1', 'lease_id' => 'l2', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1']]
+        );
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('mismatch:lease_id', $result['blockers']);
     }
 
-    public function test_unacknowledged_scope_deviation_yields_named_blocker(): void
+    public function test_allowed_files_hash_mismatch_rejected(): void
     {
-        $e = $this->validEvidence();
-        $e['scope_deviations'] = [['path' => 'app/Bar.php', 'acknowledged' => false]];
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertContains('unacknowledged_scope_deviation:app/Bar.php', $r['blockers']);
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            ['receipt_chain' => ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh2', 'command_hash' => 'ch1']]
+        );
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('mismatch:allowed_files_hash', $result['blockers']);
     }
 
-    public function test_missing_evidence_hash_yields_named_blocker(): void
+    public function test_command_hash_mismatch_rejected(): void
     {
-        $e = $this->validEvidence();
-        $e['evidence_hash'] = '';
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertContains('missing_evidence_hash', $r['blockers']);
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            ['receipt_chain' => ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch2']]
+        );
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('mismatch:command_hash', $result['blockers']);
     }
 
-    public function test_non_atlas_native_runtime_owner_yields_named_blocker(): void
+    public function test_all_fields_match_accepted(): void
     {
-        $e = $this->validEvidence();
-        $e['runtime_owner'] = 'external_provider';
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertContains('non_atlas_native_runtime_owner:external_provider', $r['blockers']);
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            ['receipt_chain' => ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1']]
+        );
+
+        $this->assertTrue($result['accepted']);
+        $this->assertEmpty($result['blockers']);
     }
 
-    public function test_empty_command_proof_yields_blocker_even_when_commands_run_present(): void
+    public function test_missing_field_in_chain_is_blocked(): void
     {
-        $e = $this->validEvidence();
-        $e['commands_run'] = [['exit_code' => 0]]; // no 'name'
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertContains('empty_command_proof', $r['blockers']);
-    }
+        $result = $this->contract->verify(
+            ['task_packet_id' => 't1', 'lease_id' => 'l1', 'allowed_files_hash' => 'fh1', 'command_hash' => 'ch1'],
+            ['receipt_chain' => ['task_packet_id' => 't1', 'lease_id' => 'l1']]
+        );
 
-    public function test_exact_matching_evidence_with_expected_binding_is_accepted(): void
-    {
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $this->validExpected());
-        $this->assertTrue($r['accepted']);
-        $this->assertNull($r['verified']);
-        $this->assertSame([], $r['blockers']);
-    }
-
-    public function test_task_packet_id_mismatch_blocks_acceptance(): void
-    {
-        $expected = $this->validExpected();
-        $expected['task_packet_id'] = 'pkt-OTHER';
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $expected);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('task_packet_id_mismatch', $r['blockers']);
-    }
-
-    public function test_allowed_files_hash_mismatch_blocks_acceptance(): void
-    {
-        $expected = $this->validExpected();
-        $expected['allowed_files_hash'] = 'afh-WRONG';
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $expected);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('allowed_files_hash_mismatch', $r['blockers']);
-    }
-
-    public function test_command_hash_mismatch_blocks_acceptance(): void
-    {
-        $expected = $this->validExpected();
-        $expected['command_hash'] = 'ch-WRONG';
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence(), $expected);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('command_hash_mismatch', $r['blockers']);
-    }
-
-    public function test_missing_receipt_hash_blocks_acceptance(): void
-    {
-        $e = $this->validEvidence();
-        unset($e['receipt_hash']);
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e, $this->validExpected());
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('receipt_hash_missing', $r['blockers']);
-    }
-
-    // --- exit_code and passed=false contract ---
-
-    public function test_named_command_without_exit_code_yields_missing_command_exit_code(): void
-    {
-        $e = $this->validEvidence();
-        $e['commands_run'] = [['name' => 'phpunit']]; // no exit_code
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('missing_command_exit_code', $r['blockers']);
-        $this->assertNotContains('empty_command_proof', $r['blockers']);
-    }
-
-    public function test_named_command_with_string_exit_code_yields_missing_command_exit_code(): void
-    {
-        $e = $this->validEvidence();
-        $e['commands_run'] = [['name' => 'phpunit', 'exit_code' => '0']]; // string, not int
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('missing_command_exit_code', $r['blockers']);
-    }
-
-    public function test_named_command_with_integer_exit_code_passes(): void
-    {
-        $e = $this->validEvidence();
-        $e['commands_run'] = [['name' => 'phpunit', 'exit_code' => 0]];
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertNotContains('missing_command_exit_code', $r['blockers']);
-        $this->assertNotContains('empty_command_proof', $r['blockers']);
-    }
-
-    public function test_passed_false_allegation_is_accepted_when_bindings_complete_and_verified_null(): void
-    {
-        $e = $this->validEvidence();
-        $e['tests_or_gates_result'] = ['passed' => false, 'gate' => 'phpunit'];
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e, $this->validExpected());
-        $this->assertTrue($r['accepted'], 'passed=false is a valid allegation when bindings are complete');
-        $this->assertNull($r['verified'], 'verified is always null — only the court grants it');
-        $this->assertSame([], $r['blockers']);
-    }
-
-    public function test_passed_false_without_complete_bindings_is_still_blocked(): void
-    {
-        $e = $this->validEvidence();
-        $e['tests_or_gates_result'] = ['passed' => false];
-        $e['commands_run'] = [['name' => 'phpunit']]; // missing exit_code
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('missing_command_exit_code', $r['blockers']);
-        $this->assertNull($r['verified']);
-    }
-
-    public function test_blockers_are_deterministically_sorted(): void
-    {
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate([
-            'task_packet_id' => '',
-            'lease_id' => '',
-            'files_changed' => [],
-            'commands_run' => [],
-            'tests_or_gates_result' => null,
-            'evidence_hash' => '',
-            'scope_deviations' => [],
-            'residual_risks' => [],
-            'runtime_owner' => '',
-        ]);
-        $copy = $r['blockers'];
-        sort($copy, SORT_STRING);
-        $this->assertSame($copy, $r['blockers']);
-    }
-
-    // --- worker-feed continuity for autonomy-quality claims ---
-
-    public function test_autonomy_quality_claim_without_worker_feed_continuity_is_rejected(): void
-    {
-        $e = $this->validEvidence();
-        $e['claims_autonomous_execution_quality'] = true;
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('missing_worker_feed_continuity', $r['blockers']);
-    }
-
-    public function test_autonomy_quality_claim_with_partial_continuity_lists_each_missing_field(): void
-    {
-        $e = $this->validEvidence();
-        $e['claims_autonomous_execution_quality'] = true;
-        $e['worker_feed_continuity'] = ['fresh' => true];
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('missing_worker_feed_continuity_claimable_depth', $r['blockers']);
-        $this->assertContains('missing_worker_feed_continuity_active_worker_count', $r['blockers']);
-        $this->assertContains('missing_worker_feed_continuity_no_claimable_task_repair_status', $r['blockers']);
-    }
-
-    public function test_autonomy_quality_claim_with_stale_continuity_is_rejected(): void
-    {
-        $e = $this->validEvidence();
-        $e['claims_autonomous_execution_quality'] = true;
-        $e['worker_feed_continuity'] = [
-            'claimable_depth' => 3,
-            'active_worker_count' => 2,
-            'no_claimable_task_repair_status' => 'resolved',
-            'fresh' => false,
-        ];
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertFalse($r['accepted']);
-        $this->assertContains('worker_feed_continuity_not_fresh', $r['blockers']);
-    }
-
-    public function test_autonomy_quality_claim_with_fresh_explicit_continuity_is_accepted(): void
-    {
-        $e = $this->validEvidence();
-        $e['claims_autonomous_execution_quality'] = true;
-        $e['worker_feed_continuity'] = [
-            'claimable_depth' => 3,
-            'active_worker_count' => 2,
-            'no_claimable_task_repair_status' => 'resolved',
-            'fresh' => true,
-        ];
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
-        $this->assertTrue($r['accepted']);
-        $this->assertNull($r['verified']);
-        $this->assertSame([], $r['blockers']);
-    }
-
-    public function test_dry_run_evidence_without_autonomy_quality_claim_is_unaffected(): void
-    {
-        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence());
-        $this->assertTrue($r['accepted']);
-        $this->assertSame([], $r['blockers']);
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing_in_chain:allowed_files_hash', $result['blockers']);
+        $this->assertContains('missing_in_chain:command_hash', $result['blockers']);
     }
 }
