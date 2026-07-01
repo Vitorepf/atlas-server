@@ -60,6 +60,9 @@ final class AtlasExternalBrainMemoryWritebackContractTest extends TestCase
         $this->assertArrayHasKey('fact',             $entry);
         $this->assertArrayHasKey('source',           $entry);
         $this->assertArrayHasKey('evidence_strength', $entry);
+        $this->assertArrayHasKey('scope',            $entry);
+        $this->assertArrayHasKey('lesson',            $entry);
+        $this->assertArrayHasKey('decision_effect',  $entry);
         $this->assertSame('proven', $entry['evidence_strength']);
     }
 
