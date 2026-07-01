@@ -165,4 +165,61 @@ final class AtlasArchitectureCouncilImplementationSliceDesignerTest extends Test
         sort($sorted);
         $this->assertSame($sorted, $ids, 'slice_briefs must be sorted by slice_id');
     }
+
+    // ── AC: exact_files / behavior_proof / rollback_note / dependency_order / risk / minimality_reason ──
+
+    public function test_simple_slice_includes_all_new_fields(): void
+    {
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($this->validFacts());
+        $brief = $r['slice_briefs'][0];
+
+        foreach (['exact_files', 'behavior_proof', 'rollback_note', 'dependency_order', 'risk', 'minimality_reason'] as $key) {
+            $this->assertArrayHasKey($key, $brief, "missing {$key}");
+        }
+        $this->assertSame(['app/Demo/Compiler.php', 'tests/Unit/Demo/CompilerTest.php'], $brief['exact_files']);
+        $this->assertSame('phpunit green', $brief['behavior_proof']);
+        $this->assertSame(1, $brief['dependency_order']);
+    }
+
+    public function test_multi_step_dependency_assigns_sequential_dependency_order(): void
+    {
+        $f = $this->validFacts();
+        $f['capability_gap']['organ'] = 'Fabric';
+        $f['capability_gap']['capability'] = 'build';
+        $f['capability_gap']['target_files'] = [
+            ['kind' => 'service', 'path' => 'app/Demo/Zeta.php'],
+            ['kind' => 'service', 'path' => 'app/Demo/Alpha.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/ZetaTest.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/AlphaTest.php'],
+        ];
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
+
+        $orders = array_column($r['slice_briefs'], 'dependency_order');
+        $this->assertSame([1, 2], $orders);
+    }
+
+    public function test_over_broad_request_narrows_to_exactly_impl_plus_test_files(): void
+    {
+        $f = $this->validFacts();
+        $f['capability_gap']['target_files'] = [
+            ['kind' => 'service', 'path' => 'app/Demo/Compiler.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/CompilerTest.php'],
+            ['kind' => 'test', 'path' => 'tests/Unit/Demo/UnrelatedTest.php'],
+        ];
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
+
+        $this->assertCount(2, $r['slice_briefs'][0]['exact_files'], 'over-broad target_files must narrow to exactly impl+test');
+        $this->assertStringContainsString('no broader scope', $r['slice_briefs'][0]['minimality_reason']);
+    }
+
+    public function test_missing_proof_blocker_yields_empty_behavior_proof_in_rejected_slices(): void
+    {
+        $f = $this->validFacts();
+        $f['capability_gap']['acceptance_seed'] = ['architecture is sound and well documented'];
+
+        $r = (new AtlasArchitectureCouncilImplementationSliceDesigner)->design($f);
+
+        $this->assertSame([], $r['slice_briefs']);
+        $this->assertNotEmpty($r['rejected_slices']);
+    }
 }

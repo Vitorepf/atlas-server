@@ -111,19 +111,30 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
                 continue;
             }
 
+            $exactFiles = [$svcPath, $testPath];
             $briefs[] = [
                 'slice_id' => $sliceId,
                 'target_class' => $base,
                 'test_class' => pathinfo($testPath, PATHINFO_FILENAME),
-                'allowed_files_hint' => [$svcPath, $testPath],
+                'allowed_files_hint' => $exactFiles,
                 'acceptance_seed' => $acceptance,
                 'evidence_seed' => $evidence,
                 'claimable' => true,
+                'exact_files' => $exactFiles,
+                'behavior_proof' => $this->firstRunnableAcceptance($acceptance),
+                'rollback_note' => 'revert the commit(s) touching exact_files: '.implode(', ', $exactFiles),
+                'risk' => count($exactFiles) > 2 ? 'medium' : 'low',
+                'minimality_reason' => 'exactly one implementation file paired with its matching test — no broader scope included',
             ];
         }
 
         usort($briefs, static fn (array $a, array $b): int => strcmp($a['slice_id'], $b['slice_id']));
         usort($rejectedSlices, static fn (array $a, array $b): int => strcmp($a['slice_id'], $b['slice_id']));
+
+        foreach ($briefs as $i => &$brief) {
+            $brief['dependency_order'] = $i + 1;
+        }
+        unset($brief);
 
         return [
             'schema' => self::SCHEMA,
@@ -131,6 +142,21 @@ final class AtlasArchitectureCouncilImplementationSliceDesigner
             'missing_test_pairs' => $missingTestPairs,
             'rejected_slices' => $rejectedSlices,
         ];
+    }
+
+    /** @param  list<string>  $acceptance */
+    private function firstRunnableAcceptance(array $acceptance): string
+    {
+        foreach ($acceptance as $criterion) {
+            $lower = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    return $criterion;
+                }
+            }
+        }
+
+        return '';
     }
 
     /** @param  list<string>  $acceptance */
