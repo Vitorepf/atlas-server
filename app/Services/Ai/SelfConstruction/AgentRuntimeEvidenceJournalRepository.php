@@ -47,6 +47,8 @@ final class AgentRuntimeEvidenceJournalRepository
 
     public const DEFAULT_INDEX_CAP = 1000;
 
+    public const FRESHNESS_STALE_AFTER_SECONDS = 86400;
+
     public const ALLOWED_EVIDENCE_TYPES = [
         'dispatch_plan',
         'claim_lease',
@@ -85,11 +87,29 @@ final class AgentRuntimeEvidenceJournalRepository
             $evidenceHash = strtolower($this->requiredString($entry, 'evidence_hash'));
             if (! $this->isSha256($evidenceHash)) {
                 $evidenceHash = $this->stableHash([
+                    'task_packet_id' => $taskPacketId,
                     'evidence_type' => $evidenceType,
                     'evidence_ref' => (string) ($entry['evidence_ref'] ?? ''),
                     'payload' => $entry['payload'] ?? [],
                 ]);
             }
+
+            $evidenceStrength = (int) ($entry['evidence_strength'] ?? 1);
+            $existingByHash = $this->findByCanonicalHash($evidenceHash);
+            if ($existingByHash !== null && (int) ($existingByHash['evidence_strength'] ?? 1) >= $evidenceStrength) {
+                return [
+                    'schema_version' => self::SCHEMA_VERSION,
+                    'status' => 'duplicate_evidence_strongest_preserved',
+                    'mode' => self::MODE,
+                    'journal_entry_id' => $existingByHash['journal_entry_id'],
+                    'journal_entry_hash' => $existingByHash['journal_entry_hash'],
+                    'record' => $existingByHash,
+                    'runtime_safety' => $this->runtimeFlagsWithAllFalse(),
+                ] + $this->runtimeFlags();
+            }
+
+            $ageSeconds = (int) ($entry['evidence_age_seconds'] ?? 0);
+            $freshnessStatus = $ageSeconds <= self::FRESHNESS_STALE_AFTER_SECONDS ? 'fresh' : 'stale';
 
             $journalEntryId = (string) ($options['journal_entry_id'] ?? $entry['journal_entry_id'] ?? Str::uuid());
             $now = CarbonImmutable::now()->toIso8601String();
@@ -103,8 +123,12 @@ final class AgentRuntimeEvidenceJournalRepository
                 'run_id' => (string) ($entry['run_id'] ?? ''),
                 'lease_id' => (string) ($entry['lease_id'] ?? ''),
                 'evidence_type' => $evidenceType,
+                'source_type' => $this->requiredString($entry, 'source_type') ?: 'unspecified',
                 'evidence_ref' => (string) ($entry['evidence_ref'] ?? ''),
                 'evidence_hash' => $evidenceHash,
+                'canonical_hash' => $evidenceHash,
+                'evidence_strength' => $evidenceStrength,
+                'freshness_status' => $freshnessStatus,
                 'summary' => trim((string) ($entry['summary'] ?? '')),
                 'recorded_at' => $now,
                 'sequence' => $this->nextSequence(),
@@ -396,10 +420,28 @@ final class AgentRuntimeEvidenceJournalRepository
             'agent_id' => $record['agent_id'],
             'evidence_type' => $record['evidence_type'],
             'journal_entry_hash' => $record['journal_entry_hash'],
+            'canonical_hash' => $record['canonical_hash'] ?? $record['evidence_hash'] ?? '',
             'recorded_at' => $record['recorded_at'],
         ]);
         $index = array_slice($index, 0, self::DEFAULT_INDEX_CAP);
         $this->disk()->put(self::INDEX_PATH, (string) json_encode($index, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    }
+
+    /** @return array<string, mixed>|null */
+    private function findByCanonicalHash(string $canonicalHash): ?array
+    {
+        if ($canonicalHash === '') {
+            return null;
+        }
+        foreach ($this->loadIndex() as $entry) {
+            if ((string) ($entry['canonical_hash'] ?? '') !== $canonicalHash) {
+                continue;
+            }
+
+            return $this->get((string) ($entry['journal_entry_id'] ?? ''));
+        }
+
+        return null;
     }
 
     private function recordPath(string $id): string

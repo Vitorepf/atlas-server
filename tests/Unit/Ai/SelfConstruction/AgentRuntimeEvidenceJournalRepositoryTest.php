@@ -134,6 +134,67 @@ final class AgentRuntimeEvidenceJournalRepositoryTest extends TestCase
         $this->assertFalse($listed[0]['is_canonical_evidence_ledger_entry']);
     }
 
+    // ── AC: canonical hash, source_type, freshness_status, duplicate detection ─────────────
+
+    public function test_appended_record_includes_canonical_hash_source_type_and_freshness_status(): void
+    {
+        $appended = $this->repo->append([
+            'task_packet_id' => 'task-meta',
+            'agent_id' => 'agent-1',
+            'evidence_type' => 'operator_note',
+            'evidence_ref' => 'ref-meta',
+            'source_type' => 'worker_report',
+            'payload' => ['note' => 'x'],
+        ]);
+
+        $this->assertSame($appended['record']['evidence_hash'], $appended['record']['canonical_hash']);
+        $this->assertSame('worker_report', $appended['record']['source_type']);
+        $this->assertSame('fresh', $appended['record']['freshness_status']);
+        $this->assertArrayHasKey('recorded_at', $appended['record']);
+    }
+
+    public function test_stale_evidence_age_is_reported_as_stale_freshness_status(): void
+    {
+        $appended = $this->repo->append([
+            'task_packet_id' => 'task-stale',
+            'agent_id' => 'agent-1',
+            'evidence_type' => 'operator_note',
+            'evidence_ref' => 'ref-stale',
+            'evidence_age_seconds' => AgentRuntimeEvidenceJournalRepository::FRESHNESS_STALE_AFTER_SECONDS + 1,
+            'payload' => ['note' => 'x'],
+        ]);
+
+        $this->assertSame('stale', $appended['record']['freshness_status']);
+    }
+
+    public function test_duplicate_evidence_by_canonical_hash_preserves_strongest_existing_entry(): void
+    {
+        $weaker = $this->repo->append([
+            'task_packet_id' => 'task-dup-strength',
+            'agent_id' => 'agent-1',
+            'evidence_type' => 'operator_note',
+            'evidence_ref' => 'ref-dup',
+            'evidence_strength' => 3,
+            'payload' => ['note' => 'same'],
+        ]);
+
+        $attempt = $this->repo->append([
+            'task_packet_id' => 'task-dup-strength',
+            'agent_id' => 'agent-1',
+            'evidence_type' => 'operator_note',
+            'evidence_ref' => 'ref-dup',
+            'evidence_strength' => 1,
+            'payload' => ['note' => 'same'],
+        ]);
+
+        $this->assertSame('duplicate_evidence_strongest_preserved', $attempt['status']);
+        $this->assertSame($weaker['journal_entry_id'], $attempt['journal_entry_id']);
+        $this->assertSame(3, $attempt['record']['evidence_strength']);
+
+        $listed = $this->repo->list(['task_packet_id' => 'task-dup-strength']);
+        $this->assertCount(1, $listed);
+    }
+
     public function test_audit_does_not_mutate_records_or_index_and_is_idempotent(): void
     {
         $this->appendEntry('task-readonly');
