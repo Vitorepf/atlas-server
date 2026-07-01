@@ -42,11 +42,22 @@ final class AemorContextRoiScorer
      */
     public function score(int $helpfulCount, int $irrelevantCount, int $staleCount, int $missingCount): array
     {
+        // Negative source counts are never real signal (a source can't occur
+        // a negative number of times) — clamp before they can corrupt the score.
+        $helpfulCount   = max(0, $helpfulCount);
+        $irrelevantCount = max(0, $irrelevantCount);
+        $staleCount     = max(0, $staleCount);
+        $missingCount   = max(0, $missingCount);
+
+        $irrelevantPenalty = $irrelevantCount * self::IRRELEVANT_WEIGHT;
+        $stalePenalty      = $staleCount * self::STALE_WEIGHT;
+        $missingPenalty    = $missingCount * self::MISSING_WEIGHT;
+
         $raw = self::BASE_SCORE
             + ($helpfulCount * self::HELPFUL_WEIGHT)
-            - ($irrelevantCount * self::IRRELEVANT_WEIGHT)
-            - ($staleCount * self::STALE_WEIGHT)
-            - ($missingCount * self::MISSING_WEIGHT);
+            - $irrelevantPenalty
+            - $stalePenalty
+            - $missingPenalty;
 
         $score = max(self::SCORE_FLOOR, min(self::SCORE_CEILING, $raw));
 
@@ -57,6 +68,12 @@ final class AemorContextRoiScorer
             'irrelevant_sources_count' => $irrelevantCount,
             'stale_sources_count' => $staleCount,
             'missing_sources_count' => $missingCount,
+            'loss_breakdown' => [
+                'irrelevant_penalty' => $irrelevantPenalty,
+                'stale_penalty' => $stalePenalty,
+                'missing_penalty' => $missingPenalty,
+                'total_penalty' => $irrelevantPenalty + $stalePenalty + $missingPenalty,
+            ],
             'status' => $score >= self::GOOD_THRESHOLD
                 ? 'good'
                 : ($score >= self::WATCH_THRESHOLD ? 'watch' : 'poor'),

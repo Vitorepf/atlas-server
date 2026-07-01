@@ -118,4 +118,57 @@ final class AemorContextRoiScorerTest extends TestCase
         $this->assertSame(44, $poorTop['score']);
         $this->assertSame('poor', $poorTop['status']);
     }
+
+    // ── AC2: negative source counts are clamped to zero ───────────────────────
+
+    public function test_negative_counts_are_clamped_to_zero(): void
+    {
+        $result = (new AemorContextRoiScorer())->score(-3, -2, -1, -5);
+
+        $this->assertSame(self::BASE, $result['score']);
+        $this->assertSame(0, $result['helpful_sources_count']);
+        $this->assertSame(0, $result['irrelevant_sources_count']);
+        $this->assertSame(0, $result['stale_sources_count']);
+        $this->assertSame(0, $result['missing_sources_count']);
+        $this->assertSame('good', $result['status']);
+    }
+
+    // ── AC3: loss_breakdown reports each penalty separately ───────────────────
+
+    public function test_loss_breakdown_reports_each_penalty_separately(): void
+    {
+        $result = (new AemorContextRoiScorer())->score(0, 2, 1, 3);
+
+        $this->assertSame(2 * self::IRRELEVANT, $result['loss_breakdown']['irrelevant_penalty']);
+        $this->assertSame(1 * self::STALE, $result['loss_breakdown']['stale_penalty']);
+        $this->assertSame(3 * self::MISSING, $result['loss_breakdown']['missing_penalty']);
+        $this->assertSame(
+            $result['loss_breakdown']['irrelevant_penalty'] + $result['loss_breakdown']['stale_penalty'] + $result['loss_breakdown']['missing_penalty'],
+            $result['loss_breakdown']['total_penalty'],
+        );
+    }
+
+    public function test_loss_breakdown_uses_clamped_counts(): void
+    {
+        $result = (new AemorContextRoiScorer())->score(0, -5, -5, -5);
+
+        $this->assertSame(0, $result['loss_breakdown']['irrelevant_penalty']);
+        $this->assertSame(0, $result['loss_breakdown']['stale_penalty']);
+        $this->assertSame(0, $result['loss_breakdown']['missing_penalty']);
+        $this->assertSame(0, $result['loss_breakdown']['total_penalty']);
+    }
+
+    // ── AC4: many missing/stale sources can drive status=poor despite helpful sources ──
+
+    public function test_many_missing_or_stale_sources_drive_poor_status_despite_helpful_sources(): void
+    {
+        $result = (new AemorContextRoiScorer())->score(5, 0, 0, 6);
+
+        $this->assertLessThan(self::WATCH_THRESHOLD_FOR_TEST, $result['score']);
+        $this->assertSame('poor', $result['status']);
+        $this->assertSame(5, $result['helpful_sources_count']);
+        $this->assertSame(6, $result['missing_sources_count']);
+    }
+
+    private const WATCH_THRESHOLD_FOR_TEST = 45;
 }
