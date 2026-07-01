@@ -67,4 +67,148 @@ final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlanTest extends TestC
 
         self::assertCount(8, $result['sync_actions']);
     }
+
+    // ── AC2: minimal sync when behavior-neutral and no ownership change ────────
+
+    public function test_behavior_neutral_no_ownership_change_syncs_only_code_index(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                [
+                    'name' => 'OrganA',
+                    'old_paths' => ['app/Old/OrganA.php'],
+                    'new_path' => 'app/New/Merged.php',
+                    'behavior_changed' => false,
+                    'ownership_changed' => false,
+                ],
+            ],
+        ]);
+
+        $targets = array_column($result['sync_actions'], 'target');
+        self::assertSame(['code_index'], $targets);
+    }
+
+    public function test_behavior_changed_only_syncs_docs_and_code_index(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                [
+                    'name' => 'OrganA',
+                    'old_paths' => ['a.php'],
+                    'new_path' => 'merged.php',
+                    'behavior_changed' => true,
+                    'ownership_changed' => false,
+                ],
+            ],
+        ]);
+
+        $targets = array_column($result['sync_actions'], 'target');
+        sort($targets);
+        self::assertSame(['code_index', 'docs'], $targets);
+    }
+
+    public function test_ownership_changed_only_syncs_memory_capability_map_and_code_index(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                [
+                    'name' => 'OrganA',
+                    'old_paths' => ['a.php'],
+                    'new_path' => 'merged.php',
+                    'behavior_changed' => false,
+                    'ownership_changed' => true,
+                ],
+            ],
+        ]);
+
+        $targets = array_column($result['sync_actions'], 'target');
+        sort($targets);
+        self::assertSame(['capability_map', 'code_index', 'memory'], $targets);
+    }
+
+    public function test_behavior_and_ownership_flags_absent_default_to_full_sync(): void
+    {
+        // Backward compatibility: organs that never mention behavior_changed/ownership_changed
+        // must keep getting the full four-target sync existing callers rely on.
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                ['name' => 'OrganA', 'old_paths' => ['a.php'], 'new_path' => 'merged.php'],
+            ],
+        ]);
+
+        self::assertCount(4, $result['sync_actions']);
+    }
+
+    // ── AC3: stale-knowledge risk when a merged organ still appears in docs/memory ──
+
+    public function test_stale_knowledge_risk_flagged_when_organ_still_mentioned_in_docs(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                ['name' => 'OrganA', 'old_paths' => ['a.php'], 'new_path' => 'merged.php'],
+            ],
+            'post_sync_knowledge_snapshot' => [
+                'docs_mentions' => ['OrganA'],
+            ],
+        ]);
+
+        self::assertNotEmpty($result['stale_knowledge_risks']);
+        self::assertSame(['organ' => 'OrganA', 'source' => 'docs'], $result['stale_knowledge_risks'][0]);
+    }
+
+    public function test_stale_knowledge_risk_flagged_when_organ_still_mentioned_in_memory(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                ['name' => 'OrganA', 'old_paths' => ['a.php'], 'new_path' => 'merged.php'],
+            ],
+            'post_sync_knowledge_snapshot' => [
+                'memory_mentions' => ['OrganA'],
+            ],
+        ]);
+
+        $sources = array_column($result['stale_knowledge_risks'], 'source');
+        self::assertContains('memory', $sources);
+    }
+
+    public function test_no_stale_knowledge_risk_when_organ_absent_from_snapshot(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                ['name' => 'OrganA', 'old_paths' => ['a.php'], 'new_path' => 'merged.php'],
+            ],
+            'post_sync_knowledge_snapshot' => [
+                'docs_mentions' => ['SomeOtherOrgan'],
+            ],
+        ]);
+
+        self::assertSame([], $result['stale_knowledge_risks']);
+    }
+
+    public function test_stale_knowledge_risks_empty_when_no_snapshot_supplied(): void
+    {
+        $result = (new AtlasSelfConstructionPostRefactorKnowledgeSyncPlan)->plan([
+            'wave_id' => 'wave-1',
+            'safe' => true,
+            'merged_organs' => [
+                ['name' => 'OrganA', 'old_paths' => ['a.php'], 'new_path' => 'merged.php'],
+            ],
+        ]);
+
+        self::assertSame([], $result['stale_knowledge_risks']);
+    }
 }

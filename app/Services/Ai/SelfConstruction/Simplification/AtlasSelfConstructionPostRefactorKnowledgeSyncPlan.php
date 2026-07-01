@@ -13,6 +13,20 @@ namespace App\Services\Ai\SelfConstruction\Simplification;
  * (behavior equivalence not proven) is blocked from sync entirely: never propagate
  * knowledge about a merge that hasn't been proven behavior-preserving.
  *
+ * MINIMAL SYNC (per organ, opt-in facts default to true so existing callers that never set
+ * them keep getting the full four-target sync they already rely on):
+ *   code_index  — ALWAYS included; the file(s) mechanically moved, the index must reflect that.
+ *   docs        — included only when behavior_changed (default true).
+ *   memory      — included only when ownership_changed (default true).
+ *   capability_map — included only when ownership_changed (default true).
+ * A behavior-neutral, ownership-unchanged merge therefore syncs only code_index — never a
+ * broad four-target sync for a mechanical rename.
+ *
+ * STALE-KNOWLEDGE RISK: when the wave supplies a post_sync_knowledge_snapshot naming organs
+ * still mentioned in docs/memory after the wave, any merged/deleted organ found there is
+ * reported as a stale_knowledge_risk — the brain must never keep believing a retired organ
+ * still exists.
+ *
  * Pure / deterministic. No I/O — callers persist the returned sync_actions.
  */
 final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlan
@@ -65,8 +79,22 @@ final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlan
             $name = (string) ($organ['name'] ?? '');
             $oldPaths = array_values((array) ($organ['old_paths'] ?? []));
             $newPath = (string) ($organ['new_path'] ?? '');
+            $behaviorChanged = (bool) ($organ['behavior_changed'] ?? true);
+            $ownershipChanged = (bool) ($organ['ownership_changed'] ?? true);
+
+            $targets = ['code_index'];
+            if ($behaviorChanged) {
+                $targets[] = 'docs';
+            }
+            if ($ownershipChanged) {
+                $targets[] = 'memory';
+                $targets[] = 'capability_map';
+            }
 
             foreach (self::SYNC_TARGETS as $target) {
+                if (! in_array($target, $targets, true)) {
+                    continue;
+                }
                 $syncActions[] = [
                     'wave_id' => $waveId,
                     'target' => $target,
@@ -77,11 +105,44 @@ final class AtlasSelfConstructionPostRefactorKnowledgeSyncPlan
             }
         }
 
+        $staleKnowledgeRisks = $this->detectStaleKnowledgeRisks($mergedOrgans, (array) ($wave['post_sync_knowledge_snapshot'] ?? []));
+
         return [
             'schema' => self::SCHEMA,
             'status' => self::STATUS_SYNCED,
             'sync_actions' => $syncActions,
             'blockers' => [],
+            'stale_knowledge_risks' => $staleKnowledgeRisks,
         ];
+    }
+
+    /**
+     * Flags merged/deleted organs still mentioned in a post-sync docs/memory snapshot — proof
+     * that the brain still believes a retired organ exists.
+     *
+     * @param  list<array<string,mixed>>  $mergedOrgans
+     * @param  array{docs_mentions?: list<string>, memory_mentions?: list<string>}  $snapshot
+     * @return list<array{organ:string, source:string}>
+     */
+    private function detectStaleKnowledgeRisks(array $mergedOrgans, array $snapshot): array
+    {
+        $docsMentions = array_values(array_map('strval', (array) ($snapshot['docs_mentions'] ?? [])));
+        $memoryMentions = array_values(array_map('strval', (array) ($snapshot['memory_mentions'] ?? [])));
+
+        $risks = [];
+        foreach ($mergedOrgans as $organ) {
+            $name = (string) ($organ['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            if (in_array($name, $docsMentions, true)) {
+                $risks[] = ['organ' => $name, 'source' => 'docs'];
+            }
+            if (in_array($name, $memoryMentions, true)) {
+                $risks[] = ['organ' => $name, 'source' => 'memory'];
+            }
+        }
+
+        return $risks;
     }
 }
