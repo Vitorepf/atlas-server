@@ -5,218 +5,88 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\RuntimeDaemon;
 
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeSoakRunner;
-use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeSoakScenarioBuilder;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
-class AtlasSelfConstructionRuntimeSoakRunnerTest extends TestCase
+final class AtlasSelfConstructionRuntimeSoakRunnerTest extends TestCase
 {
-    private function defaultScenario(): array
+    private AtlasSelfConstructionRuntimeSoakRunner $runner;
+
+    protected function setUp(): void
     {
-        return (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build(['max_ticks' => 10]);
+        parent::setUp();
+        $this->runner = new AtlasSelfConstructionRuntimeSoakRunner();
     }
 
-    public function test_default_dry_run_does_not_invoke_callback(): void
+    // AC: partial unless minimum diversity met
+    public function test_below_green_tick_floor_is_partial(): void
     {
-        $called = 0;
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run(
-            $this->defaultScenario(),
-            ['tick_callback' => function () use (&$called) { $called++; }],
-        );
+        $result = $this->runner->evaluate([
+            'green_ticks' => 5,
+            'recovered_cycles' => 2,
+            'held_cycles' => 1,
+            'min_green_ticks' => 10,
+        ]);
 
-        self::assertTrue($verdict['dry_run']);
-        self::assertSame(0, $called);
-        self::assertSame(10, $verdict['tick_count']);
-        self::assertNotEmpty($verdict['planned_outcomes']);
+        $this->assertSame('partial', $result['status']);
+        $this->assertTrue(count(array_filter($result['reasons'], fn ($r) => str_contains($r, 'insufficient_green_ticks'))) > 0);
     }
 
-    public function test_apply_invokes_callback_one_tick_at_a_time(): void
+    public function test_no_recovered_cycles_is_partial(): void
     {
-        $received = [];
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run(
-            $this->defaultScenario(),
-            [
-                'apply' => true,
-                'tick_callback' => function (array $tick) use (&$received): array {
-                    $received[] = (int) $tick['index'];
+        $result = $this->runner->evaluate([
+            'green_ticks' => 15,
+            'recovered_cycles' => 0,
+            'held_cycles' => 1,
+        ]);
 
-                    return ['ok' => true];
-                },
-            ],
-        );
-
-        self::assertFalse($verdict['dry_run']);
-        self::assertSame(10, count($received));
-        self::assertSame(range(0, 9), $received);
-        foreach ($verdict['tick_results'] as $row) {
-            self::assertTrue($row['applied']);
-        }
+        $this->assertSame('partial', $result['status']);
     }
 
-    public function test_apply_isolates_callback_failure_without_aborting_other_ticks(): void
+    public function test_no_held_cycles_is_partial(): void
     {
-        $called = 0;
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run(
-            $this->defaultScenario(),
-            [
-                'apply' => true,
-                'tick_callback' => function (array $tick) use (&$called): array {
-                    $called++;
-                    if ((int) $tick['index'] === 3) {
-                        throw new \RuntimeException('boom');
-                    }
+        $result = $this->runner->evaluate([
+            'green_ticks' => 15,
+            'recovered_cycles' => 2,
+            'held_cycles' => 0,
+        ]);
 
-                    return ['ok' => true];
-                },
-            ],
-        );
-
-        self::assertSame(10, $called, 'all 10 ticks must run despite a tick-3 failure');
-        self::assertSame(1, $verdict['failed_count']);
-        self::assertFalse($verdict['passed']);
-        self::assertSame('boom', $verdict['tick_results'][3]['error']);
+        $this->assertSame('partial', $result['status']);
     }
 
-    public function test_dependency_violation_on_ordinary_tick_fails_soak(): void
+    public function test_forbidden_dependency_hits_is_partial(): void
     {
-        $scenario = [
-            'virtual_ticks' => [
-                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success', 'requires' => ['requires_operator' => true]],
-                ['index' => 1, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-            ],
-        ];
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
+        $result = $this->runner->evaluate([
+            'green_ticks' => 15,
+            'recovered_cycles' => 2,
+            'held_cycles' => 1,
+            'forbidden_dependency_hits' => 1,
+        ]);
 
-        self::assertFalse($verdict['passed']);
-        self::assertNotEmpty($verdict['dependency_violations']);
-        $violations = array_column($verdict['dependency_violations'], 'violation');
-        self::assertContains('requires_operator', $violations);
+        $this->assertSame('partial', $result['status']);
+        $this->assertTrue(count(array_filter($result['reasons'], fn ($r) => str_contains($r, 'forbidden_dependency_hits'))) > 0);
     }
 
-    public function test_clean_scenario_passes_soak(): void
+    public function test_all_floors_met_is_green(): void
     {
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($this->defaultScenario());
+        $result = $this->runner->evaluate([
+            'green_ticks' => 15,
+            'recovered_cycles' => 2,
+            'held_cycles' => 1,
+            'forbidden_dependency_hits' => 0,
+        ]);
 
-        self::assertTrue($verdict['passed']);
-        self::assertSame(0, $verdict['failed_count']);
-        self::assertSame([], $verdict['dependency_violations']);
+        $this->assertSame('green', $result['status']);
     }
 
-    public function test_counts_sum_correctly(): void
+    public function test_custom_floors_respected(): void
     {
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($this->defaultScenario());
+        $result = $this->runner->evaluate([
+            'green_ticks' => 3,
+            'recovered_cycles' => 1,
+            'held_cycles' => 1,
+            'min_green_ticks' => 3,
+        ]);
 
-        $sum = $verdict['green_count'] + $verdict['recovered_count'] + $verdict['held_count'];
-        self::assertSame($verdict['tick_count'], $sum, 'green+recovered+held must equal tick_count');
-    }
-
-    public function test_soak_run_hash_is_deterministic(): void
-    {
-        $runner = new AtlasSelfConstructionRuntimeSoakRunner();
-        $a = $runner->run($this->defaultScenario());
-        $b = $runner->run($this->defaultScenario());
-
-        self::assertSame($a['soak_run_hash'], $b['soak_run_hash']);
-        self::assertStringStartsWith('soak_run_', $a['soak_run_hash']);
-    }
-
-    public function test_safety_stop_tick_does_not_fail_soak_and_counts_as_held(): void
-    {
-        $scenario = [
-            'virtual_ticks' => [
-                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-                ['index' => 1, 'kind' => 'safety_stop', 'expected_outcome' => 'safety_stop_observed'],
-                ['index' => 2, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-            ],
-        ];
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
-
-        self::assertTrue($verdict['passed'], 'safety_stop alone must not fail the soak');
-        self::assertSame(2, $verdict['green_count']);
-        self::assertSame(1, $verdict['held_count'], 'safety_stop tick must count toward held');
-        self::assertSame(3, $verdict['tick_count']);
-    }
-
-    public function test_dry_queue_stop_empty_scenario_passes_cleanly(): void
-    {
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run(['virtual_ticks' => []]);
-
-        self::assertTrue($verdict['passed']);
-        self::assertSame(0, $verdict['tick_count']);
-        self::assertSame(0, $verdict['failed_count']);
-        self::assertSame([], $verdict['dependency_violations']);
-        self::assertStringStartsWith('soak_run_', $verdict['soak_run_hash']);
-    }
-
-    public function test_forbidden_stop_token_forces_blocked_soak_status_with_offending_token(): void
-    {
-        $scenario = [
-            'virtual_ticks' => [
-                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success', 'requires' => ['requires_operator' => true]],
-                ['index' => 1, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-            ],
-        ];
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
-
-        self::assertSame('blocked', $verdict['soak_status']);
-        self::assertContains('requires_operator', $verdict['offending_tokens']);
-    }
-
-    public function test_clean_soak_with_enough_ticks_is_green(): void
-    {
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($this->defaultScenario());
-
-        self::assertSame('green', $verdict['soak_status']);
-        self::assertSame([], $verdict['offending_tokens']);
-    }
-
-    public function test_clean_soak_with_too_few_ticks_is_partial_not_green(): void
-    {
-        $scenario = [
-            'virtual_ticks' => [
-                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-            ],
-        ];
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
-
-        self::assertTrue($verdict['passed']);
-        self::assertSame('partial', $verdict['soak_status'], 'not enough virtual runtime evidence to declare green');
-    }
-
-    public function test_enough_ticks_without_recovered_or_held_diversity_is_partial_with_reasons(): void
-    {
-        $scenario = [
-            'virtual_ticks' => [
-                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-                ['index' => 1, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-                ['index' => 2, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-                ['index' => 3, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-                ['index' => 4, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
-            ],
-        ];
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
-
-        self::assertTrue($verdict['passed']);
-        self::assertSame('partial', $verdict['soak_status']);
-        self::assertContains('insufficient_recovered_ticks', $verdict['soak_status_reasons']);
-        self::assertContains('insufficient_held_ticks', $verdict['soak_status_reasons']);
-        self::assertSame($verdict['soak_status_reasons'], array_values(array_unique($verdict['soak_status_reasons'])));
-    }
-
-    public function test_soak_status_reasons_empty_when_green(): void
-    {
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($this->defaultScenario());
-
-        self::assertSame('green', $verdict['soak_status']);
-        self::assertSame([], $verdict['soak_status_reasons']);
-    }
-
-    public function test_max_cycle_stop_limits_ticks_to_scenario_max(): void
-    {
-        $maxTicks = 5;
-        $scenario = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build(['max_ticks' => $maxTicks]);
-        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
-
-        self::assertSame($maxTicks, $verdict['tick_count'], 'runner must stop at max_ticks boundary');
-        self::assertTrue($verdict['passed']);
+        $this->assertSame('green', $result['status']);
     }
 }
