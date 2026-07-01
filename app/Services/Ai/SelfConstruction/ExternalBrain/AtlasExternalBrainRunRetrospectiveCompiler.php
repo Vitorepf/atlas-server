@@ -76,13 +76,18 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
     {
         $runId = (string) ($options['run_id'] ?? 'unknown');
 
-        $summary      = $this->buildSummary($outcomes);
+        // Single outcome index: every section below reads from these pre-partitioned
+        // lists instead of re-scanning $outcomes with its own outcome === '...' filter,
+        // so success/give_back/proxy_smell counts cannot diverge across sections.
+        $index = $this->buildOutcomeIndex($outcomes);
+
+        $summary      = $this->buildSummary($outcomes, $index);
         $integrity    = $this->computeIntegrity($outcomes, $summary);
         $byCategory   = $this->groupByCategory($outcomes);
-        $highLeverage = $this->highLeverageSpecs($outcomes, $byCategory);
-        $wasted       = $this->wastedSpecs($outcomes, $byCategory);
-        $lessons      = $this->buildLessons($outcomes, $summary, $byCategory, $integrity);
-        $rootCauseMap = $this->buildRootCauseMap($outcomes);
+        $highLeverage = $this->highLeverageSpecs($index, $byCategory);
+        $wasted       = $this->wastedSpecs($index, $byCategory);
+        $lessons      = $this->buildLessons($outcomes, $index, $summary, $byCategory, $integrity);
+        $rootCauseMap = $this->buildRootCauseMap($index);
         $policies     = $this->buildPolicyAdjustments($outcomes, $byCategory, $integrity, $rootCauseMap);
         $hints        = $this->buildNextCycleHints($summary, $byCategory, $integrity, $policies);
         $adjustments  = $this->buildNextCycleAdjustments($summary, $byCategory, $integrity, $rootCauseMap);
@@ -102,20 +107,59 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
         ];
     }
 
-    /** @param list<array<string,mixed>> $outcomes */
-    private function buildSummary(array $outcomes): array
+    /**
+     * Single outcome index: pre-partitions the raw outcome list by outcome type once,
+     * so every downstream section (summary, high-leverage specs, wasted specs, lessons,
+     * root-cause map) reads the same success/give_back/proxy_smell/non_success sets
+     * instead of running its own divergent outcome === '...' scan.
+     *
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return array{success:list<array<string,mixed>>, non_success:list<array<string,mixed>>, give_back:list<array<string,mixed>>, rejected:list<array<string,mixed>>, proxy_smell:list<array<string,mixed>>}
+     */
+    private function buildOutcomeIndex(array $outcomes): array
+    {
+        $index = [
+            'success'     => [],
+            'non_success' => [],
+            'give_back'   => [],
+            'rejected'    => [],
+            'proxy_smell' => [],
+        ];
+
+        foreach ($outcomes as $o) {
+            $type = (string) ($o['outcome'] ?? '');
+            if ($type === self::OUTCOME_SUCCESS) {
+                $index['success'][] = $o;
+            } else {
+                $index['non_success'][] = $o;
+            }
+            match ($type) {
+                self::OUTCOME_GIVE_BACK   => $index['give_back'][] = $o,
+                self::OUTCOME_REJECTED    => $index['rejected'][] = $o,
+                self::OUTCOME_PROXY_SMELL => $index['proxy_smell'][] = $o,
+                default                   => null,
+            };
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $outcomes
+     * @param  array<string,list<array<string,mixed>>>  $index
+     */
+    private function buildSummary(array $outcomes, array $index): array
     {
         $total          = count($outcomes);
-        $successCount   = 0;
-        $giveBackCount  = 0;
-        $rejectedCount  = 0;
-        $proxyCount     = 0;
+        $successCount   = count($index['success']);
+        $giveBackCount  = count($index['give_back']);
+        $rejectedCount  = count($index['rejected']);
+        $proxyCount     = count($index['proxy_smell']);
         $duplicateCount = 0;
         $totalTokens    = 0;
         $wastedTokens   = 0;
 
         foreach ($outcomes as $o) {
-            $outcome = (string) ($o['outcome'] ?? '');
             $tokens  = (int) ($o['tokens_spent'] ?? 0);
             $reason  = (string) ($o['reason'] ?? '');
             $totalTokens += $tokens;
@@ -123,14 +167,11 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
             if (str_contains($reason, 'duplicate')) {
                 $duplicateCount++;
             }
-
-            match ($outcome) {
-                self::OUTCOME_SUCCESS     => $successCount++,
-                self::OUTCOME_GIVE_BACK   => [$giveBackCount++, $wastedTokens += $tokens],
-                self::OUTCOME_REJECTED    => [$rejectedCount++, $wastedTokens += $tokens],
-                self::OUTCOME_PROXY_SMELL => [$proxyCount++, $wastedTokens += $tokens],
-                default                   => null,
-            };
+        }
+        foreach ([$index['give_back'], $index['rejected'], $index['proxy_smell']] as $group) {
+            foreach ($group as $o) {
+                $wastedTokens += (int) ($o['tokens_spent'] ?? 0);
+            }
         }
 
         $yieldRate        = $total > 0 ? round($successCount / $total, 4) : 0.0;
@@ -206,17 +247,17 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
     }
 
     /**
-     * @param  list<array<string,mixed>>        $outcomes
+     * @param  array<string,list<array<string,mixed>>>  $index
      * @param  array<string,array<string,mixed>> $byCategory
      * @return list<array<string,mixed>>
      */
-    private function highLeverageSpecs(array $outcomes, array $byCategory): array
+    private function highLeverageSpecs(array $index, array $byCategory): array
     {
         $result = [];
 
         // Explicit high-leverage: success outcomes with a high leverage_score
-        foreach ($outcomes as $o) {
-            if ((string) ($o['outcome'] ?? '') === self::OUTCOME_SUCCESS && isset($o['leverage_score'])) {
+        foreach ($index['success'] as $o) {
+            if (isset($o['leverage_score'])) {
                 $score = (float) $o['leverage_score'];
                 if ($score >= 0.70) {
                     $result[] = [
@@ -247,23 +288,21 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
     }
 
     /**
-     * @param  list<array<string,mixed>>        $outcomes
+     * @param  array<string,list<array<string,mixed>>>  $index
      * @param  array<string,array<string,mixed>> $byCategory
      * @return list<array<string,mixed>>
      */
-    private function wastedSpecs(array $outcomes, array $byCategory): array
+    private function wastedSpecs(array $index, array $byCategory): array
     {
         $result = [];
 
         // Proxy smells are always wasted
-        foreach ($outcomes as $o) {
-            if ((string) ($o['outcome'] ?? '') === self::OUTCOME_PROXY_SMELL) {
-                $result[] = [
-                    'spec_id'  => (string) ($o['spec_id'] ?? ''),
-                    'category' => (string) ($o['category'] ?? 'unknown'),
-                    'reason'   => 'proxy_smell',
-                ];
-            }
+        foreach ($index['proxy_smell'] as $o) {
+            $result[] = [
+                'spec_id'  => (string) ($o['spec_id'] ?? ''),
+                'category' => (string) ($o['category'] ?? 'unknown'),
+                'reason'   => 'proxy_smell',
+            ];
         }
 
         // Categories with > 60% give_back / rejected, ≥ 2 outcomes
@@ -288,7 +327,7 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
      * @param  array<string,mixed>              $summary
      * @param  array<string,array<string,mixed>> $byCategory
      */
-    private function buildLessons(array $outcomes, array $summary, array $byCategory, string $integrity): array
+    private function buildLessons(array $outcomes, array $index, array $summary, array $byCategory, string $integrity): array
     {
         $lessons = [];
 
@@ -325,9 +364,8 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
 
         // Honest low-yield insight
         $honestGiveBackCount = 0;
-        foreach ($outcomes as $o) {
-            if ((string) ($o['outcome'] ?? '') === self::OUTCOME_GIVE_BACK
-                && in_array((string) ($o['reason'] ?? ''), self::HONEST_REASONS, true)) {
+        foreach ($index['give_back'] as $o) {
+            if (in_array((string) ($o['reason'] ?? ''), self::HONEST_REASONS, true)) {
                 $honestGiveBackCount++;
             }
         }
@@ -341,10 +379,10 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
     /**
      * Map each non-success outcome to one of 5 root cause buckets.
      *
-     * @param  list<array<string,mixed>>  $outcomes
+     * @param  array<string,list<array<string,mixed>>>  $index
      * @return array{bad_prompt:list<array<string,mixed>>, duplicate_target:list<array<string,mixed>>, weak_evidence:list<array<string,mixed>>, template_farm:list<array<string,mixed>>, worker_mismatch:list<array<string,mixed>>}
      */
-    private function buildRootCauseMap(array $outcomes): array
+    private function buildRootCauseMap(array $index): array
     {
         $map = [
             'bad_prompt'       => [],
@@ -354,10 +392,7 @@ final class AtlasExternalBrainRunRetrospectiveCompiler
             'worker_mismatch'  => [],
         ];
 
-        foreach ($outcomes as $o) {
-            if ((string) ($o['outcome'] ?? '') === self::OUTCOME_SUCCESS) {
-                continue;
-            }
+        foreach ($index['non_success'] as $o) {
             $bucket = $this->classifyRootCause($o);
             if ($bucket !== null) {
                 $map[$bucket][] = [
