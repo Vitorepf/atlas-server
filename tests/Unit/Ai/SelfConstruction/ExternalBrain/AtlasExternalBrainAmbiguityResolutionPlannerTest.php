@@ -364,4 +364,137 @@ final class AtlasExternalBrainAmbiguityResolutionPlannerTest extends TestCase
 
         $this->assertSame([], $result['resolution_actions'][0]['assumptions']);
     }
+
+    // ── AC: ambiguous target ownership is held with resolve_target_owner ───────
+
+    public function test_target_owner_ambiguous_flag_maps_to_resolve_target_owner(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => 'FooService',
+            'target_owner_ambiguous' => true,
+        ])));
+
+        $action = $result['resolution_actions'][0];
+        $this->assertSame(AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_RESOLVE_TARGET_OWNER, $action['action_type']);
+        $this->assertTrue($action['enqueue_blocking']);
+        $this->assertNotEmpty($result['unresolved_items']);
+        $this->assertFalse($result['task_creation_allowed']);
+    }
+
+    public function test_multiple_candidate_owners_maps_to_resolve_target_owner(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => 'FooService',
+            'candidate_owners' => ['team-a', 'team-b'],
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_RESOLVE_TARGET_OWNER,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
+
+    public function test_single_candidate_owner_does_not_trigger_resolve_target_owner(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => 'FooService',
+            'candidate_owners' => ['team-a'],
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_LOCAL_GREP,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
+
+    public function test_resolve_target_owner_takes_priority_over_prior_evidence(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'prior_evidence_id' => 'evid-1',
+            'target_owner_ambiguous' => true,
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_RESOLVE_TARGET_OWNER,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
+
+    // ── AC: unclear acceptance is held with synthesize_runnable_acceptance ──────
+
+    public function test_acceptance_unclear_maps_to_synthesize_runnable_acceptance(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => 'FooService',
+            'acceptance_unclear' => true,
+        ])));
+
+        $action = $result['resolution_actions'][0];
+        $this->assertSame(AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_SYNTHESIZE_ACCEPTANCE, $action['action_type']);
+        $this->assertTrue($action['enqueue_blocking']);
+        $this->assertFalse($result['task_creation_allowed']);
+    }
+
+    public function test_acceptance_criteria_runnable_false_maps_to_synthesize_runnable_acceptance(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => 'FooService',
+            'acceptance_criteria_runnable' => false,
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_SYNTHESIZE_ACCEPTANCE,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
+
+    public function test_acceptance_criteria_runnable_true_does_not_trigger_synthesis(): void
+    {
+        $result = $this->planner->plan($this->input($this->item([
+            'grep_pattern' => 'FooService',
+            'acceptance_criteria_runnable' => true,
+        ])));
+
+        $this->assertSame(
+            AtlasExternalBrainAmbiguityResolutionPlanner::ACTION_LOCAL_GREP,
+            $result['resolution_actions'][0]['action_type'],
+        );
+    }
+
+    // ── AC: unambiguous specs return ready with resolved assumptions listed ────
+
+    public function test_unambiguous_spec_returns_ready_true_with_resolved_assumptions(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['target_path' => 'app/Foo.php'])));
+
+        $this->assertTrue($result['ready']);
+        $this->assertNotEmpty($result['resolved_assumptions']);
+    }
+
+    public function test_ambiguous_spec_returns_ready_false(): void
+    {
+        $result = $this->planner->plan($this->input($this->item(['target_owner_ambiguous' => true])));
+
+        $this->assertFalse($result['ready']);
+    }
+
+    public function test_resolved_assumptions_aggregates_across_multiple_items(): void
+    {
+        $result = $this->planner->plan($this->input(
+            $this->item(['item_id' => 'a', 'target_path' => 'app/A.php']),
+            $this->item(['item_id' => 'b', 'grep_pattern' => 'B']),
+        ));
+
+        $this->assertTrue($result['ready']);
+        $this->assertCount(2, $result['resolved_assumptions']);
+    }
+
+    public function test_output_has_ready_and_resolved_assumptions_keys(): void
+    {
+        $result = $this->planner->plan(['ambiguity_items' => []]);
+
+        $this->assertArrayHasKey('ready', $result);
+        $this->assertArrayHasKey('resolved_assumptions', $result);
+        $this->assertSame([], $result['resolved_assumptions']);
+    }
 }

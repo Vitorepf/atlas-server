@@ -9,20 +9,26 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * deterministic local checks rather than letting them become speculative specs.
  *
  * Each ambiguity_item is classified into an action_type (first match wins):
- *   local_grep_check       — has grep_pattern or mentions a symbol name
- *   target_existence_check — has target_path (file/class to verify)
- *   queue_collision_check  — has task_class/task_family to check for queued duplicate
- *   evidence_replay        — has prior_evidence_id to re-validate
- *   explicit_escalation    — ambiguity too high for local resolution; requires frontier
+ *   resolve_target_owner            — target ownership itself is ambiguous (multiple
+ *                                      candidate owners, or explicitly flagged ambiguous)
+ *   synthesize_runnable_acceptance  — acceptance is unclear or not runnable as stated
+ *   local_grep_check                — has grep_pattern or mentions a symbol name
+ *   target_existence_check          — has target_path (file/class to verify)
+ *   queue_collision_check           — has task_class/task_family to check for queued duplicate
+ *   evidence_replay                 — has prior_evidence_id to re-validate
+ *   explicit_escalation             — ambiguity too high for local resolution; requires frontier
  *
- * An item is UNRESOLVED when:
- *   - action_type=explicit_escalation (no local check possible), OR
+ * An item is UNRESOLVED (held before enqueue) when:
+ *   - action_type is resolve_target_owner, synthesize_runnable_acceptance, or
+ *     explicit_escalation (none of these can be settled by a plain local check), OR
  *   - ambiguity_score >= UNRESOLVABLE_THRESHOLD and no specific check fields present
  *
- * AC3: task_creation_allowed = false when any unresolved item exists.
+ * AC3: task_creation_allowed = false when any unresolved item exists. `ready` mirrors
+ * task_creation_allowed, and resolved_assumptions aggregates every non-blocking
+ * action's assumptions into a single flat list for an unambiguous spec.
  *
  * AC4: output always includes ambiguity_items (echoed), resolution_actions,
- *      unresolved_items, and task_creation_allowed.
+ *      unresolved_items, task_creation_allowed, ready, and resolved_assumptions.
  *
  * Pure: no I/O, no side effects.
  */
@@ -36,6 +42,8 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
     public const ACTION_EVIDENCE_REPLAY     = 'evidence_replay';
     public const ACTION_EXPLICIT_ESCALATION = 'explicit_escalation';
     public const ACTION_CAPABILITY_CLAIM    = 'capability_claim_check';
+    public const ACTION_RESOLVE_TARGET_OWNER = 'resolve_target_owner';
+    public const ACTION_SYNTHESIZE_ACCEPTANCE = 'synthesize_runnable_acceptance';
 
     private const UNRESOLVABLE_THRESHOLD = 0.80;
 
@@ -94,17 +102,35 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             }
         }
 
+        $taskCreationAllowed = $unresolvedItems === [];
+        $resolvedAssumptions = array_values(array_merge([], ...array_column($resolutionActions, 'assumptions')));
+
         return [
             'schema'                 => self::SCHEMA,
             'ambiguity_items'        => $items,
             'resolution_actions'     => $resolutionActions,
             'unresolved_items'       => $unresolvedItems,
-            'task_creation_allowed'  => $unresolvedItems === [],
+            'task_creation_allowed'  => $taskCreationAllowed,
+            'ready'                  => $taskCreationAllowed,
+            'resolved_assumptions'   => $resolvedAssumptions,
         ];
     }
 
     private function resolveActionType(array $item, float $ambiguityScore): string
     {
+        // 0a. Ambiguous target ownership — must be resolved before any local check.
+        $candidateOwners = (array) ($item['candidate_owners'] ?? []);
+        if ((bool) ($item['target_owner_ambiguous'] ?? false) || count($candidateOwners) > 1) {
+            return self::ACTION_RESOLVE_TARGET_OWNER;
+        }
+
+        // 0b. Unclear or non-runnable acceptance — must be synthesized before enqueue.
+        if ((bool) ($item['acceptance_unclear'] ?? false)
+            || (array_key_exists('acceptance_criteria_runnable', $item) && ! $item['acceptance_criteria_runnable'])
+        ) {
+            return self::ACTION_SYNTHESIZE_ACCEPTANCE;
+        }
+
         // 1. Evidence replay — has prior evidence reference
         if (! empty($item['prior_evidence_id'])) {
             return self::ACTION_EVIDENCE_REPLAY;
@@ -136,7 +162,11 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
 
     private function isUnresolved(string $actionType, float $ambiguityScore, array $item): bool
     {
-        if ($actionType === self::ACTION_EXPLICIT_ESCALATION) {
+        if (in_array($actionType, [
+            self::ACTION_EXPLICIT_ESCALATION,
+            self::ACTION_RESOLVE_TARGET_OWNER,
+            self::ACTION_SYNTHESIZE_ACCEPTANCE,
+        ], true)) {
             return true;
         }
 
@@ -166,6 +196,8 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             self::ACTION_EVIDENCE_REPLAY     => 'replayed_evidence_payload',
             self::ACTION_CAPABILITY_CLAIM    => 'capability_grep_result',
             self::ACTION_EXPLICIT_ESCALATION => 'frontier_or_operator_decision',
+            self::ACTION_RESOLVE_TARGET_OWNER => 'target_owner_confirmed',
+            self::ACTION_SYNTHESIZE_ACCEPTANCE => 'runnable_acceptance_criterion_synthesized',
         };
     }
 
@@ -179,6 +211,8 @@ final class AtlasExternalBrainAmbiguityResolutionPlanner
             self::ACTION_EVIDENCE_REPLAY    => ['check_command' => 'atlas:evidence:replay --id='.($item['prior_evidence_id'] ?? '?')],
             self::ACTION_CAPABILITY_CLAIM    => ['check_command' => 'grep -rli '.($item['capability_claim'] ?? '?').' app/'],
             self::ACTION_EXPLICIT_ESCALATION => ['check_command' => null, 'escalation_note' => 'require frontier model or operator review before proceeding'],
+            self::ACTION_RESOLVE_TARGET_OWNER => ['check_command' => null, 'escalation_note' => 'confirm the single owning module/team before any target file is touched'],
+            self::ACTION_SYNTHESIZE_ACCEPTANCE => ['check_command' => null, 'escalation_note' => 'synthesize a concrete, falsifiable acceptance criterion before enqueue'],
         };
     }
 }
