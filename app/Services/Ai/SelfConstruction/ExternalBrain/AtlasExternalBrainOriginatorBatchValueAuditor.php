@@ -30,6 +30,7 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
     private const WRAPPER_ONLY_SHARE_THRESHOLD = 0.50;
     private const LOW_IMPACT_SCORE_THRESHOLD = 0.30;
     private const LOW_IMPACT_SHARE_THRESHOLD = 0.50;
+    private const HIGH_COLLISION_RISK_THRESHOLD = 0.60;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -105,6 +106,16 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             default => [self::RECOMMENDATION_PROCEED, []],
         };
 
+        $dominantTheme = null;
+        if ($sameThemeVariantFlag && $themeCounts !== []) {
+            $dominantTheme = array_search(max($themeCounts), $themeCounts, true);
+        }
+
+        [$trimmedTaskIds, $droppedTaskReasons] = $this->trimTasks(
+            $tasks,
+            $recommendation === self::RECOMMENDATION_TRIM_BATCH || $recommendation === self::RECOMMENDATION_PIVOT_THEME,
+        );
+
         return $this->envelope(
             $tasks,
             $taskScores,
@@ -117,7 +128,49 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             wrapperOnlyShare: $wrapperOnlyShare,
             missingProofShare: $missingProofShare,
             lowImpactDespitePassingShare: $lowImpactDespitePassingShare,
+            trimmedTaskIds: $trimmedTaskIds,
+            droppedTaskReasons: $droppedTaskReasons,
+            dominantTheme: $dominantTheme,
         );
+    }
+
+    /**
+     * Trims individual tasks with task-level keep/drop reasons — a batch is not merely
+     * flagged low_value, low-value tasks are actually identified for removal.
+     *
+     * @param  list<mixed>  $tasks
+     * @return array{0:list<string>, 1:array<string,string>}
+     */
+    private function trimTasks(array $tasks, bool $shouldTrim): array
+    {
+        if (! $shouldTrim) {
+            return [[], []];
+        }
+
+        $trimmedTaskIds = [];
+        $droppedTaskReasons = [];
+
+        foreach ($tasks as $task) {
+            $task = (array) $task;
+            $taskId = (string) ($task['task_id'] ?? '');
+            if ($taskId === '') {
+                continue;
+            }
+
+            $reason = match (true) {
+                ! (bool) ($task['has_runnable_proof'] ?? false) => 'missing_runnable_proof',
+                trim((string) ($task['duplicate_of'] ?? '')) !== '' => 'duplicate_of_set',
+                max(0.0, min(1.0, (float) ($task['collision_risk'] ?? 0.0))) > self::HIGH_COLLISION_RISK_THRESHOLD => 'high_collision_risk',
+                default => null,
+            };
+
+            if ($reason !== null) {
+                $trimmedTaskIds[] = $taskId;
+                $droppedTaskReasons[$taskId] = $reason;
+            }
+        }
+
+        return [$trimmedTaskIds, $droppedTaskReasons];
     }
 
     /** @param array<string,mixed> $task */
@@ -170,6 +223,9 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
         float $wrapperOnlyShare = 0.0,
         float $missingProofShare = 0.0,
         float $lowImpactDespitePassingShare = 0.0,
+        array $trimmedTaskIds = [],
+        array $droppedTaskReasons = [],
+        ?string $dominantTheme = null,
     ): array {
         return [
             'schema_version' => self::SCHEMA,
@@ -178,12 +234,15 @@ final class AtlasExternalBrainOriginatorBatchValueAuditor
             'low_value' => $isLowValue,
             'low_value_reasons' => $lowValueReasons,
             'dominant_theme_share' => round($dominantThemeShare, 6),
+            'dominant_theme' => $dominantTheme,
             'test_only_share' => round($testOnlyShare, 6),
             'wrapper_only_share' => round($wrapperOnlyShare, 6),
             'missing_proof_share' => round($missingProofShare, 6),
             'low_impact_despite_passing_share' => round($lowImpactDespitePassingShare, 6),
             'recommendation' => $recommendation,
             'recommendation_reasons' => $recommendationReasons,
+            'trimmed_task_ids' => $trimmedTaskIds,
+            'dropped_task_reasons' => $droppedTaskReasons,
             'mutates_queue' => false,
         ];
     }

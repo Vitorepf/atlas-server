@@ -153,4 +153,64 @@ final class AtlasExternalBrainOriginatorBatchValueAuditorTest extends TestCase
         $this->assertSame('stop_and_research', $result['recommendation']);
         $this->assertSame(0, $result['task_count']);
     }
+
+    // ── Trim: keep/drop reasons per task ──────────────────────────────────
+
+    public function test_proceed_recommendation_keeps_all_task_ids(): void
+    {
+        $result = $this->auditor()->audit(['tasks' => [
+            $this->goodTask(['task_id' => 'a', 'theme' => 'theme-a']),
+            $this->goodTask(['task_id' => 'b', 'theme' => 'theme-b']),
+            $this->goodTask(['task_id' => 'c', 'theme' => 'theme-c']),
+        ]]);
+
+        $this->assertSame('proceed', $result['recommendation']);
+        $this->assertSame([], $result['trimmed_task_ids']);
+        $this->assertSame([], $result['dropped_task_reasons']);
+    }
+
+    public function test_trim_batch_drops_tasks_missing_runnable_proof(): void
+    {
+        $result = $this->auditor()->audit(['tasks' => [
+            $this->goodTask(['task_id' => 'a', 'theme' => 'a', 'has_runnable_proof' => false]),
+            $this->goodTask(['task_id' => 'b', 'theme' => 'b']),
+            $this->goodTask(['task_id' => 'c', 'theme' => 'c']),
+        ]]);
+
+        $this->assertSame('trim_batch', $result['recommendation']);
+        $this->assertContains('a', $result['trimmed_task_ids']);
+        $this->assertNotContains('b', $result['trimmed_task_ids']);
+        $this->assertSame('missing_runnable_proof', $result['dropped_task_reasons']['a']);
+    }
+
+    public function test_trim_batch_drops_duplicate_and_high_collision_risk_tasks(): void
+    {
+        $result = $this->auditor()->audit(['tasks' => [
+            $this->goodTask(['task_id' => 'a', 'theme' => 'a', 'is_test_only' => true]),
+            $this->goodTask(['task_id' => 'b', 'theme' => 'b', 'is_test_only' => true]),
+            $this->goodTask(['task_id' => 'c', 'theme' => 'c', 'duplicate_of' => 'old-task']),
+            $this->goodTask(['task_id' => 'd', 'theme' => 'd', 'collision_risk' => 0.9]),
+        ]]);
+
+        $this->assertSame('trim_batch', $result['recommendation']);
+        $this->assertSame('duplicate_of_set', $result['dropped_task_reasons']['c']);
+        $this->assertSame('high_collision_risk', $result['dropped_task_reasons']['d']);
+        $this->assertContains('c', $result['trimmed_task_ids']);
+        $this->assertContains('d', $result['trimmed_task_ids']);
+    }
+
+    public function test_pivot_theme_names_dominant_theme_and_trims(): void
+    {
+        $result = $this->auditor()->audit(['tasks' => [
+            $this->goodTask(['task_id' => 'a', 'theme' => 'cleanup']),
+            $this->goodTask(['task_id' => 'b', 'theme' => 'cleanup']),
+            $this->goodTask(['task_id' => 'c', 'theme' => 'cleanup', 'duplicate_of' => 'old-task']),
+            $this->goodTask(['task_id' => 'd', 'theme' => 'other']),
+        ]]);
+
+        $this->assertSame('pivot_theme', $result['recommendation']);
+        $this->assertSame('cleanup', $result['dominant_theme']);
+        $this->assertContains('c', $result['trimmed_task_ids']);
+        $this->assertSame('duplicate_of_set', $result['dropped_task_reasons']['c']);
+    }
 }
