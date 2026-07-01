@@ -41,6 +41,12 @@ final class CodeDiscoveryManifest implements AtlasDevSchemaContract
      * @param  list<ContextRef>  $relatedCommands
      * @param  list<MissingRef>  $missingRefs
      * @param  list<string>  $forbiddenFiles
+     * @param  list<ContextRef>  $likelyCallers  the strongest production consumers of the likely
+     *   files, discovered via the same code-intelligence lookup used for relatedSymbols. Additive,
+     *   defaults empty when the lookup is unavailable — never blocks discovery.
+     * @param  list<string>  $recentOutcomeFacts  compact facts about recent Dev run outcomes that
+     *   touched the same files (read through AtlasAemorRuntimeService when available). Additive,
+     *   defaults empty when the runtime is unavailable — never blocks discovery.
      */
     public function __construct(
         public readonly string $runId,
@@ -53,6 +59,8 @@ final class CodeDiscoveryManifest implements AtlasDevSchemaContract
         public readonly array $forbiddenFiles,
         public readonly bool $providerSafe,
         public readonly string $manifestHash,
+        public readonly array $likelyCallers = [],
+        public readonly array $recentOutcomeFacts = [],
     ) {
         if (! in_array($confidence, self::CONFIDENCE_VALUES, true)) {
             throw new InvalidArgumentException(
@@ -76,10 +84,12 @@ final class CodeDiscoveryManifest implements AtlasDevSchemaContract
         return CanonicalJson::canonicalize([
             'confidence' => $this->confidence,
             'forbidden_files' => array_values($this->forbiddenFiles),
+            'likely_callers' => array_map(static fn (ContextRef $r): array => $r->toCanonicalArray(), $this->likelyCallers),
             'likely_files' => array_map(static fn (CodeCandidate $c): array => $c->toCanonicalArray(), $this->likelyFiles),
             'manifest_hash' => $this->manifestHash,
             'missing_refs' => array_map(static fn (MissingRef $r): array => $r->toCanonicalArray(), $this->missingRefs),
             'provider_safe' => $this->providerSafe,
+            'recent_outcome_facts' => array_values(array_map('strval', $this->recentOutcomeFacts)),
             'related_commands' => array_map(static fn (ContextRef $r): array => $r->toCanonicalArray(), $this->relatedCommands),
             'related_symbols' => array_map(static fn (ContextRef $r): array => $r->toCanonicalArray(), $this->relatedSymbols),
             'related_tests' => array_map(static fn (ContextRef $r): array => $r->toCanonicalArray(), $this->relatedTests),
@@ -114,6 +124,11 @@ final class CodeDiscoveryManifest implements AtlasDevSchemaContract
             $canonical['related_commands'],
             ['ref'],
             'code_discovery_manifest.related_commands',
+        );
+        $canonical['likely_callers'] = ProviderSafeRedactor::redactArrayOfMaps(
+            $canonical['likely_callers'],
+            ['ref'],
+            'code_discovery_manifest.likely_callers',
         );
 
         return CanonicalJson::canonicalize($canonical);
@@ -162,6 +177,11 @@ final class CodeDiscoveryManifest implements AtlasDevSchemaContract
             forbiddenFiles: array_values((array) ($payload['forbidden_files'] ?? [])),
             providerSafe: (bool) ($payload['provider_safe'] ?? true),
             manifestHash: (string) ($payload['manifest_hash'] ?? ''),
+            likelyCallers: array_map(
+                static fn (array $r): ContextRef => ContextRef::fromArray($r),
+                array_values((array) ($payload['likely_callers'] ?? [])),
+            ),
+            recentOutcomeFacts: array_values(array_map('strval', (array) ($payload['recent_outcome_facts'] ?? []))),
         );
     }
 }

@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
+use App\Services\Ai\Programming\AtlasDev\Discovery\SymbolLookup;
 use App\Services\Ai\Programming\AtlasDev\Gate\MandatoryRagGate;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
+use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CodeCandidate;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAuditor;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use Throwable;
 
 /**
  * Atlas Dev fast-path orchestrator — plan-only entry point.
@@ -52,6 +58,8 @@ class AtlasDevFastPathOrchestrator
         private readonly ?MandatoryRagGate $mandatoryRagGate = null,
         private readonly ?SpecialistFlowRouter $specialistFlowRouter = null,
         private readonly ?DevFailureCapsulePromptInjector $failureCapsuleInjector = null,
+        private readonly ?SymbolLookup $callerLookup = null,
+        private readonly ?AtlasAemorRuntimeService $aemorRuntime = null,
     ) {}
 
     /**
@@ -73,6 +81,7 @@ class AtlasDevFastPathOrchestrator
 
         $contextPlan = $this->tierSelector->select($envelope, $compactSddPreliminary);
         $discovery = $this->codeDiscovery->discover($envelope, $compactSddPreliminary);
+        $discovery = $this->enrichDiscovery($discovery, $envelope->workspace);
 
         $finalRisk = $this->riskScorer->score($envelope, $classification, $discovery);
         $compactSdd = $finalRisk === $preliminaryRisk
@@ -229,6 +238,118 @@ class AtlasDevFastPathOrchestrator
             seniorLoopAudit: $seniorLoopAudit,
             specialistFlow: $specialistDecision,
         );
+    }
+
+    /**
+     * Enriches the discovery manifest with likely_callers and recent_outcome_facts — evidence a
+     * small model needs most, so the context pack is not just "what files" but "who else depends
+     * on them" and "what happened last time this area was touched". Purely additive: every
+     * existing manifest field is untouched, and ANY failure inside enrichment (missing collaborator,
+     * lookup exception, unexpected shape) yields the ORIGINAL unenriched manifest — enrichment can
+     * only ever add evidence, never block or corrupt a Dev run.
+     */
+    private function enrichDiscovery(CodeDiscoveryManifest $discovery, string $workspace): CodeDiscoveryManifest
+    {
+        try {
+            return new CodeDiscoveryManifest(
+                runId: $discovery->runId,
+                likelyFiles: $discovery->likelyFiles,
+                relatedSymbols: $discovery->relatedSymbols,
+                relatedTests: $discovery->relatedTests,
+                relatedCommands: $discovery->relatedCommands,
+                confidence: $discovery->confidence,
+                missingRefs: $discovery->missingRefs,
+                forbiddenFiles: $discovery->forbiddenFiles,
+                providerSafe: $discovery->providerSafe,
+                manifestHash: $discovery->manifestHash,
+                likelyCallers: $this->discoverLikelyCallers($discovery, $workspace),
+                recentOutcomeFacts: $this->discoverRecentOutcomeFacts($discovery),
+            );
+        } catch (Throwable) {
+            return $discovery;
+        }
+    }
+
+    /**
+     * Reuses the SAME code-intelligence lookup (SymbolLookup) already consulted for
+     * relatedSymbols: for each likely file's class-like basename, any OTHER file the lookup
+     * associates with that symbol is a candidate production consumer.
+     *
+     * @return list<ContextRef>
+     */
+    private function discoverLikelyCallers(CodeDiscoveryManifest $discovery, string $workspace): array
+    {
+        if ($this->callerLookup === null) {
+            return [];
+        }
+
+        $callers = [];
+        foreach ($discovery->likelyFiles as $candidate) {
+            if (! $candidate instanceof CodeCandidate) {
+                continue;
+            }
+            $symbol = pathinfo($candidate->path, PATHINFO_FILENAME);
+            if ($symbol === '') {
+                continue;
+            }
+
+            try {
+                $hits = $this->callerLookup->find($workspace, $symbol);
+            } catch (Throwable) {
+                continue;
+            }
+
+            foreach ($hits as $hit) {
+                $path = (string) ($hit['path'] ?? '');
+                if ($path === '' || $path === $candidate->path) {
+                    continue;
+                }
+                $callers[$path] = new ContextRef(
+                    kind: ContextRef::KIND_FILE,
+                    ref: 'file://'.$path,
+                    reason: (string) ($hit['reason'] ?? ('likely caller of '.$symbol)),
+                );
+            }
+        }
+
+        $list = array_values($callers);
+        usort($list, static fn (ContextRef $a, ContextRef $b): int => strcmp($a->ref, $b->ref));
+
+        return $list;
+    }
+
+    /**
+     * Reads recent AEMOR run outcomes when the runtime is available, as compact facts. Fail-open:
+     * an unavailable runtime or a thrown exception yields an empty list, never a failed run.
+     *
+     * @return list<string>
+     */
+    private function discoverRecentOutcomeFacts(CodeDiscoveryManifest $discovery): array
+    {
+        if ($this->aemorRuntime === null || $discovery->likelyFiles === []) {
+            return [];
+        }
+
+        try {
+            $controlPlane = $this->aemorRuntime->controlPlane();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $facts = [];
+        foreach ((array) ($controlPlane['blockers'] ?? []) as $blocker) {
+            if (! is_array($blocker)) {
+                continue;
+            }
+            $status = (string) ($blocker['status'] ?? '');
+            if ($status === '') {
+                continue;
+            }
+            $signature = (string) ($blocker['failure_signature'] ?? '');
+            $facts[] = trim("outcome:{$status}".($signature !== '' ? ":{$signature}" : ''));
+        }
+
+        return array_values(array_unique($facts));
     }
 
     /**
