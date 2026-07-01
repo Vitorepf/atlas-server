@@ -53,6 +53,7 @@ final class AgentValidationGateRepairRecommendationBuilder
                 evidenceNeeded: ['none'],
                 escalation: 'none',
                 status: 'no_repair_required',
+                forbiddenFiles: $forbiddenFiles,
             );
         }
 
@@ -70,6 +71,7 @@ final class AgentValidationGateRepairRecommendationBuilder
             evidenceNeeded: $evidence,
             escalation: $escalation,
             status: 'recommendation_ready',
+            forbiddenFiles: $forbiddenFiles,
         );
     }
 
@@ -148,7 +150,11 @@ final class AgentValidationGateRepairRecommendationBuilder
     ): array {
         $forbiddenOps = $this->baseForbiddenOps();
         $evidence = ['rerun_dry_run_evaluator', 'attach_observed_evidence_artifact_hash'];
-        $escalation = $requiresHuman ? 'human_review_before_retry' : 'retry_inside_same_session';
+        $escalation = match (true) {
+            $requiresHuman => 'human_review_before_retry',
+            $allowedFiles === [] => 'human_review_required_empty_allowed_files',
+            default => 'retry_inside_same_session',
+        };
 
         $steps = match ($category) {
             'lint_error' => [
@@ -206,6 +212,10 @@ final class AgentValidationGateRepairRecommendationBuilder
         if ($category === 'scope_violation') {
             $forbiddenOps[] = 'edit_outside_allowed_files';
             $forbiddenOps[] = 'edit_inside_forbidden_files';
+            $forbiddenOps[] = 'no_git_add_all';
+            $forbiddenOps[] = 'no_broad_git_operations';
+            $forbiddenOps[] = 'no_broad_filesystem_operations';
+            $evidence[] = 'attach_forbidden_files_touched_list';
         }
 
         if ($category === 'evidence_missing' || $category === 'rollback_missing') {
@@ -248,6 +258,7 @@ final class AgentValidationGateRepairRecommendationBuilder
         array $evidenceNeeded,
         string $escalation,
         string $status,
+        array $forbiddenFiles = [],
     ): array {
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -260,6 +271,7 @@ final class AgentValidationGateRepairRecommendationBuilder
             'requires_human_review' => $requiresHuman,
             'steps' => $steps,
             'allowed_files' => $allowedFiles,
+            'forbidden_files' => $forbiddenFiles,
             'forbidden_ops' => $forbiddenOps,
             'evidence_needed' => $evidenceNeeded,
             'escalation' => $escalation,
