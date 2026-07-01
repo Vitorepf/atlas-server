@@ -279,4 +279,62 @@ final class AtlasExternalBrainScaffoldRegistryGovernanceTest extends TestCase
         $this->assertSame('2.1.0', $r['version']);
         $this->assertSame('logic_gap', $r['intended_failure_mode']);
     }
+
+    // ── AC: governLifecycle() prevents zombie scaffolds ──────────────────────────
+
+    private function governedEntry(array $overrides = []): array
+    {
+        return array_merge([
+            'id' => 'scaffold-1',
+            'lifecycle_state' => 'active',
+            'owner_capability' => 'external_brain_team',
+            'promotion_condition' => 'lift >= 0.15 over 5 samples',
+            'retirement_condition' => 'lift <= 0 over 5 samples',
+        ], $overrides);
+    }
+
+    public function test_govern_lifecycle_output_includes_full_lifecycle_metadata_per_entry(): void
+    {
+        $result = $this->gov()->governLifecycle(['entries' => [$this->governedEntry()]]);
+
+        $entry = $result['registry_entries'][0];
+        $this->assertSame('active', $entry['lifecycle_state']);
+        $this->assertSame('external_brain_team', $entry['owner_capability']);
+        $this->assertNotEmpty($entry['promotion_condition']);
+        $this->assertNotEmpty($entry['retirement_condition']);
+    }
+
+    public function test_scaffold_without_owner_is_a_governance_violation_and_flagged_for_investigation(): void
+    {
+        $result = $this->gov()->governLifecycle(['entries' => [$this->governedEntry(['owner_capability' => ''])]]);
+
+        $this->assertNotEmpty($result['governance_violations']);
+        $this->assertContains('missing_owner_capability', $result['governance_violations'][0]['violations']);
+        $this->assertContains('scaffold-1', $result['investigate']);
+    }
+
+    public function test_scaffold_without_any_lifecycle_condition_is_a_governance_violation(): void
+    {
+        $result = $this->gov()->governLifecycle(['entries' => [
+            $this->governedEntry(['promotion_condition' => '', 'retirement_condition' => '']),
+        ]]);
+
+        $this->assertContains('missing_lifecycle_condition', $result['governance_violations'][0]['violations']);
+        $this->assertContains('scaffold-1', $result['investigate']);
+    }
+
+    public function test_govern_lifecycle_separates_promote_keep_retire_and_investigate(): void
+    {
+        $result = $this->gov()->governLifecycle(['entries' => [
+            $this->governedEntry(['id' => 'promotable', 'promotion_condition_met' => true]),
+            $this->governedEntry(['id' => 'kept']),
+            $this->governedEntry(['id' => 'retirable', 'retirement_condition_met' => true]),
+            $this->governedEntry(['id' => 'zombie', 'owner_capability' => '']),
+        ]]);
+
+        $this->assertSame(['promotable'], $result['promote']);
+        $this->assertSame(['kept'], $result['keep']);
+        $this->assertSame(['retirable'], $result['retire']);
+        $this->assertSame(['zombie'], $result['investigate']);
+    }
 }

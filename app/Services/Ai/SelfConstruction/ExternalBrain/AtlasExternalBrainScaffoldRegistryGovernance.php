@@ -216,6 +216,76 @@ final class AtlasExternalBrainScaffoldRegistryGovernance
         ];
     }
 
+    /**
+     * Explicit lifecycle governance: every scaffold must carry a lifecycle_state,
+     * owner_capability, promotion_condition and retirement_condition, so nothing
+     * can sit in the registry forever as an unowned, condition-less zombie.
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array<string,mixed>
+     */
+    public function governLifecycle(array $facts): array
+    {
+        $entries = is_array($facts['entries'] ?? null) ? $facts['entries'] : [];
+
+        $registryEntries = [];
+        $governanceViolations = [];
+        $promote = [];
+        $keep = [];
+        $retire = [];
+        $investigate = [];
+
+        foreach ($entries as $entry) {
+            $entry = (array) $entry;
+            $id = (string) ($entry['id'] ?? '');
+            $lifecycleState = trim((string) ($entry['lifecycle_state'] ?? ''));
+            $ownerCapability = trim((string) ($entry['owner_capability'] ?? ''));
+            $promotionCondition = trim((string) ($entry['promotion_condition'] ?? ''));
+            $retirementCondition = trim((string) ($entry['retirement_condition'] ?? ''));
+
+            $violations = [];
+            if ($ownerCapability === '') {
+                $violations[] = 'missing_owner_capability';
+            }
+            if ($promotionCondition === '' && $retirementCondition === '') {
+                $violations[] = 'missing_lifecycle_condition';
+            }
+
+            $registryEntries[] = [
+                'id' => $id,
+                'lifecycle_state' => $lifecycleState !== '' ? $lifecycleState : 'unknown',
+                'owner_capability' => $ownerCapability,
+                'promotion_condition' => $promotionCondition,
+                'retirement_condition' => $retirementCondition,
+            ];
+
+            if ($violations !== []) {
+                $governanceViolations[] = ['id' => $id, 'violations' => $violations];
+                $investigate[] = $id;
+
+                continue;
+            }
+
+            if ((bool) ($entry['retirement_condition_met'] ?? false)) {
+                $retire[] = $id;
+            } elseif ((bool) ($entry['promotion_condition_met'] ?? false)) {
+                $promote[] = $id;
+            } else {
+                $keep[] = $id;
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'registry_entries' => $registryEntries,
+            'governance_violations' => $governanceViolations,
+            'promote' => $promote,
+            'keep' => $keep,
+            'retire' => $retire,
+            'investigate' => $investigate,
+        ];
+    }
+
     private function health(int $total, int $rejected, int $activeValid): string
     {
         if ($activeValid === 0) {
