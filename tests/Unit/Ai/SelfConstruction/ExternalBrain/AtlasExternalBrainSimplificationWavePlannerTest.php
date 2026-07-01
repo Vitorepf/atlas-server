@@ -364,4 +364,75 @@ final class AtlasExternalBrainSimplificationWavePlannerTest extends TestCase
 
         $this->assertSame(0, $r['consolidation_score']);
     }
+
+    // ── proof-first ordering: parity proof + consumer safety beats raw line reduction ──
+
+    public function test_behavior_parity_proof_with_consumer_impact_safe_ranks_ahead_of_larger_unproven_candidate(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('big-unproven', ['line_reduction' => 500]),
+            $this->candidate('small-proven', [
+                'line_reduction' => 10,
+                'behavior_parity_proof' => true,
+                'consumer_impact_safe' => true,
+            ]),
+        ]);
+
+        $this->assertSame(['small-proven', 'big-unproven'], $r['waves'][0]);
+    }
+
+    public function test_behavior_parity_proof_without_consumer_impact_safe_does_not_get_priority(): void
+    {
+        // proof alone, without consumer_impact_safe explicitly true, must not jump the queue.
+        $r = $this->planner()->plan([
+            $this->candidate('big-unproven', ['line_reduction' => 500]),
+            $this->candidate('proof-only', [
+                'line_reduction' => 10,
+                'behavior_parity_proof' => true,
+                'consumer_impact_safe' => false,
+            ]),
+        ]);
+
+        // proof-only is deferred (consumer_impact_safe=false), so only big-unproven is eligible.
+        $this->assertSame(['big-unproven'], $r['waves'][0]);
+    }
+
+    // ── AC2 regression: still defers on missing rollback/consumer/knowledge-sync evidence ──
+
+    public function test_deferred_candidates_still_list_precise_required_prework_alongside_proof_priority(): void
+    {
+        $r = $this->planner()->plan([
+            $this->candidate('proven-safe', ['behavior_parity_proof' => true, 'consumer_impact_safe' => true]),
+            $this->candidate('missing-rollback', ['has_rollback_proof' => false]),
+            $this->candidate('missing-knowledge-sync', ['has_knowledge_sync_evidence' => false]),
+        ]);
+
+        $this->assertContains('proven-safe', $r['waves'][0]);
+        $this->assertCount(2, $r['deferred']);
+        $deferredIds = array_column($r['deferred'], 'candidate_id');
+        $this->assertContains('missing-rollback', $deferredIds);
+        $this->assertContains('missing-knowledge-sync', $deferredIds);
+    }
+
+    // ── AC3 regression: stop_go_decision only prioritizes with high debt AND eligible safe candidates ──
+
+    public function test_stop_go_decision_still_requires_both_high_debt_and_eligible_candidates_with_proof_field_present(): void
+    {
+        $r = $this->planner()->plan(
+            [$this->candidate('a', ['behavior_parity_proof' => true, 'consumer_impact_safe' => true, 'line_reduction' => 50])],
+            ['complexity_debt_high' => true],
+        );
+        $this->assertSame('prioritize_simplification_over_new_feature', $r['stop_go_decision']['decision']);
+
+        $rNoDebt = $this->planner()->plan(
+            [$this->candidate('a', ['behavior_parity_proof' => true, 'consumer_impact_safe' => true, 'line_reduction' => 50])],
+        );
+        $this->assertSame('proceed_normal', $rNoDebt['stop_go_decision']['decision']);
+
+        $rNoEligible = $this->planner()->plan(
+            [$this->candidate('a', ['has_behavior_coverage' => false])],
+            ['complexity_debt_high' => true],
+        );
+        $this->assertNotSame('prioritize_simplification_over_new_feature', $rNoEligible['stop_go_decision']['decision']);
+    }
 }

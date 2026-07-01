@@ -20,8 +20,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * ownership_clear===true. Anything else is DEFERRED with required_prework naming what's missing —
  * missing behavior coverage or unclear ownership are unsafe to simplify around.
  *
- * RANKING (within eligible candidates, best-first): dependency_risk ASC (low first),
- * line_reduction DESC, rollback_ease ASC (easy first), candidate_id ASC (tiebreak).
+ * RANKING (within eligible candidates, best-first): behavior_parity_proof && consumer_impact_safe
+ * FIRST (explicit safety proof beats raw deletion size), then deletion-first/consolidates_circuit,
+ * then dependency_risk ASC (low first), line_reduction DESC, rollback_ease ASC (easy first),
+ * candidate_id ASC (tiebreak).
  *
  * CAPACITY: when build_or_repair_urgent is true, the reserved per-wave capacity is HALVED (floor, min 1)
  * so simplification never consumes the whole capacity while build/repair is urgent. Eligible candidates
@@ -115,19 +117,27 @@ final class AtlasExternalBrainSimplificationWavePlanner
                 'rollback_ease' => (string) ($c['rollback_ease'] ?? 'hard'),
                 'is_deletion_first' => (bool) ($c['is_deletion_first'] ?? false),
                 'consolidates_circuit' => (bool) ($c['consolidates_circuit'] ?? false),
+                'behavior_parity_proof' => (bool) ($c['behavior_parity_proof'] ?? false),
+                'consumer_impact_safe' => $consumerImpactSafe,
             ];
         }
 
-        // AC1: deletion-first circuit consolidation ranks ahead of additive cleanup with similar
-        // line reduction — checked before dependency_risk so it dominates the ordering.
+        // Proof-first ordering: explicit behavior_parity_proof + consumer_impact_safe outranks
+        // everything else, including raw line_reduction — safety evidence beats deletion size.
+        // AC1: within that, deletion-first circuit consolidation ranks ahead of additive cleanup
+        // with similar line reduction — checked before dependency_risk so it dominates ordering.
         usort($eligible, static function (array $a, array $b): int {
+            $pa = ($a['behavior_parity_proof'] && $a['consumer_impact_safe']) ? 0 : 1;
+            $pb = ($b['behavior_parity_proof'] && $b['consumer_impact_safe']) ? 0 : 1;
+
             $ca = ($a['is_deletion_first'] || $a['consolidates_circuit']) ? 0 : 1;
             $cb = ($b['is_deletion_first'] || $b['consolidates_circuit']) ? 0 : 1;
 
             $ra = self::RISK_RANK[$a['dependency_risk']] ?? 99;
             $rb = self::RISK_RANK[$b['dependency_risk']] ?? 99;
 
-            return $ca <=> $cb
+            return $pa <=> $pb
+                ?: $ca <=> $cb
                 ?: $ra <=> $rb
                 ?: $b['line_reduction'] <=> $a['line_reduction']
                 ?: (self::ROLLBACK_RANK[$a['rollback_ease']] ?? 99) <=> (self::ROLLBACK_RANK[$b['rollback_ease']] ?? 99)
