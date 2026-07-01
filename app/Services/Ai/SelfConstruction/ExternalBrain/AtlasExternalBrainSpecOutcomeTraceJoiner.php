@@ -82,6 +82,21 @@ final class AtlasExternalBrainSpecOutcomeTraceJoiner
         $evidenceStrength = $this->evidenceStrength($evidence);
 
         if ($status === self::STATUS_SUCCESS) {
+            $hasValueProof = ! empty($evidence['implementation_notes']) && ! empty($evidence['value_delta']);
+            if (! $hasValueProof) {
+                return [
+                    'schema' => self::SCHEMA,
+                    'status' => self::STATUS_WEAK_GREEN,
+                    'success' => false,
+                    'evidence_strength' => $evidenceStrength,
+                    'task_shape' => $taskShape,
+                    'worker' => $worker,
+                    'model' => $model,
+                    'decision_changed' => $decisionChanged,
+                    'learning_signal' => 'evidence_too_weak_trust_only_partially',
+                ];
+            }
+
             return [
                 'schema' => self::SCHEMA,
                 'status' => self::STATUS_SUCCESS,

@@ -33,7 +33,7 @@ final class AtlasExternalBrainSpecOutcomeTraceJoinerTest extends TestCase
         $r = $this->joiner()->join($this->spec(), [
             'status' => 'success',
             'commit_sha' => 'abc123',
-            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done'],
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a real gap'],
         ]);
 
         $this->assertSame('success', $r['status']);
@@ -49,7 +49,7 @@ final class AtlasExternalBrainSpecOutcomeTraceJoinerTest extends TestCase
         $r = $this->joiner()->join($this->spec(), [
             'status' => 'success',
             'commit_sha' => 'abc123',
-            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done'],
+            'evidence' => ['tests_or_gates_result' => 'pass', 'implementation_notes' => 'done', 'value_delta' => 'closed a real gap'],
         ]);
 
         $this->assertSame(1.0, $r['evidence_strength']);
@@ -226,6 +226,33 @@ final class AtlasExternalBrainSpecOutcomeTraceJoinerTest extends TestCase
 
         $this->assertArrayHasKey('learning_signal', $result);
         $this->assertNotEmpty($result['learning_signal']);
+    }
+
+    public function test_success_without_implementation_notes_or_value_delta_emits_weak_green(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'evidence' => ['tests_or_gates_result' => 'pass'],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainSpecOutcomeTraceJoiner::STATUS_WEAK_GREEN, $r['status']);
+        $this->assertFalse($r['success']);
+    }
+
+    public function test_success_with_full_value_proof_remains_success(): void
+    {
+        $r = $this->joiner()->join($this->spec(), [
+            'status' => 'success',
+            'commit_sha' => 'abc123',
+            'evidence' => [
+                'tests_or_gates_result' => 'pass',
+                'implementation_notes' => 'closed the gap',
+                'value_delta' => 'real behavior change',
+            ],
+        ]);
+
+        $this->assertSame('success', $r['status']);
+        $this->assertTrue($r['success']);
     }
 
     public function test_give_back_repair_candidate_learning_signal_differs_from_worker_error(): void
