@@ -391,4 +391,58 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunnerTest extends TestCa
         $this->assertArrayNotHasKey('replenisher', $verdict);
         $this->assertArrayNotHasKey('worker_integration', $verdict);
     }
+
+    public function test_malformed_queue_routes_to_self_heal_before_top_up(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 3, 'claimable_depth' => 0],
+                'claimable_packet' => null,
+            ]),
+            $this->replenisher(['action' => 'top_up']),
+            $this->workerIntegration(['accepted' => true, 'request' => []]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'unused']),
+            $this->learner(['learning' => []]),
+        );
+
+        $verdict = $runner->run('cyc-heal');
+
+        $this->assertSame('repair_first', $verdict['stop_reason']);
+        $this->assertSame('self_heal', $verdict['action_choice']['action']);
+        $this->assertStringContainsString('malformed_packets_present', $verdict['action_choice']['reason']);
+    }
+
+    public function test_healthy_deep_queue_routes_to_selective_create_or_consolidate(): void
+    {
+        $runner = new AtlasSelfConstructionContinuousRuntimeCycleRunner(
+            $this->inspector([
+                'safety_stop' => false,
+                'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 25],
+                'claimable_packet' => ['task_packet_id' => 'pkt-deep'],
+            ]),
+            $this->replenisher(['action' => 'wait']),
+            $this->workerIntegration(['accepted' => true, 'request' => ['task_packet_id' => 'pkt-deep']]),
+            $this->verifier(['verified' => true]),
+            $this->mergeDecider(['decision' => 'merge_approved']),
+            $this->learner(['learning' => []]),
+        );
+
+        $verdict = $runner->run('cyc-deep');
+
+        $this->assertSame('selective_create_or_consolidate', $verdict['action_choice']['action']);
+        $this->assertNotSame('idle', $verdict['action_choice']['action']);
+    }
+
+    public function test_cycle_output_always_includes_action_choice_with_reason_and_required_evidence(): void
+    {
+        $verdict = $this->happyRunner()->run('cyc-action-shape');
+
+        $this->assertArrayHasKey('action_choice', $verdict);
+        $this->assertArrayHasKey('action', $verdict['action_choice']);
+        $this->assertArrayHasKey('reason', $verdict['action_choice']);
+        $this->assertArrayHasKey('required_evidence', $verdict['action_choice']);
+        $this->assertNotEmpty($verdict['action_choice']['required_evidence']);
+    }
 }

@@ -35,6 +35,13 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
     public const STOP_WORKER_REJECTED = 'worker_request_rejected';
     public const STOP_VERIFICATION_FAILED = 'verification_failed';
 
+    public const ACTION_HOLD = 'hold';
+    public const ACTION_SELF_HEAL = 'self_heal';
+    public const ACTION_SELECTIVE_CREATE_OR_CONSOLIDATE = 'selective_create_or_consolidate';
+    public const ACTION_CREATE = 'create';
+
+    private const DEEP_QUEUE_THRESHOLD = 10;
+
     public function __construct(
         private object $healthInspector,
         private object $replenisher,
@@ -54,16 +61,17 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
     {
         $health = (array) $this->healthInspector->inspect();
         $supervisorResult = $this->runUnattendedSupervisor($health);
+        $queueHealth = is_array($health['queue_health'] ?? null) ? $health['queue_health'] : [];
+        $actionChoice = $this->chooseAction($health, $queueHealth);
 
         if ((bool) ($health['safety_stop'] ?? false)) {
             return $this->stop($cycleId, self::STOP_SAFETY, [
                 'health' => $health,
                 'safety_reasons' => array_values((array) ($health['safety_reasons'] ?? [])),
                 'unattended_supervisor' => $supervisorResult,
+                'action_choice' => $actionChoice,
             ]);
         }
-
-        $queueHealth = is_array($health['queue_health'] ?? null) ? $health['queue_health'] : [];
 
         if (((int) ($queueHealth['malformed_count'] ?? 0)) > 0) {
             $repl = (array) $this->replenisher->replenish($health);
@@ -72,6 +80,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
                 'health' => $health,
                 'replenish' => $repl,
                 'unattended_supervisor' => $supervisorResult,
+                'action_choice' => $actionChoice,
             ]);
         }
 
@@ -84,6 +93,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
                 'health' => $health,
                 'replenish' => $repl,
                 'unattended_supervisor' => $supervisorResult,
+                'action_choice' => $actionChoice,
             ];
 
             if (((int) ($queueHealth['claimable_depth'] ?? -1)) === 0) {
@@ -104,6 +114,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
                 'health' => $health,
                 'worker' => $worker,
                 'unattended_supervisor' => $supervisorResult,
+                'action_choice' => $actionChoice,
             ]);
         }
 
@@ -115,6 +126,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
                 'worker' => $worker,
                 'verify_merge' => ['verification' => $verification, 'merge' => null],
                 'unattended_supervisor' => $supervisorResult,
+                'action_choice' => $actionChoice,
             ]);
         }
 
@@ -144,7 +156,52 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             'learn' => $learn,
             'unattended_supervisor' => $supervisorResult,
             'scope_expansion' => $scopeExpansionResult,
+            'action_choice' => $actionChoice,
             'cycle_receipt_hash' => $receiptHash,
+        ];
+    }
+
+    /**
+     * Chooses the cycle's action (create/self_heal/selective_create_or_consolidate/hold) from
+     * live queue state and evidence — additive facts-only decision, never overrides the
+     * existing stop-condition control flow above.
+     *
+     * @param  array<string,mixed>  $health
+     * @param  array<string,mixed>  $queueHealth
+     * @return array{action:string,reason:string,required_evidence:list<string>}
+     */
+    private function chooseAction(array $health, array $queueHealth): array
+    {
+        if ((bool) ($health['safety_stop'] ?? false)) {
+            return [
+                'action' => self::ACTION_HOLD,
+                'reason' => 'safety_stop_active',
+                'required_evidence' => ['safety_stop_reason'],
+            ];
+        }
+
+        $malformedCount = (int) ($queueHealth['malformed_count'] ?? 0);
+        if ($malformedCount > 0) {
+            return [
+                'action' => self::ACTION_SELF_HEAL,
+                'reason' => 'malformed_packets_present:'.$malformedCount,
+                'required_evidence' => ['repair_result', 'post_repair_queue_health'],
+            ];
+        }
+
+        $claimableDepth = (int) ($queueHealth['claimable_depth'] ?? -1);
+        if ($claimableDepth >= self::DEEP_QUEUE_THRESHOLD) {
+            return [
+                'action' => self::ACTION_SELECTIVE_CREATE_OR_CONSOLIDATE,
+                'reason' => 'healthy_deep_queue:claimable_depth_'.$claimableDepth,
+                'required_evidence' => ['consolidation_candidates_or_selective_create_target'],
+            ];
+        }
+
+        return [
+            'action' => self::ACTION_CREATE,
+            'reason' => 'queue_not_deep:claimable_depth_'.$claimableDepth,
+            'required_evidence' => ['originated_task_packet_or_replenish_result'],
         ];
     }
 
