@@ -191,4 +191,133 @@ class AtlasMaestroPacketProvenanceVerifierTest extends TestCase
 
         self::assertSame($verifier->verify($record), $verifier->verify($record));
     }
+
+    // ── verifyPacketBinding(): AC2/AC3/AC4 ─────────────────────────────────────
+
+    /** Mirrors the verifier's private canonicalJson()/sortRecursive() so test hashes always agree. */
+    private function canonicalHash(mixed $value): string
+    {
+        $sort = function (mixed $v) use (&$sort): mixed {
+            if (! is_array($v)) {
+                return $v;
+            }
+            if (array_is_list($v)) {
+                return array_map($sort, $v);
+            }
+            ksort($v, SORT_STRING);
+
+            return array_map($sort, $v);
+        };
+
+        return hash('sha256', (string) json_encode($sort($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private function validPacket(array $overrides = []): array
+    {
+        $payload = ['task_packet_id' => 'pkt-1', 'objective' => 'do the thing'];
+        $queuedRecord = ['task_packet_id' => 'pkt-1', 'target' => 'app/Services/Foo.php'];
+
+        return array_merge([
+            'source' => 'maestro_composer',
+            'target' => 'app/Services/Foo.php',
+            'payload' => $payload,
+            'content_hash' => $this->canonicalHash($payload),
+            'composer_version' => '1.2.3',
+            'expected_composer_version' => '1.2.3',
+            'queued_record' => $queuedRecord,
+            'queued_record_hash' => $this->canonicalHash($queuedRecord),
+            'generated_at' => '2026-07-01T00:00:00Z',
+            'now' => '2026-07-01T00:05:00Z',
+            'max_age_seconds' => 3600,
+        ], $overrides);
+    }
+
+    public function test_valid_packet_binding_passes(): void
+    {
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($this->validPacket());
+
+        $this->assertTrue($verdict['ok']);
+        $this->assertSame('OK', $verdict['reason_code']);
+    }
+
+    public function test_missing_required_field_is_rejected(): void
+    {
+        $packet = $this->validPacket();
+        unset($packet['composer_version']);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_MISSING_REQUIRED_FIELD, $verdict['reason_code']);
+        $this->assertSame('composer_version', $verdict['missing_field']);
+    }
+
+    public function test_content_hash_mismatch_is_detected(): void
+    {
+        $packet = $this->validPacket(['content_hash' => str_repeat('0', 64)]);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_CONTENT_HASH_MISMATCH, $verdict['reason_code']);
+    }
+
+    public function test_missing_queue_binding_is_detected_when_target_mismatches(): void
+    {
+        $packet = $this->validPacket(['queued_record' => ['target' => 'app/Other.php', 'task_packet_id' => 'pkt-1']]);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_MISSING_TARGET_BINDING, $verdict['reason_code']);
+    }
+
+    public function test_missing_queue_binding_is_detected_when_record_hash_mismatches(): void
+    {
+        $packet = $this->validPacket(['queued_record_hash' => str_repeat('a', 64)]);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_MISSING_TARGET_BINDING, $verdict['reason_code']);
+    }
+
+    public function test_stale_packet_is_detected(): void
+    {
+        $packet = $this->validPacket(['now' => '2026-07-02T00:00:00Z', 'max_age_seconds' => 3600]);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_STALE_PACKET, $verdict['reason_code']);
+    }
+
+    public function test_composer_version_mismatch_is_detected(): void
+    {
+        $packet = $this->validPacket(['expected_composer_version' => '9.9.9']);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_COMPOSER_VERSION_MISMATCH, $verdict['reason_code']);
+    }
+
+    public function test_missing_composer_version_field_is_rejected(): void
+    {
+        $packet = $this->validPacket(['composer_version' => '']);
+
+        $verdict = (new AtlasMaestroPacketProvenanceVerifier)->verifyPacketBinding($packet);
+
+        $this->assertFalse($verdict['ok']);
+        $this->assertSame(AtlasMaestroPacketProvenanceVerifier::REASON_MISSING_REQUIRED_FIELD, $verdict['reason_code']);
+        $this->assertSame('composer_version', $verdict['missing_field']);
+    }
+
+    public function test_verify_packet_binding_is_deterministic(): void
+    {
+        $packet = $this->validPacket();
+        $verifier = new AtlasMaestroPacketProvenanceVerifier();
+
+        $this->assertSame($verifier->verifyPacketBinding($packet), $verifier->verifyPacketBinding($packet));
+    }
 }

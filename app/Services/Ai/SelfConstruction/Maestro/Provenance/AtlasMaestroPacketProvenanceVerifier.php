@@ -40,6 +40,20 @@ final class AtlasMaestroPacketProvenanceVerifier
 
     public const REASON_STALE_CRITIC_RECEIPT = 'STALE_CRITIC_RECEIPT';
 
+    public const REASON_MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD';
+
+    public const REASON_CONTENT_HASH_MISMATCH = 'CONTENT_HASH_MISMATCH';
+
+    public const REASON_MISSING_TARGET_BINDING = 'MISSING_TARGET_BINDING';
+
+    public const REASON_STALE_PACKET = 'STALE_PACKET';
+
+    public const REASON_COMPOSER_VERSION_MISMATCH = 'COMPOSER_VERSION_MISMATCH';
+
+    private const PACKET_BINDING_REQUIRED_FIELDS = [
+        'source', 'target', 'content_hash', 'composer_version', 'queued_record_hash', 'generated_at',
+    ];
+
     /**
      * @param  array<string,mixed>  $record
      * @return array{ok:bool, reason_code:string, broken_link_id?:string}
@@ -132,6 +146,77 @@ final class AtlasMaestroPacketProvenanceVerifier
         }
 
         return $this->verdict(true, self::REASON_OK);
+    }
+
+    /**
+     * Verifies a task packet's binding to its source/target/composer/queue record — distinct from
+     * verify()'s provenance-CHAIN check. Requires source, target, content_hash, composer_version,
+     * queued_record_hash, and generated_at to be present, then checks (first match wins):
+     *   MISSING_REQUIRED_FIELD    — any of the six required fields is absent/empty
+     *   CONTENT_HASH_MISMATCH     — content_hash doesn't match the recomputed hash of `payload`
+     *   MISSING_TARGET_BINDING    — `queued_record` doesn't declare the same target, or
+     *                               queued_record_hash doesn't match the recomputed queued_record hash
+     *   COMPOSER_VERSION_MISMATCH — composer_version doesn't match `expected_composer_version`
+     *   STALE_PACKET              — generated_at is older than `now` - max_age_seconds
+     *   OK                        — all checks passed
+     *
+     * `payload`, `queued_record`, `expected_composer_version`, `now`, and `max_age_seconds` are
+     * optional cross-checks: when absent, that specific check is skipped (the caller may not always
+     * have all cross-check material available), but the six required fields are always enforced.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array{ok:bool, reason_code:string, missing_field?:string}
+     */
+    public function verifyPacketBinding(array $packet): array
+    {
+        foreach (self::PACKET_BINDING_REQUIRED_FIELDS as $field) {
+            if (! isset($packet[$field]) || trim((string) $packet[$field]) === '') {
+                return $this->bindingVerdict(false, self::REASON_MISSING_REQUIRED_FIELD, $field);
+            }
+        }
+
+        if (array_key_exists('payload', $packet)) {
+            $expectedContentHash = hash('sha256', $this->canonicalJson($packet['payload']));
+            if ((string) $packet['content_hash'] !== $expectedContentHash) {
+                return $this->bindingVerdict(false, self::REASON_CONTENT_HASH_MISMATCH);
+            }
+        }
+
+        if (isset($packet['queued_record']) && is_array($packet['queued_record'])) {
+            $queuedTarget = (string) ($packet['queued_record']['target'] ?? '');
+            $expectedRecordHash = hash('sha256', $this->canonicalJson($packet['queued_record']));
+            if ($queuedTarget !== (string) $packet['target'] || (string) $packet['queued_record_hash'] !== $expectedRecordHash) {
+                return $this->bindingVerdict(false, self::REASON_MISSING_TARGET_BINDING);
+            }
+        }
+
+        if (isset($packet['expected_composer_version'])
+            && (string) $packet['expected_composer_version'] !== (string) $packet['composer_version']) {
+            return $this->bindingVerdict(false, self::REASON_COMPOSER_VERSION_MISMATCH);
+        }
+
+        if (isset($packet['now'], $packet['max_age_seconds'])) {
+            $generatedAt = strtotime((string) $packet['generated_at']);
+            $now = strtotime((string) $packet['now']);
+            if ($generatedAt !== false && $now !== false && ($now - $generatedAt) > (int) $packet['max_age_seconds']) {
+                return $this->bindingVerdict(false, self::REASON_STALE_PACKET);
+            }
+        }
+
+        return $this->bindingVerdict(true, self::REASON_OK);
+    }
+
+    /**
+     * @return array{ok:bool, reason_code:string, missing_field?:string}
+     */
+    private function bindingVerdict(bool $ok, string $reason, ?string $missingField = null): array
+    {
+        $v = ['ok' => $ok, 'reason_code' => $reason];
+        if ($missingField !== null) {
+            $v['missing_field'] = $missingField;
+        }
+
+        return $v;
     }
 
     /**
