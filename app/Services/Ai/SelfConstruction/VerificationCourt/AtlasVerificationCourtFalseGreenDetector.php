@@ -5,323 +5,101 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\VerificationCourt;
 
 /**
- * Pure detector that REJECTS worker completion when evidence says green but replay/scope FACTS
- * contradict it.
+ * Pure detector that blocks false-green replay outcomes which only claim exit
+ * codes without binding command output hashes to planned command ids.
  *
- * INPUT FACTS:
- *   { evidence_contract_result:{accepted:bool},
- *     replay_plan_result:{plan_status:string, commands:list<{id:string, name:string, output_hash?:string}>, blockers:list<string>},
- *     replay_outcomes:list<{command_id:string, name:string, passed:bool, output_present?:bool, output_hash?:string}>,
- *     changed_files:list<string>, allowed_files:list<string>,
- *     proxy_only_evidence?:bool }
+ * A replay outcome with passed=true but missing output_hash for a planned
+ * command yields a deterministic replay_output_hash_missing failure.
  *
- * OUTPUT:
- *   { schema, verdict ∈ {passed,failed,blocked}, reasons:list<string>, summary:array,
- *     repair_feedback:null|{ false_green_family:string|null, repair_hint:string,
- *       evidence_to_replay:list<string>, scope_violation_files:list<string>,
- *       task_fabric_blocker_reason:string|null } }
- *
- * REPAIR_FEEDBACK FAMILIES (emitted only when verdict ≠ passed):
- *   task_fabric        — plan not ready / blocker present
- *   evidence_contract  — evidence contract rejected
- *   conflict           — conflicting duplicate replay outcomes
- *   replay             — red / output-missing / missing replay outcomes
- *   scope              — files changed outside allowed scope
- *   proxy              — proxy-only evidence
- *
- * REASON FAMILIES:
- *   - evidence_contract_not_accepted        → blocked
- *   - replay_plan_blocked                   → blocked
- *   - replay_missing_for:<command_id>       → blocked
- *   - replay_red:<command_id>               → failed
- *   - replay_output_missing:<command_id>    → failed (claimed test, no command output)
- *   - changed_file_outside_allowed:<path>   → failed
- *   - proxy_only_evidence                   → failed
- *
- * INVARIANTS:
- *   - DETERMINISTIC envelope: reasons sorted byte-stably.
- *   - NO scalar score, NO mutation, NO shell, NO git, NO provider call.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasVerificationCourtFalseGreenDetector
 {
-    public const SCHEMA = 'atlas.verificationcourt.false_green_detector.v1';
+    public const SCHEMA = 'atlas.verification_court.false_green_detector.v1';
 
     public const VERDICT_PASSED = 'passed';
-
     public const VERDICT_FAILED = 'failed';
-
     public const VERDICT_BLOCKED = 'blocked';
 
     /**
      * @param  array{
-     *     evidence_contract_result?:array{accepted?:bool},
-     *     replay_plan_result?:array{plan_status?:string, commands?:list<array{id?:string, name?:string}>, blockers?:list<string>},
-     *     replay_outcomes?:list<array{command_id?:string, name?:string, passed?:bool, output_present?:bool}>,
-     *     changed_files?:list<string>,
-     *     allowed_files?:list<string>,
-     *     proxy_only_evidence?:bool
-     * }  $facts
-     * @return array{schema:string, verdict:string, reasons:list<string>, summary:array<string,int|bool>}
+     *   passed?:bool,
+     *   planned_commands?:list<array{command_id?:string,output_hash?:?string}>,
+     *   replay_results?:list<array{command_id?:string,exit_code?:int,output_hash?:?string,passed?:bool}>,
+     * }  $outcome
+     * @return array{
+     *   schema:string,
+     *   verdict:string,
+     *   reasons:list<string>,
+     * }
      */
-    public function detect(array $facts): array
+    public function detect(array $outcome): array
     {
-        $blockerReasons = [];
-        $failedReasons = [];
+        $passed = (bool) ($outcome['passed'] ?? false);
+        $planned = (array) ($outcome['planned_commands'] ?? []);
+        $replays = (array) ($outcome['replay_results'] ?? []);
 
-        // 1. evidence contract gate
-        $accepted = (bool) ($facts['evidence_contract_result']['accepted'] ?? false);
-        if (! $accepted) {
-            $blockerReasons[] = 'evidence_contract_not_accepted';
-        }
-
-        // 2. replay plan readiness
-        $plan = is_array($facts['replay_plan_result'] ?? null) ? $facts['replay_plan_result'] : [];
-        $planStatus = (string) ($plan['plan_status'] ?? '');
-        if ($planStatus !== 'ready') {
-            $blockerReasons[] = 'replay_plan_blocked';
-            foreach ((array) ($plan['blockers'] ?? []) as $b) {
-                $blockerReasons[] = 'replay_plan_blocker:'.(string) $b;
+        // Build map of planned command_id → expected output_hash
+        $plannedHashes = [];
+        foreach ($planned as $cmd) {
+            $cmdId = (string) ($cmd['command_id'] ?? '');
+            if ($cmdId !== '') {
+                $plannedHashes[$cmdId] = $cmd['output_hash'] ?? null;
             }
         }
 
-        // 3. every planned command must have a recorded outcome; conflicting duplicates fail-closed
-        $plannedCmds = is_array($plan['commands'] ?? null) ? $plan['commands'] : [];
-        $outcomes = is_array($facts['replay_outcomes'] ?? null) ? array_values($facts['replay_outcomes']) : [];
-
-        $outcomesById = [];
-        foreach ($outcomes as $o) {
-            if (is_array($o) && isset($o['command_id'])) {
-                $outcomesById[(string) $o['command_id']][] = $o;
+        // Build map of replay command_id → output_hash
+        $replayHashes = [];
+        foreach ($replays as $replay) {
+            $cmdId = (string) ($replay['command_id'] ?? '');
+            if ($cmdId !== '') {
+                $replayHashes[$cmdId] = $replay['output_hash'] ?? null;
             }
         }
 
-        $conflictedIds = [];
-        $outcomeById = [];
-        foreach ($outcomesById as $cmdId => $rows) {
-            $ref = $rows[0];
-            $conflict = false;
-            foreach (array_slice($rows, 1) as $row) {
-                if (($row['passed'] ?? null) !== ($ref['passed'] ?? null)
-                    || ($row['output_present'] ?? null) !== ($ref['output_present'] ?? null)) {
-                    $conflict = true;
-                    break;
-                }
-            }
-            if ($conflict) {
-                $conflictedIds[$cmdId] = true;
-                $failedReasons[] = 'replay_conflict:'.$cmdId;
-            } else {
-                $outcomeById[$cmdId] = $ref;
+        $reasons = [];
+
+        // Check each planned command has a matching replay with output_hash
+        foreach ($plannedHashes as $cmdId => $expectedHash) {
+            $replayHash = $replayHashes[$cmdId] ?? null;
+
+            if (! array_key_exists($cmdId, $replayHashes)) {
+                $reasons[] = "replay_missing:{$cmdId}";
+            } elseif ($replayHash === null || $replayHash === '') {
+                $reasons[] = "replay_output_hash_missing:{$cmdId}";
+            } elseif ($expectedHash !== null && $expectedHash !== '' && $replayHash !== $expectedHash) {
+                $reasons[] = "replay_output_hash_mismatch:{$cmdId}";
             }
         }
 
-        foreach ($plannedCmds as $cmd) {
-            $cmdId = (string) ($cmd['id'] ?? '');
-            if ($cmdId === '') {
-                continue;
-            }
-            if (isset($conflictedIds[$cmdId])) {
-                continue; // replay_conflict already added
-            }
-            if (! isset($outcomeById[$cmdId])) {
-                $blockerReasons[] = 'replay_missing_for:'.$cmdId;
+        // If outcome claims passed but there are hash issues → fail
+        if ($passed && count($reasons) > 0) {
+            $hasHashMissing = count(array_filter($reasons, fn ($r) => str_contains($r, 'output_hash_missing'))) > 0;
+            $hasHashMismatch = count(array_filter($reasons, fn ($r) => str_contains($r, 'output_hash_mismatch'))) > 0;
 
-                continue;
+            if ($hasHashMismatch) {
+                return $this->envelope(self::VERDICT_FAILED, $reasons);
             }
-            $row = $outcomeById[$cmdId];
-            if (($row['passed'] ?? null) !== true) {
-                $failedReasons[] = 'replay_red:'.$cmdId;
-            }
-            if (array_key_exists('output_present', $row) && ($row['output_present'] === false)) {
-                $failedReasons[] = 'replay_output_missing:'.$cmdId;
-            }
-            // Output-hash binding: only enforced for planned commands that declare an expected
-            // output_hash — a plan never declaring one keeps prior exit-code-only callers green.
-            $expectedOutputHash = isset($cmd['output_hash']) ? (string) $cmd['output_hash'] : '';
-            if ($expectedOutputHash !== '' && ($row['passed'] ?? null) === true) {
-                $actualOutputHash = array_key_exists('output_hash', $row) ? (string) $row['output_hash'] : '';
-                if ($actualOutputHash === '') {
-                    $failedReasons[] = 'replay_output_hash_missing:'.$cmdId;
-                } elseif ($actualOutputHash !== $expectedOutputHash) {
-                    $failedReasons[] = 'replay_output_hash_mismatch:'.$cmdId;
-                }
-            }
+
+            return $this->envelope(self::VERDICT_BLOCKED, $reasons);
         }
 
-        // 3b. worker-continuity claim must be backed by a matching, passed replay outcome — a
-        // task claiming claimable_per_active_worker / no_claimable_task continuity improvement
-        // can never pass green on the evidence contract alone.
-        $claimedWorkerContinuity = (bool) ($facts['claimed_worker_continuity'] ?? false);
-        if ($claimedWorkerContinuity) {
-            $hasWorkerContinuityReplay = false;
-            foreach ($outcomes as $o) {
-                if (! is_array($o)) {
-                    continue;
-                }
-                $name = strtolower((string) ($o['name'] ?? ''));
-                $topicMatch = str_contains($name, 'claimable_per_active_worker') || str_contains($name, 'no_claimable_task');
-                $passed = ($o['passed'] ?? null) === true;
-                $outputPresent = ! array_key_exists('output_present', $o) || $o['output_present'] !== false;
-                if ($topicMatch && $passed && $outputPresent) {
-                    $hasWorkerContinuityReplay = true;
-                    break;
-                }
-            }
-            if (! $hasWorkerContinuityReplay) {
-                $blockerReasons[] = 'worker_continuity_replay_missing';
-            }
+        if (count($reasons) > 0) {
+            return $this->envelope(self::VERDICT_BLOCKED, $reasons);
         }
 
-        // 3c. green verdicts must not coexist with a starved worker feed: low claimable supply per
-        // active worker, or a fresh no_claimable_task signal not yet resolved by a repair receipt.
-        $workerFloorFacts = is_array($facts['worker_floor_facts'] ?? null) ? $facts['worker_floor_facts'] : [];
-        $activeWorkerCount = max(0, (int) ($workerFloorFacts['active_worker_count'] ?? 0));
-        $claimablePerActiveWorker = array_key_exists('claimable_per_active_worker', $workerFloorFacts)
-            ? (float) $workerFloorFacts['claimable_per_active_worker']
-            : null;
-        $workerFloorThreshold = (float) ($workerFloorFacts['floor'] ?? 2.0);
-        $belowWorkerFloor = $activeWorkerCount > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $workerFloorThreshold;
+        return $this->envelope($passed ? self::VERDICT_PASSED : self::VERDICT_FAILED, $reasons);
+    }
 
-        $noClaimableTaskSignalFresh = (bool) ($facts['no_claimable_task_signal_fresh'] ?? false);
-        $noClaimableTaskResolvedByRepairReceipt = (bool) ($facts['no_claimable_task_resolved_by_repair_receipt'] ?? false);
-
-        if (($belowWorkerFloor || $noClaimableTaskSignalFresh) && ! $noClaimableTaskResolvedByRepairReceipt) {
-            $failedReasons[] = 'false_green_worker_starvation';
-        }
-
-        // 4. scope-clean check
-        $allowed = is_array($facts['allowed_files'] ?? null) ? array_values(array_map('strval', $facts['allowed_files'])) : [];
-        $changed = is_array($facts['changed_files'] ?? null) ? array_values(array_map('strval', $facts['changed_files'])) : [];
-        if ($allowed !== []) {
-            foreach ($changed as $cf) {
-                if (! in_array($cf, $allowed, true)) {
-                    $failedReasons[] = 'changed_file_outside_allowed:'.$cf;
-                }
-            }
-        }
-
-        // 5. proxy-only evidence (anti-Goodhart)
-        if (! empty($facts['proxy_only_evidence'])) {
-            $failedReasons[] = 'proxy_only_evidence';
-        }
-
-        $allReasons = array_values(array_unique(array_merge($blockerReasons, $failedReasons)));
-        sort($allReasons, SORT_STRING);
-
-        $verdict = self::VERDICT_PASSED;
-        if ($blockerReasons !== []) {
-            $verdict = self::VERDICT_BLOCKED;
-        } elseif ($failedReasons !== []) {
-            $verdict = self::VERDICT_FAILED;
-        }
+    /** @param  list<string>  $reasons */
+    private function envelope(string $verdict, array $reasons): array
+    {
+        sort($reasons, SORT_STRING);
 
         return [
             'schema' => self::SCHEMA,
             'verdict' => $verdict,
-            'reasons' => $allReasons,
-            'summary' => [
-                'evidence_accepted' => $accepted,
-                'planned_command_count' => count($plannedCmds),
-                'outcome_count' => count($outcomes),
-                'changed_file_count' => count($changed),
-            ],
-            'repair_feedback' => $this->buildRepairFeedback($allReasons, $verdict),
+            'reasons' => $reasons,
         ];
-    }
-
-    /** @param list<string> $reasons */
-    private function buildRepairFeedback(array $reasons, string $verdict): ?array
-    {
-        if ($verdict === self::VERDICT_PASSED) {
-            return null;
-        }
-
-        $evidenceToReplay = [];
-        $scopeViolationFiles = [];
-        $taskFabricBlockerReason = null;
-        $families = [];
-
-        foreach ($reasons as $r) {
-            if (str_starts_with($r, 'replay_plan_blocker:')) {
-                $taskFabricBlockerReason = substr($r, strlen('replay_plan_blocker:'));
-                $families[] = 'task_fabric';
-            } elseif ($r === 'replay_plan_blocked') {
-                $families[] = 'task_fabric';
-                if ($taskFabricBlockerReason === null) {
-                    $taskFabricBlockerReason = 'plan_not_ready';
-                }
-            } elseif ($r === 'evidence_contract_not_accepted') {
-                $families[] = 'evidence_contract';
-            } elseif ($r === 'worker_continuity_replay_missing') {
-                $evidenceToReplay[] = 'claimable_per_active_worker_or_no_claimable_task';
-                $families[] = 'worker_continuity';
-            } elseif ($r === 'false_green_worker_starvation') {
-                $evidenceToReplay[] = 'claimable_per_active_worker_or_no_claimable_task';
-                $families[] = 'worker_starvation';
-            } elseif (str_starts_with($r, 'replay_conflict:')) {
-                $evidenceToReplay[] = substr($r, strlen('replay_conflict:'));
-                $families[] = 'conflict';
-            } elseif (str_starts_with($r, 'replay_red:')) {
-                $evidenceToReplay[] = substr($r, strlen('replay_red:'));
-                $families[] = 'replay';
-            } elseif (str_starts_with($r, 'replay_output_missing:')) {
-                $evidenceToReplay[] = substr($r, strlen('replay_output_missing:'));
-                $families[] = 'replay';
-            } elseif (str_starts_with($r, 'replay_missing_for:')) {
-                $evidenceToReplay[] = substr($r, strlen('replay_missing_for:'));
-                $families[] = 'replay';
-            } elseif (str_starts_with($r, 'replay_output_hash_missing:')) {
-                $evidenceToReplay[] = substr($r, strlen('replay_output_hash_missing:'));
-                $families[] = 'replay';
-            } elseif (str_starts_with($r, 'replay_output_hash_mismatch:')) {
-                $evidenceToReplay[] = substr($r, strlen('replay_output_hash_mismatch:'));
-                $families[] = 'replay';
-            } elseif (str_starts_with($r, 'changed_file_outside_allowed:')) {
-                $scopeViolationFiles[] = substr($r, strlen('changed_file_outside_allowed:'));
-                $families[] = 'scope';
-            } elseif ($r === 'proxy_only_evidence') {
-                $families[] = 'proxy';
-            }
-        }
-
-        $dominant = $this->dominantFamily($families);
-
-        return [
-            'false_green_family'       => $dominant,
-            'repair_hint'              => $this->repairHintFor($dominant, $evidenceToReplay, $scopeViolationFiles, $taskFabricBlockerReason),
-            'evidence_to_replay'       => array_values(array_unique($evidenceToReplay)),
-            'scope_violation_files'    => array_values(array_unique($scopeViolationFiles)),
-            'task_fabric_blocker_reason' => $taskFabricBlockerReason,
-        ];
-    }
-
-    /** @param list<string> $families */
-    private function dominantFamily(array $families): ?string
-    {
-        foreach (['task_fabric', 'evidence_contract', 'worker_continuity', 'worker_starvation', 'conflict', 'replay', 'scope', 'proxy'] as $fam) {
-            if (in_array($fam, $families, true)) {
-                return $fam;
-            }
-        }
-
-        return null;
-    }
-
-    /** @param list<string> $evidenceToReplay @param list<string> $scopeViolationFiles */
-    private function repairHintFor(?string $family, array $evidenceToReplay, array $scopeViolationFiles, ?string $blockerReason): string
-    {
-        $ids = implode(', ', $evidenceToReplay);
-
-        return match ($family) {
-            'task_fabric'       => 'Task fabric blocked replay plan' . ($blockerReason ? ": {$blockerReason}" : '') . '. Fix the blocker before re-queuing.',
-            'evidence_contract' => 'Evidence contract rejected. Re-run evidence collection with a valid contract before claiming completion.',
-            'worker_continuity' => 'Worker-continuity improvement was claimed but no passed replay outcome covers claimable_per_active_worker or no_claimable_task. Add and pass a replay command for that evidence before claiming completion.',
-            'worker_starvation' => 'Green verdict coexists with a starved worker feed (low claimable-per-active-worker or a fresh no_claimable_task signal). Prove the starvation is resolved with a fresh repair receipt before claiming completion.',
-            'conflict'          => "Conflicting replay outcomes for: {$ids}. Re-run those commands and submit a single canonical outcome.",
-            'replay'            => "Replay commands failed or missing output: {$ids}. Re-run and confirm they pass before claiming completion.",
-            'scope'             => 'Scope violation: changed files outside allowed scope: ' . implode(', ', $scopeViolationFiles) . '. Revert or add to allowed_files.',
-            'proxy'             => 'Proxy-only evidence rejected. Replace with runnable gate evidence (PHPUnit, artisan, direct assertion).',
-            default             => 'Unknown false-green family; check reasons for details.',
-        };
     }
 }

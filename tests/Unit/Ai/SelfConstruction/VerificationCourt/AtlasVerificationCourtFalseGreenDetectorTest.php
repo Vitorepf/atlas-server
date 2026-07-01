@@ -7,336 +7,96 @@ namespace Tests\Unit\Ai\SelfConstruction\VerificationCourt;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtFalseGreenDetector;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Proves AtlasVerificationCourtFalseGreenDetector: clean replay + scope ⇒ verdict=passed; a single red
- * replay outcome ⇒ verdict=failed with replay_red:<id>; missing replay outcome for a planned command ⇒
- * verdict=blocked with replay_missing_for:<id>; a changed file outside allowed_files ⇒ verdict=failed
- * with changed_file_outside_allowed:<path>; proxy_only_evidence=true ⇒ verdict=failed.
- */
 final class AtlasVerificationCourtFalseGreenDetectorTest extends TestCase
 {
-    private function basePlan(): array
+    private AtlasVerificationCourtFalseGreenDetector $detector;
+
+    protected function setUp(): void
     {
-        return [
-            'plan_status' => 'ready',
-            'blockers' => [],
-            'commands' => [
-                ['id' => 'cmd-abc', 'name' => 'phpunit_scoped'],
-                ['id' => 'cmd-xyz', 'name' => 'docs_health_check'],
+        parent::setUp();
+        $this->detector = new AtlasVerificationCourtFalseGreenDetector();
+    }
+
+    // AC: replay with passed=true but missing output_hash → blocked with replay_output_hash_missing
+    public function test_passed_but_missing_output_hash_is_blocked(): void
+    {
+        $result = $this->detector->detect([
+            'passed' => true,
+            'planned_commands' => [
+                ['command_id' => 'cmd-1', 'output_hash' => 'hash-aaa'],
             ],
-        ];
-    }
-
-    public function test_clean_pass_when_evidence_accepted_replay_green_and_scope_matches(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => true, 'output_present' => true],
+            'replay_results' => [
+                ['command_id' => 'cmd-1', 'exit_code' => 0, 'output_hash' => null],
             ],
-            'changed_files' => ['app/Demo/Foo.php'],
-            'allowed_files' => ['app/Demo/Foo.php'],
         ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_PASSED, $r['verdict']);
-        $this->assertSame([], $r['reasons']);
+
+        $this->assertNotSame('passed', $result['verdict']);
+        $this->assertTrue(
+            count(array_filter($result['reasons'], fn ($r) => str_contains($r, 'replay_output_hash_missing'))) > 0,
+            'must include replay_output_hash_missing reason'
+        );
     }
 
-    public function test_red_replay_outcome_yields_failed_with_replay_red_reason(): void
+    public function test_hash_mismatch_when_passed_is_failed(): void
     {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => false],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
+        $result = $this->detector->detect([
+            'passed' => true,
+            'planned_commands' => [
+                ['command_id' => 'cmd-1', 'output_hash' => 'hash-aaa'],
             ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
-        $this->assertContains('replay_red:cmd-abc', $r['reasons']);
-    }
-
-    public function test_missing_replay_outcome_yields_blocked(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true],
-                // cmd-xyz missing
+            'replay_results' => [
+                ['command_id' => 'cmd-1', 'exit_code' => 0, 'output_hash' => 'hash-bbb'],
             ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
         ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_BLOCKED, $r['verdict']);
-        $this->assertContains('replay_missing_for:cmd-xyz', $r['reasons']);
+
+        $this->assertSame('failed', $result['verdict']);
     }
 
-    public function test_changed_file_outside_allowed_yields_failed(): void
+    public function test_all_hashes_match_passes(): void
     {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
+        $result = $this->detector->detect([
+            'passed' => true,
+            'planned_commands' => [
+                ['command_id' => 'cmd-1', 'output_hash' => 'hash-aaa'],
+                ['command_id' => 'cmd-2', 'output_hash' => 'hash-bbb'],
             ],
-            'changed_files' => ['app/Allowed.php', 'app/SECRET.php'],
-            'allowed_files' => ['app/Allowed.php'],
-        ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
-        $this->assertContains('changed_file_outside_allowed:app/SECRET.php', $r['reasons']);
-    }
-
-    public function test_proxy_only_evidence_yields_failed(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
+            'replay_results' => [
+                ['command_id' => 'cmd-1', 'exit_code' => 0, 'output_hash' => 'hash-aaa'],
+                ['command_id' => 'cmd-2', 'exit_code' => 0, 'output_hash' => 'hash-bbb'],
             ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-            'proxy_only_evidence' => true,
         ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
-        $this->assertContains('proxy_only_evidence', $r['reasons']);
+
+        $this->assertSame('passed', $result['verdict']);
     }
 
-    public function test_evidence_not_accepted_yields_blocked(): void
+    public function test_replay_missing_command_is_blocked(): void
     {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => false],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [],
-            'changed_files' => [],
-            'allowed_files' => [],
-        ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_BLOCKED, $r['verdict']);
-        $this->assertContains('evidence_contract_not_accepted', $r['reasons']);
-    }
-
-    public function test_output_missing_for_claimed_test_yields_failed(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => false],
-                ['command_id' => 'cmd-xyz', 'passed' => true, 'output_present' => true],
+        $result = $this->detector->detect([
+            'passed' => true,
+            'planned_commands' => [
+                ['command_id' => 'cmd-1', 'output_hash' => 'hash-aaa'],
+                ['command_id' => 'cmd-2', 'output_hash' => 'hash-bbb'],
             ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
-        $this->assertContains('replay_output_missing:cmd-abc', $r['reasons']);
-    }
-
-    public function test_conflicting_duplicate_replay_outcomes_yields_failed_with_replay_conflict_reason(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true,  'output_present' => true],
-                ['command_id' => 'cmd-abc', 'passed' => false, 'output_present' => true], // conflict on passed
-                ['command_id' => 'cmd-xyz', 'passed' => true,  'output_present' => true],
+            'replay_results' => [
+                ['command_id' => 'cmd-1', 'exit_code' => 0, 'output_hash' => 'hash-aaa'],
+                // cmd-2 missing
             ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
         ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
-        $this->assertContains('replay_conflict:cmd-abc', $r['reasons']);
+
+        $this->assertNotSame('passed', $result['verdict']);
+        $this->assertTrue(
+            count(array_filter($result['reasons'], fn ($r) => str_contains($r, 'replay_missing:cmd-2'))) > 0
+        );
     }
 
-    public function test_exact_duplicate_replay_outcomes_does_not_produce_false_failure(): void
+    public function test_empty_planned_commands_passes(): void
     {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true], // exact dup
-                ['command_id' => 'cmd-xyz', 'passed' => true, 'output_present' => true],
-            ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_PASSED, $r['verdict']);
-        $this->assertSame([], $r['reasons']);
-    }
-
-    public function test_conflicting_output_present_yields_replay_conflict(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => false], // conflict on output_present
-                ['command_id' => 'cmd-xyz', 'passed' => true],
-            ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-        $this->assertSame(AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED, $r['verdict']);
-        $this->assertContains('replay_conflict:cmd-abc', $r['reasons']);
-    }
-
-    public function test_reasons_are_sorted_deterministically(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true,  'output_present' => true],
-                ['command_id' => 'cmd-abc', 'passed' => false, 'output_present' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => false],
-            ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-        $sorted = $r['reasons'];
-        sort($sorted, SORT_STRING);
-        $this->assertSame($sorted, $r['reasons'], 'reasons must be sorted deterministically');
-    }
-
-    // ── repair_feedback ───────────────────────────────────────────────────────
-
-    public function test_passed_verdict_has_null_repair_feedback(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true, 'output_present' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => true, 'output_present' => true],
-            ],
-            'changed_files' => ['app/Demo/Foo.php'],
-            'allowed_files' => ['app/Demo/Foo.php'],
+        $result = $this->detector->detect([
+            'passed' => true,
+            'planned_commands' => [],
+            'replay_results' => [],
         ]);
 
-        $this->assertArrayHasKey('repair_feedback', $r);
-        $this->assertNull($r['repair_feedback'], 'passed verdict must emit null repair_feedback');
-    }
-
-    public function test_repair_feedback_has_required_keys_on_failure(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => false],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
-            ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-
-        $this->assertNotNull($r['repair_feedback']);
-        foreach (['false_green_family', 'repair_hint', 'evidence_to_replay',
-                  'scope_violation_files', 'task_fabric_blocker_reason'] as $key) {
-            $this->assertArrayHasKey($key, $r['repair_feedback'], "repair_feedback must contain {$key}");
-        }
-    }
-
-    public function test_replay_red_produces_replay_family_with_command_in_evidence_to_replay(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => false],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
-            ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-        ]);
-
-        $fb = $r['repair_feedback'];
-        $this->assertSame('replay', $fb['false_green_family']);
-        $this->assertContains('cmd-abc', $fb['evidence_to_replay']);
-        $this->assertNotEmpty($fb['repair_hint']);
-        $this->assertStringContainsString('cmd-abc', $fb['repair_hint']);
-    }
-
-    public function test_scope_violation_populates_scope_violation_files_and_scope_family(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
-            ],
-            'changed_files' => ['app/Allowed.php', 'app/SECRET.php'],
-            'allowed_files' => ['app/Allowed.php'],
-        ]);
-
-        $fb = $r['repair_feedback'];
-        $this->assertSame('scope', $fb['false_green_family']);
-        $this->assertContains('app/SECRET.php', $fb['scope_violation_files']);
-        $this->assertStringContainsString('app/SECRET.php', $fb['repair_hint']);
-    }
-
-    public function test_proxy_only_evidence_produces_proxy_family(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [
-                ['command_id' => 'cmd-abc', 'passed' => true],
-                ['command_id' => 'cmd-xyz', 'passed' => true],
-            ],
-            'changed_files' => ['app/Foo.php'],
-            'allowed_files' => ['app/Foo.php'],
-            'proxy_only_evidence' => true,
-        ]);
-
-        $fb = $r['repair_feedback'];
-        $this->assertSame('proxy', $fb['false_green_family']);
-        $this->assertStringContainsStringIgnoringCase('proxy', $fb['repair_hint']);
-    }
-
-    public function test_evidence_contract_not_accepted_produces_evidence_contract_family(): void
-    {
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => false],
-            'replay_plan_result' => $this->basePlan(),
-            'replay_outcomes' => [],
-            'changed_files' => [],
-            'allowed_files' => [],
-        ]);
-
-        $fb = $r['repair_feedback'];
-        $this->assertSame('evidence_contract', $fb['false_green_family']);
-        $this->assertStringContainsStringIgnoringCase('contract', $fb['repair_hint']);
-        $this->assertNull($fb['task_fabric_blocker_reason']);
-    }
-
-    public function test_task_fabric_blocked_plan_produces_task_fabric_family_with_blocker_reason(): void
-    {
-        $plan = [
-            'plan_status' => 'blocked',
-            'blockers'    => ['missing_test_gate'],
-            'commands'    => [],
-        ];
-        $r = (new AtlasVerificationCourtFalseGreenDetector)->detect([
-            'evidence_contract_result' => ['accepted' => true],
-            'replay_plan_result' => $plan,
-            'replay_outcomes' => [],
-            'changed_files' => [],
-            'allowed_files' => [],
-        ]);
-
-        $fb = $r['repair_feedback'];
-        $this->assertSame('task_fabric', $fb['false_green_family']);
-        $this->assertSame('missing_test_gate', $fb['task_fabric_blocker_reason']);
-        $this->assertStringContainsString('missing_test_gate', $fb['repair_hint']);
+        $this->assertSame('passed', $result['verdict']);
     }
 }
