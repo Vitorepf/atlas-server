@@ -434,4 +434,48 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
         $this->assertSame(1, $impact['expected_claimable_yield_after']);
         $this->assertFalse($impact['yield_preserved']);
     }
+
+    // ── AC2: first_safe_batch excludes blocked retires and merges ────────────
+
+    public function test_first_safe_batch_excludes_retire_blocked_and_merge_actions(): void
+    {
+        $result = $this->plan(
+            $this->organ('safe-retire', [
+                'evidence_strength' => 0.10,
+                'has_replacement_owner' => true,
+                'has_test_coverage' => true,
+            ]),
+            $this->organ('blocked-retire', [
+                'evidence_strength' => 0.10,
+                'has_replacement_owner' => false,
+                'has_test_coverage' => true,
+            ]),
+            $this->organ('safe-merge', [
+                'overlap_organs' => ['organ-v5'],
+                'has_replacement_owner' => true,
+                'has_test_coverage' => true,
+            ]),
+        );
+
+        $this->assertContains('safe-retire', $result['first_safe_batch']);
+        $this->assertNotContains('blocked-retire', $result['first_safe_batch']);
+        $this->assertNotContains('safe-merge', $result['first_safe_batch']);
+    }
+
+    // ── AC3: blocked merge (missing test coverage) does not reduce handoff count ─
+
+    public function test_merge_blocked_for_missing_test_coverage_does_not_reduce_handoff_count(): void
+    {
+        $result = $this->plan($this->organ('blocked-merge', [
+            'overlap_organs' => ['organ-v5'],
+            'has_replacement_owner' => true,
+            'has_test_coverage' => false,
+        ]));
+
+        $entry = $this->findEntry($result, 'blocked-merge');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE_BLOCKED, $entry['action']);
+
+        $impact = $result['task_feed_impact'];
+        $this->assertSame($impact['handoff_count_before'], $impact['handoff_count_after']);
+    }
 }
