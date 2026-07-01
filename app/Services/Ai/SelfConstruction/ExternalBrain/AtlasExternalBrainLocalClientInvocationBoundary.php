@@ -22,10 +22,20 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   direct_git_commit_rights_required      <- requires_direct_git_commit_rights
  *   direct_atlas_task_report_rights_required <- requires_direct_atlas_task_report_rights
  *   paid_api_credentials_required          <- requires_paid_api_credentials
+ *   raw_credential_or_billing_field_captured:<field> <- caller passed a raw
+ *     credential/token/billing-shaped field directly (e.g. api_key, token,
+ *     secret, password, billing_amount) instead of routing it through the
+ *     boolean requires_* facts above.
  *
  * invocation_contract_ready=true only when: the local client is replaceable,
  * scoped to allowed_files, non-authoritative over queue/git/report, and no
  * blocker is present.
+ *
+ * A local/subscription client is ALWAYS an optional_capability accelerator,
+ * never a required steady-state dependency — Atlas must keep working with it
+ * absent. Client work is only trusted once its output matches the normalized
+ * expected_output_shape AND a runnable task proof command passes; a diff or
+ * claim alone is never trusted.
  *
  * INPUT:
  *   replaceable?:                              bool (default false)
@@ -36,12 +46,27 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   requires_direct_git_commit_rights?:        bool (default false)
  *   requires_direct_atlas_task_report_rights?: bool (default false)
  *   requires_paid_api_credentials?:            bool (default false)
+ *   any other top-level key resembling a raw credential/token/billing field
+ *     (e.g. api_key, token, secret, password, billing_amount) is rejected.
  *
  * Pure: no I/O, no network calls, no side effects.
  */
 final class AtlasExternalBrainLocalClientInvocationBoundary
 {
     public const SCHEMA = 'atlas.external_brain.local_client_invocation_boundary.v1';
+
+    /** Substrings in a top-level input key that mark it as a raw credential/billing field. */
+    private const CREDENTIAL_OR_BILLING_KEY_MARKERS = [
+        'token', 'api_key', 'apikey', 'secret', 'password', 'credential', 'billing', 'credit_card', 'account_number',
+    ];
+
+    /** Non-boolean input keys the caller may legitimately supply without triggering the scan. */
+    private const KNOWN_SAFE_KEYS = [
+        'replaceable', 'scoped', 'non_authoritative',
+        'requires_raw_secret_passthrough', 'requires_broad_filesystem_authority',
+        'requires_direct_git_commit_rights', 'requires_direct_atlas_task_report_rights',
+        'requires_paid_api_credentials',
+    ];
 
     /**
      * @param  array<string,mixed>  $input
@@ -77,6 +102,23 @@ final class AtlasExternalBrainLocalClientInvocationBoundary
             $blockers[] = 'paid_api_credentials_required';
         }
 
+        // AC: reject raw credential/token/billing-field capture outright, even if the
+        // caller never set the corresponding requires_* boolean.
+        foreach ($input as $key => $value) {
+            $key = (string) $key;
+            if (in_array($key, self::KNOWN_SAFE_KEYS, true) || $value === null || $value === false || $value === '') {
+                continue;
+            }
+            $lowerKey = strtolower($key);
+            foreach (self::CREDENTIAL_OR_BILLING_KEY_MARKERS as $marker) {
+                if (str_contains($lowerKey, $marker)) {
+                    $blockers[] = "raw_credential_or_billing_field_captured:{$key}";
+                    break;
+                }
+            }
+        }
+        $blockers = array_values(array_unique($blockers));
+
         $invocationContractReady = $facts['replaceable']
             && $facts['scoped']
             && $facts['non_authoritative']
@@ -96,6 +138,16 @@ final class AtlasExternalBrainLocalClientInvocationBoundary
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'invocation_contract_ready' => $invocationContractReady,
+            // AC: subscription/local clients are optional accelerators, never a required
+            // steady-state dependency — Atlas must keep working with this client absent.
+            'capability_classification' => 'optional_capability',
+            'required_for_steady_state' => false,
+            // AC: client work is trusted only once BOTH the normalized output shape is
+            // produced AND a runnable task proof command passes — a claim alone is never enough.
+            'trust_requirements' => [
+                'normalized_output_matches_expected_output_shape',
+                'runnable_task_proof_command_passes',
+            ],
         ];
     }
 }
