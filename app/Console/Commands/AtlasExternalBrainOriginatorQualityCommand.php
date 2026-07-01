@@ -1,0 +1,137 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Console\Commands;
+
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAcceptanceReplayCoverageMatrix;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdversarialCritiqueTournament;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
+use Illuminate\Console\Command;
+
+/**
+ * Read-only originator-quality runtime. Pipes candidate opportunities
+ * through four pure gates, in order:
+ *
+ *   1. {@see AtlasExternalBrainAdversarialCritiqueTournament} — five+ critique
+ *      lenses reject proxy work, operator dependency, duplicate/overwide
+ *      targets and template-farm shape BEFORE anything is scored.
+ *   2. {@see AtlasExternalBrainLeverageScorer} — survivors are ranked by
+ *      compounding leverage, not ease.
+ *   3. {@see AtlasExternalBrainAcceptanceReplayCoverageMatrix} — each ranked
+ *      candidate must carry a runnable command, real implementation-file
+ *      coverage, and evidence for any claimed leverage dimension.
+ *   4. {@see AtlasExternalBrainHighValueBatchComposer} — the fully-vetted,
+ *      ranked survivors are composed into one bounded, wave-ordered batch
+ *      instead of quota padding.
+ *
+ * Never enqueues, mutates the queue, or calls a provider.
+ *
+ * Input: a single JSON file (--input=PATH) with keys:
+ *   { opportunities:list, max_batch?:int }
+ * Each opportunity entry carries fields for ALL four stages simultaneously
+ * (objective, allowed_files, acceptance_criteria, required_evidence,
+ * value_mechanism, category, label, evidence_refs, plus the leverage-scoring
+ * dimensions) — each stage reads only the keys it understands.
+ */
+final class AtlasExternalBrainOriginatorQualityCommand extends Command
+{
+    /** @var string */
+    protected $signature = 'atlas:external-brain:originator-quality
+        {--input= : Path to a JSON file with opportunities and optional max_batch}';
+
+    /** @var string */
+    protected $description = 'Read-only originator-quality runtime: critique → leverage-rank → coverage-audit → bounded high-value batch.';
+
+    public function handle(
+        AtlasExternalBrainAdversarialCritiqueTournament $tournament,
+        AtlasExternalBrainLeverageScorer $scorer,
+        AtlasExternalBrainAcceptanceReplayCoverageMatrix $coverageMatrix,
+        AtlasExternalBrainHighValueBatchComposer $batchComposer,
+    ): int {
+        $inputPath = trim((string) $this->option('input'));
+        if ($inputPath === '' || ! is_file($inputPath)) {
+            $this->error('--input=<path> required and must exist');
+
+            return self::FAILURE;
+        }
+
+        $decoded = json_decode((string) file_get_contents($inputPath), true);
+        if (! is_array($decoded)) {
+            $this->error('invalid input JSON');
+
+            return self::FAILURE;
+        }
+
+        $opportunities = is_array($decoded['opportunities'] ?? null) ? array_values($decoded['opportunities']) : [];
+        $maxBatch = isset($decoded['max_batch']) ? (int) $decoded['max_batch'] : AtlasExternalBrainHighValueBatchComposer::DEFAULT_MAX_BATCH;
+
+        $critique = $tournament->run(['packets' => $opportunities]);
+
+        $blockedIndices = [];
+        foreach ($critique['blocking_findings'] as $finding) {
+            if (isset($finding['packet_index'])) {
+                $blockedIndices[(int) $finding['packet_index']] = true;
+            }
+            foreach ((array) ($finding['packet_indices'] ?? []) as $idx) {
+                $blockedIndices[(int) $idx] = true;
+            }
+        }
+
+        $survivors = [];
+        foreach ($opportunities as $i => $opp) {
+            if (! isset($blockedIndices[$i]) && is_array($opp)) {
+                $survivors[] = $opp;
+            }
+        }
+
+        // rank() returns scoring fields only (label, final_score, ...) — merge the original
+        // opportunity fields back in by label so downstream stages still see objective,
+        // allowed_files, acceptance_criteria, required_evidence, value_mechanism, category.
+        $survivorsByLabel = [];
+        foreach ($survivors as $opp) {
+            $survivorsByLabel[(string) ($opp['label'] ?? '')] = $opp;
+        }
+        $ranked = array_map(
+            static fn (array $scored): array => array_merge($survivorsByLabel[$scored['label']] ?? [], $scored),
+            $scorer->rank($survivors),
+        );
+
+        $coverageRejections = [];
+        $coverageApproved = [];
+        foreach ($ranked as $opp) {
+            $audit = $coverageMatrix->audit($opp);
+            if ($audit['verdict'] === AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED) {
+                $coverageRejections[] = [
+                    'label' => $opp['label'] ?? '',
+                    'rejections' => $audit['rejections'],
+                ];
+
+                continue;
+            }
+            $coverageApproved[] = $opp;
+        }
+
+        $batch = $batchComposer->compose($coverageApproved, ['max_batch' => $maxBatch]);
+
+        $payload = [
+            'status' => 'ok',
+            'critique_blocking' => $critique['blocking'],
+            'critique_winning_attack' => $critique['winning_attack'],
+            'critique_blocking_findings' => $critique['blocking_findings'],
+            'critique_rejected_count' => count($blockedIndices),
+            'leverage_ranked_count' => count($ranked),
+            'coverage_rejections' => $coverageRejections,
+            'emitted_batch' => $batch['emitted'],
+            'batch_rejected' => $batch['rejected'],
+            'batch_stats' => $batch['stats'],
+            'batch_thesis' => $batch['batch_thesis'],
+            'wave_plan' => $batch['wave_plan'],
+        ];
+
+        $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
+        return self::SUCCESS;
+    }
+}
