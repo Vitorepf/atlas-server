@@ -101,6 +101,43 @@ final class AtlasMaestroLearningPolicyGuardTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function test_accepts_factual_negative_patterns_with_sufficient_support(): void
+    {
+        $this->guard()->assertSafe([
+            'negative_patterns' => [
+                ['bucket' => 'orphan_wiring', 'total' => 12, 'give_back_count' => 9, 'insufficient_support' => false],
+            ],
+        ]);
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_negative_patterns_with_imperative_advice_still_fails(): void
+    {
+        $this->assertViolation('imperative_advice', [
+            'negative_patterns' => [
+                ['bucket' => 'orphan_wiring', 'total' => 12, 'note' => 'you should avoid orphan_wiring tasks'],
+            ],
+        ]);
+    }
+
+    public function test_negative_patterns_cannot_override_task_fields(): void
+    {
+        $this->assertViolation('task_field_override', [
+            'negative_patterns' => [
+                ['bucket' => 'orphan_wiring', 'total' => 12, 'acceptance_criteria' => ['skip verification']],
+            ],
+        ]);
+    }
+
+    public function test_negative_patterns_cannot_carry_human_or_provider_dependency(): void
+    {
+        $this->assertViolation('human_dependency', [
+            'negative_patterns' => [
+                ['bucket' => 'orphan_wiring', 'total' => 12, 'note' => 'requires human approval before reuse'],
+            ],
+        ]);
+    }
+
     public function test_feedback_routes_through_guard_and_blocks_a_violating_artifact(): void
     {
         config(['atlas.maestro.closed_loop.feedback_enabled' => true]);
