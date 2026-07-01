@@ -141,4 +141,30 @@ final class AtlasExternalBrainControlPlaneConvergenceRuntimeBridgeTest extends T
 
         self::assertSame('watch', $signals['stop_go_decision']);
     }
+
+    public function test_translate_is_deterministic_and_side_effect_free(): void
+    {
+        $bridge = new AtlasExternalBrainControlPlaneConvergenceRuntimeBridge;
+        $verdict = [
+            'total_organs' => 10,
+            'integration_coverage_percent' => 70.0,
+            'blocked_organs' => ['OrganA'],
+            'ornamental_organs' => ['OrganB'],
+            'stop_go_decision' => 'watch',
+            'stop_go_reasons' => [],
+        ];
+
+        $a = $bridge->translate($verdict);
+        $b = $bridge->translate($verdict);
+
+        self::assertSame($a, $b);
+        self::assertSame($verdict, [
+            'total_organs' => 10,
+            'integration_coverage_percent' => 70.0,
+            'blocked_organs' => ['OrganA'],
+            'ornamental_organs' => ['OrganB'],
+            'stop_go_decision' => 'watch',
+            'stop_go_reasons' => [],
+        ], 'translate must not mutate its input');
+    }
 }
