@@ -20,6 +20,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCognitiveWo
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossModelConsensusNormalizer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextBudgetDistiller;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCritiqueQuorumReducer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjectEvolutionProfile;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
@@ -78,6 +79,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainConsolidationFirstCircuitBreaker $consolidationFirstCircuitBreaker,
         AtlasExternalBrainContextBudgetDistiller $contextBudgetDistiller,
         AtlasExternalBrainCrossModelConsensusNormalizer $consensusNormalizer,
+        AtlasExternalBrainCritiqueQuorumReducer $critiqueQuorumReducer,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -309,6 +311,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // cross_model_consensus section.
         if (is_array($decoded['cross_model_consensus'] ?? null)) {
             $payload['cross_model_consensus'] = $consensusNormalizer->normalize($decoded['cross_model_consensus']);
+        }
+
+        // Optional critique quorum reduction: collapses many critique outputs into a
+        // deduplicated set of blocking findings, tradeoffs and repair actions. Distinct from
+        // the cross-model consensus above (multi-critic finding reduction vs. multi-proposal
+        // merge), so it only runs when the caller explicitly supplies a critique_quorum section.
+        if (is_array($decoded['critique_quorum'] ?? null)) {
+            $payload['critique_quorum'] = $critiqueQuorumReducer->reduce($decoded['critique_quorum']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
