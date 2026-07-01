@@ -262,4 +262,64 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
 
         $this->assertSame([], $result['claimed_leverage_gaps']);
     }
+
+    public function test_anti_goodhart_claim_without_matching_evidence_is_rejected(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective' => 'add anti-goodhart proxy detection to the originator',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertContains('anti_goodhart', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_anti_goodhart_claim_with_matching_evidence_is_accepted(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'add anti-goodhart proxy detection to the originator',
+            'evidence_refs' => ['tests_or_gates_result', 'anti_goodhart_proof'],
+        ]));
+
+        $this->assertNotContains('anti_goodhart', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_queue_health_claim_without_matching_evidence_is_rejected(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective' => 'strengthen queue-health checks in the origination cycle',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertContains('queue_health', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_queue_health_claim_with_matching_evidence_is_accepted(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'strengthen queue-health checks in the origination cycle',
+            'evidence_refs' => ['tests_or_gates_result', 'queue_health_proof'],
+        ]));
+
+        $this->assertNotContains('queue_health', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_autonomy_claim_without_matching_evidence_is_rejected(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective' => 'remove human dependency and prove steady-state autonomy',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertContains('autonomy', $result['claimed_leverage_gaps']);
+    }
+
+    public function test_autonomy_claim_with_matching_evidence_is_accepted(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'remove human dependency and prove steady-state autonomy',
+            'evidence_refs' => ['tests_or_gates_result', 'autonomy_proof'],
+        ]));
+
+        $this->assertNotContains('autonomy', $result['claimed_leverage_gaps']);
+    }
 }
