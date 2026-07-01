@@ -74,4 +74,88 @@ final class AtlasLoopLeverImpactMeterTest extends TestCase
         $this->assertEqualsWithDelta(0.1, M::trend([0.5, 0.6, 0.7]), 1e-9);
         $this->assertSame(0.0, M::trend([0.5]));
     }
+
+    // ── AC: weightedImpact() — proof_freshness, capability_delta, blast_radius, reversibility, compounding_potential, total_impact ──
+
+    public function test_weighted_impact_reports_all_six_fields(): void
+    {
+        $r = M::weightedImpact([
+            'evidence_age_hours' => 0,
+            'capability_delta' => 5,
+            'blast_radius' => 2,
+            'reversible' => true,
+            'compounding_potential' => 'high',
+        ]);
+
+        foreach (['proof_freshness', 'capability_delta', 'blast_radius', 'reversibility', 'compounding_potential', 'total_impact'] as $k) {
+            $this->assertArrayHasKey($k, $r);
+        }
+    }
+
+    public function test_high_proof_fresh_evidence_yields_full_capability_credit(): void
+    {
+        $r = M::weightedImpact(['evidence_age_hours' => 0, 'capability_delta' => 10]);
+
+        $this->assertSame(1.0, $r['proof_freshness']);
+        $this->assertSame(10.0, $r['total_impact']);
+    }
+
+    public function test_stale_evidence_demotes_total_impact_toward_zero(): void
+    {
+        $fresh = M::weightedImpact(['evidence_age_hours' => 0, 'capability_delta' => 10]);
+        $stale = M::weightedImpact(['evidence_age_hours' => 200, 'capability_delta' => 10]);
+
+        $this->assertSame(0.0, $stale['proof_freshness'], 'evidence older than the stale threshold has zero freshness');
+        $this->assertSame(0.0, $stale['total_impact']);
+        $this->assertGreaterThan($stale['total_impact'], $fresh['total_impact']);
+    }
+
+    public function test_irreversible_risky_leverage_is_penalized_below_a_reversible_twin(): void
+    {
+        $reversible = M::weightedImpact(['capability_delta' => 10, 'reversible' => true]);
+        $irreversible = M::weightedImpact(['capability_delta' => 10, 'reversible' => false]);
+
+        $this->assertSame('reversible', $reversible['reversibility']);
+        $this->assertSame('irreversible', $irreversible['reversibility']);
+        $this->assertLessThan($reversible['total_impact'], $irreversible['total_impact']);
+    }
+
+    public function test_shallow_activity_with_zero_capability_delta_scores_near_zero_regardless_of_safety(): void
+    {
+        // Anti-gaming: zero real capability delta must not be rescued by looking "safe" (reversible,
+        // no blast radius, high compounding potential claim) — total_impact stays ~0.
+        $r = M::weightedImpact([
+            'capability_delta' => 0,
+            'blast_radius' => 0,
+            'reversible' => true,
+            'compounding_potential' => 'high',
+        ]);
+
+        $this->assertSame(0.0, $r['total_impact']);
+    }
+
+    public function test_wider_blast_radius_reduces_total_impact(): void
+    {
+        $narrow = M::weightedImpact(['capability_delta' => 10, 'blast_radius' => 0]);
+        $wide = M::weightedImpact(['capability_delta' => 10, 'blast_radius' => 20]);
+
+        $this->assertLessThan($narrow['total_impact'], $wide['total_impact']);
+    }
+
+    public function test_weighted_impact_is_deterministic_across_calls(): void
+    {
+        $lever = ['evidence_age_hours' => 10, 'capability_delta' => 4, 'blast_radius' => 1, 'reversible' => false, 'compounding_potential' => 'high'];
+
+        $a = M::weightedImpact($lever);
+        $b = M::weightedImpact($lever);
+
+        $this->assertSame($a, $b);
+    }
+
+    public function test_unknown_compounding_potential_value_defaults_to_low(): void
+    {
+        $r = M::weightedImpact(['capability_delta' => 5, 'compounding_potential' => 'medium']);
+
+        $this->assertSame('low', $r['compounding_potential']);
+    }
 }

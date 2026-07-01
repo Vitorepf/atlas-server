@@ -21,10 +21,69 @@ namespace App\Services\Ai\AutonomousEvolution;
  */
 final class AtlasLoopLeverImpactMeter
 {
+    /** Evidence older than this (hours) contributes zero proof_freshness. */
+    public const STALE_THRESHOLD_HOURS = 72.0;
+
+    /** Multiplicative penalty applied to total_impact when a lever is NOT reversible. */
+    public const IRREVERSIBLE_PENALTY = 0.5;
+
+    /** Multiplicative bonus applied to total_impact when compounding_potential='high'. */
+    public const HIGH_COMPOUNDING_BONUS = 0.25;
+
+    /** Penalty per touched-file/organ unit in blast_radius. */
+    public const BLAST_RADIUS_PENALTY_PER_UNIT = 0.1;
+
     /** Safe rate in [0,1]; 0 when the denominator is 0. Pure. */
     public static function rate(int $numerator, int $denominator): float
     {
         return $denominator <= 0 ? 0.0 : max(0.0, min(1.0, $numerator / $denominator));
+    }
+
+    /**
+     * Weighted lever-impact reading — harder to game with shallow activity than a raw score: since
+     * total_impact is PROPORTIONAL to capability_delta, a lever with zero real capability delta
+     * scores ~0 total_impact no matter how safe/reversible/blast-radius-free it otherwise looks.
+     * Transparent, falsifiable, reproducible weighted formula — never an opaque ML scalar.
+     *
+     * @param  array{
+     *   evidence_age_hours?: float,
+     *   capability_delta?: int,
+     *   blast_radius?: int,
+     *   reversible?: bool,
+     *   compounding_potential?: string,
+     * }  $lever
+     * @return array{proof_freshness:float, capability_delta:int, blast_radius:int, reversibility:string, compounding_potential:string, total_impact:float}
+     */
+    public static function weightedImpact(array $lever): array
+    {
+        $evidenceAgeHours = max(0.0, (float) ($lever['evidence_age_hours'] ?? 0.0));
+        $proofFreshness = round(max(0.0, min(1.0, 1.0 - $evidenceAgeHours / self::STALE_THRESHOLD_HOURS)), 4);
+
+        $capabilityDelta = (int) ($lever['capability_delta'] ?? 0);
+        $blastRadius = max(0, (int) ($lever['blast_radius'] ?? 0));
+        $reversible = (bool) ($lever['reversible'] ?? true);
+        $reversibility = $reversible ? 'reversible' : 'irreversible';
+        $compoundingPotential = ((string) ($lever['compounding_potential'] ?? 'low')) === 'high' ? 'high' : 'low';
+
+        // Proof-weighted capability delta is the base signal — a stale-evidence or zero-delta lever
+        // contributes ~nothing regardless of how favorable the other factors look.
+        $totalImpact = $capabilityDelta * $proofFreshness;
+        $totalImpact -= $blastRadius * self::BLAST_RADIUS_PENALTY_PER_UNIT;
+        if (! $reversible) {
+            $totalImpact *= (1 - self::IRREVERSIBLE_PENALTY);
+        }
+        if ($compoundingPotential === 'high') {
+            $totalImpact *= (1 + self::HIGH_COMPOUNDING_BONUS);
+        }
+
+        return [
+            'proof_freshness' => $proofFreshness,
+            'capability_delta' => $capabilityDelta,
+            'blast_radius' => $blastRadius,
+            'reversibility' => $reversibility,
+            'compounding_potential' => $compoundingPotential,
+            'total_impact' => round($totalImpact, 4),
+        ];
     }
 
     /**
