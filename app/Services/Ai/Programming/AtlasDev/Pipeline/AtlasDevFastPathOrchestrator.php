@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
+use App\Services\Ai\Programming\AtlasDev\Discovery\DevContextBudgetDistiller;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
 use App\Services\Ai\Programming\AtlasDev\Discovery\SymbolLookup;
@@ -15,8 +16,10 @@ use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
+use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CodeCandidate;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\MissingRef;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContract;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAuditor;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
@@ -94,6 +97,26 @@ class AtlasDevFastPathOrchestrator
         }
 
         $projection = $this->openBrainAdapter->projectFor($envelope, $compactSdd, $contextPlan);
+
+        // Context budgeting: distill the discovery/projection evidence down to what the CompactSdd
+        // already declared as the char budget, so a small model gets less noise and more of the
+        // acceptance-critical evidence (callers, tests, decisions) rather than generic doc prose.
+        // Behind the EXISTING contextBudget concept — no new budget is introduced. Fail-open and
+        // non-blocking: any distillation error is swallowed and simply skips the receipt.
+        try {
+            $distillation = (new DevContextBudgetDistiller)->distill(
+                $this->buildContextSections($discovery, $projection, $compactSdd),
+                $compactSdd->contextBudget->maxChars,
+            );
+            $persistedDistillation = $this->receiptStorage->writeAtomic(
+                $envelope->runId,
+                'dev_context_budget_distillation',
+                $distillation,
+            );
+        } catch (Throwable) {
+            $persistedDistillation = null;
+        }
+
         $miniSpec = $this->specComposer->composeMiniSpec($envelope, $compactSdd, $discovery, $projection);
         $taskContract = $this->specComposer->composeTaskContract($envelope, $compactSdd, $miniSpec);
 
@@ -175,6 +198,10 @@ class AtlasDevFastPathOrchestrator
             classification: $classification,
             routing: $routing,
         );
+
+        if ($persistedDistillation !== null) {
+            $persisted['dev_context_budget_distillation'] = $persistedDistillation;
+        }
 
         $result = new PlanOnlyResult(
             envelope: $envelope,
@@ -350,6 +377,50 @@ class AtlasDevFastPathOrchestrator
         }
 
         return array_values(array_unique($facts));
+    }
+
+    /**
+     * Assembles the labeled context sections the distiller trims — text is derived purely from
+     * already-computed discovery/projection evidence, never fetched or invented here.
+     *
+     * @return array<string, string>
+     */
+    private function buildContextSections(
+        CodeDiscoveryManifest $discovery,
+        AtlasDevSchemaContract $projection,
+        CompactSdd $compactSdd,
+    ): array {
+        $joinRefs = static function (array $refs): string {
+            $lines = [];
+            foreach ($refs as $ref) {
+                if ($ref instanceof ContextRef) {
+                    $lines[] = $ref->ref.' :: '.$ref->reason;
+                }
+            }
+
+            return implode("\n", $lines);
+        };
+
+        $projectionArray = $projection->toCanonicalArray();
+
+        return [
+            'owner_docs' => $joinRefs(array_map(
+                static fn (array $r): ContextRef => ContextRef::fromArray($r),
+                (array) ($projectionArray['knowledge_refs'] ?? []),
+            )),
+            'symbols' => $joinRefs($discovery->relatedSymbols),
+            'callers' => $joinRefs($discovery->likelyCallers),
+            'tests' => $joinRefs($discovery->relatedTests),
+            'decisions' => $joinRefs(array_map(
+                static fn (array $r): ContextRef => ContextRef::fromArray($r),
+                (array) ($projectionArray['memory_refs'] ?? []),
+            )),
+            'risks' => $compactSdd->riskLevel.': '.implode(', ', array_map(
+                static fn (MissingRef $r): string => $r->what,
+                $discovery->missingRefs,
+            )),
+            'recent_outcomes' => implode("\n", $discovery->recentOutcomeFacts),
+        ];
     }
 
     /**
