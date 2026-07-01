@@ -240,4 +240,103 @@ final class AtlasSelfConstructionAutonomyStopGoGovernorTest extends TestCase
 
         $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_CREATE_HIGH_VALUE, $result['decision']);
     }
+
+    // ── AC: stop_go_decision — go/slow_down/pause/self_heal/consolidate ─────────
+
+    public function test_healthy_input_returns_stop_go_go(): void
+    {
+        $result = $this->governor->decide($this->healthy());
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_GO, $result['stop_go_decision']);
+        $this->assertSame(['all_signals_nominal'], $result['stop_go_rationale']);
+    }
+
+    public function test_low_task_quality_returns_stop_go_pause(): void
+    {
+        $result = $this->governor->decide($this->healthy(['task_quality' => 'low']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_PAUSE, $result['stop_go_decision']);
+        $this->assertContains('quality:low', $result['stop_go_rationale']);
+    }
+
+    public function test_high_malformed_pressure_returns_stop_go_self_heal(): void
+    {
+        $result = $this->governor->decide($this->healthy(['malformed_pressure' => 'high']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_SELF_HEAL, $result['stop_go_decision']);
+        $this->assertContains('malformed:high', $result['stop_go_rationale']);
+    }
+
+    public function test_high_give_back_drag_returns_stop_go_consolidate(): void
+    {
+        $result = $this->governor->decide($this->healthy(['give_back_drag' => 'high']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_CONSOLIDATE, $result['stop_go_decision']);
+        $this->assertContains('give_back:high', $result['stop_go_rationale']);
+    }
+
+    public function test_high_simplification_debt_returns_stop_go_consolidate(): void
+    {
+        $result = $this->governor->decide($this->healthy(['simplification_debt' => 'high']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_CONSOLIDATE, $result['stop_go_decision']);
+        $this->assertContains('debt:high', $result['stop_go_rationale']);
+    }
+
+    public function test_stale_context_freshness_returns_stop_go_pause(): void
+    {
+        $result = $this->governor->decide($this->healthy(['context_freshness' => 'stale']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_PAUSE, $result['stop_go_decision']);
+        $this->assertContains('freshness:stale', $result['stop_go_rationale']);
+    }
+
+    public function test_high_worker_drain_signal_returns_stop_go_slow_down(): void
+    {
+        $result = $this->governor->decide($this->healthy(['worker_drain_signal' => 'high']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_SLOW_DOWN, $result['stop_go_decision']);
+        $this->assertContains('drain:high', $result['stop_go_rationale']);
+    }
+
+    public function test_existing_malformed_risk_flag_also_drives_stop_go_self_heal(): void
+    {
+        $result = $this->governor->decide($this->healthy(['malformed_risk' => true]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_SELF_HEAL, $result['stop_go_decision']);
+        $this->assertContains('malformed:true', $result['stop_go_rationale']);
+    }
+
+    public function test_stop_go_self_heal_takes_priority_over_all_other_stop_go_signals(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'malformed_pressure' => 'high',
+            'worker_drain_signal' => 'high',
+            'give_back_drag' => 'high',
+            'task_quality' => 'low',
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_SELF_HEAL, $result['stop_go_decision']);
+    }
+
+    public function test_stop_go_slow_down_takes_priority_over_consolidate_and_pause(): void
+    {
+        $result = $this->governor->decide($this->healthy([
+            'worker_drain_signal' => 'high',
+            'give_back_drag' => 'high',
+            'task_quality' => 'low',
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_SLOW_DOWN, $result['stop_go_decision']);
+    }
+
+    public function test_stop_go_signals_absent_default_to_go_regardless_of_legacy_decision(): void
+    {
+        // Regression guard: the new stop_go layer must never regress just because the LEGACY
+        // decision field ended up somewhere non-trivial (e.g. consolidate_or_burn_debt).
+        $result = $this->governor->decide($this->healthy(['value_trend' => 'low']));
+
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::DECISION_CONSOLIDATE, $result['decision']);
+        $this->assertSame(AtlasSelfConstructionAutonomyStopGoGovernor::STOP_GO_GO, $result['stop_go_decision']);
+    }
 }

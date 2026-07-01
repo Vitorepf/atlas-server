@@ -19,6 +19,18 @@ namespace App\Services\Ai\SelfConstruction\Autonomy;
  * AC3: self_heal_queue and replenish_with_guardrails prevent blind task creation
  *      when the queue is unhealthy or supply is exhausted.
  * AC4: pure PHP, no I/O, no provider calls, emits decision receipt only.
+ *
+ * stop_go_decision / stop_go_rationale: a SECOND, simplified 5-value classification layered
+ * alongside the existing 7-value `decision` (which stays untouched) — go/slow_down/pause/
+ * self_heal/consolidate, driven by 6 NEW optional signals (all default to a healthy/nominal value,
+ * so every input that never declares them classifies as 'go', preserving all pre-existing behavior):
+ *   - malformed_pressure ('low'|'high', or the existing malformed_risk bool) → self_heal
+ *   - worker_drain_signal ('low'|'high')                                    → slow_down
+ *   - give_back_drag / simplification_debt ('low'|'high')                   → consolidate
+ *   - task_quality ('high'|'medium'|'low') / context_freshness ('fresh'|'stale') → pause
+ *   - nominal                                                                → go
+ * Priority order matches the existing `decision` field's philosophy: heal first, then throttle
+ * (drain), then structural cleanup (consolidate), then caution (pause), then go.
  */
 final class AtlasSelfConstructionAutonomyStopGoGovernor
 {
@@ -31,6 +43,12 @@ final class AtlasSelfConstructionAutonomyStopGoGovernor
     public const DECISION_CREATE_HIGH_VALUE    = 'create_high_value_tasks';
     public const DECISION_PAUSE                = 'pause_origination';
     public const DECISION_GO_REPAIR_QUEUE      = 'go_repair_queue';
+
+    public const STOP_GO_GO           = 'go';
+    public const STOP_GO_SLOW_DOWN    = 'slow_down';
+    public const STOP_GO_PAUSE        = 'pause';
+    public const STOP_GO_SELF_HEAL    = 'self_heal';
+    public const STOP_GO_CONSOLIDATE  = 'consolidate';
 
     /** claimable_per_active_worker at/below this is a worker-feed floor breach. */
     public const WORKER_FLOOR_THRESHOLD = 2.0;
@@ -70,13 +88,62 @@ final class AtlasSelfConstructionAutonomyStopGoGovernor
             $rationale = ['worker_feed_below_floor'];
         }
 
+        [$stopGoDecision, $stopGoRationale] = $this->classifyStopGo($input, $malformedRisk);
+
         return [
             'schema'              => self::SCHEMA,
             'decision'            => $decision,
             'rationale'           => array_values($rationale),
             'next_review_signal'  => $this->nextSignal($decision),
             'provider_free'       => true,
+            'stop_go_decision'    => $stopGoDecision,
+            'stop_go_rationale'   => $stopGoRationale,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{string, list<string>}
+     */
+    private function classifyStopGo(array $input, bool $malformedRisk): array
+    {
+        $malformedPressure = (string) ($input['malformed_pressure'] ?? 'low');
+        $workerDrainSignal = (string) ($input['worker_drain_signal'] ?? 'low');
+        $giveBackDrag = (string) ($input['give_back_drag'] ?? 'low');
+        $simplificationDebt = (string) ($input['simplification_debt'] ?? 'low');
+        $taskQuality = (string) ($input['task_quality'] ?? 'medium');
+        $contextFreshness = (string) ($input['context_freshness'] ?? 'fresh');
+
+        if ($malformedRisk || $malformedPressure === 'high') {
+            return [self::STOP_GO_SELF_HEAL, ['malformed:'.($malformedRisk ? 'true' : $malformedPressure)]];
+        }
+        if ($workerDrainSignal === 'high') {
+            return [self::STOP_GO_SLOW_DOWN, ['drain:high']];
+        }
+        if ($giveBackDrag === 'high' || $simplificationDebt === 'high') {
+            $reasons = [];
+            if ($giveBackDrag === 'high') {
+                $reasons[] = 'give_back:high';
+            }
+            if ($simplificationDebt === 'high') {
+                $reasons[] = 'debt:high';
+            }
+
+            return [self::STOP_GO_CONSOLIDATE, $reasons];
+        }
+        if ($taskQuality === 'low' || $contextFreshness === 'stale') {
+            $reasons = [];
+            if ($taskQuality === 'low') {
+                $reasons[] = 'quality:low';
+            }
+            if ($contextFreshness === 'stale') {
+                $reasons[] = 'freshness:stale';
+            }
+
+            return [self::STOP_GO_PAUSE, $reasons];
+        }
+
+        return [self::STOP_GO_GO, ['all_signals_nominal']];
     }
 
     /** @return array{string, list<string>} */
