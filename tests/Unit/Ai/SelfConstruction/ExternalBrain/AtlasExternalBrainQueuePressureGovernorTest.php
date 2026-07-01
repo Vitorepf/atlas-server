@@ -371,4 +371,50 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
         $this->assertSame(0.0, $budget['minimum_leverage_score']);
         $this->assertSame(0.0, $budget['evidence_floor']);
     }
+
+    // ── Worker starvation: servable-per-worker below floor + replenishing candidate ──
+
+    public function test_worker_starvation_below_floor_with_replenishing_candidate_enqueues_bounded_batch(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 4, 'servable_depth' => 2, 'worker_floor' => 1.0],
+            candidate:  ['leverage_score' => 0.1, 'replenishes_worker_capacity' => true],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertTrue($result['under_pressure']);
+        $this->assertLessThanOrEqual(3, $result['batch_budget']['max_tasks']);
+    }
+
+    public function test_worker_starvation_below_floor_without_replenishing_candidate_does_not_bypass(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 4, 'servable_depth' => 2, 'worker_floor' => 1.0],
+            candidate:  ['leverage_score' => 0.1, 'replenishes_worker_capacity' => false],
+        ));
+
+        $this->assertNotSame('worker starvation', substr($result['reason'], 0, 16));
+    }
+
+    public function test_worker_floor_zero_never_triggers_starvation_bypass(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 4, 'servable_depth' => 2, 'worker_floor' => 0.0],
+            candidate:  ['leverage_score' => 0.1, 'replenishes_worker_capacity' => true],
+        ));
+
+        $this->assertStringNotContainsString('worker starvation', $result['reason']);
+    }
+
+    // ── Sufficient depth defers low-leverage non-repair candidates ───────────
+
+    public function test_sufficient_depth_defers_low_leverage_non_repair_candidate(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 3, 'servable_depth' => 5],
+            candidate:  ['leverage_score' => 0.2, 'task_class' => 'normal'],
+        ));
+
+        $this->assertNotSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+    }
 }
