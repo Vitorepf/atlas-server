@@ -634,4 +634,90 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
 
         $this->assertStringContainsString('100', $r['ranked_candidates'][0]['simplification_roi_hint']);
     }
+
+    // ── net-negative simplification guard ─────────────────────────────────────
+
+    public function test_negative_line_delta_on_delete_forces_migrate_or_prove_first(): void
+    {
+        $candidate = [
+            'organ_id'             => 'NEG1',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+            'estimated_line_delta' => -50,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('net_negative_simplification', $entry['blocked_deletion_reason']);
+    }
+
+    public function test_negative_line_delta_on_consolidate_forces_migrate_or_prove_first(): void
+    {
+        $candidate = [
+            'organ_id'             => 'NEG2',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 5,
+            'compounding_value'    => 0.9,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+            'estimated_line_delta' => -10,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('net_negative_simplification', $entry['blocked_deletion_reason']);
+    }
+
+    public function test_replacement_maintenance_cost_above_original_blocks_deletion(): void
+    {
+        $candidate = [
+            'organ_id'             => 'RC1',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'maintenance_cost'     => 0.30,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+            'replacement_maintenance_cost' => 0.90,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_MIGRATE_OR_PROVE_FIRST, $entry['recommended_action']);
+        $this->assertContains('replacement_maintenance_cost_exceeds_original', $entry['blocked_deletion_reason']);
+    }
+
+    public function test_replacement_maintenance_cost_below_original_does_not_block(): void
+    {
+        $candidate = [
+            'organ_id'             => 'RC2',
+            'similar_organs'       => ['other'],
+            'usage_evidence_count' => 0,
+            'compounding_value'    => 0.0,
+            'maintenance_cost'     => 0.90,
+            'has_replacement_proof' => true,
+            'has_behavior_preservation_evidence' => true,
+            'replacement_maintenance_cost' => 0.30,
+        ];
+        $r = $this->planner()->plan(['candidates' => [$candidate]]);
+        $entry = $r['ranked_candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::ACTION_DELETE, $entry['recommended_action']);
+        $this->assertSame([], $entry['blocked_deletion_reason']);
+    }
+
+    public function test_positive_line_delta_with_replacement_and_behavior_proof_ranks_deterministically(): void
+    {
+        $input = ['candidates' => [
+            array_merge($this->keepCandidate('POS1'), ['similar_organs' => ['x'], 'usage_evidence_count' => 0, 'compounding_value' => 0.0, 'has_replacement_proof' => true, 'has_behavior_preservation_evidence' => true, 'estimated_line_delta' => 40]),
+            array_merge($this->keepCandidate('POS2'), ['similar_organs' => ['y'], 'usage_evidence_count' => 0, 'compounding_value' => 0.0, 'has_replacement_proof' => true, 'has_behavior_preservation_evidence' => true, 'estimated_line_delta' => 40]),
+        ]];
+
+        $this->assertSame($this->planner()->plan($input), $this->planner()->plan($input));
+    }
 }

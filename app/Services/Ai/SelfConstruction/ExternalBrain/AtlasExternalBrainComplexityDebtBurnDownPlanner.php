@@ -102,6 +102,8 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             $hasReplacementProof = (bool) ($raw['has_replacement_proof'] ?? false);
             $hasBehaviorPreservationEvidence = (bool) ($raw['has_behavior_preservation_evidence'] ?? false);
             $estimatedLineDelta = (int) ($raw['estimated_line_delta'] ?? 0);
+            $replacementMaintenanceCost = isset($raw['replacement_maintenance_cost']) ? (float) $raw['replacement_maintenance_cost'] : null;
+            $originalMaintenanceCost = isset($raw['original_maintenance_cost']) ? (float) $raw['original_maintenance_cost'] : $maintCost;
             $sameDecision      = is_array($raw['covers_same_decision_surface_as'] ?? null)
                 ? $raw['covers_same_decision_surface_as']
                 : [];
@@ -157,6 +159,12 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             }
             if ($isDeletive && ! $hasBehaviorPreservationEvidence) {
                 $blockReasons[] = 'missing_behavior_preservation_evidence';
+            }
+            if ($isDeletive && $estimatedLineDelta < 0) {
+                $blockReasons[] = 'net_negative_simplification';
+            }
+            if ($isDeletive && $replacementMaintenanceCost !== null && $replacementMaintenanceCost > $originalMaintenanceCost) {
+                $blockReasons[] = 'replacement_maintenance_cost_exceeds_original';
             }
             $isBlocked = $blockReasons !== [];
             $originalAction = $action;
