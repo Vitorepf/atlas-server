@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\SelfConstruction\TaskQueue;
+namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer;
 use Tests\TestCase;
@@ -146,5 +146,27 @@ class TaskPacketCanonicalizerTest extends TestCase
     {
         $payload = ['z' => ['b' => 2, 'a' => 1], 'a' => [1, 2, 3]];
         self::assertSame($this->c()->stableHash($payload), $this->c()->stableHash($payload));
+    }
+
+    public function test_hash_changes_when_required_evidence_changes(): void
+    {
+        $base = [
+            'objective' => 'build X',
+            'allowed_files' => ['app/Foo.php'],
+            'acceptance_criteria' => ['tests pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ];
+        $a = $this->c()->stableHash($this->c()->normalizePacketForHash($base));
+        $b = $this->c()->stableHash($this->c()->normalizePacketForHash(
+            ['required_evidence' => ['tests_or_gates_result', 'implementation_notes']] + $base,
+        ));
+
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_string_list_preserves_duplicate_meaningful_values(): void
+    {
+        $result = $this->c()->stringList(['x', 'x', 'y']);
+        self::assertSame(['x', 'x', 'y'], $result);
     }
 }
