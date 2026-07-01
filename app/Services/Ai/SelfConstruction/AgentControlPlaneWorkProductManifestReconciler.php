@@ -24,34 +24,60 @@ final class AgentControlPlaneWorkProductManifestReconciler
      */
     public function reconcile(array $normalizedProducts, array $expectedOutputs): array
     {
+        $invalidPathCount = 0;
+
         $observedPaths = [];
+        $duplicateObservedPaths = [];
         foreach ($normalizedProducts as $product) {
-            $observedPaths[(string) ($product['path'] ?? '')] = true;
+            $path = (string) ($product['path'] ?? '');
+            if ($path === '') {
+                $invalidPathCount++;
+
+                continue;
+            }
+            if (isset($observedPaths[$path])) {
+                $duplicateObservedPaths[$path] = true;
+
+                continue;
+            }
+            $observedPaths[$path] = true;
         }
 
         $expectedPaths = [];
         foreach ($expectedOutputs as $output) {
-            $expectedPaths[(string) ($output['path'] ?? '')] = true;
+            $path = (string) ($output['path'] ?? '');
+            if ($path === '') {
+                $invalidPathCount++;
+
+                continue;
+            }
+            $expectedPaths[$path] = true;
         }
 
         $missing = [];
         foreach (array_keys($expectedPaths) as $path) {
-            if ($path !== '' && ! isset($observedPaths[$path])) {
+            if (! isset($observedPaths[$path])) {
                 $missing[] = ['path' => $path, 'reason' => 'expected_work_product_missing'];
             }
         }
 
         $unexpected = [];
         foreach (array_keys($observedPaths) as $path) {
-            if ($path !== '' && $expectedPaths !== [] && ! isset($expectedPaths[$path])) {
+            if ($expectedPaths !== [] && ! isset($expectedPaths[$path])) {
                 $unexpected[] = ['path' => $path, 'reason' => 'candidate_outside_expected_manifest'];
             }
         }
 
+        $hasGaps = $missing !== [] || $unexpected !== [];
+
         $payload = [
-            'status' => $missing === [] && $unexpected === [] ? 'manifest_reconciliation_clear' : 'manifest_reconciliation_has_gaps',
+            'status' => $hasGaps ? 'manifest_reconciliation_has_gaps' : 'manifest_reconciliation_clear',
+            'next_action' => $hasGaps ? 'repair_manifest_before_collection' : 'collection_may_proceed',
             'expected_output_count' => count($expectedPaths),
             'observed_output_count' => count($observedPaths),
+            'invalid_path_count' => $invalidPathCount,
+            'duplicate_observed_paths' => array_values(array_keys($duplicateObservedPaths)),
+            'duplicate_observed_path_count' => count($duplicateObservedPaths),
             'missing_outputs' => $missing,
             'missing_count' => count($missing),
             'unexpected_outputs' => $unexpected,
