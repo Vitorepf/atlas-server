@@ -37,6 +37,7 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
     public const SUPPORTED_FAILURE_TYPES = [
         'give_back', 'poison', 'false_green', 'overfit',
         'duplicate_target', 'template_farm', 'low_compounding', 'provider_dependency',
+        'proxy_win', 'no_delta', 'negative_lift',
     ];
 
     private const REPEAT_THRESHOLD = 2;
@@ -108,6 +109,7 @@ final class AtlasExternalBrainAmplifierRegressionCaseMiner
                     : ($isRepeated ? 'repeated_failure' : 'severe_singleton'),
                 'sample_evidence'    => $sampleEvidence,
                 'is_reproducible'    => $isReproducible,
+                'required_replay'    => true,
             ];
         }
 

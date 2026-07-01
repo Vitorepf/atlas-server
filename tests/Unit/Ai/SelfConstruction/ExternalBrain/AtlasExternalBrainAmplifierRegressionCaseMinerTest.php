@@ -126,6 +126,15 @@ final class AtlasExternalBrainAmplifierRegressionCaseMinerTest extends TestCase
         $this->assertSame('stale_proof',      $case['heldout_reason']);
     }
 
+    public function test_promoted_case_requires_replay(): void
+    {
+        $r = $this->mine([
+            $this->failure('f1', 'proxy_win', 'unit_only', severity: 'critical'),
+        ]);
+
+        $this->assertTrue($r['promoted_cases'][0]['required_replay']);
+    }
+
     public function test_explicit_heldout_reason_beats_default(): void
     {
         $r = $this->mine([
@@ -206,7 +215,7 @@ final class AtlasExternalBrainAmplifierRegressionCaseMinerTest extends TestCase
         $this->assertContains('poison',    $types);
     }
 
-    // ── AC: all 8 supported failure types ─────────────────────────────────────
+    // ── AC: all supported failure types ─────────────────────────────────────
 
     public function test_all_supported_failure_types_are_accepted(): void
     {
@@ -217,7 +226,7 @@ final class AtlasExternalBrainAmplifierRegressionCaseMinerTest extends TestCase
 
         $r = $this->mine($failures);
 
-        $this->assertCount(8, $r['promoted_cases']);
+        $this->assertCount(count(AtlasExternalBrainAmplifierRegressionCaseMiner::SUPPORTED_FAILURE_TYPES), $r['promoted_cases']);
         foreach (AtlasExternalBrainAmplifierRegressionCaseMiner::SUPPORTED_FAILURE_TYPES as $type) {
             $found = array_filter($r['promoted_cases'], fn ($c) => $c['failure_type'] === $type);
             $this->assertNotEmpty($found, "Missing promoted case for type: {$type}");
