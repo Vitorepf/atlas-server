@@ -127,4 +127,28 @@ final class AtlasExternalBrainProviderPoolOutputNormalizerTest extends TestCase
 
         $this->assertSame(1, $result['output_count']);
     }
+
+    public function test_mixed_batch_counts_match_normalized_outputs(): void
+    {
+        $result = (new AtlasExternalBrainProviderPoolOutputNormalizer)->normalize([
+            'outputs' => [
+                ['provider_id' => 'a', 'claimed_success' => true, 'tests_reported' => ['t1'], 'evidence_refs' => ['e1']],
+                ['provider_id' => 'b', 'claimed_success' => true, 'tests_reported' => ['t2'], 'evidence_refs' => ['e2']],
+                ['provider_id' => 'c', 'claimed_success' => true, 'tests_reported' => [], 'evidence_refs' => []],
+                ['provider_id' => 'd', 'claimed_success' => false],
+            ],
+        ]);
+
+        $this->assertSame(4, $result['output_count']);
+        $this->assertSame(2, $result['verified_success_count']);
+        $this->assertSame(1, $result['pending_verification_count']);
+        $this->assertSame(
+            $result['verified_success_count'],
+            count(array_filter($result['normalized_outputs'], fn ($o) => $o['status'] === 'verified_success')),
+        );
+        $this->assertSame(
+            $result['pending_verification_count'],
+            count(array_filter($result['normalized_outputs'], fn ($o) => $o['status'] === 'pending_verification')),
+        );
+    }
 }
