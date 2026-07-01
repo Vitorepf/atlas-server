@@ -41,6 +41,7 @@ class AtlasAaeosTestExecutionService
     public function __construct(
         private readonly float $timeout = 180.0,
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver = new AtlasAaeosImplementationEvidenceResolver,
+        private readonly AtlasAaeosVetoPropagationResolver $vetoResolver = new AtlasAaeosVetoPropagationResolver,
     ) {}
 
     /**
@@ -205,6 +206,12 @@ class AtlasAaeosTestExecutionService
             'reason' => $run['reason'] ?? null,
             'ran_at' => now()->toJSON(),
         ];
+
+        // A red run is a delivery-stage veto: resolve where it must propagate via the
+        // canonical department transition graph, same as any other cross-department veto.
+        if (! $run['passed']) {
+            $payload['veto_propagation'] = $this->vetoResolver->resolve('review', 'delivery');
+        }
 
         $this->persist($payload);
 
