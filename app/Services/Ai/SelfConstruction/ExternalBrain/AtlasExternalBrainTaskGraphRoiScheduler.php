@@ -90,6 +90,8 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
                 'task_family'               => trim((string) ($t['task_family'] ?? '')),
                 'give_back_risk'            => max(0.0, min(1.0, (float) ($t['give_back_risk'] ?? 0.0))),
                 'blocked_prerequisite_risk' => max(0.0, min(1.0, (float) ($t['blocked_prerequisite_risk'] ?? 0.0))),
+                'autonomy_lift'             => max(0.0, min(1.0, (float) ($t['autonomy_lift'] ?? 0.0))),
+                'proof_debt_reduced'        => max(0.0, min(1.0, (float) ($t['proof_debt_reduced'] ?? 0.0))),
             ];
         }
 
@@ -105,6 +107,7 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
                 'risk_adjusted_roi'            => [],
                 'delayed_poison_family_tasks'  => [],
                 'wave_candidate_reasons'       => [],
+                'next_batch_recommendation'    => ['included' => [], 'deferred' => [], 'blocked' => []],
             ];
         }
 
@@ -160,6 +163,7 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $downstreamReach          = $this->computeDownstreamReach($taskMap, $frontierUnlocks, $layers);
         $nextWaveCandidateReasons = $this->computeNextWaveCandidateReasons($taskMap, $waves, $criticalPath, $downstreamReach, $familyRisk);
         $waveCandidateReasons     = $this->computeWaveCandidateReasons($taskMap, $criticalPath, $downstreamReach, $familyRisk);
+        $nextBatchRecommendation  = $this->computeNextBatchRecommendation($taskMap, $waves, $layers);
 
         return [
             'schema'                       => self::SCHEMA,
@@ -172,6 +176,53 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             'risk_adjusted_roi'            => $riskAdjustedRoi,
             'delayed_poison_family_tasks'  => array_values(array_unique($delayedPoisonFamilyTasks)),
             'wave_candidate_reasons'       => $waveCandidateReasons,
+            'next_batch_recommendation'    => $nextBatchRecommendation,
+        ];
+    }
+
+    /**
+     * AC4: a clear next-batch recommendation — included (wave 0), deferred (same
+     * topological layer as wave 0 but pushed to a later wave chunk by width/pressure
+     * caps), and blocked (still waiting on an unmet prerequisite).
+     *
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  list<array<string, mixed>>  $waves
+     * @param  list<list<string>>  $layers
+     * @return array{included:list<string>, deferred:array<string,string>, blocked:array<string,string>}
+     */
+    private function computeNextBatchRecommendation(array $taskMap, array $waves, array $layers): array
+    {
+        $included = $waves[0]['tasks'] ?? [];
+        $includedSet = array_flip($included);
+        $layerZero = $layers[0] ?? [];
+        $layerZeroSet = array_flip($layerZero);
+
+        $deferred = [];
+        foreach ($layerZero as $id) {
+            if (isset($includedSet[$id])) {
+                continue;
+            }
+            $deferred[$id] = 'wave_width_capped_this_layer';
+        }
+
+        $blocked = [];
+        foreach ($taskMap as $id => $task) {
+            if (isset($layerZeroSet[$id])) {
+                continue;
+            }
+            $unmetDeps = array_values(array_filter(
+                $task['depends_on'],
+                static fn (string $d): bool => isset($taskMap[$d]),
+            ));
+            $blocked[$id] = $unmetDeps !== []
+                ? 'blocked_on_prerequisite:'.implode(',', $unmetDeps)
+                : 'blocked_on_dependency_cycle';
+        }
+
+        return [
+            'included' => $included,
+            'deferred' => $deferred,
+            'blocked' => $blocked,
         ];
     }
 
@@ -448,7 +499,13 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
      */
     private function computeTaskScore(array $task, array $familyRisk): array
     {
-        $rawRoi = $task['expected_impact'] * $task['unlock_value'] / ($task['cost_risk'] + 0.01);
+        // AC2: autonomy_lift and proof_debt_reduced boost effective impact alongside
+        // unlock_value — defaults are 0.0 so tasks that don't report them score exactly
+        // as before (effective impact multiplier collapses to 1.0).
+        $effectiveImpact = $task['expected_impact']
+            * (1.0 + 0.5 * $task['autonomy_lift'] + 0.5 * $task['proof_debt_reduced']);
+
+        $rawRoi = $effectiveImpact * $task['unlock_value'] / ($task['cost_risk'] + 0.01);
         $risk   = $familyRisk[$task['task_family']] ?? 0.0;
 
         $adjustedRoi = $rawRoi

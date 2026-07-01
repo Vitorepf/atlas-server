@@ -659,4 +659,86 @@ final class AtlasExternalBrainTaskGraphRoiSchedulerTest extends TestCase
 
         $this->assertSame([], $r['delayed_poison_family_tasks']);
     }
+
+    // ── AC2: autonomy_lift and proof_debt_reduced boost ranking ───────────────
+
+    public function test_autonomy_lift_outranks_equal_otherwise_task_in_same_layer(): void
+    {
+        $tasks = [
+            $this->task('plain', ['unlock_value' => 0.5]),
+            $this->task('lifted', ['unlock_value' => 0.5, 'autonomy_lift' => 1.0]),
+        ];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertSame(['lifted', 'plain'], $this->waveIds($r, 0));
+    }
+
+    public function test_proof_debt_reduced_outranks_equal_otherwise_task_in_same_layer(): void
+    {
+        $tasks = [
+            $this->task('plain', ['unlock_value' => 0.5]),
+            $this->task('debt_payer', ['unlock_value' => 0.5, 'proof_debt_reduced' => 1.0]),
+        ];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertSame(['debt_payer', 'plain'], $this->waveIds($r, 0));
+    }
+
+    public function test_default_autonomy_lift_and_proof_debt_do_not_change_existing_roi(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('t1', ['expected_impact' => 0.6, 'unlock_value' => 0.4, 'cost_risk' => 0.2])]);
+
+        // rawRoi = 0.6*0.4/(0.2+0.01) = 1.143 unchanged when autonomy_lift/proof_debt_reduced are absent (default 0).
+        $this->assertStringContainsString('roi_score:1.143', $r['next_wave_candidate_reasons']['t1'][0]);
+    }
+
+    // ── AC4: next_batch_recommendation — included / deferred / blocked ────────
+
+    public function test_next_batch_recommendation_has_required_keys(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('t1')]);
+
+        foreach (['included', 'deferred', 'blocked'] as $key) {
+            $this->assertArrayHasKey($key, $r['next_batch_recommendation'], "missing key: {$key}");
+        }
+    }
+
+    public function test_next_batch_recommendation_includes_wave_zero_tasks(): void
+    {
+        $r = $this->scheduler->schedule([$this->task('a'), $this->task('b')]);
+
+        $this->assertSame(['a', 'b'], $r['next_batch_recommendation']['included']);
+    }
+
+    public function test_next_batch_recommendation_defers_same_layer_tasks_capped_by_width(): void
+    {
+        $tasks = array_map(fn (int $i) => $this->task("t{$i}"), range(1, 7));
+        $r = $this->scheduler->schedule($tasks, ['max_wave_width' => 3]);
+
+        $this->assertCount(3, $r['next_batch_recommendation']['included']);
+        $this->assertNotEmpty($r['next_batch_recommendation']['deferred']);
+        foreach ($r['next_batch_recommendation']['deferred'] as $reason) {
+            $this->assertSame('wave_width_capped_this_layer', $reason);
+        }
+    }
+
+    public function test_next_batch_recommendation_blocks_task_waiting_on_prerequisite(): void
+    {
+        $tasks = [
+            $this->task('root'),
+            $this->task('child', ['depends_on' => ['root']]),
+        ];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertArrayHasKey('child', $r['next_batch_recommendation']['blocked']);
+        $this->assertSame('blocked_on_prerequisite:root', $r['next_batch_recommendation']['blocked']['child']);
+        $this->assertArrayNotHasKey('root', $r['next_batch_recommendation']['blocked']);
+    }
+
+    public function test_next_batch_recommendation_empty_for_empty_schedule(): void
+    {
+        $r = $this->scheduler->schedule([]);
+
+        $this->assertSame(['included' => [], 'deferred' => [], 'blocked' => []], $r['next_batch_recommendation']);
+    }
 }
