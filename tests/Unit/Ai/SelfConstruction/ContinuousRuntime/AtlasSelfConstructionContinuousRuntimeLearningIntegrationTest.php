@@ -311,4 +311,86 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegrationTest extend
         $this->assertSame([], $strategy['regression_signals']);
         $this->assertSame([], $strategy['capability_gaps']);
     }
+
+    // ── learning_updates — AC: outcome_kind mapping + affected_policy/evidence_refs/confidence/next_cycle_effect ──
+
+    public function test_green_success_learning_update_reinforces_prompt_contract(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'verification', 'evidence_hash' => 'h1', 'outcome' => 'passed', 'occurrence_count' => 2],
+        ]);
+
+        $update = $verdict['learning_updates'][0];
+        $this->assertSame('prompt_contract_confidence', $update['affected_policy']);
+        $this->assertSame(['h1'], $update['evidence_refs']);
+        $this->assertGreaterThan(0.0, $update['confidence']);
+        $this->assertSame('reinforce_current_prompt_contract', $update['next_cycle_effect']);
+    }
+
+    public function test_give_back_learning_update_demotes_routing_affinity(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'give_back', 'evidence_hash' => 'h2', 'class' => 'scope_gap'],
+        ]);
+
+        $update = $verdict['learning_updates'][0];
+        $this->assertSame('routing_affinity_demotion', $update['affected_policy']);
+        $this->assertSame('demote_worker_affinity_for_class', $update['next_cycle_effect']);
+        $this->assertSame(['h2'], $update['evidence_refs']);
+    }
+
+    public function test_quarantine_learning_update_retires_task_fabric_class(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'quarantine', 'evidence_hash' => 'h3'],
+        ]);
+
+        $update = $verdict['learning_updates'][0];
+        $this->assertSame('task_fabric_retirement', $update['affected_policy']);
+        $this->assertSame('block_task_class_until_repaired', $update['next_cycle_effect']);
+    }
+
+    public function test_failed_verification_learning_update_flags_prompt_contract_for_revision(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'verification', 'evidence_hash' => 'h4', 'outcome' => 'failed'],
+        ]);
+
+        $update = $verdict['learning_updates'][0];
+        $this->assertSame('prompt_contract_correction', $update['affected_policy']);
+        $this->assertSame('flag_prompt_contract_for_revision', $update['next_cycle_effect']);
+    }
+
+    public function test_retry_outcome_maps_to_routing_retry_pressure(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'retry', 'evidence_hash' => 'h5'],
+        ]);
+
+        $update = $verdict['learning_updates'][0];
+        $this->assertSame('routing_retry_pressure', $update['affected_policy']);
+        $this->assertSame('monitor_retry_rate_before_next_dispatch', $update['next_cycle_effect']);
+    }
+
+    public function test_insufficient_evidence_yields_no_policy_update_and_zero_confidence(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'merge', 'evidence_hash' => ''],
+        ]);
+
+        $update = $verdict['learning_updates'][0];
+        $this->assertNull($update['affected_policy']);
+        $this->assertSame([], $update['evidence_refs']);
+        $this->assertSame(0.0, $update['confidence']);
+        $this->assertSame('insufficient_evidence_no_update_applied', $update['next_cycle_effect']);
+    }
+
+    public function test_stale_outcome_excluded_from_learning_updates(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeLearningIntegration)->integrate([
+            ['kind' => 'verification', 'evidence_hash' => 'hs', 'outcome' => 'passed', 'stale' => true],
+        ]);
+
+        $this->assertSame([], $verdict['learning_updates']);
+    }
 }

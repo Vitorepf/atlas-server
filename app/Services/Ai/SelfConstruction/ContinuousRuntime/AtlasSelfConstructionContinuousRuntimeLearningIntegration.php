@@ -33,12 +33,26 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
 
     public const OUTCOME_QUARANTINE = 'quarantine';
 
+    public const OUTCOME_RETRY = 'retry';
+
     private const KNOWN_OUTCOME_KINDS = [
         self::OUTCOME_VERIFICATION,
         self::OUTCOME_MERGE,
         self::OUTCOME_GIVE_BACK,
         self::OUTCOME_QUEUE_REPAIR,
         self::OUTCOME_QUARANTINE,
+        self::OUTCOME_RETRY,
+    ];
+
+    /** outcome_kind (+ 'failed' outcome text for verification) => [affected_policy, next_cycle_effect] */
+    private const LEARNING_UPDATE_EFFECTS = [
+        self::OUTCOME_VERIFICATION.':failed' => ['prompt_contract_correction', 'flag_prompt_contract_for_revision'],
+        self::OUTCOME_VERIFICATION => ['prompt_contract_confidence', 'reinforce_current_prompt_contract'],
+        self::OUTCOME_MERGE => ['task_fabric_yield', 'reinforce_task_fabric_supply_for_class'],
+        self::OUTCOME_GIVE_BACK => ['routing_affinity_demotion', 'demote_worker_affinity_for_class'],
+        self::OUTCOME_QUARANTINE => ['task_fabric_retirement', 'block_task_class_until_repaired'],
+        self::OUTCOME_QUEUE_REPAIR => ['task_fabric_repair', 'apply_repair_and_requeue'],
+        self::OUTCOME_RETRY => ['routing_retry_pressure', 'monitor_retry_rate_before_next_dispatch'],
     ];
 
     /**
@@ -127,7 +141,59 @@ final class AtlasSelfConstructionContinuousRuntimeLearningIntegration
             'compounding_inputs' => $compounding,
             'required_promotion_evidence_hashes' => array_values(array_unique($requiredHashes)),
             'next_cycle_strategy' => $this->buildNextCycleStrategy($outcomes),
+            'learning_updates' => $this->buildLearningUpdates($outcomes),
         ];
+    }
+
+    /**
+     * Maps each non-stale outcome into a routing / task-fabric / prompt-contract learning signal:
+     * {outcome_kind, affected_policy, evidence_refs, confidence, next_cycle_effect}. An outcome with
+     * no evidence_hash never updates a policy — insufficient evidence never becomes a learning signal.
+     *
+     * @param  list<array<string,mixed>>  $outcomes
+     * @return list<array{outcome_kind:string, affected_policy:?string, evidence_refs:list<string>, confidence:float, next_cycle_effect:string}>
+     */
+    private function buildLearningUpdates(array $outcomes): array
+    {
+        $updates = [];
+        foreach ($outcomes as $o) {
+            if (! is_array($o) || (bool) ($o['stale'] ?? false)) {
+                continue;
+            }
+
+            $kind = (string) ($o['kind'] ?? '');
+            $evidenceHash = (string) ($o['evidence_hash'] ?? '');
+            $outcomeText = strtolower((string) ($o['outcome'] ?? ''));
+            $occurrenceCount = max(1, (int) ($o['occurrence_count'] ?? 1));
+            $hasEvidence = $evidenceHash !== '';
+
+            if (! $hasEvidence) {
+                $updates[] = [
+                    'outcome_kind' => $kind,
+                    'affected_policy' => null,
+                    'evidence_refs' => [],
+                    'confidence' => 0.0,
+                    'next_cycle_effect' => 'insufficient_evidence_no_update_applied',
+                ];
+
+                continue;
+            }
+
+            $effectKey = $kind === self::OUTCOME_VERIFICATION && $outcomeText === 'failed'
+                ? self::OUTCOME_VERIFICATION.':failed'
+                : $kind;
+            [$affectedPolicy, $nextCycleEffect] = self::LEARNING_UPDATE_EFFECTS[$effectKey] ?? ['unclassified_policy', 'manual_review_required'];
+
+            $updates[] = [
+                'outcome_kind' => $kind,
+                'affected_policy' => $affectedPolicy,
+                'evidence_refs' => [$evidenceHash],
+                'confidence' => round(min(1.0, 0.5 + 0.1 * $occurrenceCount), 4),
+                'next_cycle_effect' => $nextCycleEffect,
+            ];
+        }
+
+        return $updates;
     }
 
     /** @param list<array<string,mixed>> $outcomes */
