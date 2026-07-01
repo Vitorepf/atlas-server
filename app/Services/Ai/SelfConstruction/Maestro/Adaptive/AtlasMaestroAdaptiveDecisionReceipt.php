@@ -95,7 +95,14 @@ final class AtlasMaestroAdaptiveDecisionReceipt
     public function providerSafeExport(array $row): array
     {
         $safe = $row;
-        unset($safe['miner_facts_used'], $safe['eligible_workers_snapshot']);
+        unset(
+            $safe['miner_facts_used'],
+            $safe['eligible_workers_snapshot'],
+            $safe['raw_provider_prompt'],
+            $safe['provider_prompt'],
+            $safe['secret'],
+            $safe['secrets'],
+        );
 
         return $safe;
     }
@@ -117,9 +124,17 @@ final class AtlasMaestroAdaptiveDecisionReceipt
         $confidenceBand = in_array((string) ($payload['confidence_band'] ?? ''), ['high', 'medium', 'low'], true)
             ? (string) $payload['confidence_band']
             : 'medium';
+        $rejectedAlternatives = array_values(array_map('strval', (array) ($payload['rejected_alternatives'] ?? [])));
+        $selectedAction = $this->selectedAction($payload, $kind);
+        $outcomeHook = (string) ($payload['outcome_hook'] ?? $payload['outcome_hook_or_null'] ?? '');
+        $inputEvidenceRefs = array_values(array_map('strval', (array) ($payload['input_evidence_refs'] ?? $payload['evidence_refs'] ?? [])));
+        $evidenceHash = hash('sha256', (string) json_encode(
+            [$packetId, $originalHash, $outcomeHash, $inputEvidenceRefs, $selectedAction, $rejectedAlternatives, $outcomeHook],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ));
 
         $recordHash = hash('sha256', (string) json_encode(
-            [$kind, $packetId, $originalHash, $outcomeHash, $confidenceBand],
+            [$kind, $packetId, $originalHash, $outcomeHash, $confidenceBand, $evidenceHash],
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
         ));
 
@@ -134,10 +149,29 @@ final class AtlasMaestroAdaptiveDecisionReceipt
             'eligible_workers_snapshot' => array_values((array) ($payload['eligible_workers_snapshot'] ?? [])),
             'chosen_worker_or_null' => isset($payload['chosen_worker_or_null']) ? (string) $payload['chosen_worker_or_null'] : null,
             'abstain_reason_or_null' => isset($payload['abstain_reason_or_null']) ? (string) $payload['abstain_reason_or_null'] : null,
-            'rejected_alternatives' => array_values(array_map('strval', (array) ($payload['rejected_alternatives'] ?? []))),
+            'input_evidence_refs' => $inputEvidenceRefs,
+            'selected_action' => $selectedAction,
+            'rejected_alternatives' => $rejectedAlternatives,
+            'evidence_hash' => $evidenceHash,
+            'outcome_hook' => $outcomeHook,
             'confidence_band' => $confidenceBand,
             'record_hash' => $recordHash,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function selectedAction(array $payload, string $kind): string
+    {
+        if (isset($payload['selected_action'])) {
+            return (string) $payload['selected_action'];
+        }
+        if (isset($payload['chosen_worker_or_null']) && $payload['chosen_worker_or_null'] !== null) {
+            return 'worker:'.(string) $payload['chosen_worker_or_null'];
+        }
+
+        return $kind;
     }
 
     /**

@@ -108,6 +108,26 @@ final class AtlasMaestroAdaptiveDecisionReceiptTest extends TestCase
         $this->assertSame(['worker-b', 'worker-c'], $row['rejected_alternatives']);
     }
 
+    public function test_decision_evidence_fields_are_normalized_and_deterministic(): void
+    {
+        $store = $this->store();
+        $payload = $this->payload(AtlasMaestroAdaptiveDecisionReceipt::ROUTE_SELECTED, chosenWorker: 'worker-a');
+        $payload['input_evidence_refs'] = ['queue:healthy', 'worker:fast'];
+        $payload['selected_action'] = 'route:worker-a';
+        $payload['rejected_alternatives'] = ['worker-b'];
+        $payload['outcome_hook'] = 'maestro.outcome.record';
+
+        $first = $store->record($payload);
+        $second = $store->record($payload);
+
+        $this->assertSame(['queue:healthy', 'worker:fast'], $first['input_evidence_refs']);
+        $this->assertSame('route:worker-a', $first['selected_action']);
+        $this->assertSame(['worker-b'], $first['rejected_alternatives']);
+        $this->assertSame('maestro.outcome.record', $first['outcome_hook']);
+        $this->assertSame($first['evidence_hash'], $second['evidence_hash']);
+        $this->assertNotSame($first['record_hash'], '');
+    }
+
     public function test_confidence_band_defaults_to_medium_and_accepts_valid_values(): void
     {
         $store = $this->store();
@@ -148,6 +168,9 @@ final class AtlasMaestroAdaptiveDecisionReceiptTest extends TestCase
         $this->assertArrayNotHasKey('miner_facts_used', $safe);
         $this->assertArrayNotHasKey('eligible_workers_snapshot', $safe);
         $this->assertArrayHasKey('decision_kind', $safe);
+        $this->assertArrayHasKey('selected_action', $safe);
+        $this->assertArrayHasKey('evidence_hash', $safe);
+        $this->assertArrayHasKey('outcome_hook', $safe);
         $this->assertArrayHasKey('record_hash', $safe);
     }
 
