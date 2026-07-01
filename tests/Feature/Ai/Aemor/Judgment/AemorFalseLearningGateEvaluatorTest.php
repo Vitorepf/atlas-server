@@ -124,6 +124,33 @@ final class AemorFalseLearningGateEvaluatorTest extends TestCase
         $this->assertSame('pass', $result['status']);
     }
 
+    public function test_outcome_status_with_whitespace_or_uppercase_normalizes_before_success_checks(): void
+    {
+        $result = $this->evaluator()->evaluate(true, "  SUCCEEDED\n", null, 0, false);
+
+        $this->assertContains('success_without_test_or_gate_evidence', $result['blockers']);
+        $this->assertSame('blocked_for_learning', $result['status']);
+    }
+
+    public function test_negative_alternative_explanation_count_is_treated_as_zero(): void
+    {
+        $result = $this->evaluator()->evaluate(true, 'failed', true, -5, false);
+
+        $this->assertNotContains('alternative_explanations_not_reviewed', $result['blockers']);
+        $this->assertSame('pass', $result['status']);
+    }
+
+    public function test_succeeded_with_false_or_null_tests_always_blocks_on_success_evidence(): void
+    {
+        $withFalse = $this->evaluator()->evaluate(true, 'succeeded', false, 0, false);
+        $withNull = $this->evaluator()->evaluate(true, 'succeeded', null, 0, false);
+
+        $this->assertFalse($withFalse['learning_allowed']);
+        $this->assertContains('success_without_test_or_gate_evidence', $withFalse['blockers']);
+        $this->assertFalse($withNull['learning_allowed']);
+        $this->assertContains('success_without_test_or_gate_evidence', $withNull['blockers']);
+    }
+
     public function test_blockers_field_is_a_list_of_strings(): void
     {
         $result = $this->evaluator()->evaluate(false, 'succeeded', null, 2, false);

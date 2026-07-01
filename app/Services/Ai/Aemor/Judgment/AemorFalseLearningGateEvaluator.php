@@ -47,6 +47,8 @@ final class AemorFalseLearningGateEvaluator
         bool $attributionReviewed
     ): array {
         $blockers = [];
+        $normalizedOutcomeStatus = strtolower(trim($outcomeStatus));
+        $alternativeExplanationCount = max(0, $alternativeExplanationCount);
 
         // R1: an outcome with no evidence refs cannot feed learning.
         if (! $hasEvidenceRefs) {
@@ -54,7 +56,7 @@ final class AemorFalseLearningGateEvaluator
         }
 
         // R2: a claimed success without a passing test/gate proof is suspect.
-        if ($outcomeStatus === self::OUTCOME_SUCCEEDED && $testsPassed !== true) {
+        if ($normalizedOutcomeStatus === self::OUTCOME_SUCCEEDED && $testsPassed !== true) {
             $blockers[] = self::BLOCKER_SUCCESS_WITHOUT_EVIDENCE;
         }
 
