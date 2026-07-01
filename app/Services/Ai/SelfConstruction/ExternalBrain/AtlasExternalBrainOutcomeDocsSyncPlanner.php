@@ -67,8 +67,13 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
         $isRepeatedFailureLearning = (bool) ($outcome['is_repeated_failure_learning'] ?? false);
         $isTrivialCommit = (bool) ($outcome['is_trivial_commit'] ?? false);
         $recentTrivialCommitCount = max(0, (int) ($outcome['recent_trivial_commit_count'] ?? 0));
+        $domainMapChanged = (bool) ($outcome['domain_map_changed'] ?? false);
+        $maturityDelta = (bool) ($outcome['maturity_delta'] ?? false);
+        $ownerChanged = (bool) ($outcome['owner_changed'] ?? false);
+        $nextLeverageChanged = (bool) ($outcome['next_leverage_changed'] ?? false);
 
-        $hardTrigger = $isArchitectureDecision || $isNewOperatingPolicy || $isRepeatedFailureLearning;
+        $domainMapMaturityTrigger = $domainMapChanged && $maturityDelta;
+        $hardTrigger = $isArchitectureDecision || $isNewOperatingPolicy || $isRepeatedFailureLearning || $domainMapMaturityTrigger;
 
         // Noise budget: repeated trivial commits must never churn docs, regardless of budget —
         // this field only makes the "no matter how many" contract explicit and auditable.
@@ -91,6 +96,9 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
         if ($isRepeatedFailureLearning) {
             $syncReasons[] = 'repeated_failure_learning';
         }
+        if ($domainMapMaturityTrigger) {
+            $syncReasons[] = 'domain_map_maturity_changed';
+        }
         if (! $isTrivialCommit && in_array($operatorFacingSignificance, self::SIGNIFICANT_LEVELS, true)) {
             $syncReasons[] = "operator_facing_significance_{$operatorFacingSignificance}";
         }
@@ -105,9 +113,14 @@ final class AtlasExternalBrainOutcomeDocsSyncPlanner
             $docsSyncNeeded = false;
         }
 
-        $memorySyncNeeded = $memoryRelevant && ($hardTrigger || $operatorFacingSignificance === 'high');
+        $ownerOrLeverageChanged = $ownerChanged || $nextLeverageChanged;
+        $memorySyncNeeded = $memoryRelevant && ($hardTrigger || $operatorFacingSignificance === 'high' || $ownerOrLeverageChanged);
         if ($memorySyncNeeded) {
-            $syncReasons[] = 'memory_relevant_'.($hardTrigger ? 'hard_trigger' : 'high_operator_significance');
+            $syncReasons[] = 'memory_relevant_'.match (true) {
+                $hardTrigger => 'hard_trigger',
+                $ownerOrLeverageChanged => 'owner_or_next_leverage_changed',
+                default => 'high_operator_significance',
+            };
         }
         $syncReasons = array_values(array_unique($syncReasons));
 
