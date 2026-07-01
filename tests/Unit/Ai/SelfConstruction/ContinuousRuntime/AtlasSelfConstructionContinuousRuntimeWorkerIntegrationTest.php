@@ -17,6 +17,8 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegrationTest extends 
             'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
             'required_evidence_kinds' => ['phpunit', 'mutop'],
             'quality_facts' => ['bite_proof' => true],
+            'safety_envelope' => ['sandboxed' => true, 'refused_execution_dependencies' => ['operator', 'network']],
+            'give_back_protocol' => ['reason_codes' => ['no_claimable_task', 'scope_repair_needed']],
         ];
     }
 
@@ -112,6 +114,42 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegrationTest extends 
         $this->assertTrue($verdict['native_pool_facts']['native_pool_apply_cycle_proven']);
         $this->assertSame(3, $verdict['native_pool_facts']['cycle_count']);
         $this->assertSame('abc123', $verdict['native_pool_facts']['supervisor_hash']);
+    }
+
+    // ── AC2/AC3/AC4: safety_envelope, broad scope, give_back_protocol ─────────
+
+    public function test_missing_safety_envelope_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->integrate($this->packet(['safety_envelope' => []]));
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('safety_envelope_missing', $verdict['blockers']);
+    }
+
+    public function test_missing_give_back_protocol_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->integrate($this->packet(['give_back_protocol' => []]));
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('give_back_protocol_missing', $verdict['blockers']);
+        $this->assertNull($verdict['request']);
+    }
+
+    public function test_broad_scope_allowed_file_is_rejected(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->integrate($this->packet([
+            'allowed_files' => ['app/Services/', 'app/Foo.php'],
+        ]));
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('broad_scope_detected:app/Services/', $verdict['blockers']);
+    }
+
+    public function test_extensionless_allowed_file_is_treated_as_broad_scope(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeWorkerIntegration)->integrate($this->packet([
+            'allowed_files' => ['app/Services/SomeDir'],
+        ]));
+        $this->assertFalse($verdict['accepted']);
+        $ids = array_filter($verdict['blockers'], fn ($b) => str_starts_with($b, 'broad_scope_detected'));
+        $this->assertNotEmpty($ids);
     }
 
     public function test_external_dependency_in_execution_dependencies_is_refused(): void

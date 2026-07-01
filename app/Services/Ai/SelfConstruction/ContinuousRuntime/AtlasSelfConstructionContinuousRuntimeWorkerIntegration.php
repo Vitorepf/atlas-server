@@ -9,9 +9,12 @@ namespace App\Services\Ai\SelfConstruction\ContinuousRuntime;
  * the evidence-write expectation the verification path will check.
  *
  * Refuses packets that lack:
- *   - non-empty allowed_files (no scope ⇒ nothing to write)
+ *   - non-empty allowed_files (no scope ⇒ nothing to write), OR any allowed_files entry that is a
+ *     broad path (directory or extensionless — no concrete scope to bound the write)
  *   - non-empty required_evidence_kinds (no gates ⇒ no way to certify)
- *   - quality_facts.bite_proof OR quality_facts.acceptance_contract (no self-sufficient quality)
+ *   - quality_facts.bite_proof OR quality_facts.acceptance_contract (no self-sufficient quality/proof)
+ *   - non-empty safety_envelope (no sandbox/refusal envelope ⇒ nothing bounds worker blast radius)
+ *   - non-empty give_back_protocol (no defined give_back path ⇒ worker has nowhere safe to bail out to)
  *
  * Output:
  *   {schema_version, request:{task_packet_id, lease_id, allowed_files, required_evidence_kinds,
@@ -74,6 +77,24 @@ final class AtlasSelfConstructionContinuousRuntimeWorkerIntegration
         $hasAcceptance = is_array($quality['acceptance_contract'] ?? null) && $quality['acceptance_contract'] !== [];
         if (! $biteProof && ! $hasAcceptance) {
             $blockers[] = 'quality_facts_missing_self_sufficient_signal';
+        }
+
+        $broadPaths = array_values(array_filter(
+            $allowed,
+            static fn (mixed $f): bool => str_ends_with((string) $f, '/') || ! str_contains(basename((string) $f), '.'),
+        ));
+        if ($broadPaths !== []) {
+            $blockers[] = 'broad_scope_detected:'.implode(',', $broadPaths);
+        }
+
+        $safetyEnvelope = is_array($packet['safety_envelope'] ?? null) ? $packet['safety_envelope'] : [];
+        if ($safetyEnvelope === []) {
+            $blockers[] = 'safety_envelope_missing';
+        }
+
+        $giveBackProtocol = is_array($packet['give_back_protocol'] ?? null) ? $packet['give_back_protocol'] : [];
+        if ($giveBackProtocol === []) {
+            $blockers[] = 'give_back_protocol_missing';
         }
 
         $executionDependencies = array_values((array) ($packet['execution_dependencies'] ?? []));
