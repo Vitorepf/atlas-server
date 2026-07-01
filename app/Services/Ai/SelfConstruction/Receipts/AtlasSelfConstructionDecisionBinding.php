@@ -101,10 +101,21 @@ final class AtlasSelfConstructionDecisionBinding
         $summary = array_count_values(array_column($bindings, 'status'));
         ksort($summary, SORT_STRING);
 
+        $criticalStatuses = [self::STATUS_MISSING, self::STATUS_STALE, self::STATUS_INVALID_HASH, 'unknown_kind'];
+        $criticalSummary = [];
+        $totalCritical = 0;
+        foreach ($criticalStatuses as $status) {
+            $count = (int) ($summary[$status] ?? 0);
+            $criticalSummary[$status] = $count;
+            $totalCritical += $count;
+        }
+        $criticalSummary['total_critical'] = $totalCritical;
+
         return [
             'schema' => self::SCHEMA,
             'bindings' => $bindings,
             'summary' => $summary,
+            'critical_summary' => $criticalSummary,
         ];
     }
 }

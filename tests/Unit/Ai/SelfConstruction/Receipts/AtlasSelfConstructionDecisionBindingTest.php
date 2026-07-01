@@ -145,4 +145,52 @@ final class AtlasSelfConstructionDecisionBindingTest extends TestCase
         $r2 = (new AtlasSelfConstructionDecisionBinding)->verify($index);
         $this->assertSame(array_keys($r1['summary']), array_keys($r2['summary']));
     }
+
+    public function test_critical_summary_includes_counts_for_all_critical_classes(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1', 'ts' => '2026-06-25T00:01:00Z']];
+        $index = $this->index($decisions, [
+            'task_receipts' => [
+                't-missing' => ['id' => 't-missing'],
+                't-invalid' => ['id' => 't-invalid', 'decision_ref' => 'd-1', 'decision_hash' => 'wrong'],
+                't-stale' => ['id' => 't-stale', 'decision_ref' => 'd-1', 'decision_hash' => 'h-d1', 'decision_ts' => '2026-06-25T00:00:00Z'],
+            ],
+            'ghost_receipts' => ['g-1' => ['id' => 'g-1']],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertArrayHasKey('critical_summary', $r);
+        $this->assertSame(1, $r['critical_summary']['missing_binding']);
+        $this->assertSame(1, $r['critical_summary']['stale_binding']);
+        $this->assertSame(1, $r['critical_summary']['invalid_hash']);
+        $this->assertSame(1, $r['critical_summary']['unknown_kind']);
+        $this->assertSame(4, $r['critical_summary']['total_critical']);
+    }
+
+    public function test_all_bound_receipts_return_total_critical_zero(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1', 'ts' => '2026-06-25T00:00:00Z']];
+        $boundRow = ['decision_ref' => 'd-1', 'decision_hash' => 'h-d1', 'decision_ts' => '2026-06-25T00:01:00Z'];
+        $index = $this->index($decisions, [
+            'task_receipts' => ['t-1' => array_merge(['id' => 't-1'], $boundRow)],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+
+        $this->assertSame(0, $r['critical_summary']['total_critical']);
+    }
+
+    public function test_bindings_remain_sorted_deterministically_alongside_critical_summary(): void
+    {
+        $decisions = ['d-1' => ['id' => 'd-1', 'hash' => 'h-d1']];
+        $row = ['decision_ref' => 'd-1', 'decision_hash' => 'h-d1'];
+        $index = $this->index($decisions, [
+            'task_receipts' => ['t-1' => array_merge(['id' => 't-1'], $row)],
+            'merge_receipts' => ['m-1' => ['id' => 'm-1']],
+        ]);
+        $r = (new AtlasSelfConstructionDecisionBinding)->verify($index);
+        $kinds = array_column($r['bindings'], 'kind');
+        $sortedKinds = $kinds;
+        sort($sortedKinds, SORT_STRING);
+        $this->assertSame($sortedKinds, $kinds);
+    }
 }
