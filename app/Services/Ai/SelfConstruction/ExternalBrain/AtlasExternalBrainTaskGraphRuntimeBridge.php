@@ -19,6 +19,96 @@ final class AtlasExternalBrainTaskGraphRuntimeBridge
 {
     public const SCHEMA = 'atlas.external_brain.task_graph_runtime_bridge.v1';
 
+    public const STATUS_CLAIMABLE = 'claimable';
+    public const STATUS_CLAIMED = 'claimed';
+    public const STATUS_BLOCKED = 'blocked';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_STALE = 'stale';
+
+    /**
+     * Bridges task-graph nodes to their live runtime status and a worker-safe
+     * release decision, so a caller never has to re-derive dependency readiness
+     * from raw graph facts on its own.
+     *
+     * Classification per node (first match wins):
+     *   stale     — dependency_stale=true
+     *   claimed   — queue_status='claimed'
+     *   completed — queue_status='completed'
+     *   claimable — every prerequisite is itself live-complete
+     *   blocked   — otherwise
+     *
+     * release_ready=true only for claimable nodes; every other node carries a
+     * hold_reason explaining exactly why it must not be released to a worker yet.
+     *
+     * @param  array{nodes?: list<array{
+     *   task_packet_id?: string,
+     *   prerequisites?: list<string>,
+     *   queue_status?: string,
+     *   dependency_stale?: bool,
+     * }>}  $facts
+     * @return array{schema:string, nodes:list<array<string,mixed>>}
+     */
+    public function bridgeNodes(array $facts): array
+    {
+        $rawNodes = is_array($facts['nodes'] ?? null) ? $facts['nodes'] : [];
+
+        $ownStatus = [];
+        $prerequisitesById = [];
+        foreach ($rawNodes as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $id = (string) ($row['task_packet_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $prerequisitesById[$id] = array_values(array_map('strval', (array) ($row['prerequisites'] ?? [])));
+
+            $queueStatus = (string) ($row['queue_status'] ?? '');
+            $ownStatus[$id] = match (true) {
+                (bool) ($row['dependency_stale'] ?? false) => self::STATUS_STALE,
+                $queueStatus === self::STATUS_CLAIMED => self::STATUS_CLAIMED,
+                $queueStatus === self::STATUS_COMPLETED => self::STATUS_COMPLETED,
+                default => null, // resolved in the second pass, once all own-statuses are known
+            };
+        }
+
+        $nodes = [];
+        foreach ($prerequisitesById as $id => $prerequisites) {
+            if ($ownStatus[$id] !== null) {
+                $liveStatus = $ownStatus[$id];
+                $unmetPrerequisites = [];
+            } else {
+                $unmetPrerequisites = array_values(array_filter(
+                    $prerequisites,
+                    static fn (string $prereqId): bool => ($ownStatus[$prereqId] ?? null) !== self::STATUS_COMPLETED,
+                ));
+                $liveStatus = $unmetPrerequisites === [] ? self::STATUS_CLAIMABLE : self::STATUS_BLOCKED;
+            }
+
+            $releaseReady = $liveStatus === self::STATUS_CLAIMABLE;
+            $holdReason = match (true) {
+                $releaseReady => null,
+                $liveStatus === self::STATUS_STALE => 'dependency_stale',
+                $liveStatus === self::STATUS_CLAIMED => 'already_claimed',
+                $liveStatus === self::STATUS_COMPLETED => 'already_completed',
+                default => 'prerequisite_not_live_complete:'.implode(',', $unmetPrerequisites),
+            };
+
+            $nodes[] = [
+                'task_packet_id' => $id,
+                'live_status' => $liveStatus,
+                'release_ready' => $releaseReady,
+                'hold_reason' => $holdReason,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'nodes' => $nodes,
+        ];
+    }
+
     /**
      * @param  array{
      *   critical_path?: list<array{task_packet_id?:string, blocked?:bool, leverage?:int}>,
