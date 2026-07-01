@@ -100,6 +100,18 @@ final class AtlasSelfConstructionRuntimeSoakScenarioBuilder
             'required_evidence' => ['idle_timeout_receipt'],
             'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
         ],
+        [
+            'kind' => 'worker_capacity_check',
+            'expected_outcome' => 'worker_capacity_confirmed',
+            'required_evidence' => ['worker_capacity_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
+        [
+            'kind' => 'verification_pass',
+            'expected_outcome' => 'verification_passed',
+            'required_evidence' => ['verification_receipt'],
+            'forbidden_dependency_flags' => ['requires_operator', 'requires_human', 'requires_external_provider'],
+        ],
     ];
 
     /**
@@ -111,7 +123,11 @@ final class AtlasSelfConstructionRuntimeSoakScenarioBuilder
         $maxTicks = max(1, (int) ($options['max_ticks'] ?? self::DEFAULT_MAX_TICKS));
         $maxVirtualSeconds = max(1, (int) ($options['max_virtual_seconds'] ?? self::DEFAULT_MAX_VIRTUAL_SECONDS));
         $virtualStart = (int) ($options['virtual_start_unix'] ?? 1700000000);
-        $tickStep = max(1, (int) ($options['tick_step_seconds'] ?? 60));
+        // When the caller does not pin a step, scale it so maxTicks ticks span the full
+        // virtual-seconds window -- otherwise a small fixed step (e.g. 60s) would cap virtual
+        // coverage at maxTicks*60s, far short of a 24h scenario, well before max_virtual_seconds
+        // is ever reached.
+        $tickStep = max(1, (int) ($options['tick_step_seconds'] ?? (int) ceil($maxVirtualSeconds / $maxTicks)));
 
         $virtualNow = $virtualStart;
         $templates = self::TICK_TEMPLATES;

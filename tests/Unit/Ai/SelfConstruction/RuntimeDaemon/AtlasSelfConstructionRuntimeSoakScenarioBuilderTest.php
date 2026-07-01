@@ -120,6 +120,36 @@ class AtlasSelfConstructionRuntimeSoakScenarioBuilderTest extends TestCase
         self::assertContains('idle_timeout_receipt', $byKind['idle_worker_timeout']['required_evidence']);
     }
 
+    public function test_default_scenario_covers_at_least_24h_of_virtual_runtime_without_exceeding_max_ticks(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+
+        self::assertLessThanOrEqual(AtlasSelfConstructionRuntimeSoakScenarioBuilder::DEFAULT_MAX_TICKS, $verdict['tick_count']);
+        $lastTick = end($verdict['virtual_ticks']);
+        $virtualSpanSeconds = $lastTick['virtual_unix'] - $verdict['virtual_start_unix'];
+        self::assertGreaterThanOrEqual(86400 - $verdict['tick_step_seconds'], $virtualSpanSeconds, 'default scenario must span close to a full virtual 24h');
+    }
+
+    public function test_scenario_includes_worker_and_verification_surfaces(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakScenarioBuilder)->build();
+        $kinds = array_column($verdict['virtual_ticks'], 'kind');
+
+        self::assertContains('worker_capacity_check', $kinds, 'must include worker surface');
+        self::assertContains('verification_pass', $kinds, 'must include verification surface');
+        self::assertContains('empty_queue_replenish', $kinds, 'must include replenish surface');
+        self::assertContains('stale_heartbeat_recovery', $kinds, 'must include recovery surface');
+        self::assertContains('pause_resume', $kinds, 'must include pause-pressure surface');
+    }
+
+    public function test_scenario_output_is_deterministic_for_same_options(): void
+    {
+        $builder = new AtlasSelfConstructionRuntimeSoakScenarioBuilder;
+        $options = ['max_ticks' => 20, 'max_virtual_seconds' => 43200];
+
+        self::assertSame($builder->build($options), $builder->build($options));
+    }
+
     public function test_scenario_source_does_not_touch_fs_provider_process_git_or_scheduler(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeSoakScenarioBuilder.php'));
