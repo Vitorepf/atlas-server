@@ -126,4 +126,83 @@ final class AtlasMaestroPacketProvenanceReceiptLedgerTest extends TestCase
         $this->assertCount(1, $ledger->forSource('task_fabric'));
         $this->assertCount(0, $ledger->forSource('unknown'));
     }
+
+    // ── AC: tampered receipt content breaks chain validation ──────────────────
+
+    public function test_validate_chain_is_valid_for_untampered_ledger(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger->append('pkt-1', 0, 'h0', ['ok' => true], '2026-06-25T05:00:00+00:00');
+        $ledger->append('pkt-1', 1, 'h1', ['ok' => true], '2026-06-25T05:01:00+00:00');
+        $ledger->append('pkt-2', 0, 'h2', ['ok' => true], '2026-06-25T05:02:00+00:00');
+
+        $result = $ledger->validateChain();
+
+        $this->assertTrue($result['valid']);
+        $this->assertNull($result['broken_at_index']);
+        $this->assertNull($result['broken_receipt_id']);
+    }
+
+    public function test_tampered_receipt_content_breaks_chain_validation(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger->append('pkt-1', 0, 'h0', ['ok' => true], '2026-06-25T05:00:00+00:00');
+        $ledger->append('pkt-1', 1, 'h1', ['ok' => true], '2026-06-25T05:01:00+00:00');
+
+        // Directly tamper the second line's verdict content without recomputing the chain hash.
+        $lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $decoded = json_decode($lines[1], true);
+        $decoded['verdict'] = ['ok' => false, 'tampered' => true];
+        $lines[1] = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        file_put_contents($this->path, implode("\n", $lines)."\n");
+
+        $result = $ledger->validateChain();
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame(1, $result['broken_at_index']);
+        $this->assertSame($decoded['receipt_id'], $result['broken_receipt_id']);
+    }
+
+    public function test_tampering_earlier_receipt_breaks_all_subsequent_chain_links(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger->append('pkt-1', 0, 'h0', ['ok' => true], '2026-06-25T05:00:00+00:00');
+        $ledger->append('pkt-1', 1, 'h1', ['ok' => true], '2026-06-25T05:01:00+00:00');
+        $ledger->append('pkt-1', 2, 'h2', ['ok' => true], '2026-06-25T05:02:00+00:00');
+
+        $lines = file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        $decoded = json_decode($lines[0], true);
+        $decoded['verdict'] = ['ok' => false];
+        $lines[0] = json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        file_put_contents($this->path, implode("\n", $lines)."\n");
+
+        $result = $ledger->validateChain();
+
+        $this->assertFalse($result['valid']);
+        $this->assertSame(0, $result['broken_at_index'], 'tampering the first receipt must break the chain starting at index 0');
+    }
+
+    public function test_empty_ledger_validates_as_valid(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $result = $ledger->validateChain();
+
+        $this->assertTrue($result['valid']);
+    }
+
+    // ── AC: tail returns newest receipts in deterministic order ────────────────
+
+    public function test_tail_order_is_deterministic_when_written_at_ties(): void
+    {
+        $ledger = new AtlasMaestroPacketProvenanceReceiptLedger($this->path);
+        $ledger->append('pkt-x', 0, 'hx0', [], '2026-06-25T05:00:00+00:00');
+        $ledger->append('pkt-x', 1, 'hx1', [], '2026-06-25T05:00:00+00:00');
+        $ledger->append('pkt-x', 2, 'hx2', [], '2026-06-25T05:00:00+00:00');
+
+        $first = $ledger->tail(3);
+        $second = $ledger->tail(3);
+
+        $this->assertSame(array_column($first, 'receipt_id'), array_column($second, 'receipt_id'));
+        $this->assertSame([2, 1, 0], array_column($first, 'sequence_no'));
+    }
 }

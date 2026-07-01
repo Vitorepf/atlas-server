@@ -67,6 +67,12 @@ final class AtlasMaestroPacketProvenanceReceiptLedger
                 'schema_version' => self::SCHEMA,
             ];
 
+            // Tamper-evident chain: each receipt's chain_hash covers its own full content plus the
+            // previous receipt's chain_hash, so editing any field on any prior line — or this one —
+            // breaks validateChain() from that point forward.
+            $prevChainHash = $rows === [] ? '' : (string) ($rows[array_key_last($rows)]['chain_hash'] ?? '');
+            $receipt['chain_hash'] = $this->computeChainHash($prevChainHash, $receipt);
+
             fseek($handle, 0, SEEK_END);
             fwrite($handle, (string) json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
             fflush($handle);
@@ -112,9 +118,63 @@ final class AtlasMaestroPacketProvenanceReceiptLedger
     public function tail(int $limit): array
     {
         $rows = $this->readAll();
-        usort($rows, static fn (array $a, array $b): int => strcmp((string) ($b['written_at'] ?? ''), (string) ($a['written_at'] ?? '')));
+        // Deterministic ordering: written_at descending, then sequence_no descending, then
+        // receipt_id as a final tiebreak — so two receipts sharing a written_at never sort
+        // arbitrarily by insertion order.
+        usort($rows, static function (array $a, array $b): int {
+            $writtenCmp = strcmp((string) ($b['written_at'] ?? ''), (string) ($a['written_at'] ?? ''));
+            if ($writtenCmp !== 0) {
+                return $writtenCmp;
+            }
+            $seqCmp = ((int) ($b['sequence_no'] ?? 0)) <=> ((int) ($a['sequence_no'] ?? 0));
+            if ($seqCmp !== 0) {
+                return $seqCmp;
+            }
+
+            return strcmp((string) ($b['receipt_id'] ?? ''), (string) ($a['receipt_id'] ?? ''));
+        });
 
         return array_slice($rows, 0, max(0, $limit));
+    }
+
+    /**
+     * Validate the tamper-evident chain across all receipts in physical append order. Any
+     * modification to a receipt's stored fields — including one made directly to the file —
+     * breaks the recomputed chain_hash from that receipt onward.
+     *
+     * @return array{valid:bool, broken_at_index:?int, broken_receipt_id:?string}
+     */
+    public function validateChain(): array
+    {
+        $rows = $this->readAll();
+        $prevChainHash = '';
+
+        foreach ($rows as $i => $row) {
+            $storedChainHash = (string) ($row['chain_hash'] ?? '');
+            $withoutChainHash = $row;
+            unset($withoutChainHash['chain_hash']);
+            $expected = $this->computeChainHash($prevChainHash, $withoutChainHash);
+
+            if ($expected !== $storedChainHash) {
+                return [
+                    'valid' => false,
+                    'broken_at_index' => $i,
+                    'broken_receipt_id' => (string) ($row['receipt_id'] ?? ''),
+                ];
+            }
+
+            $prevChainHash = $storedChainHash;
+        }
+
+        return ['valid' => true, 'broken_at_index' => null, 'broken_receipt_id' => null];
+    }
+
+    /**
+     * @param  array<string,mixed>  $receiptWithoutChainHash
+     */
+    private function computeChainHash(string $prevChainHash, array $receiptWithoutChainHash): string
+    {
+        return hash('sha256', $prevChainHash.'|'.(string) json_encode($receiptWithoutChainHash, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**
