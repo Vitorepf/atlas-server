@@ -42,6 +42,15 @@ final class AtlasSelfConstructionOrganContractCoverageGate
         'runtime_integration_owner',
     ];
 
+    public const READINESS_READY = 'ready';
+
+    public const READINESS_BLOCKED = 'blocked';
+
+    public const READINESS_PARTIAL = 'partial';
+
+    /** a stale contract past this many days can no longer back a final autonomy claim. */
+    private const STALE_CONTRACT_MAX_DAYS = 90;
+
     /**
      * @param  array<string, array<string,mixed>>  $registry  organ_id => {task_packet?, implementation_surface?,
      *                                                                      test_evidence_requirement?,
@@ -108,6 +117,80 @@ final class AtlasSelfConstructionOrganContractCoverageGate
             'missing_receipt' => array_values(array_unique($missingReceipt)),
             'autonomy_regression' => array_values(array_unique($autonomyRegression)),
             'duplicate_surfaces' => array_values(array_unique($duplicateSurfaces)),
+        ];
+    }
+
+    /**
+     * E2E readiness verdict for a final autonomy claim — never lets partial coverage pass as ready.
+     * Builds on evaluate()'s facts and adds two proofs evaluate() does not check: whether a declared
+     * test_evidence_requirement is a real runnable gate (not a vague placeholder), and whether a
+     * runtime_owner=atlas_native claim is backed by actual runtime proof rather than a bare
+     * declaration. readiness_status is 'ready' ONLY when there are zero blockers AND zero weak tests.
+     *
+     * @param  array<string, array<string,mixed>>  $registry  same shape as evaluate(), plus optional
+     *                                                          per-organ contract_verified_days_ago?:int,
+     *                                                          runtime_proof_present?:bool
+     * @return array{schema:string, critical_uncovered_organs:list<string>, weak_tests:list<string>, stale_contracts:list<string>, missing_runtime_proof:list<string>, readiness_status:string, blockers:list<string>}
+     */
+    public function evaluateReadiness(array $registry): array
+    {
+        $base = $this->evaluate($registry);
+
+        $criticalUncoveredOrgans = array_values(array_filter(
+            $base['missing_organ'],
+            static fn (string $entry): bool => ! str_contains($entry, ':'),
+        ));
+
+        $weakTests = [];
+        $staleContracts = [];
+        $missingRuntimeProof = [];
+
+        foreach (self::CANONICAL_ORGANS as $organ) {
+            $row = $registry[$organ] ?? null;
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $testRequirement = (string) ($row['test_evidence_requirement'] ?? '');
+            if ($testRequirement !== '' && preg_match('/\b(test|phpunit|artisan)\b/i', $testRequirement) !== 1) {
+                $weakTests[] = $organ.':weak_test_evidence_requirement';
+            }
+
+            if (array_key_exists('contract_verified_days_ago', $row)) {
+                $daysAgo = max(0, (int) $row['contract_verified_days_ago']);
+                if ($daysAgo > self::STALE_CONTRACT_MAX_DAYS) {
+                    $staleContracts[] = $organ.':stale_contract:'.$daysAgo.'_days';
+                }
+            }
+
+            $ownerIsNative = (string) ($row['runtime_owner'] ?? '') === 'atlas_native';
+            if ($ownerIsNative && ! (bool) ($row['runtime_proof_present'] ?? false)) {
+                $missingRuntimeProof[] = $organ.':missing_runtime_proof';
+            }
+        }
+
+        $blockers = array_values(array_unique(array_merge(
+            $criticalUncoveredOrgans,
+            $base['autonomy_regression'],
+            $staleContracts,
+            $missingRuntimeProof,
+        )));
+        sort($blockers, SORT_STRING);
+
+        $readinessStatus = match (true) {
+            $blockers !== [] => self::READINESS_BLOCKED,
+            $weakTests !== [] => self::READINESS_PARTIAL,
+            default => self::READINESS_READY,
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'critical_uncovered_organs' => $criticalUncoveredOrgans,
+            'weak_tests' => $weakTests,
+            'stale_contracts' => $staleContracts,
+            'missing_runtime_proof' => $missingRuntimeProof,
+            'readiness_status' => $readinessStatus,
+            'blockers' => $blockers,
         ];
     }
 }
