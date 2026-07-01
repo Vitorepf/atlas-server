@@ -33,12 +33,24 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *                            OR lesson large_changed_file_count_review_scope
  *                            -> split
  *
+ * Also handled (each still a concrete, evidence-STRENGTHENING action — never a wrapper-only or
+ * operator-dependent rewrite):
+ *   allowed_files          <- lesson give_back_due_to_insufficient_allowed_files OR
+ *                            root_cause=insufficient_allowed_files -> same expand action as scope_mismatch
+ *   acceptance_criteria    <- poison_or_quarantine_count>=2 OR lesson repeated_poison_or_quarantine
+ *                            -> tighten_acceptance_criteria_with_concrete_implementation_and_test_file_requirements
+ *   acceptance_criteria    <- lesson shallow_acceptance_criteria
+ *                            -> add_concrete_runnable_gate_examples_to_shallow_acceptance_criteria
+ *   required_evidence      <- lesson weak_success
+ *                            -> require_measurable_capability_delta_via_runnable_test_command
+ *
  * INPUT:
- *   original_spec?:          array<string,mixed> (objective, allowed_files, acceptance_criteria, required_evidence, dependencies)
- *   outcome_lessons?:        list<string> (lesson codes, e.g. from AtlasExternalBrainPostImplementationLessonExtractor)
- *   give_back_root_cause?:   string (default '')
- *   test_coverage_facts?:    {tests_authored?: bool, tests_passed?: bool}
- *   changed_file_evidence?:  list<string> (default [])
+ *   original_spec?:            array<string,mixed> (objective, allowed_files, acceptance_criteria, required_evidence, dependencies)
+ *   outcome_lessons?:          list<string> (lesson codes, e.g. from AtlasExternalBrainPostImplementationLessonExtractor)
+ *   give_back_root_cause?:     string (default '')
+ *   test_coverage_facts?:      {tests_authored?: bool, tests_passed?: bool}
+ *   changed_file_evidence?:    list<string> (default [])
+ *   poison_or_quarantine_count?: int (default 0)
  *
  * OUTPUT:
  *   { schema, recommendation: rewrite|give_back_or_retire, reason,
@@ -88,22 +100,42 @@ final class AtlasExternalBrainSpecRewriteFromOutcomeAdvisor
         $testCoverageFacts = is_array($input['test_coverage_facts'] ?? null) ? $input['test_coverage_facts'] : [];
         $testsAuthored = (bool) ($testCoverageFacts['tests_authored'] ?? true);
         $changedFileEvidence = is_array($input['changed_file_evidence'] ?? null) ? $input['changed_file_evidence'] : [];
+        $poisonOrQuarantineCount = max(0, (int) ($input['poison_or_quarantine_count'] ?? 0));
+
+        // "Repeated" = it was poisoned/quarantined more than once, OR the caller already knows the count and
+        // tags the lesson directly — either way this is a distinct signal from a single one-off give_back.
+        $repeatedPoisonOrQuarantine = $poisonOrQuarantineCount >= 2 || in_array('repeated_poison_or_quarantine', $lessons, true);
+        $weakSuccess = in_array('weak_success', $lessons, true);
+        $shallowAcceptance = in_array('shallow_acceptance_criteria', $lessons, true);
 
         $objective = (in_array('give_back_due_to_unclear_spec', $lessons, true) || $giveBackRootCause === 'unclear_spec')
             ? 'clarify_objective_with_concrete_acceptance_examples'
             : null;
 
-        $allowedFiles = (in_array('give_back_due_to_scope_mismatch', $lessons, true) || $giveBackRootCause === 'scope_too_narrow')
+        $allowedFiles = (
+                in_array('give_back_due_to_scope_mismatch', $lessons, true)
+                || in_array('give_back_due_to_insufficient_allowed_files', $lessons, true)
+                || $giveBackRootCause === 'scope_too_narrow'
+                || $giveBackRootCause === 'insufficient_allowed_files'
+            )
             ? 'expand_allowed_files_to_cover_required_implementation'
             : null;
 
-        $acceptanceCriteria = (in_array('attempt_failed', $lessons, true) || in_array('required_repair_after_initial_attempt', $lessons, true))
-            ? 'add_explicit_failure_mode_coverage_to_acceptance_criteria'
-            : null;
+        // Ordered by specificity: an explicit repair/failure signal wins over the broader poison/shallow ones.
+        $acceptanceCriteria = match (true) {
+            in_array('attempt_failed', $lessons, true) => 'add_explicit_failure_mode_coverage_to_acceptance_criteria',
+            in_array('required_repair_after_initial_attempt', $lessons, true) => 'add_explicit_failure_mode_coverage_to_acceptance_criteria',
+            $repeatedPoisonOrQuarantine => 'tighten_acceptance_criteria_with_concrete_implementation_and_test_file_requirements',
+            $shallowAcceptance => 'add_concrete_runnable_gate_examples_to_shallow_acceptance_criteria',
+            default => null,
+        };
 
-        $requiredEvidence = (in_array('self_reported_success_without_evidence', $lessons, true) || ! $testsAuthored)
-            ? 'require_runnable_test_command_in_acceptance_criteria'
-            : null;
+        $requiredEvidence = match (true) {
+            in_array('self_reported_success_without_evidence', $lessons, true) => 'require_runnable_test_command_in_acceptance_criteria',
+            ! $testsAuthored => 'require_runnable_test_command_in_acceptance_criteria',
+            $weakSuccess => 'require_measurable_capability_delta_via_runnable_test_command',
+            default => null,
+        };
 
         $duplicateSignal = str_contains(strtolower($giveBackRootCause), 'duplicate')
             || in_array('duplicate_of_existing_capability', $lessons, true);
