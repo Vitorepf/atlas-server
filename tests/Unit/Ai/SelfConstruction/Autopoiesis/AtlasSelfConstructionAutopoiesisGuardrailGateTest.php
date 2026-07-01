@@ -211,6 +211,151 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGateTest extends TestCase
         $this->assertCount(3, $verdict['blockers']);
     }
 
+    // ── placeholder evidence_refs ─────────────────────────────────────────────
+
+    private function reversibleBase(array $overrides = []): array
+    {
+        return array_merge([
+            'reversible' => true,
+            'rollback_plan' => ['mode' => 'revert_commit'],
+            'evidence_refs' => ['receipt:r1'],
+            'canary_plan' => ['target' => 'canary-instance'],
+            'blast_radius_limit' => 5,
+            'rollback_verification_command' => 'atlas:self:verify-rollback',
+            'post_apply_evidence_plan' => ['run_tests'],
+        ], $overrides);
+    }
+
+    public function test_all_placeholder_evidence_refs_are_blocked(): void
+    {
+        foreach (['todo', 'tbd', 'fake', 'example', 'synthetic-demo'] as $placeholder) {
+            $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+                $this->reversibleBase(['evidence_refs' => [$placeholder]]),
+            );
+            $this->assertFalse($verdict['accepted'], "placeholder '{$placeholder}' must be rejected");
+            $this->assertContains('reversible_experiment_placeholder_evidence_refs', $verdict['blockers']);
+        }
+    }
+
+    public function test_mixed_placeholder_and_real_evidence_refs_are_accepted(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['evidence_refs' => ['todo', 'receipt:hash-abc123']]),
+        );
+        $this->assertTrue($verdict['accepted']);
+    }
+
+    public function test_receipt_and_hash_like_evidence_refs_are_accepted(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['evidence_refs' => ['receipt:9f8a7b6c', 'evidence_hash:deadbeef']]),
+        );
+        $this->assertTrue($verdict['accepted']);
+        $this->assertSame(AtlasSelfConstructionAutopoiesisGuardrailGate::CLASS_REVERSIBLE, $verdict['allowed_class']);
+    }
+
+    // ── bounded blast_radius_limit ───────────────────────────────────────────
+
+    public function test_non_positive_blast_radius_limit_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['blast_radius_limit' => 0]),
+        );
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_invalid_blast_radius_limit', $verdict['blockers']);
+    }
+
+    public function test_negative_blast_radius_limit_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['blast_radius_limit' => -3]),
+        );
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_invalid_blast_radius_limit', $verdict['blockers']);
+    }
+
+    public function test_non_integer_blast_radius_limit_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['blast_radius_limit' => 2.5]),
+        );
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_invalid_blast_radius_limit', $verdict['blockers']);
+    }
+
+    public function test_non_numeric_blast_radius_limit_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['blast_radius_limit' => 'a_few']),
+        );
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_invalid_blast_radius_limit', $verdict['blockers']);
+    }
+
+    public function test_blast_radius_limit_exceeding_governed_ceiling_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['blast_radius_limit' => AtlasSelfConstructionAutopoiesisGuardrailGate::BLAST_RADIUS_CEILING + 1]),
+        );
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_blast_radius_limit_exceeds_ceiling', $verdict['blockers']);
+    }
+
+    public function test_blast_radius_limit_at_governed_ceiling_is_allowed(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['blast_radius_limit' => AtlasSelfConstructionAutopoiesisGuardrailGate::BLAST_RADIUS_CEILING]),
+        );
+        $this->assertTrue($verdict['accepted']);
+    }
+
+    // ── weak rollback_verification_command ───────────────────────────────────
+
+    public function test_placeholder_rollback_verification_command_is_blocked(): void
+    {
+        foreach (['todo', 'tbd', 'fake command', 'n/a'] as $placeholder) {
+            $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+                $this->reversibleBase(['rollback_verification_command' => $placeholder]),
+            );
+            $this->assertFalse($verdict['accepted'], "'{$placeholder}' must be rejected as a weak command");
+            $this->assertContains('reversible_experiment_weak_rollback_verification_command', $verdict['blockers']);
+        }
+    }
+
+    public function test_prose_rollback_verification_command_that_names_no_runnable_is_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['rollback_verification_command' => 'run the tests manually and check']),
+        );
+        $this->assertFalse($verdict['accepted']);
+        $this->assertContains('reversible_experiment_weak_rollback_verification_command', $verdict['blockers']);
+    }
+
+    public function test_artisan_namespaced_rollback_verification_command_is_accepted(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['rollback_verification_command' => 'atlas:self:verify-rollback']),
+        );
+        $this->assertTrue($verdict['accepted']);
+    }
+
+    public function test_php_artisan_rollback_verification_command_is_accepted(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(
+            $this->reversibleBase(['rollback_verification_command' => 'php artisan atlas:task test-suite']),
+        );
+        $this->assertTrue($verdict['accepted']);
+    }
+
+    // ── read-only stays simple ────────────────────────────────────────────────
+
+    public function test_read_only_experiment_never_evaluates_reversible_only_hardening(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate(['read_only' => true]);
+        $this->assertTrue($verdict['accepted']);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
     public function test_non_array_rollback_plan_treated_as_missing(): void
     {
         $verdict = (new AtlasSelfConstructionAutopoiesisGuardrailGate)->evaluate([

@@ -28,6 +28,12 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGate
 
     public const ACTION_BLOCK = 'block';
 
+    /** Small governed ceiling on blast_radius_limit for a reversible self-modification experiment. */
+    public const BLAST_RADIUS_CEILING = 25;
+
+    /** Placeholder tokens that make an evidence_ref or verification command non-real proof. */
+    private const PLACEHOLDER_PATTERN = '/\b(todo|tbd|fake|example|synthetic-demo|placeholder|n\/a|none)\b/i';
+
     /**
      * @param  array<string,mixed>  $experiment {
      *     bypasses_kernel?:bool, bypasses_verification_court?:bool, bypasses_merge_governor?:bool,
@@ -79,17 +85,31 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGate
             }
             if ($evidenceRefs === []) {
                 $blockers[] = 'reversible_experiment_missing_evidence_refs';
+            } elseif ($this->allPlaceholder($evidenceRefs)) {
+                // Non-empty, but every ref is a placeholder token (todo/tbd/fake/example/...) — no
+                // real receipt/hash-like proof was actually bound. A single real ref among placeholders
+                // is enough to pass; only an ALL-placeholder list is treated as no evidence at all.
+                $blockers[] = 'reversible_experiment_placeholder_evidence_refs';
             }
             $canaryPlan = is_array($experiment['canary_plan'] ?? null) ? $experiment['canary_plan'] : [];
             if ($canaryPlan === []) {
                 $blockers[] = 'reversible_experiment_missing_canary_plan';
             }
-            if (($experiment['blast_radius_limit'] ?? null) === null) {
+
+            $blastRadiusLimit = $experiment['blast_radius_limit'] ?? null;
+            if ($blastRadiusLimit === null) {
                 $blockers[] = 'reversible_experiment_missing_blast_radius_limit';
+            } elseif (! $this->isBoundedPositiveInt($blastRadiusLimit)) {
+                $blockers[] = 'reversible_experiment_invalid_blast_radius_limit';
+            } elseif ((int) $blastRadiusLimit > self::BLAST_RADIUS_CEILING) {
+                $blockers[] = 'reversible_experiment_blast_radius_limit_exceeds_ceiling';
             }
+
             $rollbackVerifyCmd = trim((string) ($experiment['rollback_verification_command'] ?? ''));
             if ($rollbackVerifyCmd === '') {
                 $blockers[] = 'reversible_experiment_missing_rollback_verification_command';
+            } elseif (! $this->looksLikeRunnableVerificationCommand($rollbackVerifyCmd)) {
+                $blockers[] = 'reversible_experiment_weak_rollback_verification_command';
             }
             $postApplyPlan = is_array($experiment['post_apply_evidence_plan'] ?? null) ? $experiment['post_apply_evidence_plan'] : [];
             if ($postApplyPlan === []) {
@@ -105,6 +125,52 @@ final class AtlasSelfConstructionAutopoiesisGuardrailGate
         $blockers[] = 'experiment_neither_read_only_nor_reversible';
 
         return $this->envelope(self::ACTION_BLOCK, $blockers, self::CLASS_REJECTED);
+    }
+
+    /** @param  list<string>  $evidenceRefs */
+    private function allPlaceholder(array $evidenceRefs): bool
+    {
+        foreach ($evidenceRefs as $ref) {
+            if (preg_match(self::PLACEHOLDER_PATTERN, $ref) !== 1) {
+                return false; // at least one real ref found
+            }
+        }
+
+        return true;
+    }
+
+    private function isBoundedPositiveInt(mixed $value): bool
+    {
+        if (is_bool($value) || is_array($value)) {
+            return false;
+        }
+        if (! is_numeric($value)) {
+            return false;
+        }
+        $float = (float) $value;
+        if ($float !== floor($float)) {
+            return false; // non-integer (e.g. 2.5)
+        }
+
+        return (int) $float > 0;
+    }
+
+    /**
+     * Accepts an artisan-style namespaced command (e.g. 'atlas:self:verify-rollback') or a direct
+     * php/artisan invocation (e.g. 'php artisan atlas:task test-suite') — rejects placeholder text
+     * and free-form prose that names no runnable command at all.
+     */
+    private function looksLikeRunnableVerificationCommand(string $command): bool
+    {
+        if (preg_match(self::PLACEHOLDER_PATTERN, $command) === 1) {
+            return false;
+        }
+
+        if (preg_match('/^php\s+\S+/i', $command) === 1) {
+            return true;
+        }
+
+        return preg_match('/^[a-z0-9_]+(:[a-z0-9_.-]+)+$/i', $command) === 1;
     }
 
     /**
