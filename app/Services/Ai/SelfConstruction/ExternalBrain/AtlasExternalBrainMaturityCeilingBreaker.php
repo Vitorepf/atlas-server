@@ -109,12 +109,16 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             $riskScore    = max(0.0, min(1.0, (float) ($jump['risk_score']   ?? 1.0)));
             $proofGates   = array_values((array) ($jump['proof_gates']   ?? []));
             $prerequisites = array_values((array) ($jump['prerequisites'] ?? []));
+            $prerequisitesMet = array_values((array) ($jump['prerequisites_met'] ?? []));
 
             $blastOk  = $blastRadius <= self::MAX_BLAST_RADIUS;
             $riskOk   = $riskScore   <= self::MAX_RISK_SCORE;
             $gatesOk  = count($proofGates) > 0;
+            // A jump must name real prerequisites, OR already have proof that its prerequisites
+            // were met — a jump with neither is an unfounded leap, not a proof-gated capability jump.
+            $prereqOk = count($prerequisites) > 0 || count($prerequisitesMet) > 0;
 
-            if ($blastOk && $riskOk && $gatesOk) {
+            if ($blastOk && $riskOk && $gatesOk && $prereqOk) {
                 $eligibleJumps[] = [
                     'name'             => $name,
                     'prerequisites'    => $prerequisites,
@@ -129,6 +133,7 @@ final class AtlasExternalBrainMaturityCeilingBreaker
                         $blastOk ? null : 'blast_radius_exceeds_bound',
                         $riskOk  ? null : 'risk_score_exceeds_bound',
                         $gatesOk ? null : 'no_proof_gates_defined',
+                        $prereqOk ? null : 'no_prerequisites_or_prerequisites_met',
                     ]),
                 ];
             }
