@@ -418,6 +418,95 @@ final class AtlasSelfConstructionFailureModesService
     }
 
     // ---------------------------------------------------------------------
+    // 5. Batch stop/go verdict — combines red flags, incident packet, and
+    //    recovery order into one deterministic autonomous_run_decision.
+    // ---------------------------------------------------------------------
+
+    /**
+     * One deterministic stop/go verdict for an autonomous run, combining all three
+     * documented surfaces (Red Flags, Required Incident Packet, Recovery Order).
+     * Prefers stopping: ANY raised red flag stops the run outright; an incomplete
+     * incident packet blocks resume even with zero red flags (when an incident
+     * occurred); out-of-order recovery also blocks. Only when all three are clean
+     * does the verdict allow continue.
+     *
+     * @param array<int|string,mixed> $redFlags observed red flags (list or map form, see evaluateRedFlags())
+     * @param bool $incidentOccurred whether a failure/incident has occurred this run (gates the packet-completeness check)
+     * @param array<string,mixed> $incidentPacket the incident packet, when $incidentOccurred is true
+     * @param list<string> $completedRecoverySteps completed recovery-step keys, when $incidentOccurred is true
+     *
+     * @return array<string,mixed>
+     */
+    public function evaluateAutonomousRunDecision(
+        array $redFlags = [],
+        bool $incidentOccurred = false,
+        array $incidentPacket = [],
+        array $completedRecoverySteps = [],
+    ): array {
+        $redFlagResult = $this->evaluateRedFlags($redFlags);
+
+        if ($redFlagResult['stop_construction']) {
+            return [
+                'schema' => self::SCHEMA,
+                'surface' => 'autonomous_run_decision',
+                'autonomous_run_decision' => 'stop_construction',
+                'stop_reason' => 'red_flag_raised:'.implode(',', $redFlagResult['raised_flags']),
+                'red_flags' => $redFlagResult,
+                'incident_packet' => null,
+                'recovery_order' => null,
+            ];
+        }
+
+        if (! $incidentOccurred) {
+            return [
+                'schema' => self::SCHEMA,
+                'surface' => 'autonomous_run_decision',
+                'autonomous_run_decision' => 'continue',
+                'stop_reason' => null,
+                'red_flags' => $redFlagResult,
+                'incident_packet' => null,
+                'recovery_order' => null,
+            ];
+        }
+
+        $packetResult = $this->buildIncidentPacket($incidentPacket);
+        if (! $packetResult['complete']) {
+            return [
+                'schema' => self::SCHEMA,
+                'surface' => 'autonomous_run_decision',
+                'autonomous_run_decision' => 'stop_construction',
+                'stop_reason' => 'incomplete_incident_packet:missing='.implode(',', $packetResult['missing_fields']),
+                'red_flags' => $redFlagResult,
+                'incident_packet' => $packetResult,
+                'recovery_order' => null,
+            ];
+        }
+
+        $recoveryResult = $this->nextRecoveryStep($completedRecoverySteps);
+        if (! $recoveryResult['ordered']) {
+            return [
+                'schema' => self::SCHEMA,
+                'surface' => 'autonomous_run_decision',
+                'autonomous_run_decision' => 'stop_construction',
+                'stop_reason' => 'recovery_order_violated',
+                'red_flags' => $redFlagResult,
+                'incident_packet' => $packetResult,
+                'recovery_order' => $recoveryResult,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'surface' => 'autonomous_run_decision',
+            'autonomous_run_decision' => 'continue',
+            'stop_reason' => null,
+            'red_flags' => $redFlagResult,
+            'incident_packet' => $packetResult,
+            'recovery_order' => $recoveryResult,
+        ];
+    }
+
+    // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
 
