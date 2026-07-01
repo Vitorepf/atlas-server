@@ -71,6 +71,20 @@ final class AtlasExternalBrainPatternDesignFailureModeMinerTest extends TestCase
         }
     }
 
+    public function test_promoted_pattern_has_acceptance_criteria_vocabulary_fields(): void
+    {
+        $result = $this->miner->mine($this->input($this->good()));
+        $pattern = $result['promoted_patterns'][0];
+
+        foreach (['task_fabric_patch', 'enforcement_surface', 'falsification_check', 'affected_task_families', 'confidence'] as $k) {
+            $this->assertArrayHasKey($k, $pattern, "Promoted pattern missing: {$k}");
+        }
+        $this->assertSame($pattern['enforcement_hook'], $pattern['enforcement_surface']);
+        $this->assertSame($pattern['affected_families'], $pattern['affected_task_families']);
+        $this->assertArrayHasKey('hook', $pattern['task_fabric_patch']);
+        $this->assertArrayHasKey('prevention_rule', $pattern['task_fabric_patch']);
+    }
+
     public function test_promoted_pattern_stores_affected_task_family(): void
     {
         $result = $this->miner->mine($this->input($this->good(['affected_task_family' => 'task_fabric:give_back_prevention'])));

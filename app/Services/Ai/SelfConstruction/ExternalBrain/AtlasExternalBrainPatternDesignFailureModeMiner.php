@@ -107,6 +107,15 @@ final class AtlasExternalBrainPatternDesignFailureModeMiner
                 'falsification_check'  => $falsificationCheck,
                 'confidence'           => $confidence,
                 'repair_hint'          => "{$preventionRule} (enforce via {$enforcementHook}; verify via {$falsificationCheck})",
+                // Aliases matching the acceptance-criteria vocabulary exactly (additive, no existing keys removed).
+                'enforcement_surface'    => $enforcementHook,
+                'affected_task_families' => $affectedFamilies,
+                'task_fabric_patch'      => [
+                    'family'          => $affectedTaskFamily,
+                    'hook'            => $enforcementHook,
+                    'prevention_rule' => $preventionRule,
+                    'failure_id'      => $failureId,
+                ],
             ];
 
             $confidenceReasons[] = [
