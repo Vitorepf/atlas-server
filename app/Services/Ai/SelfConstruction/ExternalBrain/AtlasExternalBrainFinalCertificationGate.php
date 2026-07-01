@@ -57,6 +57,20 @@ final class AtlasExternalBrainFinalCertificationGate
     public const READINESS_READY     = 'ready';
     public const READINESS_NOT_READY = 'not_ready';
 
+    /** Task-family suggestion Task Fabric can consume directly, per dimension — no operator interpretation needed. */
+    private const NEXT_TASK_FAMILY = [
+        'live_cycle_evidence'           => 'run_live_cycle_task_family',
+        'anti_goodhart_pass'            => 'anti_goodhart_audit_task_family',
+        'self_improvement_cycle_output' => 'self_improvement_cycle_task_family',
+        'muscle_outcome_learning'       => 'muscle_outcome_ledger_task_family',
+        'property_gated_path'           => 'property_gate_resolution_task_family',
+        'doc_proposal_readiness'        => 'doc_sync_drafting_task_family',
+        'autonomy_steady_state'         => 'autonomy_dependency_removal_task_family',
+    ];
+
+    /** Low-leverage, doc-only dimension(s) that must never outrank stale/missing evidence_refs. */
+    private const LOW_IMPACT_DIMENSIONS = ['doc_proposal_readiness'];
+
     /** The 8 pillars a 95%-readiness claim must be backed by — a wider surface than the 7-dimension certify() model. */
     public const PILLARS = [
         'context_pack', 'domain_map', 'task_fabric', 'outcome_learning',
@@ -211,6 +225,7 @@ final class AtlasExternalBrainFinalCertificationGate
                 'dimension' => $entry['dimension'],
                 'reason'    => 'missing required evidence_refs: '.implode(', ', $entry['missing_refs']).' — queue counts and authored specs alone do not satisfy this dimension',
                 'action'    => 'Attach the missing evidence_refs ('.implode(', ', $entry['missing_refs']).') from a real, directly-referenced artifact',
+                'type'      => 'missing_evidence_refs',
             ];
         }
 
@@ -226,6 +241,7 @@ final class AtlasExternalBrainFinalCertificationGate
                 'dimension' => $staleDimension,
                 'reason'    => 'evidence_age_hours exceeds '.self::MAX_EVIDENCE_AGE_HOURS.'h freshness floor: evidence is stale',
                 'action'    => 'Re-run the evidence-producing step and refresh evidence_age_hours before re-certifying',
+                'type'      => 'stale_evidence',
             ];
         }
 
@@ -241,7 +257,46 @@ final class AtlasExternalBrainFinalCertificationGate
             'evidence_dossier'          => $dossier,
             'finality_risk_score'       => $this->finalityRiskScore($passedCount, $requiredCount, count($blockers)),
             'next_certification_action' => $this->nextCertificationAction($verdict, $blockers),
+            'live_closure_plan'         => $this->buildLiveClosurePlan($blockers),
         ];
+    }
+
+    /**
+     * Orders every current blocker by closure leverage so Task Fabric can act without operator
+     * interpretation: stale/missing evidence_refs on an otherwise-passing dimension outrank a
+     * plain boolean-failure blocker, which in turn outranks the low-impact doc-only dimension.
+     * final_95_candidate has zero blockers, so this is always [] there.
+     *
+     * @param  list<array{dimension:string, reason:string, action:string, type?:string}>  $blockers
+     * @return list<array{dimension:string, priority:int, required_evidence_refs:list<string>, next_task_family:string}>
+     */
+    private function buildLiveClosurePlan(array $blockers): array
+    {
+        $plan = [];
+        foreach ($blockers as $blocker) {
+            $dimension = $blocker['dimension'];
+            $type = $blocker['type'] ?? 'dimension_failure';
+            $priority = match (true) {
+                $type === 'missing_evidence_refs' || $type === 'stale_evidence' => 0,
+                in_array($dimension, self::LOW_IMPACT_DIMENSIONS, true) => 2,
+                default => 1,
+            };
+
+            $plan[] = [
+                'dimension'               => $dimension,
+                'priority'                => $priority,
+                'required_evidence_refs'  => self::REQUIRED_REFS[$dimension] ?? [],
+                'next_task_family'        => self::NEXT_TASK_FAMILY[$dimension] ?? 'closure_task_family:'.$dimension,
+            ];
+        }
+
+        usort($plan, static fn (array $a, array $b): int =>
+            $a['priority'] !== $b['priority']
+                ? $a['priority'] <=> $b['priority']
+                : strcmp($a['dimension'], $b['dimension'])
+        );
+
+        return $plan;
     }
 
     /**

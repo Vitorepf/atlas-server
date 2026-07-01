@@ -548,6 +548,78 @@ final class AtlasExternalBrainFinalCertificationGateTest extends TestCase
         $this->assertCount(8, $result['missing_capabilities']);
     }
 
+    // ── live_closure_plan ─────────────────────────────────────────────────────
+
+    public function test_below_final_verdict_includes_live_closure_plan_entries_for_each_blocker(): void
+    {
+        $result = $this->gate()->certify([]);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::VERDICT_BELOW_FINAL, $result['verdict']);
+        $this->assertArrayHasKey('live_closure_plan', $result);
+        $this->assertCount(count($result['blockers']), $result['live_closure_plan']);
+
+        foreach ($result['live_closure_plan'] as $entry) {
+            $this->assertArrayHasKey('dimension', $entry);
+            $this->assertArrayHasKey('priority', $entry);
+            $this->assertArrayHasKey('required_evidence_refs', $entry);
+            $this->assertArrayHasKey('next_task_family', $entry);
+            $this->assertNotEmpty($entry['next_task_family']);
+        }
+    }
+
+    public function test_near_final_verdict_includes_live_closure_plan_entries_for_each_blocker(): void
+    {
+        $evidence = array_merge($this->fullEvidence(), [
+            'live_cycle_evidence'    => ['cycle_count' => 0, 'resolved_task_count' => 0],
+            'self_improvement_cycle' => ['has_output' => false, 'recommendation_count' => 0],
+        ]);
+
+        $result = $this->gate()->certify($evidence);
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::VERDICT_NEAR_FINAL, $result['verdict']);
+        $this->assertNotEmpty($result['live_closure_plan']);
+        $this->assertCount(count($result['blockers']), $result['live_closure_plan']);
+    }
+
+    public function test_final_95_candidate_emits_empty_live_closure_plan(): void
+    {
+        $result = $this->gate()->certify($this->fullEvidence());
+
+        $this->assertSame(AtlasExternalBrainFinalCertificationGate::VERDICT_FINAL_95, $result['verdict']);
+        $this->assertSame([], $result['live_closure_plan']);
+    }
+
+    public function test_stale_or_missing_evidence_refs_outrank_low_impact_doc_only_blocker_in_closure_priority(): void
+    {
+        // doc_proposal_readiness (low-impact, doc-only) fails outright, while a passing dimension
+        // (muscle_outcome_learning) is missing its evidence_refs — the evidence-refs gap must sort first.
+        $evidence = $this->fullEvidence();
+        $evidence['doc_proposal'] = ['drafted' => false, 'certification_blocked' => true];
+        $evidence['muscle_learning']['evidence_refs'] = [];
+
+        $result = $this->gate()->certify($evidence);
+
+        $byDimension = array_column($result['live_closure_plan'], null, 'dimension');
+        $this->assertArrayHasKey('muscle_outcome_learning', $byDimension);
+        $this->assertArrayHasKey('doc_proposal_readiness', $byDimension);
+        $this->assertLessThan(
+            $byDimension['doc_proposal_readiness']['priority'],
+            $byDimension['muscle_outcome_learning']['priority'],
+            'missing evidence_refs must outrank the low-impact doc-only blocker',
+        );
+
+        // And it must actually be first in the ordered plan.
+        $this->assertSame('muscle_outcome_learning', $result['live_closure_plan'][0]['dimension']);
+    }
+
+    public function test_live_closure_plan_entry_carries_required_evidence_refs_for_its_dimension(): void
+    {
+        $result = $this->gate()->certify([]);
+
+        $byDimension = array_column($result['live_closure_plan'], null, 'dimension');
+        $this->assertSame(['cycle_run_receipt'], $byDimension['live_cycle_evidence']['required_evidence_refs']);
+    }
+
     private function dossierFor(array $result, string $dimension): array
     {
         foreach ($result['evidence_dossier'] as $entry) {
