@@ -243,4 +243,74 @@ final class AtlasMaestroPoisonEarlyWarningModelTest extends TestCase
 
         $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_GOVERNANCE, $r['risk_family']);
     }
+
+    // ── new AC: high-risk forbidden self-target / dormant CLI arm proxy never serve ──
+
+    public function test_forbidden_self_target_never_serves(): void
+    {
+        $r = $this->svc()->score(['forbidden_self_target' => true, 'give_back_count' => 0]);
+
+        $this->assertContains($r['safe_next_action'], ['auto_retire', 'hold_for_review']);
+        $this->assertNotSame('serve', $r['safe_next_action']);
+    }
+
+    public function test_dormant_cli_arm_proxy_never_serves(): void
+    {
+        $r = $this->svc()->score([
+            'quality_facts' => ['dormant_cli_arm_proxy' => true],
+            'give_back_count' => 0,
+        ]);
+
+        $this->assertContains($r['safe_next_action'], ['auto_retire', 'hold_for_review']);
+        $this->assertNotSame('serve', $r['safe_next_action']);
+    }
+
+    // ── new AC: repairable issues return repair_route naming the minimum correction ──
+
+    public function test_missing_implementation_file_returns_repair_route(): void
+    {
+        $r = $this->svc()->score([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+            'give_back_count' => 0,
+        ]);
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertNotEmpty($r['repair_route']);
+    }
+
+    public function test_schema_mismatch_returns_repair_route(): void
+    {
+        $r = $this->svc()->score(['schema_mismatch' => true, 'give_back_count' => 0]);
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_REPAIRABLE, $r['repairability']);
+        $this->assertNotEmpty($r['repair_route']);
+    }
+
+    public function test_retire_only_packet_has_empty_repair_route(): void
+    {
+        $r = $this->svc()->score(['forbidden_self_target' => true, 'give_back_count' => 0]);
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::REPAIRABILITY_RETIRE_ONLY, $r['repairability']);
+        $this->assertSame([], $r['repair_route']);
+    }
+
+    // ── new AC: repeated give_back affects risk_family and confidence before threshold 8 ──
+
+    public function test_medium_give_back_affects_risk_family_and_confidence_before_threshold_8(): void
+    {
+        $r = $this->svc()->score(array_merge($this->cleanPacket(), ['give_back_count' => 5]));
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::FAMILY_RELIABILITY, $r['risk_family']);
+        $this->assertLessThan(0.95, $r['confidence']);
+    }
+
+    // ── new AC: clean impl+test packets remain low risk with confidence near 0.95 ──
+
+    public function test_clean_packet_confidence_near_0_95(): void
+    {
+        $r = $this->svc()->score($this->cleanPacket());
+
+        $this->assertSame(AtlasMaestroPoisonEarlyWarningModel::RISK_LOW, $r['poison_risk']);
+        $this->assertEqualsWithDelta(0.95, $r['confidence'], 0.001);
+    }
 }

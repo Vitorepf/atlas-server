@@ -69,6 +69,15 @@ final class AtlasMaestroPoisonEarlyWarningModel
         self::ACTION_RETIRE => 'auto_retire',
     ];
 
+    /** rescope/repairable signal => the minimum concrete correction that clears it. */
+    private const REPAIR_ROUTE_MAP = [
+        'test_only_has_contract' => 'add_at_least_one_implementation_file_matching_the_test_contract',
+        'contradictory_acceptance' => 'remove_or_reword_the_contradictory_acceptance_criterion',
+        'schema_mismatch' => 'align_the_packet_payload_with_the_declared_schema_version',
+        'missing_implementation_file' => 'add_the_missing_implementation_file_to_allowed_files',
+        'repeated_give_back' => 'respec_the_packet_before_next_claim_do_not_reserve_unchanged',
+    ];
+
     /**
      * @param  array<string,mixed>  $packet
      * @return array{schema_version:string, poison_risk:string, score:int, reasons:list<string>, recommended_action:string, confidence:float, risk_family:string, repairability:string, safe_next_action:string}
@@ -180,6 +189,18 @@ final class AtlasMaestroPoisonEarlyWarningModel
             default => 0.85,
         };
 
+        // repair_route: the minimum concrete correction(s) for a repairable packet — never emitted
+        // for retire_only (nothing to repair) or not_applicable (nothing wrong).
+        $repairRoute = [];
+        if ($repairability === self::REPAIRABILITY_REPAIRABLE) {
+            foreach ($reasons as $reason) {
+                $reasonKey = str_contains($reason, ':') ? strstr($reason, ':', true) : $reason;
+                if (isset(self::REPAIR_ROUTE_MAP[$reasonKey]) && ! in_array(self::REPAIR_ROUTE_MAP[$reasonKey], $repairRoute, true)) {
+                    $repairRoute[] = self::REPAIR_ROUTE_MAP[$reasonKey];
+                }
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'poison_risk' => $risk,
@@ -190,6 +211,7 @@ final class AtlasMaestroPoisonEarlyWarningModel
             'risk_family' => $riskFamily,
             'repairability' => $repairability,
             'safe_next_action' => $safeNextAction,
+            'repair_route' => $repairRoute,
         ];
     }
 
