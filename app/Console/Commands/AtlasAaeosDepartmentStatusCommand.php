@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
+use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
@@ -34,6 +35,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         {--veto-events= : Path to a JSON list of veto events to replay through the veto-propagation watchdog}
         {--doc-maturity= : Path to a JSON sections map to classify DOC L0..L4 maturity}
         {--phase-gates= : Path to a JSON phase_outputs map (intent/spec_pack/task_pack) to evaluate runbook gate signals}
+        {--cognitive-immune-input= : Path to a JSON {text, metadata} capture to classify through the cognitive immune input router}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar.';
@@ -50,6 +52,7 @@ class AtlasAaeosDepartmentStatusCommand extends Command
         AtlasVetoPropagationWatchdog $vetoPropagationWatchdog,
         AtlasAaeosDocMaturityClassifier $docMaturityClassifier,
         AtlasAaeosGateSignalEvaluator $gateSignalEvaluator,
+        AtlasAaeosCognitiveImmuneInputClassifier $cognitiveImmuneInputClassifier,
     ): int {
         $qualityBarResult = $qualityBar->qualityBar();
         $maturityResult = $maturity->maturity();
@@ -116,6 +119,19 @@ class AtlasAaeosDepartmentStatusCommand extends Command
             $phaseOutputs = json_decode((string) file_get_contents($phaseGatesFile), true);
             if (is_array($phaseOutputs)) {
                 $payload['phase_gates'] = $gateSignalEvaluator->evaluatePhaseGates($phaseOutputs);
+            }
+        }
+
+        // Optional: route a raw capture through the cognitive immune input classifier, so
+        // capture classification (destination/memory-eligible/embedding-allowed) is queryable
+        // alongside the maturity/quality-bar read-model instead of only living behind AAEOS's
+        // internal immune learning kernel.
+        $cognitiveImmuneInputFile = trim((string) $this->option('cognitive-immune-input'));
+        if ($cognitiveImmuneInputFile !== '' && is_file($cognitiveImmuneInputFile)) {
+            $cognitiveImmuneInput = json_decode((string) file_get_contents($cognitiveImmuneInputFile), true);
+            if (is_array($cognitiveImmuneInput) && is_string($cognitiveImmuneInput['text'] ?? null)) {
+                $metadata = is_array($cognitiveImmuneInput['metadata'] ?? null) ? $cognitiveImmuneInput['metadata'] : [];
+                $payload['cognitive_immune_classification'] = $cognitiveImmuneInputClassifier->classify($cognitiveImmuneInput['text'], $metadata);
             }
         }
 
