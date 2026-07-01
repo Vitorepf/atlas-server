@@ -9,268 +9,162 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfConstructionSimplificationRedundancyMapTest extends TestCase
 {
-    private function mapper(): AtlasSelfConstructionSimplificationRedundancyMap
+    private AtlasSelfConstructionSimplificationRedundancyMap $map;
+
+    protected function setUp(): void
     {
-        return new AtlasSelfConstructionSimplificationRedundancyMap;
+        parent::setUp();
+        $this->map = new AtlasSelfConstructionSimplificationRedundancyMap();
     }
 
-    public function test_three_matching_organs_are_grouped_as_redundancy_cluster(): void
+    // AC 2: classes with shared semantic role, inputs and outputs grouped across namespaces
+    public function test_shared_semantic_role_inputs_outputs_grouped_across_namespaces(): void
     {
-        $result = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'organ-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup', 'admission']],
-                ['organ_id' => 'organ-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup', 'value']],
-                ['organ_id' => 'organ-c', 'layer' => 'gate', 'purpose_tokens' => ['admission', 'value']],
+        $result = $this->map->map([
+            [
+                'class_name' => 'BrainReporter',
+                'namespace' => 'App\\Brain\\Report',
+                'semantic_role' => 'rate_reporter',
+                'inputs' => ['events', 'window'],
+                'outputs' => ['rate_rows'],
+                'consumers' => ['MaestroCommand'],
+                'estimated_deleted_lines' => 50,
+                'risk_level' => 'low',
+                'proof_ready' => true,
+            ],
+            [
+                'class_name' => 'MaestroReporter',
+                'namespace' => 'App\\Maestro\\Projection',
+                'semantic_role' => 'rate_reporter',
+                'inputs' => ['events', 'window'],
+                'outputs' => ['rate_rows'],
+                'consumers' => ['MaestroCommand'],
+                'estimated_deleted_lines' => 30,
+                'risk_level' => 'low',
+                'proof_ready' => true,
             ],
         ]);
 
-        $this->assertSame(1, $result['cluster_count']);
-        $cluster = $result['clusters'][0];
-        $this->assertSame('gate', $cluster['layer']);
-        $this->assertSame(['organ-a', 'organ-b', 'organ-c'], $cluster['members']);
-        $this->assertNotEmpty($cluster['overlap_reasons']);
-        $this->assertContains($cluster['consolidation_priority'], [
-            AtlasSelfConstructionSimplificationRedundancyMap::PRIORITY_HIGH,
-            AtlasSelfConstructionSimplificationRedundancyMap::PRIORITY_MEDIUM,
-        ]);
+        $strongFamilies = array_filter($result['families'], fn ($f) => $f['match_type'] === 'strong_match');
+        $this->assertNotEmpty($strongFamilies, 'must group organs with shared role+inputs+outputs across namespaces');
+
+        $family = array_values($strongFamilies)[0];
+        $this->assertContains('BrainReporter', $family['members']);
+        $this->assertContains('MaestroReporter', $family['members']);
     }
 
-    public function test_unrelated_organs_are_not_grouped(): void
+    // AC 3: prefix-only matches without consumer overlap → weak_match
+    public function test_prefix_only_without_consumer_overlap_is_weak(): void
     {
-        $result = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'organ-x', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-                ['organ_id' => 'organ-y', 'layer' => 'planner', 'purpose_tokens' => ['dedup']],
-                ['organ_id' => 'organ-z', 'layer' => 'gate', 'purpose_tokens' => ['ranking']],
+        $result = $this->map->map([
+            [
+                'class_name' => 'ClassA',
+                'namespace' => 'App\\Brain\\Foo',
+                'semantic_role' => 'role_a',
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'consumers' => ['ConsumerA'],
+                'estimated_deleted_lines' => 10,
+                'risk_level' => 'low',
+                'proof_ready' => true,
+            ],
+            [
+                'class_name' => 'ClassB',
+                'namespace' => 'App\\Brain\\Bar',
+                'semantic_role' => 'role_b',
+                'inputs' => ['z'],
+                'outputs' => ['w'],
+                'consumers' => ['ConsumerB'],
+                'estimated_deleted_lines' => 20,
+                'risk_level' => 'low',
+                'proof_ready' => true,
             ],
         ]);
 
-        $this->assertSame(0, $result['cluster_count']);
-        $this->assertSame([], $result['clusters']);
+        $weakFamilies = array_filter($result['families'], fn ($f) => $f['match_type'] === 'weak_match');
+        $this->assertNotEmpty($weakFamilies, 'prefix-only without consumer overlap must be weak_match');
     }
 
-    public function test_every_cluster_has_required_fields(): void
+    // AC 4: ranked by estimated deleted lines, risk, proof readiness
+    public function test_ranked_by_deleted_lines_desc(): void
     {
-        $result = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'a', 'layer' => 'planner', 'purpose_tokens' => ['route']],
-                ['organ_id' => 'b', 'layer' => 'planner', 'purpose_tokens' => ['route']],
+        $result = $this->map->map([
+            [
+                'class_name' => 'Small1',
+                'namespace' => 'App\\A\\B',
+                'semantic_role' => 'r1',
+                'inputs' => ['a'],
+                'outputs' => ['b'],
+                'consumers' => ['C1'],
+                'estimated_deleted_lines' => 5,
+                'risk_level' => 'low',
+                'proof_ready' => true,
+            ],
+            [
+                'class_name' => 'Small2',
+                'namespace' => 'App\\A\\C',
+                'semantic_role' => 'r1',
+                'inputs' => ['a'],
+                'outputs' => ['b'],
+                'consumers' => ['C1'],
+                'estimated_deleted_lines' => 5,
+                'risk_level' => 'low',
+                'proof_ready' => true,
+            ],
+            [
+                'class_name' => 'Big1',
+                'namespace' => 'App\\X\\Y',
+                'semantic_role' => 'r2',
+                'inputs' => ['c'],
+                'outputs' => ['d'],
+                'consumers' => ['C2'],
+                'estimated_deleted_lines' => 200,
+                'risk_level' => 'low',
+                'proof_ready' => true,
+            ],
+            [
+                'class_name' => 'Big2',
+                'namespace' => 'App\\X\\Z',
+                'semantic_role' => 'r2',
+                'inputs' => ['c'],
+                'outputs' => ['d'],
+                'consumers' => ['C2'],
+                'estimated_deleted_lines' => 200,
+                'risk_level' => 'low',
+                'proof_ready' => true,
             ],
         ]);
 
-        $cluster = $result['clusters'][0];
-        foreach (['layer', 'members', 'overlap_reasons', 'consolidation_priority'] as $key) {
-            $this->assertArrayHasKey($key, $cluster);
-        }
-    }
-
-    public function test_shared_downstream_consumers_reflected_in_overlap_reasons(): void
-    {
-        $result = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'p', 'layer' => 'planner', 'purpose_tokens' => ['route'], 'downstream_consumers' => ['CommandX']],
-                ['organ_id' => 'q', 'layer' => 'planner', 'purpose_tokens' => ['route'], 'downstream_consumers' => ['CommandX']],
-            ],
-        ]);
-
-        $reasons = implode('|', $result['clusters'][0]['overlap_reasons']);
-        $this->assertStringContainsString('shared_consumers:CommandX', $reasons);
-        $this->assertSame(AtlasSelfConstructionSimplificationRedundancyMap::PRIORITY_HIGH, $result['clusters'][0]['consolidation_priority']);
-    }
-
-    public function test_empty_organs_returns_no_clusters(): void
-    {
-        $result = $this->mapper()->map(['organs' => []]);
-
-        $this->assertSame(0, $result['cluster_count']);
-    }
-
-    public function test_output_is_deterministic(): void
-    {
-        $input = [
-            'organs' => [
-                ['organ_id' => 'a', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-                ['organ_id' => 'b', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-            ],
-        ];
-
-        $this->assertSame(
-            json_encode($this->mapper()->map($input)),
-            json_encode($this->mapper()->map($input)),
+        $this->assertNotEmpty($result['families']);
+        // First family should have higher deleted lines
+        $this->assertGreaterThanOrEqual(
+            $result['families'][1]['estimated_deleted_lines'] ?? 0,
+            $result['families'][0]['estimated_deleted_lines']
         );
     }
 
-    public function test_duplicated_service_circuit_reports_shared_symbols_methods_responsibility_lines_and_proof(): void
+    public function test_single_organ_produces_no_families(): void
     {
-        $result = $this->mapper()->map([
-            'organs' => [
-                [
-                    'organ_id' => 'organ-a',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'symbols' => ['DedupIndex', 'DedupPolicy'],
-                    'method_names' => ['dedupe', 'evaluate'],
-                    'responsibility_tags' => ['queue_admission', 'dedup'],
-                    'line_count' => 150,
-                    'has_tests' => true,
-                ],
-                [
-                    'organ_id' => 'organ-b',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'symbols' => ['DedupIndex', 'DedupCache'],
-                    'method_names' => ['dedupe', 'reset'],
-                    'responsibility_tags' => ['queue_admission', 'caching'],
-                    'line_count' => 90,
-                    'has_tests' => false,
-                ],
+        $result = $this->map->map([
+            [
+                'class_name' => 'Lonely',
+                'namespace' => 'App\\X',
+                'semantic_role' => 'unique',
+                'inputs' => ['a'],
+                'outputs' => ['b'],
+                'consumers' => ['C'],
+                'estimated_deleted_lines' => 10,
+                'risk_level' => 'low',
+                'proof_ready' => true,
             ],
         ]);
 
-        $cluster = $result['clusters'][0];
-        $this->assertSame(['DedupIndex'], $cluster['shared_symbols']);
-        $this->assertSame(['dedupe'], $cluster['repeated_method_names']);
-        $this->assertSame(['queue_admission'], $cluster['overlapping_responsibility_tags']);
-        $this->assertSame(90, $cluster['removable_lines']);
-        $this->assertTrue($cluster['proof_ready']);
-        $this->assertArrayHasKey('priority_score', $cluster);
+        $this->assertEmpty($result['families']);
     }
 
-    // ── AC: canonical_keeper / removable_members ────────────────────────────────
-
-    public function test_canonical_keeper_prefers_tests_consumers_and_broad_responsibility(): void
+    public function test_empty_input_produces_empty_families(): void
     {
-        $result = $this->mapper()->map([
-            'organs' => [
-                [
-                    'organ_id' => 'organ-untested',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'responsibility_tags' => ['dedup'],
-                    'line_count' => 300,
-                    'has_tests' => false,
-                    'downstream_consumers' => [],
-                ],
-                [
-                    'organ_id' => 'organ-tested',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'responsibility_tags' => ['dedup', 'queue_admission'],
-                    'line_count' => 50,
-                    'has_tests' => true,
-                    'downstream_consumers' => ['CommandA', 'CommandB'],
-                ],
-            ],
-        ]);
-
-        $cluster = $result['clusters'][0];
-        $this->assertSame('organ-tested', $cluster['canonical_keeper']);
-    }
-
-    public function test_removable_members_exclude_keeper_and_include_expected_removed_lines(): void
-    {
-        $result = $this->mapper()->map([
-            'organs' => [
-                [
-                    'organ_id' => 'organ-a',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'line_count' => 150,
-                    'has_tests' => true,
-                ],
-                [
-                    'organ_id' => 'organ-b',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'line_count' => 90,
-                    'has_tests' => false,
-                ],
-            ],
-        ]);
-
-        $cluster = $result['clusters'][0];
-        $this->assertSame('organ-a', $cluster['canonical_keeper']);
-        $this->assertSame([['organ_id' => 'organ-b', 'lines' => 90]], $cluster['removable_members']);
-        $this->assertSame(90, $cluster['removable_lines']);
-    }
-
-    public function test_shallow_purpose_token_overlap_without_proof_or_consumers_is_not_high_priority(): void
-    {
-        $result = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'shallow-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup'], 'has_tests' => false],
-                ['organ_id' => 'shallow-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup'], 'has_tests' => false],
-            ],
-        ]);
-
-        $cluster = $result['clusters'][0];
-        $this->assertNotSame(AtlasSelfConstructionSimplificationRedundancyMap::PRIORITY_HIGH, $cluster['consolidation_priority']);
-    }
-
-    public function test_similar_names_without_shared_responsibility_ranks_lower_than_true_duplicate_circuit(): void
-    {
-        $trueDuplicate = $this->mapper()->map([
-            'organs' => [
-                [
-                    'organ_id' => 'dup-a',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'symbols' => ['DedupIndex'],
-                    'method_names' => ['dedupe'],
-                    'responsibility_tags' => ['queue_admission'],
-                    'line_count' => 150,
-                    'has_tests' => true,
-                ],
-                [
-                    'organ_id' => 'dup-b',
-                    'layer' => 'gate',
-                    'purpose_tokens' => ['dedup'],
-                    'symbols' => ['DedupIndex'],
-                    'method_names' => ['dedupe'],
-                    'responsibility_tags' => ['queue_admission'],
-                    'line_count' => 90,
-                    'has_tests' => true,
-                ],
-            ],
-        ])['clusters'][0];
-
-        $cosmeticOnly = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'similar-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-                ['organ_id' => 'similar-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-            ],
-        ])['clusters'][0];
-
-        $this->assertGreaterThan($cosmeticOnly['priority_score'], $trueDuplicate['priority_score']);
-    }
-
-    public function test_clusters_are_ordered_by_priority_score_then_canonical_circuit_id(): void
-    {
-        $result = $this->mapper()->map([
-            'organs' => [
-                ['organ_id' => 'low-a', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-                ['organ_id' => 'low-b', 'layer' => 'gate', 'purpose_tokens' => ['dedup']],
-                [
-                    'organ_id' => 'high-a',
-                    'layer' => 'planner',
-                    'purpose_tokens' => ['route'],
-                    'symbols' => ['RouteIndex'],
-                    'method_names' => ['route'],
-                    'responsibility_tags' => ['routing'],
-                ],
-                [
-                    'organ_id' => 'high-b',
-                    'layer' => 'planner',
-                    'purpose_tokens' => ['route'],
-                    'symbols' => ['RouteIndex'],
-                    'method_names' => ['route'],
-                    'responsibility_tags' => ['routing'],
-                ],
-            ],
-        ]);
-
-        $this->assertSame(['high-a', 'high-b'], $result['clusters'][0]['members']);
-        $this->assertSame(['low-a', 'low-b'], $result['clusters'][1]['members']);
-        $this->assertGreaterThanOrEqual($result['clusters'][1]['priority_score'], $result['clusters'][0]['priority_score']);
+        $result = $this->map->map([]);
+        $this->assertEmpty($result['families']);
     }
 }
