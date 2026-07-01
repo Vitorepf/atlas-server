@@ -103,79 +103,24 @@ final class AtlasExternalBrainPatternTransferEvaluator
                 continue;
             }
 
-            $patternId           = (string) $pattern['pattern_id'];
-            $sourceClasses       = is_array($pattern['source_task_classes'] ?? null) ? $pattern['source_task_classes'] : [];
-            $targetClasses       = is_array($pattern['target_task_classes'] ?? null) ? $pattern['target_task_classes'] : [];
-            $crossOutcomes       = is_array($pattern['cross_class_outcomes'] ?? null) ? $pattern['cross_class_outcomes'] : [];
-            $sourceArea          = (string) ($pattern['source_area'] ?? '');
-            $destinationArea     = (string) ($pattern['destination_area'] ?? '');
-            $requiredAdaptations = is_array($pattern['required_adaptations'] ?? null) ? $pattern['required_adaptations'] : [];
-            $proofOfSuccess      = isset($pattern['proof_of_source_success']) ? (string) $pattern['proof_of_source_success'] : null;
-            $destinationFit      = isset($pattern['destination_fit_score']) ? (float) $pattern['destination_fit_score'] : null;
-            $adaptationRisk      = isset($pattern['adaptation_risk']) ? (float) $pattern['adaptation_risk'] : null;
-            $structuralLeverage  = isset($pattern['expected_structural_leverage']) ? (float) $pattern['expected_structural_leverage'] : null;
-
-            // Collect evidence counts per task class.
-            $evidenceCounts = [];
-            foreach ($crossOutcomes as $outcome) {
-                if (is_array($outcome) && isset($outcome['task_class'])) {
-                    $evidenceCounts[(string) $outcome['task_class']] = (int) ($outcome['evidence_count'] ?? 0);
-                }
-            }
-
-            // AC2: pre-transfer rejection checks (only when field is explicitly present).
-            $rejectionReasons = $this->preTransferRejections(
+            $entry = $this->evaluatePattern(
                 $pattern,
-                $destinationFit,
-                $adaptationRisk,
+                $giveBackThreshold,
+                $duplicateThreshold,
+                $weakAcceptanceThreshold,
+                $positiveThreshold,
+                $minEvidenceCount,
                 $minDestinationFit,
                 $maxAdaptationRisk,
             );
 
-            if ($rejectionReasons !== []) {
-                $decision = self::DECISION_REJECTED;
-                $rejectedTransfers[] = [
-                    'pattern_id'       => $patternId,
-                    'rejection_reasons' => $rejectionReasons,
-                ];
-            } else {
-                $decision = $this->decide(
-                    $crossOutcomes,
-                    $giveBackThreshold,
-                    $duplicateThreshold,
-                    $weakAcceptanceThreshold,
-                    $positiveThreshold,
-                    $minEvidenceCount,
-                );
-
-                if ($decision === self::DECISION_TRANSFERABLE) {
-                    $transferScore     = $this->computeTransferScore($destinationFit, $adaptationRisk, $structuralLeverage, $crossOutcomes, $minEvidenceCount, $positiveThreshold);
-                    $acceptedTransfers[] = [
-                        'pattern_id'           => $patternId,
-                        'source_area'          => $sourceArea,
-                        'destination_area'     => $destinationArea,
-                        'transfer_score'       => $transferScore,
-                        'required_adaptations' => $requiredAdaptations,
-                        'proof_of_source_success' => $proofOfSuccess,
-                    ];
-                } else {
-                    $rejectedTransfers[] = [
-                        'pattern_id'      => $patternId,
-                        'rejection_reason' => $decision,
-                    ];
-                }
+            $results[] = $entry['result'];
+            if ($entry['accepted_transfer'] !== null) {
+                $acceptedTransfers[] = $entry['accepted_transfer'];
             }
-
-            $results[] = [
-                'pattern_id'          => $patternId,
-                'transfer_decision'   => $decision,
-                'source_task_classes' => $sourceClasses,
-                'target_task_classes' => $targetClasses,
-                'evidence_counts'     => $evidenceCounts,
-                'injection_rule'      => $this->injectionRule($decision, $minEvidenceCount),
-                'adaptation_requirements' => $requiredAdaptations,
-                'first_task_spec_hint'    => $this->firstTaskSpecHint($decision, $patternId, $destinationArea, $requiredAdaptations, $rejectionReasons),
-            ];
+            if ($entry['rejected_transfer'] !== null) {
+                $rejectedTransfers[] = $entry['rejected_transfer'];
+            }
         }
 
         // Rank accepted transfers by transfer_score descending, then pattern_id for determinism.
@@ -190,6 +135,106 @@ final class AtlasExternalBrainPatternTransferEvaluator
             'results'            => $results,
             'accepted_transfers' => $acceptedTransfers,
             'rejected_transfers' => $rejectedTransfers,
+        ];
+    }
+
+    /**
+     * Single transfer-decision circuit: derives evidence_counts, rejection reasons,
+     * transfer_decision, transfer_score, task_spec_hint, and injection_rule from ONE
+     * pattern in ONE pass — so a pattern can never carry a decision, hint, and
+     * injection rule that disagree with each other.
+     *
+     * @param  array<string,mixed>  $pattern
+     * @return array{result:array<string,mixed>, accepted_transfer:?array<string,mixed>, rejected_transfer:?array<string,mixed>}
+     */
+    private function evaluatePattern(
+        array $pattern,
+        float $giveBackThreshold,
+        float $duplicateThreshold,
+        float $weakAcceptanceThreshold,
+        float $positiveThreshold,
+        int   $minEvidenceCount,
+        float $minDestinationFit,
+        float $maxAdaptationRisk,
+    ): array {
+        $patternId           = (string) $pattern['pattern_id'];
+        $sourceClasses       = is_array($pattern['source_task_classes'] ?? null) ? $pattern['source_task_classes'] : [];
+        $targetClasses       = is_array($pattern['target_task_classes'] ?? null) ? $pattern['target_task_classes'] : [];
+        $crossOutcomes       = is_array($pattern['cross_class_outcomes'] ?? null) ? $pattern['cross_class_outcomes'] : [];
+        $sourceArea          = (string) ($pattern['source_area'] ?? '');
+        $destinationArea     = (string) ($pattern['destination_area'] ?? '');
+        $requiredAdaptations = is_array($pattern['required_adaptations'] ?? null) ? $pattern['required_adaptations'] : [];
+        $proofOfSuccess      = isset($pattern['proof_of_source_success']) ? (string) $pattern['proof_of_source_success'] : null;
+        $destinationFit      = isset($pattern['destination_fit_score']) ? (float) $pattern['destination_fit_score'] : null;
+        $adaptationRisk      = isset($pattern['adaptation_risk']) ? (float) $pattern['adaptation_risk'] : null;
+        $structuralLeverage  = isset($pattern['expected_structural_leverage']) ? (float) $pattern['expected_structural_leverage'] : null;
+
+        $evidenceCounts = [];
+        foreach ($crossOutcomes as $outcome) {
+            if (is_array($outcome) && isset($outcome['task_class'])) {
+                $evidenceCounts[(string) $outcome['task_class']] = (int) ($outcome['evidence_count'] ?? 0);
+            }
+        }
+
+        // AC2: pre-transfer rejection checks (only when field is explicitly present).
+        $rejectionReasons = $this->preTransferRejections(
+            $pattern,
+            $destinationFit,
+            $adaptationRisk,
+            $minDestinationFit,
+            $maxAdaptationRisk,
+        );
+
+        $acceptedTransfer = null;
+        $rejectedTransfer = null;
+
+        if ($rejectionReasons !== []) {
+            $decision = self::DECISION_REJECTED;
+            $rejectedTransfer = [
+                'pattern_id'        => $patternId,
+                'rejection_reasons' => $rejectionReasons,
+            ];
+        } else {
+            $decision = $this->decide(
+                $crossOutcomes,
+                $giveBackThreshold,
+                $duplicateThreshold,
+                $weakAcceptanceThreshold,
+                $positiveThreshold,
+                $minEvidenceCount,
+            );
+
+            if ($decision === self::DECISION_TRANSFERABLE) {
+                $transferScore = $this->computeTransferScore($destinationFit, $adaptationRisk, $structuralLeverage, $crossOutcomes, $minEvidenceCount, $positiveThreshold);
+                $acceptedTransfer = [
+                    'pattern_id'              => $patternId,
+                    'source_area'             => $sourceArea,
+                    'destination_area'        => $destinationArea,
+                    'transfer_score'          => $transferScore,
+                    'required_adaptations'    => $requiredAdaptations,
+                    'proof_of_source_success' => $proofOfSuccess,
+                ];
+            } else {
+                $rejectedTransfer = [
+                    'pattern_id'        => $patternId,
+                    'rejection_reason'  => $decision,
+                ];
+            }
+        }
+
+        return [
+            'result' => [
+                'pattern_id'          => $patternId,
+                'transfer_decision'   => $decision,
+                'source_task_classes' => $sourceClasses,
+                'target_task_classes' => $targetClasses,
+                'evidence_counts'     => $evidenceCounts,
+                'injection_rule'      => $this->injectionRule($decision, $minEvidenceCount),
+                'adaptation_requirements' => $requiredAdaptations,
+                'first_task_spec_hint'    => $this->firstTaskSpecHint($decision, $patternId, $destinationArea, $requiredAdaptations, $rejectionReasons),
+            ],
+            'accepted_transfer' => $acceptedTransfer,
+            'rejected_transfer' => $rejectedTransfer,
         ];
     }
 
