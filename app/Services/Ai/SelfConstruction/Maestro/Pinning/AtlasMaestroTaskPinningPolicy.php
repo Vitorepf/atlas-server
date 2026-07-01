@@ -16,8 +16,12 @@ final class AtlasMaestroTaskPinningPolicy
     public const REASON_PIN_MATCH = 'pin_match';
     public const REASON_PIN_CONFLICT = 'pinned_to_other_worker';
     public const REASON_INVALID_WORKER = 'invalid_worker_id';
+    public const REASON_PIN_EXPIRED = 'pin_expired';
 
-    public function __construct(private readonly AtlasMaestroTaskPinningRegistry $registry) {}
+    public function __construct(
+        private readonly AtlasMaestroTaskPinningRegistry $registry,
+        private readonly ?\Closure $now = null,
+    ) {}
 
     /**
      * @return array{decision:string, reason:string, task_packet_id:string, worker_id:string, pinned_worker_id:?string}
@@ -37,6 +41,14 @@ final class AtlasMaestroTaskPinningPolicy
         $pin = $this->registry->lookup($taskPacketId);
         if ($pin === null) {
             return $base + ['decision' => self::DECISION_ALLOW, 'reason' => self::REASON_NO_PIN];
+        }
+
+        $expiredAt = (string) ($pin['expired_at'] ?? '');
+        if ($expiredAt !== '') {
+            $now = $this->now !== null ? (string) ($this->now)() : gmdate('Y-m-d\TH:i:s\Z');
+            if (strtotime($expiredAt) !== false && strtotime($now) !== false && strtotime($expiredAt) <= strtotime($now)) {
+                return $base + ['decision' => self::DECISION_ALLOW, 'reason' => self::REASON_PIN_EXPIRED];
+            }
         }
 
         $pinned = (string) ($pin['worker_id'] ?? '');

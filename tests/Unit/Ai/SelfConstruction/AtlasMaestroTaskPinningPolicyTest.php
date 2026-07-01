@@ -71,4 +71,51 @@ final class AtlasMaestroTaskPinningPolicyTest extends TestCase
         $this->assertSame(AtlasMaestroTaskPinningPolicy::DECISION_REFUSE, $d['decision']);
         $this->assertSame(AtlasMaestroTaskPinningPolicy::REASON_INVALID_WORKER, $d['reason']);
     }
+
+    private function injectExpiredAt(string $pinsPath, string $taskPacketId, string $expiredAt): void
+    {
+        $state = json_decode((string) file_get_contents($pinsPath), true);
+        $state[$taskPacketId]['expired_at'] = $expiredAt;
+        ksort($state[$taskPacketId]);
+        file_put_contents($pinsPath, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    public function test_expired_pin_allows_worker_with_expiry_reason(): void
+    {
+        [$reg, ] = $this->policy();
+        $reg->pin('pkt', 'w1', 'r');
+        $this->injectExpiredAt($this->root.'/pins.json', 'pkt', '2026-06-25T04:00:00Z');
+
+        $policy = new AtlasMaestroTaskPinningPolicy($reg, fn () => '2026-06-25T05:00:00Z');
+        $d = $policy->decide('pkt', 'w2');
+
+        $this->assertSame(AtlasMaestroTaskPinningPolicy::DECISION_ALLOW, $d['decision']);
+        $this->assertSame(AtlasMaestroTaskPinningPolicy::REASON_PIN_EXPIRED, $d['reason']);
+    }
+
+    public function test_non_expired_pin_still_refuses_different_worker(): void
+    {
+        [$reg, ] = $this->policy();
+        $reg->pin('pkt', 'w1', 'r');
+        $this->injectExpiredAt($this->root.'/pins.json', 'pkt', '2026-06-25T06:00:00Z');
+
+        $policy = new AtlasMaestroTaskPinningPolicy($reg, fn () => '2026-06-25T05:00:00Z');
+        $d = $policy->decide('pkt', 'w2');
+
+        $this->assertSame(AtlasMaestroTaskPinningPolicy::DECISION_REFUSE, $d['decision']);
+        $this->assertSame(AtlasMaestroTaskPinningPolicy::REASON_PIN_CONFLICT, $d['reason']);
+    }
+
+    public function test_invalid_blank_worker_id_refuses_before_pin_lookup(): void
+    {
+        [$reg, ] = $this->policy();
+        $reg->pin('pkt', 'w1', 'r');
+        $this->injectExpiredAt($this->root.'/pins.json', 'pkt', '2026-06-25T04:00:00Z');
+
+        $policy = new AtlasMaestroTaskPinningPolicy($reg, fn () => '2026-06-25T05:00:00Z');
+        $d = $policy->decide('pkt', '');
+
+        $this->assertSame(AtlasMaestroTaskPinningPolicy::DECISION_REFUSE, $d['decision']);
+        $this->assertSame(AtlasMaestroTaskPinningPolicy::REASON_INVALID_WORKER, $d['reason']);
+    }
 }
