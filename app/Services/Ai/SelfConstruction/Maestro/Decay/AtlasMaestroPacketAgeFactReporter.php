@@ -17,6 +17,19 @@ final class AtlasMaestroPacketAgeFactReporter
 {
     public const SCHEMA = 'atlas.maestro.packet_age_fact.v1';
 
+    public const VALUE_CLASS_HIGH = 'high';
+
+    public const VALUE_CLASS_LOW = 'low';
+
+    public const FRESHNESS_WORKER_READY = 'worker_ready';
+
+    public const FRESHNESS_STALE_LOW_VALUE = 'stale_low_value';
+
+    public const FRESHNESS_RESCUE_CANDIDATE = 'rescue_candidate';
+
+    /** A packet's expected_value at or above this threshold is classed high-value. */
+    private const HIGH_VALUE_THRESHOLD = 5.0;
+
     /** @var Closure():array<int,array<string,mixed>> */
     private Closure $packetSource;
 
@@ -62,6 +75,7 @@ final class AtlasMaestroPacketAgeFactReporter
             $ts = $this->isoToTs($enqueued);
             $seconds = max(0, $observedTs - $ts);
             $bucket = $this->ageBucket($seconds);
+            $valueClass = $this->valueClass($p);
             $facts[] = [
                 'age_bucket' => $bucket,
                 'enqueued_at' => $enqueued,
@@ -70,6 +84,9 @@ final class AtlasMaestroPacketAgeFactReporter
                 'stale_risk' => $this->staleRisk($bucket),
                 'task_packet_id' => (string) ($p['task_packet_id'] ?? ''),
                 'time_in_queue_seconds' => $seconds,
+                'age_seconds' => $seconds,
+                'value_class' => $valueClass,
+                'freshness_status' => $this->freshnessStatus($bucket, $valueClass),
             ];
         }
 
@@ -106,6 +123,23 @@ final class AtlasMaestroPacketAgeFactReporter
             'aging' => 'low',
             default => 'none',
         };
+    }
+
+    /** @param array<string,mixed> $packet */
+    private function valueClass(array $packet): string
+    {
+        $expectedValue = (float) ($packet['expected_value'] ?? 0.0);
+
+        return $expectedValue >= self::HIGH_VALUE_THRESHOLD ? self::VALUE_CLASS_HIGH : self::VALUE_CLASS_LOW;
+    }
+
+    private function freshnessStatus(string $bucket, string $valueClass): string
+    {
+        if (! in_array($bucket, ['stale', 'critical'], true)) {
+            return self::FRESHNESS_WORKER_READY;
+        }
+
+        return $valueClass === self::VALUE_CLASS_HIGH ? self::FRESHNESS_RESCUE_CANDIDATE : self::FRESHNESS_STALE_LOW_VALUE;
     }
 
     private function isoToTs(string $iso): int
