@@ -76,8 +76,18 @@ final class AtlasVerificationCourtGateReplayPlan
         }
 
         // declared gates
+        $vagueGates = [];
         foreach ($declared as $g) {
             $commands[] = $this->command('declared:'.$g, $g, 'declared by packet', $changed);
+            if ($changed !== [] && $this->isVagueGate($g, $changed)) {
+                $vagueGates[] = $g;
+            }
+        }
+
+        // acceptance_specificity_check — a declared gate not bound to a specific test path or
+        // changed file is unfalsifiable proof (it would pass regardless of what actually changed).
+        if ($vagueGates !== []) {
+            $commands[] = $this->command('acceptance-specificity', 'acceptance_specificity_check', 'declared gates not bound to changed files: '.implode(',', $vagueGates), $changed);
         }
 
         // diff-check — always when something changed
@@ -140,6 +150,30 @@ final class AtlasVerificationCourtGateReplayPlan
     private const WORKER_FLOOR_CONCERN_PATH_MARKERS = [
         'queue', 'maestro', 'replenish', 'completion', 'autonomy', 'autonomous',
     ];
+
+    /**
+     * A declared gate is "vague" when it names no concrete file/test path — it would pass or fail
+     * identically no matter which files actually changed.
+     *
+     * @param  list<string>  $changedFiles
+     */
+    private function isVagueGate(string $gate, array $changedFiles): bool
+    {
+        if (str_contains($gate, '.php') || str_contains($gate, '::') || str_contains($gate, '--filter')) {
+            return false;
+        }
+        foreach ($changedFiles as $file) {
+            if ($file !== '' && str_contains($gate, $file)) {
+                return false;
+            }
+            $basename = basename($file);
+            if ($basename !== '' && str_contains($gate, $basename)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private function touchesWorkerFloorConcern(string $path): bool
     {

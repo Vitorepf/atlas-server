@@ -14,6 +14,30 @@ use PHPUnit\Framework\TestCase;
  */
 final class AtlasVerificationCourtGateReplayPlanTest extends TestCase
 {
+    public function test_vague_declared_gate_with_changed_files_emits_acceptance_specificity_check(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Demo/Foo.php'],
+            'risk_level' => 'low',
+            'packet_facts' => ['declared_gates' => ['php artisan test']],
+        ]);
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('acceptance_specificity_check', $names);
+    }
+
+    public function test_concrete_declared_gate_naming_changed_file_does_not_emit_specificity_check(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Demo/Foo.php'],
+            'risk_level' => 'low',
+            'packet_facts' => ['declared_gates' => ['php artisan test tests/Unit/Demo/FooTest.php']],
+        ]);
+        $names = array_column($r['commands'], 'name');
+        $this->assertNotContains('acceptance_specificity_check', $names);
+    }
+
     public function test_low_risk_service_task_emits_phpunit_and_diff_check(): void
     {
         $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
