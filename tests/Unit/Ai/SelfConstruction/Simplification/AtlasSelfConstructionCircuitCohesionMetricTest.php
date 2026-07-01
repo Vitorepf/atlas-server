@@ -61,4 +61,49 @@ final class AtlasSelfConstructionCircuitCohesionMetricTest extends TestCase
             self::assertArrayHasKey($key, $result);
         }
     }
+
+    public function test_bloated_low_cohesion_high_coupling_circuit_is_flagged_for_collapse(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitCohesionMetric)->evaluate([
+            'cohesion' => 0.2,
+            'coupling' => 0.8,
+            'line_count' => 3000,
+        ]);
+
+        self::assertSame(AtlasSelfConstructionCircuitCohesionMetric::RECOMMENDATION_SPLIT_OR_COLLAPSE, $result['recommendation']);
+        self::assertLessThan(0.0, $result['score']);
+    }
+
+    public function test_small_cohesive_circuit_is_kept(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitCohesionMetric)->evaluate([
+            'cohesion' => 0.9,
+            'coupling' => 0.1,
+            'line_count' => 80,
+        ]);
+
+        self::assertSame(AtlasSelfConstructionCircuitCohesionMetric::RECOMMENDATION_KEEP, $result['recommendation']);
+        self::assertGreaterThan(0.0, $result['score']);
+    }
+
+    public function test_duplicate_helper_count_and_removable_lines_increase_deletion_upside_without_hiding_risk(): void
+    {
+        $withoutDuplicates = (new AtlasSelfConstructionCircuitCohesionMetric)->evaluate([
+            'cohesion' => 0.2,
+            'coupling' => 0.8,
+        ]);
+        $withDuplicates = (new AtlasSelfConstructionCircuitCohesionMetric)->evaluate([
+            'cohesion' => 0.2,
+            'coupling' => 0.8,
+            'duplicate_helper_count' => 5,
+            'removable_lines' => 400,
+        ]);
+
+        self::assertGreaterThan($withoutDuplicates['deletion_upside'], $withDuplicates['deletion_upside']);
+        // A large deletion upside never masks the underlying risk — recommendation and score stay
+        // exactly what the cohesion/coupling shape dictates.
+        self::assertSame($withoutDuplicates['recommendation'], $withDuplicates['recommendation']);
+        self::assertSame(AtlasSelfConstructionCircuitCohesionMetric::RECOMMENDATION_SPLIT_OR_COLLAPSE, $withDuplicates['recommendation']);
+        self::assertSame($withoutDuplicates['score'], $withDuplicates['score']);
+    }
 }
