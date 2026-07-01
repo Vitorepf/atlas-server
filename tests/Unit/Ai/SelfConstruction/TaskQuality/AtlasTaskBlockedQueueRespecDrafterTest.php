@@ -206,4 +206,71 @@ final class AtlasTaskBlockedQueueRespecDrafterTest extends TestCase
 
         $this->assertSame($a['drafts'], $b['drafts'], 'draft output must be deterministic');
     }
+
+    // ── AC: muscle-ready replacement_spec, prevented_give_back_reason, source_blocker_family ──
+
+    public function test_valid_replacement_emits_replacement_spec_with_prevention_metadata(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'arm1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                'allowed_files' => ['app/Console/Commands/FooCmd.php', 'tests/Unit/Console/FooCmdTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/FooCmdTest.php exits 0.']],
+        ]);
+
+        $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
+        $this->assertCount(1, $impls);
+        $draft = $impls[0];
+
+        $this->assertSame(AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY, $draft['source_blocker_family']);
+        $this->assertNotEmpty($draft['prevented_give_back_reason']);
+        $this->assertNotNull($draft['replacement_spec']);
+        $this->assertContains('app/Console/Commands/FooCmd.php', $draft['replacement_spec']['allowed_files']);
+        $this->assertContains('tests/Unit/Console/FooCmdTest.php', $draft['replacement_spec']['allowed_files']);
+        $this->assertNotEmpty($draft['replacement_spec']['acceptance_criteria']);
+    }
+
+    // ── AC: test-only allowed_files (no impl file) rejects the replacement_spec ───
+
+    public function test_test_only_allowed_files_rejects_replacement_spec(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'arm2', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                'allowed_files' => ['tests/Unit/Console/FooCmdTest.php'],
+                'acceptance_criteria' => ['Running /opt/homebrew/bin/php artisan test tests/Unit/Console/FooCmdTest.php exits 0.']],
+        ]);
+
+        $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
+        $this->assertCount(1, $impls);
+        $this->assertNull($impls[0]['replacement_spec']);
+    }
+
+    // ── AC: missing runnable proof command rejects the replacement_spec ───────
+
+    public function test_missing_runnable_proof_command_rejects_replacement_spec(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'arm3', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                'allowed_files' => ['app/Console/Commands/FooCmd.php', 'tests/Unit/Console/FooCmdTest.php'],
+                'acceptance_criteria' => ['The command must behave correctly.']],
+        ]);
+
+        $impls = array_values(array_filter($result['drafts'], fn ($d) => $d['kind'] === 'implementation_or_contract_task'));
+        $this->assertCount(1, $impls);
+        $this->assertNull($impls[0]['replacement_spec']);
+    }
+
+    // ── AC: operator-only blocked record never gets replacement metadata ─────
+
+    public function test_operator_only_blocked_record_has_no_replacement_metadata(): void
+    {
+        $result = $this->drafter()->draft([
+            ['task_packet_id' => 'ac1', 'family' => AtlasTaskBlockedPacketFamilyClassifier::FAMILY_CODEX_META_AUTOPOIETIC_CONSTITUTION,
+                'recommended_action' => 'manual_review'],
+        ]);
+
+        $this->assertSame('review_recommended', $result['drafts'][0]['kind']);
+        $this->assertArrayNotHasKey('replacement_spec', $result['drafts'][0]);
+        $this->assertArrayNotHasKey('source_blocker_family', $result['drafts'][0]);
+        $this->assertArrayNotHasKey('prevented_give_back_reason', $result['drafts'][0]);
+    }
 }

@@ -30,6 +30,8 @@ final class AtlasTaskBlockedQueueRespecDrafter
 
     private const STRONG_MATRIX_THRESHOLD = 3;
 
+    private const RUNNABLE_PROOF_PATTERN = '/(php artisan test|phpunit|artisan test)/i';
+
     /**
      * @param  list<array<string,mixed>>  $classifiedRecords
      * @return array{schema:string, drafts:list<array<string,mixed>>, waves:array<int,list<array<string,mixed>>>, summary:array<string,int>}
@@ -59,17 +61,21 @@ final class AtlasTaskBlockedQueueRespecDrafter
         $proxyGroups = [];
         foreach ($byFamily[AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY] ?? [] as $record) {
             $key = $this->proxyClusterKey($record);
-            $proxyGroups[$key][] = (string) ($record['task_packet_id'] ?? '');
+            $proxyGroups[$key]['ids'][] = (string) ($record['task_packet_id'] ?? '');
+            $proxyGroups[$key]['records'][] = $record;
         }
         ksort($proxyGroups, SORT_STRING);
-        foreach ($proxyGroups as $target => $ids) {
+        foreach ($proxyGroups as $target => $group) {
+            $ids = $group['ids'];
             sort($ids, SORT_STRING);
             $count = count($ids);
             $summary['implementation_or_contract_task'] = ($summary['implementation_or_contract_task'] ?? 0) + $count;
             $noun = $count > 1 ? "{$count} packets deduplicated" : '1 packet';
             $drafts[] = $this->makeDraft(
                 'implementation_or_contract_task', 2, $ids,
-                "wire or implement dormant CLI arm: {$target} ({$noun})"
+                "wire or implement dormant CLI arm: {$target} ({$noun})",
+                AtlasTaskBlockedPacketFamilyClassifier::FAMILY_DORMANT_CLI_ARM_PROXY,
+                $group['records'],
             );
         }
 
@@ -81,7 +87,9 @@ final class AtlasTaskBlockedQueueRespecDrafter
                 $summary['implementation_or_contract_task'] = ($summary['implementation_or_contract_task'] ?? 0) + 1;
                 $drafts[] = $this->makeDraft(
                     'implementation_or_contract_task', 2, [$id],
-                    "microtest with strong behavior matrix (size={$matrixSize}): promote to implementation task"
+                    "microtest with strong behavior matrix (size={$matrixSize}): promote to implementation task",
+                    AtlasTaskBlockedPacketFamilyClassifier::FAMILY_TEST_ONLY_MICROTASK,
+                    [$record],
                 );
             } else {
                 // ponytail: singleton padding — counted but no draft emitted; callers can check summary['skip']
@@ -129,7 +137,9 @@ final class AtlasTaskBlockedQueueRespecDrafter
                 $noun = $count > 1 ? "{$count} packets merged" : '1 packet';
                 $drafts[] = $this->makeDraft(
                     'implementation_or_contract_task', 2, $ids,
-                    "family={$family}: actionable family respec ({$noun})"
+                    "family={$family}: actionable family respec ({$noun})",
+                    $family,
+                    $records,
                 );
 
                 continue;
@@ -189,19 +199,83 @@ final class AtlasTaskBlockedQueueRespecDrafter
         return (string) ($record['task_packet_id'] ?? '');
     }
 
-    private function makeDraft(string $kind, int $wave, array $sourceIds, string $rationale): array
-    {
+    /**
+     * @param  list<string>  $sourceIds
+     * @param  list<array<string,mixed>>  $sourceRecords  raw blocked records this draft replaces —
+     *   only present (non-empty) when building a muscle-ready implementation_or_contract_task
+     *   replacement spec.
+     */
+    private function makeDraft(
+        string $kind,
+        int $wave,
+        array $sourceIds,
+        string $rationale,
+        ?string $sourceBlockerFamily = null,
+        array $sourceRecords = [],
+    ): array {
         sort($sourceIds, SORT_STRING);
         $sourceIds = array_values(array_unique($sourceIds));
         $draftId = 'dr_'.substr(hash('sha256', $kind.'|'.$wave.'|'.implode(',', $sourceIds)), 0, 12);
 
-        return [
+        $draft = [
             'draft_id' => $draftId,
             'kind' => $kind,
             'wave' => $wave,
             'source_packet_ids' => $sourceIds,
             'rationale' => $rationale,
             'depends_on' => [], // filled in by the wave-pass above
+        ];
+
+        if ($sourceBlockerFamily !== null) {
+            $draft['source_blocker_family'] = $sourceBlockerFamily;
+            $draft['prevented_give_back_reason'] = "corrected respec prevents future give_back recurrence from family={$sourceBlockerFamily}";
+            $draft['replacement_spec'] = $this->buildReplacementSpec($sourceRecords);
+        }
+
+        return $draft;
+    }
+
+    /**
+     * A replacement spec is only muscle-ready — safe to serve without producing another
+     * give_back — when the union of source records provides BOTH an implementation file and
+     * a test file in allowed_files, AND at least one acceptance criterion names a runnable
+     * proof command. Anything short of that returns null: the draft still records intent
+     * (rationale/family/reason), but is not claimable as-is.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array{allowed_files:list<string>, acceptance_criteria:list<string>}|null
+     */
+    private function buildReplacementSpec(array $records): ?array
+    {
+        $allowedFiles = [];
+        $acceptanceCriteria = [];
+        foreach ($records as $record) {
+            if (! is_array($record)) {
+                continue;
+            }
+            $allowedFiles = array_merge(
+                $allowedFiles,
+                array_map('strval', (array) ($record['allowed_files'] ?? [])),
+            );
+            $acceptanceCriteria = array_merge(
+                $acceptanceCriteria,
+                array_map('strval', (array) ($record['acceptance_criteria'] ?? [])),
+            );
+        }
+        $allowedFiles = array_values(array_unique($allowedFiles));
+        $acceptanceCriteria = array_values(array_unique($acceptanceCriteria));
+
+        $hasTestFile = array_filter($allowedFiles, static fn (string $f): bool => str_contains($f, 'Test.php') || str_contains($f, '/tests/')) !== [];
+        $hasImplFile = array_filter($allowedFiles, static fn (string $f): bool => ! str_contains($f, 'Test.php') && ! str_contains($f, '/tests/')) !== [];
+        $hasRunnableProof = array_filter($acceptanceCriteria, static fn (string $c): bool => preg_match(self::RUNNABLE_PROOF_PATTERN, $c) === 1) !== [];
+
+        if (! $hasTestFile || ! $hasImplFile || ! $hasRunnableProof) {
+            return null;
+        }
+
+        return [
+            'allowed_files' => $allowedFiles,
+            'acceptance_criteria' => $acceptanceCriteria,
         ];
     }
 }
