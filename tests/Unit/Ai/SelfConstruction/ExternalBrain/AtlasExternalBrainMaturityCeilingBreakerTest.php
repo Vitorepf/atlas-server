@@ -351,4 +351,93 @@ final class AtlasExternalBrainMaturityCeilingBreakerTest extends TestCase
         $b = $this->breaker()->analyze($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: repeated low-yield bug hunting classified as ceiling_reached when a leap exists ──
+
+    public function test_repeated_low_yield_bug_hunting_is_ceiling_reached_when_leap_available(): void
+    {
+        $tasks = array_fill(0, 5, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt', 'metric_delta' => 0.01]);
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => $tasks,
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertSame('ceiling_reached', $r['ceiling_status']);
+    }
+
+    public function test_ceiling_detected_without_leap_is_not_ceiling_reached(): void
+    {
+        $tasks = array_fill(0, 5, ['unlocks_new_capability' => false, 'task_family' => 'bug-hunt', 'metric_delta' => 0.01]);
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertTrue($r['ceiling_detected']);
+        $this->assertSame('ceiling_detected_no_leap_available', $r['ceiling_status']);
+    }
+
+    public function test_ceiling_status_is_insufficient_data_with_too_few_samples(): void
+    {
+        $r = $this->breaker()->analyze(['recent_tasks' => [$this->task(false)]]);
+
+        $this->assertSame('insufficient_data', $r['ceiling_status']);
+    }
+
+    public function test_ceiling_status_is_not_at_ceiling_when_healthy(): void
+    {
+        $tasks = array_fill(0, 5, $this->task(true));
+        $r = $this->breaker()->analyze(['recent_tasks' => $tasks]);
+
+        $this->assertSame('not_at_ceiling', $r['ceiling_status']);
+    }
+
+    // ── AC: recommended leap names target_area, evidence_gap and expected_unlock ──
+
+    public function test_proposed_jump_includes_target_area_evidence_gap_and_expected_unlock(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump([
+                'target_area'     => 'origination_autonomy',
+                'evidence_gap'    => 'no proof that origination survives 24h unattended',
+                'expected_unlock' => 'sustained autonomous batch origination without human seeding',
+            ])],
+        ]);
+
+        $this->assertSame('origination_autonomy', $r['proposed_jump']['target_area']);
+        $this->assertSame('no proof that origination survives 24h unattended', $r['proposed_jump']['evidence_gap']);
+        $this->assertSame('sustained autonomous batch origination without human seeding', $r['proposed_jump']['expected_unlock']);
+    }
+
+    // ── AC: cosmetic or wrapper additions are never recommended as ceiling breakers ──
+
+    public function test_cosmetic_jump_is_rejected_even_when_otherwise_eligible(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump(['is_cosmetic' => true])],
+        ]);
+
+        $this->assertNull($r['proposed_jump']);
+        $this->assertContains('cosmetic_or_wrapper_only_addition_not_a_ceiling_breaker', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_wrapper_only_jump_is_rejected_even_when_otherwise_eligible(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump(['is_wrapper_only' => true])],
+        ]);
+
+        $this->assertNull($r['proposed_jump']);
+        $this->assertContains('cosmetic_or_wrapper_only_addition_not_a_ceiling_breaker', $r['rejected_jumps'][0]['reasons']);
+    }
+
+    public function test_substantive_jump_not_flagged_cosmetic_is_still_eligible(): void
+    {
+        $r = $this->breaker()->analyze([
+            'recent_tasks'              => array_fill(0, 5, $this->task(false)),
+            'proposed_capability_jumps' => [$this->jump()],
+        ]);
+
+        $this->assertNotNull($r['proposed_jump']);
+    }
 }

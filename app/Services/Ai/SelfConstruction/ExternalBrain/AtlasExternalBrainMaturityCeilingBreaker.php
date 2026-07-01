@@ -110,6 +110,11 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             $proofGates   = array_values((array) ($jump['proof_gates']   ?? []));
             $prerequisites = array_values((array) ($jump['prerequisites'] ?? []));
             $prerequisitesMet = array_values((array) ($jump['prerequisites_met'] ?? []));
+            $targetArea    = (string) ($jump['target_area']     ?? '');
+            $evidenceGap   = (string) ($jump['evidence_gap']    ?? '');
+            $expectedUnlock = (string) ($jump['expected_unlock'] ?? '');
+            $isCosmetic   = (bool) ($jump['is_cosmetic']     ?? false);
+            $isWrapperOnly = (bool) ($jump['is_wrapper_only'] ?? false);
 
             $blastOk  = $blastRadius <= self::MAX_BLAST_RADIUS;
             $riskOk   = $riskScore   <= self::MAX_RISK_SCORE;
@@ -117,14 +122,20 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             // A jump must name real prerequisites, OR already have proof that its prerequisites
             // were met — a jump with neither is an unfounded leap, not a proof-gated capability jump.
             $prereqOk = count($prerequisites) > 0 || count($prerequisitesMet) > 0;
+            // AC: cosmetic/wrapper-only additions are never structural ceiling breakers,
+            // no matter how safe their blast_radius/risk_score/proof_gates look.
+            $substantiveOk = ! $isCosmetic && ! $isWrapperOnly;
 
-            if ($blastOk && $riskOk && $gatesOk && $prereqOk) {
+            if ($blastOk && $riskOk && $gatesOk && $prereqOk && $substantiveOk) {
                 $eligibleJumps[] = [
                     'name'             => $name,
                     'prerequisites'    => $prerequisites,
                     'proof_gates'      => $proofGates,
                     'blast_radius'     => $blastRadius,
                     'risk_score'       => $riskScore,
+                    'target_area'      => $targetArea,
+                    'evidence_gap'     => $evidenceGap,
+                    'expected_unlock'  => $expectedUnlock,
                 ];
             } else {
                 $rejectedJumps[] = [
@@ -134,6 +145,7 @@ final class AtlasExternalBrainMaturityCeilingBreaker
                         $riskOk  ? null : 'risk_score_exceeds_bound',
                         $gatesOk ? null : 'no_proof_gates_defined',
                         $prereqOk ? null : 'no_prerequisites_or_prerequisites_met',
+                        $substantiveOk ? null : 'cosmetic_or_wrapper_only_addition_not_a_ceiling_breaker',
                     ]),
                 ];
             }
@@ -163,9 +175,19 @@ final class AtlasExternalBrainMaturityCeilingBreaker
             ? "non_unlocking_task_count={$nonUnlockingCount}:tasks_did_not_unlock_a_new_capability_so_excluded_from_the_jump_chain"
             : 'no_incremental_tasks_were_rejected';
 
+        // AC: a single, unambiguous status — ceiling_reached only when both the ceiling
+        // is detected AND a concrete, substantive leap is actually available to take.
+        $ceilingStatus = match (true) {
+            $insufficientData => 'insufficient_data',
+            $ceilingDetected && $proposedJump !== null => 'ceiling_reached',
+            $ceilingDetected => 'ceiling_detected_no_leap_available',
+            default => 'not_at_ceiling',
+        };
+
         return [
             'schema_version'               => self::SCHEMA,
             'ceiling_detected'             => $ceilingDetected,
+            'ceiling_status'               => $ceilingStatus,
             'ceiling_evidence'             => [
                 'non_unlocking_task_count'  => $nonUnlockingCount,
                 'marginal_gain_average'     => $marginalGainAvg,
