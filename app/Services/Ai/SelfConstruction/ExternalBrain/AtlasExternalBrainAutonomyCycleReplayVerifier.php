@@ -97,9 +97,13 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifier
             'cycle_complete' => $cycleComplete,
             'stages_observed' => $stagesObserved,
             'missing_stage' => $missingStage,
+            // Aliases matching the anti-fabrication contract's exact field names.
+            'missing_stages' => $missingStage === null ? [] : [$missingStage],
             'decision_changed' => $decisionChanged,
             'ordering_violations' => $orderingViolations,
+            'ordering_errors' => $orderingViolations,
             'causality_violations' => $causalityViolations,
+            'causality_errors' => $causalityViolations,
             'correlation_id' => $correlationId,
             'replay_score' => $replayScore,
         ];

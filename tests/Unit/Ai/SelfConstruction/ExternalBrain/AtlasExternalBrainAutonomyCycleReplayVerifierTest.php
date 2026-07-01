@@ -178,6 +178,34 @@ final class AtlasExternalBrainAutonomyCycleReplayVerifierTest extends TestCase
         $this->assertFalse($result['cycle_complete']);
         $codes = array_column($result['causality_violations'], 'code');
         $this->assertContains('correlation_mismatch', $codes);
+
+        // Contract-exact key aliases must mirror the same violations.
+        $this->assertSame($result['causality_violations'], $result['causality_errors']);
+    }
+
+    public function test_missing_stages_ordering_errors_and_causality_errors_are_exposed(): void
+    {
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($this->completeStream());
+
+        $this->assertArrayHasKey('missing_stages', $result);
+        $this->assertArrayHasKey('ordering_errors', $result);
+        $this->assertArrayHasKey('causality_errors', $result);
+        $this->assertArrayHasKey('decision_changed', $result);
+        $this->assertSame([], $result['missing_stages']);
+        $this->assertSame($result['ordering_violations'], $result['ordering_errors']);
+        $this->assertSame($result['causality_violations'], $result['causality_errors']);
+    }
+
+    public function test_missing_stages_is_populated_list_when_a_stage_is_absent(): void
+    {
+        $facts = array_values(array_filter(
+            $this->completeStream(),
+            static fn (array $f): bool => $f['stage'] !== 'outcome_learning',
+        ));
+
+        $result = (new AtlasExternalBrainAutonomyCycleReplayVerifier)->verify($facts);
+
+        $this->assertSame(['outcome_learning'], $result['missing_stages']);
     }
 
     public function test_missing_correlation_id_on_a_correlated_stage_is_a_causality_violation(): void
