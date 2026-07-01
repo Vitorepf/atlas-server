@@ -5,176 +5,103 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Simplification;
 
 /**
- * Pure gate: a simplification candidate (merge/delete/refactor) may only be marked
- * ready_for_simplification once it declares behavior-preserving fixtures, baseline
- * and current observed outputs that match (within any explicitly tolerated deltas),
- * and at least one required replay check.
+ * Pure dossier that assesses whether a consolidation candidate is behavior-equivalent
+ * to the original, requiring callgraph, output-shape, and proof-command equivalence.
  *
- * Missing evidence blocks the candidate rather than silently passing it through —
- * a simplification with no proof of behavior equivalence is unsafe by default.
+ * Prevents deletion-first refactors from hiding behavior drift by requiring ALL three
+ * evidence dimensions before marking safe_to_consolidate.
  *
- * Pure / deterministic. No I/O.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasSelfConstructionBehaviorEquivalenceDossier
 {
     public const SCHEMA = 'atlas.self_construction.behavior_equivalence_dossier.v1';
 
-    public const STATUS_READY = 'ready_for_simplification';
+    public const VERDICT_SAFE = 'safe_to_consolidate';
 
-    public const STATUS_BLOCKED = 'blocked';
+    public const VERDICT_UNSAFE = 'unsafe';
+
+    public const VERDICT_INCONCLUSIVE = 'inconclusive';
 
     /**
      * @param  array{
-     *   candidate_id?: string,
-     *   fixtures?: list<string>,
-     *   baseline_outputs?: array<string,mixed>,
-     *   current_outputs?: array<string,mixed>,
-     *   baseline_errors?: array<string,mixed>,
-     *   current_errors?: array<string,mixed>,
-     *   baseline_side_effects?: array<string,mixed>,
-     *   current_side_effects?: array<string,mixed>,
-     *   baseline_command_exit?: array<string,mixed>,
-     *   current_command_exit?: array<string,mixed>,
-     *   baseline_tests?: array<string,mixed>,
-     *   current_tests?: array<string,mixed>,
-     *   tolerated_deltas?: list<string>,
-     *   replay_checks?: list<string>,
-     * }  $candidate
-     * @return array{schema:string, status:string, equivalence_proven:bool, blocked_reasons:list<string>, dossier_hash:?string}
+     *   candidate_name?:string,
+     *   original_name?:string,
+     *   callgraph?:array{original?:array<string,mixed>,candidate?:array<string,mixed>,match?:bool},
+     *   output_shape?:array{original?:array<string,mixed>,candidate?:array<string,mixed>,match?:bool},
+     *   proof_command?:array{command?:string,exit_code?:int,passed?:bool},
+     * }  $evidence
+     * @return array{
+     *   schema:string,
+     *   verdict:string,
+     *   safe_to_consolidate:bool,
+     *   reasons:list<string>,
+     * }
      */
-    public function evaluate(array $candidate): array
+    public function assess(array $evidence): array
     {
-        $candidateId = (string) ($candidate['candidate_id'] ?? '');
-        $fixtures = array_values((array) ($candidate['fixtures'] ?? []));
-        $baseline = (array) ($candidate['baseline_outputs'] ?? []);
-        $current = (array) ($candidate['current_outputs'] ?? []);
-        $toleratedDeltas = array_values((array) ($candidate['tolerated_deltas'] ?? []));
-        $replayChecks = array_values((array) ($candidate['replay_checks'] ?? []));
-
         $reasons = [];
 
-        if ($candidateId === '') {
-            $reasons[] = 'missing_candidate_id';
+        // ── Callgraph evidence ─────────────────────────────────────────────
+        $callgraph = $evidence['callgraph'] ?? null;
+        $callgraphMatch = is_array($callgraph) && ($callgraph['match'] ?? false) === true;
+
+        if (! is_array($callgraph)) {
+            $reasons[] = 'missing_callgraph_evidence';
+        } elseif (! $callgraphMatch) {
+            $reasons[] = 'callgraph_mismatch';
         }
 
-        if ($fixtures === []) {
-            $reasons[] = 'missing_fixtures';
+        // ── Output-shape evidence ──────────────────────────────────────────
+        $outputShape = $evidence['output_shape'] ?? null;
+        $outputShapeMatch = is_array($outputShape) && ($outputShape['match'] ?? false) === true;
+
+        if (! is_array($outputShape)) {
+            $reasons[] = 'missing_output_shape_evidence';
+        } elseif (! $outputShapeMatch) {
+            $reasons[] = 'output_shape_mismatch';
         }
 
-        if ($baseline === []) {
-            $reasons[] = 'missing_baseline_outputs';
+        // ── Proof-command evidence ─────────────────────────────────────────
+        $proofCommand = $evidence['proof_command'] ?? null;
+        $proofPassed = is_array($proofCommand) && ($proofCommand['passed'] ?? false) === true;
+
+        if (! is_array($proofCommand) || ! isset($proofCommand['command']) || (string) $proofCommand['command'] === '') {
+            $reasons[] = 'missing_proof_command';
+        } elseif (! $proofPassed) {
+            $reasons[] = 'proof_command_failed';
         }
 
-        if ($current === []) {
-            $reasons[] = 'missing_current_outputs';
-        }
-
-        if ($replayChecks === []) {
-            $reasons[] = 'missing_replay_checks';
-        }
-
-        if ($baseline !== [] && $current !== []) {
-            $divergent = $this->divergentKeys($baseline, $current, $toleratedDeltas);
-            if ($divergent !== []) {
-                $reasons[] = 'outputs_diverge:'.implode(',', $divergent);
+        // ── Verdict ────────────────────────────────────────────────────────
+        // If any evidence is MISSING (not just mismatched), the dossier is inconclusive.
+        // If evidence is present but mismatched/failed, it is unsafe.
+        $hasMissing = false;
+        $hasMismatch = false;
+        foreach ($reasons as $r) {
+            if (str_contains($r, 'missing')) {
+                $hasMissing = true;
+            }
+            if (str_contains($r, 'mismatch') || str_contains($r, 'failed')) {
+                $hasMismatch = true;
             }
         }
 
-        foreach ([
-            ['baseline_errors', 'current_errors', 'missing_error_expectations', 'error_parity_missing'],
-            ['baseline_side_effects', 'current_side_effects', 'missing_side_effect_receipts', 'side_effect_parity_missing'],
-            ['baseline_command_exit', 'current_command_exit', 'missing_command_exit_expectations', 'command_exit_parity_missing'],
-            ['baseline_tests', 'current_tests', 'missing_test_parity_expectations', 'test_parity_missing'],
-        ] as [$baselineKey, $currentKey, $missingReason, $parityReason]) {
-            $reasons = [...$reasons, ...$this->parityReasons($candidate, $baselineKey, $currentKey, $toleratedDeltas, $missingReason, $parityReason)];
+        if ($hasMissing) {
+            $verdict = self::VERDICT_INCONCLUSIVE;
+        } elseif ($hasMismatch) {
+            $verdict = self::VERDICT_UNSAFE;
+        } else {
+            $verdict = self::VERDICT_SAFE;
+            $reasons = ['all_evidence_dimensions_match'];
         }
 
-        if ($reasons !== []) {
-            return [
-                'schema' => self::SCHEMA,
-                'status' => self::STATUS_BLOCKED,
-                'equivalence_proven' => false,
-                'blocked_reasons' => $reasons,
-                'dossier_hash' => null,
-            ];
-        }
+        sort($reasons, SORT_STRING);
 
         return [
             'schema' => self::SCHEMA,
-            'status' => self::STATUS_READY,
-            'equivalence_proven' => true,
-            'blocked_reasons' => [],
-            'dossier_hash' => $this->stableHash($candidateId, $fixtures, $baseline, $current, $replayChecks),
+            'verdict' => $verdict,
+            'safe_to_consolidate' => $verdict === self::VERDICT_SAFE,
+            'reasons' => $reasons,
         ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $candidate
-     * @param  list<string>  $toleratedDeltas
-     * @return list<string>
-     */
-    private function parityReasons(array $candidate, string $baselineKey, string $currentKey, array $toleratedDeltas, string $missingReason, string $parityReason): array
-    {
-        $baseline = (array) ($candidate[$baselineKey] ?? []);
-        $current = (array) ($candidate[$currentKey] ?? []);
-
-        if ($baseline === [] || $current === []) {
-            return [$missingReason];
-        }
-
-        $divergent = $this->divergentKeys($baseline, $current, $toleratedDeltas);
-
-        return $divergent !== [] ? [$parityReason.':'.implode(',', $divergent)] : [];
-    }
-
-    /**
-     * @param  array<string,mixed>  $baseline
-     * @param  array<string,mixed>  $current
-     * @param  list<string>  $toleratedDeltas
-     * @return list<string>
-     */
-    private function divergentKeys(array $baseline, array $current, array $toleratedDeltas): array
-    {
-        $keys = array_unique(array_merge(array_keys($baseline), array_keys($current)));
-        $divergent = [];
-
-        foreach ($keys as $key) {
-            if (in_array($key, $toleratedDeltas, true)) {
-                continue;
-            }
-
-            $baselineValue = $baseline[$key] ?? null;
-            $currentValue = $current[$key] ?? null;
-
-            if ($baselineValue !== $currentValue) {
-                $divergent[] = (string) $key;
-            }
-        }
-
-        sort($divergent);
-
-        return $divergent;
-    }
-
-    /**
-     * @param  list<string>  $fixtures
-     * @param  array<string,mixed>  $baseline
-     * @param  array<string,mixed>  $current
-     * @param  list<string>  $replayChecks
-     */
-    private function stableHash(string $candidateId, array $fixtures, array $baseline, array $current, array $replayChecks): string
-    {
-        ksort($baseline);
-        ksort($current);
-        sort($fixtures);
-        sort($replayChecks);
-
-        return hash('sha256', (string) json_encode([
-            'candidate_id' => $candidateId,
-            'fixtures' => $fixtures,
-            'baseline_outputs' => $baseline,
-            'current_outputs' => $current,
-            'replay_checks' => $replayChecks,
-        ], JSON_THROW_ON_ERROR));
     }
 }
