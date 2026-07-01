@@ -46,6 +46,7 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlan
         $queueHealthGate = (string) ($input['queue_health_gate'] ?? 'php artisan atlas:task:self-heal --json');
         $action = strtolower(trim((string) ($input['action'] ?? '')));
         $publicCommandConsumers = array_values(array_unique(array_map('strval', (array) ($input['public_command_consumers'] ?? []))));
+        $commandReplayExpectations = array_values(array_filter((array) ($input['command_replay_expectations'] ?? []), 'is_array'));
         // rollback_receipt_present defaults to rollback_plan_present so existing callers that only
         // ever supplied the plan flag keep exact prior behavior.
         $rollbackReceiptPresent = array_key_exists('rollback_receipt_present', $input)
@@ -98,6 +99,17 @@ final class AtlasSelfConstructionSimplificationRegressionReplayPlan
         if ($isDeletionOrMerge) {
             if ($publicCommandConsumers === []) {
                 $notReadyReasons[] = 'no_public_command_replay_coverage';
+            } elseif ($commandReplayExpectations === []) {
+                $notReadyReasons[] = 'missing_command_replay_expectations';
+            } else {
+                foreach ($commandReplayExpectations as $expectation) {
+                    $hasExitCode = array_key_exists('expected_exit_code', $expectation) && is_int($expectation['expected_exit_code']);
+                    $hasOutputContractRefs = ! empty($expectation['output_contract_refs']);
+                    if (! $hasExitCode || ! $hasOutputContractRefs) {
+                        $notReadyReasons[] = 'incomplete_command_replay_expectation';
+                        break;
+                    }
+                }
             }
             if (! $rollbackReceiptPresent) {
                 $notReadyReasons[] = 'rollback_receipt_missing';
