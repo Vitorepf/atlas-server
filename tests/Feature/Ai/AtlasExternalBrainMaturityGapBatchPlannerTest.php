@@ -82,6 +82,38 @@ final class AtlasExternalBrainMaturityGapBatchPlannerTest extends TestCase
         $this->assertSame(0.5, $result['batch'][0]['leverage']);
     }
 
+    public function test_each_batch_item_carries_unlock_count_and_dependency_blockers(): void
+    {
+        $gapIndex = ['gaps' => [
+            ['dimension' => 'd1', 'leverage' => 0.5, 'next_best_task_family' => 'd1_bootstrap', 'unlocks' => ['d2', 'd3'], 'blocked_by' => ['d0']],
+        ]];
+        $drift = ['findings' => []];
+
+        $result = (new AtlasExternalBrainMaturityGapBatchPlanner())->plan($gapIndex, $drift);
+
+        $this->assertSame(2, $result['batch'][0]['unlock_count']);
+        $this->assertSame(['d0'], $result['batch'][0]['dependency_blockers']);
+        $this->assertArrayHasKey('compound_leverage', $result['batch'][0]);
+        $this->assertSame(0.7, $result['batch'][0]['compound_leverage']);
+    }
+
+    public function test_item_that_unblocks_others_ranks_before_isolated_medium_impact_repair_in_same_category(): void
+    {
+        $emptyGaps = ['gaps' => []];
+
+        $drift = [
+            'findings' => [
+                ['area_id' => 'isolated', 'drift_type' => AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_OWNER, 'impact' => 'medium', 'repair_action' => 'assign_owner'],
+                ['area_id' => 'unblocker', 'drift_type' => AtlasExternalBrainCapabilityMapDriftDetector::DRIFT_MISSING_OWNER, 'impact' => 'medium', 'repair_action' => 'assign_owner', 'unlocks' => ['x', 'y']],
+            ],
+        ];
+
+        $result = (new AtlasExternalBrainMaturityGapBatchPlanner())->plan($emptyGaps, $drift);
+
+        $this->assertSame('unblocker', $result['batch'][0]['id']);
+        $this->assertSame('isolated', $result['batch'][1]['id']);
+    }
+
     public function test_empty_inputs_yield_empty_batch(): void
     {
         $result = (new AtlasExternalBrainMaturityGapBatchPlanner())->plan(['gaps' => []], ['findings' => []]);

@@ -52,12 +52,17 @@ final class AtlasExternalBrainMaturityGapBatchPlanner
         $batch = [];
 
         foreach ((array) ($gapIndexResult['gaps'] ?? []) as $gap) {
+            $unlocks = array_values(array_map('strval', (array) ($gap['unlocks'] ?? [])));
+            $leverage = max(0.0, min(1.0, (float) ($gap['leverage'] ?? 0.0)));
             $batch[] = [
                 'source' => 'maturity_gap',
                 'id' => (string) ($gap['dimension'] ?? ''),
                 'category' => self::CATEGORY_PROOF_GAP_CLOSURE,
                 'resolution_approach' => (string) ($gap['next_best_task_family'] ?? $gap['suggested_task_family'] ?? ''),
-                'leverage' => max(0.0, min(1.0, (float) ($gap['leverage'] ?? 0.0))),
+                'leverage' => $leverage,
+                'unlock_count' => count($unlocks),
+                'dependency_blockers' => array_values(array_map('strval', (array) ($gap['blocked_by'] ?? []))),
+                'compound_leverage' => $this->compoundLeverage($leverage, count($unlocks)),
                 'finding' => $gap,
             ];
         }
@@ -71,12 +76,17 @@ final class AtlasExternalBrainMaturityGapBatchPlanner
                 default => self::CATEGORY_OTHER_DRIFT_REPAIR,
             };
 
+            $unlocks = array_values(array_map('strval', (array) ($finding['unlocks'] ?? [])));
+            $leverage = self::IMPACT_TO_SCORE[(string) ($finding['impact'] ?? 'low')] ?? 0.0;
             $batch[] = [
                 'source' => 'capability_drift',
                 'id' => (string) ($finding['area_id'] ?? ''),
                 'category' => $category,
                 'resolution_approach' => (string) ($finding['repair_action'] ?? ''),
-                'leverage' => self::IMPACT_TO_SCORE[(string) ($finding['impact'] ?? 'low')] ?? 0.0,
+                'leverage' => $leverage,
+                'unlock_count' => count($unlocks),
+                'dependency_blockers' => array_values(array_map('strval', (array) ($finding['blocked_by'] ?? []))),
+                'compound_leverage' => $this->compoundLeverage($leverage, count($unlocks)),
                 'finding' => $finding,
             ];
         }
@@ -86,7 +96,7 @@ final class AtlasExternalBrainMaturityGapBatchPlanner
             if ($rankDiff !== 0) {
                 return $rankDiff;
             }
-            $leverageDiff = $b['leverage'] <=> $a['leverage'];
+            $leverageDiff = $b['compound_leverage'] <=> $a['compound_leverage'];
 
             return $leverageDiff !== 0 ? $leverageDiff : strcmp($a['id'], $b['id']);
         });
@@ -95,5 +105,11 @@ final class AtlasExternalBrainMaturityGapBatchPlanner
             'schema' => self::SCHEMA,
             'batch' => $batch,
         ];
+    }
+
+    /** Amplifies raw leverage by how many other gaps/findings this item unblocks. */
+    private function compoundLeverage(float $leverage, int $unlockCount): float
+    {
+        return round(min(1.0, $leverage + (0.1 * $unlockCount)), 4);
     }
 }
