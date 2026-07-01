@@ -11,7 +11,7 @@ final class AtlasMaestroWorkerBehaviorLedger
 {
     public const SCHEMA = 'atlas.maestro.adaptive.worker_behavior_ledger.v1';
 
-    private const EVENTS = ['served', 'success', 'give_back', 'lease_expired', 'gate_rejected'];
+    private const EVENTS = ['served', 'success', 'give_back', 'lease_expired', 'gate_rejected', 'malformed'];
 
     private const RECENT_EVENTS_LIMIT = 20;
 
@@ -109,6 +109,7 @@ final class AtlasMaestroWorkerBehaviorLedger
         $raw['success_rate'] = $rate((int) ($raw['success'] ?? 0));
         $raw['give_back_rate'] = $rate((int) ($raw['give_back'] ?? 0));
         $raw['gate_rejected_rate'] = $rate((int) ($raw['gate_rejected'] ?? 0));
+        $raw['malformed_rate'] = $rate((int) ($raw['malformed'] ?? 0));
         $raw['recent_events'] = $raw['recent_events'] ?? [];
 
         return $raw;
@@ -164,6 +165,7 @@ final class AtlasMaestroWorkerBehaviorLedger
             'give_back' => 0,
             'lease_expired' => 0,
             'gate_rejected' => 0,
+            'malformed' => 0,
             'last_seen_at' => 0,
             'last_event' => '',
             'recent_events' => [],

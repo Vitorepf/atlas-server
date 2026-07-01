@@ -27,6 +27,20 @@ final class AtlasMaestroWorkerBehaviorLedgerTest extends TestCase
         $this->assertSame('give_back', $facts['last_event']);
     }
 
+    public function test_record_tracks_malformed_event_and_derives_rate(): void
+    {
+        $path = $this->path();
+        config(['atlas.maestro.adaptive.behavior_ledger_enabled' => true]);
+        $ledger = new AtlasMaestroWorkerBehaviorLedger($path, static fn (): int => 1000);
+
+        $ledger->record('served', 'codex-1', 'feature');
+        $facts = $ledger->record('malformed', 'codex-1', 'feature');
+
+        $this->assertSame(1, $facts['malformed']);
+        $this->assertSame('malformed', $facts['last_event']);
+        $this->assertSame(0.5, $facts['malformed_rate']);
+    }
+
     public function test_flag_off_is_byte_identical_noop(): void
     {
         $path = $this->path();
