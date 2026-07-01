@@ -2,13 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 use InvalidArgumentException;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker
 {
     public function __construct(
         private readonly AgentCodexRealInvokerPostStartEvidenceReceiptWriter $postStartEvidenceReceiptWriter,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -59,59 +60,47 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartE
      */
     private function normalize(array $input): array
     {
-        $required = [
-            'run_key',
-            'codex_execution_id',
-            'real_invoker_process_starter_readiness_gate_id',
-            'real_invoker_start_execution_gate_id',
-            'manual_start_executor_receipt_id',
-            'operator_start_handoff_id',
-            'post_start_evidence_acceptance_bridge_id',
-            'post_start_receipt_contract_id',
-            'post_start_evidence_receipt_id',
-            'external_process_identity_contract_hash',
-            'startup_evidence_contract_hash',
-            'terminal_pid_capture_contract_hash',
-            'post_start_cost_meter_contract_hash',
-            'external_process_identity_evidence_hash',
-            'startup_evidence_hash',
-            'terminal_pid_capture_hash',
-            'post_start_liveness_probe_hash',
-            'post_start_cost_meter_evidence_hash',
-            'operator_external_start_attestation_hash',
-            'no_atlas_process_spawn_attestation_hash',
-            'actor',
-            'session',
-            'reason',
-        ];
-
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        foreach ([
-            'external_process_identity_contract_hash',
-            'startup_evidence_contract_hash',
-            'terminal_pid_capture_contract_hash',
-            'post_start_cost_meter_contract_hash',
-            'external_process_identity_evidence_hash',
-            'startup_evidence_hash',
-            'terminal_pid_capture_hash',
-            'post_start_liveness_probe_hash',
-            'post_start_cost_meter_evidence_hash',
-            'operator_external_start_attestation_hash',
-            'no_atlas_process_spawn_attestation_hash',
-        ] as $hashField) {
-            $hash = strtolower(trim((string) $input[$hashField]));
-
-            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$hashField);
-            }
-
-            $input[$hashField] = $hash;
-        }
+        $input = $this->inputNormalizer->normalize(
+            $input,
+            [
+                'run_key',
+                'codex_execution_id',
+                'real_invoker_process_starter_readiness_gate_id',
+                'real_invoker_start_execution_gate_id',
+                'manual_start_executor_receipt_id',
+                'operator_start_handoff_id',
+                'post_start_evidence_acceptance_bridge_id',
+                'post_start_receipt_contract_id',
+                'post_start_evidence_receipt_id',
+                'external_process_identity_contract_hash',
+                'startup_evidence_contract_hash',
+                'terminal_pid_capture_contract_hash',
+                'post_start_cost_meter_contract_hash',
+                'external_process_identity_evidence_hash',
+                'startup_evidence_hash',
+                'terminal_pid_capture_hash',
+                'post_start_liveness_probe_hash',
+                'post_start_cost_meter_evidence_hash',
+                'operator_external_start_attestation_hash',
+                'no_atlas_process_spawn_attestation_hash',
+                'actor',
+                'session',
+                'reason',
+            ],
+            [
+                'external_process_identity_contract_hash',
+                'startup_evidence_contract_hash',
+                'terminal_pid_capture_contract_hash',
+                'post_start_cost_meter_contract_hash',
+                'external_process_identity_evidence_hash',
+                'startup_evidence_hash',
+                'terminal_pid_capture_hash',
+                'post_start_liveness_probe_hash',
+                'post_start_cost_meter_evidence_hash',
+                'operator_external_start_attestation_hash',
+                'no_atlas_process_spawn_attestation_hash',
+            ],
+        );
 
         return [
             'run_key' => (string) $input['run_key'],

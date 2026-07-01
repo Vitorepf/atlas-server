@@ -2,13 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 use InvalidArgumentException;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker
 {
     public function __construct(
         private readonly AgentCodexRealInvokerPostStartProviderExecutionContractGate $postStartProviderExecutionContractGate,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -68,48 +69,34 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartP
      */
     private function normalize(array $input): array
     {
-        $required = [
-            'run_key',
-            'provider_execution_contract_gate_id',
-            'codex_execution_id',
-            'adapter_execution_guard_gate_id',
-            'execution_guard_id',
-            'adapter_invocation_boundary_gate_id',
-            'adapter_invocation_id',
-            'provider_start_driver_gate_id',
-            'provider_start_attempt_id',
-            'dispatch_executor_handoff_id',
-            'signed_dispatch_authorization_id',
-            'post_start_evidence_acceptance_bridge_id',
-            'signed_dispatch_receipt_hash',
-            'command',
-            'cwd',
-            'context_pack_hash',
-            'continuation_summary_hash',
-            'actor',
-            'session',
-            'max_runtime_minutes',
-            'max_cost_usd',
-            'reason',
-        ];
-
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        $hashes = [
-            'signed_dispatch_receipt_hash' => strtolower(trim((string) $input['signed_dispatch_receipt_hash'])),
-            'context_pack_hash' => strtolower(trim((string) $input['context_pack_hash'])),
-            'continuation_summary_hash' => strtolower(trim((string) $input['continuation_summary_hash'])),
-        ];
-
-        foreach ($hashes as $field => $hash) {
-            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$field);
-            }
-        }
+        $input = $this->inputNormalizer->normalize(
+            $input,
+            [
+                'run_key',
+                'provider_execution_contract_gate_id',
+                'codex_execution_id',
+                'adapter_execution_guard_gate_id',
+                'execution_guard_id',
+                'adapter_invocation_boundary_gate_id',
+                'adapter_invocation_id',
+                'provider_start_driver_gate_id',
+                'provider_start_attempt_id',
+                'dispatch_executor_handoff_id',
+                'signed_dispatch_authorization_id',
+                'post_start_evidence_acceptance_bridge_id',
+                'signed_dispatch_receipt_hash',
+                'command',
+                'cwd',
+                'context_pack_hash',
+                'continuation_summary_hash',
+                'actor',
+                'session',
+                'max_runtime_minutes',
+                'max_cost_usd',
+                'reason',
+            ],
+            ['signed_dispatch_receipt_hash', 'context_pack_hash', 'continuation_summary_hash'],
+        );
 
         $maxRuntimeMinutes = (int) $input['max_runtime_minutes'];
         $maxCostUsd = (float) $input['max_cost_usd'];
@@ -135,11 +122,11 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartP
             'dispatch_executor_handoff_id' => (string) $input['dispatch_executor_handoff_id'],
             'signed_dispatch_authorization_id' => (string) $input['signed_dispatch_authorization_id'],
             'post_start_evidence_acceptance_bridge_id' => (string) $input['post_start_evidence_acceptance_bridge_id'],
-            'signed_dispatch_receipt_hash' => $hashes['signed_dispatch_receipt_hash'],
+            'signed_dispatch_receipt_hash' => (string) $input['signed_dispatch_receipt_hash'],
             'command' => trim((string) $input['command']),
             'cwd' => rtrim((string) $input['cwd'], '/'),
-            'context_pack_hash' => $hashes['context_pack_hash'],
-            'continuation_summary_hash' => $hashes['continuation_summary_hash'],
+            'context_pack_hash' => (string) $input['context_pack_hash'],
+            'continuation_summary_hash' => (string) $input['continuation_summary_hash'],
             'actor' => (string) $input['actor'],
             'session' => (string) $input['session'],
             'max_runtime_minutes' => $maxRuntimeMinutes,
