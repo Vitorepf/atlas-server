@@ -26,6 +26,14 @@ final class AtlasTaskServingLeaseMismatchRepairPlan
 
     public const ACTION_OBSERVE = 'observe';
 
+    public const CATEGORY_AUTOMATIC_REAP = 'automatic_reap';
+
+    public const CATEGORY_OBSERVE_GHOST = 'observe_ghost';
+
+    public const CATEGORY_QUARANTINE_REVIEW = 'quarantine_review';
+
+    public const CATEGORY_NOOP = 'noop';
+
     /**
      * @param  array<string, mixed>  $parityReport
      * @return array<string, mixed>
@@ -96,6 +104,72 @@ final class AtlasTaskServingLeaseMismatchRepairPlan
             'reason' => $reason,
             'safety_level' => $safetyLevel,
             'expected_health_delta' => $expectedHealthDelta,
+        ];
+    }
+
+    /**
+     * Single-category classification distinguishing what MUST NEVER be auto-repaired (a blocked or
+     * quarantined record — surfaced for operator review only) from what is genuinely safe to
+     * auto-reap (a terminal record proves the task already ended), from a merely observed ghost
+     * (no claim record to reconcile against — nothing recoverable, never touched), from a clean
+     * no-op. Quarantine review always takes precedence over every other signal, so a repair command
+     * can never touch a record the operator is meant to inspect first.
+     *
+     * @param  array<string,mixed>  $parityReport  same shape as compile()'s input, optionally with
+     *                                               blocked_or_quarantined_task_ids?:list<string>
+     * @return array{schema:string, category:string, reason:string, safety_note:string}
+     */
+    public function classifyRepairCategory(array $parityReport): array
+    {
+        $blockedOrQuarantined = array_values(array_map('strval', (array) ($parityReport['blocked_or_quarantined_task_ids'] ?? [])));
+        $recoverableTotal = (int) data_get(
+            $parityReport,
+            'recoverable_leaks.total',
+            data_get($parityReport, 'recoverable_candidates.total', 0),
+        );
+        $ghostTotal = (int) data_get($parityReport, 'ghost_active_leases.total', 0);
+
+        if ($blockedOrQuarantined !== []) {
+            return $this->category(
+                self::CATEGORY_QUARANTINE_REVIEW,
+                'blocked_or_quarantined_records_present:'.count($blockedOrQuarantined),
+                'never_auto_repair_blocked_or_quarantined_records_operator_review_required',
+            );
+        }
+
+        if ($recoverableTotal > 0) {
+            return $this->category(
+                self::CATEGORY_AUTOMATIC_REAP,
+                'recoverable_lease_leaks_present:'.$recoverableTotal,
+                'safe_to_reap_terminal_record_proves_task_already_ended',
+            );
+        }
+
+        if ($ghostTotal > 0) {
+            return $this->category(
+                self::CATEGORY_OBSERVE_GHOST,
+                'ghost_active_leases_present:'.$ghostTotal,
+                'no_claim_record_to_reconcile_against_surface_for_operator_visibility_never_auto_repaired',
+            );
+        }
+
+        return $this->category(
+            self::CATEGORY_NOOP,
+            'no_actionable_anomaly_detected',
+            'no_action_required',
+        );
+    }
+
+    /**
+     * @return array{schema:string, category:string, reason:string, safety_note:string}
+     */
+    private function category(string $category, string $reason, string $safetyNote): array
+    {
+        return [
+            'schema' => self::SCHEMA,
+            'category' => $category,
+            'reason' => $reason,
+            'safety_note' => $safetyNote,
         ];
     }
 }

@@ -142,4 +142,104 @@ final class AtlasTaskServingLeaseMismatchRepairPlanTest extends TestCase
         $this->assertCount(1, $result['steps']);
         $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::ACTION_OBSERVE, $result['steps'][0]['action']);
     }
+
+    // ── classifyRepairCategory(): automatic_reap / observe_ghost / quarantine_review / noop ──
+
+    private function category(array $result): array
+    {
+        return $this->plan()->classifyRepairCategory($result);
+    }
+
+    // ── AC: true recoverable mismatch ────────────────────────────────────────────
+
+    public function test_true_recoverable_mismatch_classifies_automatic_reap(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [['lease_id' => 'l1', 'task_packet_id' => 'tp-1']],
+            [['task_packet_id' => 'tp-1', 'status' => 'completed']],
+        );
+
+        $result = $this->category($report);
+
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_AUTOMATIC_REAP, $result['category']);
+        $this->assertNotEmpty($result['reason']);
+        $this->assertNotEmpty($result['safety_note']);
+    }
+
+    // ── AC: ghost mismatch ────────────────────────────────────────────────────────
+
+    public function test_ghost_mismatch_classifies_observe_ghost(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [['lease_id' => 'l1', 'task_packet_id' => 'tp-1']],
+            [],
+        );
+
+        $result = $this->category($report);
+
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_OBSERVE_GHOST, $result['category']);
+    }
+
+    // ── AC: blocked/quarantined mismatch ────────────────────────────────────────
+
+    public function test_blocked_or_quarantined_mismatch_classifies_quarantine_review(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [['lease_id' => 'l1', 'task_packet_id' => 'tp-1']],
+            [['task_packet_id' => 'tp-1', 'status' => 'completed']],
+        );
+        $report['blocked_or_quarantined_task_ids'] = ['tp-1'];
+
+        $result = $this->category($report);
+
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_QUARANTINE_REVIEW, $result['category']);
+        $this->assertStringContainsString('never_auto_repair', $result['safety_note']);
+    }
+
+    // ── AC: clean parity ─────────────────────────────────────────────────────────
+
+    public function test_clean_parity_classifies_noop(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [['lease_id' => 'l1', 'task_packet_id' => 'tp-1']],
+            [['task_packet_id' => 'tp-1', 'status' => 'claimed']],
+        );
+
+        $result = $this->category($report);
+
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_NOOP, $result['category']);
+    }
+
+    // ── AC: mixed anomalies — quarantine review always wins ─────────────────────
+
+    public function test_mixed_anomalies_quarantine_review_takes_precedence_over_reap_and_ghost(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [
+                ['lease_id' => 'l1', 'task_packet_id' => 'tp-1'], // recoverable (terminal_with_active_lease)
+                ['lease_id' => 'l2', 'task_packet_id' => 'tp-2'], // ghost (lease_without_claim)
+            ],
+            [['task_packet_id' => 'tp-1', 'status' => 'completed']],
+        );
+        $report['blocked_or_quarantined_task_ids'] = ['tp-2'];
+
+        $result = $this->category($report);
+
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_QUARANTINE_REVIEW, $result['category']);
+    }
+
+    public function test_mixed_recoverable_and_ghost_without_quarantine_prefers_automatic_reap(): void
+    {
+        $report = (new AtlasTaskServingLeaseClaimParityInspector)->inspect(
+            [
+                ['lease_id' => 'l1', 'task_packet_id' => 'tp-1'], // recoverable (terminal_with_active_lease)
+                ['lease_id' => 'l2', 'task_packet_id' => 'tp-2'], // ghost (lease_without_claim)
+            ],
+            [['task_packet_id' => 'tp-1', 'status' => 'completed']],
+        );
+
+        $result = $this->category($report);
+
+        $this->assertSame(AtlasTaskServingLeaseMismatchRepairPlan::CATEGORY_AUTOMATIC_REAP, $result['category']);
+    }
 }
