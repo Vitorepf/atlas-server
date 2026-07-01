@@ -215,4 +215,64 @@ final class AtlasExternalBrainOutputContractNormalizer
 
         return array_values(array_filter(array_map('strval', $value), static fn (string $s): bool => $s !== ''));
     }
+
+    /** Valid status values for the stable output envelope. */
+    private const VALID_STATUSES = ['ok', 'error', 'pending'];
+
+    /** Envelope fields that may carry raw, unsanitized text and must never pass through verbatim. */
+    private const SENSITIVE_FIELDS = ['raw_prompt', 'raw_response', 'provider_prompt', 'raw_output_text'];
+
+    /**
+     * Normalizes ANY brain/muscle/research/queue module output into the stable, provider-safe
+     * envelope: schema, status, decision, evidence_refs, warnings, provider_safe. Missing or
+     * invalid schema/status/decision are repaired to a safe default and flagged in warnings —
+     * never silently passed through. Raw prompt/provider/sensitive text fields are replaced with
+     * a sha256 hash reference (never echoed) so downstream consumers keep a stable, safe pointer
+     * instead of the raw text itself.
+     *
+     * @param  array<string,mixed>  $rawOutput
+     * @return array{schema:string, status:string, decision:string, evidence_refs:list<string>, warnings:list<string>, provider_safe:bool}
+     */
+    public function normalizeEnvelope(array $rawOutput): array
+    {
+        $warnings = [];
+
+        $schema = trim((string) ($rawOutput['schema'] ?? ''));
+        if ($schema === '') {
+            $schema = 'atlas.external_brain.unknown_output.v1';
+            $warnings[] = 'missing_schema_defaulted';
+        }
+
+        $status = trim((string) ($rawOutput['status'] ?? ''));
+        if (! in_array($status, self::VALID_STATUSES, true)) {
+            $warnings[] = 'missing_or_invalid_status_defaulted';
+            $status = 'unknown';
+        }
+
+        $decision = trim((string) ($rawOutput['decision'] ?? ''));
+        if ($decision === '') {
+            $decision = 'undecided';
+            $warnings[] = 'missing_decision_defaulted';
+        }
+
+        $evidenceRefs = $this->toStringList($rawOutput['evidence_refs'] ?? null);
+        if ($evidenceRefs === []) {
+            $warnings[] = 'no_evidence_refs';
+        }
+
+        foreach (self::SENSITIVE_FIELDS as $field) {
+            if (array_key_exists($field, $rawOutput) && trim((string) $rawOutput[$field]) !== '') {
+                $warnings[] = 'raw_text_redacted:'.$field.':sha256:'.hash('sha256', (string) $rawOutput[$field]);
+            }
+        }
+
+        return [
+            'schema' => $schema,
+            'status' => $status,
+            'decision' => $decision,
+            'evidence_refs' => $evidenceRefs,
+            'warnings' => array_values(array_unique($warnings)),
+            'provider_safe' => true,
+        ];
+    }
 }
