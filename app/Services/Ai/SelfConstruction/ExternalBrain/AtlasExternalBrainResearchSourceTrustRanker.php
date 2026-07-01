@@ -80,6 +80,7 @@ final class AtlasExternalBrainResearchSourceTrustRanker
         $hasConcreteClaim = ($candidate['has_concrete_claim'] ?? false) === true;
         $hasSourceUrl = ($candidate['has_source_url'] ?? true) === true;
         $isHypeHeavy = ($candidate['is_hype_heavy'] ?? false) === true;
+        $hasValidSourceDate = false;
 
         if ($dateStr === '') {
             $score -= self::PENALTY_UNDATED;
@@ -90,6 +91,7 @@ final class AtlasExternalBrainResearchSourceTrustRanker
                 $score -= self::PENALTY_UNDATED;
                 $penalties[] = 'invalid_source_date';
             } else {
+                $hasValidSourceDate = true;
                 $asOfStr = trim((string) ($candidate['as_of'] ?? ''));
                 if ($asOfStr === '') {
                     $asOf = CarbonImmutable::now();
@@ -145,6 +147,9 @@ final class AtlasExternalBrainResearchSourceTrustRanker
         }
         if (! $isReposOrPrimaryGrounded) {
             $adoptionBlockers[] = 'no_repo_local_or_primary_source_grounding';
+        }
+        if (! $hasValidSourceDate) {
+            $adoptionBlockers[] = 'no_valid_source_date';
         }
 
         $useDecision = match (true) {
