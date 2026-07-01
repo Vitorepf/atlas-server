@@ -470,4 +470,52 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
 
         $this->assertFalse($result['high_leverage_escape']);
     }
+
+    // ── new AC: completion_slope pressure ─────────────────────────────────────
+
+    public function test_low_completion_slope_with_deep_servable_per_worker_defers_medium_leverage_candidate(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 10, 'servable_depth' => 30],
+            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+            context:    ['completion_slope' => 0.10],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_DEFER, $result['decision']);
+    }
+
+    public function test_urgent_repair_classes_bypass_completion_slope_pressure(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 10, 'servable_depth' => 30],
+            candidate:  ['leverage_score' => 0.0, 'task_class' => 'malformed'],
+            context:    ['completion_slope' => 0.05],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertTrue($result['urgent_override']);
+    }
+
+    public function test_high_dependency_unlock_score_can_enqueue_under_completion_slope_pressure(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 10, 'servable_depth' => 30],
+            candidate:  ['leverage_score' => 0.10, 'dependency_unlock_score' => 0.90, 'task_class' => 'normal'],
+            context:    ['completion_slope' => 0.10],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+        $this->assertTrue($result['high_leverage_escape']);
+    }
+
+    public function test_healthy_completion_slope_does_not_add_pressure(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 5, 'active_leases' => 10, 'servable_depth' => 30],
+            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+            context:    ['completion_slope' => 0.90],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
+    }
 }

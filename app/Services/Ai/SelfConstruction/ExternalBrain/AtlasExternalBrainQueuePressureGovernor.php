@@ -50,6 +50,12 @@ final class AtlasExternalBrainQueuePressureGovernor
      *  below HIGH_CLAIMABLE_DEPTH. */
     private const HIGH_SERVABLE_PER_WORKER_RATIO = 5.0;
 
+    /** Below this, live worker completion throughput is considered slowing. */
+    private const LOW_COMPLETION_SLOPE = 0.30;
+
+    /** Servable-per-worker ratio at/above this, combined with a low completion_slope, is deep enough to add pressure. */
+    private const SLOWING_SERVABLE_PER_WORKER_RATIO = 2.0;
+
     private const HIGH_LEVERAGE    = 0.75;
     private const MEDIUM_LEVERAGE  = 0.50;
 
@@ -102,9 +108,15 @@ final class AtlasExternalBrainQueuePressureGovernor
             return $this->result(self::DECISION_ENQUEUE_NOW, "worker starvation: servable_per_worker_ratio={$servablePerWorker} below worker_floor={$workerFloor}; candidate replenishes worker capacity", underPressure: true);
         }
 
+        // completion_slope: rate of live worker completions (1.0 = healthy, near 0 = slowing/stalled).
+        // Absent → treated as healthy (1.0) so existing callers are unaffected.
+        $completionSlope = (float) ($context['completion_slope'] ?? $queueState['completion_slope'] ?? 1.0);
+        $slowingCompletions = $completionSlope < self::LOW_COMPLETION_SLOPE
+            && $servablePerWorker >= self::SLOWING_SERVABLE_PER_WORKER_RATIO;
+
         $highClaimable = $claimableDepth >= self::HIGH_CLAIMABLE_DEPTH;
         $highLeases    = $activeLeases   >= self::HIGH_ACTIVE_LEASES;
-        $queueDeep     = $highClaimable || $highServableRatio;
+        $queueDeep     = $highClaimable || $highServableRatio || $slowingCompletions;
 
         // --- Critical pressure: both dimensions saturated → stop ---
         if ($queueDeep && $highLeases) {
