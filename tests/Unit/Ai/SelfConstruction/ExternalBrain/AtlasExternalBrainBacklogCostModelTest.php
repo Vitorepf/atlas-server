@@ -657,4 +657,54 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
         $this->assertNotSame(AtlasExternalBrainBacklogCostModel::SATURATION_LOW, $result['saturation_risk']);
         $this->assertGreaterThan(0.0, $result['quarantine_worker_drag']);
     }
+
+    // ── Backlog cost circuit: effort, risk, value, and priority recommendation are tied
+    // together into one coherent, explainable decision. ──
+
+    public function test_high_cost_low_value_backlog_item_is_deprioritized_with_coherent_fields(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size' => 50,
+            'claimable_depth' => 25,
+            'give_back_rate' => 0.6,
+            'malformed_rate' => 0.5,
+            'expected_value_density' => 0.1,
+            'impact_confidence' => 0.9,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED, $result['preferred_action']);
+        $this->assertNotEmpty($result['reasons']);
+        $this->assertGreaterThan(0.0, $result['carrying_cost']);
+        $this->assertArrayHasKey('create_more', $result['cost_by_action']);
+        $this->assertSame($result['preferred_action'], $result['recommended_queue_action']['action']);
+        $this->assertSame($result['reasons'], $result['recommended_queue_action']['reasons']);
+    }
+
+    public function test_low_cost_high_value_backlog_item_is_prioritized_with_same_cost_circuit(): void
+    {
+        $lowCostHighValue = $this->model()->model([
+            'backlog_size' => 5,
+            'claimable_depth' => 2,
+            'give_back_rate' => 0.0,
+            'malformed_rate' => 0.0,
+            'expected_value_density' => 0.9,
+            'impact_confidence' => 0.9,
+        ]);
+
+        $highCostLowValue = $this->model()->model([
+            'backlog_size' => 50,
+            'claimable_depth' => 25,
+            'give_back_rate' => 0.6,
+            'malformed_rate' => 0.5,
+            'expected_value_density' => 0.1,
+            'impact_confidence' => 0.9,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainBacklogCostModel::ACTION_SEED, $lowCostHighValue['preferred_action']);
+        $this->assertLessThan($highCostLowValue['carrying_cost'], $lowCostHighValue['carrying_cost']);
+        $this->assertLessThan(
+            $highCostLowValue['cost_by_action']['create_more'],
+            $lowCostHighValue['cost_by_action']['create_more'],
+        );
+    }
 }
