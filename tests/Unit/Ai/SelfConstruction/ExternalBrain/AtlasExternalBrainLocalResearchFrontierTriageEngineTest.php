@@ -29,6 +29,7 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
             'expected_compounding_impact'      => 0.5,
             'implementation_target'            => 'App\\Services\\SomeService.php',
             'test_target'                      => 'tests/Unit/SomeServiceTest.php',
+            'risk_notes'                       => 'Low risk: pure function, no I/O, no provider dependency.',
         ], $overrides);
     }
 
@@ -533,5 +534,40 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngineTest extends Test
         $a = $this->engine()->triage($facts);
         $b = $this->engine()->triage($facts);
         $this->assertSame(json_encode($a), json_encode($b));
+    }
+
+    // ── AC2: missing risk_notes holds for review; AC4: capability-gap prioritization ──
+
+    public function test_high_evidence_row_missing_risk_notes_is_held_not_promoted(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [$this->row(['evidence_strength' => 0.95, 'risk_notes' => ''])],
+        ]);
+        $this->assertSame(0, $r['promising_count']);
+        $this->assertSame(1, $r['hold_for_review_count']);
+        $this->assertSame('held_for_review', $r['hold_for_review'][0]['task_readiness_status']);
+    }
+
+    public function test_promising_row_includes_risk_notes_and_capability_gap_score(): void
+    {
+        $r = $this->engine()->triage(['frontier_rows' => [$this->row(['capability_gap_score' => 0.8])]]);
+        $entry = $r['promising'][0];
+        $this->assertNotEmpty($entry['risk_notes']);
+        $this->assertSame(0.8, $entry['capability_gap_score']);
+        $this->assertNotEmpty($entry['task_seed_hints']['risk_notes']);
+        $this->assertSame(0.8, $entry['task_seed_hints']['capability_gap_score']);
+    }
+
+    public function test_capability_gap_prioritization_outranks_equal_impact_row(): void
+    {
+        $r = $this->engine()->triage([
+            'frontier_rows' => [
+                $this->row(['id' => 'low-gap', 'expected_compounding_impact' => 0.5, 'capability_gap_score' => 0.0]),
+                $this->row(['id' => 'high-gap', 'expected_compounding_impact' => 0.5, 'capability_gap_score' => 0.9]),
+            ],
+        ]);
+
+        $this->assertSame('high-gap', $r['leverage_rank'][0]['id']);
+        $this->assertSame('low-gap', $r['leverage_rank'][1]['id']);
     }
 }

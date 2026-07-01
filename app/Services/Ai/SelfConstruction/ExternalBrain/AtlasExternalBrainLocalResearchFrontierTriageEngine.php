@@ -76,8 +76,10 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             $evidenceUnknown      = (bool) ($row['evidence_quality_unknown']          ?? false);
             $implTarget           = (string) ($row['implementation_target']           ?? '');
             $testTarget           = (string) ($row['test_target']                     ?? '');
+            $riskNotes            = trim((string) ($row['risk_notes']                 ?? ''));
             $sourceFamily         = (string) ($row['source_family']                   ?? '');
             $dedupKey             = (string) ($row['dedup_key'] ?? ($sourceFamily !== '' ? $sourceFamily.':'.$title : $title));
+            $capabilityGapScore   = max(0.0, min(1.0, (float) ($row['capability_gap_score']         ?? 0.0)));
 
             // AC1: deterministic score fields derived from inputs.
             $evidenceQualityScore    = round(min(1.0, $evidence + ($hasCode ? 0.10 : 0.0) + ($hasBenchmark ? 0.10 : 0.0)), 4);
@@ -96,6 +98,7 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                 'expected_compounding_impact' => $compoundImpact,
                 'source_family'               => $sourceFamily,
                 'dedup_key'                   => $dedupKey,
+                'capability_gap_score'        => $capabilityGapScore,
             ];
 
             // 1. Hype-only rejection.
@@ -142,16 +145,17 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
             }
 
             // 6. Promising — AC2: include task_seed_hints. A row cannot become task-ready
-            // without a known implementation_target AND test_target, no matter how strong
-            // its evidence — it holds for review instead of promoting on evidence alone.
+            // without a known implementation_target AND test_target AND risk_notes, no matter
+            // how strong its evidence — it holds for review instead of promoting on evidence alone.
             if ($evidence >= self::PROMISING_MIN && ($hasCode || $hasBenchmark)) {
-                if ($implTarget === '' || $testTarget === '') {
+                if ($implTarget === '' || $testTarget === '' || $riskNotes === '') {
                     $holdForReview[] = array_merge($entry, [
-                        'reason'                    => 'missing_implementation_or_test_target',
+                        'reason'                    => 'missing_implementation_or_test_target_or_risk_notes',
                         'task_readiness_status'     => 'held_for_review',
                         'implementation_target'     => $implTarget,
                         'test_target'               => $testTarget,
-                        'rejection_or_hold_reason'  => 'missing_implementation_or_test_target',
+                        'risk_notes'                => $riskNotes,
+                        'rejection_or_hold_reason'  => 'missing_implementation_or_test_target_or_risk_notes',
                     ]);
                     continue;
                 }
@@ -162,13 +166,16 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
                     'task_readiness_status'    => 'task_ready',
                     'implementation_target'    => $implTarget,
                     'test_target'              => $testTarget,
+                    'risk_notes'               => $riskNotes,
                     'rejection_or_hold_reason' => null,
                     'task_seed_hints' => [
                         'implementation_target' => $implTarget,
                         'test_target'           => $testTarget,
+                        'risk_notes'            => $riskNotes,
                         'expected_leverage'     => $compoundImpact,
                         'source_family'         => $sourceFamily,
                         'dedup_key'             => $dedupKey,
+                        'capability_gap_score'  => $capabilityGapScore,
                     ],
                 ]);
                 continue;
@@ -198,11 +205,12 @@ final class AtlasExternalBrainLocalResearchFrontierTriageEngine
         foreach ($leverageRank as &$row) {
             $familyCount = $familyCounts[$row['source_family']] ?? 1;
             $row['duplicate_family_pressure'] = $familyCount > 1;
-            // Lower-rank score (display-only) penalised by family over-representation; the raw
+            // Lower-rank score (display-only) penalised by family over-representation and boosted
+            // by capability_gap_score — a finding that closes a bigger known Atlas capability gap
+            // outranks one with equal compounding impact but no gap coverage. The raw
             // expected_compounding_impact field is preserved unmodified.
-            $row['rank_score'] = $familyCount > 1
-                ? round($row['expected_compounding_impact'] * (1.0 / $familyCount), 4)
-                : $row['expected_compounding_impact'];
+            $baseScore = $row['expected_compounding_impact'] + 0.5 * $row['capability_gap_score'];
+            $row['rank_score'] = round($familyCount > 1 ? $baseScore / $familyCount : $baseScore, 4);
         }
         unset($row);
         usort($leverageRank, fn ($a, $b): int => $b['rank_score'] <=> $a['rank_score']);
