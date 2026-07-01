@@ -60,6 +60,21 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
     public const CLASS_STALE_CLAIMABLE_BACKLOG = 'stale_claimable_backlog';
 
+    /** claimable_per_active_worker at/below this is a worker-feed floor breach. */
+    public const WORKER_FLOOR_THRESHOLD = 2.0;
+
+    /**
+     * no_claimable outcomes WITH a proven-low claimable_per_active_worker are worker-feed
+     * starvation (repair = top up the task fabric), distinct from generic queue_starvation.
+     */
+    public const CLASS_WORKER_FEED_STARVATION = 'worker_feed_starvation';
+
+    /**
+     * give_back outcomes carrying malformed/underspecified task evidence — a bad packet
+     * shape, never a queue-supply problem.
+     */
+    public const CLASS_PACKET_SHAPE_DEFECT = 'packet_shape_defect';
+
     /**
      * @param  array<string,mixed>  $giveBackFact  the give_back payload as recorded by the worker
      * @return array<string,mixed>
@@ -74,6 +89,14 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
         $class = $this->resolveClass($reason, $giveBackFact);
 
+        // No-claimable outcome with a proven-low worker floor is worker-feed starvation,
+        // not generic queue starvation — the repair action differs (top up vs replenish).
+        if ($class === self::CLASS_NO_CLAIMABLE_TASK && array_key_exists('claimable_per_active_worker', $giveBackFact)
+            && $giveBackFact['claimable_per_active_worker'] !== null
+            && (float) $giveBackFact['claimable_per_active_worker'] <= self::WORKER_FLOOR_THRESHOLD) {
+            $class = self::CLASS_WORKER_FEED_STARVATION;
+        }
+
         $result = [
             'schema_version' => self::SCHEMA,
             'class' => $class,
@@ -86,10 +109,11 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
 
         // Queue starvation carries its own repair signal — claimable depth and active worker
         // count — so the learning class never gets lumped together with bad scope/acceptance.
-        if ($class === self::CLASS_QUEUE_STARVATION) {
+        if ($class === self::CLASS_QUEUE_STARVATION || $class === self::CLASS_WORKER_FEED_STARVATION) {
             $result['queue_floor_facts'] = [
                 'claimable_depth' => isset($giveBackFact['claimable_depth']) ? (int) $giveBackFact['claimable_depth'] : null,
                 'active_worker_count' => isset($giveBackFact['active_worker_count']) ? (int) $giveBackFact['active_worker_count'] : null,
+                'claimable_per_active_worker' => isset($giveBackFact['claimable_per_active_worker']) ? (float) $giveBackFact['claimable_per_active_worker'] : null,
             ];
         }
 
@@ -108,7 +132,9 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
             self::CLASS_STALE_CONTEXT => 'refresh_context_pack',
             self::CLASS_INSUFFICIENT_EVIDENCE => 'add_evidence_ref',
             self::CLASS_NO_CLAIMABLE_TASK => 'originator_top_up',
+            self::CLASS_WORKER_FEED_STARVATION => 'originator_top_up',
             self::CLASS_STALE_CLAIMABLE_BACKLOG => 'rotate_or_refresh_claimable_queue',
+            self::CLASS_PACKET_SHAPE_DEFECT => 'respec_packet_shape',
             default => 'investigate',
         };
     }
@@ -133,6 +159,7 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
             self::CLASS_INSUFFICIENT_EVIDENCE => ['insufficient_evidence', 'verification_amber'],
             self::CLASS_NO_CLAIMABLE_TASK => ['no_claimable_task'],
             self::CLASS_STALE_CLAIMABLE_BACKLOG => ['stale_claimable_backlog'],
+            self::CLASS_PACKET_SHAPE_DEFECT => ['malformed', 'underspecified', 'malformed_packet', 'underspecified_evidence'],
         ];
         foreach ($rules as $class => $needles) {
             foreach ($needles as $needle) {
