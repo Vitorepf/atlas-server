@@ -116,4 +116,94 @@ final class AtlasExternalBrainCrossProjectPortabilityPlanner
 
         return $result;
     }
+
+    /** @var list<string> domain_fit values that count as sufficient project fit. */
+    private const ACCEPTABLE_DOMAIN_FIT = ['high', 'medium'];
+
+    /**
+     * Decides whether a SPECIFIC external-brain pattern (not the whole self-construction runtime)
+     * may transfer into another project. Direct-copies an Atlas-specific pattern into an
+     * incompatible project only ever gets rejected — never silently adapted.
+     *
+     * A portability_plan is emitted ONLY when domain fit, a boundary map, a proof adaptation plan,
+     * a rollback plan, AND risk notes are ALL present; any one missing rejects the transfer instead
+     * of emitting a partial/best-guess plan.
+     *
+     * @param  array{
+     *   pattern_id?: string,
+     *   is_atlas_specific?: bool,
+     *   target_project_compatible?: bool,
+     *   domain_fit?: string,
+     *   boundary_map?: array<string,mixed>,
+     *   proof_adaptation?: string,
+     *   rollback_plan?: string,
+     *   risk_notes?: list<string>,
+     * }  $pattern
+     * @return array{schema:string, verdict:string, reason:string, missing_requirements:list<string>, portability_plan:?array<string,mixed>}
+     */
+    public function planPatternPortability(array $pattern): array
+    {
+        $patternId = (string) ($pattern['pattern_id'] ?? '');
+        $isAtlasSpecific = (bool) ($pattern['is_atlas_specific'] ?? false);
+        $targetCompatible = (bool) ($pattern['target_project_compatible'] ?? true);
+
+        if ($isAtlasSpecific && ! $targetCompatible) {
+            return [
+                'schema' => self::SCHEMA,
+                'verdict' => 'rejected',
+                'reason' => 'atlas_specific_pattern_direct_copy_into_incompatible_project',
+                'missing_requirements' => [],
+                'portability_plan' => null,
+            ];
+        }
+
+        $domainFit = (string) ($pattern['domain_fit'] ?? '');
+        $boundaryMap = is_array($pattern['boundary_map'] ?? null) ? $pattern['boundary_map'] : [];
+        $proofAdaptation = trim((string) ($pattern['proof_adaptation'] ?? ''));
+        $rollbackPlan = trim((string) ($pattern['rollback_plan'] ?? ''));
+        $riskNotes = array_values(array_filter(array_map('strval', (array) ($pattern['risk_notes'] ?? []))));
+
+        $missing = [];
+        if (! in_array($domainFit, self::ACCEPTABLE_DOMAIN_FIT, true)) {
+            $missing[] = 'domain_fit';
+        }
+        if ($boundaryMap === []) {
+            $missing[] = 'boundary_map';
+        }
+        if ($proofAdaptation === '') {
+            $missing[] = 'proof_adaptation';
+        }
+        if ($rollbackPlan === '') {
+            $missing[] = 'rollback_plan';
+        }
+        if ($riskNotes === []) {
+            $missing[] = 'risk_notes';
+        }
+        sort($missing, SORT_STRING);
+
+        if ($missing !== []) {
+            return [
+                'schema' => self::SCHEMA,
+                'verdict' => 'rejected',
+                'reason' => 'missing_required_portability_dimensions',
+                'missing_requirements' => $missing,
+                'portability_plan' => null,
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'verdict' => 'portable',
+            'reason' => 'all_portability_dimensions_present',
+            'missing_requirements' => [],
+            'portability_plan' => [
+                'pattern_id' => $patternId,
+                'domain_fit' => $domainFit,
+                'boundary_map' => $boundaryMap,
+                'proof_adaptation' => $proofAdaptation,
+                'rollback_plan' => $rollbackPlan,
+                'risk_notes' => $riskNotes,
+            ],
+        ];
+    }
 }

@@ -258,4 +258,85 @@ final class AtlasExternalBrainCrossProjectPortabilityPlannerTest extends TestCas
         $r = $this->svc()->plan($this->readyProject());
         $this->assertArrayNotHasKey('blocked_reasons', $r);
     }
+
+    // ── planPatternPortability(): pattern-level transfer decisions ────────────
+
+    private function portablePattern(array $overrides = []): array
+    {
+        return array_merge([
+            'pattern_id' => 'anti-goodhart-check',
+            'domain_fit' => 'high',
+            'boundary_map' => ['atlas.task_packet' => 'sibling.work_item'],
+            'proof_adaptation' => 'Run sibling test suite equivalent of AtlasBrainContractTest.',
+            'rollback_plan' => 'Revert the ported check via feature flag if false-positive rate exceeds 5%.',
+            'risk_notes' => ['sibling project has no evidence ledger yet'],
+        ], $overrides);
+    }
+
+    public function test_portable_pattern_emits_portability_plan(): void
+    {
+        $r = $this->svc()->planPatternPortability($this->portablePattern());
+
+        $this->assertSame('portable', $r['verdict']);
+        $this->assertNotNull($r['portability_plan']);
+        $this->assertSame([], $r['missing_requirements']);
+        $this->assertSame('high', $r['portability_plan']['domain_fit']);
+    }
+
+    public function test_atlas_specific_pattern_rejected_for_incompatible_project(): void
+    {
+        $r = $this->svc()->planPatternPortability($this->portablePattern([
+            'is_atlas_specific' => true,
+            'target_project_compatible' => false,
+        ]));
+
+        $this->assertSame('rejected', $r['verdict']);
+        $this->assertNull($r['portability_plan']);
+        $this->assertStringContainsString('incompatible', $r['reason']);
+    }
+
+    public function test_low_domain_fit_rejects_as_incompatible(): void
+    {
+        $r = $this->svc()->planPatternPortability($this->portablePattern(['domain_fit' => 'low']));
+
+        $this->assertSame('rejected', $r['verdict']);
+        $this->assertContains('domain_fit', $r['missing_requirements']);
+    }
+
+    public function test_missing_boundary_map_rejects_pattern(): void
+    {
+        $r = $this->svc()->planPatternPortability($this->portablePattern(['boundary_map' => []]));
+
+        $this->assertSame('rejected', $r['verdict']);
+        $this->assertContains('boundary_map', $r['missing_requirements']);
+        $this->assertNull($r['portability_plan']);
+    }
+
+    public function test_missing_rollback_and_proof_adaptation_rejects_pattern(): void
+    {
+        $r = $this->svc()->planPatternPortability($this->portablePattern([
+            'proof_adaptation' => '',
+            'rollback_plan' => '',
+        ]));
+
+        $this->assertSame('rejected', $r['verdict']);
+        $this->assertContains('proof_adaptation', $r['missing_requirements']);
+        $this->assertContains('rollback_plan', $r['missing_requirements']);
+    }
+
+    public function test_missing_risk_notes_rejects_pattern(): void
+    {
+        $r = $this->svc()->planPatternPortability($this->portablePattern(['risk_notes' => []]));
+
+        $this->assertSame('rejected', $r['verdict']);
+        $this->assertContains('risk_notes', $r['missing_requirements']);
+    }
+
+    public function test_plan_pattern_portability_is_deterministic(): void
+    {
+        $pattern = $this->portablePattern();
+        $a = $this->svc()->planPatternPortability($pattern);
+        $b = $this->svc()->planPatternPortability($pattern);
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }
