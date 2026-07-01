@@ -205,6 +205,11 @@ final class AtlasExternalBrainOperatorIndependenceVerifierTest extends TestCase
             AtlasExternalBrainOperatorIndependenceVerifier::DEP_OPERATOR,
             $result['blocking_dependencies'][0]['dependency_type'],
         );
+        $this->assertSame(
+            'replace_operator_approval_with_atlas_gate_or_evidence_check',
+            $result['blocking_dependencies'][0]['unblock_action'],
+        );
+        $this->assertSame($result['next_unblock_action'], $result['blocking_dependencies'][0]['unblock_action']);
     }
 
     public function test_human_dependency_on_critical_path_is_blocking(): void
@@ -218,6 +223,11 @@ final class AtlasExternalBrainOperatorIndependenceVerifierTest extends TestCase
             AtlasExternalBrainOperatorIndependenceVerifier::DEP_HUMAN,
             $result['blocking_dependencies'][0]['dependency_type'],
         );
+        $this->assertSame(
+            'replace_human_step_with_atlas_native_automation',
+            $result['blocking_dependencies'][0]['unblock_action'],
+        );
+        $this->assertSame($result['next_unblock_action'], $result['blocking_dependencies'][0]['unblock_action']);
     }
 
     public function test_claude_codex_without_proven_native_path_is_blocking(): void
@@ -233,6 +243,10 @@ final class AtlasExternalBrainOperatorIndependenceVerifierTest extends TestCase
         ]));
 
         $this->assertFalse($result['passed']);
+        $this->assertSame(
+            'mark_as_bootstrap_only_and_prove_atlas_native_path',
+            $result['blocking_dependencies'][0]['unblock_action'],
+        );
     }
 
     public function test_external_provider_on_critical_path_without_bootstrap_flag_is_blocking(): void
@@ -248,6 +262,10 @@ final class AtlasExternalBrainOperatorIndependenceVerifierTest extends TestCase
         ]));
 
         $this->assertFalse($result['passed']);
+        $this->assertSame(
+            'mark_as_bootstrap_only_and_prove_atlas_native_path',
+            $result['blocking_dependencies'][0]['unblock_action'],
+        );
     }
 
     // ── next_unblock_action ───────────────────────────────────────────────────
