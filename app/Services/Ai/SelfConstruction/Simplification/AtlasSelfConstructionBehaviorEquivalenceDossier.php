@@ -29,10 +29,18 @@ final class AtlasSelfConstructionBehaviorEquivalenceDossier
      *   fixtures?: list<string>,
      *   baseline_outputs?: array<string,mixed>,
      *   current_outputs?: array<string,mixed>,
+     *   baseline_errors?: array<string,mixed>,
+     *   current_errors?: array<string,mixed>,
+     *   baseline_side_effects?: array<string,mixed>,
+     *   current_side_effects?: array<string,mixed>,
+     *   baseline_command_exit?: array<string,mixed>,
+     *   current_command_exit?: array<string,mixed>,
+     *   baseline_tests?: array<string,mixed>,
+     *   current_tests?: array<string,mixed>,
      *   tolerated_deltas?: list<string>,
      *   replay_checks?: list<string>,
      * }  $candidate
-     * @return array{schema:string, status:string, blocked_reasons:list<string>, dossier_hash:?string}
+     * @return array{schema:string, status:string, equivalence_proven:bool, blocked_reasons:list<string>, dossier_hash:?string}
      */
     public function evaluate(array $candidate): array
     {
@@ -72,10 +80,20 @@ final class AtlasSelfConstructionBehaviorEquivalenceDossier
             }
         }
 
+        foreach ([
+            ['baseline_errors', 'current_errors', 'missing_error_expectations', 'error_parity_missing'],
+            ['baseline_side_effects', 'current_side_effects', 'missing_side_effect_receipts', 'side_effect_parity_missing'],
+            ['baseline_command_exit', 'current_command_exit', 'missing_command_exit_expectations', 'command_exit_parity_missing'],
+            ['baseline_tests', 'current_tests', 'missing_test_parity_expectations', 'test_parity_missing'],
+        ] as [$baselineKey, $currentKey, $missingReason, $parityReason]) {
+            $reasons = [...$reasons, ...$this->parityReasons($candidate, $baselineKey, $currentKey, $toleratedDeltas, $missingReason, $parityReason)];
+        }
+
         if ($reasons !== []) {
             return [
                 'schema' => self::SCHEMA,
                 'status' => self::STATUS_BLOCKED,
+                'equivalence_proven' => false,
                 'blocked_reasons' => $reasons,
                 'dossier_hash' => null,
             ];
@@ -84,9 +102,29 @@ final class AtlasSelfConstructionBehaviorEquivalenceDossier
         return [
             'schema' => self::SCHEMA,
             'status' => self::STATUS_READY,
+            'equivalence_proven' => true,
             'blocked_reasons' => [],
             'dossier_hash' => $this->stableHash($candidateId, $fixtures, $baseline, $current, $replayChecks),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @param  list<string>  $toleratedDeltas
+     * @return list<string>
+     */
+    private function parityReasons(array $candidate, string $baselineKey, string $currentKey, array $toleratedDeltas, string $missingReason, string $parityReason): array
+    {
+        $baseline = (array) ($candidate[$baselineKey] ?? []);
+        $current = (array) ($candidate[$currentKey] ?? []);
+
+        if ($baseline === [] || $current === []) {
+            return [$missingReason];
+        }
+
+        $divergent = $this->divergentKeys($baseline, $current, $toleratedDeltas);
+
+        return $divergent !== [] ? [$parityReason.':'.implode(',', $divergent)] : [];
     }
 
     /**
