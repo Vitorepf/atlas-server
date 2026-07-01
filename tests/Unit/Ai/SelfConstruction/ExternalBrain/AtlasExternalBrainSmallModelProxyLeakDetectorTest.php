@@ -28,7 +28,7 @@ final class AtlasExternalBrainSmallModelProxyLeakDetectorTest extends TestCase
                 . ' and returning a structured calibration report with no side effects.',
             'acceptance_criteria' => [
                 'Runnable: /opt/homebrew/bin/php artisan test AtlasScorerTest exits 0.',
-                'The scorer returns rejected=false for evidence-grounded specs.',
+                'The test asserts the scorer returns rejected=false for evidence-grounded specs.',
             ],
             'evidence_fields' => ['tests_or_gates_result', 'implementation_notes'],
             'template_signature' => 'sig_abc123',
@@ -60,7 +60,7 @@ final class AtlasExternalBrainSmallModelProxyLeakDetectorTest extends TestCase
                 . ' validates schema contracts, and emits a deterministic DataHandlerResult with no side effects.',
             'acceptance_criteria' => [
                 'Runnable: /opt/homebrew/bin/php artisan test --filter=AtlasDataHandlerServiceTest exits 0.',
-                'AtlasDataHandlerService returns a validated DataHandlerResult for every valid input.',
+                'The test asserts AtlasDataHandlerService returns a validated DataHandlerResult for every valid input.',
             ],
             'evidence_fields' => ['tests_or_gates_result', 'implementation_notes'],
         ];
@@ -475,5 +475,47 @@ final class AtlasExternalBrainSmallModelProxyLeakDetectorTest extends TestCase
         $this->assertFalse($r['rejected']);
         $this->assertSame('clean', $r['severity']);
         $this->assertNull($r['killed_reason']);
+    }
+
+    // ── weak_acceptance signal ─────────────────────────────────────────────────
+
+    public function test_bare_exits_zero_acceptance_with_no_assertion_triggers_weak_acceptance(): void
+    {
+        $r = $this->detect([
+            'objective' => 'Implement AtlasCapabilityScorer to compute delta scores across five capability dimensions and return a structured result with no side effects.',
+            'acceptance_criteria' => ['Runnable: php artisan test AtlasCapabilityScorerTest exits 0.'],
+            'evidence_fields' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertContains('weak_acceptance', $r['leak_reasons']);
+        $this->assertTrue($r['rejected']);
+    }
+
+    public function test_runnable_acceptance_with_behavior_assertion_and_value_proof_is_not_weak(): void
+    {
+        $r = $this->detect([
+            'objective' => 'Implement AtlasCapabilityScorer to compute delta scores across five capability dimensions and return a structured result with no side effects.',
+            'acceptance_criteria' => [
+                'Runnable: php artisan test AtlasCapabilityScorerTest exits 0.',
+                'The test asserts the scorer emits a positive value_delta for capability growth.',
+            ],
+            'evidence_fields' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertNotContains('weak_acceptance', $r['leak_reasons']);
+    }
+
+    public function test_template_repetition_and_excessive_similarity_remain_active_alongside_weak_acceptance(): void
+    {
+        $spec = $this->goodSpec();
+        $spec['acceptance_criteria'] = ['Runnable: php artisan test AtlasScorerTest exits 0.'];
+        $spec['prior_signatures'][] = 'sig_abc123';
+        $spec['recent_accepted_specs'] = [$spec['objective']];
+
+        $r = $this->detect($spec);
+
+        $this->assertContains('template_repetition', $r['leak_reasons']);
+        $this->assertContains('excessive_similarity', $r['leak_reasons']);
+        $this->assertContains('weak_acceptance', $r['leak_reasons']);
     }
 }

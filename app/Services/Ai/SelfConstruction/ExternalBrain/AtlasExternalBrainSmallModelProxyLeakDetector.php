@@ -45,6 +45,9 @@ final class AtlasExternalBrainSmallModelProxyLeakDetector
 
     private const SCORE_KEYWORDS = ['score', 'metric', 'percentage', '%', 'rate', 'benchmark', 'threshold'];
 
+    /** Markers proving a criterion asserts real behavior/value, not just a bare exit code. */
+    private const STRONG_ACCEPTANCE_MARKERS = ['assert', 'behavior', 'value_delta', 'proves', 'verifies'];
+
     private const SCAFFOLD_PHRASES = [
         'implement the following',
         'as specified above',
@@ -66,6 +69,7 @@ final class AtlasExternalBrainSmallModelProxyLeakDetector
         'generic_objective'    => 0.20,
         'scaffold_repetition'  => 0.20,
         'excessive_similarity' => 0.35,
+        'weak_acceptance'      => 0.25,
     ];
 
     private const REPAIR_HINTS = [
@@ -76,6 +80,7 @@ final class AtlasExternalBrainSmallModelProxyLeakDetector
         'generic_objective'    => 'Name the concrete class (PascalCase FQCN) or file path in the objective or acceptance criteria.',
         'scaffold_repetition'  => 'Remove generic scaffold phrases; describe the specific implementation decision and logic being added.',
         'excessive_similarity' => 'This spec is too similar to a recently accepted spec. Originate a genuinely distinct objective targeting a different problem.',
+        'weak_acceptance'      => 'Add a concrete behavior assertion or value proof (assert/behavior/value_delta) to acceptance_criteria, not just a bare exit-code check.',
     ];
 
     /**
@@ -113,6 +118,24 @@ final class AtlasExternalBrainSmallModelProxyLeakDetector
         }
         if (! $hasRunnable || empty($evidence)) {
             $leakReasons[] = 'missing_evidence';
+        }
+
+        // 2b. Weak acceptance — runnable (e.g. bare "exits 0") but no criterion asserts a concrete
+        // behavior or value proof, so a spec can pass the gate while proving nothing meaningful.
+        if ($hasRunnable) {
+            $hasStrongAssertion = false;
+            foreach ($acceptance as $criterion) {
+                $lower = strtolower((string) $criterion);
+                foreach (self::STRONG_ACCEPTANCE_MARKERS as $marker) {
+                    if (str_contains($lower, $marker)) {
+                        $hasStrongAssertion = true;
+                        break 2;
+                    }
+                }
+            }
+            if (! $hasStrongAssertion) {
+                $leakReasons[] = 'weak_acceptance';
+            }
         }
 
         // 3. Cosmetic wrapper — short objective that only describes thin delegation
