@@ -20,10 +20,20 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   (no action emitted for healthy organs below growth_threshold)
  *
  * NEW OUTPUT FIELDS (all candidates):
- *   expected_line_reduction — abs(expected_line_delta), ≥0
- *   preserved_contracts     — contracts that must survive the action
- *   required_tests          — tests that must stay green before/after action
- *   retire_now              — true ONLY for low-risk delete of non-behavior-unique organ
+ *   expected_line_reduction   — abs(expected_line_delta), ≥0
+ *   preserved_contracts       — contracts that must survive the action
+ *   required_tests            — tests that must stay green before/after action
+ *   retire_now                — true ONLY for low-risk delete of non-behavior-unique organ
+ *   proof_gates                — evidence gates required before executing a compression action
+ *   next_task_recommendation   — deterministic next step for this candidate
+ *
+ * PROOF-GATE FACTS (per organ, default true so existing callers are unaffected):
+ *   consumer_impact_assessed    — has the blast radius on active consumers been assessed
+ *   parity_proof_available      — is there proof the change preserves behavior
+ *   rollback_evidence_available — is there a proven rollback path
+ * A delete/merge/simplify candidate is never proposed when any of these three facts is
+ * explicitly false for a participating organ — it is downgraded to keep with
+ * reason=missing_proof_gate_evidence instead.
  *
  * COMPRESSION SCORE (deterministic, higher = more valuable to execute first):
  *   Base:    delete=40, merge=30, simplify=20, keep=0
@@ -153,6 +163,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             $feedsActiveWorkers = (bool) ($organ['feeds_active_workers'] ?? false);
             $replacementClaimablePath = (bool) ($organ['replacement_claimable_path'] ?? false);
             $activeConsumers = array_values(array_filter(array_map('strval', (array) ($organ['active_consumers'] ?? []))));
+            $proofGatesPassed = $this->proofGatesPassed($organ);
             sort($files);
             sort($contracts);
             sort($requiredTests);
@@ -161,8 +172,31 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 // behavior_unique never blocks the delete action itself — it only forces
                 // retire_now=false (an organ can be safely deleted-and-replaced while still
                 // being behaviorally unique). active_consumers DOES block delete outright: a
-                // live consumer makes deletion unsafe regardless of owner/coverage.
-                $safeToDelete = $hasOwner && $hasCoverage && $activeConsumers === [];
+                // live consumer makes deletion unsafe regardless of owner/coverage. Proof
+                // gates (consumer impact, parity proof, rollback evidence) default true so
+                // callers that never set them are unaffected.
+                $structurallySafe = $hasOwner && $hasCoverage && $activeConsumers === [];
+                $safeToDelete     = $structurallySafe && $proofGatesPassed;
+
+                if ($structurallySafe && ! $proofGatesPassed) {
+                    $candidates[] = [
+                        'candidate_id'            => 'keep:'.$id.':missing_proof_gate_evidence',
+                        'action'                  => self::ACTION_KEEP,
+                        'impacted_files'          => $files,
+                        'expected_line_delta'     => 0,
+                        'risk_level'              => 'high',
+                        'evidence_floor'          => 'consumer_impact_assessed:'.($organ['consumer_impact_assessed'] ?? true ? 'true' : 'false')
+                            .' AND parity_proof_available:'.($organ['parity_proof_available'] ?? true ? 'true' : 'false')
+                            .' AND rollback_evidence_available:'.($organ['rollback_evidence_available'] ?? true ? 'true' : 'false'),
+                        'reason'                  => 'missing_proof_gate_evidence',
+                        'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
+                        'expected_line_reduction' => 0,
+                        'preserved_contracts'     => $contracts,
+                        'required_tests'          => $requiredTests,
+                        'retire_now'              => false,
+                    ];
+                    continue;
+                }
 
                 if ($safeToDelete && ! ($workerFloorLow && $feedsActiveWorkers && ! $replacementClaimablePath)) {
                     $lineDelta = -$lineCount;
@@ -238,7 +272,24 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             }
 
             if ($lineCount >= $growthThreshold) {
-                if ($hasCoverage) {
+                if ($hasCoverage && ! $proofGatesPassed) {
+                    $candidates[] = [
+                        'candidate_id'            => 'keep:'.$id.':missing_proof_gate_evidence',
+                        'action'                  => self::ACTION_KEEP,
+                        'impacted_files'          => $files,
+                        'expected_line_delta'     => 0,
+                        'risk_level'              => 'high',
+                        'evidence_floor'          => 'consumer_impact_assessed:'.($organ['consumer_impact_assessed'] ?? true ? 'true' : 'false')
+                            .' AND parity_proof_available:'.($organ['parity_proof_available'] ?? true ? 'true' : 'false')
+                            .' AND rollback_evidence_available:'.($organ['rollback_evidence_available'] ?? true ? 'true' : 'false'),
+                        'reason'                  => 'missing_proof_gate_evidence',
+                        'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
+                        'expected_line_reduction' => 0,
+                        'preserved_contracts'     => $contracts,
+                        'required_tests'          => $requiredTests,
+                        'retire_now'              => false,
+                    ];
+                } elseif ($hasCoverage) {
                     $simplifyDelta = -(int) round($lineCount * 0.15);
                     $candidates[]  = [
                         'candidate_id'            => 'simplify:'.$id,
@@ -271,6 +322,15 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 }
             }
         }
+
+        foreach ($candidates as &$candidate) {
+            $candidate['proof_gates']              = $this->proofGatesFor((string) $candidate['action']);
+            $candidate['next_task_recommendation'] = $this->nextTaskRecommendation(
+                (string) $candidate['action'],
+                isset($candidate['reason']) ? (string) $candidate['reason'] : null,
+            );
+        }
+        unset($candidate);
 
         usort($candidates, static function (array $a, array $b): int {
             $ao = self::ACTION_ORDER[$a['action']] ?? 4;
@@ -339,11 +399,13 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
         $reqTests   = [];
         $groupFeedsActiveWorkers = false;
         $groupHasReplacementClaimablePath = false;
+        $groupProofGatesPassed = true;
 
         foreach ($uniqueIds as $id) {
             $meta = $organMeta[$id] ?? [];
             $groupFeedsActiveWorkers = $groupFeedsActiveWorkers || ($meta['feeds_active_workers'] ?? false);
             $groupHasReplacementClaimablePath = $groupHasReplacementClaimablePath || ($meta['replacement_claimable_path'] ?? false);
+            $groupProofGatesPassed = $groupProofGatesPassed && ($meta['proof_gates_passed'] ?? true);
             foreach ($meta['files'] ?? [] as $f) {
                 if ($f !== '' && ! in_array($f, $files, true)) {
                     $files[] = $f;
@@ -368,6 +430,28 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
         $mergeDelta = -(int) round($totalLines * 0.20);
         $mergeRisk  = count($uniqueIds) > 3 ? 'high' : 'medium';
         $workerFeedPreserved = ! $groupFeedsActiveWorkers || $groupHasReplacementClaimablePath;
+
+        if (! $groupProofGatesPassed) {
+            return [
+                'candidate_id'            => 'keep:merge_blocked:'.$groupType.':'.implode('+', $uniqueIds),
+                'action'                  => self::ACTION_KEEP,
+                'impacted_files'          => $files,
+                'expected_line_delta'     => 0,
+                'risk_level'              => 'high',
+                'evidence_floor'          => 'proof_gates_passed:false',
+                'reason'                  => 'missing_proof_gate_evidence',
+                'group_type'              => $groupType,
+                'group_label'             => $groupLabel,
+                'organ_ids'               => $uniqueIds,
+                'duplicate_label'         => $groupLabel,
+                'expected_line_reduction' => 0,
+                'preserved_contracts'     => $contracts,
+                'required_tests'          => $reqTests,
+                'retire_now'              => false,
+                'worker_feed_preserved'   => $workerFeedPreserved,
+                'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', false, true),
+            ];
+        }
 
         if ($workerFloorLow && $groupFeedsActiveWorkers && ! $groupHasReplacementClaimablePath) {
             // Worker-floor protection: merging these organs would temporarily strand active
@@ -507,10 +591,54 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                 'required_tests' => is_array($organ['required_tests'] ?? null) ? array_map('strval', (array) $organ['required_tests']) : [],
                 'feeds_active_workers' => (bool) ($organ['feeds_active_workers'] ?? false),
                 'replacement_claimable_path' => (bool) ($organ['replacement_claimable_path'] ?? false),
+                'proof_gates_passed' => $this->proofGatesPassed($organ),
             ];
         }
 
         return $meta;
+    }
+
+    /**
+     * A compression action is never proposed for an organ whose consumer impact, parity
+     * proof, or rollback evidence is explicitly marked unavailable. All three facts default
+     * to true (assessed/available) so existing callers that never set them are unaffected.
+     *
+     * @param  array<string,mixed>  $organ
+     */
+    private function proofGatesPassed(array $organ): bool
+    {
+        return (bool) ($organ['consumer_impact_assessed'] ?? true)
+            && (bool) ($organ['parity_proof_available'] ?? true)
+            && (bool) ($organ['rollback_evidence_available'] ?? true);
+    }
+
+    /** @return list<string> */
+    private function proofGatesFor(string $action): array
+    {
+        return match ($action) {
+            self::ACTION_DELETE, self::ACTION_MERGE, self::ACTION_SIMPLIFY => [
+                'consumer_impact_assessed',
+                'parity_proof_available',
+                'rollback_evidence_available',
+            ],
+            default => [],
+        };
+    }
+
+    private function nextTaskRecommendation(string $action, ?string $reason): string
+    {
+        return match (true) {
+            $action === self::ACTION_DELETE => 'execute_delete_then_verify_required_tests_and_preserved_contracts',
+            $action === self::ACTION_MERGE => 'consolidate_organs_then_verify_required_tests_and_preserved_contracts',
+            $action === self::ACTION_SIMPLIFY => 'apply_simplification_then_verify_required_tests_and_preserved_contracts',
+            $reason === 'worker_feed_capacity_protected' => 'supply_replacement_claimable_path_then_retry',
+            $reason === 'has_active_consumers' => 'migrate_active_consumers_off_organ_then_retry',
+            $reason === 'no_replacement_owner' => 'assign_replacement_owner_then_retry',
+            $reason === 'missing_test_coverage' => 'add_test_coverage_then_retry',
+            $reason === 'missing_test_coverage_for_simplification' => 'add_test_coverage_then_retry_simplification',
+            $reason === 'missing_proof_gate_evidence' => 'gather_consumer_impact_parity_and_rollback_evidence_then_retry',
+            default => 'no_action_required',
+        };
     }
 
     /**

@@ -496,4 +496,134 @@ final class AtlasExternalBrainArchitectureCompressionPlannerTest extends TestCas
         $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
         $this->assertSame('has_active_consumers', $candidate['reason']);
     }
+
+    // ── proof gates: consumer impact / parity proof / rollback evidence ──────
+
+    public function test_delete_without_consumer_impact_assessment_is_rejected(): void
+    {
+        $organ = $this->organ('unassessed_delete', [
+            'stale_scaffold_marker'    => true,
+            'test_coverage'            => true,
+            'replacement_owner'        => 'owner',
+            'consumer_impact_assessed' => false,
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => [$organ]]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('missing_proof_gate_evidence', $candidate['reason']);
+    }
+
+    public function test_delete_without_parity_proof_is_rejected(): void
+    {
+        $organ = $this->organ('no_parity_delete', [
+            'stale_scaffold_marker' => true,
+            'test_coverage'         => true,
+            'replacement_owner'     => 'owner',
+            'parity_proof_available' => false,
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => [$organ]]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('missing_proof_gate_evidence', $candidate['reason']);
+    }
+
+    public function test_delete_without_rollback_evidence_is_rejected(): void
+    {
+        $organ = $this->organ('no_rollback_delete', [
+            'stale_scaffold_marker' => true,
+            'test_coverage'         => true,
+            'replacement_owner'     => 'owner',
+            'rollback_evidence_available' => false,
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => [$organ]]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('missing_proof_gate_evidence', $candidate['reason']);
+    }
+
+    public function test_delete_with_all_proof_gates_defaulted_true_still_deletes(): void
+    {
+        $organ = $this->organ('defaulted_delete', [
+            'stale_scaffold_marker' => true,
+            'test_coverage'         => true,
+            'replacement_owner'     => 'owner',
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => [$organ]]);
+
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_DELETE, $result['candidates'][0]['action']);
+    }
+
+    public function test_merge_without_parity_proof_on_one_organ_is_rejected(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('ma', ['capability_labels' => ['shared'], 'parity_proof_available' => false]),
+                $this->organ('mb', ['capability_labels' => ['shared']]),
+            ],
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('missing_proof_gate_evidence', $candidate['reason']);
+    }
+
+    public function test_simplify_without_rollback_evidence_is_rejected(): void
+    {
+        $organ = $this->organ('big_no_rollback', [
+            'line_count' => 300,
+            'test_coverage' => true,
+            'rollback_evidence_available' => false,
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs'           => [$organ],
+            'growth_threshold' => 200,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('missing_proof_gate_evidence', $candidate['reason']);
+    }
+
+    // ── proof_gates + next_task_recommendation output fields ─────────────────
+
+    public function test_delete_candidate_has_proof_gates_and_next_task_recommendation(): void
+    {
+        $organ = $this->organ('del_np', [
+            'stale_scaffold_marker' => true,
+            'test_coverage'         => true,
+            'replacement_owner'     => 'owner',
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => [$organ]]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(
+            ['consumer_impact_assessed', 'parity_proof_available', 'rollback_evidence_available'],
+            $candidate['proof_gates'],
+        );
+        $this->assertSame('execute_delete_then_verify_required_tests_and_preserved_contracts', $candidate['next_task_recommendation']);
+    }
+
+    public function test_keep_candidate_has_empty_proof_gates_and_actionable_next_task_recommendation(): void
+    {
+        $organ = $this->organ('stale_blocked_np', [
+            'stale_scaffold_marker' => true,
+            'test_coverage'         => false,
+            'replacement_owner'     => '',
+        ]);
+
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan(['organs' => [$organ]]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame([], $candidate['proof_gates']);
+        $this->assertSame('assign_replacement_owner_then_retry', $candidate['next_task_recommendation']);
+    }
 }
