@@ -49,26 +49,36 @@ final class AtlasMaestroPacketSchemaDeprecationGate
      *   deprecated_schema_no_lossless_upgrade_proof:{schema_id}
      *   retired_schema_not_servable:{schema_id}
      *
+     * metadata_missing=true whenever the schema is absent from the registry (empty
+     * schema_version or unrecognized id) — servable stays true (an unregistered schema is not
+     * deprecated), but this field exists so a missing-metadata packet is never mistaken for a
+     * proven-safe one downstream (AC4).
+     *
+     * blocker_details carries the same information as blockers, but structured per AC2:
+     * {blocker, schema_id, schema_status, recommended_migration_target}.
+     *
      * Pure — no network, no queue mutation, no provider calls.
      *
      * @param  array<string,mixed>  $packet
-     * @return array{servable: bool, blockers: list<string>, schema_status: string, schema_id: string}
+     * @return array{servable: bool, blockers: list<string>, schema_status: string, schema_id: string, metadata_missing: bool, recommended_migration_target: ?string, blocker_details: list<array<string,mixed>>}
      */
     public static function check(array $packet): array
     {
         $schemaId = (string) ($packet['schema_version'] ?? '');
         if ($schemaId === '') {
-            return ['servable' => true, 'blockers' => [], 'schema_status' => 'unknown', 'schema_id' => ''];
+            return self::result(true, [], 'unknown', '', true, null);
         }
         $registry = self::$registryOverride ?? new AtlasMaestroPacketSchemaVersioning();
         if (! $registry->supports($schemaId)) {
-            return ['servable' => true, 'blockers' => [], 'schema_status' => 'unknown', 'schema_id' => $schemaId];
+            return self::result(true, [], 'unknown', $schemaId, true, null);
         }
         $row = $registry->describe($schemaId);
         $status = (string) ($row['status'] ?? '');
+        $successor = (string) ($row['successor'] ?? '');
+        $migrationTarget = $successor !== '' ? $successor : null;
 
         if (! in_array($status, [AtlasMaestroPacketSchemaVersioning::STATUS_DEPRECATED, AtlasMaestroPacketSchemaVersioning::STATUS_RETIRED], true)) {
-            return ['servable' => true, 'blockers' => [], 'schema_status' => $status, 'schema_id' => $schemaId];
+            return self::result(true, [], $status, $schemaId, false, $migrationTarget);
         }
 
         $blockers = [];
@@ -77,7 +87,6 @@ final class AtlasMaestroPacketSchemaDeprecationGate
             $blockers[] = 'retired_schema_not_servable:'.$schemaId;
         } else {
             // deprecated — pass only when a lossless upgrade path is proven
-            $successor = (string) ($row['successor'] ?? '');
             $hasLosslessUpgrade = $successor !== ''
                 && $registry->supports($successor)
                 && ! in_array(
@@ -90,7 +99,35 @@ final class AtlasMaestroPacketSchemaDeprecationGate
             }
         }
 
-        return ['servable' => $blockers === [], 'blockers' => $blockers, 'schema_status' => $status, 'schema_id' => $schemaId];
+        return self::result($blockers === [], $blockers, $status, $schemaId, false, $migrationTarget);
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @return array{servable: bool, blockers: list<string>, schema_status: string, schema_id: string, metadata_missing: bool, recommended_migration_target: ?string, blocker_details: list<array<string,mixed>>}
+     */
+    private static function result(
+        bool $servable,
+        array $blockers,
+        string $schemaStatus,
+        string $schemaId,
+        bool $metadataMissing,
+        ?string $migrationTarget,
+    ): array {
+        return [
+            'servable' => $servable,
+            'blockers' => $blockers,
+            'schema_status' => $schemaStatus,
+            'schema_id' => $schemaId,
+            'metadata_missing' => $metadataMissing,
+            'recommended_migration_target' => $migrationTarget,
+            'blocker_details' => array_map(static fn (string $blocker): array => [
+                'blocker' => $blocker,
+                'schema_id' => $schemaId,
+                'schema_status' => $schemaStatus,
+                'recommended_migration_target' => $migrationTarget,
+            ], $blockers),
+        ];
     }
 
     /**
