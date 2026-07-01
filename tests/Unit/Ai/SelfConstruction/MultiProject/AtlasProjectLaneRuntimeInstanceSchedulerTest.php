@@ -385,6 +385,43 @@ final class AtlasProjectLaneRuntimeInstanceSchedulerTest extends TestCase
             'higher urgency must still win over a starved lower-urgency lane');
     }
 
+    public function test_severely_starved_lane_preempts_merely_high_urgency_non_critical_lane(): void
+    {
+        // 'merely-high' has higher urgency than 'starved', but neither is critical-urgency, and
+        // 'starved' has crossed the HARD starvation count threshold — it must preempt.
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('merely-high', 'p1'),
+            $this->laneInstance('starved', 'p2'),
+        ], [
+            'max_parallel_lanes' => 1,
+            'lane_health' => [
+                'merely-high' => ['urgency' => 6],
+                'starved' => ['urgency' => 3, 'starvation_count' => AtlasProjectLaneRuntimeInstanceScheduler::HARD_STARVATION_COUNT_THRESHOLD],
+            ],
+        ]);
+
+        $this->assertSame('starved', $r['tick_now'][0]['lane_id'],
+            'severely starved lane must preempt a merely-high (non-critical) urgency lane');
+        $this->assertSame('merely-high', $r['blocked_lanes'][0]['lane_id']);
+    }
+
+    public function test_critical_urgency_lane_still_wins_over_hard_starved_lane(): void
+    {
+        $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([
+            $this->laneInstance('critical', 'p1'),
+            $this->laneInstance('starved', 'p2'),
+        ], [
+            'max_parallel_lanes' => 1,
+            'lane_health' => [
+                'critical' => ['urgency' => AtlasProjectLaneRuntimeInstanceScheduler::CRITICAL_URGENCY_THRESHOLD],
+                'starved' => ['urgency' => 1, 'starvation_count' => 999],
+            ],
+        ]);
+
+        $this->assertSame('critical', $r['tick_now'][0]['lane_id'],
+            'critical-urgency lane must still win even over an extremely starved lane');
+    }
+
     public function test_tick_now_fairness_reasons_present_for_each_scheduled_lane(): void
     {
         $r = (new AtlasProjectLaneRuntimeInstanceScheduler)->plan([

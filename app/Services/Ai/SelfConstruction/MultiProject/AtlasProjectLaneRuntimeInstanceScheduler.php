@@ -45,6 +45,15 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
 
     public const STARVATION_TICK_AGE_THRESHOLD_SECONDS = 300;
 
+    /** Urgency at/above this is treated as critical and always wins, even over hard-starved lanes. */
+    public const CRITICAL_URGENCY_THRESHOLD = 8;
+
+    /** Crossing this (well past the soft STARVATION_COUNT_THRESHOLD) lets a lane preempt a
+     *  merely-high (non-critical) urgency lane, not just tie-break lanes of equal urgency. */
+    public const HARD_STARVATION_COUNT_THRESHOLD = 8;
+
+    public const HARD_STARVATION_TICK_AGE_THRESHOLD_SECONDS = 900;
+
     /**
      * @param  list<array<string,mixed>>  $instances output of {@see AtlasProjectLaneRuntimeInstanceRegistry::build}.instances
      * @param  array<string,mixed>  $facts {max_parallel_lanes?, lane_health?, budget?}
@@ -129,27 +138,36 @@ final class AtlasProjectLaneRuntimeInstanceScheduler
 
             $starvationCount = (int) ($laneFacts['starvation_count'] ?? 0);
             $timeSinceTick   = (int) ($laneFacts['time_since_last_tick_seconds'] ?? 0);
+            $urgency = (int) ($laneFacts['urgency'] ?? 0);
             $starvationBoosted = $starvationCount >= self::STARVATION_COUNT_THRESHOLD
                 || $timeSinceTick >= self::STARVATION_TICK_AGE_THRESHOLD_SECONDS;
+            $hardStarved = $starvationCount >= self::HARD_STARVATION_COUNT_THRESHOLD
+                || $timeSinceTick >= self::HARD_STARVATION_TICK_AGE_THRESHOLD_SECONDS;
+            $criticalUrgency = $urgency >= self::CRITICAL_URGENCY_THRESHOLD;
 
             $ready[] = [
                 'instance' => $instance,
-                'urgency' => (int) ($laneFacts['urgency'] ?? 0),
+                'urgency' => $urgency,
                 'heartbeat_age_seconds' => (int) ($laneFacts['heartbeat_age_seconds'] ?? 0),
                 'lane_id' => $laneId,
                 'starvation_boosted' => $starvationBoosted,
                 'starvation_count' => $starvationCount,
                 'time_since_last_tick' => $timeSinceTick,
+                // Non-critical-urgency tier: a hard-starved lane preempts a merely-high-urgency lane
+                // instead of only tie-breaking lanes of equal urgency (starvation_boosted, below).
+                'preempt_tier' => $criticalUrgency ? 0 : ($hardStarved ? 1 : 2),
             ];
         }
 
         usort($ready, static function (array $a, array $b): int {
             return [
+                $a['preempt_tier'],
                 -$a['urgency'],
                 $a['starvation_boosted'] ? 0 : 1,
                 -$a['heartbeat_age_seconds'],
                 $a['lane_id'],
             ] <=> [
+                $b['preempt_tier'],
                 -$b['urgency'],
                 $b['starvation_boosted'] ? 0 : 1,
                 -$b['heartbeat_age_seconds'],
