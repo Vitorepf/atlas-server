@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyDecisionReceiptLedger;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyDegradationPolicy;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyLevelLadder;
 use App\Services\Ai\SelfConstruction\Autonomy\AtlasSelfConstructionAutonomyPromotionGate;
@@ -80,12 +81,20 @@ final class AtlasSelfConstructionAutonomyLevelCommand extends Command
             'created_at_unix' => (int) ($facts['created_at_unix'] ?? 0),
         ]);
 
+        $receipt = $this->sealReceipt(
+            decision: $verdict['verdict'] === AtlasSelfConstructionAutonomyPromotionGate::VERDICT_PROMOTE ? 'go' : 'stop',
+            reasons: $reasons !== [] ? $reasons : ['verdict:'.(string) $verdict['verdict']],
+            inputFacts: (array) $facts['facts'],
+            contextId: (string) $facts['to_level'],
+        );
+
         return [
             'status' => 'ok',
             'decision' => $verdict['verdict'],
             'level' => (string) $facts['to_level'],
             'reasons' => $reasons,
             'ledger_event_hash' => $ledgerEvent['evidence_hash'] ?? null,
+            'decision_receipt_hash' => $receipt['receipt_hash'],
         ];
     }
 
@@ -110,13 +119,43 @@ final class AtlasSelfConstructionAutonomyLevelCommand extends Command
             'created_at_unix' => (int) ($facts['created_at_unix'] ?? 0),
         ]);
 
+        $receipt = $this->sealReceipt(
+            decision: $verdict['action'] === AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_NO_ACTION ? 'go' : 'stop',
+            reasons: $reasons !== [] ? $reasons : ['action:'.(string) ($verdict['action'] ?? '')],
+            inputFacts: (array) $facts['facts'],
+            contextId: (string) ($facts['level'] ?? ''),
+        );
+
         return [
             'status' => 'ok',
             'decision' => $verdict['action'],
             'level' => (string) ($facts['level'] ?? ''),
             'reasons' => $reasons,
             'ledger_event_hash' => $ledgerEvent['evidence_hash'] ?? null,
+            'decision_receipt_hash' => $receipt['receipt_hash'],
         ];
+    }
+
+    /**
+     * Seals a provider-free decision receipt via AtlasSelfConstructionAutonomyDecisionReceiptLedger
+     * alongside the runtime ledger event, so every promote/degrade decision carries both the
+     * mutable event-log entry and a pure, hash-verifiable receipt of the decision that produced it.
+     *
+     * @param  list<string>  $reasons
+     * @param  array<string,mixed>  $inputFacts
+     * @return array<string,mixed>
+     */
+    private function sealReceipt(string $decision, array $reasons, array $inputFacts, string $contextId): array
+    {
+        $ledger = $this->app()->make(AtlasSelfConstructionAutonomyDecisionReceiptLedger::class);
+
+        return $ledger->record([
+            'decision' => $decision,
+            'reasons' => $reasons,
+            'input_facts' => $inputFacts,
+            'context_id' => $contextId,
+            'authority' => 'atlas:self-construction:autonomy-level',
+        ]);
     }
 
     /**
