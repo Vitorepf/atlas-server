@@ -302,4 +302,15 @@ final class AtlasExternalBrainModelAmplifierShadowRolloutTest extends TestCase
         $this->assertSame($baselineCopy, $baseline);
         $this->assertSame($amplifiedCopy, $amplified);
     }
+
+    // ── AC2: shadow proposals are never enqueued — static source proof ────────
+
+    public function test_source_never_calls_enqueue_dispatch_or_io(): void
+    {
+        $src = (string) file_get_contents(__DIR__.'/../../../../../app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainModelAmplifierShadowRollout.php');
+
+        foreach (['->enqueue(', 'Queue::', 'DB::', 'Storage::', 'file_put_contents', 'shell_exec', 'proc_open', 'dispatch(', 'Http::'] as $forbidden) {
+            $this->assertStringNotContainsString($forbidden, $src, "shadow rollout must never {$forbidden}");
+        }
+    }
 }
