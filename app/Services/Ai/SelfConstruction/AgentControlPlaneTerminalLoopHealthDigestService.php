@@ -119,6 +119,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             hiddenClaimableOutsideRequestedTags: $hiddenClaimableOutsideRequestedTags,
             workerEligibilityBlocked: $workerEligibilityBlocked,
             targetMinClaimable: $targetMinClaimable,
+            commands: $commands,
         );
         $status = $recommendedAction === 'continue_or_start_terminal_workers' ? 'ready' : 'action_required';
         $safeToStartNewWorker = $recoverableCount === 0
@@ -1334,6 +1335,9 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      *
      * @return array<string, mixed>
      */
+    /**
+     * @param  array<string, string>  $commands
+     */
     private function muscleSupplyState(
         int $claimableCount,
         int $claimedCount,
@@ -1342,6 +1346,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
         int $hiddenClaimableOutsideRequestedTags,
         bool $workerEligibilityBlocked,
         int $targetMinClaimable,
+        array $commands = [],
     ): array {
         $nextSafeAction = match (true) {
             $workerEligibilityBlocked => 'blocked_by_eligibility',
@@ -1352,7 +1357,10 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             default => 'replenish',
         };
 
-        return [
+        $waitStates = ['blocked_by_eligibility', 'replenish', 'wait_for_workers'];
+        $isWaitState = in_array($nextSafeAction, $waitStates, true);
+
+        $result = [
             'claimable_count' => $claimableCount,
             'claimed_count' => $claimedCount,
             'recoverable_count' => $recoverableCount,
@@ -1360,6 +1368,35 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
             'hidden_claimable_outside_requested_tags' => $hiddenClaimableOutsideRequestedTags,
             'next_safe_action' => $nextSafeAction,
         ];
+
+        if (! $isWaitState) {
+            return $result;
+        }
+
+        [$waitReason, $nextRecheckCommand, $supplyExplanation] = match ($nextSafeAction) {
+            'blocked_by_eligibility' => [
+                'worker_task_eligibility_blocked',
+                $commands['worker_task_eligibility_certification'] ?? '',
+                'Worker task eligibility is blocked; certify eligibility before pulling or replenishing tasks.',
+            ],
+            'replenish' => [
+                'claimable_supply_below_target',
+                $commands['replenish_tasks'] ?? '',
+                sprintf('Claimable supply (%d) is below the target (%d) with no hidden claimable tasks; replenish the queue.', $claimableCount, $targetMinClaimable),
+            ],
+            'wait_for_workers' => [
+                'claimed_tasks_in_flight_no_new_supply',
+                $commands['inspect_queue'] ?? '',
+                sprintf('%d task(s) are claimed and in flight with no additional claimable supply; wait for active workers to report or recheck the queue.', $claimedCount),
+            ],
+            default => ['', '', ''],
+        };
+
+        $result['wait_reason'] = $waitReason;
+        $result['next_recheck_command'] = $nextRecheckCommand;
+        $result['supply_explanation'] = $supplyExplanation;
+
+        return $result;
     }
 
     /**
