@@ -319,6 +319,80 @@ final class AtlasSelfConstructionScopeExpansionReadinessGateTest extends TestCas
         $this->assertArrayNotHasKey('asks_for_human', $verdict);
     }
 
+    // --- cross-project expansion contract ---
+
+    private function crossProjectCandidate(): array
+    {
+        return ['id' => 'cand-2', 'label' => 'expand into atlas-desktop', 'target_project_id' => 'atlas-desktop'];
+    }
+
+    public function test_ready_for_cross_project_expansion_when_lane_contract_present(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->crossProjectCandidate(),
+            $this->readyFacts([
+                'current_project_id' => 'atlas-server',
+                'lane_isolation_evidence' => true,
+                'project_receipt_policy' => true,
+                'bounded_proof_plan' => true,
+            ]),
+        );
+        $this->assertSame('ready', $verdict['status']);
+        $this->assertTrue($verdict['ready']);
+    }
+
+    public function test_blocked_when_lane_isolation_evidence_missing_for_cross_project(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->crossProjectCandidate(),
+            $this->readyFacts([
+                'current_project_id' => 'atlas-server',
+                'project_receipt_policy' => true,
+                'bounded_proof_plan' => true,
+            ]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('missing_mandatory_fact:lane_isolation_evidence', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_project_receipt_policy_false_for_cross_project(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->crossProjectCandidate(),
+            $this->readyFacts([
+                'current_project_id' => 'atlas-server',
+                'lane_isolation_evidence' => true,
+                'project_receipt_policy' => false,
+                'bounded_proof_plan' => true,
+            ]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('project_receipt_policy_not_ready', $verdict['blockers']);
+    }
+
+    public function test_blocked_when_bounded_proof_plan_missing_for_cross_project(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            $this->crossProjectCandidate(),
+            $this->readyFacts([
+                'current_project_id' => 'atlas-server',
+                'lane_isolation_evidence' => true,
+                'project_receipt_policy' => true,
+            ]),
+        );
+        $this->assertSame('blocked', $verdict['status']);
+        $this->assertContains('missing_mandatory_fact:bounded_proof_plan', $verdict['blockers']);
+    }
+
+    public function test_same_project_expansion_does_not_require_lane_contract(): void
+    {
+        $verdict = (new AtlasSelfConstructionScopeExpansionReadinessGate)->evaluate(
+            ['id' => 'cand-3', 'target_project_id' => 'atlas-server'],
+            $this->readyFacts(['current_project_id' => 'atlas-server']),
+        );
+        $this->assertSame('ready', $verdict['status']);
+    }
+
     public function test_gate_source_has_no_side_effects(): void
     {
         $src = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/ScopeExpansion/AtlasSelfConstructionScopeExpansionReadinessGate.php'));

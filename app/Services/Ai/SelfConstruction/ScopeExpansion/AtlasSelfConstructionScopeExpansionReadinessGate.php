@@ -20,6 +20,13 @@ namespace App\Services\Ai\SelfConstruction\ScopeExpansion;
  *   - requires_external_provider = false
  *   - final_runtime_owner = 'atlas_native'
  *
+ * Cross-project expansion (candidate.target_project_id differs from facts.current_project_id) adds a
+ * mandatory contract on top of the above — missing OR explicitly false ⇒ BLOCK, never HOLD, since a
+ * lane boundary is a safety property, not a freshness signal:
+ *   - lane_isolation_evidence = true
+ *   - project_receipt_policy = true
+ *   - bounded_proof_plan = true
+ *
  * Optional freshness signals (docs/code_intelligence): when absent ⇒ HOLD (not BLOCK); when
  * explicitly false ⇒ BLOCK (we honestly never fabricate readiness).
  *
@@ -68,6 +75,16 @@ final class AtlasSelfConstructionScopeExpansionReadinessGate
         $finalOwner = (string) ($facts['final_runtime_owner'] ?? '');
         if ($finalOwner !== 'atlas_native') {
             $blockers[] = 'final_runtime_owner_not_atlas_native:'.$finalOwner;
+        }
+
+        // Cross-project expansion is a lane-boundary safety property, not freshness — missing OR
+        // false must BLOCK, never merely HOLD.
+        $targetProjectId = (string) ($candidate['target_project_id'] ?? '');
+        $currentProjectId = (string) ($facts['current_project_id'] ?? '');
+        if ($targetProjectId !== '' && $targetProjectId !== $currentProjectId) {
+            $this->mustEqual($facts, 'lane_isolation_evidence', true, $blockers, 'lane_isolation_evidence_not_ready');
+            $this->mustEqual($facts, 'project_receipt_policy', true, $blockers, 'project_receipt_policy_not_ready');
+            $this->mustEqual($facts, 'bounded_proof_plan', true, $blockers, 'bounded_proof_plan_not_ready');
         }
 
         // Optional freshness facts — missing ⇒ HOLD; explicit false ⇒ BLOCK.
