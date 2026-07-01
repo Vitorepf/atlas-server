@@ -151,6 +151,16 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
         $staleBasisHash = $expectedBasisHash !== '' && (string) ($receipt['runtime_promotion_basis_hash'] ?? '') !== $expectedBasisHash;
         $staleClosureBasisHash = $expectedClosureBasisHash !== '' && (string) ($receipt['runtime_promotion_closure_basis_hash'] ?? '') !== $expectedClosureBasisHash;
 
+        // AC2: rollback proof — only enforced when the caller supplies an expected hash to check
+        // against (same opt-in pattern as the stale-hash checks above), so callers that don't yet
+        // pass rollback evidence see zero behavior change.
+        $expectedRollbackProofHash = (string) data_get($runtimeGapMatrix, 'rollback_proof_hash', '');
+        $providedRollbackProofHash = (string) ($receipt['rollback_proof_hash'] ?? '');
+        $rollbackProofMissing = $expectedRollbackProofHash !== '' && $providedRollbackProofHash === '';
+        $rollbackProofMismatch = $expectedRollbackProofHash !== '' && $providedRollbackProofHash !== '' && $providedRollbackProofHash !== $expectedRollbackProofHash;
+
+        $noGapMatrixSupplied = $runtimeGapMatrix === [];
+
         $rows = array_values(array_filter((array) data_get($runtimeGapMatrix, 'rows', []), 'is_array'));
         $gapRows = array_values(array_filter($rows, static fn (array $r): bool => ! (bool) ($r['runtime_y'] ?? false)));
         $expectedGapIds = array_values(array_map(static fn (array $r): string => (string) ($r['gap_id'] ?? ''), $gapRows));
@@ -227,6 +237,24 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
         foreach ($graduationHashMismatches as $gapId) {
             $violations[] = ['code' => 'graduation_hash_mismatch', 'gap_id' => $gapId];
         }
+        if ($rollbackProofMissing) {
+            $violations[] = ['code' => 'rollback_proof_missing'];
+        }
+        if ($rollbackProofMismatch) {
+            $violations[] = ['code' => 'rollback_proof_mismatch'];
+        }
+
+        // AC4: the smallest next repair action for every blocker, attached per-violation.
+        foreach ($violations as &$violation) {
+            $violation['repair_action'] = $this->repairActionFor($violation);
+        }
+        unset($violation);
+
+        // AC3: non-blocking warnings — verification ran, but with reduced confidence.
+        $warnings = [];
+        if ($noGapMatrixSupplied) {
+            $warnings[] = ['code' => 'no_runtime_gap_matrix_supplied', 'detail' => 'stale-hash and gap-drift checks could not run without a gap matrix'];
+        }
 
         $status = $violations === [] ? 'passed' : 'blocked';
         $canPersist = $status === 'passed';
@@ -264,6 +292,18 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
             'expected_runtime_promotion_closure_basis_hash' => $expectedClosureBasisHash,
             'violations' => $violations,
             'violation_count' => count($violations),
+            'warnings' => $warnings,
+            'rollback_proof_hash' => $providedRollbackProofHash,
+            'expected_rollback_proof_hash' => $expectedRollbackProofHash,
+            'rollback_proof_missing' => $rollbackProofMissing,
+            'rollback_proof_mismatch' => $rollbackProofMismatch,
+            'evidence_refs' => [
+                'receipt_hash' => (string) ($receipt['receipt_hash'] ?? ''),
+                'runtime_gap_matrix_hash' => (string) ($receipt['runtime_gap_matrix_hash'] ?? ''),
+                'runtime_promotion_basis_hash' => (string) ($receipt['runtime_promotion_basis_hash'] ?? ''),
+                'runtime_promotion_closure_basis_hash' => (string) ($receipt['runtime_promotion_closure_basis_hash'] ?? ''),
+                'rollback_proof_hash' => $providedRollbackProofHash,
+            ],
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -325,8 +365,20 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
             'expected_runtime_gap_matrix_hash_for_promotion_receipt' => '',
             'expected_runtime_promotion_basis_hash' => '',
             'expected_runtime_promotion_closure_basis_hash' => '',
-            'violations' => [['code' => 'no_runtime_promotion_receipt_supplied']],
+            'violations' => [['code' => 'no_runtime_promotion_receipt_supplied', 'repair_action' => 'operator_must_supply_runtime_promotion_receipt_json']],
             'violation_count' => 1,
+            'warnings' => [],
+            'rollback_proof_hash' => '',
+            'expected_rollback_proof_hash' => '',
+            'rollback_proof_missing' => false,
+            'rollback_proof_mismatch' => false,
+            'evidence_refs' => [
+                'receipt_hash' => '',
+                'runtime_gap_matrix_hash' => '',
+                'runtime_promotion_basis_hash' => '',
+                'runtime_promotion_closure_basis_hash' => '',
+                'rollback_proof_hash' => '',
+            ],
             'execution_allowed' => false,
             'dispatch_allowed' => false,
             'provider_call_allowed' => false,
@@ -349,6 +401,36 @@ final class AtlasSelfConstructionRuntimePromotionEndgameVerifierService
         $payload['verifier_hash'] = $this->stableHash($payload);
 
         return $payload;
+    }
+
+    /**
+     * AC4: the smallest concrete next step to clear one violation.
+     *
+     * @param  array<string, mixed>  $violation
+     */
+    private function repairActionFor(array $violation): string
+    {
+        $code = (string) ($violation['code'] ?? '');
+
+        return match ($code) {
+            'required_field_missing' => "set receipt['".$violation['field']."']",
+            'placeholder_field' => "replace receipt['".$violation['field']."'] with a real, non-placeholder value",
+            'invalid_64_hex_field' => "recompute a 64-hex sha256 for receipt['".$violation['field']."']",
+            'forbidden_flag_true' => "set receipt['".$violation['flag']."'] back to false",
+            'required_acknowledgement_missing' => "set receipt['".$violation['ack']."'] = true after operator review",
+            'placeholder_signer' => 'sign with the operator\'s real name, not a placeholder',
+            'reason_too_short_or_placeholder' => 'write a real reason of at least 32 characters, not a placeholder',
+            'receipt_hash_mismatch' => 'recompute receipt_hash via AtlasSelfConstructionCompletionEvidenceHashService',
+            'stale_runtime_gap_matrix_hash' => 'refresh runtime_gap_matrix_hash to match the current gap matrix',
+            'stale_runtime_promotion_basis_hash' => 'refresh runtime_promotion_basis_hash to match the current gap matrix',
+            'stale_runtime_promotion_closure_basis_hash' => 'refresh runtime_promotion_closure_basis_hash to match the current gap matrix',
+            'promoted_gap_id_drift' => "recompute promoted_gap_ids to match the current gap matrix's ungraduated rows",
+            'missing_graduation_hash' => "supply a 64-hex graduation_evidence_hash for gap '".$violation['gap_id']."'",
+            'graduation_hash_mismatch' => "recompute the graduation_evidence_hash for gap '".$violation['gap_id']."' to match the matrix",
+            'rollback_proof_missing' => 'supply rollback_proof_hash matching the required rollback proof',
+            'rollback_proof_mismatch' => 'recompute rollback_proof_hash to match the expected rollback proof',
+            default => 'review this violation and correct the receipt field it names',
+        };
     }
 
     private function isPlaceholderReason(string $reason): bool
