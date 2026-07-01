@@ -19,7 +19,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *      batch to at least min(12, high_priority_gap_count).
  *   6. high_value_candidate_override  — candidate_value_score >= 0.7 AND
  *      batch is still 0 -> set batch to 2.
- *   7. baseline_batch — emitted only if no other reason fired.
+ *   7. high_drain_high_quality_raises_batch — drain_rate_per_hour >= active_workers*2
+ *      AND servable_now_delta < 0 (depth falling) AND recent_seed_proof_quality >= 0.7
+ *      AND queue not already sufficient -> raise batch to at least baseline+4 (capped at 12).
+ *   8. poison_rate_shrinks_batch — give_back_poison_rate >= 0.3 -> caps batch at 2,
+ *      overriding every other rule (including quota-pressure fills) so a noisy queue
+ *      never gets flooded with more work than it can safely absorb.
+ *   9. baseline_batch — emitted only if no other reason fired.
  *
  * recommended_batch_size is always clamped to [0, 12].
  * should_enqueue = recommended_batch_size > 0.
@@ -32,6 +38,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   theme_saturation:         float (default 0.0)
  *   candidate_value_score:    float (default 0.0)
  *   high_priority_gap_count:  int (default 0)
+ *   servable_now_delta:       float (default 0.0) — negative means servable depth is falling
+ *   recent_seed_proof_quality: float (default 0.5) — quality of most recently originated seeds
+ *   give_back_poison_rate:    float (default 0.0) — fraction of recent tasks given back as poison
  *
  * OUTPUT:
  *   { schema, recommended_batch_size, reason_codes, should_enqueue }
@@ -52,6 +61,14 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
 
     private const HIGH_VALUE_THRESHOLD = 0.7;
 
+    private const HIGH_DRAIN_MULTIPLIER = 2.0;
+
+    private const HIGH_PROOF_QUALITY_THRESHOLD = 0.7;
+
+    private const HIGH_POISON_RATE_THRESHOLD = 0.3;
+
+    private const POISON_CAPPED_BATCH_SIZE = 2;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -66,6 +83,9 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         $candidateValueScore = max(0.0, min(1.0, (float) ($input['candidate_value_score'] ?? 0.0)));
         $highPriorityGapCount = max(0, (int) ($input['high_priority_gap_count'] ?? 0));
         $minimumClaimablePerWorker = max(1, (int) ($input['minimum_claimable_per_worker'] ?? 2));
+        $servableNowDelta = (float) ($input['servable_now_delta'] ?? 0.0);
+        $recentSeedProofQuality = max(0.0, min(1.0, (float) ($input['recent_seed_proof_quality'] ?? 0.5)));
+        $giveBackPoisonRate = max(0.0, min(1.0, (float) ($input['give_back_poison_rate'] ?? 0.0)));
 
         $requiredFloor = max($activeWorkers * $minimumClaimablePerWorker, 4);
         $sufficient = $servableNow >= $requiredFloor;
@@ -73,6 +93,10 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         $saturated = $themeSaturation >= self::SATURATION_THRESHOLD;
         $slowDrain = $drainRatePerHour < $activeWorkers;
         $valueHigh = $candidateValueScore >= self::HIGH_VALUE_THRESHOLD;
+        $highDrain = $drainRatePerHour >= $activeWorkers * self::HIGH_DRAIN_MULTIPLIER;
+        $servableFalling = $servableNowDelta < 0.0;
+        $proofQualityHigh = $recentSeedProofQuality >= self::HIGH_PROOF_QUALITY_THRESHOLD;
+        $poisonRateHigh = $giveBackPoisonRate >= self::HIGH_POISON_RATE_THRESHOLD;
 
         $batch = self::BASELINE_BATCH_SIZE;
         $reasonCodes = [];
@@ -107,6 +131,14 @@ final class AtlasExternalBrainAdaptiveBatchSizeGovernor
         if ($valueHigh && $batch === 0) {
             $batch = 2;
             $reasonCodes[] = 'high_value_candidate_override';
+        }
+        if ($highDrain && $servableFalling && $proofQualityHigh && ! $sufficient) {
+            $batch = max($batch, min(self::MAX_BATCH_SIZE, self::BASELINE_BATCH_SIZE + 4));
+            $reasonCodes[] = 'high_drain_high_quality_raises_batch';
+        }
+        if ($poisonRateHigh) {
+            $batch = min($batch, self::POISON_CAPPED_BATCH_SIZE);
+            $reasonCodes[] = 'poison_rate_shrinks_batch';
         }
         if ($reasonCodes === []) {
             $reasonCodes[] = 'baseline_batch';
