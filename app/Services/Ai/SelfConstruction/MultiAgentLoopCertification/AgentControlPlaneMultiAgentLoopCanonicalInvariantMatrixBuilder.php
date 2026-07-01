@@ -13,6 +13,112 @@ namespace App\Services\Ai\SelfConstruction\MultiAgentLoopCertification;
 final class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder
 {
     /**
+     * Annotated canonical invariant rows for multi-agent scope/lease/receipt/queue-health/lane
+     * certification. Distinct from build() (which folds raw booleans into the huge existing
+     * certification matrix): each row here carries id, proof_source, pass_condition,
+     * failure_action, and whether a failure blocks autonomous continuation. Deterministic and
+     * refuses (invalid_matrix=true) if any blocking row is missing a proof_source.
+     *
+     * @param  array{
+     *   allowed_files_isolation_ok?:bool, one_task_per_worker_ok?:bool, lease_report_match_ok?:bool,
+     *   recoverable_backlog_count?:int, malformed_count?:int, lane_isolation_ok?:bool,
+     * }  $facts
+     * @return array<string,mixed>
+     */
+    public static function buildAnnotatedInvariantMatrix(array $facts): array
+    {
+        $rows = [
+            [
+                'id' => 'allowed_files_isolation',
+                'proof_source' => 'queue_claim_scope_lock',
+                'pass_condition' => 'no cross-worker allowed_files/write-set overlap observed for any active claim',
+                'failure_action' => 'reject_claim_and_requeue_overlapping_scope',
+                'blocks_autonomous_continuation' => true,
+                'value' => (bool) ($facts['allowed_files_isolation_ok'] ?? false),
+            ],
+            [
+                'id' => 'one_task_per_worker',
+                'proof_source' => 'claim_lease_registry',
+                'pass_condition' => 'each active worker holds exactly one active lease at a time',
+                'failure_action' => 'revoke_extra_lease_for_worker',
+                'blocks_autonomous_continuation' => true,
+                'value' => (bool) ($facts['one_task_per_worker_ok'] ?? false),
+            ],
+            [
+                'id' => 'lease_report_matching',
+                'proof_source' => 'report_lease_binding',
+                'pass_condition' => 'every reported outcome lease_id matches an active lease for the reporting worker',
+                'failure_action' => 'reject_report_lease_mismatch',
+                'blocks_autonomous_continuation' => true,
+                'value' => (bool) ($facts['lease_report_match_ok'] ?? false),
+            ],
+            [
+                'id' => 'no_recoverable_backlog',
+                'proof_source' => 'task_lease_recovery_service',
+                'pass_condition' => 'recoverable_backlog_count is zero',
+                'failure_action' => 'reap_and_requeue_recoverable_backlog',
+                // Recoverable backlog self-heals on the next claimNext reap pass -- it never
+                // blocks continuation, only a true lease/receipt/scope violation does.
+                'blocks_autonomous_continuation' => false,
+                'value' => (int) ($facts['recoverable_backlog_count'] ?? 0) === 0,
+            ],
+            [
+                'id' => 'no_malformed_packets',
+                'proof_source' => 'queue_status_distribution',
+                'pass_condition' => 'malformed_count is zero',
+                'failure_action' => 'repair_or_quarantine_malformed_packets',
+                'blocks_autonomous_continuation' => true,
+                'value' => (int) ($facts['malformed_count'] ?? 0) === 0,
+            ],
+            [
+                'id' => 'lane_isolation',
+                'proof_source' => 'queue_tag_scope_check',
+                'pass_condition' => 'every claim, report, and command stays bound to its requested queue lane tag',
+                'failure_action' => 'block_cross_lane_claim_or_command',
+                'blocks_autonomous_continuation' => true,
+                'value' => (bool) ($facts['lane_isolation_ok'] ?? false),
+            ],
+        ];
+
+        $missingProofSourceForBlockingRow = [];
+        foreach ($rows as $row) {
+            if ($row['blocks_autonomous_continuation'] && trim((string) $row['proof_source']) === '') {
+                $missingProofSourceForBlockingRow[] = $row['id'];
+            }
+        }
+
+        if ($missingProofSourceForBlockingRow !== []) {
+            return [
+                'invalid_matrix' => true,
+                'reason' => 'missing_proof_source_for_blocking_invariant',
+                'missing_proof_source_ids' => $missingProofSourceForBlockingRow,
+                'rows' => [],
+                'all_true' => false,
+                'blocking_violations' => [],
+            ];
+        }
+
+        $violations = array_values(array_map(
+            static fn (array $row): string => $row['id'],
+            array_filter($rows, static fn (array $row): bool => $row['value'] !== true),
+        ));
+        $blockingViolations = array_values(array_map(
+            static fn (array $row): string => $row['id'],
+            array_filter($rows, static fn (array $row): bool => $row['value'] !== true && $row['blocks_autonomous_continuation']),
+        ));
+
+        return [
+            'invalid_matrix' => false,
+            'reason' => null,
+            'rows' => $rows,
+            'all_true' => $violations === [],
+            'violations' => $violations,
+            'blocking_violations' => $blockingViolations,
+            'autonomous_continuation_allowed' => $blockingViolations === [],
+        ];
+    }
+
+    /**
      * @param  array<string, bool>  $invariants
      * @param  list<array<string, mixed>>  $cycleEvidence
      * @return array<string, mixed>

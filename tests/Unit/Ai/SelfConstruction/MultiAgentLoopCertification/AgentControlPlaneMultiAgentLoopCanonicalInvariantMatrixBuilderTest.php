@@ -246,4 +246,72 @@ class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilderTest extends
         self::assertArrayHasKey('collision_proof', $result);
         self::assertIsArray($result['collision_proof']);
     }
+
+    // ── AC: buildAnnotatedInvariantMatrix() ──────────────────────────────────────
+
+    private function allPassingFacts(): array
+    {
+        return [
+            'allowed_files_isolation_ok' => true,
+            'one_task_per_worker_ok' => true,
+            'lease_report_match_ok' => true,
+            'recoverable_backlog_count' => 0,
+            'malformed_count' => 0,
+            'lane_isolation_ok' => true,
+        ];
+    }
+
+    public function test_annotated_matrix_emits_six_rows_for_named_invariants(): void
+    {
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::buildAnnotatedInvariantMatrix($this->allPassingFacts());
+
+        $ids = array_column($result['rows'], 'id');
+        foreach (['allowed_files_isolation', 'one_task_per_worker', 'lease_report_matching', 'no_recoverable_backlog', 'no_malformed_packets', 'lane_isolation'] as $expected) {
+            $this->assertContains($expected, $ids);
+        }
+        $this->assertTrue($result['all_true']);
+    }
+
+    public function test_each_row_carries_id_proof_source_pass_condition_failure_action_and_blocking_flag(): void
+    {
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::buildAnnotatedInvariantMatrix($this->allPassingFacts());
+
+        foreach ($result['rows'] as $row) {
+            foreach (['id', 'proof_source', 'pass_condition', 'failure_action', 'blocks_autonomous_continuation'] as $key) {
+                $this->assertArrayHasKey($key, $row, "Missing key: {$key}");
+            }
+            $this->assertNotEmpty($row['proof_source']);
+        }
+    }
+
+    public function test_malformed_packets_present_blocks_autonomous_continuation(): void
+    {
+        $facts = array_merge($this->allPassingFacts(), ['malformed_count' => 2]);
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::buildAnnotatedInvariantMatrix($facts);
+
+        $this->assertFalse($result['all_true']);
+        $this->assertContains('no_malformed_packets', $result['blocking_violations']);
+        $this->assertFalse($result['autonomous_continuation_allowed']);
+    }
+
+    public function test_recoverable_backlog_present_does_not_block_autonomous_continuation(): void
+    {
+        $facts = array_merge($this->allPassingFacts(), ['recoverable_backlog_count' => 3]);
+        $result = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::buildAnnotatedInvariantMatrix($facts);
+
+        $this->assertFalse($result['all_true']);
+        $this->assertContains('no_recoverable_backlog', $result['violations']);
+        $this->assertNotContains('no_recoverable_backlog', $result['blocking_violations']);
+        $this->assertTrue($result['autonomous_continuation_allowed']);
+    }
+
+    public function test_annotated_matrix_is_deterministic(): void
+    {
+        $facts = $this->allPassingFacts();
+
+        $a = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::buildAnnotatedInvariantMatrix($facts);
+        $b = AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder::buildAnnotatedInvariantMatrix($facts);
+
+        $this->assertSame($a, $b);
+    }
 }
