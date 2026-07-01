@@ -165,4 +165,107 @@ final class AtlasNativeWorkerEvidenceWriterTest extends TestCase
         $ids = array_column($rows, 'task_packet_id');
         $this->assertSame(['pkt-a', 'pkt-b', 'pkt-c'], $ids);
     }
+
+    // ── AC3: outcome, give_back_reason, commit_reference, implementation_notes when present ──
+
+    public function test_optional_outcome_fields_preserved_when_present(): void
+    {
+        $a = $this->validAttempt();
+        $a['outcome'] = 'success';
+        $a['give_back_reason'] = 'not applicable';
+        $a['commit_reference'] = 'abc123def456';
+        $a['implementation_notes'] = 'added a new guard clause';
+
+        $res = $this->writer->append($a);
+
+        $this->assertSame('success', $res['row']['outcome']);
+        $this->assertSame('not applicable', $res['row']['give_back_reason']);
+        $this->assertSame('abc123def456', $res['row']['commit_reference']);
+        $this->assertSame('added a new guard clause', $res['row']['implementation_notes']);
+    }
+
+    public function test_optional_outcome_fields_omitted_when_absent(): void
+    {
+        $res = $this->writer->append($this->validAttempt());
+
+        $this->assertArrayNotHasKey('outcome', $res['row']);
+        $this->assertArrayNotHasKey('give_back_reason', $res['row']);
+        $this->assertArrayNotHasKey('commit_reference', $res['row']);
+        $this->assertArrayNotHasKey('implementation_notes', $res['row']);
+    }
+
+    // ── AC4: redacts raw provider transcript and secret-like fields ────────────
+
+    public function test_provider_transcript_is_never_persisted_raw(): void
+    {
+        $a = $this->validAttempt();
+        $a['provider_transcript'] = 'here is my api_key=sk-abcdefghijklmnop, use it wisely';
+
+        $res = $this->writer->append($a);
+
+        $flat = (string) json_encode($res['row']);
+        $this->assertStringNotContainsString('sk-abcdefghijklmnop', $flat);
+        $this->assertArrayNotHasKey('provider_transcript', $res['row']);
+        $this->assertTrue($res['row']['provider_transcript_redacted']);
+        $this->assertSame(64, strlen($res['row']['provider_transcript_hash']));
+    }
+
+    public function test_secret_like_substring_redacted_from_implementation_notes(): void
+    {
+        $a = $this->validAttempt();
+        $a['implementation_notes'] = 'rotated credentials, old token=abc123xyz789 no longer valid';
+
+        $res = $this->writer->append($a);
+
+        $this->assertStringNotContainsString('token=abc123xyz789', $res['row']['implementation_notes']);
+        $this->assertStringContainsString('[REDACTED]', $res['row']['implementation_notes']);
+    }
+
+    public function test_secret_like_substring_redacted_from_give_back_reason(): void
+    {
+        $a = $this->validAttempt();
+        $a['give_back_reason'] = 'blocked: secret=super-secret-value must be rotated first';
+
+        $res = $this->writer->append($a);
+
+        $this->assertStringNotContainsString('super-secret-value', $res['row']['give_back_reason']);
+        $this->assertStringContainsString('[REDACTED]', $res['row']['give_back_reason']);
+    }
+
+    public function test_secret_like_substring_redacted_from_command_string(): void
+    {
+        $a = $this->validAttempt();
+        $a['commands_run'] = [
+            ['command' => 'Bearer abc.def.ghi curl https://example.com', 'exit_code' => 0],
+            ['command' => '/opt/homebrew/bin/php artisan test', 'exit_code' => 0],
+        ];
+
+        $res = $this->writer->append($a);
+
+        $commands = array_column($res['row']['commands_run'], 'command');
+        $flat = implode(' ', $commands);
+        $this->assertStringNotContainsString('Bearer abc.def.ghi', $flat);
+        $this->assertStringContainsString('[REDACTED]', $flat);
+    }
+
+    public function test_secret_like_substring_redacted_from_residual_risks(): void
+    {
+        $a = $this->validAttempt();
+        $a['residual_risks'] = ['api_key=zzz999yyy888 was logged accidentally'];
+
+        $res = $this->writer->append($a);
+
+        $this->assertStringNotContainsString('zzz999yyy888', $res['row']['residual_risks'][0]);
+        $this->assertStringContainsString('[REDACTED]', $res['row']['residual_risks'][0]);
+    }
+
+    public function test_no_secret_like_content_is_left_untouched(): void
+    {
+        $a = $this->validAttempt();
+        $a['implementation_notes'] = 'a perfectly ordinary sentence with no secrets in it';
+
+        $res = $this->writer->append($a);
+
+        $this->assertSame('a perfectly ordinary sentence with no secrets in it', $res['row']['implementation_notes']);
+    }
 }
