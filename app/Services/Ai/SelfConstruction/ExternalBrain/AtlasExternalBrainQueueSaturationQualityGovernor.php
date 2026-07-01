@@ -58,6 +58,11 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
         $targetDiversity = max(0.0, min(1.0, (float) ($facts['target_diversity'] ?? 1.0)));
         $collisionRisk = max(0.0, min(1.0, (float) ($facts['collision_risk'] ?? 0.0)));
         $leverageDensity = max(0.0, min(1.0, (float) ($facts['leverage_evidence_density'] ?? 1.0)));
+        // family_diversity defaults to target_diversity so callers that never supplied it keep
+        // their exact prior behavior; when supplied, it is a distinct, stricter diversity signal.
+        $familyDiversity = array_key_exists('family_diversity', $facts)
+            ? max(0.0, min(1.0, (float) $facts['family_diversity']))
+            : $targetDiversity;
 
         $depthPerWorker = $activeWorkers > 0
             ? $servableDepth / $activeWorkers
@@ -69,6 +74,7 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
         $highCollisionRisk = $collisionRisk >= self::HIGH_COLLISION_RISK_THRESHOLD;
         $isDeep = $depthPerWorker >= self::DEEP_QUEUE_DEPTH_PER_WORKER;
         $lowDiversity = $targetDiversity < self::LOW_DIVERSITY_THRESHOLD;
+        $lowFamilyDiversity = $familyDiversity < self::LOW_DIVERSITY_THRESHOLD;
         $leverageInsufficient = $leverageDensity < self::LEVERAGE_EVIDENCE_DENSITY_FLOOR;
 
         if ($highMalformed || $highGiveBack || $highCollisionRisk) {
@@ -99,23 +105,24 @@ final class AtlasExternalBrainQueueSaturationQualityGovernor
 
         // AC1: sufficient_depth is never a stop excuse on its own — a deep queue with strong
         // leverage evidence and healthy diversity still proceeds via the value exception.
-        $valueExceptionApplied = $isDeep && ! $lowDiversity && ! $leverageInsufficient;
+        $valueExceptionApplied = $isDeep && ! $lowDiversity && ! $lowFamilyDiversity && ! $leverageInsufficient;
 
-        if ($isDeep && $lowDiversity) {
+        if ($isDeep && ($lowDiversity || $lowFamilyDiversity)) {
             return [
                 'schema' => self::SCHEMA,
                 'decision' => self::DECISION_QUALITY_REVIEW_OR_PAUSE,
                 'reason' => sprintf(
-                    'queue is deep (%.2f servable per active worker) with low target_diversity=%.2f; more redundant tasks is not leverage',
+                    'queue is deep (%.2f servable per active worker) with low target_diversity=%.2f or low family_diversity=%.2f; more redundant tasks is not leverage',
                     $depthPerWorker,
                     $targetDiversity,
+                    $familyDiversity,
                 ),
-                'required_next_evidence' => ['target_diversity_above_threshold', 'servable_depth_per_worker_below_threshold'],
+                'required_next_evidence' => ['target_diversity_above_threshold', 'family_diversity_above_threshold', 'servable_depth_per_worker_below_threshold'],
                 'max_new_tasks' => 0,
                 'queue_pressure' => $queuePressure,
                 'diversity_warning' => true,
                 'stop_go_decision' => 'review',
-                'stop_reason' => 'deep_queue_low_diversity',
+                'stop_reason' => $lowFamilyDiversity ? 'deep_queue_low_family_diversity' : 'deep_queue_low_diversity',
                 'value_exception_applied' => false,
             ];
         }

@@ -297,4 +297,45 @@ final class AtlasExternalBrainQueueSaturationQualityGovernorTest extends TestCas
         $this->assertArrayHasKey('stop_reason', $r);
         $this->assertArrayHasKey('value_exception_applied', $r);
     }
+
+    // ── AC: family_diversity distinct from target_diversity ──────────────────
+
+    public function test_deep_queue_with_low_family_diversity_pauses_even_when_target_diversity_acceptable(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts([
+            'servable_depth' => 30,
+            'active_workers' => 3,
+            'target_diversity' => 0.9,
+            'family_diversity' => 0.1,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_QUALITY_REVIEW_OR_PAUSE, $r['decision']);
+        $this->assertSame(0, $r['max_new_tasks']);
+    }
+
+    public function test_deep_queue_with_high_family_diversity_and_leverage_density_creates_batch(): void
+    {
+        $r = $this->svc()->decide($this->healthyShallowFacts([
+            'servable_depth' => 30,
+            'active_workers' => 3,
+            'target_diversity' => 0.9,
+            'family_diversity' => 0.9,
+            'leverage_evidence_density' => 0.9,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_CREATE_HIGH_VALUE_BATCH, $r['decision']);
+        $this->assertTrue($r['value_exception_applied']);
+    }
+
+    public function test_malformed_give_back_and_collision_risk_repair_priority_unchanged(): void
+    {
+        $malformed = $this->svc()->decide($this->healthyShallowFacts(['malformed_rate' => 0.9, 'family_diversity' => 0.1]));
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $malformed['decision']);
+
+        $giveBack = $this->svc()->decide($this->healthyShallowFacts(['give_back_rate' => 0.9, 'family_diversity' => 0.1]));
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $giveBack['decision']);
+
+        $collision = $this->svc()->decide($this->healthyShallowFacts(['collision_risk' => 0.9, 'family_diversity' => 0.1]));
+        $this->assertSame(AtlasExternalBrainQueueSaturationQualityGovernor::DECISION_REPAIR_SPECS_BEFORE_CREATION, $collision['decision']);
+    }
 }
