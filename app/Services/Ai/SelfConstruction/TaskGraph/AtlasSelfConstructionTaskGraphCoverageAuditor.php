@@ -73,6 +73,9 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
     /** @var list<string> */
     private const NON_SELF_SUFFICIENT_STATUSES = ['cancelled', 'lease_expired', 'blocked'];
 
+    /** statuses that count as a genuinely IMPLEMENTED outcome, not just claimable/dry-run intent. */
+    private const IMPLEMENTED_OUTCOME_STATUSES = ['completed', 'merged', 'verified'];
+
     public function __construct(
         private readonly ?AtlasSelfConstructionFinalOrganMap $organMap = null,
         /** Optional override: a list of organ entries for tests; bypasses $organMap when set. */
@@ -492,6 +495,113 @@ final class AtlasSelfConstructionTaskGraphCoverageAuditor
             'next_missing_evidence_class' => $nextMissingEvidenceClass,
             'productive_vs_stale' => ['productive' => $productive, 'stale' => $stale],
         ];
+    }
+
+    /**
+     * Proves final readiness by lane, organ, dependency, proof, AND implemented outcome — never by
+     * task count alone. Flags, per organ: missing_proof (an evidence class absent), missing_consumer
+     * (no live record declares a real downstream consumer — an unwired orphan), missing_implemented
+     * _outcome (no live record ever reached a genuinely-implemented status, only claimable/dry-run
+     * intent), and per lane: stale_lane_evidence (every matching record in the lane is legacy-only).
+     *
+     * inspected_count is reported alongside overall_ready specifically so a caller can see a HIGH
+     * task count sitting next to overall_ready=false — proof that record volume never substitutes
+     * for real coverage.
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @param  array<string,list<string>>|null  $lanesOverride  Organ IDs per lane; defaults to FINAL_BRAIN_LANES
+     * @return array<string,mixed>
+     */
+    public function auditReadinessCoverage(array $records, ?array $lanesOverride = null): array
+    {
+        $lanes = $lanesOverride ?? self::FINAL_BRAIN_LANES;
+
+        $organs = [];
+        $laneStale = [];
+        $overallReady = true;
+
+        foreach ($lanes as $lane => $organIds) {
+            if ($organIds === []) {
+                $laneStale[$lane] = true;
+                $overallReady = false;
+
+                continue;
+            }
+
+            $laneHasStaleEvidence = false;
+
+            foreach ($organIds as $organId) {
+                $matched = $this->matchesForOrgan($records, $organId, [$organId]);
+                $selfSufficient = array_values(array_filter($matched, fn (array $r): bool => $this->isSelfSufficient($r)));
+                $legacyOnly = array_filter($selfSufficient, fn (array $r): bool => $this->isLegacyOnly($r));
+                $liveRecords = array_values(array_diff_key($selfSufficient, $legacyOnly));
+
+                $missingProof = $liveRecords === [] || $this->missingEvidenceClasses($liveRecords) !== [];
+                $missingConsumer = ! $this->hasLiveConsumerEvidence($liveRecords);
+                $missingImplementedOutcome = ! $this->hasLiveImplementedOutcome($liveRecords);
+
+                if ($matched !== [] && $selfSufficient !== [] && $liveRecords === []) {
+                    $laneHasStaleEvidence = true;
+                }
+
+                $ready = ! $missingProof && ! $missingConsumer && ! $missingImplementedOutcome;
+                if (! $ready) {
+                    $overallReady = false;
+                }
+
+                $organs[] = [
+                    'organ_id' => $organId,
+                    'lane' => $lane,
+                    'missing_proof' => $missingProof,
+                    'missing_consumer' => $missingConsumer,
+                    'missing_implemented_outcome' => $missingImplementedOutcome,
+                    'ready' => $ready,
+                ];
+            }
+
+            $laneStale[$lane] = $laneHasStaleEvidence;
+            if ($laneHasStaleEvidence) {
+                $overallReady = false;
+            }
+        }
+
+        return [
+            'schema_version' => self::SCHEMA,
+            'inspected_count' => count($records),
+            'organs' => $organs,
+            'stale_lane_evidence' => $laneStale,
+            'overall_ready' => $overallReady,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $records
+     */
+    private function hasLiveConsumerEvidence(array $records): bool
+    {
+        foreach ($records as $record) {
+            $packet = is_array($record['task_packet'] ?? null) ? $record['task_packet'] : [];
+            $consumers = (array) ($packet['consumers'] ?? $record['consumers'] ?? []);
+            if ($consumers !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $records
+     */
+    private function hasLiveImplementedOutcome(array $records): bool
+    {
+        foreach ($records as $record) {
+            if (in_array((string) ($record['status'] ?? ''), self::IMPLEMENTED_OUTCOME_STATUSES, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

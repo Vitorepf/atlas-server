@@ -509,4 +509,110 @@ class AtlasSelfConstructionTaskGraphCoverageAuditorTest extends TestCase
         self::assertArrayHasKey('final-certifier', $r['lane_coverage']);
         self::assertFalse($r['final_ready']);
     }
+
+    // ─── auditReadinessCoverage tests ───────────────────────────────────────────
+
+    private function readinessRecord(string $organId, array $overrides = []): array
+    {
+        $status = (string) ($overrides['status'] ?? 'completed');
+        $packetOverrides = (array) ($overrides['task_packet'] ?? []);
+
+        return [
+            'status' => $status,
+            'task_packet' => array_merge([
+                'tags' => [$organId],
+                'organ_id' => $organId,
+                'acceptance_criteria' => ['noop'],
+                'required_evidence' => ['proof'],
+                'evidence_classes' => ['implementation', 'gate', 'receipt', 'cli_or_readiness'],
+                'consumers' => ['AtlasRealCaller'],
+            ], $packetOverrides),
+        ];
+    }
+
+    public function test_readiness_coverage_complete_readiness(): void
+    {
+        $lanes = ['frontier' => ['organ_a']];
+        $records = [$this->readinessRecord('organ_a')];
+
+        $result = $this->laneAuditor()->auditReadinessCoverage($records, $lanes);
+
+        self::assertTrue($result['overall_ready']);
+        self::assertFalse($result['stale_lane_evidence']['frontier']);
+        self::assertTrue($result['organs'][0]['ready']);
+        self::assertFalse($result['organs'][0]['missing_proof']);
+        self::assertFalse($result['organs'][0]['missing_consumer']);
+        self::assertFalse($result['organs'][0]['missing_implemented_outcome']);
+    }
+
+    public function test_readiness_coverage_missing_proof(): void
+    {
+        $lanes = ['frontier' => ['organ_a']];
+        $records = [$this->readinessRecord('organ_a', [
+            'task_packet' => ['evidence_classes' => ['implementation']], // missing gate/receipt/cli_or_readiness
+        ])];
+
+        $result = $this->laneAuditor()->auditReadinessCoverage($records, $lanes);
+
+        self::assertFalse($result['overall_ready']);
+        self::assertTrue($result['organs'][0]['missing_proof']);
+    }
+
+    public function test_readiness_coverage_missing_consumer(): void
+    {
+        $lanes = ['frontier' => ['organ_a']];
+        $records = [$this->readinessRecord('organ_a', [
+            'task_packet' => ['consumers' => []], // implemented but never wired to a real caller
+        ])];
+
+        $result = $this->laneAuditor()->auditReadinessCoverage($records, $lanes);
+
+        self::assertFalse($result['overall_ready']);
+        self::assertTrue($result['organs'][0]['missing_consumer']);
+        self::assertFalse($result['organs'][0]['missing_proof']);
+    }
+
+    public function test_readiness_coverage_missing_implemented_outcome(): void
+    {
+        $lanes = ['frontier' => ['organ_a']];
+        $records = [$this->readinessRecord('organ_a', ['status' => 'claimable'])];
+
+        $result = $this->laneAuditor()->auditReadinessCoverage($records, $lanes);
+
+        self::assertFalse($result['overall_ready']);
+        self::assertTrue($result['organs'][0]['missing_implemented_outcome']);
+    }
+
+    public function test_readiness_coverage_stale_lane_evidence(): void
+    {
+        $lanes = ['frontier' => ['organ_a']];
+        $records = [$this->readinessRecord('organ_a', ['status' => 'completed_dry_run'])];
+
+        $result = $this->laneAuditor()->auditReadinessCoverage($records, $lanes);
+
+        self::assertFalse($result['overall_ready']);
+        self::assertTrue($result['stale_lane_evidence']['frontier']);
+    }
+
+    public function test_readiness_coverage_count_only_false_readiness(): void
+    {
+        $lanes = ['frontier' => ['organ_a']];
+        // Many claimable records for the same organ — high inspected_count — but none ever reach
+        // an implemented outcome, so record VOLUME alone must never grant readiness.
+        $records = array_fill(0, 20, $this->readinessRecord('organ_a', ['status' => 'claimable']));
+
+        $result = $this->laneAuditor()->auditReadinessCoverage($records, $lanes);
+
+        self::assertSame(20, $result['inspected_count']);
+        self::assertFalse($result['overall_ready']);
+        self::assertTrue($result['organs'][0]['missing_implemented_outcome']);
+    }
+
+    public function test_readiness_coverage_absent_lane_blocks_overall_ready(): void
+    {
+        $result = $this->laneAuditor()->auditReadinessCoverage([], ['ghost-lane' => []]);
+
+        self::assertFalse($result['overall_ready']);
+        self::assertTrue($result['stale_lane_evidence']['ghost-lane']);
+    }
 }
