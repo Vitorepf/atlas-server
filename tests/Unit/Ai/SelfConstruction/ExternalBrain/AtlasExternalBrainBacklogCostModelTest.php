@@ -599,4 +599,62 @@ final class AtlasExternalBrainBacklogCostModelTest extends TestCase
             'dependency_unlock_value must not discount create_more cost when give_back/malformed risk is above threshold',
         );
     }
+
+    // ── quarantine worker-drag ────────────────────────────────────────────────
+
+    public function test_blocked_and_quarantined_counts_produce_quarantine_worker_drag(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size' => 10,
+            'claimable_depth' => 5,
+            'blocked_count' => 3,
+            'quarantined_count' => 4,
+        ]);
+
+        $this->assertGreaterThan(0.0, $result['quarantine_worker_drag']);
+        $this->assertSame($result['quarantine_worker_drag'], $result['cost_breakdown']['quarantine_worker_drag']);
+    }
+
+    public function test_quarantine_worker_drag_is_independent_of_claimable_depth(): void
+    {
+        $lowClaimable = $this->model()->model([
+            'backlog_size' => 10,
+            'claimable_depth' => 1,
+            'blocked_count' => 3,
+            'quarantined_count' => 4,
+        ]);
+        $highClaimable = $this->model()->model([
+            'backlog_size' => 10,
+            'claimable_depth' => 8,
+            'blocked_count' => 3,
+            'quarantined_count' => 4,
+        ]);
+
+        $this->assertSame($lowClaimable['quarantine_worker_drag'], $highClaimable['quarantine_worker_drag']);
+    }
+
+    public function test_zero_blocked_and_quarantined_counts_yield_zero_drag(): void
+    {
+        $result = $this->model()->model([
+            'backlog_size' => 10,
+            'claimable_depth' => 5,
+        ]);
+
+        $this->assertSame(0.0, $result['quarantine_worker_drag']);
+    }
+
+    public function test_quarantine_worker_drag_is_not_treated_as_positive_serving_capacity(): void
+    {
+        // A backlog dominated by blocked/quarantined debt with low claimable depth must NOT
+        // read as healthy/low-saturation just because backlog_size is large.
+        $result = $this->model()->model([
+            'backlog_size' => 50,
+            'claimable_depth' => 2,
+            'blocked_count' => 20,
+            'quarantined_count' => 20,
+        ]);
+
+        $this->assertNotSame(AtlasExternalBrainBacklogCostModel::SATURATION_LOW, $result['saturation_risk']);
+        $this->assertGreaterThan(0.0, $result['quarantine_worker_drag']);
+    }
 }

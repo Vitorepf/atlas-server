@@ -85,6 +85,9 @@ final class AtlasExternalBrainBacklogCostModel
     private const MALFORMED_RISK_THRESHOLD = 0.15;
     private const DEPENDENCY_UNLOCK_WEIGHT = 5.0;
 
+    /** Per-task worker-drag cost of a blocked or quarantined task — separate from claimable capacity. */
+    private const QUARANTINE_WORKER_DRAG_PER_TASK = 1.5;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -106,6 +109,7 @@ final class AtlasExternalBrainBacklogCostModel
         $serveRatePerMinute   = max(0.0, (float) ($input['serve_rate_per_minute'] ?? 0.0));
         $malformedRate        = min(1.0, max(0.0, (float) ($input['malformed_rate'] ?? 0.0)));
         $dependencyUnlockValue = min(1.0, max(0.0, (float) ($input['dependency_unlock_value'] ?? 0.0)));
+        $quarantinedCount      = max(0, (int) ($input['quarantined_count'] ?? 0));
 
         // ── Carrying cost breakdown ───────────────────────────────────────────
         $workerHoursCost     = round($backlogSize / $workerThroughput, 4);
@@ -121,9 +125,15 @@ final class AtlasExternalBrainBacklogCostModel
         $unconsumedPerHour    = max(0.0, $claimableDepth - ($serveRatePerMinute * 60.0));
         $staleBacklogCost     = round(($queueAgeP95Minutes / 60.0) * $unconsumedPerHour, 4);
 
+        // Quarantine worker-drag: blocked + quarantined tasks impose a REAL cost (operator/agent
+        // attention, backlog clutter, stale scans) independent of claimable_depth — dead backlog
+        // must never be counted as, or masked by, positive serving capacity.
+        $quarantineWorkerDrag = round(($blockedCount + $quarantinedCount) * self::QUARANTINE_WORKER_DRAG_PER_TASK, 4);
+
         $carryingCost = round(
             $workerHoursCost + $giveBackBurden + $reviewBurden
-            + $integrationLoad + $opportunityCost + $ageCostContribution + $staleBacklogCost,
+            + $integrationLoad + $opportunityCost + $ageCostContribution + $staleBacklogCost
+            + $quarantineWorkerDrag,
             2
         );
 
@@ -190,6 +200,7 @@ final class AtlasExternalBrainBacklogCostModel
             'preferred_action' => $preferredAction,
             'reasons'          => array_values($reasons),
             'cost_by_action'   => $costByAction,
+            'quarantine_worker_drag' => $quarantineWorkerDrag,
             'cost_breakdown'   => [
                 'worker_hours_cost'    => $workerHoursCost,
                 'give_back_burden'     => $giveBackBurden,
@@ -198,6 +209,7 @@ final class AtlasExternalBrainBacklogCostModel
                 'opportunity_cost'     => $opportunityCost,
                 'age_cost_contribution' => $ageCostContribution,
                 'stale_backlog_cost'   => $staleBacklogCost,
+                'quarantine_worker_drag' => $quarantineWorkerDrag,
             ],
             'recommended_queue_action' => [
                 'action'    => $preferredAction,
