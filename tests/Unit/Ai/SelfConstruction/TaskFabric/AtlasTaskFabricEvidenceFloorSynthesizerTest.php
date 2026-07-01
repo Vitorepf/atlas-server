@@ -119,4 +119,66 @@ final class AtlasTaskFabricEvidenceFloorSynthesizerTest extends TestCase
         $this->assertTrue($r['high_guard_active']);
         $this->assertContains('anti_false_green_receipt', $r['required_evidence']);
     }
+
+    // ── admitEvidenceFloor: submitted evidence must meet the minimum proof floor ──
+
+    public function test_admits_when_both_evidence_types_present_and_command_covers_scope(): void
+    {
+        $result = (new AtlasTaskFabricEvidenceFloorSynthesizer)->admitEvidenceFloor([
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'runnable_command' => 'php artisan test --filter=FooTest',
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $this->assertTrue($result['admitted']);
+        $this->assertSame([], $result['blockers']);
+    }
+
+    public function test_rejects_implementation_notes_alone_as_not_proof(): void
+    {
+        $result = (new AtlasTaskFabricEvidenceFloorSynthesizer)->admitEvidenceFloor([
+            'required_evidence' => ['implementation_notes'],
+            'runnable_command' => 'php artisan test --filter=FooTest',
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('missing_tests_or_gates_result', $result['blockers']);
+        $this->assertContains('implementation_notes_alone_is_not_proof', $result['blockers']);
+    }
+
+    public function test_rejects_missing_implementation_notes(): void
+    {
+        $result = (new AtlasTaskFabricEvidenceFloorSynthesizer)->admitEvidenceFloor([
+            'required_evidence' => ['tests_or_gates_result'],
+            'runnable_command' => 'php artisan test --filter=FooTest',
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('missing_implementation_notes', $result['blockers']);
+    }
+
+    public function test_rejects_runnable_command_unrelated_to_allowed_files(): void
+    {
+        $result = (new AtlasTaskFabricEvidenceFloorSynthesizer)->admitEvidenceFloor([
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'runnable_command' => 'php artisan test --filter=UnrelatedTest',
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('runnable_command_does_not_cover_allowed_files', $result['blockers']);
+    }
+
+    public function test_rejects_missing_runnable_command_when_allowed_files_present(): void
+    {
+        $result = (new AtlasTaskFabricEvidenceFloorSynthesizer)->admitEvidenceFloor([
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'allowed_files' => ['app/Foo.php'],
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertContains('runnable_command_does_not_cover_allowed_files', $result['blockers']);
+    }
 }

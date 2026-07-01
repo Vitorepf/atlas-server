@@ -64,6 +64,60 @@ final class AtlasTaskFabricEvidenceFloorSynthesizer
         ];
     }
 
+    /**
+     * Validates a SUBMITTED evidence bundle against the minimum proof floor: it must carry
+     * BOTH tests_or_gates_result AND implementation_notes (implementation_notes alone is
+     * narrative, not proof), and the runnable command must actually cover the task's
+     * allowed_files — a command unrelated to the touched files proves nothing about them.
+     *
+     * @param  array<string,mixed>  $submission  { required_evidence?: list<string>,
+     *   runnable_command?: string, allowed_files?: list<string> }
+     * @return array{admitted:bool, blockers:list<string>}
+     */
+    public function admitEvidenceFloor(array $submission): array
+    {
+        $providedEvidence = array_values(array_map('strval', (array) ($submission['required_evidence'] ?? [])));
+        $runnableCommand = strtolower(trim((string) ($submission['runnable_command'] ?? '')));
+        $allowedFiles = array_values(array_map('strval', (array) ($submission['allowed_files'] ?? [])));
+
+        $hasTestsOrGatesResult = in_array('tests_or_gates_result', $providedEvidence, true);
+        $hasImplementationNotes = in_array('implementation_notes', $providedEvidence, true);
+
+        $blockers = [];
+
+        if (! $hasTestsOrGatesResult) {
+            $blockers[] = 'missing_tests_or_gates_result';
+            if ($providedEvidence !== [] && $hasImplementationNotes) {
+                $blockers[] = 'implementation_notes_alone_is_not_proof';
+            }
+        }
+        if (! $hasImplementationNotes) {
+            $blockers[] = 'missing_implementation_notes';
+        }
+
+        if ($allowedFiles !== [] && $runnableCommand !== '') {
+            $commandCoversScope = false;
+            foreach ($allowedFiles as $file) {
+                $needle = strtolower(basename($file, '.php'));
+                if ($needle !== '' && str_contains($runnableCommand, $needle)) {
+                    $commandCoversScope = true;
+
+                    break;
+                }
+            }
+            if (! $commandCoversScope) {
+                $blockers[] = 'runnable_command_does_not_cover_allowed_files';
+            }
+        } elseif ($allowedFiles !== [] && $runnableCommand === '') {
+            $blockers[] = 'runnable_command_does_not_cover_allowed_files';
+        }
+
+        return [
+            'admitted' => array_values(array_unique($blockers)) === [],
+            'blockers' => array_values(array_unique($blockers)),
+        ];
+    }
+
     private function requiresHighGuard(string $riskLevel, string $taskFamily, string $goal): bool
     {
         if ($riskLevel === 'high') {
