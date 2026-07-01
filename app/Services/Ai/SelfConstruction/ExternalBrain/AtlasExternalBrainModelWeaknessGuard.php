@@ -226,53 +226,56 @@ final class AtlasExternalBrainModelWeaknessGuard
             $repairSteps[] = 'Replace proxy metrics (line/word/file counts, coverage percentage) with a concrete behavioral assertion or runnable test.';
         }
 
-        $passed           = $findings === [];
-        $hasHighFinding = array_reduce(
-            $findings,
-            static fn (bool $carry, array $f): bool => $carry || $f['severity'] === self::SEVERITY_HIGH,
-            false,
-        );
-
-        $primaryWeakness = $this->primaryWeakness($findings);
-        [$decision, $blockedUntilFixed, $escalationRationale] = $this->decide($passed, $hasHighFinding, $primaryWeakness, $recoveryEvidence);
+        $decisionResult = $this->assembleDecision($findings, $recoveryEvidence);
 
         return [
             'schema'              => self::SCHEMA,
-            'passed'              => $passed,
+            'passed'              => $decisionResult['passed'],
             'weakness_findings'   => $findings,
             'repair_steps'        => $repairSteps,
-            'blocked_until_fixed' => $blockedUntilFixed,
+            'blocked_until_fixed' => $decisionResult['blocked_until_fixed'],
             'model_tier'          => $modelTier,
-            'weakness'            => $primaryWeakness,
-            'decision'            => $decision,
-            'escalation_rationale' => $escalationRationale,
+            'weakness'            => $decisionResult['primary_weakness'],
+            'decision'            => $decisionResult['decision'],
+            'escalation_rationale' => $decisionResult['escalation_rationale'],
         ];
     }
 
     /**
+     * Single decision circuit: derives passed, primary_weakness, blocked_until_fixed,
+     * decision, and escalation_rationale from ONE pass over findings + recovery evidence —
+     * so a weak-model candidate can never receive a decision verdict that disagrees with
+     * its own primary weakness or severity.
+     *
      * @param  list<array<string,string>>  $findings
+     * @param  array<string,float>  $recoveryEvidence
+     * @return array{passed:bool, primary_weakness:?string, blocked_until_fixed:bool, decision:string, escalation_rationale:string}
      */
-    private function primaryWeakness(array $findings): ?string
+    private function assembleDecision(array $findings, array $recoveryEvidence): array
     {
+        $passed = $findings === [];
+
+        $hasHighFinding = false;
+        $primaryWeakness = null;
         foreach ([self::SEVERITY_HIGH, self::SEVERITY_MEDIUM, self::SEVERITY_LOW] as $severity) {
             foreach ($findings as $finding) {
-                if ($finding['severity'] === $severity) {
-                    return $finding['weakness_id'];
+                if ($finding['severity'] === self::SEVERITY_HIGH) {
+                    $hasHighFinding = true;
+                }
+                if ($primaryWeakness === null && $finding['severity'] === $severity) {
+                    $primaryWeakness = $finding['weakness_id'];
                 }
             }
         }
 
-        return null;
-    }
-
-    /**
-     * @param  array<string,float>  $recoveryEvidence
-     * @return array{0:string,1:bool,2:string}
-     */
-    private function decide(bool $passed, bool $hasHighFinding, ?string $primaryWeakness, array $recoveryEvidence): array
-    {
         if ($passed) {
-            return [self::DECISION_ALLOW, false, 'No weaknesses detected; the candidate is safe to dispatch as-is.'];
+            return [
+                'passed' => true,
+                'primary_weakness' => null,
+                'blocked_until_fixed' => false,
+                'decision' => self::DECISION_ALLOW,
+                'escalation_rationale' => 'No weaknesses detected; the candidate is safe to dispatch as-is.',
+            ];
         }
 
         $recoveryRate = $primaryWeakness !== null ? ($recoveryEvidence[$primaryWeakness] ?? 0.0) : 0.0;
@@ -281,31 +284,39 @@ final class AtlasExternalBrainModelWeaknessGuard
         if ($hasHighFinding) {
             if ($reliablyRecoverable) {
                 return [
-                    self::DECISION_ALLOW_SCAFFOLDED,
-                    false,
-                    sprintf('Past evidence shows a %.0f%% scaffold recovery rate for "%s"; allowing scaffolded execution instead of an outright block.', $recoveryRate * 100, (string) $primaryWeakness),
+                    'passed' => false,
+                    'primary_weakness' => $primaryWeakness,
+                    'blocked_until_fixed' => false,
+                    'decision' => self::DECISION_ALLOW_SCAFFOLDED,
+                    'escalation_rationale' => sprintf('Past evidence shows a %.0f%% scaffold recovery rate for "%s"; allowing scaffolded execution instead of an outright block.', $recoveryRate * 100, (string) $primaryWeakness),
                 ];
             }
 
             return [
-                self::DECISION_BLOCK,
-                true,
-                sprintf('High-severity weakness "%s" has no reliable scaffold recovery evidence (%.0f%% < %.0f%% floor); blocking until repaired.', (string) $primaryWeakness, $recoveryRate * 100, self::RELIABLE_RECOVERY_FLOOR * 100),
+                'passed' => false,
+                'primary_weakness' => $primaryWeakness,
+                'blocked_until_fixed' => true,
+                'decision' => self::DECISION_BLOCK,
+                'escalation_rationale' => sprintf('High-severity weakness "%s" has no reliable scaffold recovery evidence (%.0f%% < %.0f%% floor); blocking until repaired.', (string) $primaryWeakness, $recoveryRate * 100, self::RELIABLE_RECOVERY_FLOOR * 100),
             ];
         }
 
         if ($reliablyRecoverable) {
             return [
-                self::DECISION_ALLOW_SCAFFOLDED,
-                false,
-                sprintf('Medium/low-severity weakness "%s" has a reliable scaffold recovery rate (%.0f%%); allowing scaffolded execution.', (string) $primaryWeakness, $recoveryRate * 100),
+                'passed' => false,
+                'primary_weakness' => $primaryWeakness,
+                'blocked_until_fixed' => false,
+                'decision' => self::DECISION_ALLOW_SCAFFOLDED,
+                'escalation_rationale' => sprintf('Medium/low-severity weakness "%s" has a reliable scaffold recovery rate (%.0f%%); allowing scaffolded execution.', (string) $primaryWeakness, $recoveryRate * 100),
             ];
         }
 
         return [
-            self::DECISION_ESCALATE,
-            false,
-            sprintf('Weakness "%s" lacks reliable scaffold recovery evidence; escalating to a stronger model tier rather than dispatching this weak-model candidate unchanged.', (string) $primaryWeakness),
+            'passed' => false,
+            'primary_weakness' => $primaryWeakness,
+            'blocked_until_fixed' => false,
+            'decision' => self::DECISION_ESCALATE,
+            'escalation_rationale' => sprintf('Weakness "%s" lacks reliable scaffold recovery evidence; escalating to a stronger model tier rather than dispatching this weak-model candidate unchanged.', (string) $primaryWeakness),
         ];
     }
 
