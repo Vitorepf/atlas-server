@@ -21,10 +21,18 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
 
     private function pattern(array $overrides = []): array
     {
+        $seq = ++$this->seq;
+
         return array_merge([
-            'pattern_id'                          => 'p-'.(++$this->seq),
+            'pattern_id'                          => "p-{$seq}",
             'type'                                => AtlasExternalBrainFrontierDistillationPatternLibrary::TYPE_DECISION_PATTERN,
-            'abstract_rule'                       => 'When spec lacks runnable proof, reject before enqueue.',
+            'abstract_rule'                       => "When spec lacks runnable proof, reject before enqueue. (variant {$seq})",
+            'trigger'                             => 'spec has no runnable acceptance proof',
+            'why_it_matters'                      => 'prevents unprovable claims from reaching the queue',
+            'task_shape'                          => 'gate_before_enqueue',
+            'evidence_floor'                      => 1.0,
+            'counterexample'                      => 'accepting a task with no acceptance criteria at all',
+            'weak_model_scaffold'                 => 'Step 1: check for a runnable proof command. Step 2: reject if absent.',
             'success_count'                       => 5,
             'give_back_count'                     => 0,
             'low_value_count'                     => 0,
@@ -336,6 +344,101 @@ final class AtlasExternalBrainFrontierDistillationPatternLibraryTest extends Tes
             AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_PROVIDER_SPECIFIC_TRICK,
             $result['rejected_patterns'][0]['rejection_reason'],
         );
+    }
+
+    // ── AC2/AC3: hype-only and vague-insight rejection ─────────────────────────
+
+    public function test_hype_only_pattern_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input(
+            $this->pattern(['is_hype_only' => true]),
+        ));
+
+        $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_HYPE_ONLY,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_vague_insight_missing_trigger_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(['trigger' => ''])));
+
+        $this->assertSame([], $result['reusable_patterns']);
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_VAGUE_INSIGHT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_vague_insight_missing_why_it_matters_is_rejected(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(['why_it_matters' => ''])));
+
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_VAGUE_INSIGHT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    public function test_vague_insight_missing_task_shape_is_rejected_as_not_convertible(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern(['task_shape' => ''])));
+
+        $this->assertSame(
+            AtlasExternalBrainFrontierDistillationPatternLibrary::REJECTION_VAGUE_INSIGHT,
+            $result['rejected_patterns'][0]['rejection_reason'],
+        );
+    }
+
+    // ── AC2/AC4: emitted fields on reusable entries ─────────────────────────────
+
+    public function test_reusable_entry_carries_trigger_why_task_shape_evidence_floor_counterexample_and_weak_model_scaffold(): void
+    {
+        $result = $this->library->distill($this->input($this->pattern([
+            'trigger'             => 'task has no acceptance criteria',
+            'why_it_matters'      => 'unprovable claims poison the queue',
+            'task_shape'          => 'gate_before_enqueue',
+            'evidence_floor'      => 2.0,
+            'counterexample'      => 'a task with a runnable test still gets rejected',
+            'weak_model_scaffold' => 'check for a runnable command before accepting',
+        ])));
+
+        $entry = $result['reusable_patterns'][0];
+        $this->assertSame('task has no acceptance criteria', $entry['trigger']);
+        $this->assertSame('unprovable claims poison the queue', $entry['why_it_matters']);
+        $this->assertSame('gate_before_enqueue', $entry['task_shape']);
+        $this->assertSame(2.0, $entry['evidence_floor']);
+        $this->assertSame('a task with a runnable test still gets rejected', $entry['counterexample']);
+        $this->assertSame('check for a runnable command before accepting', $entry['weak_model_scaffold']);
+    }
+
+    // ── AC4: duplicate pattern collapse ──────────────────────────────────────────
+
+    public function test_duplicate_patterns_with_same_type_and_abstract_rule_collapse_into_one_entry(): void
+    {
+        $duplicateRule = 'When spec lacks runnable proof, reject before enqueue.';
+
+        $result = $this->library->distill($this->input(
+            $this->pattern(['abstract_rule' => $duplicateRule, 'success_count' => 3, 'give_back_count' => 0]),
+            $this->pattern(['abstract_rule' => $duplicateRule, 'success_count' => 2, 'give_back_count' => 1]),
+        ));
+
+        $this->assertCount(1, $result['reusable_patterns']);
+        $entry = $result['reusable_patterns'][0];
+        $this->assertSame(5, $entry['success_count']);
+        $this->assertSame(1, $entry['give_back_count']);
+    }
+
+    public function test_duplicate_patterns_with_different_abstract_rule_do_not_collapse(): void
+    {
+        $result = $this->library->distill($this->input(
+            $this->pattern(['abstract_rule' => 'rule one']),
+            $this->pattern(['abstract_rule' => 'rule two']),
+        ));
+
+        $this->assertCount(2, $result['reusable_patterns']);
     }
 
     // ── AC1/AC4: source_task_family, distilled_scaffold, transfer_limits, scaffold candidate ──

@@ -13,19 +13,28 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   decision_pattern, failure_check, task_shaping_heuristic,
  *   anti_proxy_rule, escalation_trigger, simplification_rule
  *
- * Provider-safety (first match wins; rejected before any further processing):
+ * Provider-safety + actionability (first match wins; rejected before any further processing):
  *   contains_provider_prompt           → provider_prompt_violation
  *   contains_private_trace             → private_trace_violation
  *   contains_provider_session_id       → provider_session_id_violation
  *   contains_unredacted_prompt_fragment → unredacted_prompt_fragment_violation
  *   is_one_off_output                  → one_off_output_violation (single clever result, not a repeatable pattern)
- *   is_provider_specific_trick         → provider_specific_trick_violation (not provider-agnostic)
+ *   is_provider_specific_trick         → provider_specific_trick_violation (not provider-agnostic/provider-dependent)
+ *   is_hype_only                       → hype_only_violation (marketing language, no actionable substance)
+ *   missing trigger/why_it_matters/task_shape → vague_insight_violation (too vague to convert into an Atlas-native task)
  *   type not in VALID_TYPES            → invalid_pattern_type
  *
- * Each reusable entry may optionally carry: source_task_family, distilled_scaffold, transfer_limits.
+ * Every reusable entry carries: trigger, why_it_matters, task_shape, evidence_floor,
+ * counterexample, weak_model_scaffold — so a weaker model can apply the pattern without
+ * re-deriving the frontier reasoning. May also optionally carry: source_task_family,
+ * distilled_scaffold, transfer_limits.
  * provider_agnostic_scaffold_candidate is emitted per reusable entry ONLY when distilled_scaffold is
  * non-empty AND success_count >= MIN_REPEAT_EVIDENCE_FOR_SCAFFOLD (repeated lift evidence) — it
  * carries the scaffold, an evidence summary and risk_notes; null otherwise.
+ *
+ * Duplicate collapse: patterns sharing the same (type, abstract_rule) are the same insight
+ * observed multiple times — they collapse into one entry with summed success/give_back/low_value
+ * counts (evidence accumulates) before ranking and retirement are evaluated.
  *
  * Ranking + retirement:
  *   reusable_patterns sorted DESC by success_count.
@@ -59,6 +68,8 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
     public const REJECTION_UNREDACTED_PROMPT_FRAGMENT   = 'unredacted_prompt_fragment_violation';
     public const REJECTION_ONE_OFF_OUTPUT               = 'one_off_output_violation';
     public const REJECTION_PROVIDER_SPECIFIC_TRICK      = 'provider_specific_trick_violation';
+    public const REJECTION_HYPE_ONLY                    = 'hype_only_violation';
+    public const REJECTION_VAGUE_INSIGHT                = 'vague_insight_violation';
     public const REJECTION_INVALID_TYPE                 = 'invalid_pattern_type';
 
     public const RETIRE_REASON_GIVE_BACK_COUNT = 'give_back_count_threshold_exceeded';
@@ -93,16 +104,18 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
     {
         $patterns = (array) ($input['patterns'] ?? []);
 
-        $reusable = [];
-        $retired  = [];
         $rejected = [];
+        $accepted = [];
 
         foreach ($patterns as $idx => $pattern) {
-            $patternId    = (string) ($pattern['pattern_id']   ?? "pattern_{$idx}");
-            $type         = (string) ($pattern['type']         ?? '');
-            $abstractRule = trim((string) ($pattern['abstract_rule'] ?? ''));
+            $patternId      = (string) ($pattern['pattern_id']   ?? "pattern_{$idx}");
+            $type           = (string) ($pattern['type']         ?? '');
+            $abstractRule   = trim((string) ($pattern['abstract_rule'] ?? ''));
+            $trigger        = trim((string) ($pattern['trigger'] ?? ''));
+            $whyItMatters   = trim((string) ($pattern['why_it_matters'] ?? ''));
+            $taskShape      = trim((string) ($pattern['task_shape'] ?? ''));
 
-            // Provider-safety: first match wins; rejected before any further processing.
+            // Provider-safety + actionability: first match wins; rejected before any further processing.
             if (! empty($pattern['contains_provider_prompt'])) {
                 $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_PROVIDER_PROMPT];
                 continue;
@@ -127,45 +140,74 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
                 $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_PROVIDER_SPECIFIC_TRICK];
                 continue;
             }
+            if (! empty($pattern['is_hype_only'])) {
+                $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_HYPE_ONLY];
+                continue;
+            }
+            if ($trigger === '' || $whyItMatters === '' || $taskShape === '') {
+                $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_VAGUE_INSIGHT];
+                continue;
+            }
             if (! in_array($type, self::VALID_TYPES, true)) {
                 $rejected[] = ['pattern_id' => $patternId, 'rejection_reason' => self::REJECTION_INVALID_TYPE];
                 continue;
             }
 
-            $successCount  = max(0, (int) ($pattern['success_count']   ?? 0));
-            $giveBackCount = max(0, (int) ($pattern['give_back_count'] ?? 0));
-            $lowValueCount = max(0, (int) ($pattern['low_value_count'] ?? 0));
+            $accepted[] = [
+                'pattern_id'           => $patternId,
+                'type'                 => $type,
+                'abstract_rule'        => $abstractRule,
+                'trigger'              => $trigger,
+                'why_it_matters'       => $whyItMatters,
+                'task_shape'           => $taskShape,
+                'evidence_floor'       => max(0.0, (float) ($pattern['evidence_floor'] ?? 0.0)),
+                'counterexample'       => trim((string) ($pattern['counterexample'] ?? '')),
+                'weak_model_scaffold'  => trim((string) ($pattern['weak_model_scaffold'] ?? '')),
+                'success_count'        => max(0, (int) ($pattern['success_count']   ?? 0)),
+                'give_back_count'      => max(0, (int) ($pattern['give_back_count'] ?? 0)),
+                'low_value_count'      => max(0, (int) ($pattern['low_value_count'] ?? 0)),
+                'source_task_family'   => (string) ($pattern['source_task_family'] ?? ''),
+                'distilled_scaffold'   => trim((string) ($pattern['distilled_scaffold'] ?? '')),
+                'transfer_limits'      => array_values(array_map('strval', (array) ($pattern['transfer_limits'] ?? []))),
+                'risk_notes'           => array_values(array_map('strval', (array) ($pattern['risk_notes'] ?? []))),
+            ];
+        }
+
+        // Duplicate collapse: same (type, abstract_rule) is the same insight observed
+        // more than once — merge evidence before ranking/retirement instead of double-counting it.
+        $groups = [];
+        foreach ($accepted as $record) {
+            $key = $record['type'].'|'.mb_strtolower($record['abstract_rule']);
+            $groups[$key][] = $record;
+        }
+
+        $reusable = [];
+        $retired  = [];
+
+        foreach ($groups as $group) {
+            $merged = $this->mergeGroup($group);
+
+            $successCount  = $merged['success_count'];
+            $giveBackCount = $merged['give_back_count'];
+            $lowValueCount = $merged['low_value_count'];
             $totalOutcomes = $successCount + $giveBackCount + $lowValueCount;
 
-            $sourceTaskFamily = (string) ($pattern['source_task_family'] ?? '');
-            $distilledScaffold = trim((string) ($pattern['distilled_scaffold'] ?? ''));
-            $transferLimits = array_values(array_map('strval', (array) ($pattern['transfer_limits'] ?? [])));
-            $riskNotes = array_values(array_map('strval', (array) ($pattern['risk_notes'] ?? [])));
+            $entry = $merged;
+            $riskNotes = $entry['risk_notes'];
+            unset($entry['risk_notes']);
 
             $retireReason = $this->retireReason($successCount, $giveBackCount, $lowValueCount, $totalOutcomes);
-
-            $entry = [
-                'pattern_id'          => $patternId,
-                'type'                => $type,
-                'abstract_rule'       => $abstractRule,
-                'success_count'       => $successCount,
-                'give_back_count'     => $giveBackCount,
-                'low_value_count'     => $lowValueCount,
-                'source_task_family'  => $sourceTaskFamily,
-                'distilled_scaffold'  => $distilledScaffold,
-                'transfer_limits'     => $transferLimits,
-            ];
 
             if ($retireReason !== null) {
                 $entry['retire_reason'] = $retireReason;
                 $retired[]              = $entry;
             } else {
-                $entry['provider_agnostic_scaffold_candidate'] = ($distilledScaffold !== '' && $successCount >= self::MIN_REPEAT_EVIDENCE_FOR_SCAFFOLD)
+                $entry['provider_agnostic_scaffold_candidate'] = ($entry['distilled_scaffold'] !== '' && $successCount >= self::MIN_REPEAT_EVIDENCE_FOR_SCAFFOLD)
                     ? [
-                        'scaffold' => $distilledScaffold,
+                        'scaffold' => $entry['distilled_scaffold'],
                         'evidence' => [
                             'success_count'       => $successCount,
-                            'source_task_family'  => $sourceTaskFamily,
+                            'source_task_family'  => $entry['source_task_family'],
                         ],
                         'risk_notes' => $riskNotes,
                     ]
@@ -200,6 +242,58 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
             'provider_safe_summary'    => $summary,
             'next_run_injection_rules' => $injectionRules,
             'pattern_quality_score'    => $qualityScore,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $group
+     * @return array<string,mixed>
+     */
+    private function mergeGroup(array $group): array
+    {
+        $first = $group[0];
+
+        $transferLimits = [];
+        $riskNotes = [];
+        $sourceTaskFamily = '';
+        $distilledScaffold = '';
+        $evidenceFloor = 0.0;
+        $successCount = 0;
+        $giveBackCount = 0;
+        $lowValueCount = 0;
+
+        foreach ($group as $record) {
+            $transferLimits = array_merge($transferLimits, $record['transfer_limits']);
+            $riskNotes = array_merge($riskNotes, $record['risk_notes']);
+            if ($sourceTaskFamily === '' && $record['source_task_family'] !== '') {
+                $sourceTaskFamily = $record['source_task_family'];
+            }
+            if ($distilledScaffold === '' && $record['distilled_scaffold'] !== '') {
+                $distilledScaffold = $record['distilled_scaffold'];
+            }
+            $evidenceFloor = max($evidenceFloor, $record['evidence_floor']);
+            $successCount += $record['success_count'];
+            $giveBackCount += $record['give_back_count'];
+            $lowValueCount += $record['low_value_count'];
+        }
+
+        return [
+            'pattern_id'          => $first['pattern_id'],
+            'type'                => $first['type'],
+            'abstract_rule'       => $first['abstract_rule'],
+            'trigger'             => $first['trigger'],
+            'why_it_matters'      => $first['why_it_matters'],
+            'task_shape'          => $first['task_shape'],
+            'evidence_floor'      => round($evidenceFloor, 4),
+            'counterexample'      => $first['counterexample'],
+            'weak_model_scaffold' => $first['weak_model_scaffold'],
+            'success_count'       => $successCount,
+            'give_back_count'     => $giveBackCount,
+            'low_value_count'     => $lowValueCount,
+            'source_task_family'  => $sourceTaskFamily,
+            'distilled_scaffold'  => $distilledScaffold,
+            'transfer_limits'     => array_values(array_unique($transferLimits)),
+            'risk_notes'          => array_values(array_unique($riskNotes)),
         ];
     }
 
