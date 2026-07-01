@@ -173,4 +173,98 @@ final class AtlasSelfConstructionConsolidationWaveSequencerTest extends TestCase
             $this->assertGreaterThan($executionIndex, $syncIndex);
         }
     }
+
+    // ── AC: low-blast-radius, high-proof waves before runtime-dispatch waves ───
+
+    public function test_static_edit_wave_scheduled_before_runtime_dispatch_wave(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'dispatch', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php'], 'wave_kind' => 'runtime_dispatch'],
+                ['id' => 'static', 'risk' => 'high', 'proof_ready' => true, 'allowed_files' => ['b.php'], 'wave_kind' => 'static_edit'],
+            ],
+        ]);
+
+        $order = array_map(fn (array $w) => $w['task_ids'][0], $result['waves']);
+        $this->assertSame(['static', 'dispatch'], $order);
+    }
+
+    public function test_wave_kind_defaults_to_static_edit_when_absent(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+            ],
+        ]);
+
+        $this->assertSame('static_edit', $result['waves'][0]['wave_kind']);
+    }
+
+    public function test_blast_radius_reflects_candidate_risk(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'high', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+            ],
+        ]);
+
+        $this->assertSame('high', $result['waves'][0]['blast_radius']);
+    }
+
+    // ── AC: waves with missing proof are held as blocked_until_proven ──────────
+
+    public function test_wave_status_is_blocked_until_proven_when_not_proof_ready(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'not-proven', 'risk' => 'low', 'proof_ready' => false, 'missing_proof' => 'equivalence_missing', 'allowed_files' => ['a.php']],
+            ],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionConsolidationWaveSequencer::STATUS_BLOCKED_UNTIL_PROVEN,
+            $result['waves'][0]['status'],
+        );
+    }
+
+    public function test_wave_status_is_ready_when_proof_ready(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+            ],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionConsolidationWaveSequencer::STATUS_READY, $result['waves'][0]['status']);
+    }
+
+    // ── AC: sequence output includes next_unlocks so Task Fabric can enqueue coherently ──
+
+    public function test_next_unlocks_names_the_candidate_that_becomes_ready(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'parent', 'prerequisites' => [], 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+                ['id' => 'child', 'prerequisites' => ['parent'], 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['b.php']],
+            ],
+        ]);
+
+        $byId = [];
+        foreach ($result['waves'] as $wave) {
+            $byId[$wave['task_ids'][0]] = $wave;
+        }
+        $this->assertSame(['child'], $byId['parent']['next_unlocks']);
+        $this->assertSame([], $byId['child']['next_unlocks']);
+    }
+
+    public function test_next_unlocks_empty_when_no_dependents(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequence([
+            'candidates' => [
+                ['id' => 'c1', 'risk' => 'low', 'proof_ready' => true, 'allowed_files' => ['a.php']],
+            ],
+        ]);
+
+        $this->assertSame([], $result['waves'][0]['next_unlocks']);
+    }
 }

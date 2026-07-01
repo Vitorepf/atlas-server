@@ -48,6 +48,7 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
      *     missing_proof?: string,
      *     allowed_files?: list<string>,
      *     expected_leverage?: float|int,
+     *     wave_kind?: string,
      *   }>,
      * }  $facts
      * @return array{schema:string, waves:list<array<string,mixed>>, blocked:list<array<string,mixed>>}
@@ -71,6 +72,7 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
                 'missing_proof' => (string) ($raw['missing_proof'] ?? 'proof_not_ready'),
                 'allowed_files' => array_values((array) ($raw['allowed_files'] ?? [])),
                 'expected_leverage' => (float) ($raw['expected_leverage'] ?? 0),
+                'wave_kind' => (string) ($raw['wave_kind'] ?? 'static_edit'),
             ];
         }
 
@@ -109,10 +111,21 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
                 'collision_risks' => $collisions[$next['id']] ?? [],
                 'proof_requirements' => $next['proof_ready'] ? [] : [$next['missing_proof']],
                 'why_now' => $whyNow,
+                'status' => $next['proof_ready'] ? self::STATUS_READY : self::STATUS_BLOCKED_UNTIL_PROVEN,
+                'blast_radius' => $next['risk'],
+                'wave_kind' => $next['wave_kind'],
             ];
 
             $placed[$next['id']] = true;
             unset($remaining[$next['id']]);
+
+            $nextUnlocks = [];
+            foreach ($remaining as $rid => $rc) {
+                if (in_array($next['id'], $rc['prerequisites'], true) && $this->prerequisitesSatisfied($rc, $candidates, $placed)) {
+                    $nextUnlocks[] = $rid;
+                }
+            }
+            $waves[count($waves) - 1]['next_unlocks'] = $nextUnlocks;
         }
 
         return [
@@ -145,6 +158,12 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
         $proofCmp = ($b['proof_ready'] ? 1 : 0) <=> ($a['proof_ready'] ? 1 : 0);
         if ($proofCmp !== 0) {
             return $proofCmp;
+        }
+
+        // AC: low-blast-radius static waves before broad runtime-dispatch waves.
+        $dispatchCmp = ($a['wave_kind'] === 'runtime_dispatch' ? 1 : 0) <=> ($b['wave_kind'] === 'runtime_dispatch' ? 1 : 0);
+        if ($dispatchCmp !== 0) {
+            return $dispatchCmp;
         }
 
         $riskCmp = ($this->riskRank($a['risk'])) <=> ($this->riskRank($b['risk']));
