@@ -24,6 +24,8 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
 
     public const MODE_APPLY = 'apply';
 
+    private const STALE_EVIDENCE_MAX_AGE_DAYS = 90;
+
     private AtlasSelfConstructionLearningTransferGiveBackClassifier $classifier;
 
     private AtlasSelfConstructionLearningTransferLessonCandidateGate $gate;
@@ -150,6 +152,8 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
      * @param  array{
      *   source_proof?:string, target_fit?:string, risk_analysis?:string, rollback_path?:string,
      *   target_evidence?:list<mixed>, target_evidence_contradicted?:bool,
+     *   target_evidence_age_days?:int, source_scope?:string, target_scope?:string,
+     *   hidden_assumptions?:list<mixed>,
      * }  $input
      * @return array{schema_version:string, transfer_decision:string, transfer_allowed:bool, missing_evidence:list<string>, safe_first_task:?string, rollback_ref:?string}
      */
@@ -161,6 +165,10 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         $rollbackPath = trim((string) ($input['rollback_path'] ?? ''));
         $targetEvidence = is_array($input['target_evidence'] ?? null) ? array_filter($input['target_evidence']) : [];
         $targetEvidenceContradicted = (bool) ($input['target_evidence_contradicted'] ?? false);
+        $targetEvidenceAgeDays = (int) ($input['target_evidence_age_days'] ?? 0);
+        $sourceScope = trim((string) ($input['source_scope'] ?? ''));
+        $targetScope = trim((string) ($input['target_scope'] ?? ''));
+        $hiddenAssumptions = is_array($input['hidden_assumptions'] ?? null) ? array_filter($input['hidden_assumptions']) : [];
 
         $missingEvidence = [];
         if ($sourceProof === '') {
@@ -177,12 +185,28 @@ final class AtlasSelfConstructionLearningTransferAdmissionOrchestrator
         }
 
         // Cargo-cult guard: even with all four proofs present, transfer is never allowed when the
-        // TARGET project's own evidence is missing or explicitly contradicted — proof that a
-        // pattern worked in Atlas is never proof it fits somewhere else.
+        // TARGET project's own evidence is missing, explicitly contradicted, or stale — proof that
+        // a pattern worked in Atlas is never proof it fits somewhere else, and old target evidence
+        // may no longer reflect the target project's current state.
         if ($targetEvidence === []) {
             $missingEvidence[] = 'target_evidence';
         } elseif ($targetEvidenceContradicted) {
             $missingEvidence[] = 'target_evidence_contradicted';
+        } elseif ($targetEvidenceAgeDays > self::STALE_EVIDENCE_MAX_AGE_DAYS) {
+            $missingEvidence[] = 'target_evidence_stale';
+        }
+
+        // Scope-fit guard: a pattern proven under one scope is never blindly transferred into a
+        // mismatched scope, even with all other proofs present.
+        if ($sourceScope !== '' && $targetScope !== '' && strcasecmp($sourceScope, $targetScope) !== 0) {
+            $missingEvidence[] = 'target_scope_mismatch';
+        }
+
+        // Hidden-assumption guard: a transfer that depends on project-specific assumptions the
+        // target has not verified is a cargo-cult transfer regardless of how strong the other
+        // proofs look.
+        if ($hiddenAssumptions !== []) {
+            $missingEvidence[] = 'hidden_assumptions_present';
         }
 
         $missingEvidence = array_values(array_unique($missingEvidence));

@@ -195,4 +195,60 @@ class AtlasSelfConstructionLearningTransferAdmissionOrchestratorTest extends Tes
         self::assertNotNull($result['safe_first_task']);
         self::assertSame('revert_commit:target-repo', $result['rollback_ref']);
     }
+
+    // ── AC: stale target evidence rejection ───────────────────────────────────
+
+    public function test_rejects_transfer_when_target_evidence_is_stale(): void
+    {
+        $result = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['target_evidence_age_days' => 200])
+        );
+
+        self::assertFalse($result['transfer_allowed']);
+        self::assertContains('target_evidence_stale', $result['missing_evidence']);
+    }
+
+    public function test_allows_transfer_when_target_evidence_is_fresh(): void
+    {
+        $result = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['target_evidence_age_days' => 5])
+        );
+
+        self::assertTrue($result['transfer_allowed']);
+        self::assertNotContains('target_evidence_stale', $result['missing_evidence']);
+    }
+
+    // ── AC: scope mismatch rejection ──────────────────────────────────────────
+
+    public function test_rejects_transfer_when_source_and_target_scope_mismatch(): void
+    {
+        $result = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['source_scope' => 'engineering.brain', 'target_scope' => 'marketing.ads'])
+        );
+
+        self::assertFalse($result['transfer_allowed']);
+        self::assertContains('target_scope_mismatch', $result['missing_evidence']);
+    }
+
+    public function test_allows_transfer_when_source_and_target_scope_match(): void
+    {
+        $result = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['source_scope' => 'engineering.brain', 'target_scope' => 'Engineering.Brain'])
+        );
+
+        self::assertTrue($result['transfer_allowed']);
+        self::assertNotContains('target_scope_mismatch', $result['missing_evidence']);
+    }
+
+    // ── AC: hidden project-specific assumptions rejection ─────────────────────
+
+    public function test_rejects_transfer_when_hidden_assumptions_present(): void
+    {
+        $result = $this->orchestrator()->admitCrossProjectTransfer(
+            $this->fullTransferInput(['hidden_assumptions' => ['assumes target uses the same queue driver']])
+        );
+
+        self::assertFalse($result['transfer_allowed']);
+        self::assertContains('hidden_assumptions_present', $result['missing_evidence']);
+    }
 }
