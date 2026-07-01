@@ -23,6 +23,13 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   retire_stale_work      — stale AND NOT owner_clear AND risk_level==='low' (no risk, no owner, stale)
  *   no_action              — none of the above signals present
  *
+ * Every non-no_action route carries next_packet_class (the concrete downstream packet class this
+ * action would chain into) and chain_position (its urgency-derived position in that chain) —
+ * both null only for no_action. refusal_reason names the EXACT signal that preempted
+ * create_task_chain for this area — one of blocked_dependency, stale_high_risk_context, or
+ * missing_owner_research_required — never a generic label, and only set when task-chain creation
+ * was actually preempted by one of those three unsafe conditions.
+ *
  * Output is ordered by urgency (action priority above), area_id ASC within the same action.
  *
  * Pure: no I/O, no provider calls, no queue writes.
@@ -64,11 +71,27 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouter
         self::ACTION_MAESTRO_UNBLOCK => ['dependency_resolution_plan', 'blocked_dependency_names'],
         self::ACTION_REFRESH_CONTEXT => ['context_pack_refresh_receipt'],
         self::ACTION_SIMPLIFY_OR_CONSOLIDATE => ['consolidation_plan', 'ownership_map'],
-        self::ACTION_CREATE_TASK_CHAIN => ['task_chain_draft', 'acceptance_criteria'],
+        self::ACTION_CREATE_TASK_CHAIN => ['task_chain_draft', 'acceptance_criteria', 'implementation_target_map'],
         self::ACTION_RUN_RESEARCH_GROUNDING => ['research_grounding_receipt'],
         self::ACTION_RETIRE_STALE_WORK => ['retirement_rationale'],
         self::ACTION_NO_ACTION => [],
     ];
+
+    /** The concrete downstream packet class each action would chain into next. */
+    private const NEXT_PACKET_CLASS_BY_ACTION = [
+        self::ACTION_MAESTRO_UNBLOCK => 'dependency_unblock_packet',
+        self::ACTION_REFRESH_CONTEXT => 'context_refresh_packet',
+        self::ACTION_SIMPLIFY_OR_CONSOLIDATE => 'consolidation_packet',
+        self::ACTION_CREATE_TASK_CHAIN => 'task_chain_packet',
+        self::ACTION_RUN_RESEARCH_GROUNDING => 'research_grounding_packet',
+        self::ACTION_RETIRE_STALE_WORK => 'retirement_packet',
+    ];
+
+    public const REFUSAL_BLOCKED_DEPENDENCY = 'blocked_dependency';
+
+    public const REFUSAL_STALE_HIGH_RISK_CONTEXT = 'stale_high_risk_context';
+
+    public const REFUSAL_MISSING_OWNER_RESEARCH_REQUIRED = 'missing_owner_research_required';
 
     /** Confidence in the routing decision itself — deterministic blocking signals score highest. */
     private const CONFIDENCE_BY_ACTION = [
@@ -138,13 +161,17 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouter
                 default => [self::ACTION_NO_ACTION, 'no actionable gap signal present'],
             };
 
-            // refusal_reason: explains why creating a task chain was refused for this area, when the
-            // signals that would normally route to create_task_chain were preempted by an unsafe
-            // condition (blocked deps, stale+high-risk context, or evidence gap).
-            $wouldBeUnsafeForTaskChain = $blockedDeps !== [] || ($stale && $riskLevel === 'high') || $evidenceGap;
-            $refusalReason = ($action !== self::ACTION_CREATE_TASK_CHAIN && $wouldBeUnsafeForTaskChain)
-                ? 'insufficient_evidence_or_stale_high_risk_context_blocks_task_chain_creation'
-                : null;
+            // refusal_reason: names the EXACT blocking signal that preempted create_task_chain for
+            // this area — never a generic label. Only set when the action actually is one of the
+            // three unsafe preemptions (task-chain creation was never even attempted for any other
+            // reason, e.g. insufficient maturity, isn't a "refusal").
+            $refusalReason = match (true) {
+                $action === self::ACTION_CREATE_TASK_CHAIN => null,
+                $blockedDeps !== [] => self::REFUSAL_BLOCKED_DEPENDENCY,
+                $stale && $riskLevel === 'high' => self::REFUSAL_STALE_HIGH_RISK_CONTEXT,
+                $evidenceGap && ! $ownerClear => self::REFUSAL_MISSING_OWNER_RESEARCH_REQUIRED,
+                default => null,
+            };
 
             $routes[] = [
                 'area_id' => $id,
@@ -154,6 +181,8 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouter
                 'priority' => self::URGENCY_ORDER[$action] ?? 99,
                 'confidence' => self::CONFIDENCE_BY_ACTION[$action] ?? 0.50,
                 'refusal_reason' => $refusalReason,
+                'next_packet_class' => self::NEXT_PACKET_CLASS_BY_ACTION[$action] ?? null,
+                'chain_position' => $action === self::ACTION_NO_ACTION ? null : (self::URGENCY_ORDER[$action] ?? null),
             ];
         }
 

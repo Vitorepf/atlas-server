@@ -271,4 +271,81 @@ final class AtlasExternalBrainKnowledgeDominanceGapRouterTest extends TestCase
 
         $this->assertLessThan($task['priority'], $blocked['priority']);
     }
+
+    // ── AC: non-no_action routes carry next_packet_class + chain_position ────
+
+    public function test_non_no_action_routes_have_next_packet_class_and_chain_position(): void
+    {
+        $r = $this->router()->route([$this->area('a1', ['sprawl' => true])]);
+        $route = $r['routes'][0];
+
+        $this->assertSame('consolidation_packet', $route['next_packet_class']);
+        $this->assertIsInt($route['chain_position']);
+    }
+
+    public function test_no_action_has_null_next_packet_class_and_chain_position(): void
+    {
+        $r = $this->router()->route([$this->area('a1')]);
+        $route = $r['routes'][0];
+
+        $this->assertNull($route['next_packet_class']);
+        $this->assertNull($route['chain_position']);
+    }
+
+    public function test_next_packet_class_is_deterministic_per_action(): void
+    {
+        $r1 = $this->router()->route([$this->area('a', ['blocked_dependencies' => ['dep-1']])]);
+        $r2 = $this->router()->route([$this->area('b', ['blocked_dependencies' => ['dep-2']])]);
+
+        $this->assertSame($r1['routes'][0]['next_packet_class'], $r2['routes'][0]['next_packet_class']);
+        $this->assertSame('dependency_unblock_packet', $r1['routes'][0]['next_packet_class']);
+    }
+
+    // ── AC: create_task_chain requires implementation_target_map evidence ────
+
+    public function test_create_task_chain_requires_implementation_target_map(): void
+    {
+        $r = $this->router()->route([$this->area('a1', [
+            'maturity' => 0.10,
+            'owner_clear' => true,
+            'evidence_coverage' => 0.20,
+        ])]);
+
+        $this->assertContains('implementation_target_map', $r['routes'][0]['required_evidence']);
+        $this->assertContains('task_chain_draft', $r['routes'][0]['required_evidence']);
+        $this->assertContains('acceptance_criteria', $r['routes'][0]['required_evidence']);
+    }
+
+    // ── AC: refusal_reason names the exact blocking signal ────────────────────
+
+    public function test_refusal_reason_names_blocked_dependency_exactly(): void
+    {
+        $r = $this->router()->route([$this->area('a1', ['blocked_dependencies' => ['dep-1']])]);
+        $this->assertSame(AtlasExternalBrainKnowledgeDominanceGapRouter::REFUSAL_BLOCKED_DEPENDENCY, $r['routes'][0]['refusal_reason']);
+    }
+
+    public function test_refusal_reason_names_stale_high_risk_context_exactly(): void
+    {
+        $r = $this->router()->route([$this->area('a1', ['stale' => true, 'risk_level' => 'high'])]);
+        $this->assertSame(AtlasExternalBrainKnowledgeDominanceGapRouter::REFUSAL_STALE_HIGH_RISK_CONTEXT, $r['routes'][0]['refusal_reason']);
+    }
+
+    public function test_refusal_reason_names_missing_owner_research_required_exactly(): void
+    {
+        $r = $this->router()->route([$this->area('a1', ['owner_clear' => false, 'evidence_coverage' => 0.1])]);
+        $this->assertSame(AtlasExternalBrainKnowledgeDominanceGapRouter::REFUSAL_MISSING_OWNER_RESEARCH_REQUIRED, $r['routes'][0]['refusal_reason']);
+    }
+
+    // ── AC: routes remain sorted by urgency and area_id exactly as before ────
+
+    public function test_routes_still_sorted_by_urgency_and_area_id_with_new_fields_present(): void
+    {
+        $r = $this->router()->route([
+            $this->area('zeta', ['blocked_dependencies' => ['dep-1']]),
+            $this->area('alpha', ['blocked_dependencies' => ['dep-2']]),
+            $this->area('mid', ['sprawl' => true]),
+        ]);
+
+        $this->assertSame(['alpha', 'zeta', 'mid'], array_column($r['routes'], 'area_id'));
+    }
 }
