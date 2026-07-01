@@ -79,6 +79,7 @@ final class AtlasSelfConstructionCortexSourceInventory
         $seenIds = [];
         $normalized = [];
         $kindsPresent = [];
+        $requiredNotFreshCount = 0;
 
         foreach ($rawSources as $s) {
             if (! is_array($s)) {
@@ -109,16 +110,42 @@ final class AtlasSelfConstructionCortexSourceInventory
                 }
             }
 
+            $workspaceBoundary = trim((string) ($s['workspace_boundary'] ?? '')) !== '' ? (string) $s['workspace_boundary'] : self::DEFAULT_WORKSPACE_BOUNDARY;
+            $readOnlyAvailable = array_key_exists('read_only_available', $s) ? (bool) $s['read_only_available'] : true;
+            $advisoryOnly = (bool) ($s['advisory_only'] ?? false);
+
             $normalized[] = [
                 'source_id' => $id,
                 'kind' => $kind,
                 'authority' => trim((string) ($s['authority'] ?? '')) !== '' ? (string) $s['authority'] : self::DEFAULT_AUTHORITY,
                 'freshness_requirement' => trim((string) ($s['freshness_requirement'] ?? '')) !== '' ? (string) $s['freshness_requirement'] : self::DEFAULT_FRESHNESS,
-                'workspace_boundary' => trim((string) ($s['workspace_boundary'] ?? '')) !== '' ? (string) $s['workspace_boundary'] : self::DEFAULT_WORKSPACE_BOUNDARY,
-                'read_only_available' => array_key_exists('read_only_available', $s) ? (bool) $s['read_only_available'] : true,
+                'workspace_boundary' => $workspaceBoundary,
+                'read_only_available' => $readOnlyAvailable,
                 'freshness_status' => $freshness,
+                'advisory_only' => $advisoryOnly,
             ];
             $kindsPresent[$kind] = true;
+
+            // AC3: not-read-only or outside the Atlas workspace boundary is a named blocker with a
+            // deterministic repair hint, regardless of kind or advisory status — the Cortex must never
+            // treat a source it cannot safely/locally reach as ordinary context.
+            if (! $readOnlyAvailable) {
+                $blockers[] = 'source_not_read_only:'.$id;
+            }
+            if ($workspaceBoundary !== self::DEFAULT_WORKSPACE_BOUNDARY) {
+                $blockers[] = 'source_outside_workspace_boundary:'.$id;
+            }
+
+            // AC2: a REQUIRED source whose freshness was actually evaluated (now_at supplied) and came
+            // back stale/unknown blocks readiness unless the caller explicitly marked it advisory_only.
+            // Sources for which freshness was never evaluated (no now_at) are not penalized here — that
+            // is a distinct "freshness unknown because unchecked" state, not a proven staleness signal.
+            if ($nowAt !== null && $nowAt !== false && in_array($kind, self::REQUIRED_KINDS, true)
+                && in_array($freshness, [self::FRESHNESS_STALE, self::FRESHNESS_UNKNOWN], true)
+                && ! $advisoryOnly) {
+                $blockers[] = 'required_source_not_fresh:'.$kind.':'.$id;
+                $requiredNotFreshCount++;
+            }
         }
 
         $presentKinds = [];
@@ -191,7 +218,7 @@ final class AtlasSelfConstructionCortexSourceInventory
             'inventory' => $normalized,
             'blockers' => $blockers,
             'required_summary' => ['present' => $presentKinds, 'missing' => $missingKinds],
-            'context_status' => $missingKinds === [] ? self::CONTEXT_READY : self::CONTEXT_NOT_READY,
+            'context_status' => ($missingKinds === [] && $requiredNotFreshCount === 0) ? self::CONTEXT_READY : self::CONTEXT_NOT_READY,
             'authority_map' => $authorityMap,
             'freshness_debt' => $freshnessDebt,
         ];

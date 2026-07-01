@@ -226,6 +226,92 @@ final class AtlasSelfConstructionCortexSourceInventoryTest extends TestCase
         $this->assertNotContains('project_lane', $r['required_summary']['missing']);
     }
 
+    public function test_stale_required_source_forces_context_not_ready(): void
+    {
+        $sources = $this->completeSources();
+        foreach ($sources as $i => $s) {
+            if ($s['kind'] === 'docs') {
+                $sources[$i]['last_updated_at'] = '2020-01-01T00:00:00Z';
+                $sources[$i]['max_age_s'] = 60;
+            }
+        }
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
+            'sources' => $sources,
+            'now_at' => '2020-01-02T00:00:00Z',
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::CONTEXT_NOT_READY, $r['context_status']);
+        $this->assertContains('required_source_not_fresh:docs:docs.canonical', $r['blockers']);
+    }
+
+    public function test_advisory_only_stale_required_source_does_not_block_context_ready(): void
+    {
+        $freshAt = '2020-01-02T00:00:00Z';
+        $sources = $this->completeSources();
+        foreach ($sources as $i => $s) {
+            if ($s['kind'] === 'docs') {
+                $sources[$i]['last_updated_at'] = '2020-01-01T00:00:00Z';
+                $sources[$i]['max_age_s'] = 60;
+                $sources[$i]['advisory_only'] = true;
+            } else {
+                // Keep every other required source genuinely fresh so only the advisory-flagged
+                // docs source is stale — isolating the advisory_only exemption under test.
+                $sources[$i]['last_updated_at'] = $freshAt;
+                $sources[$i]['max_age_s'] = 3600;
+            }
+        }
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
+            'sources' => $sources,
+            'now_at' => $freshAt,
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::CONTEXT_READY, $r['context_status']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_unknown_freshness_required_source_blocks_when_now_at_evaluated(): void
+    {
+        $sources = $this->completeSources();
+        // docs never gets last_updated_at ⇒ freshness_status stays 'unknown' once now_at is evaluated.
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
+            'sources' => $sources,
+            'now_at' => '2020-01-02T00:00:00Z',
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionCortexSourceInventory::CONTEXT_NOT_READY, $r['context_status']);
+        $this->assertContains('required_source_not_fresh:docs:docs.canonical', $r['blockers']);
+    }
+
+    public function test_read_only_unavailable_source_produces_named_blocker_and_repair_hint(): void
+    {
+        $sources = $this->completeSources();
+        foreach ($sources as $i => $s) {
+            if ($s['kind'] === 'docs') {
+                $sources[$i]['read_only_available'] = false;
+            }
+        }
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+
+        $this->assertContains('source_not_read_only:docs.canonical', $r['blockers']);
+    }
+
+    public function test_workspace_boundary_outside_atlas_repo_produces_named_blocker(): void
+    {
+        $sources = $this->completeSources();
+        foreach ($sources as $i => $s) {
+            if ($s['kind'] === 'docs') {
+                $sources[$i]['workspace_boundary'] = 'umbrella_repo';
+            }
+        }
+
+        $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory(['sources' => $sources]);
+
+        $this->assertContains('source_outside_workspace_boundary:docs.canonical', $r['blockers']);
+    }
+
     public function test_explicit_authority_freshness_workspace_overrides_defaults(): void
     {
         $r = (new AtlasSelfConstructionCortexSourceInventory)->inventory([
