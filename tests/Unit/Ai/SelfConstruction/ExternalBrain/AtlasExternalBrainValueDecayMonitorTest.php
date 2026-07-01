@@ -396,6 +396,26 @@ final class AtlasExternalBrainValueDecayMonitorTest extends TestCase
         $this->assertSame('duplicate_family_saturation', $r['recommendations'][0]['reason']);
     }
 
+    // ── AC4: consolidate duplicate family (family still succeeding → merge, don't destroy) ──
+
+    public function test_duplicate_family_saturation_with_healthy_muscle_success_recommends_consolidate(): void
+    {
+        $r = $this->monitor()->monitor(['tasks' => [
+            $this->task([
+                'id'                     => 'dup-healthy',
+                'duplicate_family_count' => 6,
+                'muscle_success_rate'    => 0.8,
+            ]),
+        ]]);
+
+        $rec = $r['recommendations'][0];
+        $this->assertSame('consolidate', $rec['recommendation']);
+        $this->assertSame('duplicate_family_saturation_family_still_succeeding', $rec['reason']);
+        $this->assertSame('consolidate', $r['per_task'][0]['recommended_action']);
+        $this->assertSame('decaying', $r['per_task'][0]['value_status']);
+        $this->assertSame('consolidate_family', $r['per_task'][0]['value_recovery_path']);
+    }
+
     // ── AC: next_evidence_needed present for uncertain buckets, null for certain ones ─
 
     public function test_next_evidence_needed_is_null_for_keep_and_retire(): void

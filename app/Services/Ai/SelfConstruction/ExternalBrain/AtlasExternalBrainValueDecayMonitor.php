@@ -30,7 +30,10 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   monitor_summary, per_task, batch_decay_summary.
  *
  * Muscle-outcome decay signals (NEW):
- *   - superseded_target / duplicate_family_saturation → retire (highest priority after load-bearing).
+ *   - superseded_target → retire (highest priority after load-bearing).
+ *   - duplicate_family_saturation → retire, unless muscle_success_rate shows the family is
+ *     still succeeding, in which case consolidate (merge redundant tasks instead of destroying
+ *     a proven capability).
  *   - stale_evidence + repeated_give_back → refresh (or consolidate when muscle_success_rate is also low),
  *     never retain.
  *   per_task entries surface value_status (fresh|stale|decaying|expired), decay_score [0..1],
@@ -263,6 +266,10 @@ final class AtlasExternalBrainValueDecayMonitor
             return ['retire', 'superseded_target'];
         }
         if ($duplicateFamilyCount >= self::DUPLICATE_FAMILY_THRESHOLD) {
+            if ($muscleSuccessRate !== null && $muscleSuccessRate >= self::LOW_SUCCESS_THRESHOLD) {
+                return ['consolidate', 'duplicate_family_saturation_family_still_succeeding'];
+            }
+
             return ['retire', 'duplicate_family_saturation'];
         }
 
