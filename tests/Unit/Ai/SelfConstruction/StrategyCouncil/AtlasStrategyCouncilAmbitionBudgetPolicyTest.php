@@ -100,10 +100,11 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicyTest extends TestCase
         ]);
 
         $this->assertTrue($r['quality_floor_met']);
-        $this->assertSame(25, $r['lanes']['bugfix']);
-        $this->assertSame(25, $r['lanes']['capability']);
-        $this->assertSame(25, $r['lanes']['refactor']);
-        $this->assertSame(25, $r['lanes']['expansion']);
+        $this->assertSame(20, $r['lanes']['bugfix']);
+        $this->assertSame(20, $r['lanes']['capability']);
+        $this->assertSame(20, $r['lanes']['refactor']);
+        $this->assertSame(20, $r['lanes']['proof']);
+        $this->assertSame(20, $r['lanes']['expansion']);
         $this->assertContains('balanced:even_distribution', $r['reasons']);
     }
 
@@ -118,6 +119,7 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicyTest extends TestCase
         $this->assertSame(80, $r['lanes']['bugfix']);
         $this->assertSame(0, $r['lanes']['capability']);
         $this->assertSame(0, $r['lanes']['refactor']);
+        $this->assertSame(0, $r['lanes']['proof']);
         $this->assertSame(0, $r['lanes']['expansion']);
         $this->assertContains('bugfix_emergency:all_budget_to_bugfix', $r['reasons']);
     }
@@ -131,8 +133,13 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicyTest extends TestCase
         ]);
 
         $this->assertSame(0, $r['lanes']['expansion']);
+        $this->assertSame(0, $r['lanes']['capability']);
+        $this->assertGreaterThan(0, $r['lanes']['bugfix']);
+        $this->assertGreaterThan(0, $r['lanes']['refactor']);
+        $this->assertGreaterThan(0, $r['lanes']['proof']);
         $this->assertFalse($r['quality_floor_met']);
         $this->assertContains('quality_floor:expansion_refused', $r['reasons']);
+        $this->assertContains('quality_floor:capability_refused_repair_refactor_proof_reserved', $r['reasons']);
     }
 
     public function test_allocate_quality_floor_met_flag_matches_threshold(): void

@@ -113,12 +113,13 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
     }
 
     /**
-     * Allocate total_budget_units across bugfix/capability/refactor/expansion lanes.
+     * Allocate total_budget_units across bugfix/capability/refactor/proof/expansion lanes.
      *
      * Rules (evaluated in order):
      *  1. bugfix_critical=true → all budget to bugfix, others 0 (emergency override)
-     *  2. quality_score < QUALITY_FLOOR_THRESHOLD → expansion refused; remaining split evenly
-     *  3. otherwise → balanced even split across all 4 lanes
+     *  2. quality_score < QUALITY_FLOOR_THRESHOLD → expansion AND capability refused; remaining
+     *     split across the repair/refactor/proof lanes only (bugfix, refactor, proof)
+     *  3. otherwise → balanced even split across all 5 lanes
      *
      * @param  array{total_budget_units?:int, quality_score?:int, bugfix_critical?:bool}  $facts
      * @return array{lanes:array<string,int>, quality_floor_met:bool, reasons:list<string>}
@@ -132,7 +133,7 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
 
         if ($bugfixCritical) {
             return [
-                'lanes' => ['bugfix' => $total, 'capability' => 0, 'refactor' => 0, 'expansion' => 0],
+                'lanes' => ['bugfix' => $total, 'capability' => 0, 'refactor' => 0, 'proof' => 0, 'expansion' => 0],
                 'quality_floor_met' => $qualityFloorMet,
                 'reasons' => ['bugfix_emergency:all_budget_to_bugfix'],
             ];
@@ -142,16 +143,16 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
             $perLane = (int) ($total / 3);
 
             return [
-                'lanes' => ['bugfix' => $perLane, 'capability' => $perLane, 'refactor' => $perLane, 'expansion' => 0],
+                'lanes' => ['bugfix' => $perLane, 'capability' => 0, 'refactor' => $perLane, 'proof' => $perLane, 'expansion' => 0],
                 'quality_floor_met' => false,
-                'reasons' => ['quality_floor:expansion_refused'],
+                'reasons' => ['quality_floor:expansion_refused', 'quality_floor:capability_refused_repair_refactor_proof_reserved'],
             ];
         }
 
-        $perLane = (int) ($total / 4);
+        $perLane = (int) ($total / 5);
 
         return [
-            'lanes' => ['bugfix' => $perLane, 'capability' => $perLane, 'refactor' => $perLane, 'expansion' => $perLane],
+            'lanes' => ['bugfix' => $perLane, 'capability' => $perLane, 'refactor' => $perLane, 'proof' => $perLane, 'expansion' => $perLane],
             'quality_floor_met' => true,
             'reasons' => ['balanced:even_distribution'],
         ];
