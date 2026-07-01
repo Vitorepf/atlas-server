@@ -87,4 +87,77 @@ final class AtlasSelfConstructionSimplificationDocDriftDetectorTest extends Test
         $this->assertSame([], $result['stale_refs']);
         $this->assertSame('atlas.self_construction.simplification.doc_drift_detector.v1', $result['schema']);
     }
+
+    // ── AC2: behavior-shifted organs (still exist, docs describe stale behavior) ─
+
+    public function test_reference_to_behavior_shifted_organ_is_flagged_stale(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'behavior_shifted_organs' => [
+                ['name' => 'AtlasStillNamedOrgan', 'note' => 'now fails closed instead of open'],
+            ],
+            'references' => [
+                ['file' => 'docs/x.md', 'symbol' => 'AtlasStillNamedOrgan'],
+            ],
+        ]);
+
+        $this->assertFalse($result['docs_synced']);
+        $this->assertCount(1, $result['stale_refs']);
+        $this->assertSame('behavior_shift', $result['stale_refs'][0]['drift_kind']);
+        $this->assertSame('', $result['stale_refs'][0]['replacement']);
+        $this->assertStringContainsString('now fails closed instead of open', $result['stale_refs'][0]['recommended_sync_action']);
+    }
+
+    public function test_retired_organ_reference_has_retired_drift_kind(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasOldOrgan', 'replacement' => 'AtlasNewOrgan'],
+            ],
+            'references' => [
+                ['file' => 'docs/x.md', 'symbol' => 'AtlasOldOrgan'],
+            ],
+        ]);
+
+        $this->assertSame('retired', $result['stale_refs'][0]['drift_kind']);
+    }
+
+    // ── AC3: intentional historical notes are distinguished from real drift ────
+
+    public function test_intentional_historical_note_does_not_require_update_or_block_sync(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasOldOrgan', 'replacement' => 'AtlasNewOrgan'],
+            ],
+            'references' => [
+                ['file' => 'CHANGELOG.md', 'symbol' => 'AtlasOldOrgan', 'intentional_historical_note' => true],
+            ],
+        ]);
+
+        $this->assertTrue($result['docs_synced']);
+        $this->assertCount(1, $result['stale_refs']);
+        $this->assertFalse($result['stale_refs'][0]['required_update']);
+        $this->assertSame('historical', $result['stale_refs'][0]['severity']);
+        $this->assertStringContainsString('No action', $result['stale_refs'][0]['recommended_sync_action']);
+    }
+
+    // ── AC4: exact doc target, stale symbol and recommended sync action ────────
+
+    public function test_recommended_sync_action_names_file_symbol_and_replacement_for_retired_organ(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationDocDriftDetector)->detect([
+            'retired_organs' => [
+                ['name' => 'AtlasOldOrgan', 'replacement' => 'AtlasNewOrgan'],
+            ],
+            'references' => [
+                ['file' => 'docs/x.md', 'symbol' => 'AtlasOldOrgan'],
+            ],
+        ]);
+
+        $action = $result['stale_refs'][0]['recommended_sync_action'];
+        $this->assertStringContainsString('docs/x.md', $action);
+        $this->assertStringContainsString('AtlasOldOrgan', $action);
+        $this->assertStringContainsString('AtlasNewOrgan', $action);
+    }
 }
