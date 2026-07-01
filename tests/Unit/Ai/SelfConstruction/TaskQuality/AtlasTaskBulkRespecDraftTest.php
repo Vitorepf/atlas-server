@@ -171,4 +171,84 @@ final class AtlasTaskBulkRespecDraftTest extends TestCase
         ]);
         $this->assertSame(['alpha', 'zeta'], $r['drafts'][0]['packet_ids']);
     }
+
+    // ── planSafeWaves(): safe waves grouped by blocker family ─────────────────
+
+    public function test_safe_family_wave_reports_required_fields(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->planSafeWaves([
+            ['packet_id' => 'p-a', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'p-b', 'missing_files' => ['app/Y.php']],
+        ]);
+
+        $this->assertCount(1, $r['waves']);
+        $wave = $r['waves'][0];
+        foreach (['wave_id', 'family', 'replacement_count', 'skipped_count', 'collision_targets', 'risk_band'] as $k) {
+            $this->assertArrayHasKey($k, $wave, "Missing key: {$k}");
+        }
+        $this->assertSame(AtlasTaskRespecPlanBuilder::ACTION_ADD_FILE, $wave['family']);
+        $this->assertSame(2, $wave['replacement_count']);
+        $this->assertSame([], $wave['collision_targets']);
+        $this->assertSame(0, $wave['skipped_count']);
+    }
+
+    public function test_target_collision_splits_family_into_multiple_waves(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->planSafeWaves([
+            ['packet_id' => 'p-a', 'missing_files' => ['app/Shared.php']],
+            ['packet_id' => 'p-b', 'missing_files' => ['app/Shared.php']],
+        ]);
+
+        $this->assertGreaterThanOrEqual(2, count($r['waves']));
+        $this->assertSame(['app/Shared.php'], $r['waves'][0]['collision_targets']);
+        $totalReplacements = array_sum(array_column($r['waves'], 'replacement_count'));
+        $this->assertSame(2, $totalReplacements);
+    }
+
+    public function test_high_risk_wave_splits_when_exceeding_max_safe_wave_size(): void
+    {
+        $cap = AtlasTaskBulkRespecDraft::MAX_SAFE_WAVE_SIZE;
+        $records = [];
+        for ($i = 0; $i < $cap + 3; $i++) {
+            $records[] = ['packet_id' => sprintf('p-%03d', $i), 'missing_files' => [sprintf('app/File%03d.php', $i)]];
+        }
+
+        $r = (new AtlasTaskBulkRespecDraft)->planSafeWaves($records);
+
+        $this->assertGreaterThanOrEqual(2, count($r['waves']));
+        foreach ($r['waves'] as $wave) {
+            $this->assertLessThanOrEqual($cap, $wave['replacement_count']);
+        }
+        $this->assertSame('high', $r['waves'][0]['risk_band']);
+        $totalReplacements = array_sum(array_column($r['waves'], 'replacement_count'));
+        $this->assertSame($cap + 3, $totalReplacements);
+    }
+
+    public function test_unrecoverable_packets_are_skipped_and_excluded_from_waves(): void
+    {
+        $r = (new AtlasTaskBulkRespecDraft)->planSafeWaves([
+            ['packet_id' => 'p-good', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'p-contra', 'contradictory_acceptance' => true],
+            ['packet_id' => 'p-quarantine', 'too_many_deficiencies' => true],
+        ]);
+
+        $this->assertSame(2, $r['skipped_unrecoverable_count']);
+        foreach ($r['waves'] as $wave) {
+            $this->assertNotSame(AtlasTaskRespecPlanBuilder::ACTION_REWRITE_OBJECTIVE, $wave['family']);
+            $this->assertNotSame(AtlasTaskRespecPlanBuilder::ACTION_QUARANTINE, $wave['family']);
+        }
+    }
+
+    public function test_plan_safe_waves_is_deterministic(): void
+    {
+        $records = [
+            ['packet_id' => 'p-a', 'missing_files' => ['app/X.php']],
+            ['packet_id' => 'p-b', 'missing_files' => ['app/Y.php']],
+            ['packet_id' => 'p-contra', 'contradictory_acceptance' => true],
+        ];
+
+        $a = (new AtlasTaskBulkRespecDraft)->planSafeWaves($records);
+        $b = (new AtlasTaskBulkRespecDraft)->planSafeWaves($records);
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }

@@ -41,6 +41,9 @@ final class AtlasTaskBulkRespecDraft
     /** Hard cap on packet_ids per draft family; total_packet_count still reflects the raw count. */
     public const MAX_PACKET_IDS_PER_FAMILY = 20;
 
+    /** Hard cap on replacement_count per safe wave — bounds blast radius per wave. */
+    public const MAX_SAFE_WAVE_SIZE = 8;
+
     /** Lower value = higher severity → appears first in output. */
     private const SEVERITY_ORDER = [
         'quarantine_candidate' => 1,
@@ -176,5 +179,141 @@ final class AtlasTaskBulkRespecDraft
             AtlasTaskRespecPlanBuilder::ACTION_GIVE_BACK => 'Ensure required_evidence is complete before the next give_back attempt is graded.',
             default => null,
         };
+    }
+
+    /**
+     * Groups only SAFE-to-bulk-respec records (safe_action=respec) into collision-free, bounded-risk
+     * waves. Records whose plan resolves to retire/quarantine are unrecoverable by bulk file edits
+     * alone and are excluded from every wave, counted only in skipped_unrecoverable_count. Records
+     * missing usable target files cannot be safely grouped either, so they are counted in the first
+     * wave's skipped_count for their family instead of being placed blind.
+     *
+     * A wave splits when: (a) two records in the same family declare an overlapping target file
+     * (collision), or (b) the wave would otherwise exceed MAX_SAFE_WAVE_SIZE (risk becomes too broad).
+     *
+     * @param  list<array<string,mixed>>  $records
+     * @return array{schema:string, waves:list<array{wave_id:string, family:string, replacement_count:int, skipped_count:int, collision_targets:list<string>, risk_band:string}>, skipped_unrecoverable_count:int}
+     */
+    public function planSafeWaves(array $records): array
+    {
+        $byFamily = [];
+        $skippedNoTargetByFamily = [];
+        $skippedUnrecoverable = 0;
+
+        foreach ($records as $r) {
+            if (! is_array($r) || ! isset($r['packet_id'])) {
+                continue;
+            }
+            $plan = $this->planBuilder->build($r);
+            $action = (string) $plan['action'];
+            if ($action === AtlasTaskRespecPlanBuilder::ACTION_KEEP) {
+                continue;
+            }
+            $safeAction = self::SAFE_ACTION_MAP[$action] ?? self::SAFE_ACTION_QUARANTINE;
+            if ($safeAction !== self::SAFE_ACTION_RESPEC) {
+                $skippedUnrecoverable++;
+                continue;
+            }
+
+            $targets = array_values(array_unique(array_map(
+                'strval',
+                (array) ($r['target_files'] ?? $r['missing_files'] ?? []),
+            )));
+            if ($targets === []) {
+                $skippedNoTargetByFamily[$action] = ($skippedNoTargetByFamily[$action] ?? 0) + 1;
+                continue;
+            }
+
+            $byFamily[$action][] = ['packet_id' => (string) $plan['packet_id'], 'targets' => $targets];
+        }
+
+        ksort($byFamily);
+        $waves = [];
+        $waveSeq = 0;
+
+        foreach ($byFamily as $family => $entries) {
+            $targetCounts = [];
+            foreach ($entries as $e) {
+                foreach ($e['targets'] as $t) {
+                    $targetCounts[$t] = ($targetCounts[$t] ?? 0) + 1;
+                }
+            }
+            $collisionTargets = array_values(array_filter(
+                array_keys($targetCounts),
+                static fn (string $t): bool => $targetCounts[$t] > 1,
+            ));
+            sort($collisionTargets, SORT_STRING);
+
+            $chunks = $this->splitIntoCollisionFreeChunks($entries, self::MAX_SAFE_WAVE_SIZE);
+            $familySkipped = $skippedNoTargetByFamily[$family] ?? 0;
+
+            foreach ($chunks as $i => $chunkEntries) {
+                $waveSeq++;
+                $count = count($chunkEntries);
+                $riskBand = $count >= self::MAX_SAFE_WAVE_SIZE
+                    ? 'high'
+                    : ($count > (int) ceil(self::MAX_SAFE_WAVE_SIZE / 2) ? 'medium' : 'low');
+
+                $waves[] = [
+                    'wave_id' => sprintf('wave-%03d', $waveSeq),
+                    'family' => $family,
+                    'replacement_count' => $count,
+                    'skipped_count' => $i === 0 ? $familySkipped : 0,
+                    'collision_targets' => $collisionTargets,
+                    'risk_band' => $riskBand,
+                ];
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'waves' => $waves,
+            'skipped_unrecoverable_count' => $skippedUnrecoverable,
+        ];
+    }
+
+    /**
+     * Greedy collision-free, size-bounded chunking: an entry starts a new chunk when it collides
+     * with a target already used in the current chunk, or the chunk is already at capacity.
+     *
+     * @param  list<array{packet_id:string, targets:list<string>}>  $entries
+     * @return list<list<array{packet_id:string, targets:list<string>}>>
+     */
+    private function splitIntoCollisionFreeChunks(array $entries, int $maxWaveSize): array
+    {
+        usort($entries, static fn (array $a, array $b): int => strcmp($a['packet_id'], $b['packet_id']));
+
+        $chunks = [];
+        $current = [];
+        $usedTargets = [];
+
+        foreach ($entries as $e) {
+            $collides = false;
+            foreach ($e['targets'] as $t) {
+                if (isset($usedTargets[$t])) {
+                    $collides = true;
+                    break;
+                }
+            }
+
+            if ($collides || count($current) >= $maxWaveSize) {
+                if ($current !== []) {
+                    $chunks[] = $current;
+                }
+                $current = [];
+                $usedTargets = [];
+            }
+
+            $current[] = $e;
+            foreach ($e['targets'] as $t) {
+                $usedTargets[$t] = true;
+            }
+        }
+
+        if ($current !== []) {
+            $chunks[] = $current;
+        }
+
+        return $chunks;
     }
 }
