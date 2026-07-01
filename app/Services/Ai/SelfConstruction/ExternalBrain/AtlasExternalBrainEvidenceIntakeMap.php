@@ -135,6 +135,41 @@ final class AtlasExternalBrainEvidenceIntakeMap
         return in_array($streamId, self::REJECTED_STREAMS, true);
     }
 
+    /**
+     * Fuses multiple validate() verdicts into a source-fusion decision: high-impact task
+     * origination requires at least two INDEPENDENT usable, non-rejected evidence streams.
+     * A single usable stream — no matter how trustworthy — is never enough on its own.
+     *
+     * @param  list<array{stream_id:string, rejected:bool, usable_for_origination:bool}>  $validations
+     * @return array{independent_usable_stream_count:int, independent_usable_streams:list<string>,
+     *               high_impact_origination_allowed:bool}
+     */
+    public function fuseSources(array $validations): array
+    {
+        $independentUsableStreams = [];
+        foreach ($validations as $validation) {
+            $streamId = (string) ($validation['stream_id'] ?? '');
+            if ($streamId === '' || in_array($streamId, self::REJECTED_STREAMS, true)) {
+                continue;
+            }
+            if (($validation['rejected'] ?? false) === true) {
+                continue;
+            }
+            if (($validation['usable_for_origination'] ?? false) === true) {
+                $independentUsableStreams[$streamId] = true;
+            }
+        }
+
+        $independentUsableStreams = array_keys($independentUsableStreams);
+        sort($independentUsableStreams);
+
+        return [
+            'independent_usable_stream_count' => count($independentUsableStreams),
+            'independent_usable_streams' => $independentUsableStreams,
+            'high_impact_origination_allowed' => count($independentUsableStreams) >= 2,
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     private function streams(): array
     {

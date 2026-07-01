@@ -371,6 +371,83 @@ final class AtlasExternalBrainEvidenceIntakeMapTest extends TestCase
         $this->assertFalse($r['usable_for_origination']);
     }
 
+    // ── fuseSources(): source-fusion verdict ─────────────────────────────────
+
+    public function test_single_usable_stream_is_insufficient_for_high_impact_origination(): void
+    {
+        $now = 1751290000;
+        $v1 = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+        ], $now);
+
+        $fusion = $this->map->fuseSources([$v1]);
+
+        $this->assertSame(1, $fusion['independent_usable_stream_count']);
+        $this->assertFalse($fusion['high_impact_origination_allowed']);
+    }
+
+    public function test_two_independent_usable_streams_allow_high_impact_origination(): void
+    {
+        $now = 1751290000;
+        $v1 = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+        ], $now);
+        $v2 = $this->map->validate('runtime_receipts', [
+            'event_type' => 'cert_passed', 'subject_id' => 't1',
+            'recorded_at_unix' => $now - 60, 'payload_hash' => 'abc',
+        ], $now);
+
+        $fusion = $this->map->fuseSources([$v1, $v2]);
+
+        $this->assertSame(2, $fusion['independent_usable_stream_count']);
+        $this->assertTrue($fusion['high_impact_origination_allowed']);
+        $this->assertSame(['queue_health', 'runtime_receipts'], $fusion['independent_usable_streams']);
+    }
+
+    public function test_stale_origination_sensitive_stream_does_not_count_toward_fusion(): void
+    {
+        $now = 1751290000;
+        $stale = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 1000,
+        ], $now);
+        $fresh = $this->map->validate('runtime_receipts', [
+            'event_type' => 'cert_passed', 'subject_id' => 't1',
+            'recorded_at_unix' => $now - 60, 'payload_hash' => 'abc',
+        ], $now);
+
+        $fusion = $this->map->fuseSources([$stale, $fresh]);
+
+        $this->assertSame(1, $fusion['independent_usable_stream_count']);
+        $this->assertFalse($fusion['high_impact_origination_allowed']);
+    }
+
+    public function test_chat_memory_and_raw_provider_prompt_never_count_toward_fusion(): void
+    {
+        $chatMemory = $this->map->validate('chat_memory', ['anything' => 'goes']);
+        $rawPrompt = $this->map->validate('raw_provider_prompt', ['depth' => 5]);
+
+        $fusion = $this->map->fuseSources([$chatMemory, $rawPrompt]);
+
+        $this->assertSame(0, $fusion['independent_usable_stream_count']);
+        $this->assertFalse($fusion['high_impact_origination_allowed']);
+    }
+
+    public function test_duplicate_stream_entries_only_count_once(): void
+    {
+        $now = 1751290000;
+        $v1 = $this->map->validate('queue_health', [
+            'depth' => 5, 'stall_count' => 0, 'oldest_queued_at_unix' => $now - 60,
+        ], $now);
+        $v1Again = $this->map->validate('queue_health', [
+            'depth' => 8, 'stall_count' => 1, 'oldest_queued_at_unix' => $now - 30,
+        ], $now);
+
+        $fusion = $this->map->fuseSources([$v1, $v1Again]);
+
+        $this->assertSame(1, $fusion['independent_usable_stream_count']);
+        $this->assertFalse($fusion['high_impact_origination_allowed']);
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function findStream(string $id): array
