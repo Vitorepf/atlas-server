@@ -48,6 +48,10 @@ final class AtlasProjectLaneRuntimeInstanceRegistryTest extends TestCase
         $this->assertStringContainsString('atlas:self-construction:runtime-daemon', $inst['daemon_tick_command']);
         $this->assertSame('shared_local_main_with_scope_lock', $inst['execution_topology']);
         $this->assertNotEmpty($inst['scheduler_policy']['cadence_seconds']);
+        $this->assertSame(['receipts/demo/lane-x.jsonl'], $inst['isolation_evidence_refs']);
+        $this->assertSame(['docs_health', 'kb_sync'], $inst['knowledge_sync_hooks']);
+        $this->assertSame(['phpunit', 'mutop'], $inst['verification_hooks']);
+        $this->assertSame(['atlas_merge_governor'], $inst['release_hooks']);
     }
 
     public function test_atlas_internal_lane_also_supported(): void
