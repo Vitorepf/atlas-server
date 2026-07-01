@@ -80,6 +80,28 @@ final class AtlasExternalBrainLocalClientHeadlessCapabilityProbe
 
         $ready = $blockers === [];
 
+        // UI fragility: even a client that passes every hard blocker can still be a print-mode
+        // wrapper over an interactive UI — name the exact facts that make headless output brittle
+        // so callers can weigh trial risk before routing real muscle work to it.
+        $fragilitySignals = [];
+        if (! $facts['print_mode_supported']) {
+            $fragilitySignals[] = 'no_print_mode';
+        }
+        if (! $facts['noninteractive_prompt_supported']) {
+            $fragilitySignals[] = 'no_noninteractive_prompt';
+        }
+        if (! $facts['patch_output_supported']) {
+            $fragilitySignals[] = 'no_patch_output';
+        }
+        if (! $facts['workspace_scoping_supported']) {
+            $fragilitySignals[] = 'no_workspace_scoping';
+        }
+        $uiFragilityRisk = match (true) {
+            count($fragilitySignals) >= 3 => 'high',
+            count($fragilitySignals) >= 1 => 'medium',
+            default => 'low',
+        };
+
         return [
             'schema' => self::SCHEMA,
             'status' => $ready ? 'ready_for_headless_trial' : 'blocked',
@@ -87,6 +109,8 @@ final class AtlasExternalBrainLocalClientHeadlessCapabilityProbe
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'ready_for_headless_trial' => $ready,
+            'ui_fragility_risk' => $uiFragilityRisk,
+            'ui_fragility_signals' => $fragilitySignals,
             'provider_call_allowed' => false,
             'token_spend_allowed' => false,
             'adapter_execution_allowed' => false,
