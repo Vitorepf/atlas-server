@@ -92,4 +92,40 @@ final class AtlasSelfConstructionSimplificationReadinessGateTest extends TestCas
         self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_REJECT, $result['decision']);
         self::assertContains('consumer_breaking_changes_present', $result['blockers']);
     }
+
+    public function test_destructive_delete_without_regression_replay_plan_rejects(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['action_type'] = 'delete';
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_REJECT, $result['decision']);
+        self::assertContains('regression_replay_plan_missing', $result['blockers']);
+    }
+
+    public function test_destructive_merge_with_regression_replay_plan_not_ready_rejects(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['action_type'] = 'merge';
+        $facts['regression_replay_plan'] = ['ready' => false];
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_REJECT, $result['decision']);
+        self::assertContains('regression_replay_not_ready', $result['blockers']);
+    }
+
+    public function test_non_destructive_simplify_can_still_hold_for_low_proof_coverage_without_replay_plan(): void
+    {
+        $facts = $this->completeFacts();
+        $facts['action_type'] = 'simplify';
+        $facts['proof_coverage'] = 0.3;
+        unset($facts['regression_replay_plan']);
+
+        $result = (new AtlasSelfConstructionSimplificationReadinessGate)->evaluate($facts);
+
+        self::assertSame(AtlasSelfConstructionSimplificationReadinessGate::DECISION_HOLD, $result['decision']);
+        self::assertNotContains('regression_replay_plan_missing', $result['blockers']);
+    }
 }

@@ -37,6 +37,9 @@ final class AtlasSelfConstructionSimplificationReadinessGate
     private const CORE_SECTIONS = ['cluster', 'parity', 'shadow_plan', 'cohesion', 'rollback'];
 
     /** @var list<string> */
+    private const DESTRUCTIVE_ACTION_TYPES = ['delete', 'merge'];
+
+    /** @var list<string> */
     private const REQUIRED_EVIDENCE = [
         'cluster_overlap_evidence',
         'capability_parity_matrix',
@@ -114,6 +117,15 @@ final class AtlasSelfConstructionSimplificationReadinessGate
         $breakingChanges = array_values((array) ($consumerImpact['breaking_changes'] ?? []));
         if ($breakingChanges !== []) {
             $rejectBlockers[] = 'consumer_breaking_changes_present';
+        }
+
+        $actionType = (string) ($facts['action_type'] ?? '');
+        if (in_array($actionType, self::DESTRUCTIVE_ACTION_TYPES, true)) {
+            if (! array_key_exists('regression_replay_plan', $facts) || ! is_array($facts['regression_replay_plan'])) {
+                $rejectBlockers[] = 'regression_replay_plan_missing';
+            } elseif (! (bool) ($facts['regression_replay_plan']['ready'] ?? false)) {
+                $rejectBlockers[] = 'regression_replay_not_ready';
+            }
         }
 
         $docsSync = (array) ($facts['docs_sync'] ?? []);
