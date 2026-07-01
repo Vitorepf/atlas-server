@@ -46,6 +46,12 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
         $requestedAt = (string) ($recommendation['requested_at'] ?? '');
         $requestedBy = (string) ($recommendation['requested_by'] ?? '');
         $reason = (string) ($recommendation['reason'] ?? 'unspecified');
+        // Learning-only facts, recorded once the recommendation's real-world result is known.
+        // Deliberately excluded from fact_hash/chain_hash: the integrity chain proves the
+        // RECOMMENDATION was made as claimed, and must not be invalidated once its outcome
+        // is later attached to the same receipt.
+        $outcome = array_key_exists('outcome', $recommendation) ? (string) $recommendation['outcome'] : null;
+        $qualityScore = array_key_exists('quality_score', $recommendation) ? (float) $recommendation['quality_score'] : null;
 
         $receiptId = $this->receiptId($taskClass, $provider, $sampleSize, $successRate, $requestedAt);
         $factHash = $this->computeFactHash($taskClass, $provider, $sampleSize, $successRate, $reason);
@@ -65,6 +71,8 @@ final class AtlasMaestroProviderRecommendationReceiptLedger
             'requested_at' => $requestedAt,
             'requested_by' => $requestedBy,
             'reason' => $reason,
+            'outcome' => $outcome,
+            'quality_score' => $qualityScore,
             'fact_hash' => $factHash,
             'prev_chain_hash' => $prevChainHash,
             'chain_hash' => $chainHash,
