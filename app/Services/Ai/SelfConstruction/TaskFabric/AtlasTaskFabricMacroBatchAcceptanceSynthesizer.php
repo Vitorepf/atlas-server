@@ -35,8 +35,15 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
     public const GATE_OUTCOME_LEARNING           = 'batch_outcome_learning';
     public const GATE_ANTI_TEMPLATE_FARM         = 'batch_anti_template_farm';
     public const GATE_ROLLBACK_RESPEC_SAFETY     = 'batch_rollback_respec_safety';
+    public const GATE_LAYER_SPECIFIC_PROOF       = 'batch_layer_specific_proof';
+
+    public const LAYER_TASK_FABRIC = 'task_fabric';
+    public const LAYER_MAESTRO     = 'maestro';
+    public const LAYER_PROOF       = 'proof';
+    public const LAYER_LEARNING    = 'learning';
 
     public const REJECTION_VAGUE_ACCEPTANCE      = 'vague_acceptance';
+    public const REJECTION_GENERIC_CROSS_LAYER_PROOF = 'generic_proof_reused_across_layers';
 
     public const GAP_NARROW_EVIDENCE             = 'narrow_evidence_for_multi_capability_scope';
 
@@ -125,8 +132,47 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
             $batchLevelGates[] = self::GATE_ROLLBACK_RESPEC_SAFETY;
         }
 
+        // ── Gate 9 (conditional): layer-specific proof — each recognized layer present in the
+        //    batch (task_fabric, maestro, proof, learning) must get its own proof requirement
+        //    line; a single generic command reused across ≥2 different layers is rejected.
+        $layersPresent = [];
+        $commandLayers = [];
+        foreach ($batch as $task) {
+            $layer = $this->inferLayer($task);
+            if ($layer !== null) {
+                $layersPresent[$layer] = true;
+            }
+            foreach ((array) ($task['test_commands'] ?? []) as $cmd) {
+                $cmd = (string) $cmd;
+                if ($cmd === '' || $layer === null) {
+                    continue;
+                }
+                $commandLayers[$cmd][$layer] = true;
+            }
+        }
+
+        $rejectedCrossLayerCommands = [];
+        foreach ($commandLayers as $cmd => $layersUsingCmd) {
+            if (count($layersUsingCmd) >= 2) {
+                $rejectedCrossLayerCommands[] = $cmd;
+            }
+        }
+
+        if ($layersPresent !== []) {
+            foreach (array_keys($layersPresent) as $layer) {
+                $synthesized[] = "Batch layer-specific proof ({$layer}): requires a proof command scoped to the {$layer} layer, not a generic command reused across layers.";
+            }
+            $batchLevelGates[] = self::GATE_LAYER_SPECIFIC_PROOF;
+        }
+
         // ── Candidate acceptance filtering ────────────────────────────────────
         $rejectedAcceptance = [];
+        foreach ($rejectedCrossLayerCommands as $cmd) {
+            $rejectedAcceptance[] = [
+                'criterion'        => $cmd,
+                'rejection_reason' => self::REJECTION_GENERIC_CROSS_LAYER_PROOF,
+            ];
+        }
         foreach ($candidateAcceptance as $candidate) {
             if ($this->isVague((string) $candidate)) {
                 $rejectedAcceptance[] = [
@@ -243,6 +289,33 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizer
         }
 
         return $out;
+    }
+
+    /** Infers the recognized layer (task_fabric/maestro/proof/learning) for a task, or null. */
+    private function inferLayer(array $task): ?string
+    {
+        $explicit = strtolower(trim((string) ($task['layer'] ?? '')));
+        if (in_array($explicit, [self::LAYER_TASK_FABRIC, self::LAYER_MAESTRO, self::LAYER_PROOF, self::LAYER_LEARNING], true)) {
+            return $explicit;
+        }
+
+        foreach ((array) ($task['allowed_files'] ?? []) as $file) {
+            $lower = strtolower((string) $file);
+            if (str_contains($lower, 'taskfabric')) {
+                return self::LAYER_TASK_FABRIC;
+            }
+            if (str_contains($lower, 'maestro')) {
+                return self::LAYER_MAESTRO;
+            }
+            if (str_contains($lower, 'verificationcourt') || str_contains($lower, '/proof/') || str_contains($lower, 'proofcourt')) {
+                return self::LAYER_PROOF;
+            }
+            if (str_contains($lower, 'externalbrain') || str_contains($lower, 'learning')) {
+                return self::LAYER_LEARNING;
+            }
+        }
+
+        return null;
     }
 
     private function isVague(string $text): bool

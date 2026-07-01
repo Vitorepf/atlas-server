@@ -32,6 +32,39 @@ final class AtlasTaskFabricMacroBatchAcceptanceSynthesizerTest extends TestCase
         return ['batch' => $batch, 'candidate_acceptance' => $candidateAcceptance];
     }
 
+    // ── layer-specific proof ─────────────────────────────────────────────────
+
+    public function test_distinct_layers_produce_distinct_proof_requirements(): void
+    {
+        $result = $this->synth->synthesize($this->input([
+            $this->task(['task_id' => 't-fabric', 'layer' => 'task_fabric', 'test_commands' => ['./vendor/bin/phpunit TaskFabricTest']]),
+            $this->task(['task_id' => 't-maestro', 'layer' => 'maestro', 'test_commands' => ['./vendor/bin/phpunit MaestroTest']]),
+            $this->task(['task_id' => 't-proof', 'layer' => 'proof', 'test_commands' => ['./vendor/bin/phpunit ProofTest']]),
+            $this->task(['task_id' => 't-learning', 'layer' => 'learning', 'test_commands' => ['./vendor/bin/phpunit LearningTest']]),
+        ]));
+
+        $layerLines = array_values(array_filter(
+            $result['synthesized_acceptance'],
+            static fn (string $line): bool => str_contains($line, 'layer-specific proof'),
+        ));
+        $this->assertCount(4, $layerLines);
+        $this->assertContains(AtlasTaskFabricMacroBatchAcceptanceSynthesizer::GATE_LAYER_SPECIFIC_PROOF, $result['batch_level_gates']);
+    }
+
+    public function test_generic_command_reused_across_layers_is_rejected(): void
+    {
+        $result = $this->synth->synthesize($this->input([
+            $this->task(['task_id' => 't-fabric', 'layer' => 'task_fabric', 'test_commands' => ['./vendor/bin/phpunit GenericTest']]),
+            $this->task(['task_id' => 't-maestro', 'layer' => 'maestro', 'test_commands' => ['./vendor/bin/phpunit GenericTest']]),
+        ]));
+
+        $rejectedCriteria = array_column($result['rejected_acceptance'], 'criterion');
+        $this->assertContains('./vendor/bin/phpunit GenericTest', $rejectedCriteria);
+
+        $reasons = array_column($result['rejected_acceptance'], 'rejection_reason');
+        $this->assertContains(AtlasTaskFabricMacroBatchAcceptanceSynthesizer::REJECTION_GENERIC_CROSS_LAYER_PROOF, $reasons);
+    }
+
     // ── Schema / AC4 required keys ────────────────────────────────────────────
 
     public function test_result_has_required_keys(): void
