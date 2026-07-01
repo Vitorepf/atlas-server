@@ -59,6 +59,9 @@ final class AtlasExternalBrainMuscleSkillFitRouter
 
     private const RISK_MISMATCH_CAP = 0.30;
 
+    /** Small preference weight for a scope-tag match with above-neutral historical success. */
+    private const SCOPE_MATCH_WEIGHT = 0.10;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -69,13 +72,15 @@ final class AtlasExternalBrainMuscleSkillFitRouter
         $requiredSkills = array_values(array_unique(array_map('strval', (array) ($input['required_skills'] ?? []))));
         $riskLevel      = strtolower(trim((string) ($input['risk_level'] ?? 'low')));
         $candidates     = is_array($input['candidates'] ?? null) ? $input['candidates'] : [];
+        $fileScope      = array_values(array_unique(array_map('strval', (array) ($input['file_scope'] ?? []))));
+        $scopeTags      = $this->deriveScopeTags($fileScope);
 
         $ranked = [];
         foreach ($candidates as $candidate) {
             if (! is_array($candidate)) {
                 continue;
             }
-            $entry = $this->scoreCandidate($candidate, $taskFamily, $requiredSkills, $riskLevel);
+            $entry = $this->scoreCandidate($candidate, $taskFamily, $requiredSkills, $riskLevel, $scopeTags);
             if ($entry !== null) {
                 $ranked[] = $entry;
             }
@@ -114,7 +119,29 @@ final class AtlasExternalBrainMuscleSkillFitRouter
      * @param  list<string>  $requiredSkills
      * @return array<string,mixed>|null
      */
-    private function scoreCandidate(array $candidate, string $taskFamily, array $requiredSkills, string $riskLevel): ?array
+    /**
+     * Derives coarse scope-family tags from allowed_files/file_scope paths, so a candidate's
+     * per-scope history can be checked without requiring exact file matches. E.g.
+     * "app/Services/Ai/Foo.php" -> "app/services/ai".
+     *
+     * @param  list<string>  $fileScope
+     * @return list<string>
+     */
+    private function deriveScopeTags(array $fileScope): array
+    {
+        $tags = [];
+        foreach ($fileScope as $path) {
+            $dir = trim(dirname(str_replace('\\', '/', $path)), '/');
+            if ($dir === '' || $dir === '.') {
+                continue;
+            }
+            $tags[strtolower($dir)] = true;
+        }
+
+        return array_keys($tags);
+    }
+
+    private function scoreCandidate(array $candidate, string $taskFamily, array $requiredSkills, string $riskLevel, array $scopeTags = []): ?array
     {
         $muscleId = trim((string) ($candidate['muscle_id'] ?? ''));
         if ($muscleId === '') {
@@ -140,10 +167,32 @@ final class AtlasExternalBrainMuscleSkillFitRouter
         $recentGiveBackRate = max(0.0, min(1.0, (float) ($candidate['recent_give_back_rate'] ?? 0.0)));
         $recentReliability  = 1.0 - $recentGiveBackRate;
 
+        // Scope-tag preference: a candidate with above-neutral historical success on the
+        // task's own file-scope family gets a small bonus, breaking ties toward proven fit.
+        $scopeBonus = 0.0;
+        $scopeTagMatched = null;
+        $candidateHistory = (array) ($candidate['history'] ?? []);
+        foreach ($scopeTags as $scopeTag) {
+            $scopeHistory = (array) ($candidateHistory[$scopeTag] ?? []);
+            $scopeTotal = max(0, (int) ($scopeHistory['total'] ?? 0));
+            if ($scopeTotal === 0) {
+                continue;
+            }
+            $scopeSuccessRate = max(0, (int) ($scopeHistory['success'] ?? 0)) / $scopeTotal;
+            if ($scopeSuccessRate > 0.5) {
+                $bonus = ($scopeSuccessRate - 0.5) * self::SCOPE_MATCH_WEIGHT;
+                if ($bonus > $scopeBonus) {
+                    $scopeBonus = $bonus;
+                    $scopeTagMatched = $scopeTag;
+                }
+            }
+        }
+
         $fitScore = round(
-            $skillOverlap * self::SKILL_OVERLAP_WEIGHT
-            + $familySuccessRate * self::FAMILY_SUCCESS_WEIGHT
-            + $recentReliability * self::RECENT_RELIABILITY_WEIGHT,
+            min(1.0, $skillOverlap * self::SKILL_OVERLAP_WEIGHT
+                + $familySuccessRate * self::FAMILY_SUCCESS_WEIGHT
+                + $recentReliability * self::RECENT_RELIABILITY_WEIGHT
+                + $scopeBonus),
             4,
         );
 
@@ -175,6 +224,7 @@ final class AtlasExternalBrainMuscleSkillFitRouter
             'risk_reasons'                  => $riskReasons,
             'expected_success_confidence'   => round(min(1.0, max(0.0, $fitScore)), 4),
             'disqualified_from_primary'     => $disqualified,
+            'scope_match'                   => $scopeTagMatched,
         ];
     }
 }

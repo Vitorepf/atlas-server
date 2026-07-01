@@ -213,4 +213,49 @@ final class AtlasExternalBrainMuscleSkillFitRouterTest extends TestCase
 
         $this->assertSame($first, $second);
     }
+
+    // ── AC: file_scope family-tag matching prefers proven historical success ──
+
+    public function test_file_scope_match_with_strong_history_prefers_that_muscle_over_higher_skill_match(): void
+    {
+        $r = $this->router()->route([
+            'task_family' => 'php_service',
+            'required_skills' => ['php'],
+            'file_scope' => ['app/Services/Ai/Foo.php'],
+            'candidates' => [
+                [
+                    'muscle_id' => 'scope-proven',
+                    'skills' => ['php'],
+                    'history' => [
+                        'app/services/ai' => ['success' => 9, 'total' => 10],
+                    ],
+                ],
+                [
+                    'muscle_id' => 'no-scope-history',
+                    'skills' => ['php'],
+                ],
+            ],
+        ]);
+
+        $proven = array_values(array_filter($r['ranked_muscles'], fn ($m) => $m['muscle_id'] === 'scope-proven'))[0];
+        $noHistory = array_values(array_filter($r['ranked_muscles'], fn ($m) => $m['muscle_id'] === 'no-scope-history'))[0];
+
+        $this->assertGreaterThan($noHistory['fit_score'], $proven['fit_score']);
+        $this->assertSame('app/services/ai', $proven['scope_match']);
+        $this->assertNull($noHistory['scope_match']);
+    }
+
+    public function test_file_scope_with_no_matching_history_does_not_affect_fit_score(): void
+    {
+        $r = $this->router()->route([
+            'task_family' => 'php_service',
+            'required_skills' => ['php'],
+            'file_scope' => ['app/Services/Ai/Foo.php'],
+            'candidates' => [
+                ['muscle_id' => 'a', 'skills' => ['php']],
+            ],
+        ]);
+
+        $this->assertNull($r['ranked_muscles'][0]['scope_match']);
+    }
 }
