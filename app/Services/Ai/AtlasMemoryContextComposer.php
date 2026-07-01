@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use Illuminate\Support\Str;
 
@@ -11,6 +12,7 @@ class AtlasMemoryContextComposer
     public function __construct(
         private readonly MemoryRecallInput $input,
         private readonly AtlasMemoryRecallRelevanceScorer $scorer,
+        private readonly ContextParetoDominanceFilter $paretoFilter = new ContextParetoDominanceFilter,
     ) {}
 
     /**
@@ -40,6 +42,8 @@ class AtlasMemoryContextComposer
             $this->semanticCandidates($semantic),
             $this->compoundingCandidates($compounding),
         );
+
+        $candidates = $this->dropParetoDominatedCandidates($candidates);
 
         usort($candidates, fn (array $left, array $right): int => ($right['score'] <=> $left['score'])
             ?: strcmp((string) $left['source'], (string) $right['source'])
@@ -371,5 +375,62 @@ class AtlasMemoryContextComposer
         return Str::length($value) > $limit
             ? Str::limit($value, max(1, $limit - 3), '...')
             : $value;
+    }
+
+    /**
+     * Drops candidates strictly Pareto-dominated on {score: maximize, age_days:
+     * minimize} — a candidate that is both no-better on relevance and older
+     * than another admitted candidate adds nothing, so it never survives to
+     * the final ranked budget-fill. Only candidates with a known age_days are
+     * evaluated; candidates with unknown freshness are always kept as-is,
+     * since a missing objective value cannot be honestly compared.
+     *
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array<int,array<string,mixed>>
+     */
+    private function dropParetoDominatedCandidates(array $candidates): array
+    {
+        $eligible = [];
+        $variants = [];
+
+        foreach ($candidates as $index => $candidate) {
+            $ageDays = $candidate['freshness']['age_days'] ?? null;
+            if (! is_numeric($ageDays)) {
+                continue;
+            }
+
+            $eligible[(string) $index] = $candidate;
+            $variants[] = [
+                'id' => (string) $index,
+                'score' => (float) $candidate['score'],
+                'age_days' => (float) $ageDays,
+            ];
+        }
+
+        if (count($variants) < 2) {
+            return $candidates;
+        }
+
+        $result = $this->paretoFilter->filter(
+            $variants,
+            ['score' => 'maximize', 'age_days' => 'minimize'],
+        );
+
+        $dominated = [];
+        foreach ($result['evaluated'] as $row) {
+            if ($row['status'] === 'dominated') {
+                $dominated[$row['id']] = true;
+            }
+        }
+
+        if ($dominated === []) {
+            return $candidates;
+        }
+
+        return array_values(array_filter(
+            $candidates,
+            fn (array $candidate, int $index): bool => ! isset($dominated[(string) $index]),
+            ARRAY_FILTER_USE_BOTH,
+        ));
     }
 }
