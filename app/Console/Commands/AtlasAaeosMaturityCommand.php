@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
@@ -25,7 +26,7 @@ class AtlasAaeosMaturityCommand extends Command
 
     protected $description = 'Compute machine-verified implementation_state for docs declaring evidence_refs, from the code intelligence index.';
 
-    public function handle(AtlasAaeosImplementationTruthService $truth): int
+    public function handle(AtlasAaeosImplementationTruthService $truth, AtlasDebugRootCauseService $rootCause): int
     {
         if ((bool) $this->option('coverage')) {
             return $this->renderCoverage($truth);
@@ -37,6 +38,15 @@ class AtlasAaeosMaturityCommand extends Command
         $driftCount = (int) data_get($ledger, 'summary.drift_count', 0);
         $byComputed = (array) data_get($ledger, 'summary.by_computed_state', []);
         $exit = ((bool) $this->option('strict') && $driftCount > 0) ? self::FAILURE : self::SUCCESS;
+
+        // When docs over-claim, surface a root-cause read on the drift alongside the ledger
+        // instead of just the raw count — the operator sees a hypothesis, not just a number.
+        if ($driftCount > 0) {
+            $payload['debug_root_cause'] = $rootCause->analyzeRootCause([
+                'suspected_cause' => 'over_claim_drift',
+                'drift_count' => $driftCount,
+            ]);
+        }
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
