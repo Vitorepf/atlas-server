@@ -13,18 +13,27 @@ final class AaeosRequiredGateCoverageChecker
      *
      * @param  array<mixed>  $requiredGates
      * @param  array<mixed>  $passedGates
-     * @return array{coverage: string, missing: list<string>, satisfied: bool}
+     * @return array{coverage: string, missing: list<string>, satisfied: bool, extra_passed_gates: list<string>}
      */
     public function check(array $requiredGates, array $passedGates): array
     {
         $required = $this->normalize($requiredGates);
         $passed = $this->normalize($passedGates);
 
+        $requiredLookup = array_fill_keys($required, true);
+        // Extra passed gates never hide a required-gate gap — they're reported
+        // separately so a wide green suite can't be mistaken for real coverage.
+        $extraPassed = array_values(array_filter(
+            $passed,
+            static fn (string $gate): bool => ! isset($requiredLookup[$gate]),
+        ));
+
         if ($required === []) {
             return [
                 'coverage' => 'no_gate',
                 'missing' => [],
                 'satisfied' => true,
+                'extra_passed_gates' => $extraPassed,
             ];
         }
 
@@ -42,6 +51,7 @@ final class AaeosRequiredGateCoverageChecker
                 'coverage' => 'incomplete',
                 'missing' => $missing,
                 'satisfied' => false,
+                'extra_passed_gates' => $extraPassed,
             ];
         }
 
@@ -49,6 +59,7 @@ final class AaeosRequiredGateCoverageChecker
             'coverage' => 'complete',
             'missing' => [],
             'satisfied' => true,
+            'extra_passed_gates' => $extraPassed,
         ];
     }
 

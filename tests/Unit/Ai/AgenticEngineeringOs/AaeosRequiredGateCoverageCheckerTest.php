@@ -170,6 +170,40 @@ final class AaeosRequiredGateCoverageCheckerTest extends TestCase
         $this->assertSame(['build', 'typecheck'], $result['missing']);
     }
 
+    public function testMissingRequiredGatesAreIncompleteEvenWithManyExtraPassedGates(): void
+    {
+        $result = $this->checker->check(
+            ['build', 'lint'],
+            ['typecheck', 'security', 'release', 'docs', 'lint'],
+        );
+
+        $this->assertSame('incomplete', $result['coverage']);
+        $this->assertFalse($result['satisfied']);
+        $this->assertSame(['build'], $result['missing']);
+    }
+
+    public function testExtraPassedGatesAreListedWithoutBreakingSatisfiedWhenAllRequiredPassed(): void
+    {
+        $result = $this->checker->check(
+            ['build', 'lint'],
+            ['build', 'lint', 'typecheck', 'security'],
+        );
+
+        $this->assertSame('complete', $result['coverage']);
+        $this->assertTrue($result['satisfied']);
+        $this->assertSame(['typecheck', 'security'], $result['extra_passed_gates']);
+    }
+
+    public function testExtraPassedGatesAreNormalizedTrimmedDeduplicatedAndOrderPreserved(): void
+    {
+        $result = $this->checker->check(
+            ['build'],
+            ['build', '  typecheck  ', 'typecheck', '', '   ', 'security', 'typecheck'],
+        );
+
+        $this->assertSame(['typecheck', 'security'], $result['extra_passed_gates']);
+    }
+
     public function testIdenticalInputIsDeterministic(): void
     {
         $required = ['build', 'lint', 'typecheck'];
