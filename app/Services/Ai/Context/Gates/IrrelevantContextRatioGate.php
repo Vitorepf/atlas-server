@@ -20,12 +20,27 @@ final class IrrelevantContextRatioGate
 
         $blocked = $ratio > $ceiling;
 
+        // Severity band: within ceiling is clean; a breach up to 2x the ceiling is a mild
+        // (warn/trim) breach; beyond that is catastrophic and the pack should be rebuilt.
+        $severity = match (true) {
+            ! $blocked => 'clean',
+            $ratio <= $ceiling * 2 => 'warn',
+            default => 'catastrophic',
+        };
+        $recommendedAction = match ($severity) {
+            'clean' => 'use_context',
+            'warn' => 'trim_context',
+            default => 'rebuild_context_pack',
+        };
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'irrelevant_ratio' => $ratio,
             'max_allowed' => $ceiling,
             'status' => $blocked ? 'blocked' : 'ready',
             'reason' => $blocked ? 'irrelevant_ratio_exceeds_ceiling' : 'irrelevant_ratio_within_ceiling',
+            'severity' => $severity,
+            'recommended_action' => $recommendedAction,
         ];
     }
 
