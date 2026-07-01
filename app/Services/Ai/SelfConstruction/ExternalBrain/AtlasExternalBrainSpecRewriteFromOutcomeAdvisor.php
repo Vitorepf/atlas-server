@@ -80,6 +80,7 @@ final class AtlasExternalBrainSpecRewriteFromOutcomeAdvisor
                     'dependencies' => null,
                     'task_split_or_merge' => null,
                 ],
+                'prioritized_actions' => ['retire_or_give_back'],
             ];
         }
 
@@ -114,6 +115,17 @@ final class AtlasExternalBrainSpecRewriteFromOutcomeAdvisor
             ? 'split'
             : null;
 
+        // Priority order: scope (allowed_files) before acceptance/evidence strengthening,
+        // core correctness actions before the oversized-work split, which is always last.
+        $prioritizedActions = array_values(array_filter([
+            $allowedFiles !== null ? 'allowed_files' : null,
+            $objective !== null ? 'objective' : null,
+            $acceptanceCriteria !== null ? 'acceptance_criteria' : null,
+            $requiredEvidence !== null ? 'required_evidence' : null,
+            $dependencies !== null ? 'dependencies' : null,
+            $taskSplitOrMerge !== null ? 'split_oversized_task' : null,
+        ]));
+
         return [
             'schema' => self::SCHEMA,
             'recommendation' => 'rewrite',
@@ -126,6 +138,7 @@ final class AtlasExternalBrainSpecRewriteFromOutcomeAdvisor
                 'dependencies' => $dependencies,
                 'task_split_or_merge' => $taskSplitOrMerge,
             ],
+            'prioritized_actions' => $prioritizedActions,
         ];
     }
 }

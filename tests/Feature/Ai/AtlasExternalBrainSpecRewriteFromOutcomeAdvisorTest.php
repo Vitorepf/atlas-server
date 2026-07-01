@@ -121,6 +121,50 @@ final class AtlasExternalBrainSpecRewriteFromOutcomeAdvisorTest extends TestCase
         $this->assertSame('split', $result['rewrite_actions']['task_split_or_merge']);
     }
 
+    public function test_terminal_root_causes_prioritized_actions_start_with_retire_and_no_rewrite_mutation(): void
+    {
+        $result = $this->advisor->advise(['give_back_root_cause' => 'contradictory_acceptance']);
+
+        $this->assertSame(['retire_or_give_back'], $result['prioritized_actions']);
+        foreach ($result['rewrite_actions'] as $action) {
+            $this->assertNull($action);
+        }
+    }
+
+    public function test_scope_too_narrow_ranks_allowed_files_before_acceptance_and_evidence(): void
+    {
+        $result = $this->advisor->advise([
+            'give_back_root_cause' => 'scope_too_narrow',
+            'outcome_lessons' => ['attempt_failed', 'self_reported_success_without_evidence'],
+        ]);
+
+        $actions = $result['prioritized_actions'];
+        $allowedFilesPos = array_search('allowed_files', $actions, true);
+        $acceptancePos = array_search('acceptance_criteria', $actions, true);
+        $evidencePos = array_search('required_evidence', $actions, true);
+
+        $this->assertNotFalse($allowedFilesPos);
+        $this->assertLessThan($acceptancePos, $allowedFilesPos);
+        $this->assertLessThan($evidencePos, $allowedFilesPos);
+    }
+
+    public function test_large_changed_file_evidence_adds_split_after_core_correctness_actions(): void
+    {
+        $manyFiles = array_map(static fn (int $i): string => "app/File{$i}.php", range(1, 15));
+        $result = $this->advisor->advise([
+            'outcome_lessons' => ['attempt_failed'],
+            'changed_file_evidence' => $manyFiles,
+        ]);
+
+        $actions = $result['prioritized_actions'];
+        $splitPos = array_search('split_oversized_task', $actions, true);
+        $acceptancePos = array_search('acceptance_criteria', $actions, true);
+
+        $this->assertNotFalse($splitPos);
+        $this->assertGreaterThan($acceptancePos, $splitPos);
+        $this->assertSame(count($actions) - 1, $splitPos);
+    }
+
     public function test_no_signals_yields_all_null_rewrite_actions(): void
     {
         $result = $this->advisor->advise([]);
