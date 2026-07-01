@@ -112,4 +112,26 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocatorTest extends Test
             $this->assertArrayHasKey($lane, $result['lane_percentages'], "lane_percentages must have key '{$lane}'");
         }
     }
+
+    // AC3: recommended_next_batch_shape always present.
+    public function test_recommended_next_batch_shape_present(): void
+    {
+        $result = $this->allocator->allocate([]);
+
+        $this->assertArrayHasKey('recommended_next_batch_shape', $result);
+        $this->assertNotEmpty($result['recommended_next_batch_shape']);
+    }
+
+    // AC2: high simplification debt and stale proof freshness → non-zero simplify and proof (verification) lanes.
+    public function test_high_simplification_debt_and_stale_proof_freshness_allocate_non_zero_simplify_and_verification(): void
+    {
+        $result = $this->allocator->allocate([
+            'simplification_debt' => 0.8,
+            'proof_freshness' => 0.1,
+        ]);
+
+        $this->assertGreaterThan(0, $result['lane_percentages']['simplify']);
+        $this->assertGreaterThan(0, $result['lane_percentages']['verification']);
+        $this->assertStringContainsString('proof_freshness', $result['rationale']['verification']);
+    }
 }

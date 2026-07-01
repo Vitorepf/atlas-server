@@ -27,6 +27,7 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
      *     poison_rate?:float,
      *     simplification_debt?:float,
      *     research_freshness?:float,
+     *     proof_freshness?:float,
      *     build_demand?:float,
      *     evidence_strength?:float,
      *     candidate_leverage_proven?:bool,
@@ -44,6 +45,7 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
         $poisonRate = $this->clamp($facts['poison_rate'] ?? 0.0);
         $simpDebt = $this->clamp($facts['simplification_debt'] ?? 0.0);
         $researchFreshness = $this->clamp($facts['research_freshness'] ?? 1.0);
+        $proofFreshness = $this->clamp($facts['proof_freshness'] ?? 1.0);
         $evidenceStrength = $this->clamp($facts['evidence_strength'] ?? 1.0);
         $candidateProven = (bool) ($facts['candidate_leverage_proven'] ?? false);
 
@@ -98,6 +100,14 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
             $lanes['build'] -= $shift;
             $lanes['verification'] += $shift;
             $rationale['verification'] = "evidence_strength={$evidenceStrength} → allocate {$shift}% to verification";
+        }
+
+        // ── Stale proof freshness → non-zero verification (proof) lane ─────
+        if ($proofFreshness < 0.5) {
+            $shift = min(15, (int) round((1.0 - $proofFreshness) * 20));
+            $lanes['build'] -= $shift;
+            $lanes['verification'] += $shift;
+            $rationale['verification'] = "proof_freshness={$proofFreshness} → allocate {$shift}% to proof/verification refresh";
         }
 
         // Clamp and normalize to 100.
