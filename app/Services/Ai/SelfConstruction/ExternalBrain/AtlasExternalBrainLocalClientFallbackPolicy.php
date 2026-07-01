@@ -47,6 +47,9 @@ final class AtlasExternalBrainLocalClientFallbackPolicy
         $atlasNativeFallbackCapacityAvailable = (bool) ($facts['atlas_native_fallback_capacity_available'] ?? false);
         $manualMuscleAvailable = (bool) ($facts['manual_muscle_available'] ?? false);
         $subscriptionReliable = (bool) ($facts['subscription_reliable'] ?? false);
+        $localClientFragile = (bool) ($facts['local_client_fragile'] ?? false);
+        $localClientPaidApiOnly = (bool) ($facts['local_client_paid_api_only'] ?? false);
+        $localClientVerified = (bool) ($facts['local_client_verified'] ?? true);
 
         $hasIndependentFallback = $atlasNativeFallbackCapacityAvailable || $manualMuscleAvailable;
         $missingAtlasNativeFallbackCapabilities = array_values(array_filter([
@@ -54,12 +57,17 @@ final class AtlasExternalBrainLocalClientFallbackPolicy
             $manualMuscleAvailable ? null : 'manual_muscle_availability',
         ]));
 
+        // A local client is only usable when it is available, reliably subscribed, NOT fragile,
+        // NOT paid-api-only, and verified. Any single failure demotes it exactly like being down.
+        $localClientUsable = $localClientAvailable && $subscriptionReliable
+            && ! $localClientFragile && ! $localClientPaidApiOnly && $localClientVerified;
+
         [$decision, $reason] = match (true) {
-            $localClientAvailable && $subscriptionReliable && $hasIndependentFallback => [
+            $localClientUsable && $hasIndependentFallback => [
                 self::DECISION_CONTINUE_WITH_LOCAL_CLIENT,
                 'local_client_reliable_and_independent_fallback_exists',
             ],
-            $localClientAvailable && $subscriptionReliable && ! $hasIndependentFallback => [
+            $localClientUsable && ! $hasIndependentFallback => [
                 self::DECISION_PAUSE_PROVIDER_ROUTING,
                 'local_client_would_be_sole_path_for_steady_state_autonomy',
             ],
@@ -84,12 +92,22 @@ final class AtlasExternalBrainLocalClientFallbackPolicy
             'atlas_native_fallback_capacity_available' => $atlasNativeFallbackCapacityAvailable,
             'manual_muscle_available' => $manualMuscleAvailable,
             'subscription_reliable' => $subscriptionReliable,
+            'local_client_fragile' => $localClientFragile,
+            'local_client_paid_api_only' => $localClientPaidApiOnly,
+            'local_client_verified' => $localClientVerified,
             'decision' => $decision,
             'reason' => $reason,
             'missing_atlas_native_fallback_capabilities' => $missingAtlasNativeFallbackCapabilities,
+            // True whenever the local client itself is unavailable, fragile, paid-api-only, or
+            // unverified — an Atlas-native (or manual) fallback must be able to cover for it.
+            'native_fallback_required' => ! $localClientUsable,
             // False only when an independent (Atlas-native or manual) fallback actually exists —
             // otherwise steady-state autonomy silently depends on an external provider/client.
             'steady_state_provider_dependency' => ! $hasIndependentFallback,
+            // Policy invariant, never computed from facts: this policy NEVER allows steady-state
+            // autonomy to be declared dependent on an external client in any path — worst case it
+            // pauses provider routing instead of mandating reliance on the local client.
+            'steady_state_requires_external_client' => false,
             'mutates_queue' => false,
         ];
     }
