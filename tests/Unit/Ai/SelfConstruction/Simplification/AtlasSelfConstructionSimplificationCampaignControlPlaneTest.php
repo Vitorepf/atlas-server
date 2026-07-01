@@ -226,4 +226,36 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlaneTest extends 
         $this->assertContains('unproven', $result['blocked_waves']);
         $this->assertFalse($result['proof_readiness']['unproven']);
     }
+
+    // ── AC: reversible wave budget caps risky delete/merge work per wave ────────
+
+    public function test_wave_budget_caps_risky_delete_merge_candidates_admitted_to_next_wave(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'max_risky_wave_size' => 1,
+            'candidates' => [
+                $this->candidate('organ-a', 'delete', 'low'),
+                $this->candidate('organ-b', 'merge', 'low'),
+                $this->candidate('cleanup-c', 'additive_cleanup', 'low'),
+            ],
+        ]);
+
+        $this->assertSame(1, $result['wave_budget']);
+        $this->assertSame(['organ-a', 'organ-b'], $result['deletion_first_candidates']);
+        $this->assertSame(['organ-a', 'cleanup-c'], $result['next_wave']);
+        $this->assertSame(['organ-b'], $result['deferred_candidates']);
+    }
+
+    public function test_no_wave_budget_configured_does_not_defer_any_candidate(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('organ-a', 'delete', 'low'),
+                $this->candidate('organ-b', 'merge', 'low'),
+            ],
+        ]);
+
+        $this->assertSame([], $result['deferred_candidates']);
+        $this->assertSame(['organ-a', 'organ-b'], $result['next_wave']);
+    }
 }

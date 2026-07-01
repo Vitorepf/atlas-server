@@ -117,13 +117,19 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             }
         }
 
+        $waveBudget = max(0, (int) ($input['max_risky_wave_size'] ?? PHP_INT_MAX));
+        $admittedDeletionFirst = array_slice($deletionFirst, 0, $waveBudget);
+        $deferredCandidates = array_slice($deletionFirst, $waveBudget);
+
         return [
             'schema' => self::SCHEMA,
             'deletion_first_candidates' => $deletionFirst,
             'additive_candidates' => $additive,
             'blocked_high_risk_candidates' => $blockedHighRisk,
             'held_candidates' => $held,
-            'next_wave' => array_merge($deletionFirst, $additive),
+            'next_wave' => array_merge($admittedDeletionFirst, $additive),
+            'wave_budget' => $waveBudget,
+            'deferred_candidates' => $deferredCandidates,
             'knowledge_sync_required' => $knowledgeSyncRequired,
             'proof_readiness' => $proofReadiness,
             'rollback_readiness' => $rollbackReadiness,
