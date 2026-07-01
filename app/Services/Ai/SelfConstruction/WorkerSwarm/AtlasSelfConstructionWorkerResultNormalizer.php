@@ -18,6 +18,19 @@ namespace App\Services\Ai\SelfConstruction\WorkerSwarm;
  *   - When changed_files escape the task.allowed_files allow-list ⇒ status=blocked.
  *   - When required_evidence_kinds are unmatched but no scope violation ⇒ status=pending_review.
  *   - NEVER attempts to "fix" the worker's outcome — it labels and forwards.
+ *
+ * LEARNING FIELDS (additive on top of court_status, never used to change it):
+ *   result_class:  'verified_success'|'weak_green'|'give_back'|'poison'|'blocked' — a coarser,
+ *                  learning-facing bucket than court_status.
+ *   proof_quality: 'strong'|'weak'|'none' — 'strong' only when at least one evidence ref carries
+ *                  a concrete command/path id (contains '/', '.php', 'artisan' or 'vendor/bin');
+ *                  a bare kind-only ref ("phpunit:done") is 'weak' evidence, not proof.
+ *   needs_review:  true whenever result_class is 'weak_green' — a green claim backed by vague
+ *                  evidence must not silently pass as verified_success.
+ *   root_cause_family: for give_back/poison results, classifies give_back_reason into
+ *                  'scope'|'contradiction'|'other'; null for every other result_class.
+ *   Repeated (give_back_count >= 3) scope/contradiction give_backs are classified 'poison'
+ *   instead of 'give_back' — the pattern itself, not a single instance, is the signal.
  */
 final class AtlasSelfConstructionWorkerResultNormalizer
 {
@@ -114,6 +127,30 @@ final class AtlasSelfConstructionWorkerResultNormalizer
             $unverifiedClaims = [];
         }
 
+        $proofQuality = $this->proofQuality($evidenceRefs);
+        $giveBackReason = strtolower((string) ($result['give_back_reason'] ?? ''));
+        $giveBackCount = max(0, (int) ($result['give_back_count'] ?? 1));
+
+        $rootCauseFamily = null;
+        if ($outcomeKind === 'give_back') {
+            $rootCauseFamily = match (true) {
+                str_contains($giveBackReason, 'scope') => 'scope',
+                str_contains($giveBackReason, 'contradict') => 'contradiction',
+                default => 'other',
+            };
+        }
+
+        $resultClass = match (true) {
+            $status === self::STATUS_BLOCKED => 'blocked',
+            $status === self::STATUS_VERIFIED_FAIL => 'blocked',
+            $outcomeKind === 'give_back' && $giveBackCount >= 3 && in_array($rootCauseFamily, ['scope', 'contradiction'], true) => 'poison',
+            $outcomeKind === 'give_back' => 'give_back',
+            $status === self::STATUS_VERIFIED_PASS && $proofQuality === 'strong' => 'verified_success',
+            default => 'weak_green',
+        };
+
+        $needsReview = $resultClass === 'weak_green';
+
         return [
             'schema_version' => self::SCHEMA,
             'task_id' => $taskId,
@@ -125,6 +162,33 @@ final class AtlasSelfConstructionWorkerResultNormalizer
             'out_of_scope_files' => $outOfScope,
             'blockers' => array_values($blockers),
             'worker_quality_facts' => $workerQualityFacts,
+            'result_class' => $resultClass,
+            'proof_quality' => $proofQuality,
+            'needs_review' => $needsReview,
+            'root_cause_family' => $rootCauseFamily,
         ];
+    }
+
+    /** @param  list<mixed>  $evidenceRefs */
+    private function proofQuality(array $evidenceRefs): string
+    {
+        if ($evidenceRefs === []) {
+            return 'none';
+        }
+
+        foreach ($evidenceRefs as $ref) {
+            $ref = (string) $ref;
+            $id = str_contains($ref, ':') ? substr($ref, strpos($ref, ':') + 1) : $ref;
+            if ($id !== '' && (
+                str_contains($id, '/')
+                || str_contains($id, '.php')
+                || str_contains($id, 'artisan')
+                || str_contains($id, 'vendor/bin')
+            )) {
+                return 'strong';
+            }
+        }
+
+        return 'weak';
     }
 }

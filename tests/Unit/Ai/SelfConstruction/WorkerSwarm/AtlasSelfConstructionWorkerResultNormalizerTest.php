@@ -165,4 +165,132 @@ final class AtlasSelfConstructionWorkerResultNormalizerTest extends TestCase
         $this->assertContains('missing_evidence_for:mutop', $verdict['unverified_claims']);
         $this->assertSame(['phpunit:diag1'], $verdict['verified_evidence']);
     }
+
+    // ── AC: vague success evidence is normalized as weak_green with needs_review=true ──
+
+    public function test_vague_success_evidence_is_weak_green_and_needs_review(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => true], 'mutop' => ['passed' => true]],
+            'evidence_refs'   => ['phpunit:done', 'mutop:ok'],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionWorkerResultNormalizer::STATUS_VERIFIED_PASS, $verdict['court_status']);
+        $this->assertSame('weak_green', $verdict['result_class']);
+        $this->assertSame('weak', $verdict['proof_quality']);
+        $this->assertTrue($verdict['needs_review']);
+    }
+
+    // ── AC: concrete command/path evidence is verified_success with proof_quality=strong ──
+
+    public function test_concrete_command_path_evidence_is_verified_success_with_strong_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => true], 'mutop' => ['passed' => true]],
+            'evidence_refs'   => ['phpunit:./vendor/bin/phpunit tests/Unit/FooTest.php', 'mutop:app/Foo.php'],
+        ]);
+
+        $this->assertSame(AtlasSelfConstructionWorkerResultNormalizer::STATUS_VERIFIED_PASS, $verdict['court_status']);
+        $this->assertSame('verified_success', $verdict['result_class']);
+        $this->assertSame('strong', $verdict['proof_quality']);
+        $this->assertFalse($verdict['needs_review']);
+    }
+
+    public function test_no_evidence_has_proof_quality_none(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'give_back',
+            'changed_files'   => [],
+            'gate_outputs'    => [],
+            'evidence_refs'   => [],
+        ]);
+
+        $this->assertSame('none', $verdict['proof_quality']);
+    }
+
+    // ── AC: repeated scope or contradiction give_backs get root_cause_family, poison class ──
+
+    public function test_scope_give_back_reason_gets_scope_root_cause_family(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome'  => 'give_back',
+            'changed_files'    => [],
+            'gate_outputs'     => [],
+            'evidence_refs'    => [],
+            'give_back_reason' => 'task scope exceeds allowed_files boundary',
+        ]);
+
+        $this->assertSame('scope', $verdict['root_cause_family']);
+        $this->assertSame('give_back', $verdict['result_class']);
+    }
+
+    public function test_contradiction_give_back_reason_gets_contradiction_root_cause_family(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome'  => 'give_back',
+            'changed_files'    => [],
+            'gate_outputs'     => [],
+            'evidence_refs'    => [],
+            'give_back_reason' => 'acceptance criteria contradict each other',
+        ]);
+
+        $this->assertSame('contradiction', $verdict['root_cause_family']);
+    }
+
+    public function test_repeated_scope_give_back_is_classified_poison(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome'  => 'give_back',
+            'changed_files'    => [],
+            'gate_outputs'     => [],
+            'evidence_refs'    => [],
+            'give_back_reason' => 'task scope exceeds allowed_files boundary',
+            'give_back_count'  => 4,
+        ]);
+
+        $this->assertSame('poison', $verdict['result_class']);
+        $this->assertSame('scope', $verdict['root_cause_family']);
+    }
+
+    public function test_single_scope_give_back_is_not_poison(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome'  => 'give_back',
+            'changed_files'    => [],
+            'gate_outputs'     => [],
+            'evidence_refs'    => [],
+            'give_back_reason' => 'task scope exceeds allowed_files boundary',
+            'give_back_count'  => 1,
+        ]);
+
+        $this->assertSame('give_back', $verdict['result_class']);
+    }
+
+    public function test_non_give_back_result_has_null_root_cause_family(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => true], 'mutop' => ['passed' => true]],
+            'evidence_refs'   => ['phpunit:app/Foo.php', 'mutop:app/Foo.php'],
+        ]);
+
+        $this->assertNull($verdict['root_cause_family']);
+    }
+
+    public function test_scope_violation_is_classified_blocked_result_class(): void
+    {
+        $verdict = (new AtlasSelfConstructionWorkerResultNormalizer)->normalize($this->task(), [
+            'claimed_outcome' => 'success',
+            'changed_files'   => ['app/Foo.php', 'config/atlas.php'],
+            'gate_outputs'    => ['phpunit' => ['passed' => true]],
+            'evidence_refs'   => ['phpunit:t1', 'mutop:m1'],
+        ]);
+
+        $this->assertSame('blocked', $verdict['result_class']);
+    }
 }
