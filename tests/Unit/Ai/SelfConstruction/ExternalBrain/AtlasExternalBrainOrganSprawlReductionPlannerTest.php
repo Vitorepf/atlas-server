@@ -376,4 +376,62 @@ final class AtlasExternalBrainOrganSprawlReductionPlannerTest extends TestCase
 
         $this->assertSame([], $result['capability_groups']);
     }
+
+    public function test_task_feed_impact_reports_before_after_handoff_and_yield_for_safe_merge(): void
+    {
+        $result = $this->plan($this->organ('safe-m2', [
+            'overlap_organs' => ['organ-v3'],
+            'line_count' => 200,
+            'has_replacement_owner' => true,
+            'has_test_coverage' => true,
+        ]));
+
+        $this->assertArrayHasKey('task_feed_impact', $result);
+        $impact = $result['task_feed_impact'];
+        $this->assertSame(1, $impact['handoff_count_before']);
+        $this->assertSame(0, $impact['handoff_count_after']);
+        $this->assertSame(3, $impact['expected_claimable_yield_before']);
+        $this->assertSame(3, $impact['expected_claimable_yield_after']);
+        $this->assertTrue($impact['yield_preserved']);
+    }
+
+    public function test_merge_rejected_when_expected_yield_drops_without_compensating_action(): void
+    {
+        $result = $this->plan($this->organ('drop-m', [
+            'overlap_organs' => ['organ-v4'],
+            'line_count' => 200,
+            'has_replacement_owner' => true,
+            'has_test_coverage' => true,
+            'merge_expected_yield_after' => 1,
+        ]));
+
+        $entry = $this->findEntry($result, 'drop-m');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE_BLOCKED, $entry['action']);
+        $this->assertStringContainsString('yield_drop_without_compensating_action', implode(' ', $entry['reasons']));
+
+        $impact = $result['task_feed_impact'];
+        $this->assertSame(3, $impact['expected_claimable_yield_before']);
+        $this->assertSame(3, $impact['expected_claimable_yield_after']);
+        $this->assertTrue($impact['yield_preserved']);
+    }
+
+    public function test_merge_allowed_when_yield_drop_has_compensating_action(): void
+    {
+        $result = $this->plan($this->organ('compensated-m', [
+            'overlap_organs' => ['organ-v5'],
+            'line_count' => 200,
+            'has_replacement_owner' => true,
+            'has_test_coverage' => true,
+            'merge_expected_yield_after' => 1,
+            'has_compensating_repair_or_topup' => true,
+        ]));
+
+        $entry = $this->findEntry($result, 'compensated-m');
+        $this->assertSame(AtlasExternalBrainOrganSprawlReductionPlanner::ACTION_MERGE, $entry['action']);
+
+        $impact = $result['task_feed_impact'];
+        $this->assertSame(3, $impact['expected_claimable_yield_before']);
+        $this->assertSame(1, $impact['expected_claimable_yield_after']);
+        $this->assertFalse($impact['yield_preserved']);
+    }
 }

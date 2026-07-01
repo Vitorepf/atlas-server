@@ -60,10 +60,27 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
         $capabilityPreserved = 0;
         $safeBatchEntries    = [];
         $allRequiredTests    = [];
+        $handoffCountBefore  = 0;
+        $yieldBefore         = 0;
+        $mergedHandoffReduction = 0;
+        $yieldAfter          = 0;
 
         foreach ($organs as $organ) {
             $entry   = $this->classify($organ);
             $actions[] = $entry;
+
+            $organYield = max(0, (int) ($organ['claimable_yield'] ?? ($organ['consumer_count'] ?? 0)));
+            $handoffCountBefore += count((array) ($organ['overlap_organs'] ?? []));
+            $yieldBefore += $organYield;
+
+            if ($entry['action'] === self::ACTION_MERGE) {
+                $mergedHandoffReduction += count((array) ($organ['overlap_organs'] ?? []));
+                $yieldAfter += array_key_exists('merge_expected_yield_after', $organ)
+                    ? max(0, (int) $organ['merge_expected_yield_after'])
+                    : $organYield;
+            } else {
+                $yieldAfter += $organYield;
+            }
 
             $totalLineDelta += $entry['line_delta'];
 
@@ -98,6 +115,8 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
                 : $a['capability_count'] <=> $b['capability_count']
         );
 
+        $handoffCountAfter = max(0, $handoffCountBefore - $mergedHandoffReduction);
+
         return [
             'schema'                     => self::SCHEMA,
             'ranked_actions'             => $actions,
@@ -106,6 +125,13 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'first_safe_batch'           => array_column($safeBatchEntries, 'organ_id'),
             'required_tests'             => array_values($allRequiredTests),
             'capability_groups'          => $this->buildCapabilityGroups($organs),
+            'task_feed_impact'           => [
+                'handoff_count_before' => $handoffCountBefore,
+                'handoff_count_after' => $handoffCountAfter,
+                'expected_claimable_yield_before' => $yieldBefore,
+                'expected_claimable_yield_after' => $yieldAfter,
+                'yield_preserved' => $yieldAfter >= $yieldBefore,
+            ],
         ];
     }
 
@@ -168,8 +194,23 @@ final class AtlasExternalBrainOrganSprawlReductionPlanner
             'medium');
         }
 
-        // MERGE
+        // MERGE — only when the resulting circuit keeps at least the same claimable-task yield.
         if ($overlapOrgans !== []) {
+            $claimableYield = max(0, (int) ($organ['claimable_yield'] ?? $consumers));
+            $expectedYieldAfter = array_key_exists('merge_expected_yield_after', $organ)
+                ? max(0, (int) $organ['merge_expected_yield_after'])
+                : $claimableYield;
+            $hasCompensatingAction = (bool) ($organ['has_compensating_repair_or_topup'] ?? false);
+
+            if ($expectedYieldAfter < $claimableYield && ! $hasCompensatingAction) {
+                return $this->entry($id, self::ACTION_MERGE_BLOCKED, [
+                    'overlaps_with:' . implode(',', $overlapOrgans),
+                    'consolidation_rejected:yield_drop_without_compensating_action',
+                ], 0, $this->requiredTests($id, $labels),
+                'Merge would drop claimable-task yield without a compensating repair/top-up action; consolidation rejected.',
+                'medium');
+            }
+
             return $this->entry($id, self::ACTION_MERGE, [
                 'overlaps_with:' . implode(',', $overlapOrgans),
             ], -(int) ($lineCount * 0.5), $this->requiredTests($id, $labels),
