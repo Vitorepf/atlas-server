@@ -24,6 +24,7 @@ maintenance:
   - Manter abaixo de 180 linhas (limite canonico para index).
   - Rodar `php artisan atlas:engineering:knowledge docs-health --json` apos alterar.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-dev-final-operating-model.md
   - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - docs/engineering-knowledge-base/atlas-agentic-engineering-documentation-inventory.md
   - docs/engineering-knowledge-base/atlas-dev-glossary.md
@@ -134,6 +135,7 @@ Atlas AI (produto / superficie unica do programador)
 | [`atlas-dev-glossary.md`](atlas-dev-glossary.md) | module | depois deste, para entender termos |
 | [`atlas-dev-policy.md`](atlas-dev-policy.md) | policy | regras invariaveis (o que NUNCA mudar) |
 | [`atlas-dev-patamares.md`](atlas-dev-patamares.md) | module | qual patamar Atlas Dev esta hoje + futuros planejados |
+| [`atlas-dev-final-operating-model.md`](atlas-dev-final-operating-model.md) | module | forma FINAL do Dev: fronteira Dev/Forge/Autonomos, hierarquia AAEG->Kernel->Dev, fluxo fim-a-fim, criterios de qualidade |
 | [`atlas-dev-flow-map-and-product-options-v1.md`](atlas-dev-flow-map-and-product-options-v1.md) | module | caderno mae: contexto historico, fluxos atuais, opcoes de produto |
 | [`atlas-dev-efficient-programming-flow-v1.md`](atlas-dev-efficient-programming-flow-v1.md) | contract | contrato do patamar atual (alto nivel) |
 | [`atlas-dev-efficient-programming-flow-contracts-v1.md`](atlas-dev-efficient-programming-flow-contracts-v1.md) | contracts | schemas detalhados (17 artefatos operacionais em 4 camadas) |
@@ -148,10 +150,11 @@ Atlas AI (produto / superficie unica do programador)
 4. atlas-dev-glossary                  ← termos canonicos
 5. atlas-dev-policy                    ← regras invariaveis
 6. atlas-dev-patamares                 ← patamar atual + planejados
-7. atlas-dev-flow-map-and-product-options-v1 ← caderno mae
-8. atlas-dev-efficient-programming-flow-v1   ← contrato do patamar atual
-   8a. atlas-dev-efficient-programming-flow-contracts-v1 ← schemas
-   8b. atlas-dev-efficient-programming-flow-runbook-v1   ← implementacao
+7. atlas-dev-final-operating-model     ← forma final (alvo) do Dev no governo v3
+8. atlas-dev-flow-map-and-product-options-v1 ← caderno mae
+9. atlas-dev-efficient-programming-flow-v1   ← contrato do patamar atual
+   9a. atlas-dev-efficient-programming-flow-contracts-v1 ← schemas
+   9b. atlas-dev-efficient-programming-flow-runbook-v1   ← implementacao
 ```
 
 IA que pula este index e vai direto pro efficient-flow perde contexto de patamar e escopo. Resultado: faz merda.
@@ -166,6 +169,7 @@ IA que pula este index e vai direto pro efficient-flow perde contexto de patamar
 | Qual o escopo de Atlas Dev (dentro vs fora)? | `atlas-dev-policy` + `atlas-dev-efficient-programming-flow-v1` secao Escopo |
 | Quando escalar para Forge? | `atlas-dev-policy` + `atlas-dev-efficient-programming-flow-v1` Forge Escalation |
 | Qual o patamar atual de Atlas Dev? | `atlas-dev-patamares` |
+| Qual a forma FINAL do Dev e a fronteira com Forge/Autonomos/Kernel? | `atlas-dev-final-operating-model` |
 | Quais sao os 17 artefatos canonicos? | `atlas-dev-efficient-programming-flow-contracts-v1` |
 | Como implementar Fatia 0? | `atlas-dev-efficient-programming-flow-runbook-v1` PR 0.1+ |
 | Quais decisoes ja estao locked? | `atlas-dev-policy` + frontmatter `atlas-dev-efficient-programming-flow-v1` |
