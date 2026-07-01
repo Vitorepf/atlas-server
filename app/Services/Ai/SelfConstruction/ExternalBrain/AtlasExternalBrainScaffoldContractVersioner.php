@@ -31,7 +31,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   breaking           → major bump (x.y.z → x+1.0.0).
  *
  * AC4 outputs: next_version, compatibility, migration_notes, retired_checks,
- *   rollout_guidance.
+ *   rollout_guidance, required_sections (the proposed contract's required check names —
+ *   its proof obligations).
+ *
+ * Wording-only fields (e.g. a check's description) are never read by indexChecks(), so
+ * a name/is_safety_check/required-identical check with different prose stays 'compatible'.
  *
  * Pure, deterministic, no providers, no I/O.
  */
@@ -129,13 +133,19 @@ final class AtlasExternalBrainScaffoldContractVersioner
 
         $nextVersion = $this->bumpVersion($currentVersion, $compatLevel);
 
+        $requiredSections = array_values(array_map(
+            static fn (string $name): string => $name,
+            array_keys(array_filter($proposedChecks, static fn (array $c): bool => $c['required'])),
+        ));
+
         return [
-            'schema_version'   => self::SCHEMA,
-            'next_version'     => $nextVersion,
-            'compatibility'    => $compatLevel,
-            'migration_notes'  => $migrationNotes,
-            'retired_checks'   => $retiredChecks,
-            'rollout_guidance' => $this->rolloutGuidance($compatLevel, $nextVersion),
+            'schema_version'     => self::SCHEMA,
+            'next_version'       => $nextVersion,
+            'compatibility'      => $compatLevel,
+            'migration_notes'    => $migrationNotes,
+            'retired_checks'     => $retiredChecks,
+            'rollout_guidance'   => $this->rolloutGuidance($compatLevel, $nextVersion),
+            'required_sections'  => $requiredSections,
         ];
     }
 

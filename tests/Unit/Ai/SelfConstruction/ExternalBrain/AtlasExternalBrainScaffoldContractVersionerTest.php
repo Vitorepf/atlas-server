@@ -229,4 +229,62 @@ final class AtlasExternalBrainScaffoldContractVersionerTest extends TestCase
         $b = $this->versioner()->version($facts);
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC: changing required proof obligations increments the contract version ──
+
+    public function test_changing_required_proof_obligation_increments_version_beyond_patch(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version' => '1.0.0',
+            'current_checks'  => [$this->check('proof_check', false, false)],
+            'proposed_checks' => [$this->check('proof_check', false, true)],
+        ]);
+
+        $this->assertSame('breaking', $r['compatibility']);
+        $this->assertSame('2.0.0', $r['next_version']);
+    }
+
+    // ── AC: wording-only changes keep the same compatibility family ────────────
+
+    public function test_wording_only_change_keeps_compatible_family(): void
+    {
+        $currentCheck = $this->check('alpha');
+        $currentCheck['description'] = 'Checks the old wording of the rule.';
+        $proposedCheck = $this->check('alpha');
+        $proposedCheck['description'] = 'Checks the NEW, reworded phrasing of the exact same rule.';
+
+        $r = $this->versioner()->version([
+            'current_version' => '1.0.0',
+            'current_checks'  => [$currentCheck],
+            'proposed_checks' => [$proposedCheck],
+        ]);
+
+        $this->assertSame('compatible', $r['compatibility']);
+        $this->assertSame('1.0.1', $r['next_version']);
+    }
+
+    // ── AC: version output includes migration_notes and required_sections ──────
+
+    public function test_output_includes_required_sections_key(): void
+    {
+        $r = $this->versioner()->version([]);
+
+        $this->assertArrayHasKey('required_sections', $r);
+        $this->assertArrayHasKey('migration_notes', $r);
+    }
+
+    public function test_required_sections_lists_required_proposed_check_names(): void
+    {
+        $r = $this->versioner()->version([
+            'current_version' => '1.0.0',
+            'current_checks'  => [],
+            'proposed_checks' => [
+                $this->check('required_one', false, true),
+                $this->check('optional_one', false, false),
+                $this->check('required_two', false, true),
+            ],
+        ]);
+
+        $this->assertSame(['required_one', 'required_two'], $r['required_sections']);
+    }
 }
