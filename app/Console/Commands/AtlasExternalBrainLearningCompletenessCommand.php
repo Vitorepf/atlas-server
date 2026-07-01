@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierOutcomeReplayRouter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainClosedLoopLearningCompletenessVerifier;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCompoundingOutcomeRouter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerFeedbackInbox;
@@ -38,6 +39,7 @@ final class AtlasExternalBrainLearningCompletenessCommand extends Command
         AtlasExternalBrainClosedLoopLearningCompletenessVerifier $completenessVerifier,
         AtlasExternalBrainWorkerFeedbackInbox $feedbackInbox,
         AtlasExternalBrainCompoundingOutcomeRouter $outcomeRouter,
+        AtlasExternalBrainAmplifierOutcomeReplayRouter $amplifierOutcomeRouter,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -68,11 +70,17 @@ final class AtlasExternalBrainLearningCompletenessCommand extends Command
             $compoundingRoutes[] = $outcomeRouter->route($outcome);
         }
 
+        // Distinct from the per-outcome compounding router above: the amplifier replay
+        // router consumes the whole outcomes batch at once (its own routing/aggregation
+        // pass over scaffold/model-tier sinks), so it is called once with the full list.
+        $amplifierOutcomeRoutes = $amplifierOutcomeRouter->route(['task_outcomes' => $outcomes]);
+
         $payload = [
             'schema' => self::SCHEMA,
             'cycle_completeness' => $completeness,
             'worker_feedback' => $feedback,
             'compounding_routes' => $compoundingRoutes,
+            'amplifier_outcome_routes' => $amplifierOutcomeRoutes,
             'complete' => $completeness['complete'],
             'missing_links' => $completeness['missing_links'],
             'next_repair_task_hint' => $completeness['next_repair_task_hint'],
