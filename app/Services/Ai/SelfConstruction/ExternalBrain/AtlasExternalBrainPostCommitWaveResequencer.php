@@ -45,6 +45,7 @@ final class AtlasExternalBrainPostCommitWaveResequencer
         }
 
         $removedTaskIds = [];
+        $retireOrRespecTaskIds = [];
         $resequenceReasons = [];
 
         foreach ($tasksById as $taskId => $task) {
@@ -54,7 +55,11 @@ final class AtlasExternalBrainPostCommitWaveResequencer
 
             if ($supersededByCommit) {
                 $removedTaskIds[$taskId] = true;
+                // AC: a successor superseded by the commit isn't just discarded — it must be
+                // explicitly retired or respecced against the new reality, not silently dropped.
+                $retireOrRespecTaskIds[] = $taskId;
                 $resequenceReasons[] = "removed_superseded_by_commit:{$taskId}";
+                $resequenceReasons[] = "retire_or_respec:{$taskId}";
             } elseif ($giveBackRepeatCount >= $giveBackThreshold) {
                 $removedTaskIds[$taskId] = true;
                 $resequenceReasons[] = "removed_repeated_give_back:{$taskId}";
@@ -112,9 +117,12 @@ final class AtlasExternalBrainPostCommitWaveResequencer
         return [
             'schema_version' => self::SCHEMA,
             'resequenced_task_ids' => $resequencedTaskIds,
+            'next_wave_order' => $resequencedTaskIds,
             'removed_stale_task_ids' => array_values(array_keys($removedTaskIds)),
+            'retire_or_respec_task_ids' => $retireOrRespecTaskIds,
             'newly_unblocked_task_ids' => $newlyUnblockedTaskIds,
             'resequence_reasons' => $resequenceReasons,
+            'reasons' => $resequenceReasons,
             'mutates_queue' => false,
         ];
     }
