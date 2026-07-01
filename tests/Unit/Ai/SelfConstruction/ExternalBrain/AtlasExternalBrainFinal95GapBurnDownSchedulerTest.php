@@ -713,4 +713,33 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
         $this->assertStringContainsString('downstream-a', $recommendation);
         $this->assertStringContainsString('downstream-b', $recommendation);
     }
+
+    // ── AC3: top-level aggregate output fields ────────────────────────────────
+
+    public function test_output_includes_top_level_aggregate_fields(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id' => 'gap-a',
+            'gap_type' => 'blocked',
+            'blocker' => 'missing_dependency',
+            'owner_subsystem' => 'task_fabric',
+        ]]);
+
+        $this->assertArrayHasKey('blockers', $result);
+        $this->assertArrayHasKey('owner_subsystem', $result);
+        $this->assertArrayHasKey('cheapest_next_proof', $result);
+        $this->assertArrayHasKey('stop_conditions', $result);
+        $this->assertSame('missing_dependency', $result['blockers']['gap-a']);
+        $this->assertSame('task_fabric', $result['owner_subsystem']['gap-a']);
+    }
+
+    public function test_blockers_empty_when_no_blocker_set(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id' => 'gap-b',
+            'gap_type' => 'missing',
+        ]]);
+
+        $this->assertArrayNotHasKey('gap-b', $result['blockers']);
+    }
 }

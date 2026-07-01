@@ -185,6 +185,21 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
                 $schedule[0]['unlocks'] === [] ? 'none' : implode(', ', $schedule[0]['unlocks']),
             );
 
+        // Convenience aggregates over burn_down_schedule, keyed by organ_id, so callers don't
+        // need to re-derive them from the per-entry schedule data.
+        $blockers = [];
+        $ownerSubsystems = [];
+        $cheapestNextProof = [];
+        $stopConditions = [];
+        foreach ($schedule as $entry) {
+            if ($entry['blocker'] !== null) {
+                $blockers[$entry['organ_id']] = $entry['blocker'];
+            }
+            $ownerSubsystems[$entry['organ_id']] = $entry['owner_subsystem'];
+            $cheapestNextProof[$entry['organ_id']] = $entry['cheapest_next_proof'];
+            $stopConditions[$entry['organ_id']] = $entry['stop_condition'];
+        }
+
         return [
             'schema'                                 => self::SCHEMA,
             'burn_down_schedule'                     => $schedule,
@@ -192,6 +207,10 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
             'total_gaps'                             => count($schedule),
             'gaps_closeable_without_new_feature_work' => $nonFeature,
             'next_batch_recommendation'               => $nextBatch,
+            'blockers'                                => $blockers,
+            'owner_subsystem'                         => $ownerSubsystems,
+            'cheapest_next_proof'                     => $cheapestNextProof,
+            'stop_conditions'                         => $stopConditions,
         ];
     }
 
