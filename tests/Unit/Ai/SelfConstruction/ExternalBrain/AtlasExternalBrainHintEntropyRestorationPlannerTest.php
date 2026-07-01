@@ -153,6 +153,20 @@ final class AtlasExternalBrainHintEntropyRestorationPlannerTest extends TestCase
         $this->assertContains('simulation-twin', $result['required_hint_families']);
     }
 
+    public function test_compounding_exception_at_non_critical_entropy_still_requires_orthogonal_probe(): void
+    {
+        // High entropy (not critical) but a compounding exception is granted, and no starved
+        // path differs from the dominant vein — an orthogonal probe must still be required.
+        $result = $this->planner->plan($this->base([
+            'hint_entropy'              => 0.90,
+            'starved_paths'             => [],
+            'dominant_vein'             => 'frontier-harvest',
+            'dominant_vein_compounding' => true,
+        ]));
+
+        $this->assertContains('orthogonal_probe_required', $result['required_hint_families']);
+    }
+
     // ── Empty inputs ──────────────────────────────────────────────────────────
 
     public function test_empty_recent_batches_produces_no_banned_families(): void
@@ -220,6 +234,7 @@ final class AtlasExternalBrainHintEntropyRestorationPlannerTest extends TestCase
         $r = $this->planner->measureAndRecommend(['recent_hints' => $hints]);
 
         $this->assertSame('change_search_method', $r['recommendation']);
+        $this->assertContains('orthogonal_probe:evidence_source', $r['required_hint_families']);
     }
 
     public function test_collapsed_capability_area_recommends_rotate_area(): void

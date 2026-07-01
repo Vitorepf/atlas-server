@@ -143,8 +143,10 @@ final class AtlasExternalBrainHintEntropyRestorationPlanner
             }
         }
 
-        if (! $hasOrthogonalProbe && $isCritical) {
-            // If critical and no orthogonal probe yet, add 'orthogonal_probe_required' as a signal
+        // An orthogonal probe is required whenever entropy is critical, OR whenever a compounding
+        // exception was granted — an allowed exception must never be the ONLY path in the batch.
+        $requiresOrthogonalProbe = $isCritical || ($dominantVein !== '' && $dominantCompounding);
+        if (! $hasOrthogonalProbe && $requiresOrthogonalProbe) {
             $required[] = 'orthogonal_probe_required';
         }
 
@@ -215,6 +217,15 @@ final class AtlasExternalBrainHintEntropyRestorationPlanner
 
         $overallDiversityScore = $total > 0 ? round(array_sum($diversityByAxis) / count($diversityByAxis), 4) : 0.0;
 
+        // Name the exact axis (capability_area/task_family/evidence_source/expected_impact)
+        // that needs a fresh orthogonal probe, so the next batch targets the collapsed axis.
+        $requiredHintFamilies = [];
+        foreach (self::AXES as $axis) {
+            if ($diversityByAxis[$axis] < self::LOW_AXIS_DIVERSITY_THRESHOLD) {
+                $requiredHintFamilies[] = "orthogonal_probe:{$axis}";
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'diversity_by_axis' => $diversityByAxis,
@@ -223,6 +234,7 @@ final class AtlasExternalBrainHintEntropyRestorationPlanner
             'template_collapse_detected' => $templateCollapseDetected,
             'recommendation' => $recommendation,
             'reason' => $reason,
+            'required_hint_families' => $requiredHintFamilies,
         ];
     }
 }
