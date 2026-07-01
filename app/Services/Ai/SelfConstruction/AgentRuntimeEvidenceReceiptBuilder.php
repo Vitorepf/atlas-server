@@ -23,7 +23,10 @@ final class AgentRuntimeEvidenceReceiptBuilder
         $evidenceType = (string) ($journalEntry['evidence_type'] ?? '');
         $evidenceHash = strtolower((string) ($journalEntry['evidence_hash'] ?? ''));
         $entryHash = strtolower((string) ($journalEntry['journal_entry_hash'] ?? ''));
-        $entryHashValid = preg_match('/^[a-f0-9]{64}$/', $entryHash) === 1;
+        // \A...\z (not ^...$) so a trailing newline on an otherwise-64-char hash cannot slip past
+        // the check — ^/$ alone match immediately before a trailing "\n".
+        $entryHashValid = preg_match('/\A[a-f0-9]{64}\z/', $entryHash) === 1;
+        $evidenceHashValid = preg_match('/\A[a-f0-9]{64}\z/', $evidenceHash) === 1;
 
         $blockerReasons = [];
         if ($journalEntryId === '') {
@@ -40,8 +43,12 @@ final class AgentRuntimeEvidenceReceiptBuilder
         }
         if ($evidenceHash === '') {
             $blockerReasons[] = 'missing_evidence_hash';
+        } elseif (! $evidenceHashValid) {
+            $blockerReasons[] = 'malformed_evidence_hash';
         }
-        if (! $entryHashValid) {
+        if ($entryHash === '') {
+            $blockerReasons[] = 'missing_journal_entry_hash';
+        } elseif (! $entryHashValid) {
             $blockerReasons[] = 'malformed_journal_entry_hash';
         }
 
@@ -50,6 +57,7 @@ final class AgentRuntimeEvidenceReceiptBuilder
             'mode' => self::MODE,
             'status' => $blockerReasons === [] ? 'receipt_ready' : 'blocked',
             'blocker_reasons' => $blockerReasons,
+            'blocker_count' => count($blockerReasons),
             'receipt_kind' => 'runtime_evidence_journal_entry',
             'journal_entry_id' => $journalEntryId,
             'journal_entry_hash' => $entryHash,

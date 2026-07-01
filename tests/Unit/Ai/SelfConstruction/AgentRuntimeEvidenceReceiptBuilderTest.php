@@ -90,7 +90,7 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
 
         $this->assertContains('missing_journal_entry_id', $receipt['blocker_reasons']);
         $this->assertContains('missing_agent_id', $receipt['blocker_reasons']);
-        $this->assertContains('malformed_journal_entry_hash', $receipt['blocker_reasons']);
+        $this->assertContains('missing_journal_entry_hash', $receipt['blocker_reasons']);
         $this->assertCount(3, $receipt['blocker_reasons']);
     }
 
@@ -154,6 +154,49 @@ final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase
         $this->assertContains('missing_agent_id', $receipt['blocker_reasons']);
         $this->assertContains('missing_evidence_type', $receipt['blocker_reasons']);
         $this->assertContains('missing_evidence_hash', $receipt['blocker_reasons']);
-        $this->assertContains('malformed_journal_entry_hash', $receipt['blocker_reasons']);
+        $this->assertContains('missing_journal_entry_hash', $receipt['blocker_reasons']);
+    }
+
+    public function test_malformed_evidence_hash_and_malformed_journal_entry_hash_each_produce_blockers(): void
+    {
+        $badEvidence = $this->builder()->build($this->validEntry(['evidence_hash' => 'not-a-real-hash']));
+        $badEntry = $this->builder()->build($this->validEntry(['journal_entry_hash' => 'not-a-real-hash']));
+
+        $this->assertContains('malformed_evidence_hash', $badEvidence['blocker_reasons']);
+        $this->assertContains('malformed_journal_entry_hash', $badEntry['blocker_reasons']);
+    }
+
+    public function test_blocker_count_equals_blocker_reasons_count(): void
+    {
+        $ready = $this->builder()->build($this->validEntry());
+        $blocked = $this->builder()->build([]);
+
+        $this->assertSame(count($ready['blocker_reasons']), $ready['blocker_count']);
+        $this->assertSame(0, $ready['blocker_count']);
+        $this->assertSame(count($blocked['blocker_reasons']), $blocked['blocker_count']);
+        $this->assertSame(6, $blocked['blocker_count']);
+    }
+
+    public function test_equivalent_valid_entries_produce_stable_hash_and_all_flags_false(): void
+    {
+        $entryA = $this->validEntry();
+        $entryB = $this->validEntry();
+
+        $receiptA = $this->builder()->build($entryA);
+        $receiptB = $this->builder()->build($entryB);
+
+        $this->assertSame($receiptA['receipt_hash'], $receiptB['receipt_hash']);
+        foreach ([
+            'runtime_execution_allowed',
+            'dispatch_allowed',
+            'provider_call_allowed',
+            'token_spend_allowed',
+            'self_programming_allowed',
+            'ledger_write_allowed',
+            'completion_claim_allowed',
+        ] as $flag) {
+            $this->assertFalse($receiptA[$flag]);
+            $this->assertFalse($receiptB[$flag]);
+        }
     }
 }
