@@ -473,6 +473,71 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertSame(1, $byReason['deletion_without_replacement_proof']);
     }
 
+    // ── AC2/AC3: roi_classification (high_value vs low_value_cosmetic) ──────────
+
+    public function test_pure_line_deletion_with_no_structural_benefit_is_cosmetic(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1')]]);
+
+        $this->assertSame('low_value_cosmetic', $r['approved'][0]['roi_classification']);
+    }
+
+    public function test_deletion_with_collapsed_organs_is_high_value(): void
+    {
+        $candidate = array_merge($this->deletion('D1'), ['collapsed_organs' => 2]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame(2, $r['approved'][0]['collapsed_organs']);
+        $this->assertSame('high_value', $r['approved'][0]['roi_classification']);
+    }
+
+    public function test_merge_with_dependency_reduction_is_high_value(): void
+    {
+        $candidate = array_merge($this->merge('M1'), ['dependency_reduction' => 3]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame(3, $r['approved'][0]['dependency_reduction']);
+        $this->assertSame('high_value', $r['approved'][0]['roi_classification']);
+    }
+
+    public function test_simplify_with_risk_reduced_is_high_value(): void
+    {
+        $candidate = ['id' => 'S1', 'action' => 'simplify', 'roi_estimate' => 0.4, 'risk_reduced' => true];
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertTrue($r['approved'][0]['risk_reduced']);
+        $this->assertSame('high_value', $r['approved'][0]['roi_classification']);
+    }
+
+    public function test_maintenance_savings_alone_is_high_value(): void
+    {
+        $candidate = array_merge($this->merge('M2'), ['maintenance_savings' => 1.5]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame(1.5, $r['approved'][0]['maintenance_savings']);
+        $this->assertSame('high_value', $r['approved'][0]['roi_classification']);
+    }
+
+    // ── risky simplification without behavior proof ──────────────────────────
+
+    public function test_high_risk_simplify_without_behavior_proof_is_refused_not_downgraded(): void
+    {
+        $candidate = [
+            'id' => 'RS1', 'action' => 'simplify', 'roi_estimate' => 1.0,
+            'risk_level' => 'high',
+            'requires_behavior_preservation_proof' => true,
+        ];
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertEmpty($r['approved']);
+        $this->assertSame('missing_behavior_preservation_proof', $r['refused'][0]['refusal_reason']);
+    }
+
     public function test_risky_approved_candidate_reduces_risk_adjusted_roi_not_raw_roi(): void
     {
         $r = $this->ledger()->record([

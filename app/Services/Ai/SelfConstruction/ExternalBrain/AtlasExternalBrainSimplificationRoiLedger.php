@@ -30,6 +30,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   approved_roi, refused_roi, opportunity_cost (= refused_roi),
  *   behavior_preservation_status (overall), next_simplification_action
  *
+ * Per-approved-candidate roi_classification: 'high_value' when the candidate shows at least one
+ * real structural benefit (collapsed_organs, dependency_reduction, risk_reduced,
+ * maintenance_savings, or compounding_benefit); 'low_value_cosmetic' when none of those are
+ * present — pure line deletion with no behavior or risk benefit is cosmetic, not real ROI.
+ *
  * NO process execution, NO filesystem, NO providers. DETERMINISTIC.
  */
 final class AtlasExternalBrainSimplificationRoiLedger
@@ -82,6 +87,11 @@ final class AtlasExternalBrainSimplificationRoiLedger
                     'line_delta'                  => (int) ($candidate['line_delta'] ?? 0),
                     'cognitive_load_delta'        => (float) ($candidate['cognitive_load_delta'] ?? 0.0),
                     'compounding_benefit'         => (float) ($candidate['compounding_benefit'] ?? 0.0),
+                    'collapsed_organs'            => max(0, (int) ($candidate['collapsed_organs'] ?? 0)),
+                    'dependency_reduction'        => max(0, (int) ($candidate['dependency_reduction'] ?? 0)),
+                    'risk_reduced'                => (bool) ($candidate['risk_reduced'] ?? false),
+                    'maintenance_savings'         => max(0.0, (float) ($candidate['maintenance_savings'] ?? 0.0)),
+                    'roi_classification'          => $this->roiClassification($candidate),
                     'approved_roi'                => $roiEstimate,
                     'raw_roi'                     => $roiEstimate,
                     'risk_adjusted_roi'           => $riskAdjustedRoi,
@@ -178,6 +188,22 @@ final class AtlasExternalBrainSimplificationRoiLedger
         };
 
         return round($roiEstimate * $factor, 3);
+    }
+
+    /**
+     * 'high_value' when the candidate carries at least one real structural benefit; otherwise
+     * 'low_value_cosmetic' — pure line deletion with no organ collapse, dependency reduction,
+     * risk reduction, maintenance savings, or compounding benefit is cosmetic, not real ROI.
+     */
+    private function roiClassification(array $candidate): string
+    {
+        $hasStructuralBenefit = max(0, (int) ($candidate['collapsed_organs'] ?? 0)) > 0
+            || max(0, (int) ($candidate['dependency_reduction'] ?? 0)) > 0
+            || (bool) ($candidate['risk_reduced'] ?? false)
+            || (float) ($candidate['maintenance_savings'] ?? 0.0) > 0.0
+            || (float) ($candidate['compounding_benefit'] ?? 0.0) > 0.0;
+
+        return $hasStructuralBenefit ? 'high_value' : 'low_value_cosmetic';
     }
 
     private function globalBpStatus(array $approved): string
