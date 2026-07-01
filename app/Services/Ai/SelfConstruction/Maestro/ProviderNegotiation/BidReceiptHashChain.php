@@ -14,19 +14,39 @@ final class BidReceiptHashChain
      */
     public function bodyHash(array $body): string
     {
-        ksort($body);
-        foreach ($body as &$v) {
-            if (is_array($v)) {
-                ksort($v);
-            }
-        }
-        unset($v);
+        $canonical = $this->canonicalize($body);
 
-        return hash('sha256', (string) json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     public function chainLink(string $prevEntrySha, string $bodySha): string
     {
         return hash('sha256', $prevEntrySha.'||'.$bodySha);
+    }
+
+    /**
+     * Recursively deep-sorts associative array keys (so key order never affects the hash) and
+     * normalizes stdClass objects to arrays. Resources and closures are unsafe, non-canonical
+     * fields — rejected outright rather than silently hashed inconsistently.
+     */
+    private function canonicalize(mixed $value): mixed
+    {
+        if (is_resource($value) || $value instanceof \Closure) {
+            throw new \InvalidArgumentException('bid_receipt_hash_chain_unsafe_field:'.get_debug_type($value));
+        }
+        if ($value instanceof \stdClass) {
+            $value = (array) $value;
+        }
+        if (is_array($value)) {
+            $out = [];
+            foreach ($value as $k => $v) {
+                $out[$k] = $this->canonicalize($v);
+            }
+            ksort($out);
+
+            return $out;
+        }
+
+        return $value;
     }
 }
