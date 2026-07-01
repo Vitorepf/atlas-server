@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierRegressionCaseMiner;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyIncidentPostmortemMiner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGateRegressionResponsePlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackRootCauseMiner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
@@ -44,6 +45,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
         AtlasExternalBrainGiveBackToQueueRepairPlanner $repairPlanner,
         AtlasExternalBrainRegressionRepairTaskSynthesizer $synthesizer,
         AtlasExternalBrainAmplifierRegressionCaseMiner $amplifierRegressionCaseMiner,
+        AtlasExternalBrainAutonomyIncidentPostmortemMiner $incidentPostmortemMiner,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -64,10 +66,15 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
         $claimablePerActiveWorker = $decoded['claimable_per_active_worker'] ?? null;
         $diagnostics = is_array($decoded['diagnostics'] ?? null) ? $decoded['diagnostics'] : [];
         $amplifierFailures = is_array($decoded['amplifier_failures'] ?? null) ? $decoded['amplifier_failures'] : [];
+        $autonomyIncidents = is_array($decoded['autonomy_incidents'] ?? null) ? $decoded['autonomy_incidents'] : [];
 
         $regression = $regressionPlanner->plan(['audit' => $audit]);
         $rootCauses = $rootCauseMiner->mine($giveBacks);
         $amplifierRegressionCases = $amplifierRegressionCaseMiner->mine(['failure_records' => $amplifierFailures]);
+        $incidentPostmortems = array_map(
+            static fn ($incident): array => $incidentPostmortemMiner->mine((array) $incident),
+            $autonomyIncidents,
+        );
         $repairRanking = $repairPlanner->plan(array_filter([
             'give_backs' => $giveBacks,
             'claimable_per_active_worker' => $claimablePerActiveWorker,
@@ -83,6 +90,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
             'gate_regression' => $regression,
             'give_back_root_causes' => $rootCauses,
             'amplifier_regression_cases' => $amplifierRegressionCases,
+            'autonomy_incident_postmortems' => $incidentPostmortems,
             'queue_repair_ranking' => $repairRanking,
             'repair_synthesis' => $synthesis,
             'blocked_origination' => $blockedOrigination,
