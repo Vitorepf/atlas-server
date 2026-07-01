@@ -477,4 +477,23 @@ final class AtlasExternalBrainArchitectureCompressionPlannerTest extends TestCas
         $this->assertNotNull($keepCandidate);
         $this->assertGreaterThan($keepCandidate['compression_score'], $deleteCandidate['compression_score']);
     }
+
+    public function test_stale_scaffold_with_active_consumers_produces_keep_not_delete(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('has-consumers', [
+                    'stale_scaffold_marker' => true,
+                    'replacement_owner' => 'owner',
+                    'test_coverage' => true,
+                    'active_consumers' => ['consumer_a'],
+                ]),
+            ],
+        ]);
+
+        $candidate = $result['candidates'][0];
+
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('has_active_consumers', $candidate['reason']);
+    }
 }

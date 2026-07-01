@@ -152,12 +152,19 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             $requiredTests  = is_array($organ['required_tests'] ?? null) ? array_map('strval', $organ['required_tests']) : [];
             $feedsActiveWorkers = (bool) ($organ['feeds_active_workers'] ?? false);
             $replacementClaimablePath = (bool) ($organ['replacement_claimable_path'] ?? false);
+            $activeConsumers = array_values(array_filter(array_map('strval', (array) ($organ['active_consumers'] ?? []))));
             sort($files);
             sort($contracts);
             sort($requiredTests);
 
             if ($isStale) {
-                if ($hasOwner && $hasCoverage && ! ($workerFloorLow && $feedsActiveWorkers && ! $replacementClaimablePath)) {
+                // behavior_unique never blocks the delete action itself — it only forces
+                // retire_now=false (an organ can be safely deleted-and-replaced while still
+                // being behaviorally unique). active_consumers DOES block delete outright: a
+                // live consumer makes deletion unsafe regardless of owner/coverage.
+                $safeToDelete = $hasOwner && $hasCoverage && $activeConsumers === [];
+
+                if ($safeToDelete && ! ($workerFloorLow && $feedsActiveWorkers && ! $replacementClaimablePath)) {
                     $lineDelta = -$lineCount;
                     $candidates[] = [
                         'candidate_id'            => 'delete:'.$id,
@@ -173,7 +180,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'retire_now'              => ! $behaviorUnique,
                         'worker_feed_preserved'   => ! $feedsActiveWorkers || $replacementClaimablePath,
                     ];
-                } elseif ($hasOwner && $hasCoverage) {
+                } elseif ($hasOwner && $hasCoverage && $activeConsumers === []) {
                     // Worker-floor protection: this organ would otherwise be a safe delete, but it
                     // feeds active workers with no replacement claimable path, and the worker floor
                     // is currently low — stranding workers is never acceptable, so the delete is
@@ -192,6 +199,23 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
                         'required_tests'          => $requiredTests,
                         'retire_now'              => false,
                         'worker_feed_preserved'   => false,
+                    ];
+                } elseif ($activeConsumers !== []) {
+                    // Never safe to delete an organ with live consumers, regardless of
+                    // owner/coverage — that is what active_consumers exists to prevent.
+                    $candidates[] = [
+                        'candidate_id'            => 'keep:'.$id.':unsafe_delete',
+                        'action'                  => self::ACTION_KEEP,
+                        'impacted_files'          => $files,
+                        'expected_line_delta'     => 0,
+                        'risk_level'              => 'high',
+                        'evidence_floor'          => 'active_consumers_count:'.count($activeConsumers),
+                        'reason'                  => 'has_active_consumers',
+                        'compression_score'       => $this->scoreCandidate(self::ACTION_KEEP, 0, 'high', $hasCoverage, $hasOwner),
+                        'expected_line_reduction' => 0,
+                        'preserved_contracts'     => $contracts,
+                        'required_tests'          => $requiredTests,
+                        'retire_now'              => false,
                     ];
                 } else {
                     $reason = ! $hasOwner ? 'no_replacement_owner' : 'missing_test_coverage';
