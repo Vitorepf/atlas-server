@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBacklogCostModel;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEnqueueValueThrottle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainQueueSaturationStopPolicy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainRunPolicyCompiler;
@@ -39,6 +40,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         AtlasExternalBrainQueueSaturationStopPolicy $saturationPolicy,
         AtlasExternalBrainTaskFamilyYieldModel $yieldModel,
         AtlasExternalBrainEnqueueValueThrottle $throttle,
+        AtlasExternalBrainBacklogCostModel $backlogCostModel,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -59,12 +61,14 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
         $saturationInput = is_array($decoded['saturation'] ?? null) ? $decoded['saturation'] : [];
         $familiesFacts = is_array($decoded['families'] ?? null) ? $decoded['families'] : [];
         $throttleInput = is_array($decoded['throttle'] ?? null) ? $decoded['throttle'] : [];
+        $backlogCostInput = is_array($decoded['backlog_cost'] ?? null) ? $decoded['backlog_cost'] : [];
 
         $compiledPolicy = $runPolicyCompiler->compile($runPolicyConfig);
         $runEvaluation = $runPolicyCompiler->evaluate($compiledPolicy, $runState);
         $saturation = $saturationPolicy->evaluate($saturationInput);
         $yield = $yieldModel->model($familiesFacts);
         $throttleResult = $throttle->throttle($throttleInput);
+        $backlogCost = $backlogCostModel->model($backlogCostInput);
 
         $shouldPause = ! $runEvaluation['can_stop'] && $runEvaluation['violations'] !== [];
         $shouldSelfHeal = ($saturation['decision'] ?? null) === 'unblock_first';
@@ -87,6 +91,7 @@ final class AtlasExternalBrainAutonomyGovernorCommand extends Command
             'queue_saturation' => $saturation,
             'family_yield' => $yield,
             'enqueue_throttle' => $throttleResult,
+            'backlog_cost' => $backlogCost,
             'governor_action' => $governorAction,
         ];
 
