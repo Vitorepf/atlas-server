@@ -18,6 +18,8 @@ final class AtlasExternalBrainLocalClientResultVerifier
 {
     public const SCHEMA = 'atlas.external_brain.local_client_result_verifier.v1';
 
+    private const DEFAULT_MAX_EVIDENCE_AGE_SECONDS = 86400;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -31,6 +33,16 @@ final class AtlasExternalBrainLocalClientResultVerifier
         $claimedChangedFiles = array_values(array_map('strval', (array) ($facts['claimed_changed_files'] ?? [])));
         $reportedTestCommands = array_values((array) ($facts['reported_test_commands'] ?? []));
         $claimedGreen = (bool) ($facts['claimed_green'] ?? false);
+
+        // AC1/AC2: the 4 accepted real-evidence kinds — a claim is only safe to report success
+        // when backed by at least one of these, never by the client's own narrative.
+        $artifactRefs = array_values(array_map('strval', (array) ($facts['artifact_refs'] ?? [])));
+        $taskReport = is_array($facts['task_report'] ?? null) ? $facts['task_report'] : [];
+        $structuredReceipt = is_array($facts['structured_receipt'] ?? null) ? $facts['structured_receipt'] : [];
+
+        // AC3: raw narrative / screenshot-only claims — never real evidence on their own.
+        $transcriptClaim = trim((string) ($facts['transcript_claim'] ?? ''));
+        $uiClaim = (bool) ($facts['ui_claim'] ?? false);
 
         $blockers = [];
 
@@ -68,12 +80,36 @@ final class AtlasExternalBrainLocalClientResultVerifier
         if ($hasFailedReportedTest) {
             $blockers[] = 'reported_test_command_failed';
         }
-        if ($claimedGreen && ! $hasRunnableTestProof) {
-            $blockers[] = 'claimed_success_without_runnable_test_proof';
+
+        $hasArtifactEvidence = $artifactRefs !== [];
+        $hasTaskReportEvidence = trim((string) ($taskReport['task_packet_id'] ?? '')) !== ''
+            && trim((string) ($taskReport['outcome'] ?? '')) !== '';
+        $hasStructuredReceiptEvidence = trim((string) ($structuredReceipt['receipt_hash'] ?? '')) !== '';
+
+        $hasAcceptedEvidence = $hasArtifactEvidence || $hasRunnableTestProof || $hasTaskReportEvidence || $hasStructuredReceiptEvidence;
+
+        // AC5: stale evidence never counts, even when a kind is otherwise present.
+        $evidenceAgeSeconds = isset($facts['evidence_age_seconds']) ? (int) $facts['evidence_age_seconds'] : null;
+        $maxEvidenceAgeSeconds = (int) ($facts['max_evidence_age_seconds'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_SECONDS);
+        $evidenceStale = $evidenceAgeSeconds !== null && $evidenceAgeSeconds > $maxEvidenceAgeSeconds;
+        if ($evidenceStale) {
+            $blockers[] = 'stale_evidence_rejected';
+            $hasAcceptedEvidence = false;
+        }
+
+        if ($claimedGreen && ! $hasAcceptedEvidence) {
+            if ($transcriptClaim !== '' && ! $uiClaim) {
+                $blockers[] = 'transcript_only_claim_rejected';
+            } elseif ($uiClaim) {
+                $blockers[] = 'ui_only_claim_rejected';
+            } else {
+                // Preserves the original blocker string for the plain "no evidence at all" case.
+                $blockers[] = 'claimed_success_without_runnable_test_proof';
+            }
         }
 
         $blockers = array_values(array_unique($blockers));
-        $verifiedGreen = $claimedGreen && $hasRunnableTestProof && $blockers === [];
+        $verifiedGreen = $claimedGreen && $hasAcceptedEvidence && $blockers === [];
         $verifierStatus = $verifiedGreen ? 'verified_green' : 'blocked';
 
         return [
@@ -84,6 +120,12 @@ final class AtlasExternalBrainLocalClientResultVerifier
             'safe_to_report_success' => $verifiedGreen,
             'blockers' => $blockers,
             'acceptance_criteria_count' => count($acceptanceCriteria),
+            'evidence_kinds' => [
+                'artifact' => $hasArtifactEvidence,
+                'test_output' => $hasRunnableTestProof,
+                'task_report' => $hasTaskReportEvidence,
+                'structured_receipt' => $hasStructuredReceiptEvidence,
+            ],
             'learning_signal' => [
                 'claimed_green' => $claimedGreen,
                 'verified_green' => $verifiedGreen,
