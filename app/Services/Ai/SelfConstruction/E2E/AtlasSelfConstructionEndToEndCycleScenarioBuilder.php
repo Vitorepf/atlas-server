@@ -55,6 +55,23 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
         'autopoiesis',
     ];
 
+    /**
+     * Groups the canonical STEP_ORDER into the six broad autonomous-loop phases the mission
+     * narrates in: context → origination → serving → result → learning → adjustment.
+     * @var array<string,list<string>>
+     */
+    public const PHASE_ORGANS = [
+        'context' => ['cortex'],
+        'origination' => ['goal_value', 'strategy', 'architecture', 'task_fabric'],
+        'serving' => ['maestro'],
+        'result' => ['worker_swarm', 'verification_court', 'merge_governor', 'receipts'],
+        'learning' => ['learning_transfer', 'knowledge_sync'],
+        'adjustment' => ['autopoiesis'],
+    ];
+
+    /** Ordered list of phase names, matching PHASE_ORGANS iteration order. */
+    public const PHASE_ORDER = ['context', 'origination', 'serving', 'result', 'learning', 'adjustment'];
+
     /** Per-step expected_evidence_keys + rollback_expectation. */
     public const STEP_SPEC = [
         'cortex' => ['evidence' => 'world_snapshot_hash', 'rollback' => 'none_required (read_only)'],
@@ -137,6 +154,7 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
 
             $steps[] = [
                 'organ' => $organ,
+                'phase' => $this->phaseForOrgan($organ),
                 'owner' => self::REQUIRED_AUTONOMY_OWNER,
                 'input_facts' => $orgFacts,
                 'output_evidence' => $evidenceKey,
@@ -152,12 +170,41 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilder
 
         sort($blockers, SORT_STRING);
 
+        // AC: expose the six broad phases the loop narrates in, each with the concrete proofs
+        // (organ + evidence key) it must produce — so "covers a full autonomous loop" is provable
+        // from the output, not just implied by the organ list.
+        $phaseProofs = [];
+        foreach (self::PHASE_ORGANS as $phase => $organs) {
+            foreach ($organs as $organ) {
+                $phaseProofs[$phase][] = ['organ' => $organ, 'expected_evidence' => self::STEP_SPEC[$organ]['evidence']];
+            }
+        }
+
+        $learningStepBlockers = array_values(array_filter($steps, static fn (array $s): bool => $s['organ'] === 'learning_transfer'))[0]['blockers'] ?? null;
+        $learningFacts = is_array($facts['learning_transfer'] ?? null) ? $facts['learning_transfer'] : null;
+        $learningFeedbackComplete = $learningFacts !== null && $learningStepBlockers === [];
+
         return [
             'schema' => self::SCHEMA,
             'status' => $blockers === [] ? self::STATUS_READY : self::STATUS_BLOCKED,
             'blockers' => $blockers,
             'autonomy_owner' => self::REQUIRED_AUTONOMY_OWNER,
             'steps' => $steps,
+            'phases' => self::PHASE_ORDER,
+            'phase_proofs' => $phaseProofs,
+            'learning_feedback_complete' => $learningFeedbackComplete,
+            'scenario_complete' => $blockers === [] && $learningFeedbackComplete,
         ];
+    }
+
+    private function phaseForOrgan(string $organ): ?string
+    {
+        foreach (self::PHASE_ORGANS as $phase => $organs) {
+            if (in_array($organ, $organs, true)) {
+                return $phase;
+            }
+        }
+
+        return null;
     }
 }

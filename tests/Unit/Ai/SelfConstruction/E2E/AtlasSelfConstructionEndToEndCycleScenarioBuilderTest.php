@@ -20,7 +20,7 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilderTest extends TestCa
         $out = [];
         foreach (AtlasSelfConstructionEndToEndCycleScenarioBuilder::STEP_ORDER as $organ) {
             $spec = AtlasSelfConstructionEndToEndCycleScenarioBuilder::STEP_SPEC[$organ];
-            $facts = [$spec['evidence'] => 'test-value-'.$organ];
+            $facts = [$spec['evidence'] => 'test-value-'.$organ, 'evidence_source' => 'test-source-'.$organ];
             if (! str_starts_with($spec['rollback'], 'none_required')) {
                 $facts['rollback_artifact'] = 'rollback-plan-'.$organ;
             }
@@ -135,5 +135,60 @@ final class AtlasSelfConstructionEndToEndCycleScenarioBuilderTest extends TestCa
     {
         $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($this->allOrgans());
         $this->assertSame('atlas_native', $r['autonomy_owner']);
+    }
+
+    // ── AC: scenario includes context, origination, serving, result, learning and adjustment phases ──
+
+    public function test_scenario_includes_all_six_named_phases(): void
+    {
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($this->allOrgans());
+
+        $this->assertSame(
+            ['context', 'origination', 'serving', 'result', 'learning', 'adjustment'],
+            $r['phases'],
+        );
+        $stepPhases = array_unique(array_column($r['steps'], 'phase'));
+        sort($stepPhases);
+        $expected = $r['phases'];
+        sort($expected);
+        $this->assertSame($expected, $stepPhases);
+    }
+
+    // ── AC: missing learning feedback marks the scenario incomplete ───────────
+
+    public function test_missing_learning_feedback_marks_scenario_incomplete(): void
+    {
+        $organs = $this->allOrgans();
+        unset($organs['learning_transfer']);
+
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($organs);
+
+        $this->assertFalse($r['learning_feedback_complete']);
+        $this->assertFalse($r['scenario_complete']);
+    }
+
+    public function test_complete_learning_feedback_marks_scenario_complete(): void
+    {
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($this->allOrgans());
+
+        $this->assertTrue($r['learning_feedback_complete']);
+        $this->assertTrue($r['scenario_complete']);
+    }
+
+    // ── AC: generated scenario includes expected proofs for every phase ───────
+
+    public function test_scenario_includes_expected_proofs_for_every_phase(): void
+    {
+        $r = (new AtlasSelfConstructionEndToEndCycleScenarioBuilder)->build($this->allOrgans());
+
+        foreach ($r['phases'] as $phase) {
+            $this->assertArrayHasKey($phase, $r['phase_proofs'], "phase {$phase} must have proof entries");
+            $this->assertNotEmpty($r['phase_proofs'][$phase]);
+            foreach ($r['phase_proofs'][$phase] as $proof) {
+                $this->assertArrayHasKey('organ', $proof);
+                $this->assertArrayHasKey('expected_evidence', $proof);
+                $this->assertNotEmpty($proof['expected_evidence']);
+            }
+        }
     }
 }
