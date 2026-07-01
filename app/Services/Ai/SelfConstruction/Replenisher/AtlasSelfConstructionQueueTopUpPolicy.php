@@ -51,9 +51,26 @@ final class AtlasSelfConstructionQueueTopUpPolicy
 
     public const OUTCOME_STOP_SAFETY = 'stop_for_safety';
 
+    public const OUTCOME_HOLD_OR_CONSOLIDATE = 'hold_or_consolidate';
+
+    public const OUTCOME_TOP_UP_SELECTIVE = 'top_up_selective';
+
     public const DEFAULT_LOW_WATER_MARK = 25;
 
     public const DEFAULT_BATCH_CAP = 10;
+
+    public const DEFAULT_MIN_QUALITY_THRESHOLD = 0.5;
+
+    /** Above this drain rate (0..1), the worker pool is shrinking fast enough to justify a
+     *  small selective top-up even when the queue looks deep by raw depth alone. */
+    private const WORKER_DRAIN_HIGH_THRESHOLD = 0.3;
+
+    private const SELECTIVE_TOP_UP_CAP = 2;
+
+    /** @var array{balanced:bool, lanes:array<string,int>, max_lane:?string, min_lane:?string} */
+    private array $laneBalance = ['balanced' => true, 'lanes' => [], 'max_lane' => null, 'min_lane' => null];
+
+    private float $minQualityThreshold = self::DEFAULT_MIN_QUALITY_THRESHOLD;
 
     /**
      * @param  array<string,mixed>  $facts
@@ -71,6 +88,11 @@ final class AtlasSelfConstructionQueueTopUpPolicy
         $perPacket = max(1, (int) ($budget['required_per_packet'] ?? 1));
         $lowWater = (int) ($facts['low_water_mark'] ?? self::DEFAULT_LOW_WATER_MARK);
         $batchCap = (int) ($facts['batch_cap'] ?? self::DEFAULT_BATCH_CAP);
+
+        $this->minQualityThreshold = (float) ($facts['minimum_quality_threshold'] ?? self::DEFAULT_MIN_QUALITY_THRESHOLD);
+        $this->laneBalance = $this->computeLaneBalance(is_array($facts['lane_distribution'] ?? null) ? $facts['lane_distribution'] : []);
+        $candidateQuality = array_key_exists('candidate_quality_score', $facts) ? (float) $facts['candidate_quality_score'] : null;
+        $workerDrainRate = max(0.0, (float) ($facts['worker_drain_rate'] ?? 0.0));
 
         // New worker-count signals.
         $targetWorkers = (int) ($facts['target_worker_count'] ?? 0);
@@ -132,7 +154,24 @@ final class AtlasSelfConstructionQueueTopUpPolicy
 
         // Decide if any top-up is warranted (low-water, worker-count, stale-backlog, or hysteresis path).
         $belowLowWater = $claimable < $lowWater;
-        if (! $belowLowWater && ! $topUpRequired && ! $belowEffectiveLowWater) {
+        $queueLooksDeep = ! $belowLowWater && ! $topUpRequired && ! $belowEffectiveLowWater;
+
+        // High worker drain + high candidate quality: allow a small selective top-up even under
+        // a deep queue, since the pool itself is shrinking fast enough to justify fresh supply.
+        if ($workerDrainRate > self::WORKER_DRAIN_HIGH_THRESHOLD && $candidateQuality !== null && $candidateQuality >= $this->minQualityThreshold && $accepted > 0) {
+            $selectiveCount = max(1, min(self::SELECTIVE_TOP_UP_CAP, $batchCap, $accepted, intdiv($budgetRem, $perPacket)));
+            if ($selectiveCount > 0) {
+                return $this->envelope(self::OUTCOME_TOP_UP_SELECTIVE, $selectiveCount, $topUpRequired, $selectiveCount, ['top_up_selective:high_worker_drain_high_quality:'.$selectiveCount]);
+            }
+        }
+
+        // Deep queue + weak candidate quality: don't blindly wait — recommend consolidating the
+        // existing backlog instead of adding more low-value supply on top of it.
+        if ($queueLooksDeep && $candidateQuality !== null && $candidateQuality < $this->minQualityThreshold) {
+            return $this->envelope(self::OUTCOME_HOLD_OR_CONSOLIDATE, 0, $topUpRequired, 0, ['hold_or_consolidate:deep_queue_weak_candidate_quality:'.$candidateQuality]);
+        }
+
+        if ($queueLooksDeep) {
             return $this->envelope(self::OUTCOME_WAIT, 0, $topUpRequired, 0, ['wait:claimable_above_low_water_mark:'.$claimable.'>='.$lowWater]);
         }
         if ($accepted <= 0) {
@@ -174,6 +213,31 @@ final class AtlasSelfConstructionQueueTopUpPolicy
             'top_up_required' => $topUpRequired,
             'target_new_packets' => $targetNewPackets,
             'reasons' => $reasons,
+            'lane_balance' => $this->laneBalance,
+            'minimum_quality_threshold' => $this->minQualityThreshold,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $laneDistribution
+     * @return array{balanced:bool, lanes:array<string,int>, max_lane:?string, min_lane:?string}
+     */
+    private function computeLaneBalance(array $laneDistribution): array
+    {
+        if ($laneDistribution === []) {
+            return ['balanced' => true, 'lanes' => [], 'max_lane' => null, 'min_lane' => null];
+        }
+
+        $counts = array_map('intval', $laneDistribution);
+        $max = max($counts);
+        $min = min($counts);
+        $balanced = $max === 0 || ($min / $max) >= 0.5;
+
+        return [
+            'balanced' => $balanced,
+            'lanes' => $counts,
+            'max_lane' => (string) array_search($max, $counts, true),
+            'min_lane' => (string) array_search($min, $counts, true),
         ];
     }
 }
