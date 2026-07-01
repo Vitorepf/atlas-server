@@ -30,11 +30,12 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
     /** @var list<string> */
     private const DIMENSIONS = [
         'behavior_claims',
-        'consumer_contracts',
         'failure_modes',
         'input_contract',
         'output_fields',
         'proof_refs',
+        'public_command_contracts',
+        'runtime_contracts',
     ];
 
     /**

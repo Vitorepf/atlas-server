@@ -17,7 +17,8 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrixTest extend
             'output_fields' => ['result'],
             'failure_modes' => ['timeout'],
             'proof_refs' => ['test_run_1'],
-            'consumer_contracts' => ['ConsumerA'],
+            'public_command_contracts' => ['ConsumerA'],
+            'runtime_contracts' => ['runtime_hook_1'],
         ];
     }
 
@@ -145,5 +146,49 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrixTest extend
         sort($sorted, SORT_STRING);
 
         self::assertSame($sorted, $capabilities);
+    }
+
+    public function test_missing_public_command_contracts_refuses_replacement_despite_full_parity_elsewhere(): void
+    {
+        $newOrgan = $this->fullOrgan();
+        $newOrgan['public_command_contracts'] = [];
+
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $newOrgan,
+        ]);
+
+        self::assertFalse($result['replacement_allowed']);
+        $row = collect($result['rows'])->firstWhere('capability', 'public_command_contracts');
+        self::assertSame(AtlasSelfConstructionSimplificationCapabilityParityMatrix::STATUS_MISSING, $row['status']);
+    }
+
+    public function test_missing_runtime_contracts_reports_distinct_missing_fields_and_recommended_fix(): void
+    {
+        $newOrgan = $this->fullOrgan();
+        $newOrgan['runtime_contracts'] = [];
+
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $newOrgan,
+        ]);
+
+        $row = collect($result['rows'])->firstWhere('capability', 'runtime_contracts');
+        self::assertSame(['runtime_hook_1'], $row['missing_fields']);
+        self::assertNotNull($row['recommended_fix']);
+        self::assertFalse($result['replacement_allowed']);
+    }
+
+    public function test_full_parity_across_all_dimensions_computes_simplification_gain(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+            'old_helper_count' => 4,
+            'new_helper_count' => 1,
+        ]);
+
+        self::assertTrue($result['replacement_allowed']);
+        self::assertSame(3, $result['simplification_gain']);
     }
 }
