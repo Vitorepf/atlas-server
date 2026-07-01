@@ -168,6 +168,29 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelopeTest extends TestC
         $this->assertSame($a['envelope_hash'], $b['envelope_hash']);
     }
 
+    public function test_envelope_includes_forbidden_manual_git_actions(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input());
+
+        $this->assertArrayHasKey('forbidden_manual_actions', $env);
+        $this->assertContains('git commit', $env['forbidden_manual_actions']);
+        $this->assertContains('git add -A', $env['forbidden_manual_actions']);
+        $this->assertContains('git push --force', $env['forbidden_manual_actions']);
+    }
+
+    public function test_raw_secret_fields_are_omitted_from_worker_capability_and_rollback_plan(): void
+    {
+        $env = (new AtlasSelfConstructionWorkerScopedExecutionEnvelope)->compose($this->input([
+            'worker_capability' => ['worker_id' => 'w-alpha', 'api_key' => 'sk-live-123'],
+            'rollback_plan' => ['mode' => 'revert_commit', 'auth_token' => 'raw-secret'],
+        ]));
+
+        $this->assertArrayNotHasKey('api_key', $env['worker_capability']);
+        $this->assertArrayNotHasKey('auth_token', $env['rollback_plan']);
+        $this->assertSame('w-alpha', $env['worker_capability']['worker_id']);
+        $this->assertSame('revert_commit', $env['rollback_plan']['mode']);
+    }
+
     public function test_envelope_hash_is_independent_of_associative_key_order(): void
     {
         $svc = new AtlasSelfConstructionWorkerScopedExecutionEnvelope;

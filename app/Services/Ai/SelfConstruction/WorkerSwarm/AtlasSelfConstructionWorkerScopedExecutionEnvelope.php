@@ -24,6 +24,21 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
 {
     public const SCHEMA = 'atlas.worker_swarm.scoped_execution_envelope.v1';
 
+    /** Canonical set of manual git actions a scoped worker must never run — mirrors the operator loop contract. */
+    public const FORBIDDEN_MANUAL_ACTIONS = [
+        'git add -A',
+        'git add .',
+        'git commit',
+        'git reset --hard',
+        'git checkout .',
+        'git stash',
+        'git push --force',
+        'git pull',
+    ];
+
+    /** Key-name substrings (case-insensitive) marking a field as raw provider/secret data — omitted from the payload. */
+    private const SENSITIVE_KEY_MARKERS = ['secret', 'token', 'api_key', 'apikey', 'credential', 'password', 'bearer', 'auth_key'];
+
     /**
      * @param  array<string,mixed>  $input  {
      *     task_id:string,
@@ -45,8 +60,8 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
         $forbidden = $this->normalizePaths((array) ($input['forbidden_files'] ?? []));
         $gates = array_values((array) ($input['gates'] ?? []));
         $evidence = array_values((array) ($input['evidence_requirements'] ?? []));
-        $rollback = is_array($input['rollback_plan'] ?? null) ? $input['rollback_plan'] : [];
-        $worker = is_array($input['worker_capability'] ?? null) ? $input['worker_capability'] : [];
+        $rollback = $this->redactSensitive(is_array($input['rollback_plan'] ?? null) ? $input['rollback_plan'] : []);
+        $worker = $this->redactSensitive(is_array($input['worker_capability'] ?? null) ? $input['worker_capability'] : []);
 
         $blockers = [];
         if ($leaseId === '') {
@@ -99,11 +114,41 @@ final class AtlasSelfConstructionWorkerScopedExecutionEnvelope
             'evidence_requirements' => $evidence,
             'rollback_plan' => $rollback,
             'worker_capability' => $worker,
+            'forbidden_manual_actions' => self::FORBIDDEN_MANUAL_ACTIONS,
             'blockers' => $blockers,
         ];
         $envelope['envelope_hash'] = hash('sha256', $this->canonicalJson($envelope));
 
         return $envelope;
+    }
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array<string,mixed>
+     */
+    private function redactSensitive(array $value): array
+    {
+        $out = [];
+        foreach ($value as $k => $v) {
+            if (is_string($k) && $this->isSensitiveKey($k)) {
+                continue;
+            }
+            $out[$k] = is_array($v) ? $this->redactSensitive($v) : $v;
+        }
+
+        return $out;
+    }
+
+    private function isSensitiveKey(string $key): bool
+    {
+        $lower = strtolower($key);
+        foreach (self::SENSITIVE_KEY_MARKERS as $marker) {
+            if (str_contains($lower, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<string> */
