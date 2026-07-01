@@ -202,6 +202,11 @@ final class AtlasExternalBrainNegativeResultLedger
             'decision'               => self::DECISION_SKIP_SURFACE,
             'reason'                 => 'still_fresh_until:'.$entry['expires_at'],
             'anti_repeat_constraint' => $entry,
+            // AC3: never hide a future opportunity forever — always say exactly when/under what
+            // condition this surface+method becomes retryable again.
+            'when_to_retry'          => $entry['retry_conditions'] !== []
+                ? sprintf('at_or_after:%d OR when:%s', $entry['expires_at'], implode(',', $entry['retry_conditions']))
+                : sprintf('at_or_after:%d', $entry['expires_at']),
         ];
     }
 

@@ -243,6 +243,32 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
         $this->assertSame(AtlasExternalBrainNegativeResultLedger::DECISION_SKIP_SURFACE, $result['decision']);
     }
 
+    // ── AC3: when_to_retry — future opportunity is never hidden forever ────────
+
+    public function test_skip_surface_includes_when_to_retry_with_expiry_timestamp(): void
+    {
+        $l = $this->ledger();
+        $l->record($this->validEntry(['recorded_at' => 1000, 'ttl_seconds' => 3600]));
+        $result = $l->evaluate('github_issues', 'keyword_scan', 3000);
+
+        $this->assertArrayHasKey('when_to_retry', $result);
+        $this->assertStringContainsString('at_or_after:4600', $result['when_to_retry']);
+    }
+
+    public function test_skip_surface_when_to_retry_mentions_retry_conditions_when_present(): void
+    {
+        $l = $this->ledger();
+        $l->record($this->validEntry([
+            'recorded_at'      => 1000,
+            'ttl_seconds'      => 86400,
+            'retry_conditions' => ['new_issue_published'],
+        ]));
+        $result = $l->evaluate('github_issues', 'keyword_scan', 5000, ['other_condition']);
+
+        $this->assertArrayHasKey('when_to_retry', $result);
+        $this->assertStringContainsString('new_issue_published', $result['when_to_retry']);
+    }
+
     // ── list ──────────────────────────────────────────────────────────────────
 
     public function test_list_empty_initially(): void
