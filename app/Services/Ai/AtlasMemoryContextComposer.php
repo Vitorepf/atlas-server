@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
+use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use Illuminate\Support\Str;
@@ -15,6 +16,7 @@ class AtlasMemoryContextComposer
         private readonly AtlasMemoryRecallRelevanceScorer $scorer,
         private readonly ContextParetoDominanceFilter $paretoFilter = new ContextParetoDominanceFilter,
         private readonly MemoryInjectionBudgetAllocator $budgetAllocator = new MemoryInjectionBudgetAllocator,
+        private readonly MemoryFeedbackDecayScorer $decayScorer = new MemoryFeedbackDecayScorer,
     ) {}
 
     /**
@@ -154,6 +156,25 @@ class AtlasMemoryContextComposer
                 'confidence' => $item['confidence'] ?? null,
                 'hybrid_score' => $item['hybrid_score'] ?? null,
             ]);
+
+            $decay = $this->decayScorer->score([
+                'positive_count' => $item['positive_count'] ?? 0,
+                'negative_count' => $item['negative_count'] ?? 0,
+                'wrong_context_count' => $item['wrong_context_count'] ?? 0,
+                'stale_count' => $item['stale_count'] ?? 0,
+                'recorded_at_age_days' => $this->ageDaysFromTimestamp($item['recorded_at'] ?? null),
+                'last_used_at_age_days' => $this->ageDaysFromTimestamp($item['last_used_at'] ?? null),
+                'recall_eval_hit_rate' => $item['recall_eval_hit_rate'] ?? null,
+            ]);
+
+            // Feedback-driven lifecycle: archived/inactivated memories never reach the recall
+            // candidate pool; a degraded memory is halved so healthier memories rank above it.
+            if (in_array($decay['lifecycle_action'], ['archive', 'inactivate'], true)) {
+                return null;
+            }
+            if ($decay['lifecycle_action'] === 'degrade') {
+                $score /= 2;
+            }
 
             return $this->candidate(
                 'registry',
@@ -393,6 +414,20 @@ class AtlasMemoryContextComposer
     private function scalarOrNull(mixed $value): ?string
     {
         return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : null;
+    }
+
+    private function ageDaysFromTimestamp(mixed $timestamp): ?int
+    {
+        $scalar = $this->scalarOrNull($timestamp);
+        if ($scalar === null) {
+            return null;
+        }
+
+        try {
+            return max(0, (int) now()->diffInDays(\Carbon\CarbonImmutable::parse($scalar), true));
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function text(mixed ...$values): string
