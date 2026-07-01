@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCorridorProjector;
+use App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer;
 
 /**
  * CORRIDOR ANALYSER concern, extracted from the god-class
@@ -225,5 +226,39 @@ final class AgentControlPlaneChainIntegrityCorridorAnalyzer
     public function allCorridorSlicesOk(array $logicalNames, array $sliceStatus): bool
     {
         return AgentControlPlaneCorridorProjector::allCorridorSlicesOk($logicalNames, $sliceStatus);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity}.
+     *
+     * @param  list<array<string, string>>  $deepChain
+     * @return array<string, mixed>
+     */
+    public function cycleIntegrity(array $deepChain, string $currentNextRequiredSlice): array
+    {
+        return AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity($deepChain, $currentNextRequiredSlice);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon}.
+     *
+     * @param  list<array<string,mixed>>  $packets
+     * @return array{classification:string, dead_end:bool, servable_descendants:list<string>, poison_family_risk:list<array<string,mixed>>, repair_hints:list<string>}
+     */
+    public function analyzeChainHorizon(array $packets): array
+    {
+        return AgentControlPlaneCycleHorizonAnalyzer::analyzeChainHorizon($packets);
+    }
+
+    /**
+     * Thin seam over {@see AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis}.
+     *
+     * @param  list<array<string, string>>  $deepChain
+     * @param  array<string, mixed>  $cycleIntegrity
+     * @return array<string, mixed>
+     */
+    public function terminalHorizonAnalysis(array $deepChain, string $currentNextRequiredSlice, array $cycleIntegrity): array
+    {
+        return AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
     }
 }
