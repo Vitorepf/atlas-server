@@ -448,4 +448,77 @@ final class AtlasExternalBrainValueGateBacktestReplayTest extends TestCase
 
         $this->assertSame($a['false_reject_risk'], $b['false_reject_risk']);
     }
+
+    // ── calibration_policy ────────────────────────────────────────────────────
+
+    public function test_calibration_policy_present_with_required_keys(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success', 0.80, 0.20)]]);
+
+        foreach (['risk_ceiling_delta', 'impact_floor_delta', 'false_positive_pressure', 'false_negative_pressure', 'safe_to_apply'] as $k) {
+            $this->assertArrayHasKey($k, $result['calibration_policy'], "Missing key: {$k}");
+        }
+    }
+
+    public function test_calibration_policy_no_tighten_yields_zero_delta_and_safe(): void
+    {
+        // Healthy mix, no tighten recommended.
+        $result = $this->replay()->replay(['candidates' => [
+            $this->entry('commit_success', 0.80, 0.20),
+            $this->entry('commit_success', 0.80, 0.20),
+        ]]);
+
+        $this->assertSame(0.0, $result['calibration_policy']['risk_ceiling_delta']);
+        $this->assertTrue($result['calibration_policy']['safe_to_apply']);
+    }
+
+    public function test_calibration_policy_unsafe_when_tighten_rejects_more_green_than_poison_avoided(): void
+    {
+        // admitted_poison dominates admitted_green → tighten risk_ceiling by 0.05 (0.70 -> 0.65).
+        // Many commit_success candidates sit with risk in [0.65, 0.70) → newly rejected by tighten,
+        // while poison candidates sit well below 0.65 → NOT newly avoided by this tighten.
+        $candidates = [
+            $this->entry('give_back', 0.80, 0.68),
+            $this->entry('give_back', 0.80, 0.69),
+            $this->entry('commit_success', 0.80, 0.10),
+            $this->entry('commit_success', 0.80, 0.66),
+            $this->entry('commit_success', 0.80, 0.67),
+            $this->entry('commit_success', 0.80, 0.68),
+        ];
+
+        $result = $this->replay()->replay(['candidates' => $candidates]);
+
+        $this->assertLessThan(0.0, $result['calibration_policy']['risk_ceiling_delta']);
+        $this->assertFalse($result['calibration_policy']['safe_to_apply']);
+    }
+
+    public function test_calibration_policy_safe_when_tighten_avoids_more_poison_than_green_rejected(): void
+    {
+        // admitted_poison dominates admitted_green → tighten. Poison sits just under the ceiling
+        // (newly avoided), green sits well clear of the tightened ceiling (not newly rejected).
+        $candidates = [
+            $this->entry('give_back', 0.80, 0.68),
+            $this->entry('give_back', 0.80, 0.69),
+            $this->entry('commit_success', 0.80, 0.10),
+            $this->entry('commit_success', 0.80, 0.20),
+        ];
+
+        $result = $this->replay()->replay(['candidates' => $candidates]);
+
+        $this->assertLessThan(0.0, $result['calibration_policy']['risk_ceiling_delta']);
+        $this->assertTrue($result['calibration_policy']['safe_to_apply']);
+    }
+
+    public function test_calibration_policy_pressures_reflect_admitted_poison_and_rejected_green_rates(): void
+    {
+        $candidates = [
+            $this->entry('give_back', 0.80, 0.20),
+            $this->entry('commit_success', 0.10, 0.20),
+        ];
+
+        $result = $this->replay()->replay(['candidates' => $candidates]);
+
+        $this->assertEqualsWithDelta(0.5, $result['calibration_policy']['false_positive_pressure'], 0.0001);
+        $this->assertEqualsWithDelta(0.5, $result['calibration_policy']['false_negative_pressure'], 0.0001);
+    }
 }

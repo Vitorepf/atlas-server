@@ -150,6 +150,16 @@ final class AtlasExternalBrainValueGateBacktestReplay
             $riskCeiling,
         );
 
+        $calibrationPolicy = $this->computeCalibrationPolicy(
+            $candidates,
+            $adjustments,
+            $impactFloor,
+            $riskCeiling,
+            $admittedPoison,
+            $rejectedGreen,
+            $total,
+        );
+
         return [
             'schema'              => self::SCHEMA,
             // legacy fields (unchanged)
@@ -169,6 +179,83 @@ final class AtlasExternalBrainValueGateBacktestReplay
             'false_reject_risk'            => round($falseRejectRisk, 6),
             // adjustment recommendations
             'recommended_threshold_adjustments' => $adjustments,
+            'calibration_policy' => $calibrationPolicy,
+        ];
+    }
+
+    /**
+     * Simulates any recommended tightening against the same historical candidates to prove
+     * the tighten is safe: it must avoid at least as many poison/give_back admissions as it
+     * newly rejects historically-successful (commit_success) candidates.
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @param  list<array<string,mixed>>  $adjustments
+     * @return array{risk_ceiling_delta:float, impact_floor_delta:float, false_positive_pressure:float, false_negative_pressure:float, safe_to_apply:bool}
+     */
+    private function computeCalibrationPolicy(
+        array $candidates,
+        array $adjustments,
+        float $impactFloor,
+        float $riskCeiling,
+        int   $admittedPoison,
+        int   $rejectedGreen,
+        int   $total,
+    ): array {
+        $riskCeilingDelta  = 0.0;
+        $impactFloorDelta  = 0.0;
+        $newRiskCeiling    = $riskCeiling;
+        $newImpactFloor    = $impactFloor;
+
+        foreach ($adjustments as $adjustment) {
+            if ($adjustment['threshold'] === 'give_back_risk_ceiling') {
+                $newRiskCeiling   = (float) $adjustment['recommended_value'];
+                $riskCeilingDelta = round($newRiskCeiling - $riskCeiling, 6);
+            }
+            if ($adjustment['threshold'] === 'compound_impact_floor') {
+                $newImpactFloor   = (float) $adjustment['recommended_value'];
+                $impactFloorDelta = round($newImpactFloor - $impactFloor, 6);
+            }
+        }
+
+        $falsePositivePressure = $total > 0 ? round($admittedPoison / $total, 6) : 0.0;
+        $falseNegativePressure = $total > 0 ? round($rejectedGreen  / $total, 6) : 0.0;
+
+        $safeToApply = true;
+        if ($riskCeilingDelta < 0.0) {
+            $newlyRejectedGreen = 0;
+            $newlyAvoidedPoison = 0;
+
+            foreach ($candidates as $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                $candidate = is_array($entry['candidate'] ?? null) ? $entry['candidate'] : [];
+                $outcome   = trim(strtolower((string) ($entry['outcome'] ?? '')));
+
+                $impactScore = (float) ($candidate['compound_impact_score'] ?? 0.0);
+                $riskScore   = (float) ($candidate['give_back_risk_score']  ?? 0.0);
+
+                $wasAdmitted = $impactScore >= $impactFloor && $riskScore < $riskCeiling;
+                $nowAdmitted = $impactScore >= $newImpactFloor && $riskScore < $newRiskCeiling;
+
+                if ($wasAdmitted && ! $nowAdmitted) {
+                    if ($outcome === 'commit_success') {
+                        $newlyRejectedGreen++;
+                    } elseif (in_array($outcome, self::POISON_OUTCOMES, true)) {
+                        $newlyAvoidedPoison++;
+                    }
+                }
+            }
+
+            $safeToApply = $newlyRejectedGreen <= $newlyAvoidedPoison;
+        }
+
+        return [
+            'risk_ceiling_delta'      => $riskCeilingDelta,
+            'impact_floor_delta'      => $impactFloorDelta,
+            'false_positive_pressure' => $falsePositivePressure,
+            'false_negative_pressure' => $falseNegativePressure,
+            'safe_to_apply'           => $safeToApply,
         ];
     }
 
