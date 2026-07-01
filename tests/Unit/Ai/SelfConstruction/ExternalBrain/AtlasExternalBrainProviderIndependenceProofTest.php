@@ -299,4 +299,46 @@ final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
         $this->assertSame(AtlasExternalBrainProviderIndependenceProof::CLASSIFICATION_PROVIDER_DEPENDENT, $classification['classification']);
         $this->assertFalse($classification['missing_fallback']);
     }
+
+    // ── AC1: steady_state_autonomy_matrix ─────────────────────────────────────
+
+    public function test_steady_state_autonomy_matrix_keyed_by_every_mandatory_phase_with_full_coverage(): void
+    {
+        $claims = $this->allMandatory([
+            'task_origination' => ['atlas_native_owner' => 'AtlasExternalBrainOriginatorQualityCommand'],
+        ]);
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $matrix = $result['steady_state_autonomy_matrix'];
+        foreach (AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES as $phase) {
+            $this->assertArrayHasKey($phase, $matrix);
+            foreach (['local_evidence', 'scaffold', 'benchmark', 'rollback', 'atlas_native_owner'] as $key) {
+                $this->assertArrayHasKey($key, $matrix[$phase]);
+            }
+            $this->assertTrue($matrix[$phase]['local_evidence']);
+            $this->assertTrue($matrix[$phase]['scaffold']);
+            $this->assertTrue($matrix[$phase]['benchmark']);
+            $this->assertTrue($matrix[$phase]['rollback']);
+        }
+        $this->assertSame('AtlasExternalBrainOriginatorQualityCommand', $matrix['task_origination']['atlas_native_owner']);
+    }
+
+    public function test_steady_state_autonomy_matrix_includes_missing_mandatory_phases_with_empty_coverage(): void
+    {
+        $phases = array_filter(
+            AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES,
+            fn ($p) => $p !== 'rollback',
+        );
+        $result = $this->proof->prove([
+            'proof_claims' => array_map(fn ($p) => $this->fullPhase($p), array_values($phases)),
+        ]);
+
+        $matrix = $result['steady_state_autonomy_matrix'];
+        $this->assertArrayHasKey('rollback', $matrix);
+        $this->assertFalse($matrix['rollback']['local_evidence']);
+        $this->assertFalse($matrix['rollback']['scaffold']);
+        $this->assertFalse($matrix['rollback']['benchmark']);
+        $this->assertFalse($matrix['rollback']['rollback']);
+        $this->assertSame('', $matrix['rollback']['atlas_native_owner']);
+    }
 }

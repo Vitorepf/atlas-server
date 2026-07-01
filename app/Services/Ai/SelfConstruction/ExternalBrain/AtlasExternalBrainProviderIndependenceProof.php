@@ -81,6 +81,7 @@ final class AtlasExternalBrainProviderIndependenceProof
         $missingProofs          = [];
         $evaluatedPhases        = [];
         $circuitClassifications = [];
+        $claimsByPhase          = [];
 
         foreach ($claims as $claim) {
             if (! is_array($claim) || ! isset($claim['phase'])) {
@@ -89,6 +90,7 @@ final class AtlasExternalBrainProviderIndependenceProof
 
             $phase               = (string) $claim['phase'];
             $evaluatedPhases[]   = $phase;
+            $claimsByPhase[$phase] = $claim;
             $localEvidence       = (bool) ($claim['has_local_evidence_path']           ?? false);
             $scaffold            = (bool) ($claim['has_scaffold_fallback']             ?? false);
             $benchmark           = (bool) ($claim['has_benchmark_coverage']            ?? false);
@@ -174,6 +176,20 @@ final class AtlasExternalBrainProviderIndependenceProof
 
         $independent = $providerRequiredPhases === [] && $missingProofs === [];
 
+        // AC1: steady-state autonomy matrix keyed by every mandatory phase, proving each
+        // one has a real Atlas-native/local fallback path (or naming the gap).
+        $steadyStateMatrix = [];
+        foreach (self::MANDATORY_PHASES as $mandatory) {
+            $claim = $claimsByPhase[$mandatory] ?? [];
+            $steadyStateMatrix[$mandatory] = [
+                'local_evidence'     => (bool) ($claim['has_local_evidence_path'] ?? false),
+                'scaffold'           => (bool) ($claim['has_scaffold_fallback'] ?? false),
+                'benchmark'          => (bool) ($claim['has_benchmark_coverage'] ?? false),
+                'rollback'           => (bool) ($claim['has_rollback_path'] ?? false),
+                'atlas_native_owner' => trim((string) ($claim['atlas_native_owner'] ?? '')),
+            ];
+        }
+
         return [
             'schema'                         => self::SCHEMA,
             'independent'                    => $independent,
@@ -182,6 +198,7 @@ final class AtlasExternalBrainProviderIndependenceProof
             'optional_frontier_accelerators' => $optionalFrontierAccel,
             'missing_proofs'                 => $missingProofs,
             'circuit_classifications'        => $circuitClassifications,
+            'steady_state_autonomy_matrix'   => $steadyStateMatrix,
         ];
     }
 }
