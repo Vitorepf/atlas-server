@@ -117,6 +117,57 @@ final class AtlasMaestroReplenisherFeedback
         return $block;
     }
 
+    /**
+     * Distinct from renderFactsBlock() (delivery-pattern facts): tells the originator EXACTLY
+     * what to do next when queue depth alone would otherwise look "healthy enough" — a sufficient
+     * claimable supply must never be padded, and a lease-mismatch or other health-observability
+     * flag must never drift silently just because the queue looks full.
+     *
+     * @param  array{
+     *   claimable_supply_sufficient?:bool, lease_mismatch_count?:int, health_flags?:list<string>,
+     *   batch_looks_like_padding?:bool,
+     * }  $facts
+     * @return array{feedback_reasons:list<string>, health_flag_details:list<string>, next_originator_focus:string, must_not_create_reason:?string}
+     */
+    public function evaluateOriginatorFeedback(array $facts): array
+    {
+        $claimableSupplySufficient = (bool) ($facts['claimable_supply_sufficient'] ?? false);
+        $leaseMismatchCount = max(0, (int) ($facts['lease_mismatch_count'] ?? 0));
+        $healthFlags = array_values(array_filter(array_map('strval', (array) ($facts['health_flags'] ?? []))));
+        $batchLooksLikePadding = (bool) ($facts['batch_looks_like_padding'] ?? false);
+
+        $healthFlagDetails = $healthFlags;
+        if ($leaseMismatchCount > 0) {
+            $healthFlagDetails[] = "lease_mismatch_count:{$leaseMismatchCount}";
+        }
+        $healthNeedsRepair = $healthFlagDetails !== [];
+
+        $feedbackReasons = [];
+        if ($claimableSupplySufficient) {
+            $feedbackReasons[] = 'do_not_pad_queue';
+        }
+        if ($healthNeedsRepair) {
+            $feedbackReasons[] = 'health_repair_needed';
+        }
+
+        $nextOriginatorFocus = match (true) {
+            $healthNeedsRepair => 'repair_health_observability',
+            $claimableSupplySufficient => 'diversify_or_deepen_existing_queue',
+            default => 'originate_new_claimable_work',
+        };
+
+        $mustNotCreateReason = ($claimableSupplySufficient || $batchLooksLikePadding)
+            ? 'queue_depth_already_sufficient_creating_more_would_be_padding'
+            : null;
+
+        return [
+            'feedback_reasons' => $feedbackReasons,
+            'health_flag_details' => $healthFlagDetails,
+            'next_originator_focus' => $nextOriginatorFocus,
+            'must_not_create_reason' => $mustNotCreateReason,
+        ];
+    }
+
     private function guard(): AtlasMaestroLearningPolicyGuard
     {
         return $this->policyGuard ??= new AtlasMaestroLearningPolicyGuard;

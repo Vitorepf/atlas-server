@@ -117,4 +117,36 @@ final class AtlasMaestroReplenisherFeedbackTest extends TestCase
         $this->assertStringContainsString('blocked 0.10', $block);
         $this->assertStringContainsString('yield 0.20', $block);
     }
+
+    // ── AC: evaluateOriginatorFeedback() health vs padding signal ─────────────
+
+    public function test_emits_do_not_pad_queue_when_claimable_supply_is_sufficient(): void
+    {
+        $r = $this->feedback([])->evaluateOriginatorFeedback(['claimable_supply_sufficient' => true]);
+
+        $this->assertContains('do_not_pad_queue', $r['feedback_reasons']);
+        $this->assertNotNull($r['must_not_create_reason']);
+    }
+
+    public function test_emits_health_repair_needed_with_health_flag_details_on_lease_mismatch_or_other_issues(): void
+    {
+        $r = $this->feedback([])->evaluateOriginatorFeedback([
+            'lease_mismatch_count' => 3,
+            'health_flags' => ['stale_worker_heartbeat'],
+        ]);
+
+        $this->assertContains('health_repair_needed', $r['feedback_reasons']);
+        $this->assertContains('lease_mismatch_count:3', $r['health_flag_details']);
+        $this->assertContains('stale_worker_heartbeat', $r['health_flag_details']);
+        $this->assertSame('repair_health_observability', $r['next_originator_focus']);
+    }
+
+    public function test_includes_next_originator_focus_and_must_not_create_reason_for_padding_like_batches(): void
+    {
+        $r = $this->feedback([])->evaluateOriginatorFeedback(['batch_looks_like_padding' => true]);
+
+        $this->assertArrayHasKey('next_originator_focus', $r);
+        $this->assertArrayHasKey('must_not_create_reason', $r);
+        $this->assertNotNull($r['must_not_create_reason']);
+    }
 }
