@@ -103,13 +103,13 @@ final class AtlasMaestroReplenishUrgencyClassifier
             return $this->resultWithAction('MID', $this->nextAction($reasons, $suspectedStuckLeases, $poisonPressure, $claimableDepth, $secondsUntilDry), $reasons, $inputs);
         }
 
-        return $this->resultWithAction('LOW', 'wait', ['no_replenish_pressure'], $inputs);
+        return $this->resultWithAction('LOW', 'monitor_idle_supply', ['no_replenish_pressure'], $inputs);
     }
 
     /**
      * Determine the recommended next action from the collected reasons and facts.
      *
-     * Priority: drain_poison → unblock → originate → wait/monitor.
+     * Priority: drain_poison → unblock → originate → monitor.
      *
      * Stale p95 claimable age ALONE — no stuck leases, no known dry ETA, and a healthy (non-low)
      * claimable depth — is MID-urgency VISIBILITY only. It must not trigger 'originate': an old
@@ -136,7 +136,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
             && $stuckLeases === 0
             && $secondsUntilDry === null
             && $claimableDepth > $this->thresholdLowClaimableDepth) {
-            return 'wait';
+            return 'monitor_idle_supply';
         }
 
         return 'originate';
@@ -160,28 +160,29 @@ final class AtlasMaestroReplenishUrgencyClassifier
     }
 
     /**
-     * Normalize the internal HIGH/MID/LOW urgency tier into the worker-floor vocabulary
-     * (replenish_urgently / replenish_soon / wait) used by feed-continuity consumers.
+     * Normalize the internal HIGH/MID/LOW urgency tier into the worker-floor vocabulary.
+     * LOW is explicitly monitoring, never permission for an originator to stop creating
+     * high-leverage work.
      */
     private function replenishAction(string $urgency): string
     {
         return match ($urgency) {
             'HIGH' => 'replenish_urgently',
             'MID' => 'replenish_soon',
-            default => 'wait',
+            default => 'monitor_idle_supply',
         };
     }
 
-    /** Claimable-per-active-lease floor: at or below this, wait can never be returned. */
+    /** Claimable-per-active-lease floor: at or below this, passive monitoring can never be returned. */
     public const WORKER_FLOOR_THRESHOLD = 2.0;
 
     public const REASON_WORKER_FLOOR = 'worker_floor';
 
     /**
-     * Pure, facts-only worker-floor override: wait can never be returned when active
+     * Pure, facts-only worker-floor override: passive monitoring can never be returned when active
      * leases exist and the claimable supply per active lease is at or below the worker
      * safety floor — workers holding those leases risk draining to no_claimable_task.
-     * With zero active leases the existing wait/hold behavior is fully preserved.
+     * With zero active leases the existing hold behavior is preserved as monitoring, not stopping.
      *
      * @param  array{active_leases?: int, claimable_per_active_worker?: float}  $facts
      * @return array{schema:string, replenish_action:string, reason:?string}
@@ -199,7 +200,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
             return ['schema' => self::SCHEMA, 'replenish_action' => $replenishAction, 'reason' => self::REASON_WORKER_FLOOR];
         }
 
-        return ['schema' => self::SCHEMA, 'replenish_action' => 'wait', 'reason' => null];
+        return ['schema' => self::SCHEMA, 'replenish_action' => 'monitor_idle_supply', 'reason' => null];
     }
 
     /** @return array<string,mixed> */

@@ -34,7 +34,7 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerFloorTest extends TestCa
         $this->assertSame(AtlasMaestroReplenishUrgencyClassifier::REASON_WORKER_FLOOR, $result['reason']);
     }
 
-    public function test_zero_active_leases_with_nonempty_queue_preserves_wait(): void
+    public function test_zero_active_leases_with_nonempty_queue_returns_monitoring(): void
     {
         $classifier = new AtlasMaestroReplenishUrgencyClassifier();
         $result = $classifier->classifyWorkerFloor([
@@ -42,11 +42,11 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerFloorTest extends TestCa
             'claimable_per_active_worker' => 0.5,
         ]);
 
-        $this->assertSame('wait', $result['replenish_action']);
+        $this->assertSame('monitor_idle_supply', $result['replenish_action']);
         $this->assertNull($result['reason']);
     }
 
-    public function test_active_leases_with_comfortable_claimable_buffer_waits(): void
+    public function test_active_leases_with_comfortable_claimable_buffer_monitors_without_stopping(): void
     {
         $classifier = new AtlasMaestroReplenishUrgencyClassifier();
         $result = $classifier->classifyWorkerFloor([
@@ -54,7 +54,7 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerFloorTest extends TestCa
             'claimable_per_active_worker' => 10.0,
         ]);
 
-        $this->assertSame('wait', $result['replenish_action']);
+        $this->assertSame('monitor_idle_supply', $result['replenish_action']);
         $this->assertNull($result['reason']);
     }
 }

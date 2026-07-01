@@ -233,7 +233,7 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         $this->assertSame('unblock', $result['next_action']);
     }
 
-    public function test_healthy_depth_recommends_wait(): void
+    public function test_healthy_depth_recommends_monitoring_without_stopping_origination(): void
     {
         $result = $this->classifier(
             queue: ['p95_seconds' => 10],
@@ -242,7 +242,8 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         )->classify();
 
         $this->assertSame('LOW', $result['urgency']);
-        $this->assertSame('wait', $result['next_action']);
+        $this->assertSame('monitor_idle_supply', $result['next_action']);
+        $this->assertSame('monitor_idle_supply', $result['replenish_action']);
     }
 
     public function test_result_includes_next_action_urgency_reasons_and_inputs(): void
@@ -259,9 +260,9 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
         $this->assertArrayHasKey('inputs', $result);
     }
 
-    // ── stale age alone → MID + wait/monitor, not originate ────────────────────
+    // ── stale age alone → MID + monitor, not originate ────────────────────────
 
-    public function test_stale_age_alone_with_healthy_depth_no_stuck_no_dry_eta_recommends_wait(): void
+    public function test_stale_age_alone_with_healthy_depth_no_stuck_no_dry_eta_recommends_monitor(): void
     {
         $result = $this->classifier(
             queue: ['oldest_seconds' => 1200, 'p95_seconds' => 900],
@@ -276,8 +277,7 @@ final class AtlasMaestroReplenishUrgencyClassifierTest extends TestCase
 
         $this->assertSame('MID', $result['urgency']);
         $this->assertSame(['p95_claimable_age_above_threshold_stale'], $result['reasons']);
-        $this->assertContains($result['next_action'], ['wait', 'monitor'],
-            'stale age alone with healthy depth and no dry ETA must not recommend originate');
+        $this->assertSame('monitor_idle_supply', $result['next_action']);
         $this->assertNotSame('originate', $result['next_action']);
     }
 

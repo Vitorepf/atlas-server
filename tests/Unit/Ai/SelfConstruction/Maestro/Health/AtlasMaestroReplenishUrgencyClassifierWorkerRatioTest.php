@@ -38,7 +38,7 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerRatioTest extends TestCa
         $this->assertNull($result['inputs']['seconds_until_dry']);
     }
 
-    public function test_claimable_depth_comfortably_above_double_active_workers_is_low_and_waits(): void
+    public function test_claimable_depth_comfortably_above_double_active_workers_is_low_and_monitors(): void
     {
         $result = $this->classifier(
             queue: ['oldest_seconds' => 30, 'p95_seconds' => 30],
@@ -56,7 +56,7 @@ final class AtlasMaestroReplenishUrgencyClassifierWorkerRatioTest extends TestCa
         )->classify();
 
         $this->assertSame('LOW', $result['urgency']);
-        $this->assertSame('wait', $result['next_action']);
+        $this->assertSame('monitor_idle_supply', $result['next_action']);
         $this->assertNotContains('claimable_depth_near_one_per_active_worker', $result['reasons']);
     }
 
