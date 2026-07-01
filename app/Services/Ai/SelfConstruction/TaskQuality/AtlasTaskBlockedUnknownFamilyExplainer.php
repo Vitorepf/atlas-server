@@ -22,7 +22,16 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *   contradictory_acceptance_suspect  — packet_quality.deficiencies names a contradiction
  *   insufficient_metadata             — fallback: objective too short/empty, nothing else matched
  *
- * OUTPUT per packet: { packet_id, likely_family, confidence, missing_signals, respec_hint, safe_next_action }
+ * OUTPUT per packet: { packet_id, likely_family, confidence, missing_signals, respec_hint,
+ * safe_next_action, evidence_refs, suspected_root_cause, quarantined_for_review }
+ *
+ * evidence_refs (AC3) are dotted field-path pointers into the packet naming WHERE the evidence
+ * for the classification was found — complementary to missing_signals, which describes WHAT was
+ * observed/absent in plain text.
+ *
+ * quarantined_for_review (AC4): true whenever confidence=low. A low-confidence result still
+ * reports its best-guess likely_family (never hides it), but the flag tells a caller this guess
+ * must not be acted on automatically — hold for review instead of forcing the guessed family.
  *
  * Pure: only reads the packet array — no queue mutation, DB write, provider call, network, file write,
  * or git command.
@@ -73,6 +82,16 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
         self::FAMILY_INSUFFICIENT_METADATA => self::ACTION_MANUAL_REVIEW,
     ];
 
+    private const SUSPECTED_ROOT_CAUSE = [
+        self::FAMILY_FORBIDDEN_TARGET => 'allowed_files references a pétreo-protected or property-gated path this task must never touch',
+        self::FAMILY_MISSING_ALLOWED_FILES => 'the task packet was originated without any concrete file target',
+        self::FAMILY_MISSING_ACCEPTANCE => 'the task packet has no falsifiable acceptance criterion to prove against',
+        self::FAMILY_MISSING_REQUIRED_EVIDENCE => 'the task packet never declared what evidence would prove completion',
+        self::FAMILY_DUPLICATE_OR_ALREADY_DONE_SUSPECT => 'this deliverable was likely already shipped by an earlier attempt',
+        self::FAMILY_CONTRADICTORY_ACCEPTANCE_SUSPECT => 'the acceptance criteria contradict each other and cannot both be satisfied',
+        self::FAMILY_INSUFFICIENT_METADATA => 'the objective and packet metadata are too thin to infer a concrete blocker family',
+    ];
+
     /**
      * @param  array<string,mixed>  $packet
      * @return array{packet_id:string, likely_family:string, confidence:string, missing_signals:list<string>, respec_hint:string, safe_next_action:string}
@@ -102,42 +121,49 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
             && ! in_array('constitution_gate_receipt', $requiredEvidence, true);
         if ($hitForbidden || $hitPropertyGatedNoReceipt) {
             $missingSignals[] = $hitForbidden ? 'allowed_files_hit_forbidden_self_target' : 'property_gated_target_missing_constitution_receipt';
+            $evidenceRefs = $hitForbidden
+                ? ['packet.allowed_files', 'packet.packet_quality.facts.forbidden_self_targets']
+                : ['packet.allowed_files', 'packet.packet_quality.facts.property_gated_targets'];
 
-            return $this->result($id, self::FAMILY_FORBIDDEN_TARGET, $missingSignals);
+            return $this->result($id, self::FAMILY_FORBIDDEN_TARGET, $missingSignals, $evidenceRefs);
         }
 
         // ── missing_allowed_files ────────────────────────────────────────────
         if ($allowedFiles === []) {
             $missingSignals[] = 'allowed_files_empty';
 
-            return $this->result($id, self::FAMILY_MISSING_ALLOWED_FILES, $missingSignals);
+            return $this->result($id, self::FAMILY_MISSING_ALLOWED_FILES, $missingSignals, ['packet.allowed_files']);
         }
 
         // ── missing_acceptance ───────────────────────────────────────────────
         if ($acceptance === []) {
             $missingSignals[] = 'acceptance_criteria_empty';
 
-            return $this->result($id, self::FAMILY_MISSING_ACCEPTANCE, $missingSignals);
+            return $this->result($id, self::FAMILY_MISSING_ACCEPTANCE, $missingSignals, ['packet.acceptance_criteria']);
         }
 
         // ── missing_required_evidence ────────────────────────────────────────
         if ($requiredEvidence === []) {
             $missingSignals[] = 'required_evidence_empty';
 
-            return $this->result($id, self::FAMILY_MISSING_REQUIRED_EVIDENCE, $missingSignals);
+            return $this->result($id, self::FAMILY_MISSING_REQUIRED_EVIDENCE, $missingSignals, ['packet.required_evidence']);
         }
 
         // ── duplicate_or_already_done_suspect ────────────────────────────────
         $duplicateSuspect = ($giveBackCount >= self::GIVE_BACK_SUSPECT_THRESHOLD && $hasPriorSuccess) || $status === 'completed';
         if ($duplicateSuspect) {
+            $evidenceRefs = [];
             if ($status === 'completed') {
                 $missingSignals[] = 'status_completed';
+                $evidenceRefs[] = 'packet.status';
             }
             if ($giveBackCount >= self::GIVE_BACK_SUSPECT_THRESHOLD && $hasPriorSuccess) {
                 $missingSignals[] = sprintf('give_back_count=%d_with_prior_success', $giveBackCount);
+                $evidenceRefs[] = 'packet.give_back_count';
+                $evidenceRefs[] = 'packet.has_prior_success';
             }
 
-            return $this->result($id, self::FAMILY_DUPLICATE_OR_ALREADY_DONE_SUSPECT, $missingSignals);
+            return $this->result($id, self::FAMILY_DUPLICATE_OR_ALREADY_DONE_SUSPECT, $missingSignals, $evidenceRefs);
         }
 
         // ── contradictory_acceptance_suspect ─────────────────────────────────
@@ -145,7 +171,7 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
         if ($contradictoryHit !== []) {
             $missingSignals = array_map(static fn (string $d): string => 'packet_quality_flag:'.$d, $contradictoryHit);
 
-            return $this->result($id, self::FAMILY_CONTRADICTORY_ACCEPTANCE_SUSPECT, $missingSignals);
+            return $this->result($id, self::FAMILY_CONTRADICTORY_ACCEPTANCE_SUSPECT, $missingSignals, ['packet.packet_quality.deficiencies']);
         }
 
         // ── insufficient_metadata (fallback) ─────────────────────────────────
@@ -157,7 +183,7 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
             $missingSignals[] = 'no_deterministic_signal_matched';
         }
 
-        return $this->result($id, self::FAMILY_INSUFFICIENT_METADATA, $missingSignals);
+        return $this->result($id, self::FAMILY_INSUFFICIENT_METADATA, $missingSignals, ['packet.objective']);
     }
 
     /**
@@ -171,9 +197,10 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
 
     /**
      * @param  list<string>  $missingSignals
-     * @return array{packet_id:string, likely_family:string, confidence:string, missing_signals:list<string>, respec_hint:string, safe_next_action:string}
+     * @param  list<string>  $evidenceRefs
+     * @return array{packet_id:string, likely_family:string, confidence:string, missing_signals:list<string>, respec_hint:string, safe_next_action:string, evidence_refs:list<string>, suspected_root_cause:string, quarantined_for_review:bool}
      */
-    private function result(string $id, string $family, array $missingSignals): array
+    private function result(string $id, string $family, array $missingSignals, array $evidenceRefs = []): array
     {
         $confidence = match (true) {
             count($missingSignals) >= 2 => 'high',
@@ -188,6 +215,11 @@ final class AtlasTaskBlockedUnknownFamilyExplainer
             'missing_signals' => array_values($missingSignals),
             'respec_hint' => self::RESPEC_HINTS[$family],
             'safe_next_action' => self::SAFE_NEXT_ACTION[$family],
+            'evidence_refs' => array_values(array_unique($evidenceRefs)),
+            'suspected_root_cause' => self::SUSPECTED_ROOT_CAUSE[$family],
+            // AC4: a low-confidence guess is reported (never hidden) but flagged so a caller
+            // holds it for review instead of automatically acting on a forced, weakly-evidenced family.
+            'quarantined_for_review' => $confidence === 'low',
         ];
     }
 }

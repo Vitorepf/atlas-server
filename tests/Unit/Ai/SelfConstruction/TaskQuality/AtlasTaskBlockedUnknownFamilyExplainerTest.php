@@ -180,4 +180,80 @@ final class AtlasTaskBlockedUnknownFamilyExplainerTest extends TestCase
 
         $this->assertSame(json_encode($a), json_encode($b));
     }
+
+    // ── AC3: evidence_refs and suspected_root_cause ─────────────────────────────
+
+    public function test_output_includes_evidence_refs_and_suspected_root_cause(): void
+    {
+        $r = $this->explainer()->explain($this->packet());
+        foreach (['evidence_refs', 'suspected_root_cause', 'quarantined_for_review'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+    }
+
+    public function test_evidence_refs_point_to_allowed_files_for_missing_allowed_files(): void
+    {
+        $r = $this->explainer()->explain($this->packet(['allowed_files' => []]));
+
+        $this->assertContains('packet.allowed_files', $r['evidence_refs']);
+        $this->assertNotEmpty($r['suspected_root_cause']);
+    }
+
+    public function test_evidence_refs_point_to_forbidden_target_facts(): void
+    {
+        $r = $this->explainer()->explain($this->packet([
+            'allowed_files' => ['config/atlas.php'],
+            'packet_quality' => ['facts' => ['forbidden_self_targets' => ['config/atlas.php']]],
+        ]));
+
+        $this->assertContains('packet.allowed_files', $r['evidence_refs']);
+        $this->assertContains('packet.packet_quality.facts.forbidden_self_targets', $r['evidence_refs']);
+    }
+
+    public function test_evidence_refs_point_to_give_back_and_status_for_duplicate_suspect(): void
+    {
+        $r = $this->explainer()->explain($this->packet(['give_back_count' => 8, 'has_prior_success' => true]));
+
+        $this->assertContains('packet.give_back_count', $r['evidence_refs']);
+        $this->assertContains('packet.has_prior_success', $r['evidence_refs']);
+    }
+
+    public function test_suspected_root_cause_differs_per_family(): void
+    {
+        $missingFiles = $this->explainer()->explain($this->packet(['allowed_files' => []]));
+        $missingAcceptance = $this->explainer()->explain($this->packet(['acceptance_criteria' => []]));
+
+        $this->assertNotSame($missingFiles['suspected_root_cause'], $missingAcceptance['suspected_root_cause']);
+    }
+
+    // ── AC4: low-confidence results are flagged quarantined_for_review, never forced silently ──
+
+    public function test_insufficient_metadata_result_is_quarantined_for_review(): void
+    {
+        $r = $this->explainer()->explain($this->packet(['objective' => 'fix it']));
+
+        $this->assertSame('low', $r['confidence']);
+        $this->assertTrue($r['quarantined_for_review']);
+        // The best-guess family is still reported, never hidden.
+        $this->assertSame(AtlasTaskBlockedUnknownFamilyExplainer::FAMILY_INSUFFICIENT_METADATA, $r['likely_family']);
+    }
+
+    public function test_high_confidence_result_is_not_quarantined(): void
+    {
+        $r = $this->explainer()->explain($this->packet([
+            'allowed_files' => ['config/atlas.php'],
+            'packet_quality' => ['facts' => ['forbidden_self_targets' => ['config/atlas.php']]],
+        ]));
+
+        $this->assertNotSame('low', $r['confidence']);
+        $this->assertFalse($r['quarantined_for_review']);
+    }
+
+    public function test_medium_confidence_result_is_not_quarantined(): void
+    {
+        $r = $this->explainer()->explain($this->packet(['allowed_files' => []]));
+
+        $this->assertSame('medium', $r['confidence']);
+        $this->assertFalse($r['quarantined_for_review']);
+    }
 }
