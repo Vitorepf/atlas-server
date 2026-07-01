@@ -56,12 +56,29 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
 
     public const GATE_REPEAT_THRESHOLD = 3;
 
+    /** AC2: the 4 failure classes the router separates before recommending handling. */
+    public const EVIDENCE_TRANSIENT = 'transient';
+
+    public const EVIDENCE_DETERMINISTIC_POISON = 'deterministic_poison';
+
+    public const EVIDENCE_BLOCKED_SCOPE = 'blocked_scope';
+
+    public const EVIDENCE_LOW_QUALITY_SPEC = 'low_quality_spec';
+
     private const LANE_TO_ACTION = [
         self::LANE_NORMAL => self::ACTION_KEEP_SERVING,
         self::LANE_RESCOPE => self::ACTION_RESCOPE,
         self::LANE_UNBLOCK => self::ACTION_UNBLOCK,
         self::LANE_RETIRE => self::ACTION_RETIRE,
         self::LANE_OPERATOR_ONLY => self::ACTION_RETIRE,
+    ];
+
+    /** AC3: evidence class → operator-facing handling recommendation. */
+    private const EVIDENCE_TO_HANDLING = [
+        self::EVIDENCE_TRANSIENT => 'retry',
+        self::EVIDENCE_LOW_QUALITY_SPEC => 'reshape',
+        self::EVIDENCE_BLOCKED_SCOPE => 'reshape',
+        self::EVIDENCE_DETERMINISTIC_POISON => 'quarantine',
     ];
 
     /**
@@ -93,7 +110,7 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
         );
 
         if ($operatorOnly) {
-            return $this->out(self::LANE_OPERATOR_ONLY, 0.98, 'operator_only=true');
+            return $this->out(self::LANE_OPERATOR_ONLY, 0.98, 'operator_only=true', evidenceClass: self::EVIDENCE_BLOCKED_SCOPE, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
         }
 
         if ($forbiddenSelfTarget && $giveBackCount > 0) {
@@ -103,6 +120,9 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                 'forbidden_self_target_blocks_further_serving',
                 'Remove the forbidden self-target file from allowed_files before re-serving this packet.',
                 ['allowed_files'],
+                evidenceClass: self::EVIDENCE_BLOCKED_SCOPE,
+                giveBackCount: $giveBackCount,
+                gateFailureCount: $gateFailureCount,
             );
         }
 
@@ -113,6 +133,9 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                 'test_only_missing_implementation_blocks_further_serving',
                 'Add the missing implementation file to allowed_files; a test-only scope cannot be served as-is.',
                 ['allowed_files'],
+                evidenceClass: self::EVIDENCE_BLOCKED_SCOPE,
+                giveBackCount: $giveBackCount,
+                gateFailureCount: $gateFailureCount,
             );
         }
 
@@ -123,6 +146,9 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                 'contradictory_acceptance',
                 'Correct the contradictory acceptance_criteria bullets before re-serving; this is a spec defect, not a retry candidate.',
                 ['acceptance_criteria'],
+                evidenceClass: self::EVIDENCE_LOW_QUALITY_SPEC,
+                giveBackCount: $giveBackCount,
+                gateFailureCount: $gateFailureCount,
             );
         }
 
@@ -138,14 +164,17 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
                     'Reassign this packet to a different worker before retiring it; failures are concentrated in one worker history.',
                     [],
                     stopServingUntilRespec: false,
+                    evidenceClass: self::EVIDENCE_TRANSIENT,
+                    giveBackCount: $giveBackCount,
+                    gateFailureCount: $gateFailureCount,
                 );
             }
 
-            return $this->out(self::LANE_RETIRE, 0.95, 'give_back_count_high:'.$giveBackCount);
+            return $this->out(self::LANE_RETIRE, 0.95, 'give_back_count_high:'.$giveBackCount, evidenceClass: self::EVIDENCE_DETERMINISTIC_POISON, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
         }
 
         if ($giveBackCount >= self::GIVE_BACK_REPEAT_THRESHOLD && in_array($dependencyState, ['stale', 'missing'], true)) {
-            return $this->out(self::LANE_UNBLOCK, 0.90, 'repeated_give_back+dependency_'.$dependencyState, stopServingUntilRespec: false);
+            return $this->out(self::LANE_UNBLOCK, 0.90, 'repeated_give_back+dependency_'.$dependencyState, stopServingUntilRespec: false, evidenceClass: self::EVIDENCE_BLOCKED_SCOPE, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
         }
 
         $hasScopeSignal = $scopeRepairDone || array_filter(
@@ -153,25 +182,25 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
             static fn (string $r): bool => str_contains($r, 'spec') || str_contains($r, 'scope') || str_contains($r, 'accept'),
         ) !== [];
         if ($giveBackCount >= self::GIVE_BACK_REPEAT_THRESHOLD && $hasScopeSignal) {
-            return $this->out(self::LANE_RESCOPE, 0.88, 'repeated_give_back+scope_signal', respecFields: ['acceptance_criteria', 'allowed_files']);
+            return $this->out(self::LANE_RESCOPE, 0.88, 'repeated_give_back+scope_signal', respecFields: ['acceptance_criteria', 'allowed_files'], evidenceClass: self::EVIDENCE_LOW_QUALITY_SPEC, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
         }
 
         if ($poisonRisk === 'high') {
-            return $this->out(self::LANE_RETIRE, 0.85, 'poison_risk=high');
+            return $this->out(self::LANE_RETIRE, 0.85, 'poison_risk=high', evidenceClass: self::EVIDENCE_DETERMINISTIC_POISON, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
         }
 
         if ($gateFailureCount >= self::GATE_REPEAT_THRESHOLD) {
-            return $this->out(self::LANE_RESCOPE, 0.80, 'repeated_gate_failures:'.$gateFailureCount, respecFields: ['acceptance_criteria']);
+            return $this->out(self::LANE_RESCOPE, 0.80, 'repeated_gate_failures:'.$gateFailureCount, respecFields: ['acceptance_criteria'], evidenceClass: self::EVIDENCE_LOW_QUALITY_SPEC, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
         }
 
         $confidence = ($giveBackCount === 0 && $gateFailureCount === 0) ? 0.95 : 0.70;
 
-        return $this->out(self::LANE_NORMAL, $confidence, 'first_time_or_recoverable', stopServingUntilRespec: false);
+        return $this->out(self::LANE_NORMAL, $confidence, 'first_time_or_recoverable', stopServingUntilRespec: false, evidenceClass: self::EVIDENCE_TRANSIENT, giveBackCount: $giveBackCount, gateFailureCount: $gateFailureCount);
     }
 
     /**
      * @param  list<string>  $respecFields
-     * @return array{schema_version:string, lane:string, fast_path_action:string, confidence:float, reason:string, repair_hint:?string, respec_fields:list<string>, stop_serving_until_respec:bool}
+     * @return array{schema_version:string, lane:string, fast_path_action:string, confidence:float, reason:string, repair_hint:?string, respec_fields:list<string>, stop_serving_until_respec:bool, evidence_class:string, recommended_handling:string, token_burn_prevention_reason:?string}
      */
     private function out(
         string $lane,
@@ -180,7 +209,22 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
         ?string $repairHint = null,
         array $respecFields = [],
         ?bool $stopServingUntilRespec = null,
+        string $evidenceClass = self::EVIDENCE_TRANSIENT,
+        int $giveBackCount = 0,
+        int $gateFailureCount = 0,
     ): array {
+        $stopServingUntilRespec ??= in_array($lane, [self::LANE_RESCOPE, self::LANE_RETIRE, self::LANE_OPERATOR_ONLY], true);
+
+        // AC3: operator_only always needs a human specialist, regardless of evidence class.
+        $recommendedHandling = $lane === self::LANE_OPERATOR_ONLY
+            ? 'specialist_review'
+            : (self::EVIDENCE_TO_HANDLING[$evidenceClass] ?? 'reshape');
+
+        // AC4: whenever we block another blind retry, say WHY in token-burn terms.
+        $tokenBurnPreventionReason = $stopServingUntilRespec
+            ? "blocking further blind retries prevents token burn: {$evidenceClass} evidence (give_back_count={$giveBackCount}, gate_failure_count={$gateFailureCount}) is not retry-fixable — route to {$recommendedHandling} first."
+            : null;
+
         return [
             'schema_version' => self::SCHEMA,
             'lane' => $lane,
@@ -189,7 +233,10 @@ final class AtlasMaestroRepeatedFailureFastPathRouter
             'reason' => $reason,
             'repair_hint' => $repairHint,
             'respec_fields' => $respecFields,
-            'stop_serving_until_respec' => $stopServingUntilRespec ?? in_array($lane, [self::LANE_RESCOPE, self::LANE_RETIRE, self::LANE_OPERATOR_ONLY], true),
+            'stop_serving_until_respec' => $stopServingUntilRespec,
+            'evidence_class' => $evidenceClass,
+            'recommended_handling' => $recommendedHandling,
+            'token_burn_prevention_reason' => $tokenBurnPreventionReason,
         ];
     }
 }

@@ -296,4 +296,104 @@ final class AtlasMaestroRepeatedFailureFastPathRouterTest extends TestCase
             $this->assertNotEmpty($r['reason'], "reason empty for scenario: $scenario");
         }
     }
+
+    // ── AC2: evidence class separates transient / poison / blocked-scope / low-quality-spec ──
+
+    public function test_normal_serve_is_classified_as_transient(): void
+    {
+        $r = $this->route();
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::EVIDENCE_TRANSIENT, $r['evidence_class']);
+    }
+
+    public function test_poison_risk_high_is_classified_as_deterministic_poison(): void
+    {
+        $r = $this->route(['poison_risk' => 'high']);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::EVIDENCE_DETERMINISTIC_POISON, $r['evidence_class']);
+    }
+
+    public function test_forbidden_self_target_is_classified_as_blocked_scope(): void
+    {
+        $r = $this->route(['forbidden_self_target' => true, 'give_back_count' => 1]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::EVIDENCE_BLOCKED_SCOPE, $r['evidence_class']);
+    }
+
+    public function test_contradictory_acceptance_is_classified_as_low_quality_spec(): void
+    {
+        $r = $this->route(['contradictory_acceptance' => true]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::EVIDENCE_LOW_QUALITY_SPEC, $r['evidence_class']);
+    }
+
+    public function test_single_worker_responsible_is_classified_as_transient_not_poison(): void
+    {
+        $r = $this->route([
+            'give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD,
+            'worker_give_back_counts' => ['worker-x' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD],
+        ]);
+
+        $this->assertSame(AtlasMaestroRepeatedFailureFastPathRouter::EVIDENCE_TRANSIENT, $r['evidence_class']);
+    }
+
+    // ── AC3: recommended_handling is one of retry/reshape/quarantine/specialist_review ──
+
+    public function test_normal_serve_recommends_retry(): void
+    {
+        $r = $this->route();
+
+        $this->assertSame('retry', $r['recommended_handling']);
+    }
+
+    public function test_low_quality_spec_recommends_reshape(): void
+    {
+        $r = $this->route(['contradictory_acceptance' => true]);
+
+        $this->assertSame('reshape', $r['recommended_handling']);
+    }
+
+    public function test_deterministic_poison_recommends_quarantine(): void
+    {
+        $r = $this->route(['poison_risk' => 'high']);
+
+        $this->assertSame('quarantine', $r['recommended_handling']);
+    }
+
+    public function test_operator_only_recommends_specialist_review(): void
+    {
+        $r = $this->route(['operator_only' => true]);
+
+        $this->assertSame('specialist_review', $r['recommended_handling']);
+    }
+
+    // ── AC4: token-burn prevention reason present exactly when blocking a blind retry ──
+
+    public function test_normal_serve_has_no_token_burn_prevention_reason(): void
+    {
+        $r = $this->route();
+
+        $this->assertFalse($r['stop_serving_until_respec']);
+        $this->assertNull($r['token_burn_prevention_reason']);
+    }
+
+    public function test_retire_lane_has_token_burn_prevention_reason(): void
+    {
+        $r = $this->route(['give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD]);
+
+        $this->assertTrue($r['stop_serving_until_respec']);
+        $this->assertNotEmpty($r['token_burn_prevention_reason']);
+        $this->assertStringContainsString('token burn', $r['token_burn_prevention_reason']);
+    }
+
+    public function test_single_worker_responsible_keeps_serving_and_has_no_token_burn_reason(): void
+    {
+        $r = $this->route([
+            'give_back_count' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD,
+            'worker_give_back_counts' => ['worker-x' => AtlasMaestroRepeatedFailureFastPathRouter::GIVE_BACK_RETIRE_THRESHOLD],
+        ]);
+
+        $this->assertFalse($r['stop_serving_until_respec']);
+        $this->assertNull($r['token_burn_prevention_reason']);
+    }
 }
