@@ -43,6 +43,8 @@ final class AtlasSelfConstructionRuntimeSoakRunner
         'safety_stop',
     ];
 
+    private const MIN_VIRTUAL_TICKS_FOR_GREEN = 5;
+
     /** @var list<string> */
     private const FORBIDDEN_TOKENS = [
         'requires_operator',
@@ -128,10 +130,23 @@ final class AtlasSelfConstructionRuntimeSoakRunner
 
         $passed = $dependencyViolations === [] && $failedCount === 0;
 
+        $offendingTokens = array_values(array_unique(array_column($dependencyViolations, 'violation')));
+        $hasEnoughVirtualRuntimeEvidence = count($ticks) >= self::MIN_VIRTUAL_TICKS_FOR_GREEN;
+
+        if ($offendingTokens !== []) {
+            $soakStatus = 'blocked';
+        } elseif ($passed && $hasEnoughVirtualRuntimeEvidence) {
+            $soakStatus = 'green';
+        } else {
+            $soakStatus = 'partial';
+        }
+
         $payload = [
             'schema' => self::SCHEMA,
             'schema_version' => self::SCHEMA,
             'passed' => $passed,
+            'soak_status' => $soakStatus,
+            'offending_tokens' => $offendingTokens,
             'dry_run' => ! $apply || ! is_callable($callback),
             'tick_count' => count($ticks),
             'green_count' => $greenCount,

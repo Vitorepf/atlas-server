@@ -147,6 +147,41 @@ class AtlasSelfConstructionRuntimeSoakRunnerTest extends TestCase
         self::assertStringStartsWith('soak_run_', $verdict['soak_run_hash']);
     }
 
+    public function test_forbidden_stop_token_forces_blocked_soak_status_with_offending_token(): void
+    {
+        $scenario = [
+            'virtual_ticks' => [
+                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success', 'requires' => ['requires_operator' => true]],
+                ['index' => 1, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+            ],
+        ];
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
+
+        self::assertSame('blocked', $verdict['soak_status']);
+        self::assertContains('requires_operator', $verdict['offending_tokens']);
+    }
+
+    public function test_clean_soak_with_enough_ticks_is_green(): void
+    {
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($this->defaultScenario());
+
+        self::assertSame('green', $verdict['soak_status']);
+        self::assertSame([], $verdict['offending_tokens']);
+    }
+
+    public function test_clean_soak_with_too_few_ticks_is_partial_not_green(): void
+    {
+        $scenario = [
+            'virtual_ticks' => [
+                ['index' => 0, 'kind' => 'green_cycle', 'expected_outcome' => 'success'],
+            ],
+        ];
+        $verdict = (new AtlasSelfConstructionRuntimeSoakRunner)->run($scenario);
+
+        self::assertTrue($verdict['passed']);
+        self::assertSame('partial', $verdict['soak_status'], 'not enough virtual runtime evidence to declare green');
+    }
+
     public function test_max_cycle_stop_limits_ticks_to_scenario_max(): void
     {
         $maxTicks = 5;
