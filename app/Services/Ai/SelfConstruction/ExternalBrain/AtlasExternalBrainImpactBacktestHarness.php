@@ -49,10 +49,12 @@ final class AtlasExternalBrainImpactBacktestHarness
                 'calibration_score' => null,
                 'calibration_error' => null,
                 'total_tasks' => 0,
+                'family_calibration' => [],
             ];
         }
 
         $byOutcome = [];
+        $byFamily = [];
         $overclaims = [];
         $penalized = [];
         $wellCalibrated = 0;
@@ -63,11 +65,13 @@ final class AtlasExternalBrainImpactBacktestHarness
             $predicted = (float) ($t['predicted_leverage'] ?? 0.0);
             $actual = (float) ($t['actual_leverage'] ?? 0.0);
             $outcome = (string) ($t['actual_outcome'] ?? 'unknown');
+            $family = (string) ($t['task_family'] ?? 'unassigned');
             $downstreamUnlocks = array_key_exists('downstream_unlocks', $t) ? (int) $t['downstream_unlocks'] : null;
             $delta = $predicted - $actual;
             $absDeltaSum += abs($delta);
 
             $byOutcome[$outcome][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta];
+            $byFamily[$family][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta, 'outcome' => $outcome];
 
             if ($delta >= self::OVERCLAIM_THRESHOLD) {
                 $overclaims[] = [
@@ -170,6 +174,31 @@ final class AtlasExternalBrainImpactBacktestHarness
             ];
         }
 
+        $familyCalibration = [];
+        foreach ($byFamily as $family => $entries) {
+            $count = count($entries);
+            $avgPredicted = array_sum(array_column($entries, 'predicted')) / $count;
+            $avgActual = array_sum(array_column($entries, 'actual')) / $count;
+            $avgError = round(array_sum(array_map(static fn (array $e): float => abs($e['delta']), $entries)) / $count, 4);
+            $avgDelta = $avgPredicted - $avgActual;
+            $hasPenaltyOutcome = array_any($entries, static fn (array $e): bool => in_array($e['outcome'], self::PENALTY_OUTCOMES, true));
+
+            $correctionDirection = match (true) {
+                $hasPenaltyOutcome, $avgDelta >= self::CALIBRATION_GOOD_THRESHOLD => 'down',
+                $avgDelta <= -self::CALIBRATION_GOOD_THRESHOLD => 'up',
+                default => 'none',
+            };
+
+            $familyCalibration[] = [
+                'task_family' => $family,
+                'average_predicted' => round($avgPredicted, 2),
+                'average_actual' => round($avgActual, 2),
+                'average_error' => $avgError,
+                'correction_direction' => $correctionDirection,
+                'sample_count' => $count,
+            ];
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'calibration_buckets' => $calibrationBuckets,
@@ -179,6 +208,7 @@ final class AtlasExternalBrainImpactBacktestHarness
             'calibration_score' => $calibrationScore,
             'calibration_error' => round($absDeltaSum / $totalTasks, 4),
             'total_tasks' => $totalTasks,
+            'family_calibration' => $familyCalibration,
         ];
     }
 

@@ -280,4 +280,102 @@ final class AtlasExternalBrainImpactBacktestHarnessTest extends TestCase
         $r = $this->svc()->backtest([]);
         $this->assertNull($r['calibration_error']);
     }
+
+    // ── family_calibration ────────────────────────────────────────────────────
+
+    private function familyTask(
+        string $id,
+        float $predicted,
+        float $actual,
+        string $family,
+        string $outcome = 'commit_success',
+    ): array {
+        return array_merge($this->task($id, $predicted, $actual, $outcome), ['task_family' => $family]);
+    }
+
+    public function test_family_calibration_present_with_required_keys(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 5.0, 5.0, 'gate-impl')]);
+
+        $fc = $r['family_calibration'][0];
+        foreach (['task_family', 'average_predicted', 'average_actual', 'average_error', 'correction_direction', 'sample_count'] as $k) {
+            $this->assertArrayHasKey($k, $fc, "Missing key: {$k}");
+        }
+        $this->assertSame('gate-impl', $fc['task_family']);
+    }
+
+    public function test_family_calibration_empty_when_no_tasks(): void
+    {
+        $r = $this->svc()->backtest([]);
+        $this->assertSame([], $r['family_calibration']);
+    }
+
+    public function test_family_calibration_groups_by_task_family(): void
+    {
+        $r = $this->bt([
+            $this->familyTask('t1', 5.0, 5.0, 'family-a'),
+            $this->familyTask('t2', 5.0, 5.0, 'family-b'),
+        ]);
+
+        $families = array_column($r['family_calibration'], 'task_family');
+        $this->assertContains('family-a', $families);
+        $this->assertContains('family-b', $families);
+    }
+
+    public function test_family_correction_direction_down_when_repeated_give_back_despite_high_predicted(): void
+    {
+        $r = $this->bt([
+            $this->familyTask('t1', 8.0, 8.0, 'risky-family', 'give_back'),
+            $this->familyTask('t2', 8.0, 8.0, 'risky-family', 'give_back'),
+        ]);
+
+        $fc = $r['family_calibration'][0];
+        $this->assertSame('down', $fc['correction_direction']);
+    }
+
+    public function test_family_correction_direction_down_when_proxy_implementation_present(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 8.0, 8.0, 'proxy-family', 'proxy_implementation')]);
+
+        $this->assertSame('down', $r['family_calibration'][0]['correction_direction']);
+    }
+
+    public function test_family_correction_direction_down_when_no_capability_delta_present(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 8.0, 8.0, 'ncd-family', 'no_capability_delta')]);
+
+        $this->assertSame('down', $r['family_calibration'][0]['correction_direction']);
+    }
+
+    public function test_family_correction_direction_down_when_quarantine_present(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 8.0, 8.0, 'quarantine-family', 'quarantine')]);
+
+        $this->assertSame('down', $r['family_calibration'][0]['correction_direction']);
+    }
+
+    public function test_family_correction_direction_none_when_well_calibrated_and_no_penalty_outcomes(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 5.0, 5.0, 'stable-family')]);
+
+        $this->assertSame('none', $r['family_calibration'][0]['correction_direction']);
+    }
+
+    public function test_family_correction_direction_up_when_underclaimed(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 2.0, 6.0, 'underclaim-family')]);
+
+        $this->assertSame('up', $r['family_calibration'][0]['correction_direction']);
+    }
+
+    public function test_family_sample_count_reflects_task_count(): void
+    {
+        $r = $this->bt([
+            $this->familyTask('t1', 5.0, 5.0, 'family-a'),
+            $this->familyTask('t2', 5.0, 5.0, 'family-a'),
+            $this->familyTask('t3', 5.0, 5.0, 'family-a'),
+        ]);
+
+        $this->assertSame(3, $r['family_calibration'][0]['sample_count']);
+    }
 }
