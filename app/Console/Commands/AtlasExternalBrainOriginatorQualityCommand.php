@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyReg
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCognitionCascadeController;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCognitiveWorkPartitioner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossModelConsensusNormalizer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
@@ -82,6 +83,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainCrossModelConsensusNormalizer $consensusNormalizer,
         AtlasExternalBrainCritiqueQuorumReducer $critiqueQuorumReducer,
         AtlasExternalBrainCostQualityParetoFront $costQualityParetoFront,
+        AtlasExternalBrainCognitionCascadeController $cognitionCascadeController,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -330,6 +332,23 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // cost_quality_pareto section.
         if (is_array($decoded['cost_quality_pareto'] ?? null)) {
             $payload['cost_quality_pareto'] = $costQualityParetoFront->compute($decoded['cost_quality_pareto']);
+        }
+
+        // Optional cognition cascade control: selects the minimum-cost cheap-to-expensive
+        // cognition path (and/or the read_state→...→feedback admission cascade) that satisfies
+        // all safety invariants. Distinct from the cost/quality Pareto front above (stage-path
+        // selection vs. discrete option selection), so it only runs when the caller explicitly
+        // supplies a cognition_cascade section.
+        if (is_array($decoded['cognition_cascade'] ?? null)) {
+            $cascadeInput = $decoded['cognition_cascade'];
+            $cascadeOutput = [];
+            if (isset($cascadeInput['cascade_plan'])) {
+                $cascadeOutput['cascade_plan'] = $cognitionCascadeController->cascadePlan($cascadeInput['cascade_plan']);
+            }
+            if (isset($cascadeInput['control'])) {
+                $cascadeOutput['control'] = $cognitionCascadeController->control($cascadeInput['control']);
+            }
+            $payload['cognition_cascade'] = $cascadeOutput;
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
