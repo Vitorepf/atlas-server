@@ -304,4 +304,61 @@ final class AtlasExternalBrainPoisonRepairConversionTrackerTest extends TestCase
 
         $this->assertSame(5, $r['family_metrics']['fam-z']['repair_attempts']);
     }
+
+    // ── real claimable conversion vs analysis-only/cosmetic repair ─────────────
+
+    public function test_success_claim_without_test_scope_is_rejected_as_not_claimable(): void
+    {
+        $r = $this->svc()->track([
+            array_merge($this->event('cosmetic-fam', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS), [
+                'output_allowed_files' => ['app/Foo.php'],
+                'output_acceptance_criteria' => ['Runnable proof: phpunit tests/Unit/FooTest.php'],
+            ]),
+        ]);
+
+        $metrics = $r['family_metrics']['cosmetic-fam'];
+        $this->assertSame(0, $metrics['success_count']);
+        $this->assertSame(1, $metrics['unchanged_count']);
+        $this->assertSame(1, $metrics['rejected_success_claims']);
+    }
+
+    public function test_success_claim_without_runnable_acceptance_is_rejected_as_not_claimable(): void
+    {
+        $r = $this->svc()->track([
+            array_merge($this->event('analysis-only-fam', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS), [
+                'output_allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+                'output_acceptance_criteria' => ['looks good to me'],
+            ]),
+        ]);
+
+        $metrics = $r['family_metrics']['analysis-only-fam'];
+        $this->assertSame(0, $metrics['success_count']);
+        $this->assertSame(1, $metrics['rejected_success_claims']);
+    }
+
+    public function test_success_claim_with_full_claimable_contract_counts_as_real_conversion(): void
+    {
+        $r = $this->svc()->track([
+            array_merge($this->event('real-fam', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS), [
+                'output_allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+                'output_acceptance_criteria' => ['Runnable proof: phpunit tests/Unit/FooTest.php'],
+            ]),
+        ]);
+
+        $metrics = $r['family_metrics']['real-fam'];
+        $this->assertSame(1, $metrics['success_count']);
+        $this->assertSame(0, $metrics['rejected_success_claims']);
+        $this->assertSame('fully_converted', $metrics['repair_status']);
+    }
+
+    public function test_success_claim_without_output_fields_keeps_legacy_self_reported_behavior(): void
+    {
+        $r = $this->svc()->track([
+            $this->event('legacy-fam', AtlasExternalBrainPoisonRepairConversionTracker::STATUS_SUCCESS),
+        ]);
+
+        $metrics = $r['family_metrics']['legacy-fam'];
+        $this->assertSame(1, $metrics['success_count']);
+        $this->assertSame(0, $metrics['rejected_success_claims']);
+    }
 }

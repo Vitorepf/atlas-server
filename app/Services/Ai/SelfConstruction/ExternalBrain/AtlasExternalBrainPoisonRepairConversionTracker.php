@@ -26,6 +26,50 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
 
     public const STATUS_RETIRED = 'retired';
 
+    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
+
+    /**
+     * True when a "repaired_success" claim carries enough evidence to prove the resulting
+     * packet is genuinely claimable. Only checked when the event explicitly supplies
+     * output_allowed_files (opt-in) — callers that never supply it keep the legacy
+     * self-reported-status behavior unchanged.
+     *
+     * @param  array<string,mixed>  $event
+     */
+    private function isClaimableConversion(array $event): bool
+    {
+        if (! array_key_exists('output_allowed_files', $event)) {
+            return true;
+        }
+
+        $allowedFiles = array_values(array_map('strval', (array) $event['output_allowed_files']));
+        $implementationFiles = array_values(array_filter($allowedFiles, static fn (string $f): bool => ! self::isTestPath($f)));
+        $testFiles = array_values(array_filter($allowedFiles, [self::class, 'isTestPath']));
+
+        if ($implementationFiles === [] || $testFiles === []) {
+            return false;
+        }
+
+        $acceptanceCriteria = array_values(array_map('strval', (array) ($event['output_acceptance_criteria'] ?? [])));
+        foreach ($acceptanceCriteria as $criterion) {
+            $lower = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function isTestPath(string $path): bool
+    {
+        $norm = ltrim(str_replace('\\', '/', trim($path)), '/');
+
+        return str_starts_with($norm, 'tests/') || str_contains($norm, '/tests/') || str_ends_with($norm, 'Test.php');
+    }
+
     /**
      * @param  list<array<string,mixed>>  $events
      * @return array{schema:string, family_metrics:array<string,array<string,mixed>>, top_repair_candidate:?string, dead_end_families:list<string>, learning_notes:list<string>}
@@ -55,9 +99,20 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
             $pending = 0;
             $repairAttempts = 0;
 
+            $rejectedSuccessClaims = 0;
             foreach ($rows as $row) {
                 $status = (string) ($row['status'] ?? '');
                 $repairAttempts += max(0, (int) ($row['repair_attempts'] ?? 1));
+
+                // A success claim only counts as a real conversion when the resulting packet is
+                // genuinely claimable (implementation scope + test scope + runnable acceptance) —
+                // an analysis-only or cosmetic repair that never produced claimable work must not
+                // inflate the conversion rate.
+                if ($status === self::STATUS_SUCCESS && ! $this->isClaimableConversion($row)) {
+                    $status = self::STATUS_UNCHANGED;
+                    $rejectedSuccessClaims++;
+                }
+
                 match ($status) {
                     self::STATUS_SUCCESS => $success++,
                     self::STATUS_UNCHANGED => $unchanged++,
@@ -93,6 +148,7 @@ final class AtlasExternalBrainPoisonRepairConversionTracker
                 'pending_count' => $pending,
                 'conversion_rate' => $conversionRate,
                 'signals' => $signals,
+                'rejected_success_claims' => $rejectedSuccessClaims,
             ];
 
             if ($isDeadEnd) {
