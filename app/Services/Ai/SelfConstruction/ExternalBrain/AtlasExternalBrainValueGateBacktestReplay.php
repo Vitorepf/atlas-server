@@ -77,6 +77,10 @@ final class AtlasExternalBrainValueGateBacktestReplay
 
     private const POISON_OUTCOMES = ['give_back', 'poison'];
 
+    private const FALSE_HIGH_IMPACT_SCORE_THRESHOLD = 0.70;
+
+    private const MAX_EXAMPLE_TARGETS = 5;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -96,6 +100,11 @@ final class AtlasExternalBrainValueGateBacktestReplay
         $rejectedPoison = 0;
         $total          = 0;
 
+        $proxyAdmittedTargets        = [];
+        $templateFarmAdmittedTargets = [];
+        $falseImpactAdmittedTargets  = [];
+        $overStrictRejectedTargets   = [];
+
         foreach ($candidates as $entry) {
             if (! is_array($entry)) {
                 continue;
@@ -106,6 +115,9 @@ final class AtlasExternalBrainValueGateBacktestReplay
 
             $impactScore = (float) ($candidate['compound_impact_score'] ?? 0.0);
             $riskScore   = (float) ($candidate['give_back_risk_score']  ?? 0.0);
+            $target      = (string) ($candidate['target'] ?? 'unknown');
+            $isProxyMetric   = (bool) ($candidate['proxy_metric_flag']   ?? false);
+            $isTemplateFarm  = (bool) ($candidate['template_farm_flag'] ?? false);
 
             $admitted = $impactScore >= $impactFloor && $riskScore < $riskCeiling;
             $isPoison = in_array($outcome, self::POISON_OUTCOMES, true);
@@ -119,9 +131,20 @@ final class AtlasExternalBrainValueGateBacktestReplay
                 } elseif ($isPoison) {
                     $admittedPoison++;
                 }
+
+                if ($isProxyMetric) {
+                    $proxyAdmittedTargets[] = $target;
+                }
+                if ($isTemplateFarm) {
+                    $templateFarmAdmittedTargets[] = $target;
+                }
+                if ($isPoison && $impactScore >= self::FALSE_HIGH_IMPACT_SCORE_THRESHOLD) {
+                    $falseImpactAdmittedTargets[] = $target;
+                }
             } else {
                 if ($isGreen) {
                     $rejectedGreen++;
+                    $overStrictRejectedTargets[] = $target;
                 } elseif ($isPoison) {
                     $rejectedPoison++;
                 }
@@ -160,6 +183,13 @@ final class AtlasExternalBrainValueGateBacktestReplay
             $total,
         );
 
+        $blockedFailureModes = $this->buildBlockedFailureModes(
+            $proxyAdmittedTargets,
+            $templateFarmAdmittedTargets,
+            $falseImpactAdmittedTargets,
+            $overStrictRejectedTargets,
+        );
+
         return [
             'schema'              => self::SCHEMA,
             // legacy fields (unchanged)
@@ -179,8 +209,45 @@ final class AtlasExternalBrainValueGateBacktestReplay
             'false_reject_risk'            => round($falseRejectRisk, 6),
             // adjustment recommendations
             'recommended_threshold_adjustments' => $adjustments,
+            'calibration_changes' => $adjustments,
             'calibration_policy' => $calibrationPolicy,
+            'blocked_failure_modes' => $blockedFailureModes,
         ];
+    }
+
+    /**
+     * @param  list<string>  $proxyAdmittedTargets
+     * @param  list<string>  $templateFarmAdmittedTargets
+     * @param  list<string>  $falseImpactAdmittedTargets
+     * @param  list<string>  $overStrictRejectedTargets
+     * @return list<array{mode:string,count:int,example_targets:list<string>}>
+     */
+    private function buildBlockedFailureModes(
+        array $proxyAdmittedTargets,
+        array $templateFarmAdmittedTargets,
+        array $falseImpactAdmittedTargets,
+        array $overStrictRejectedTargets,
+    ): array {
+        $modes = [
+            'proxy_metric_admitted' => $proxyAdmittedTargets,
+            'template_farm_admitted' => $templateFarmAdmittedTargets,
+            'false_impact_admitted' => $falseImpactAdmittedTargets,
+            'over_strict_rejection' => $overStrictRejectedTargets,
+        ];
+
+        $result = [];
+        foreach ($modes as $mode => $targets) {
+            if ($targets === []) {
+                continue;
+            }
+            $result[] = [
+                'mode' => $mode,
+                'count' => count($targets),
+                'example_targets' => array_slice(array_values(array_unique($targets)), 0, self::MAX_EXAMPLE_TARGETS),
+            ];
+        }
+
+        return $result;
     }
 
     /**

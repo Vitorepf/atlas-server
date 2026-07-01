@@ -521,4 +521,104 @@ final class AtlasExternalBrainValueGateBacktestReplayTest extends TestCase
         $this->assertEqualsWithDelta(0.5, $result['calibration_policy']['false_positive_pressure'], 0.0001);
         $this->assertEqualsWithDelta(0.5, $result['calibration_policy']['false_negative_pressure'], 0.0001);
     }
+
+    // ── blocked_failure_modes / calibration_changes — AC: not only pass/fail ─
+
+    public function test_output_has_calibration_changes_and_blocked_failure_modes_keys(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [$this->entry('commit_success')]]);
+
+        $this->assertArrayHasKey('calibration_changes', $result);
+        $this->assertArrayHasKey('blocked_failure_modes', $result);
+        $this->assertIsArray($result['blocked_failure_modes']);
+    }
+
+    private function flaggedEntry(string $outcome, array $candidateOverrides): array
+    {
+        return [
+            'candidate' => array_merge([
+                'target' => 'AtlasFooService',
+                'compound_impact_score' => 0.80,
+                'give_back_risk_score' => 0.20,
+            ], $candidateOverrides),
+            'outcome' => $outcome,
+        ];
+    }
+
+    // ── AC4: true high-value task — admitted, no failure modes flagged ────────
+
+    public function test_true_high_value_task_is_admitted_with_no_failure_modes(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [
+            $this->flaggedEntry('commit_success', []),
+        ]]);
+
+        $this->assertSame(1, $result['admitted_green']);
+        $this->assertSame([], $result['blocked_failure_modes']);
+    }
+
+    // ── AC4: proxy false positive — admitted via proxy metric, actually poison ─
+
+    public function test_proxy_metric_false_positive_is_flagged_in_blocked_failure_modes(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [
+            $this->flaggedEntry('give_back', ['proxy_metric_flag' => true]),
+        ]]);
+
+        $modes = array_column($result['blocked_failure_modes'], 'mode');
+        $this->assertContains('proxy_metric_admitted', $modes);
+    }
+
+    // ── AC4: template-farm false positive — admitted via templated proposal ───
+
+    public function test_template_farm_false_positive_is_flagged_in_blocked_failure_modes(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [
+            $this->flaggedEntry('give_back', ['template_farm_flag' => true]),
+        ]]);
+
+        $modes = array_column($result['blocked_failure_modes'], 'mode');
+        $this->assertContains('template_farm_admitted', $modes);
+    }
+
+    // ── AC4: over-strict false negative — high-value task wrongly rejected ────
+
+    public function test_over_strict_false_negative_is_flagged_in_blocked_failure_modes(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [
+            // impact just below the default floor (0.30) but the task actually succeeded.
+            $this->flaggedEntry('commit_success', ['compound_impact_score' => 0.25]),
+        ]]);
+
+        $modes = array_column($result['blocked_failure_modes'], 'mode');
+        $this->assertContains('over_strict_rejection', $modes);
+    }
+
+    // ── false-impact admission — admitted with a high score but outcome poisoned ──
+
+    public function test_false_high_impact_admission_is_flagged(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [
+            $this->flaggedEntry('poison', ['compound_impact_score' => 0.90]),
+        ]]);
+
+        $modes = array_column($result['blocked_failure_modes'], 'mode');
+        $this->assertContains('false_impact_admitted', $modes);
+    }
+
+    public function test_blocked_failure_mode_entries_carry_count_and_example_targets(): void
+    {
+        $result = $this->replay()->replay(['candidates' => [
+            $this->flaggedEntry('give_back', ['proxy_metric_flag' => true]),
+        ]]);
+
+        $proxyMode = array_values(array_filter(
+            $result['blocked_failure_modes'],
+            fn (array $m): bool => $m['mode'] === 'proxy_metric_admitted',
+        ))[0] ?? null;
+
+        $this->assertNotNull($proxyMode);
+        $this->assertSame(1, $proxyMode['count']);
+        $this->assertContains('AtlasFooService', $proxyMode['example_targets']);
+    }
 }
