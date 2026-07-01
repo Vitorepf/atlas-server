@@ -146,4 +146,81 @@ final class AtlasSelfConstructionReceiptFactIndexTest extends TestCase
 
         $this->assertContains('verification_receipts:chain_ref_unknown:ghost-decision', $r['blockers']);
     }
+
+    // ── join surface: task / commit / worker / decision / capability (AC) ──────
+
+    public function test_rows_are_joinable_by_task_commit_worker_decision_and_capability(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project([
+            'task_receipts' => [[
+                'id' => 't-1', 'hash' => 'h', 'ts' => 't',
+                'task_packet_id' => 'pkt-1', 'commit_sha' => 'abc123',
+                'worker_id' => 'worker-a', 'decision_ref' => 'd-1', 'capability' => 'php',
+            ]],
+        ]);
+
+        $this->assertSame([['kind' => 'task_receipts', 'id' => 't-1']], $r['by_task']['pkt-1']);
+        $this->assertSame([['kind' => 'task_receipts', 'id' => 't-1']], $r['by_commit']['abc123']);
+        $this->assertSame([['kind' => 'task_receipts', 'id' => 't-1']], $r['by_worker']['worker-a']);
+        $this->assertSame([['kind' => 'task_receipts', 'id' => 't-1']], $r['by_decision']['d-1']);
+        $this->assertSame([['kind' => 'task_receipts', 'id' => 't-1']], $r['by_capability']['php']);
+    }
+
+    public function test_duplicate_receipts_across_kinds_join_to_same_task_bucket(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project([
+            'task_receipts' => [['id' => 't-1', 'hash' => 'h', 'ts' => 't', 'task_packet_id' => 'pkt-1']],
+            'verification_receipts' => [['id' => 'v-1', 'hash' => 'h', 'ts' => 't', 'task_packet_id' => 'pkt-1']],
+        ]);
+
+        $this->assertCount(2, $r['by_task']['pkt-1']);
+        $kinds = array_column($r['by_task']['pkt-1'], 'kind');
+        $this->assertContains('task_receipts', $kinds);
+        $this->assertContains('verification_receipts', $kinds);
+    }
+
+    public function test_row_missing_all_join_fields_is_a_missing_evidence_gap(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project([
+            'lease_receipts' => [['id' => 'l-1', 'hash' => 'h', 'ts' => 't']],
+        ]);
+
+        $this->assertContains('lease_receipts:l-1', $r['missing_evidence_gaps']);
+        $this->assertSame([], $r['by_task']);
+    }
+
+    public function test_row_with_one_join_field_is_not_flagged_a_missing_evidence_gap(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project([
+            'lease_receipts' => [['id' => 'l-1', 'hash' => 'h', 'ts' => 't', 'worker_id' => 'worker-x']],
+        ]);
+
+        $this->assertNotContains('lease_receipts:l-1', $r['missing_evidence_gaps']);
+        $this->assertArrayHasKey('worker-x', $r['by_worker']);
+    }
+
+    public function test_join_indexes_are_sorted_byte_stably(): void
+    {
+        $r = (new AtlasSelfConstructionReceiptFactIndex)->project([
+            'task_receipts' => [
+                ['id' => 't-1', 'hash' => 'h', 'ts' => 't', 'task_packet_id' => 'zzz-pkt'],
+                ['id' => 't-2', 'hash' => 'h', 'ts' => 't', 'task_packet_id' => 'aaa-pkt'],
+            ],
+        ]);
+
+        $this->assertSame(['aaa-pkt', 'zzz-pkt'], array_keys($r['by_task']));
+    }
+
+    public function test_join_output_is_deterministic_across_two_calls(): void
+    {
+        $facts = [
+            'task_receipts' => [['id' => 't-1', 'hash' => 'h', 'ts' => 't', 'task_packet_id' => 'pkt-1', 'worker_id' => 'w-a']],
+            'merge_receipts' => [['id' => 'm-1', 'hash' => 'h', 'ts' => 't', 'commit_sha' => 'sha-1']],
+        ];
+        $index = new AtlasSelfConstructionReceiptFactIndex;
+        $a = $index->project($facts);
+        $b = $index->project($facts);
+
+        $this->assertSame(json_encode($a), json_encode($b));
+    }
 }

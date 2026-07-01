@@ -123,12 +123,85 @@ final class AtlasSelfConstructionReceiptFactIndex
 
         sort($blockers, SORT_STRING);
 
+        $joinIndexes = $this->buildJoinIndexes($index);
+
         return [
             'schema' => self::SCHEMA,
             'index' => $index,
             'blockers' => $blockers,
             'summary' => $summary,
             'decision_link_summary' => $decisionLinkSummary,
+            'by_task' => $joinIndexes['by_task'],
+            'by_commit' => $joinIndexes['by_commit'],
+            'by_worker' => $joinIndexes['by_worker'],
+            'by_decision' => $joinIndexes['by_decision'],
+            'by_capability' => $joinIndexes['by_capability'],
+            'missing_evidence_gaps' => $joinIndexes['missing_evidence_gaps'],
+        ];
+    }
+
+    /**
+     * Secondary join indexes over the already-deduplicated primary index — task_packet_id,
+     * commit_sha, worker_id, decision_ref and capability, when a row declares them. A row that
+     * declares none of these join facts is a missing-evidence gap: the receipt exists but can't
+     * be joined to task/commit/worker/decision/capability context by downstream learning.
+     *
+     * @param  array<string,array<string,array<string,mixed>>>  $index
+     * @return array{by_task:array<string,list<array{kind:string,id:string}>>, by_commit:array<string,list<array{kind:string,id:string}>>, by_worker:array<string,list<array{kind:string,id:string}>>, by_decision:array<string,list<array{kind:string,id:string}>>, by_capability:array<string,list<array{kind:string,id:string}>>, missing_evidence_gaps:list<string>}
+     */
+    private function buildJoinIndexes(array $index): array
+    {
+        $buckets = [
+            'by_task' => [],
+            'by_commit' => [],
+            'by_worker' => [],
+            'by_decision' => [],
+            'by_capability' => [],
+        ];
+        $fieldByBucket = [
+            'by_task' => 'task_packet_id',
+            'by_commit' => 'commit_sha',
+            'by_worker' => 'worker_id',
+            'by_decision' => 'decision_ref',
+            'by_capability' => 'capability',
+        ];
+        $gaps = [];
+
+        foreach (self::KINDS as $kind) {
+            foreach ($index[$kind] as $id => $r) {
+                $ref = ['kind' => $kind, 'id' => (string) $id];
+                $joinedAny = false;
+                foreach ($fieldByBucket as $bucketName => $field) {
+                    $value = trim((string) ($r[$field] ?? ''));
+                    if ($value === '') {
+                        continue;
+                    }
+                    $joinedAny = true;
+                    $buckets[$bucketName][$value][] = $ref;
+                }
+                if (! $joinedAny) {
+                    $gaps[] = $kind.':'.$id;
+                }
+            }
+        }
+
+        foreach ($buckets as $bucketName => $bucket) {
+            ksort($bucket);
+            foreach ($bucket as $value => $refs) {
+                usort($refs, static fn (array $a, array $b): int => $a['kind'] === $b['kind'] ? strcmp($a['id'], $b['id']) : strcmp($a['kind'], $b['kind']));
+                $bucket[$value] = $refs;
+            }
+            $buckets[$bucketName] = $bucket;
+        }
+        sort($gaps, SORT_STRING);
+
+        return [
+            'by_task' => $buckets['by_task'],
+            'by_commit' => $buckets['by_commit'],
+            'by_worker' => $buckets['by_worker'],
+            'by_decision' => $buckets['by_decision'],
+            'by_capability' => $buckets['by_capability'],
+            'missing_evidence_gaps' => $gaps,
         ];
     }
 }
