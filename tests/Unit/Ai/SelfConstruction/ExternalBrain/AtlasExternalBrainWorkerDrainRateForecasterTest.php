@@ -7,101 +7,127 @@ namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainWorkerDrainRateForecaster;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Proves the supply-window replenish decision layered on top of forecast(): hours_to_starvation is
- * derived from claimable_depth and proven throughput; recommend_replenish only fires when that proven
- * throughput can drain the claimable window inside the configured supply_window_hours; active leases
- * alone (zero recent_successes) never count as throughput, so replenish never fires on unproven leases.
- */
 final class AtlasExternalBrainWorkerDrainRateForecasterTest extends TestCase
 {
-    private function forecaster(): AtlasExternalBrainWorkerDrainRateForecaster
+    private AtlasExternalBrainWorkerDrainRateForecaster $forecaster;
+
+    protected function setUp(): void
     {
-        return new AtlasExternalBrainWorkerDrainRateForecaster;
+        parent::setUp();
+        $this->forecaster = new AtlasExternalBrainWorkerDrainRateForecaster();
     }
 
-    public function test_hours_to_starvation_derived_from_claimable_depth_and_proven_throughput(): void
+    // AC 2: forecasted drain increases with more workers and recent completions
+    public function test_drain_increases_with_more_workers(): void
     {
-        $result = $this->forecaster()->forecast([
-            'active_leases' => 2,
-            'recent_successes' => 8,
-            'recent_give_backs' => 2,
-            'median_task_minutes' => 30,
-            'claimable_depth' => 10,
+        $low = $this->forecaster->forecast([
+            'active_workers' => 2,
+            'claimable_depth' => 50,
+            'recent_completions' => 10,
+            'window_seconds' => 3600,
         ]);
 
-        $this->assertNotNull($result['hours_to_starvation']);
-        $this->assertGreaterThan(0.0, $result['hours_to_starvation']);
+        $high = $this->forecaster->forecast([
+            'active_workers' => 8,
+            'claimable_depth' => 50,
+            'recent_completions' => 40,
+            'window_seconds' => 3600,
+        ]);
+
+        $this->assertGreaterThan(
+            $low['forecasted_drain_per_hour'],
+            $high['forecasted_drain_per_hour'],
+            'drain must increase with more workers+completions'
+        );
     }
 
-    public function test_recommend_replenish_true_when_proven_throughput_drains_within_supply_window(): void
+    // AC 3: high give_back velocity lowers effective healthy supply
+    public function test_high_give_back_lowers_effective_supply(): void
     {
-        $result = $this->forecaster()->forecast([
-            'active_leases' => 4,
-            'recent_successes' => 10,
+        $healthy = $this->forecaster->forecast([
+            'active_workers' => 5,
+            'claimable_depth' => 50,
+            'recent_completions' => 20,
             'recent_give_backs' => 0,
-            'median_task_minutes' => 15,
+            'window_seconds' => 3600,
+        ]);
+
+        $eroded = $this->forecaster->forecast([
+            'active_workers' => 5,
+            'claimable_depth' => 50,
+            'recent_completions' => 20,
+            'recent_give_backs' => 20,
+            'window_seconds' => 3600,
+        ]);
+
+        $this->assertGreaterThan(
+            $eroded['effective_healthy_supply'],
+            $healthy['effective_healthy_supply'],
+            'high give_back velocity must lower effective supply'
+        );
+    }
+
+    // AC 4: recommendations include originate_batch_size and quality_warning fields
+    public function test_output_has_originate_batch_size_and_quality_warning(): void
+    {
+        $result = $this->forecaster->forecast([
+            'active_workers' => 10,
             'claimable_depth' => 5,
-            'supply_window_hours' => 24,
+            'recent_completions' => 50,
+            'recent_give_backs' => 30,
+            'window_seconds' => 3600,
         ]);
 
-        $this->assertTrue($result['recommend_replenish']);
+        $this->assertArrayHasKey('originate_batch_size', $result);
+        $this->assertArrayHasKey('quality_warning', $result);
+        $this->assertIsInt($result['originate_batch_size']);
     }
 
-    public function test_recommend_replenish_false_when_throughput_cannot_drain_within_supply_window(): void
+    public function test_comfortable_supply_yields_zero_batch_size(): void
     {
-        $result = $this->forecaster()->forecast([
-            'active_leases' => 1,
-            'recent_successes' => 5,
-            'recent_give_backs' => 0,
-            'median_task_minutes' => 60,
+        $result = $this->forecaster->forecast([
+            'active_workers' => 3,
             'claimable_depth' => 500,
-            'supply_window_hours' => 4,
+            'recent_completions' => 5,
+            'window_seconds' => 3600,
         ]);
 
-        $this->assertFalse($result['recommend_replenish']);
+        $this->assertSame(0, $result['originate_batch_size']);
+        $this->assertSame('originate_comfortable', $result['recommendation']);
     }
 
-    public function test_recommend_replenish_false_when_no_supply_window_configured(): void
+    public function test_quality_erosion_lowers_effective_supply(): void
     {
-        $result = $this->forecaster()->forecast([
-            'active_leases' => 4,
-            'recent_successes' => 10,
-            'recent_give_backs' => 0,
-            'median_task_minutes' => 15,
-            'claimable_depth' => 5,
+        $clean = $this->forecaster->forecast([
+            'active_workers' => 5,
+            'claimable_depth' => 50,
+            'recent_completions' => 10,
+            'quality_erosion' => 0.0,
+            'window_seconds' => 3600,
         ]);
 
-        $this->assertFalse($result['recommend_replenish']);
-        $this->assertNull($result['supply_window_hours']);
+        $eroded = $this->forecaster->forecast([
+            'active_workers' => 5,
+            'claimable_depth' => 50,
+            'recent_completions' => 10,
+            'quality_erosion' => 0.5,
+            'window_seconds' => 3600,
+        ]);
+
+        $this->assertGreaterThan($eroded['effective_healthy_supply'], $clean['effective_healthy_supply']);
     }
 
-    public function test_active_leases_without_recent_success_never_count_as_throughput_for_replenish(): void
+    public function test_high_give_back_triggers_quality_warning(): void
     {
-        $result = $this->forecaster()->forecast([
-            'active_leases' => 10,
-            'recent_successes' => 0,
-            'recent_give_backs' => 0,
-            'median_task_minutes' => 15,
-            'claimable_depth' => 5,
-            'supply_window_hours' => 24,
+        $result = $this->forecaster->forecast([
+            'active_workers' => 5,
+            'claimable_depth' => 50,
+            'recent_completions' => 5,
+            'recent_give_backs' => 20,
+            'window_seconds' => 3600,
         ]);
 
-        $this->assertSame(0.0, $result['estimated_drain_per_hour']);
-        $this->assertNull($result['hours_to_starvation']);
-        $this->assertFalse($result['recommend_replenish']);
-    }
-
-    public function test_claimable_depth_defaults_to_queue_depth_when_absent(): void
-    {
-        $result = $this->forecaster()->forecast([
-            'active_leases' => 2,
-            'recent_successes' => 5,
-            'recent_give_backs' => 0,
-            'median_task_minutes' => 30,
-            'queue_depth' => 20,
-        ]);
-
-        $this->assertSame(20, $result['inputs']['claimable_depth']);
+        $this->assertNotNull($result['quality_warning']);
+        $this->assertStringContainsString('give_back', $result['quality_warning']);
     }
 }
