@@ -103,4 +103,30 @@ final class AtlasSelfConstructionCompletionAuditBlockerExplainerServiceTest exte
         $this->assertNotEmpty($payload['explainer_hash']);
         $this->assertArrayHasKey('blocker_resolution_classes', $payload);
     }
+
+    // ── AC: multiple simultaneous blockers are never collapsed into one generic failure ──
+
+    public function test_multiple_failed_criteria_each_produce_a_distinct_actionable_blocker(): void
+    {
+        $payload = $this->service()->build($this->audit([
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ]));
+
+        $this->assertCount(3, $payload['blockers']);
+        $blockerIds = array_column($payload['blockers'], 'blocker_id');
+        $this->assertSame([
+            'runtime_gap_matrix_all_runtime_y',
+            'human_signed_os_complete_receipt_present',
+            'end_to_end_real_provider_smoke_green',
+        ], $blockerIds);
+
+        $resolutionClasses = array_unique(array_column($payload['blockers'], 'resolution_class'));
+        $this->assertGreaterThan(1, count($resolutionClasses), 'distinct blocker classes must survive, not collapse into one');
+
+        foreach ($payload['blockers'] as $blocker) {
+            $this->assertNotEmpty($blocker['required_evidence'], "blocker {$blocker['blocker_id']} must carry concrete required_evidence, not a vague message");
+        }
+    }
 }
