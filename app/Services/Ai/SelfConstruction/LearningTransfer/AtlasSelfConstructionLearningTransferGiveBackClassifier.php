@@ -75,6 +75,24 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
      */
     public const CLASS_PACKET_SHAPE_DEFECT = 'packet_shape_defect';
 
+    /** Classes that are structurally unfixable poison — never requeue, high poison_confidence. */
+    private const POISON_CLASSES = [
+        self::CLASS_DUPLICATE_CAPABILITY,
+        self::CLASS_FORBIDDEN_TARGET,
+        self::CLASS_FORBIDDEN_SCOPE,
+    ];
+
+    /** Classes whose repair is a scope/acceptance respec, not a worker/queue fix. */
+    private const SCOPE_REPAIR_CLASSES = [
+        self::CLASS_SCOPE_GAP,
+        self::CLASS_FORBIDDEN_SCOPE,
+        self::CLASS_CONTRADICTORY_ACCEPTANCE,
+        self::CLASS_PACKET_SHAPE_DEFECT,
+    ];
+
+    /** Key-name-free string markers (case-insensitive) that make an evidence/blocking string provider-unsafe. */
+    private const SENSITIVE_STRING_MARKERS = ['secret', 'token', 'api_key', 'apikey', 'credential', 'password', 'bearer'];
+
     /**
      * @param  array<string,mixed>  $giveBackFact  the give_back payload as recorded by the worker
      * @return array<string,mixed>
@@ -97,14 +115,22 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
             $class = self::CLASS_WORKER_FEED_STARVATION;
         }
 
+        $actionHint = $this->actionHint($class);
+
         $result = [
             'schema_version' => self::SCHEMA,
             'class' => $class,
-            'action_hint' => $this->actionHint($class),
+            'action_hint' => $actionHint,
             'packet_id' => $packetId,
             'allowed_files' => $allowedFiles,
             'blocking_facts' => $blockingFacts,
             'evidence_refs' => $evidenceRefs,
+            'root_cause' => $class,
+            'next_action' => $actionHint,
+            'requeue_eligible' => ! in_array($class, self::POISON_CLASSES, true) && $class !== self::CLASS_UNKNOWN,
+            'scope_repair_needed' => in_array($class, self::SCOPE_REPAIR_CLASSES, true),
+            'poison_confidence' => in_array($class, self::POISON_CLASSES, true) ? 0.9 : 0.0,
+            'evidence_snippets' => $this->redactedSnippets($evidenceRefs, $blockingFacts),
         ];
 
         // Queue starvation carries its own repair signal — claimable depth and active worker
@@ -118,6 +144,30 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifier
         }
 
         return $result;
+    }
+
+    /**
+     * @param  list<mixed>  $evidenceRefs
+     * @param  list<mixed>  $blockingFacts
+     * @return list<string>
+     */
+    private function redactedSnippets(array $evidenceRefs, array $blockingFacts): array
+    {
+        $snippets = [];
+        foreach (array_merge($evidenceRefs, $blockingFacts) as $item) {
+            $s = (string) $item;
+            $lower = strtolower($s);
+            $isSensitive = false;
+            foreach (self::SENSITIVE_STRING_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    $isSensitive = true;
+                    break;
+                }
+            }
+            $snippets[] = $isSensitive ? '[redacted]' : $s;
+        }
+
+        return array_values(array_unique($snippets));
     }
 
     private function actionHint(string $class): string

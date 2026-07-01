@@ -109,9 +109,12 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifierTest extends 
         $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
             ->classify($this->fact(['reason' => 'duplicate_capability:x']));
 
-        // Output must be EXACTLY the canonical 7 keys — no extra narrative.
+        // Output must be EXACTLY the canonical fact-only keys — no extra narrative.
         $this->assertSame(
-            ['schema_version', 'class', 'action_hint', 'packet_id', 'allowed_files', 'blocking_facts', 'evidence_refs'],
+            [
+                'schema_version', 'class', 'action_hint', 'packet_id', 'allowed_files', 'blocking_facts', 'evidence_refs',
+                'root_cause', 'next_action', 'requeue_eligible', 'scope_repair_needed', 'poison_confidence', 'evidence_snippets',
+            ],
             array_keys($verdict),
         );
     }
@@ -208,5 +211,71 @@ final class AtlasSelfConstructionLearningTransferGiveBackClassifierTest extends 
         foreach (['schema_version', 'class', 'action_hint', 'packet_id', 'allowed_files', 'blocking_facts', 'evidence_refs'] as $key) {
             $this->assertArrayHasKey($key, $verdict, "Missing key: {$key}");
         }
+    }
+
+    // ── AC: root_cause, next_action, requeue_eligible, scope_repair_needed, poison_confidence, evidence_snippets ──
+
+    public function test_output_includes_new_learning_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'scope_gap:x']));
+
+        foreach (['root_cause', 'next_action', 'requeue_eligible', 'scope_repair_needed', 'poison_confidence', 'evidence_snippets'] as $key) {
+            $this->assertArrayHasKey($key, $verdict, "Missing key: {$key}");
+        }
+    }
+
+    public function test_allowed_files_gap_is_scope_repair_needed_and_requeue_eligible(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'scope_gap:allowed_files_insufficient_to_cover_acceptance']));
+
+        $this->assertSame('scope_gap', $verdict['root_cause']);
+        $this->assertTrue($verdict['scope_repair_needed']);
+        $this->assertTrue($verdict['requeue_eligible']);
+        $this->assertSame(0.0, $verdict['poison_confidence']);
+    }
+
+    public function test_acceptance_contradiction_is_scope_repair_needed(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'contradictory_acceptance:breaks_sibling_tests']));
+
+        $this->assertSame('contradictory_acceptance', $verdict['root_cause']);
+        $this->assertTrue($verdict['scope_repair_needed']);
+    }
+
+    public function test_duplicate_capability_already_implemented_is_poison_and_not_requeue_eligible(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'duplicate_capability:already_exists_as_AtlasFoo']));
+
+        $this->assertSame('duplicate_capability', $verdict['root_cause']);
+        $this->assertFalse($verdict['requeue_eligible']);
+        $this->assertGreaterThan(0.5, $verdict['poison_confidence']);
+    }
+
+    public function test_transient_test_failure_is_requeue_eligible_not_poison(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact(['reason' => 'worker_error:execution_error_in_PhpUnit']));
+
+        $this->assertSame('worker_error', $verdict['root_cause']);
+        $this->assertTrue($verdict['requeue_eligible']);
+        $this->assertSame(0.0, $verdict['poison_confidence']);
+        $this->assertFalse($verdict['scope_repair_needed']);
+    }
+
+    public function test_evidence_snippets_redact_secret_looking_strings(): void
+    {
+        $verdict = (new AtlasSelfConstructionLearningTransferGiveBackClassifier)
+            ->classify($this->fact([
+                'reason' => 'scope_gap:x',
+                'evidence_refs' => ['receipt:r1', 'api_key=sk-live-abc123'],
+            ]));
+
+        $this->assertContains('receipt:r1', $verdict['evidence_snippets']);
+        $this->assertContains('[redacted]', $verdict['evidence_snippets']);
+        $this->assertNotContains('api_key=sk-live-abc123', $verdict['evidence_snippets']);
     }
 }
