@@ -181,4 +181,102 @@ final class AtlasProjectLaneReleaseGovernorTest extends TestCase
         $this->assertNotEmpty($a['next_actions']);
         $this->assertSame($a['next_actions'], $b['next_actions'], 'next_actions must be deterministic');
     }
+
+    // ── AC2: governance_action canonical vocabulary (release/hold/rollback/request_repair) ──
+
+    public function test_governance_action_release_for_merge_ready(): void
+    {
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($this->cleanFacts());
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::ACTION_RELEASE, $r['governance_action']);
+    }
+
+    public function test_governance_action_hold_for_hold(): void
+    {
+        $f = $this->cleanFacts();
+        $f['receipt_evidence'] = [];
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::ACTION_HOLD, $r['governance_action']);
+    }
+
+    public function test_governance_action_rollback_for_rollback_required(): void
+    {
+        $f = $this->cleanFacts();
+        $f['verification_court_verdict'] = ['verdict' => 'failed', 'server_side_green' => false];
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::ACTION_ROLLBACK, $r['governance_action']);
+    }
+
+    public function test_governance_action_request_repair_for_quarantine(): void
+    {
+        $f = $this->cleanFacts();
+        $f['repeated_failure_streak'] = 5;
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::ACTION_REQUEST_REPAIR, $r['governance_action']);
+    }
+
+    // ── AC3: stale lane context / verification policy mismatch block release ───
+
+    public function test_stale_project_lane_context_yields_hold(): void
+    {
+        $f = $this->cleanFacts();
+        $f['project_lane_context_stale'] = true;
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_HOLD, $r['decision']);
+        $this->assertContains('project_lane_context_stale', $r['reasons']);
+    }
+
+    public function test_verification_policy_mismatch_yields_hold(): void
+    {
+        $f = $this->cleanFacts();
+        $f['verification_policy_mismatch'] = true;
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_HOLD, $r['decision']);
+        $this->assertContains('verification_policy_mismatched', $r['reasons']);
+    }
+
+    public function test_absent_new_ac3_facts_never_block_merge_ready(): void
+    {
+        // Backward compatibility: omitting both new facts entirely must reproduce merge_ready exactly.
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($this->cleanFacts());
+
+        $this->assertSame(AtlasProjectLaneReleaseGovernor::DECISION_MERGE, $r['decision']);
+    }
+
+    // ── AC4: smallest_missing_evidence names the cheapest fix first ─────────────
+
+    public function test_smallest_missing_evidence_null_when_merge_ready(): void
+    {
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($this->cleanFacts());
+
+        $this->assertNull($r['smallest_missing_evidence']);
+    }
+
+    public function test_smallest_missing_evidence_prefers_receipt_over_autonomy_readiness(): void
+    {
+        $f = $this->cleanFacts();
+        $f['receipt_evidence'] = [];
+        $f['autonomy_readiness_facts'] = ['status' => 'degraded'];
+
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertContains('receipt_envelope_hash_missing', $r['reasons']);
+        $this->assertContains('autonomy_readiness_not_ready', $r['reasons']);
+        $this->assertSame('receipt_envelope_hash_missing', $r['smallest_missing_evidence']);
+    }
+
+    public function test_smallest_missing_evidence_present_for_single_reason(): void
+    {
+        $f = $this->cleanFacts();
+        $f['queue_namespace_isolated'] = false;
+
+        $r = (new AtlasProjectLaneReleaseGovernor)->decide($f);
+
+        $this->assertSame('queue_namespace_not_isolated', $r['smallest_missing_evidence']);
+    }
 }

@@ -19,6 +19,20 @@ namespace App\Services\Ai\SelfConstruction\MultiProject;
  *   - DETERMINISTIC envelope.
  *   - NO scalar score.
  *   - Returns lane-scoped {project_id, lane_namespace, reasons, next_actions}.
+ *
+ * governance_action (AC2) maps the pre-existing decision constant onto the canonical release
+ * vocabulary: merge_ready→release, hold→hold, rollback_required→rollback, quarantine→request_repair
+ * (a quarantined lane needs its underlying defect repaired before it can resume, not a mechanical
+ * rollback). The pre-existing decision constants/values are completely untouched.
+ *
+ * project_lane_context_stale / verification_policy_mismatch (AC3, opt-in): two new facts, both
+ * defaulting to false (pass) so every caller that never supplies them is unaffected. When true,
+ * they force HOLD with a dedicated reason — a stale lane context or a verification policy that does
+ * not match the lane's own policy must never be silently ignored on the path to release.
+ *
+ * smallest_missing_evidence (AC4): among the reasons blocking merge, names the single smallest/
+ * cheapest-to-fix gap first (via a fixed priority order, not the alphabetical `reasons` list) so a
+ * caller can act on the highest-leverage fix rather than reading the whole reason dump.
  */
 final class AtlasProjectLaneReleaseGovernor
 {
@@ -33,6 +47,35 @@ final class AtlasProjectLaneReleaseGovernor
     public const DECISION_QUARANTINE = 'quarantine';
 
     public const QUARANTINE_FAILURE_STREAK = 3;
+
+    public const ACTION_RELEASE = 'release';
+
+    public const ACTION_HOLD = 'hold';
+
+    public const ACTION_ROLLBACK = 'rollback';
+
+    public const ACTION_REQUEST_REPAIR = 'request_repair';
+
+    private const GOVERNANCE_ACTION_MAP = [
+        self::DECISION_MERGE => self::ACTION_RELEASE,
+        self::DECISION_HOLD => self::ACTION_HOLD,
+        self::DECISION_ROLLBACK => self::ACTION_ROLLBACK,
+        self::DECISION_QUARANTINE => self::ACTION_REQUEST_REPAIR,
+    ];
+
+    /** Smallest-fix-first priority order for reason prefixes (AC4). Unmatched reasons rank last. */
+    private const REASON_PRIORITY_PREFIXES = [
+        'receipt_envelope_hash_missing',
+        'knowledge_sync',
+        'rollback_not_conformant',
+        'queue_namespace_not_isolated',
+        'cross_lane_leak_check_not_passed',
+        'verification_policy_mismatched',
+        'project_lane_context_stale',
+        'verification_not_passed_or_not_server_side_green',
+        'autonomy_readiness_not_ready',
+        'finality_provider_forbidden',
+    ];
 
     /**
      * @param  array{
@@ -129,6 +172,15 @@ final class AtlasProjectLaneReleaseGovernor
             }
         }
 
+        // AC3: stale project-lane context or a verification policy mismatch must block release.
+        // Both are opt-in facts defaulting to false (pass) so an omitting caller is unaffected.
+        if ((bool) ($facts['project_lane_context_stale'] ?? false)) {
+            $reasons[] = 'project_lane_context_stale';
+        }
+        if ((bool) ($facts['verification_policy_mismatch'] ?? false)) {
+            $reasons[] = 'verification_policy_mismatched';
+        }
+
         sort($reasons, SORT_STRING);
 
         if ($reasons !== []) {
@@ -141,7 +193,7 @@ final class AtlasProjectLaneReleaseGovernor
     /**
      * @param  list<string>  $reasons
      * @param  list<string>  $nextActions
-     * @return array{schema:string, decision:string, project_id:string, lane_namespace:string, reasons:list<string>, next_actions:list<string>}
+     * @return array{schema:string, decision:string, project_id:string, lane_namespace:string, reasons:list<string>, next_actions:list<string>, governance_action:string, smallest_missing_evidence:?string}
      */
     private function envelope(string $decision, string $projectId, string $laneNs, array $reasons, array $nextActions): array
     {
@@ -152,6 +204,33 @@ final class AtlasProjectLaneReleaseGovernor
             'lane_namespace' => $laneNs,
             'reasons' => $reasons,
             'next_actions' => $nextActions,
+            'governance_action' => self::GOVERNANCE_ACTION_MAP[$decision] ?? self::ACTION_HOLD,
+            'smallest_missing_evidence' => $this->smallestMissingEvidence($reasons),
         ];
+    }
+
+    /**
+     * @param  list<string>  $reasons
+     */
+    private function smallestMissingEvidence(array $reasons): ?string
+    {
+        if ($reasons === []) {
+            return null;
+        }
+
+        $rank = static function (string $reason): int {
+            foreach (self::REASON_PRIORITY_PREFIXES as $i => $prefix) {
+                if (str_starts_with($reason, $prefix)) {
+                    return $i;
+                }
+            }
+
+            return count(self::REASON_PRIORITY_PREFIXES);
+        };
+
+        $sorted = $reasons;
+        usort($sorted, static fn (string $a, string $b): int => $rank($a) <=> $rank($b) ?: strcmp($a, $b));
+
+        return $sorted[0];
     }
 }
