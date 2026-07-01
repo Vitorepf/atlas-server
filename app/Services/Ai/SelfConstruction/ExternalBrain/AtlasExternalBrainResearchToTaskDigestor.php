@@ -112,7 +112,7 @@ final class AtlasExternalBrainResearchToTaskDigestor
             return [false, self::REJECTION_PROVIDER_STEADY_STATE_DEPENDENCY];
         }
 
-        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '' || $sourceType === '') {
+        if ($adaptationNotes === '' || $allowedFiles === [] || $testPath === '') {
             return [false, self::REJECTION_INCOMPLETE_CANDIDATE];
         }
 
