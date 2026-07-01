@@ -38,6 +38,22 @@ final class AtlasSelfConstructionCircuitCohesionMetric
     /** Weight applied to each duplicate helper when computing deletion_upside. */
     private const DUPLICATE_HELPER_WEIGHT = 10.0;
 
+    public const COLLAPSE_NOW = 'collapse_now';
+
+    public const COLLAPSE_SOON = 'collapse_soon';
+
+    public const COLLAPSE_MONITOR = 'monitor';
+
+    public const COLLAPSE_KEEP = 'keep';
+
+    /** boundary_drift / fan_in_out_pressure at/above this are treated as a real early-warning signal. */
+    private const BOUNDARY_DRIFT_THRESHOLD = 0.5;
+
+    private const FAN_PRESSURE_THRESHOLD = 0.7;
+
+    /** 2+ sibling circuits doing the same job is a real duplicated-responsibility signal. */
+    private const DUPLICATE_RESPONSIBILITY_THRESHOLD = 2;
+
     /**
      * @param  array{
      *   before?: array<string, float|int>,
@@ -106,11 +122,17 @@ final class AtlasSelfConstructionCircuitCohesionMetric
      * merged into one number that could hide the risk.
      *
      * @param  array{
-     *   cohesion?:               float,
-     *   coupling?:               float,
-     *   line_count?:             int,
-     *   duplicate_helper_count?: int,
-     *   removable_lines?:        int,
+     *   cohesion?:                       float,
+     *   coupling?:                       float,
+     *   line_count?:                     int,
+     *   duplicate_helper_count?:         int,
+     *   removable_lines?:                int,
+     *   external_reference_count?:       int,
+     *   internal_reference_count?:       int,
+     *   fan_in?:                         int,
+     *   fan_out?:                        int,
+     *   duplicate_responsibility_count?: int,
+     *   has_declared_owner?:             bool,
      * }  $circuit
      * @return array{
      *   schema: string,
@@ -121,6 +143,11 @@ final class AtlasSelfConstructionCircuitCohesionMetric
      *   duplicate_helper_count: int,
      *   removable_lines: int,
      *   deletion_upside: float,
+     *   boundary_drift: float,
+     *   fan_in_out_pressure: float,
+     *   duplicate_responsibility_count: int,
+     *   owner_gap: bool,
+     *   collapse_recommendation: string,
      * }
      */
     public function evaluate(array $circuit): array
@@ -140,6 +167,36 @@ final class AtlasSelfConstructionCircuitCohesionMetric
 
         $deletionUpside = round(($duplicateHelperCount * self::DUPLICATE_HELPER_WEIGHT) + ($removableLines / 10.0), 4);
 
+        // Boundary drift: share of this circuit's references that reach OUTSIDE its own
+        // boundary — no external/internal counts supplied ⇒ no drift evidence, never assumed.
+        $externalRefs = max(0, (int) ($circuit['external_reference_count'] ?? 0));
+        $internalRefs = max(0, (int) ($circuit['internal_reference_count'] ?? 0));
+        $totalRefs = $externalRefs + $internalRefs;
+        $boundaryDrift = $totalRefs > 0 ? round($externalRefs / $totalRefs, 4) : 0.0;
+
+        // Fan-in/fan-out pressure: how skewed the circuit's coupling direction is — a hub with
+        // near-zero fan-out, or a leaf with near-zero fan-in, both signal a wrong-shaped boundary.
+        $fanIn = max(0, (int) ($circuit['fan_in'] ?? 0));
+        $fanOut = max(0, (int) ($circuit['fan_out'] ?? 0));
+        $fanTotal = $fanIn + $fanOut;
+        $fanPressure = $fanTotal > 0 ? round(abs($fanIn - $fanOut) / $fanTotal, 4) : 0.0;
+
+        $duplicateResponsibilityCount = max(0, (int) ($circuit['duplicate_responsibility_count'] ?? 0));
+
+        // Owner gap: no explicit owner declaration ⇒ treated as a gap, never silently assumed owned.
+        $ownerGap = ! (bool) ($circuit['has_declared_owner'] ?? false);
+
+        $collapseRecommendation = match (true) {
+            $recommendation === self::RECOMMENDATION_SPLIT_OR_COLLAPSE
+                && ($ownerGap || $duplicateResponsibilityCount >= self::DUPLICATE_RESPONSIBILITY_THRESHOLD || $boundaryDrift >= self::BOUNDARY_DRIFT_THRESHOLD)
+                => self::COLLAPSE_NOW,
+            $recommendation === self::RECOMMENDATION_SPLIT_OR_COLLAPSE => self::COLLAPSE_SOON,
+            $ownerGap || $duplicateResponsibilityCount >= self::DUPLICATE_RESPONSIBILITY_THRESHOLD
+                || $boundaryDrift >= self::BOUNDARY_DRIFT_THRESHOLD || $fanPressure >= self::FAN_PRESSURE_THRESHOLD
+                => self::COLLAPSE_MONITOR,
+            default => self::COLLAPSE_KEEP,
+        };
+
         return [
             'schema' => self::SCHEMA,
             'score' => $score,
@@ -149,6 +206,11 @@ final class AtlasSelfConstructionCircuitCohesionMetric
             'duplicate_helper_count' => $duplicateHelperCount,
             'removable_lines' => $removableLines,
             'deletion_upside' => $deletionUpside,
+            'boundary_drift' => $boundaryDrift,
+            'fan_in_out_pressure' => $fanPressure,
+            'duplicate_responsibility_count' => $duplicateResponsibilityCount,
+            'owner_gap' => $ownerGap,
+            'collapse_recommendation' => $collapseRecommendation,
         ];
     }
 
