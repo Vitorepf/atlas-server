@@ -65,6 +65,10 @@ final class AgentControlPlaneTaskAutoReplenishmentService
 
     public const REASON_WORKER_FEED_RISK = 'worker_feed_risk';
 
+    public const FEED_RISK_REASON_CLAIMABLE_PER_WORKER_BELOW_FLOOR = 'claimable_per_worker_below_floor';
+
+    public const FEED_RISK_REASON_REPLENISH_RECOMMENDATION_SOON = 'replenish_recommendation_soon';
+
     /**
      * Pure worker-feed-risk evaluator: decides whether automatic replenishment should start
      * BEFORE the queue actually hits no_claimable_task, using leading indicators — active_leases,
@@ -95,10 +99,17 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             ? (float) $context['claimable_per_active_worker']
             : ($activeLeases > 0 ? (float) $claimableDepth / $activeLeases : null);
 
-        $triggered = $activeLeases > 0 && (
-            ($claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $minClaimablePerWorker)
-            || $recommendation === 'replenish_soon'
-        );
+        $belowFloor = $activeLeases > 0 && $claimablePerActiveWorker !== null && $claimablePerActiveWorker <= $minClaimablePerWorker;
+        $recommendationSoon = $activeLeases > 0 && $recommendation === 'replenish_soon';
+        $triggered = $belowFloor || $recommendationSoon;
+
+        // feed_risk_reasons is the granular, possibly-multi-cause breakdown of WHY top-up fired
+        // (a single evaluation can trip both triggers at once); `reason` stays the existing
+        // single constant for backward compatibility with callers pinned to it.
+        $feedRiskReasons = array_values(array_filter([
+            $belowFloor ? self::FEED_RISK_REASON_CLAIMABLE_PER_WORKER_BELOW_FLOOR : null,
+            $recommendationSoon ? self::FEED_RISK_REASON_REPLENISH_RECOMMENDATION_SOON : null,
+        ]));
 
         if (! $triggered) {
             return [
@@ -106,6 +117,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
                 'top_up_required' => false,
                 'target_new_packets' => 0,
                 'reason' => null,
+                'feed_risk_reasons' => [],
                 'active_leases' => $activeLeases,
                 'claimable_depth' => $claimableDepth,
                 'claimable_per_active_worker' => $claimablePerActiveWorker,
@@ -127,6 +139,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
             'top_up_required' => true,
             'target_new_packets' => $targetNewPackets,
             'reason' => self::REASON_WORKER_FEED_RISK,
+            'feed_risk_reasons' => $feedRiskReasons,
             'active_leases' => $activeLeases,
             'claimable_depth' => $claimableDepth,
             'claimable_per_active_worker' => $claimablePerActiveWorker,

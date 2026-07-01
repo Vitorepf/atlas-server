@@ -829,6 +829,58 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskAutoReplenishmentTest ex
         $this->assertFileExists(base_path('docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md'));
     }
 
+    // ── AC: evaluateWorkerFeedRisk() exposes feed_risk_reasons (granular, possibly-multi-cause) ──
+
+    public function test_feed_risk_reasons_empty_when_no_top_up_required(): void
+    {
+        $result = $this->service()->evaluateWorkerFeedRisk([
+            'active_leases' => 0,
+            'claimable_depth' => 0,
+        ]);
+
+        $this->assertFalse($result['top_up_required']);
+        $this->assertSame([], $result['feed_risk_reasons']);
+    }
+
+    public function test_feed_risk_reasons_names_claimable_per_worker_below_floor(): void
+    {
+        $result = $this->service()->evaluateWorkerFeedRisk([
+            'active_leases' => 5,
+            'claimable_depth' => 5, // 1.0 per worker, below the 2.0 default floor
+        ]);
+
+        $this->assertTrue($result['top_up_required']);
+        $this->assertSame(['claimable_per_worker_below_floor'], $result['feed_risk_reasons']);
+    }
+
+    public function test_feed_risk_reasons_names_replenish_recommendation_soon(): void
+    {
+        $result = $this->service()->evaluateWorkerFeedRisk([
+            'active_leases' => 6,
+            'claimable_depth' => 60, // comfortably above the floor
+            'replenish_recommendation' => 'replenish_soon',
+        ]);
+
+        $this->assertTrue($result['top_up_required']);
+        $this->assertSame(['replenish_recommendation_soon'], $result['feed_risk_reasons']);
+    }
+
+    public function test_feed_risk_reasons_lists_both_causes_when_both_trigger(): void
+    {
+        $result = $this->service()->evaluateWorkerFeedRisk([
+            'active_leases' => 5,
+            'claimable_depth' => 5, // below floor
+            'replenish_recommendation' => 'replenish_soon',
+        ]);
+
+        $this->assertTrue($result['top_up_required']);
+        $this->assertSame(
+            ['claimable_per_worker_below_floor', 'replenish_recommendation_soon'],
+            $result['feed_risk_reasons'],
+        );
+        $this->assertSame('worker_feed_risk', $result['reason'], 'the single reason constant stays for backward compatibility');
+    }
+
     private function service(): AgentControlPlaneTaskAutoReplenishmentService
     {
         $queue = new AgentControlPlaneTaskPacketQueueRepository;
