@@ -720,4 +720,96 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlannerTest extends TestCase
 
         $this->assertSame($this->planner()->plan($input), $this->planner()->plan($input));
     }
+
+    // ── circuit-level burn-down grouping ───────────────────────────────────────
+
+    public function test_candidates_sharing_circuit_id_grouped_with_total_deltas(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            [
+                'organ_id'             => 'CIRC1',
+                'circuit_id'           => 'auth-circuit',
+                'similar_organs'       => ['other'],
+                'usage_evidence_count' => 0,
+                'compounding_value'    => 0.0,
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
+                'estimated_line_delta' => 40,
+                'estimated_cognitive_load_delta' => 2.5,
+            ],
+            [
+                'organ_id'             => 'CIRC2',
+                'circuit_id'           => 'auth-circuit',
+                'similar_organs'       => ['other'],
+                'usage_evidence_count' => 0,
+                'compounding_value'    => 0.0,
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
+                'estimated_line_delta' => 60,
+                'estimated_cognitive_load_delta' => 1.5,
+            ],
+        ]]);
+
+        $this->assertArrayHasKey('circuit_burn_down_plans', $r);
+        $this->assertCount(1, $r['circuit_burn_down_plans']);
+        $plan = $r['circuit_burn_down_plans'][0];
+        $this->assertSame('auth-circuit', $plan['circuit_id']);
+        $this->assertSame(['CIRC1', 'CIRC2'], $plan['organ_ids']);
+        $this->assertSame(100, $plan['total_expected_line_delta']);
+        $this->assertSame(4.0, $plan['total_cognitive_load_delta']);
+    }
+
+    public function test_candidates_without_circuit_id_are_not_grouped(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [$this->keepCandidate('NOCIRC')]]);
+
+        $this->assertSame([], $r['circuit_burn_down_plans']);
+    }
+
+    public function test_blocked_candidate_inside_circuit_excluded_from_circuit_totals(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            [
+                'organ_id'             => 'SAFE',
+                'circuit_id'           => 'risky-circuit',
+                'similar_organs'       => ['other'],
+                'usage_evidence_count' => 0,
+                'compounding_value'    => 0.0,
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
+                'estimated_line_delta' => 30,
+            ],
+            [
+                'organ_id'             => 'BLOCKED',
+                'circuit_id'           => 'risky-circuit',
+                'similar_organs'       => ['other'],
+                'usage_evidence_count' => 0,
+                'compounding_value'    => 0.0,
+                'has_active_consumers' => true,
+                'estimated_line_delta' => 200,
+            ],
+        ]]);
+
+        $plan = $r['circuit_burn_down_plans'][0];
+        $this->assertContains('BLOCKED', $r['blocked_deletions']);
+        $this->assertSame(30, $plan['total_expected_line_delta'], 'blocked candidate line delta must not be counted');
+    }
+
+    public function test_circuit_overlap_with_positive_safe_reduction_prefers_consolidate_or_delete(): void
+    {
+        $r = $this->planner()->plan(['candidates' => [
+            [
+                'organ_id'             => 'CO1',
+                'circuit_id'           => 'overlap-circuit',
+                'similar_organs'       => ['other'],
+                'usage_evidence_count' => 0,
+                'compounding_value'    => 0.0,
+                'has_replacement_proof' => true,
+                'has_behavior_preservation_evidence' => true,
+                'estimated_line_delta' => 20,
+            ],
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainComplexityDebtBurnDownPlanner::PREFERRED_CONSOLIDATE_OR_DELETE, $r['preferred_action']);
+    }
 }

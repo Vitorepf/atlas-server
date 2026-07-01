@@ -37,13 +37,21 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     covers_same_decision_surface_as?: list<string>
  *     has_active_consumers?:          bool    (default false) — blocks delete/consolidate
  *     estimated_line_delta?:          int     (default 0) — lines removed if action taken
+ *     circuit_id?:                    string  — groups related organs into one burn-down plan
+ *     estimated_cognitive_load_delta?: float  (default 0.0) — cognitive-load reduction if action taken
  *   }>
  *   usage_evidence_floor?:        int   (default 1)
  *   compounding_floor?:           float (default 0.20)
  *   maintenance_cost_ceiling?:    float (default 0.70)
  *
+ * CIRCUIT-LEVEL GROUPING: candidates sharing circuit_id are grouped into circuit_burn_down_plans —
+ * {circuit_id, organ_ids, total_expected_line_delta, total_cognitive_load_delta}. Blocked candidates
+ * (missing replacement proof / behavior preservation evidence / active consumers) never contribute
+ * their line or cognitive-load delta to the circuit total — a circuit's reported reduction is always
+ * the SAFE, provable portion only. Candidates without a circuit_id are not grouped.
+ *
  * OUTPUT:
- *   { schema, ranked_candidates, preferred_action }
+ *   { schema, ranked_candidates, preferred_action, circuit_burn_down_plans }
  *
  *   ranked_candidates: list<{
  *     rank, organ_id, recommended_action, preserved_capability, risk_notes, proof_required_before_deletion
@@ -107,8 +115,11 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             $sameDecision      = is_array($raw['covers_same_decision_surface_as'] ?? null)
                 ? $raw['covers_same_decision_surface_as']
                 : [];
+            $circuitId = trim((string) ($raw['circuit_id'] ?? ''));
+            $cognitiveLoadDelta = (float) ($raw['estimated_cognitive_load_delta'] ?? 0.0);
 
-            if ($similarOrgans !== [] || $sameDecision !== []) {
+            $candidateHasOverlap = $similarOrgans !== [] || $sameDecision !== [];
+            if ($candidateHasOverlap) {
                 $hasOverlap = true;
             }
 
@@ -202,6 +213,9 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
                 '_score'                         => $score,
                 '_line_delta'                    => $estimatedLineDelta,
                 '_blocked'                       => $isBlocked,
+                '_circuit_id'                    => $circuitId,
+                '_cognitive_load_delta'          => $cognitiveLoadDelta,
+                '_has_overlap'                   => $candidateHasOverlap,
                 'recommended_action'             => $action,
                 'expected_line_delta'            => $lineDeltaPositive,
                 'preserved_capability'           => $preserved,
@@ -222,11 +236,15 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
         $ranked           = [];
         $totalLineDelta   = 0;
         $proofRequired    = [];
+        $circuits         = [];
 
         foreach ($scored as $rank => $entry) {
-            $lineDelta = $entry['_line_delta'];
-            $isBlocked = $entry['_blocked'];
-            unset($entry['_score'], $entry['_line_delta'], $entry['_blocked']);
+            $lineDelta    = $entry['_line_delta'];
+            $isBlocked    = $entry['_blocked'];
+            $circuitId    = $entry['_circuit_id'];
+            $cogLoadDelta = $entry['_cognitive_load_delta'];
+            $hasOverlapCandidate = $entry['_has_overlap'];
+            unset($entry['_score'], $entry['_line_delta'], $entry['_blocked'], $entry['_circuit_id'], $entry['_cognitive_load_delta'], $entry['_has_overlap']);
             $entry['rank'] = $rank + 1;
             $ranked[]      = $entry;
 
@@ -236,17 +254,56 @@ final class AtlasExternalBrainComplexityDebtBurnDownPlanner
             if ($entry['proof_required_before_deletion'] !== null) {
                 $proofRequired[] = $entry['proof_required_before_deletion'];
             }
+
+            // Circuit-level grouping: candidates sharing circuit_id roll up into one burn-down
+            // plan. Blocked candidates never contribute to the circuit's reported safe reduction.
+            if ($circuitId !== '') {
+                $circuits[$circuitId] ??= [
+                    'organ_ids' => [],
+                    'total_expected_line_delta' => 0,
+                    'total_cognitive_load_delta' => 0.0,
+                    'has_overlap' => false,
+                ];
+                $circuits[$circuitId]['organ_ids'][] = $entry['organ_id'];
+                if (! $isBlocked) {
+                    $circuits[$circuitId]['total_expected_line_delta'] += $lineDelta;
+                    $circuits[$circuitId]['total_cognitive_load_delta'] += $cogLoadDelta;
+                }
+                if ($hasOverlapCandidate) {
+                    $circuits[$circuitId]['has_overlap'] = true;
+                }
+            }
         }
+
+        $circuitBurnDownPlans = [];
+        foreach ($circuits as $circuitId => $c) {
+            $circuitBurnDownPlans[] = [
+                'circuit_id'                 => $circuitId,
+                'organ_ids'                  => $c['organ_ids'],
+                'total_expected_line_delta'  => $c['total_expected_line_delta'],
+                'total_cognitive_load_delta' => round($c['total_cognitive_load_delta'], 4),
+            ];
+        }
+        usort($circuitBurnDownPlans, static fn (array $a, array $b): int => strcmp($a['circuit_id'], $b['circuit_id']));
+
+        // A circuit with overlap AND positive safe (unblocked) reduction is concrete evidence
+        // simplification is available now — that alone is enough to prefer consolidate/delete
+        // over adding new capability, even independent of the flat candidate-level overlap check.
+        $anyCircuitOverlapWithPositiveSafeReduction = array_any(
+            $circuits,
+            static fn (array $c): bool => $c['has_overlap'] && $c['total_expected_line_delta'] > 0,
+        );
 
         return [
             'schema'                   => self::SCHEMA,
             'ranked_candidates'        => $ranked,
-            'preferred_action'         => $hasOverlap
+            'preferred_action'         => ($hasOverlap || $anyCircuitOverlapWithPositiveSafeReduction)
                 ? self::PREFERRED_CONSOLIDATE_OR_DELETE
                 : self::PREFERRED_ADD_NEW_CAPABILITY,
             'total_expected_line_delta' => $totalLineDelta,
             'blocked_deletions'        => $blockedDeletions,
             'proof_required'           => $proofRequired,
+            'circuit_burn_down_plans'  => $circuitBurnDownPlans,
         ];
     }
 }
