@@ -249,4 +249,57 @@ final class AtlasMaestroQuarantineBurnDownSchedulerTest extends TestCase
 
         $this->assertSame($this->scheduler()->schedule($packets), $this->scheduler()->schedule($packets));
     }
+
+    // ── rankFamiliesByClaimableRecovery (AC) ────────────────────────────────────
+
+    public function test_high_confidence_small_family_outranks_high_count_low_confidence_family(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'big-low-confidence', 'packet_count' => 20, 'recovery_confidence' => 0.1],
+            ['family_id' => 'small-high-confidence', 'packet_count' => 5, 'recovery_confidence' => 0.9],
+        ]);
+
+        $ids = array_column($result['ranked'], 'family_id');
+        $this->assertSame(['small-high-confidence', 'big-low-confidence'], $ids);
+        $this->assertSame(4.5, $result['ranked'][0]['expected_claimable_recovery']);
+    }
+
+    public function test_poison_family_beyond_threshold_gets_retire_action(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'poison-family', 'packet_count' => 10, 'poison_count' => 3, 'recovery_confidence' => 0.8],
+        ]);
+
+        $this->assertSame('retire', $result['ranked'][0]['action']);
+        $this->assertStringContainsString('repeated_poison', $result['ranked'][0]['reason']);
+    }
+
+    public function test_zero_recovery_confidence_gets_retire_action(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'no-confidence', 'packet_count' => 10, 'recovery_confidence' => 0.0],
+        ]);
+
+        $this->assertSame('retire', $result['ranked'][0]['action']);
+        $this->assertSame('zero_recovery_confidence', $result['ranked'][0]['reason']);
+    }
+
+    public function test_recoverable_family_gets_respec_action(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'recoverable', 'packet_count' => 4, 'poison_count' => 1, 'recovery_confidence' => 0.7],
+        ]);
+
+        $this->assertSame('respec', $result['ranked'][0]['action']);
+    }
+
+    public function test_unsafe_to_respec_family_gets_retire_action(): void
+    {
+        $result = $this->scheduler()->rankFamiliesByClaimableRecovery([
+            ['family_id' => 'unsafe', 'packet_count' => 4, 'recovery_confidence' => 0.7, 'safe_to_respec' => false],
+        ]);
+
+        $this->assertSame('retire', $result['ranked'][0]['action']);
+        $this->assertSame('unsafe_to_respec', $result['ranked'][0]['reason']);
+    }
 }

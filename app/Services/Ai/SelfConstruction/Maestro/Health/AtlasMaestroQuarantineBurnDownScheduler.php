@@ -139,4 +139,57 @@ final class AtlasMaestroQuarantineBurnDownScheduler
             'do_not_requeue_count' => $doNotRequeueCount,
         ];
     }
+
+    /**
+     * Rank quarantined packet FAMILIES by expected claimable recovery — packet_count weighted by
+     * recovery_confidence — instead of raw poison count, so a small high-confidence family outranks
+     * a large low-confidence one. Families that cannot safely produce a claimable replacement task
+     * (poisoned beyond threshold, or zero recovery confidence) get a retire action instead of respec.
+     *
+     * @param  list<array{family_id?:string, packet_count?:int, poison_count?:int, recovery_confidence?:float, safe_to_respec?:bool}>  $families
+     * @return array{schema:string, ranked:list<array<string,mixed>>}
+     */
+    public function rankFamiliesByClaimableRecovery(array $families): array
+    {
+        $ranked = [];
+
+        foreach ($families as $family) {
+            if (! is_array($family) || ! isset($family['family_id'])) {
+                continue;
+            }
+
+            $familyId = (string) $family['family_id'];
+            $packetCount = max(0, (int) ($family['packet_count'] ?? 0));
+            $poisonCount = max(0, (int) ($family['poison_count'] ?? 0));
+            $recoveryConfidence = max(0.0, min(1.0, (float) ($family['recovery_confidence'] ?? 0.0)));
+            $safeToRespec = (bool) ($family['safe_to_respec'] ?? true);
+
+            $expectedClaimableRecovery = round($packetCount * $recoveryConfidence, 4);
+
+            $canRecover = $safeToRespec && $poisonCount < self::POISON_THRESHOLD && $recoveryConfidence > 0.0;
+
+            $ranked[] = [
+                'family_id'                   => $familyId,
+                'packet_count'                => $packetCount,
+                'poison_count'                => $poisonCount,
+                'recovery_confidence'         => $recoveryConfidence,
+                'expected_claimable_recovery' => $expectedClaimableRecovery,
+                'action'                      => $canRecover ? 'respec' : 'retire',
+                'reason'                      => $canRecover
+                    ? 'recoverable_family:expected_claimable_recovery='.$expectedClaimableRecovery
+                    : ($poisonCount >= self::POISON_THRESHOLD
+                        ? 'repeated_poison:attempts='.$poisonCount
+                        : ($recoveryConfidence <= 0.0 ? 'zero_recovery_confidence' : 'unsafe_to_respec')),
+            ];
+        }
+
+        usort($ranked, static fn (array $a, array $b): int =>
+            $b['expected_claimable_recovery'] <=> $a['expected_claimable_recovery']
+                ?: strcmp($a['family_id'], $b['family_id']));
+
+        return [
+            'schema' => self::SCHEMA,
+            'ranked' => $ranked,
+        ];
+    }
 }
