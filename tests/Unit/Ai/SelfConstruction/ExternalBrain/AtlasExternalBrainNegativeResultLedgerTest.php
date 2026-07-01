@@ -279,6 +279,9 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
             'target' => 'app/Services/Foo/Bar.php',
             'root_cause' => 'contradictory_acceptance',
             'avoid_pattern' => 'do not re-propose wiring tasks against this target without spec clarification',
+            'evidence' => 'give_back x3 citing contradictory acceptance bullets',
+            'recorded_at' => 1000,
+            'ttl_seconds' => 3600,
         ], $overrides);
     }
 
@@ -418,6 +421,61 @@ final class AtlasExternalBrainNegativeResultLedgerTest extends TestCase
 
         $temporary = $l->summarizeAvoidRules(['permanence' => 'temporary']);
         $this->assertSame(1, $temporary['count']);
+    }
+
+    public function test_record_outcome_stores_evidence_recorded_at_ttl_and_avoidance_decision(): void
+    {
+        $result = $this->ledger()->recordOutcome($this->validOutcome());
+
+        $this->assertSame('give_back x3 citing contradictory acceptance bullets', $result['entry']['evidence']);
+        $this->assertSame(1000, $result['entry']['recorded_at']);
+        $this->assertSame(3600, $result['entry']['ttl_seconds']);
+        $this->assertSame(AtlasExternalBrainNegativeResultLedger::AVOIDANCE_AVOID_TARGET, $result['entry']['avoidance_decision']);
+    }
+
+    public function test_permanent_root_cause_avoids_target_forever(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'poison', 'recorded_at' => 1000, 'ttl_seconds' => 100]));
+
+        $result = $l->shouldAvoidTask('external_brain', 'app/Services/Foo/Bar.php', 999999);
+        $this->assertTrue($result['avoid']);
+        $this->assertSame(AtlasExternalBrainNegativeResultLedger::AVOIDANCE_AVOID_TARGET, $result['avoidance_decision']);
+    }
+
+    public function test_temporary_root_cause_avoids_target_while_fresh(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'missing_dependency', 'recorded_at' => 1000, 'ttl_seconds' => 3600]));
+
+        $result = $l->shouldAvoidTask('external_brain', 'app/Services/Foo/Bar.php', 2000);
+        $this->assertTrue($result['avoid']);
+        $this->assertSame(AtlasExternalBrainNegativeResultLedger::AVOIDANCE_AVOID_TARGET, $result['avoidance_decision']);
+    }
+
+    public function test_temporary_root_cause_allows_retry_after_ttl_expiry(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome(['root_cause' => 'missing_dependency', 'recorded_at' => 1000, 'ttl_seconds' => 3600]));
+
+        $result = $l->shouldAvoidTask('external_brain', 'app/Services/Foo/Bar.php', 5000);
+        $this->assertFalse($result['avoid']);
+        $this->assertSame(AtlasExternalBrainNegativeResultLedger::AVOIDANCE_RETRY_ALLOWED, $result['avoidance_decision']);
+    }
+
+    public function test_temporary_root_cause_allows_retry_when_matching_condition_active(): void
+    {
+        $l = $this->ledger();
+        $l->recordOutcome($this->validOutcome([
+            'root_cause' => 'missing_dependency',
+            'recorded_at' => 1000,
+            'ttl_seconds' => 86400,
+            'retry_after_condition' => 'dependency_published',
+        ]));
+
+        $result = $l->shouldAvoidTask('external_brain', 'app/Services/Foo/Bar.php', 2000, ['dependency_published']);
+        $this->assertFalse($result['avoid']);
+        $this->assertSame(AtlasExternalBrainNegativeResultLedger::AVOIDANCE_RETRY_ALLOWED, $result['avoidance_decision']);
     }
 
     public function test_second_record_outcome_replaces_first_for_same_family_target(): void

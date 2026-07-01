@@ -61,7 +61,11 @@ final class AtlasExternalBrainNegativeResultLedger
     public const DECISION_RETRY_ALLOWED = 'retry_allowed';
     public const DECISION_SKIP_SURFACE  = 'skip_surface';
 
+    public const AVOIDANCE_AVOID_TARGET  = 'avoid_target';
+    public const AVOIDANCE_RETRY_ALLOWED = 'retry_allowed';
+
     private const DEFAULT_TTL_SECONDS = 86400;
+    private const DEFAULT_OUTCOME_TTL_SECONDS = 86400;
 
     /** @var array<string,array<string,mixed>> keyed by dedup key */
     private array $entries = [];
@@ -261,6 +265,7 @@ final class AtlasExternalBrainNegativeResultLedger
         $target = trim((string) ($entry['target'] ?? ''));
         $rootCause = trim((string) ($entry['root_cause'] ?? ''));
         $avoidPattern = trim((string) ($entry['avoid_pattern'] ?? ''));
+        $evidence = trim((string) ($entry['evidence'] ?? ''));
 
         if ($family === '') {
             return ['schema' => self::SCHEMA, 'accepted' => false, 'rejection_reason' => 'family_missing'];
@@ -280,13 +285,21 @@ final class AtlasExternalBrainNegativeResultLedger
             $permanence = in_array($rootCause, self::PERMANENT_ROOT_CAUSES, true) ? 'permanent' : 'temporary';
         }
 
+        $recordedAt = (int) ($entry['recorded_at'] ?? 0);
+        $ttl = max(1, (int) ($entry['ttl_seconds'] ?? self::DEFAULT_OUTCOME_TTL_SECONDS));
+
         $stored = [
             'family' => $family,
             'target' => $target,
             'root_cause' => $rootCause,
             'avoid_pattern' => $avoidPattern,
+            'evidence' => $evidence,
+            'recorded_at' => $recordedAt,
+            'ttl_seconds' => $ttl,
+            'expires_at' => $recordedAt + $ttl,
             'retry_after_condition' => (string) ($entry['retry_after_condition'] ?? ''),
             'permanence' => $permanence,
+            'avoidance_decision' => self::AVOIDANCE_AVOID_TARGET,
         ];
 
         $this->outcomeEntries[$this->outcomeKey($family, $target)] = $stored;
@@ -299,16 +312,34 @@ final class AtlasExternalBrainNegativeResultLedger
      * rule. Never blocks unrelated families/targets — only an exact match
      * triggers avoid=true.
      *
+     * Permanent root causes always avoid_target. Temporary root causes
+     * avoid_target only until ttl expiry or a matching active retry condition —
+     * after that they return retry_allowed.
+     *
+     * @param  list<string>  $activeConditions
      * @return array<string,mixed>
      */
-    public function shouldAvoidTask(string $family, string $target): array
+    public function shouldAvoidTask(string $family, string $target, int $now = 0, array $activeConditions = []): array
     {
         $key = $this->outcomeKey($family, $target);
         if (! isset($this->outcomeEntries[$key])) {
-            return ['schema' => self::SCHEMA, 'avoid' => false, 'rule' => null];
+            return ['schema' => self::SCHEMA, 'avoid' => false, 'rule' => null, 'avoidance_decision' => self::AVOIDANCE_RETRY_ALLOWED];
         }
 
-        return ['schema' => self::SCHEMA, 'avoid' => true, 'rule' => $this->outcomeEntries[$key]];
+        $rule = $this->outcomeEntries[$key];
+
+        if ($rule['permanence'] === 'permanent') {
+            return ['schema' => self::SCHEMA, 'avoid' => true, 'rule' => $rule, 'avoidance_decision' => self::AVOIDANCE_AVOID_TARGET];
+        }
+
+        $conditionMet = $rule['retry_after_condition'] !== '' && in_array($rule['retry_after_condition'], $activeConditions, true);
+        $ttlExpired = $now >= $rule['expires_at'];
+
+        if ($ttlExpired || $conditionMet) {
+            return ['schema' => self::SCHEMA, 'avoid' => false, 'rule' => $rule, 'avoidance_decision' => self::AVOIDANCE_RETRY_ALLOWED];
+        }
+
+        return ['schema' => self::SCHEMA, 'avoid' => true, 'rule' => $rule, 'avoidance_decision' => self::AVOIDANCE_AVOID_TARGET];
     }
 
     /**
