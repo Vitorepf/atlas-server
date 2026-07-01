@@ -110,4 +110,67 @@ final class AtlasSelfConstructionConsolidationWaveSequencerTest extends TestCase
         $this->assertSame([], $result['blocked']);
         $this->assertSame('atlas.self_construction.simplification.consolidation_wave_sequencer.v1', $result['schema']);
     }
+
+    private function allProofsComplete(): array
+    {
+        return [
+            'boundary' => true,
+            'cluster' => true,
+            'equivalence' => true,
+            'consumer_impact' => true,
+            'rewrite' => true,
+            'replay' => true,
+            'rollback' => true,
+        ];
+    }
+
+    public function test_execution_wave_is_blocked_until_proven_when_any_proof_wave_incomplete(): void
+    {
+        $proofStatus = $this->allProofsComplete();
+        $proofStatus['replay'] = false;
+
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequencePipeline($proofStatus);
+
+        $this->assertSame(
+            AtlasSelfConstructionConsolidationWaveSequencer::STATUS_BLOCKED_UNTIL_PROVEN,
+            $result['execution_status'],
+        );
+        $executionWave = collect($result['waves'])->firstWhere('wave', AtlasSelfConstructionConsolidationWaveSequencer::WAVE_EXECUTION);
+        $this->assertContains('replay', $executionWave['blocking_proof_waves']);
+    }
+
+    public function test_execution_wave_appears_only_after_all_seven_proof_waves(): void
+    {
+        $result = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequencePipeline($this->allProofsComplete());
+
+        $waveNames = array_column($result['waves'], 'wave');
+        $executionIndex = array_search(AtlasSelfConstructionConsolidationWaveSequencer::WAVE_EXECUTION, $waveNames, true);
+
+        foreach (['boundary', 'cluster', 'equivalence', 'consumer_impact', 'rewrite', 'replay', 'rollback'] as $proofWave) {
+            $proofIndex = array_search($proofWave, $waveNames, true);
+            $this->assertNotFalse($proofIndex, "missing proof wave: {$proofWave}");
+            $this->assertLessThan($executionIndex, $proofIndex);
+        }
+
+        $this->assertSame(
+            AtlasSelfConstructionConsolidationWaveSequencer::STATUS_READY,
+            $result['execution_status'],
+        );
+    }
+
+    public function test_knowledge_sync_wave_is_always_after_destructive_execution(): void
+    {
+        $ready = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequencePipeline($this->allProofsComplete());
+        $blocked = (new AtlasSelfConstructionConsolidationWaveSequencer)->sequencePipeline([]);
+
+        foreach ([$ready, $blocked] as $result) {
+            $waveNames = array_column($result['waves'], 'wave');
+            $executionIndex = array_search(AtlasSelfConstructionConsolidationWaveSequencer::WAVE_EXECUTION, $waveNames, true);
+            $syncIndex = array_search(AtlasSelfConstructionConsolidationWaveSequencer::WAVE_KNOWLEDGE_SYNC, $waveNames, true);
+
+            $this->assertNotFalse($executionIndex);
+            $this->assertNotFalse($syncIndex);
+            $this->assertGreaterThan($executionIndex, $syncIndex);
+        }
+    }
 }

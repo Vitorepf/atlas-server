@@ -18,6 +18,23 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
 {
     public const SCHEMA = 'atlas.self_construction.simplification.consolidation_wave_sequencer.v1';
 
+    public const STATUS_COMPLETE = 'complete';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_BLOCKED_UNTIL_PROVEN = 'blocked_until_proven';
+
+    public const STATUS_READY = 'ready';
+
+    public const WAVE_EXECUTION = 'destructive_execution';
+
+    public const WAVE_KNOWLEDGE_SYNC = 'knowledge_sync';
+
+    /** Proof waves that must ALL complete before the destructive execution wave may run. */
+    private const PROOF_WAVES = [
+        'boundary', 'cluster', 'equivalence', 'consumer_impact', 'rewrite', 'replay', 'rollback',
+    ];
+
     /** @var array<string,int> */
     private const RISK_RANK = ['low' => 0, 'medium' => 1, 'high' => 2];
 
@@ -161,6 +178,52 @@ final class AtlasSelfConstructionConsolidationWaveSequencer
         }
 
         return 'proof_ready_and_highest_remaining_leverage';
+    }
+
+    /**
+     * Sequences the fixed proof-then-destruction-then-sync pipeline for one consolidation
+     * candidate. The destructive execution wave is fail-closed: it is blocked_until_proven
+     * whenever ANY of the boundary/cluster/equivalence/consumer_impact/rewrite/replay/rollback
+     * proof waves is not complete. The knowledge-sync wave always sits after execution,
+     * whatever the execution wave's status.
+     *
+     * @param  array<string, bool>  $proofStatus  proof-wave-name => complete
+     * @return array{schema:string, waves:list<array<string,mixed>>, execution_status:string}
+     */
+    public function sequencePipeline(array $proofStatus): array
+    {
+        $waves = [];
+        $incompleteProofWaves = [];
+
+        foreach (self::PROOF_WAVES as $proofWave) {
+            $complete = (bool) ($proofStatus[$proofWave] ?? false);
+            if (! $complete) {
+                $incompleteProofWaves[] = $proofWave;
+            }
+            $waves[] = [
+                'wave' => $proofWave,
+                'status' => $complete ? self::STATUS_COMPLETE : self::STATUS_PENDING,
+            ];
+        }
+
+        $executionStatus = $incompleteProofWaves === [] ? self::STATUS_READY : self::STATUS_BLOCKED_UNTIL_PROVEN;
+
+        $waves[] = [
+            'wave' => self::WAVE_EXECUTION,
+            'status' => $executionStatus,
+            'blocking_proof_waves' => $incompleteProofWaves,
+        ];
+
+        $waves[] = [
+            'wave' => self::WAVE_KNOWLEDGE_SYNC,
+            'status' => self::STATUS_PENDING,
+        ];
+
+        return [
+            'schema' => self::SCHEMA,
+            'waves' => $waves,
+            'execution_status' => $executionStatus,
+        ];
     }
 
     /**
