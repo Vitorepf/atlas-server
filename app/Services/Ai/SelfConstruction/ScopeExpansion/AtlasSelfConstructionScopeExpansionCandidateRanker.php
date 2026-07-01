@@ -52,6 +52,9 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
 
     public const REASON_DUPLICATE_SCOPE_ID = 'duplicate_scope_id';
 
+    /** candidate_kind values that dominate additive_expansion on an otherwise-tied ranking. */
+    public const DELETION_FIRST_KINDS = ['deletion_first', 'refactor_first'];
+
     /**
      * @param  array<string,mixed>  $facts {candidates:list<array>, current_scope?:array, queue_health?:array, autonomy?:array, risk_budget:array}
      * @return array<string,mixed>
@@ -86,7 +89,11 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
         }
 
         usort($accepted, function (array $a, array $b): int {
+            $aDeletionFirst = in_array((string) ($a['candidate_kind'] ?? ''), self::DELETION_FIRST_KINDS, true) ? 0 : 1;
+            $bDeletionFirst = in_array((string) ($b['candidate_kind'] ?? ''), self::DELETION_FIRST_KINDS, true) ? 0 : 1;
+
             return [
+                $aDeletionFirst,
                 -1 * (int) $a['proven_leverage_tier'],
                 -1 * (int) $a['autonomy_readiness_tier'],
                 (int) ($a['proof_cost'] ?? 5),
@@ -94,6 +101,7 @@ final class AtlasSelfConstructionScopeExpansionCandidateRanker
                 (int) $a['risk'],
                 (string) $a['scope_id'],
             ] <=> [
+                $bDeletionFirst,
                 -1 * (int) $b['proven_leverage_tier'],
                 -1 * (int) $b['autonomy_readiness_tier'],
                 (int) ($b['proof_cost'] ?? 5),

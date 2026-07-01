@@ -299,4 +299,79 @@ final class AtlasSelfConstructionScopeExpansionCandidateRankerTest extends TestC
         $second = $out['accepted_candidates'][1];
         $this->assertSame(2, $second['decision_facts']['rank']);
     }
+
+    // ── deletion-first / refactor-first tiebreak ─────────────────────────────
+
+    public function test_deletion_first_wins_tie_over_additive_expansion(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'additive', 'candidate_kind' => 'additive_expansion']),
+                $this->goodCandidate(['scope_id' => 'deletion', 'candidate_kind' => 'deletion_first']),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $ids = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['deletion', 'additive'], $ids);
+    }
+
+    public function test_refactor_first_wins_tie_over_additive_expansion(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'additive', 'candidate_kind' => 'additive_expansion']),
+                $this->goodCandidate(['scope_id' => 'refactor', 'candidate_kind' => 'refactor_first']),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $ids = array_column($out['accepted_candidates'], 'scope_id');
+        $this->assertSame(['refactor', 'additive'], $ids);
+    }
+
+    public function test_deletion_first_still_requires_evidence_refs(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'no-evidence', 'candidate_kind' => 'deletion_first', 'evidence_refs' => []]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertSame([], $out['accepted_candidates']);
+        $this->assertContains('missing_evidence_refs', $out['rejected_candidates'][0]['reasons']);
+    }
+
+    public function test_refactor_first_still_requires_structural_leverage_refs_when_declared(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'empty-slr', 'candidate_kind' => 'refactor_first', 'structural_leverage_refs' => []]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertSame([], $out['accepted_candidates']);
+        $this->assertContains('missing_structural_leverage_refs', $out['rejected_candidates'][0]['reasons']);
+    }
+
+    public function test_scalar_only_proxy_and_hype_only_candidates_remain_rejected(): void
+    {
+        $out = (new AtlasSelfConstructionScopeExpansionCandidateRanker)->rank([
+            'candidates' => [
+                $this->goodCandidate(['scope_id' => 'proxy', 'candidate_kind' => 'additive_expansion', 'scalar_only_proxy' => true]),
+                $this->goodCandidate(['scope_id' => 'hype', 'candidate_kind' => 'additive_expansion', 'hype_only' => true]),
+            ],
+            'risk_budget' => ['max_risk' => 10],
+        ]);
+
+        $this->assertSame([], $out['accepted_candidates']);
+        $byId = [];
+        foreach ($out['rejected_candidates'] as $r) {
+            $byId[$r['scope_id']] = $r['reasons'];
+        }
+        $this->assertContains('scalar_only_proxy', $byId['proxy']);
+        $this->assertContains('hype_only', $byId['hype']);
+    }
 }
