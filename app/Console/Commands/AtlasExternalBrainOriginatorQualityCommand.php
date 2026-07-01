@@ -13,6 +13,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierFa
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyDependencyInverter;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionOracle;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyRegressionSentinel;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -63,6 +64,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAutonomyDependencyInverter $dependencyInverter,
         AtlasExternalBrainAutonomyRegressionOracle $regressionOracle,
         AtlasExternalBrainAutonomyRegressionSentinel $regressionSentinel,
+        AtlasExternalBrainBlindSpotCurriculum $blindSpotCurriculum,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -197,6 +199,23 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // autonomy_regression_scan section.
         if (is_array($decoded['autonomy_regression_scan'] ?? null)) {
             $payload['autonomy_regression_scan'] = $regressionSentinel->scan($decoded['autonomy_regression_scan']);
+        }
+
+        // Optional blind-spot curriculum: promotes repeated failure modes into challenge
+        // cases/preflight checks (build) and ranks blind spots by future quality lift
+        // (rankLearningItems). Distinct from the regression checks above (learning-curriculum
+        // synthesis vs. regression detection), so it only runs when the caller explicitly
+        // supplies a blind_spot_curriculum section.
+        if (is_array($decoded['blind_spot_curriculum'] ?? null)) {
+            $curriculumInput = $decoded['blind_spot_curriculum'];
+            $curriculumOutput = [];
+            if (isset($curriculumInput['failure_observations'])) {
+                $curriculumOutput['curriculum'] = $blindSpotCurriculum->build($curriculumInput);
+            }
+            if (isset($curriculumInput['blind_spots'])) {
+                $curriculumOutput['ranked_learning_items'] = $blindSpotCurriculum->rankLearningItems($curriculumInput);
+            }
+            $payload['blind_spot_curriculum'] = $curriculumOutput;
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
