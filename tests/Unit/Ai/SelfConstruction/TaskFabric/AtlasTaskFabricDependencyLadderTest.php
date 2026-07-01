@@ -106,6 +106,29 @@ final class AtlasTaskFabricDependencyLadderTest extends TestCase
         $this->assertNotContains('missing_prerequisite_evidence:Widget', $r['blockers']);
     }
 
+    // ── ambiguous_producer ────────────────────────────────────────────────────
+
+    public function test_two_producers_for_same_symbol_yield_ambiguous_producer_blocker(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'prod-a', 'produces' => ['Widget'], 'allowed_files' => ['app/A/Widget.php']],
+            ['id' => 'prod-b', 'produces' => ['Widget'], 'allowed_files' => ['app/B/Widget.php']],
+            ['id' => 'cons', 'consumes' => ['Widget'], 'allowed_files' => ['app/Consumer.php']],
+        ]);
+        $this->assertContains('ambiguous_producer:Widget', $r['blockers']);
+    }
+
+    public function test_pinned_producer_id_suppresses_ambiguous_producer_blocker(): void
+    {
+        $r = (new AtlasTaskFabricDependencyLadder)->ladder([
+            ['id' => 'prod-a', 'produces' => ['Widget'], 'allowed_files' => ['app/A/Widget.php']],
+            ['id' => 'prod-b', 'produces' => ['Widget'], 'allowed_files' => ['app/B/Widget.php']],
+            ['id' => 'cons', 'consumes' => ['Widget'], 'allowed_files' => ['app/Consumer.php'], 'producer_pins' => ['Widget' => 'prod-a']],
+        ]);
+        $this->assertNotContains('ambiguous_producer:Widget', $r['blockers']);
+        $this->assertSame(['prod-a'], $r['depends_on']['cons']);
+    }
+
     // ── conflict_reasons ──────────────────────────────────────────────────────
 
     public function test_conflict_reasons_empty_when_no_file_conflicts(): void

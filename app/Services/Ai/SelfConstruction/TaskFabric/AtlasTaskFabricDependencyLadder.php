@@ -43,6 +43,10 @@ final class AtlasTaskFabricDependencyLadder
             $prereqEvidence = array_key_exists('prerequisite_evidence', $p)
                 ? array_values(array_map('strval', (array) $p['prerequisite_evidence']))
                 : null;
+            $producerPins = [];
+            foreach ((array) ($p['producer_pins'] ?? []) as $sym => $producerId) {
+                $producerPins[(string) $sym] = (string) $producerId;
+            }
             $byId[$id] = [
                 'id' => $id,
                 'produces' => array_values(array_map('strval', (array) ($p['produces'] ?? []))),
@@ -50,6 +54,7 @@ final class AtlasTaskFabricDependencyLadder
                 'allowed_files' => array_values(array_map('strval', (array) ($p['allowed_files'] ?? []))),
                 'risk_class' => (string) ($p['risk_class'] ?? ''),
                 'prerequisite_evidence' => $prereqEvidence,
+                'producer_pins' => $producerPins,
             ];
             foreach ($byId[$id]['produces'] as $sym) {
                 $producesIndex[$sym][] = $id;
@@ -68,16 +73,22 @@ final class AtlasTaskFabricDependencyLadder
 
                     continue;
                 }
-                foreach ($producesIndex[$sym] as $producerId) {
-                    if ($producerId !== $id) {
-                        // If producer explicitly declares prerequisite_evidence but left it empty, surface blocker.
-                        $producerEvidence = $byId[$producerId]['prerequisite_evidence'] ?? null;
-                        if ($producerEvidence !== null && $producerEvidence === []) {
-                            $blockers[] = 'missing_prerequisite_evidence:'.$sym;
-                        }
-                        if (! in_array($producerId, $dependsOn[$id], true)) {
-                            $dependsOn[$id][] = $producerId;
-                        }
+                $candidateProducers = array_values(array_filter($producesIndex[$sym], static fn (string $pid): bool => $pid !== $id));
+                $pinnedProducer = $row['producer_pins'][$sym] ?? null;
+                if (count($candidateProducers) > 1 && ($pinnedProducer === null || ! in_array($pinnedProducer, $candidateProducers, true))) {
+                    $blockers[] = 'ambiguous_producer:'.$sym;
+                }
+                $edgeProducers = ($pinnedProducer !== null && in_array($pinnedProducer, $candidateProducers, true))
+                    ? [$pinnedProducer]
+                    : $candidateProducers;
+                foreach ($edgeProducers as $producerId) {
+                    // If producer explicitly declares prerequisite_evidence but left it empty, surface blocker.
+                    $producerEvidence = $byId[$producerId]['prerequisite_evidence'] ?? null;
+                    if ($producerEvidence !== null && $producerEvidence === []) {
+                        $blockers[] = 'missing_prerequisite_evidence:'.$sym;
+                    }
+                    if (! in_array($producerId, $dependsOn[$id], true)) {
+                        $dependsOn[$id][] = $producerId;
                     }
                 }
             }
