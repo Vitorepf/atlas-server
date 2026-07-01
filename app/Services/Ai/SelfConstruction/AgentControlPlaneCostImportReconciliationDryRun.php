@@ -23,28 +23,80 @@ final class AgentControlPlaneCostImportReconciliationDryRun
      */
     public function reconcile(array $normalizedEvents, array $expectedRefs): array
     {
-        $seen = [];
+        $observedCounts = [];
+        $invalidObservedCount = 0;
         foreach ($normalizedEvents as $event) {
-            $seen[$this->refKey($event)] = true;
+            if (! $this->isValidRef($event)) {
+                $invalidObservedCount++;
+
+                continue;
+            }
+            $key = $this->refKey($event);
+            $observedCounts[$key] = ($observedCounts[$key] ?? 0) + 1;
+        }
+
+        $duplicateObservedRefs = [];
+        foreach ($observedCounts as $key => $count) {
+            if ($count > 1) {
+                [$taskPacketId, $runId] = explode('|', $key, 2);
+                $duplicateObservedRefs[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'run_id' => $runId,
+                    'occurrences' => $count,
+                ];
+            }
+        }
+
+        $expectedKeys = [];
+        $invalidExpectedCount = 0;
+        foreach ($expectedRefs as $ref) {
+            if (! $this->isValidRef($ref)) {
+                $invalidExpectedCount++;
+
+                continue;
+            }
+            $expectedKeys[$this->refKey($ref)] = true;
         }
 
         $missing = [];
-        foreach ($expectedRefs as $ref) {
-            if (! isset($seen[$this->refKey($ref)])) {
+        foreach ($expectedKeys as $key => $_) {
+            if (! isset($observedCounts[$key])) {
+                [$taskPacketId, $runId] = explode('|', $key, 2);
                 $missing[] = [
-                    'task_packet_id' => (string) ($ref['task_packet_id'] ?? ''),
-                    'run_id' => (string) ($ref['run_id'] ?? ''),
+                    'task_packet_id' => $taskPacketId,
+                    'run_id' => $runId,
                     'reason' => 'expected_cost_event_missing',
                 ];
             }
         }
 
+        $unexpected = [];
+        foreach ($observedCounts as $key => $_) {
+            if (! isset($expectedKeys[$key])) {
+                [$taskPacketId, $runId] = explode('|', $key, 2);
+                $unexpected[] = [
+                    'task_packet_id' => $taskPacketId,
+                    'run_id' => $runId,
+                    'reason' => 'unexpected_observed_cost_event',
+                ];
+            }
+        }
+
+        $hasGaps = $missing !== [] || $unexpected !== [];
+
         $payload = [
-            'status' => $missing === [] ? 'reconciliation_dry_run_clear' : 'reconciliation_dry_run_has_gaps',
-            'expected_ref_count' => count($expectedRefs),
-            'observed_ref_count' => count($seen),
+            'status' => $hasGaps ? 'reconciliation_dry_run_has_gaps' : 'reconciliation_dry_run_clear',
+            'next_action' => $hasGaps ? 'repair_cost_event_manifest_before_import' : 'none_reconciliation_clear',
+            'expected_ref_count' => count($expectedKeys),
+            'observed_ref_count' => count($observedCounts),
+            'invalid_observed_ref_count' => $invalidObservedCount,
+            'invalid_expected_ref_count' => $invalidExpectedCount,
+            'duplicate_observed_refs' => $duplicateObservedRefs,
+            'duplicate_observed_ref_count' => count($duplicateObservedRefs),
             'missing_cost_event_refs' => $missing,
             'missing_count' => count($missing),
+            'unexpected_observed_refs' => $unexpected,
+            'unexpected_observed_ref_count' => count($unexpected),
             'import_allowed' => false,
             'cost_events_write_allowed' => false,
             'provider_billing_api_read_allowed' => false,
@@ -55,9 +107,17 @@ final class AgentControlPlaneCostImportReconciliationDryRun
         return $payload;
     }
 
+    private function isValidRef(array $value): bool
+    {
+        $taskPacketId = trim((string) ($value['task_packet_id'] ?? ''));
+        $runId = trim((string) ($value['run_id'] ?? ''));
+
+        return $taskPacketId !== '' && $runId !== '';
+    }
+
     private function refKey(array $value): string
     {
-        return (string) ($value['task_packet_id'] ?? '').'|'.(string) ($value['run_id'] ?? '');
+        return trim((string) ($value['task_packet_id'] ?? '')).'|'.trim((string) ($value['run_id'] ?? ''));
     }
 
     private function stableHash(array $payload): string
