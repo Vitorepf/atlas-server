@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierRegressionCaseMiner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyIncidentPostmortemMiner;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCrossProjectPortabilityPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGateRegressionResponsePlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackRootCauseMiner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainGiveBackToQueueRepairPlanner;
@@ -46,6 +47,7 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
         AtlasExternalBrainRegressionRepairTaskSynthesizer $synthesizer,
         AtlasExternalBrainAmplifierRegressionCaseMiner $amplifierRegressionCaseMiner,
         AtlasExternalBrainAutonomyIncidentPostmortemMiner $incidentPostmortemMiner,
+        AtlasExternalBrainCrossProjectPortabilityPlanner $portabilityPlanner,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -97,6 +99,15 @@ final class AtlasExternalBrainRegressionRepairCommand extends Command
             'has_poison_packets' => $hasPoisonPackets,
             'has_runnable_repair_specs' => $hasRunnableRepairSpecs,
         ];
+
+        // Optional cross-project portability plan: a repair-repository can run outside Atlas only
+        // once docs sync, task namespace, worker routing, evidence gates and workspace isolation
+        // are all real — never inferred from repair success alone. Distinct from the repair
+        // sections above, so it only runs when the caller explicitly supplies a
+        // cross_project_portability section.
+        if (is_array($decoded['cross_project_portability'] ?? null)) {
+            $payload['cross_project_portability'] = $portabilityPlanner->plan($decoded['cross_project_portability']);
+        }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
