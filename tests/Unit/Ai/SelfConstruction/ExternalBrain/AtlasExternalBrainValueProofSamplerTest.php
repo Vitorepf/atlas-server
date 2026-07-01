@@ -302,4 +302,157 @@ final class AtlasExternalBrainValueProofSamplerTest extends TestCase
 
         $this->assertTrue($result['admitted'], '0.20 >= 0.10 → admitted');
     }
+
+    // ── AC2: evidence_class (proven_value / partial_value / proxy_green / missing_evidence / contradicted_value) ──
+
+    public function test_evidence_class_proven_value_for_real_capability(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => true,
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainValueProofSampler::EVIDENCE_PROVEN_VALUE, $result['evidence_class']);
+    }
+
+    public function test_evidence_class_proxy_green_for_observability(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => false,
+            'changed_files'      => ['app/Services/EventLogger.php', 'tests/Unit/EventLoggerTest.php'],
+            'tests'              => ['tests/Unit/EventLoggerTest.php'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainValueProofSampler::EVIDENCE_PROXY_GREEN, $result['evidence_class']);
+    }
+
+    public function test_evidence_class_proxy_green_for_scaffolding(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => false,
+            'changed_files'      => ['app/Services/StubProvider.php'],
+            'tests'              => [],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainValueProofSampler::EVIDENCE_PROXY_GREEN, $result['evidence_class']);
+    }
+
+    public function test_evidence_class_missing_evidence_when_no_signals(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => false,
+            'downstream_usage'   => [],
+            'tests'              => [],
+            'behavior_evidence'  => [],
+            'changed_files'      => [],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainValueProofSampler::EVIDENCE_MISSING_EVIDENCE, $result['evidence_class']);
+    }
+
+    public function test_evidence_class_partial_value_when_some_signal_but_unconfirmed(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'integration_status' => false,
+            'downstream_usage'   => [],
+            'tests'              => ['tests/Unit/AtlasFooTest.php'],
+            'changed_files'      => ['app/Services/AtlasFoo.php'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainValueProofSampler::EVIDENCE_PARTIAL_VALUE, $result['evidence_class']);
+    }
+
+    public function test_evidence_class_contradicted_value_overrides_everything(): void
+    {
+        $result = $this->sampler->sample($this->record([
+            'integration_status'      => true,
+            'tests'                   => ['tests/Unit/AtlasFooTest.php'],
+            'contradicting_evidence'  => ['post_commit_regression_detected'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainValueProofSampler::EVIDENCE_CONTRADICTED_VALUE, $result['evidence_class']);
+        // value_class classification itself is unaffected by the contradiction flag.
+        $this->assertSame(AtlasExternalBrainValueProofSampler::CLASS_REAL_CAPABILITY, $result['value_class']);
+    }
+
+    public function test_evidence_class_absent_contradicting_evidence_does_not_trigger_contradiction(): void
+    {
+        $result = $this->sampler->sample($this->record());
+
+        $this->assertNotSame(AtlasExternalBrainValueProofSampler::EVIDENCE_CONTRADICTED_VALUE, $result['evidence_class']);
+    }
+
+    // ── AC3: capability_lift dimension + unevidenced_claims flagging ───────────
+
+    public function test_admit_includes_capability_lift_dimension(): void
+    {
+        $result = $this->sampler->admit(['capability_lift_score' => 0.9]);
+
+        $this->assertArrayHasKey('capability_lift', $result['dimension_scores']);
+        $this->assertSame(0.9, $result['dimension_scores']['capability_lift']);
+        $this->assertTrue($result['admitted']);
+    }
+
+    public function test_admit_flags_unevidenced_claim_when_no_evidence_refs_supplied(): void
+    {
+        $result = $this->sampler->admit(['autonomy_gain_score' => 0.8]);
+
+        $this->assertContains('autonomy_gain', $result['unevidenced_claims']);
+    }
+
+    public function test_admit_does_not_flag_claim_with_supporting_evidence_refs(): void
+    {
+        $result = $this->sampler->admit([
+            'autonomy_gain_score' => 0.8,
+            'autonomy_gain_evidence_refs' => ['receipt:autonomy-lift-1'],
+        ]);
+
+        $this->assertNotContains('autonomy_gain', $result['unevidenced_claims']);
+    }
+
+    public function test_admit_never_flags_zero_score_dimension_as_unevidenced(): void
+    {
+        $result = $this->sampler->admit(['autonomy_gain_score' => 0.8]);
+
+        $this->assertNotContains('risk_reduction', $result['unevidenced_claims']);
+        $this->assertNotContains('simplification', $result['unevidenced_claims']);
+    }
+
+    // ── AC4: family_guidance lowers future priority for proxy-green families ───
+
+    public function test_family_guidance_absent_when_no_task_family_supplied(): void
+    {
+        $result = $this->sampler->sampleBatch([$this->record()]);
+
+        $this->assertSame([], $result['family_guidance']);
+    }
+
+    public function test_family_guidance_lowers_priority_for_high_proxy_green_family(): void
+    {
+        $records = [
+            array_merge($this->record(['changed_files' => ['app/StubA.php'], 'tests' => []]), ['task_family' => 'family-proxy']),
+            array_merge($this->record(['changed_files' => ['app/StubB.php'], 'tests' => []]), ['task_family' => 'family-proxy']),
+        ];
+
+        $result = $this->sampler->sampleBatch($records);
+
+        $guidance = $result['family_guidance'][0];
+        $this->assertSame('family-proxy', $guidance['task_family']);
+        $this->assertSame(1.0, $guidance['proxy_green_rate']);
+        $this->assertTrue($guidance['lowered_future_priority']);
+        $this->assertLessThan(0.0, $guidance['priority_adjustment']);
+    }
+
+    public function test_family_guidance_does_not_lower_priority_for_proven_value_family(): void
+    {
+        $records = [
+            array_merge($this->record(['integration_status' => true]), ['task_family' => 'family-good']),
+        ];
+
+        $result = $this->sampler->sampleBatch($records);
+
+        $guidance = $result['family_guidance'][0];
+        $this->assertFalse($guidance['lowered_future_priority']);
+        $this->assertSame(0.0, $guidance['priority_adjustment']);
+    }
 }
