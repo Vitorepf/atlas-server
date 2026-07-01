@@ -86,6 +86,12 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
         ];
     }
 
+    /** Average evidence_refs count per outcome at or above this is strong proof coverage. */
+    private const STRONG_PROOF_AVG_REFS = 1.0;
+
+    /** Ratio of all-failed groups at or above this signals repeated-failure drag, not a blip. */
+    private const FAILURE_DRAG_GROUP_RATIO = 0.3;
+
     /**
      * @param  list<array<string,mixed>>  $groups
      * @return array{trend:string, confidence:string, total_outcome_count:int, rates:array<string,float>}
@@ -98,13 +104,35 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
         $learning = 0;
         $total = 0;
 
+        // AC: capability_delta / simplification_gain are only credited from PASSED outcomes — a
+        // failed or learning_required record proves nothing was actually delivered. proof_strength
+        // is measured across every outcome (weak proof is itself a signal regardless of verdict).
+        $capabilityDeltaSum = 0.0;
+        $simplificationGainSum = 0.0;
+        $proofRefCounts = [];
+        $allFailedGroupCount = 0;
+
         foreach ($groups as $g) {
-            foreach ($g['outcomes'] as $o) {
+            $groupOutcomes = $g['outcomes'];
+            $groupAllFailed = $groupOutcomes !== [] && count(array_filter(
+                $groupOutcomes,
+                static fn (array $o): bool => $o['outcome'] === self::OUTCOME_FAILED,
+            )) === count($groupOutcomes);
+            if ($groupAllFailed) {
+                $allFailedGroupCount++;
+            }
+
+            foreach ($groupOutcomes as $o) {
                 $total++;
+                $raw = (array) ($o['raw_fact'] ?? []);
+                $proofRefCounts[] = count((array) ($raw['evidence_refs'] ?? []));
+
                 if (($o['raw_outcome'] ?? '') === 'give_back') {
                     $giveBack++;
                 } elseif ($o['outcome'] === self::OUTCOME_PASSED) {
                     $passed++;
+                    $capabilityDeltaSum += (float) ($raw['capability_delta'] ?? 0.0);
+                    $simplificationGainSum += (float) ($raw['simplification_gain'] ?? 0.0);
                 } elseif ($o['outcome'] === self::OUTCOME_FAILED) {
                     $failed++;
                 } else {
@@ -112,6 +140,11 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
                 }
             }
         }
+
+        $totalGroups = count($groups);
+        $failureDrag = $totalGroups > 0 ? round($allFailedGroupCount / $totalGroups, 4) : 0.0;
+        $avgProofRefs = $proofRefCounts !== [] ? array_sum($proofRefCounts) / count($proofRefCounts) : 0.0;
+        $proofStrength = $avgProofRefs >= self::STRONG_PROOF_AVG_REFS ? 'strong' : 'weak';
 
         $passedRate   = $total > 0 ? $passed / $total : 0.0;
         $failedRate   = $total > 0 ? $failed / $total : 0.0;
@@ -137,6 +170,17 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
             default      => 'low',
         };
 
+        // AC: distinguish REAL compounding from raw task volume — a high pass rate alone (trend
+        // 'compounding') means nothing if no capability actually moved and proof is weak.
+        $compoundingStatus = match (true) {
+            $total === 0 => 'no_data',
+            $failureDrag >= self::FAILURE_DRAG_GROUP_RATIO => 'regressing',
+            $capabilityDeltaSum > 0.0 && $proofStrength === 'strong' => 'true_compounding',
+            $simplificationGainSum > 0.0 => 'simplifying',
+            $trend === 'compounding' && $capabilityDeltaSum <= 0.0 => 'volume_without_compounding',
+            default => 'flat',
+        };
+
         return [
             'trend'               => $trend,
             'confidence'          => $confidence,
@@ -147,6 +191,11 @@ final class AtlasSelfConstructionCompoundingOutcomeProjection
                 'give_back_rate' => round($giveBackRate, 4),
                 'learning_rate'  => $total > 0 ? round($learning / $total, 4) : 0.0,
             ],
+            'capability_delta'    => round($capabilityDeltaSum, 4),
+            'failure_drag'        => $failureDrag,
+            'simplification_gain' => round($simplificationGainSum, 4),
+            'proof_strength'      => $proofStrength,
+            'compounding_status'  => $compoundingStatus,
         ];
     }
 }

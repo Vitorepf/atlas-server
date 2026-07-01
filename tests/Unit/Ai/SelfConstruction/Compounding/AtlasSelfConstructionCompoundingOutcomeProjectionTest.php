@@ -124,4 +124,80 @@ final class AtlasSelfConstructionCompoundingOutcomeProjectionTest extends TestCa
 
         $this->assertSame(['a|t|x|z', 'b|t|x|z', 'c|t|x|z'], array_column($verdict['groups'], 'key'));
     }
+
+    // ── AC: capability_delta, failure_drag, simplification_gain, proof_strength, compounding_status ──
+
+    private function passedRecWithProof(string $organ, string $cycleId, float $capabilityDelta): array
+    {
+        return [
+            'organ' => $organ, 'task_class' => 't', 'cycle_id' => $cycleId, 'evidence_hash' => 'h-'.$cycleId,
+            'outcome' => 'success', 'capability_delta' => $capabilityDelta,
+            'evidence_refs' => ['tests_or_gates_result', 'implementation_notes'],
+        ];
+    }
+
+    public function test_green_capability_gain_with_strong_proof_yields_true_compounding(): void
+    {
+        $records = [
+            $this->passedRecWithProof('cortex', 'c-1', 2.0),
+            $this->passedRecWithProof('cortex', 'c-2', 3.0),
+        ];
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertGreaterThan(0.0, $v['summary']['capability_delta']);
+        $this->assertSame('strong', $v['summary']['proof_strength']);
+        $this->assertSame('true_compounding', $v['summary']['compounding_status']);
+    }
+
+    public function test_high_volume_with_low_proof_does_not_claim_true_compounding(): void
+    {
+        // Many passed outcomes, but no capability_delta and no evidence_refs — raw volume, not proof.
+        $records = [];
+        for ($i = 0; $i < 8; $i++) {
+            $records[] = ['organ' => 'x', 'task_class' => 't', 'cycle_id' => "v-{$i}", 'evidence_hash' => "h-{$i}", 'outcome' => 'success'];
+        }
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertSame(0.0, $v['summary']['capability_delta']);
+        $this->assertSame('weak', $v['summary']['proof_strength']);
+        $this->assertSame('volume_without_compounding', $v['summary']['compounding_status']);
+        $this->assertNotSame('true_compounding', $v['summary']['compounding_status']);
+    }
+
+    public function test_repeated_failures_yield_regressing_compounding_status_with_high_failure_drag(): void
+    {
+        $records = [];
+        for ($i = 0; $i < 4; $i++) {
+            $records[] = ['organ' => "fail-{$i}", 'task_class' => 't', 'cycle_id' => "f-{$i}", 'evidence_hash' => "h-{$i}", 'outcome' => 'regression'];
+        }
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertSame('regressing', $v['summary']['compounding_status']);
+        $this->assertGreaterThanOrEqual(0.3, $v['summary']['failure_drag']);
+    }
+
+    public function test_simplification_gain_without_capability_delta_yields_simplifying_status(): void
+    {
+        $records = [
+            [
+                'organ' => 'simplify', 'task_class' => 't', 'cycle_id' => 's-1', 'evidence_hash' => 'h-s1',
+                'outcome' => 'success', 'simplification_gain' => 5.0, 'evidence_refs' => ['tests_or_gates_result'],
+            ],
+        ];
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project($records);
+
+        $this->assertGreaterThan(0.0, $v['summary']['simplification_gain']);
+        $this->assertSame('simplifying', $v['summary']['compounding_status']);
+    }
+
+    public function test_empty_input_yields_no_data_compounding_status_and_zeroed_facts(): void
+    {
+        $v = (new AtlasSelfConstructionCompoundingOutcomeProjection)->project([]);
+
+        $this->assertSame('no_data', $v['summary']['compounding_status']);
+        $this->assertSame(0.0, $v['summary']['capability_delta']);
+        $this->assertSame(0.0, $v['summary']['failure_drag']);
+        $this->assertSame(0.0, $v['summary']['simplification_gain']);
+        $this->assertSame('weak', $v['summary']['proof_strength']);
+    }
 }
