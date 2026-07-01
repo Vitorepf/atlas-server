@@ -207,6 +207,19 @@ final class AtlasExternalBrainSpecRegressionHarness
             }
         }
 
+        // AC1: a whole BATCH exhibiting template_farm is worse than one candidate touching the
+        // pattern — 2+ template_farm matches in the same replay means the originator itself is
+        // template-farming, not just one weak spec. Escalate the batch to fail.
+        $templateFarmMatchCount = count(array_filter(
+            $matchedRegressions,
+            static fn (array $m): bool => $m['class'] === self::CLASS_TEMPLATE_FARM,
+        ));
+        $batchTemplateFarm = $templateFarmMatchCount >= 2;
+        if ($batchTemplateFarm) {
+            $overallVerdict = self::VERDICT_FAIL;
+            $evidenceLines[] = "batch_template_farm: {$templateFarmMatchCount} candidates matched template_farm — whole batch fails replay";
+        }
+
         $evidenceLines[] = count($matchedRegressions) === 0
             ? 'all candidates passed regression replay'
             : count($matchedRegressions).' regression(s) matched across '.count($candidates).' candidate(s)';
@@ -216,6 +229,7 @@ final class AtlasExternalBrainSpecRegressionHarness
             'verdict'              => $overallVerdict,
             'matched_regressions'  => $matchedRegressions,
             'evidence'             => $evidenceLines,
+            'covered_regressions'  => array_values(array_keys(self::GATE_BY_CLASS)),
         ];
     }
 

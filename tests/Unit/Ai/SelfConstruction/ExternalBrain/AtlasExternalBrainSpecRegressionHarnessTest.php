@@ -357,4 +357,75 @@ final class AtlasExternalBrainSpecRegressionHarnessTest extends TestCase
             $this->assertNotSame('', $match['evidence']);
         }
     }
+
+    // ── AC1: historical template-farm BATCH still fails replay ──────────────────
+
+    public function test_batch_of_template_farm_candidates_fails_replay(): void
+    {
+        $templateEx = $this->example('template_farm', 'generate boilerplate template scaffold for new module quickly');
+
+        $c1 = $this->spec(['task_id' => 'tf-1', 'allowed_files' => ['app/Services/Foo.php'], 'objective' => 'generate boilerplate template scaffold quickly alpha bravo charlie']);
+        $c2 = $this->spec(['task_id' => 'tf-2', 'allowed_files' => ['app/Services/Bar.php'], 'objective' => 'generate boilerplate template scaffold module delta echo foxtrot']);
+
+        $result = $this->harness->replay($this->input([$c1, $c2], [$templateEx]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_FAIL, $result['verdict']);
+        $classes = array_column($result['matched_regressions'], 'class');
+        $this->assertCount(2, array_filter($classes, static fn (string $c): bool => $c === AtlasExternalBrainSpecRegressionHarness::CLASS_TEMPLATE_FARM));
+    }
+
+    public function test_single_template_farm_candidate_still_only_warns(): void
+    {
+        // Regression guard: a single template_farm match must stay a warning, not escalate.
+        $templateEx = $this->example('template_farm', 'generate boilerplate template scaffold for new module quickly');
+        $c1 = $this->spec(['objective' => 'generate boilerplate template scaffold for new module quickly']);
+
+        $result = $this->harness->replay($this->input([$c1], [$templateEx]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_WARNING, $result['verdict']);
+    }
+
+    // ── AC2: historical contradictory packet still fails replay ─────────────────
+
+    public function test_historical_contradictory_packet_still_fails_replay(): void
+    {
+        $candidate = $this->spec([
+            'objective' => 'implement caching layer for endpoint responses',
+            'acceptance_criteria' => [
+                'the cache must always be invalidated on write',
+                'the cache must never be invalidated on write',
+            ],
+        ]);
+
+        $result = $this->harness->replay($this->input([$candidate]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_FAIL, $result['verdict']);
+        $classes = array_column($result['matched_regressions'], 'class');
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_CONTRADICTORY_ACCEPTANCE, $classes);
+    }
+
+    // ── AC3: good worker-ready spec passes and reports covered_regressions ──────
+
+    public function test_good_worker_ready_spec_passes_and_reports_covered_regressions(): void
+    {
+        $result = $this->harness->replay($this->input([$this->spec()]));
+
+        $this->assertSame(AtlasExternalBrainSpecRegressionHarness::VERDICT_PASS, $result['verdict']);
+        $this->assertArrayHasKey('covered_regressions', $result);
+        $this->assertNotEmpty($result['covered_regressions']);
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_POISON, $result['covered_regressions']);
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_TEMPLATE_FARM, $result['covered_regressions']);
+        $this->assertContains(AtlasExternalBrainSpecRegressionHarness::CLASS_CONTRADICTORY_ACCEPTANCE, $result['covered_regressions']);
+    }
+
+    public function test_covered_regressions_present_even_when_replay_fails(): void
+    {
+        $candidate = $this->spec(['objective' => 'implement queue saturation poison detection service']);
+        $poisonEx  = $this->example('poison', 'queue saturation poison detection service implement');
+
+        $result = $this->harness->replay($this->input([$candidate], [$poisonEx]));
+
+        $this->assertArrayHasKey('covered_regressions', $result);
+        $this->assertNotEmpty($result['covered_regressions']);
+    }
 }
