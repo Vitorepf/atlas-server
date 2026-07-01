@@ -143,4 +143,49 @@ final class AtlasStrategyCouncilDecisionLedgerTest extends TestCase
         $this->assertCount(3, $this->ledger->export(3));
         $this->assertCount(5, $this->ledger->all());
     }
+
+    // ── supply-state / layer-selection learning hooks ──
+
+    public function test_row_includes_supply_state_selected_layer_rejected_alternatives_and_outcome_learning_ref(): void
+    {
+        $p = $this->payload();
+        $p['supply_state'] = ['servable_now' => 12, 'active_leases' => 4];
+        $p['selected_layer'] = 'structural_origination';
+        $p['rejected_alternatives'] = [['layer' => 'replenish', 'reason' => 'supply_above_replenish_floor']];
+        $p['outcome_learning_ref'] = 'outcome-ledger-ref-1';
+
+        $res = $this->ledger->append($p);
+
+        $this->assertSame(['active_leases' => 4, 'servable_now' => 12], $res['row']['supply_state']);
+        $this->assertSame('structural_origination', $res['row']['selected_layer']);
+        $this->assertSame([['layer' => 'replenish', 'reason' => 'supply_above_replenish_floor']], $res['row']['rejected_alternatives']);
+        $this->assertSame('outcome-ledger-ref-1', $res['row']['outcome_learning_ref']);
+    }
+
+    public function test_supply_state_and_layer_fields_default_to_empty_when_absent(): void
+    {
+        $res = $this->ledger->append($this->payload());
+
+        $this->assertSame([], $res['row']['supply_state']);
+        $this->assertSame('', $res['row']['selected_layer']);
+        $this->assertSame([], $res['row']['rejected_alternatives']);
+        $this->assertSame('', $res['row']['outcome_learning_ref']);
+    }
+
+    public function test_ledger_remains_deterministic_for_identical_decision_inputs_with_supply_state(): void
+    {
+        $p = $this->payload();
+        $p['supply_state'] = ['servable_now' => 12, 'active_leases' => 4];
+        $p['selected_layer'] = 'replenish';
+        $p['outcome_learning_ref'] = 'ref-1';
+
+        $a = $this->ledger->append($p);
+
+        $path2 = sys_get_temp_dir().'/atlas_sc_dec_supply_'.bin2hex(random_bytes(6)).'.jsonl';
+        $ledger2 = new AtlasStrategyCouncilDecisionLedger($path2);
+        $b = $ledger2->append($p);
+        @unlink($path2);
+
+        $this->assertSame($a['row']['decision_hash'], $b['row']['decision_hash']);
+    }
 }

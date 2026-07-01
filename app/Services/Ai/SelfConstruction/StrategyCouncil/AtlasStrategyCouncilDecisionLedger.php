@@ -41,7 +41,11 @@ final class AtlasStrategyCouncilDecisionLedger
      *     reason_vectors:list<string>,
      *     ambition_level:string,
      *     evidence_refs:list<string>,
-     *     decided_at:string
+     *     decided_at:string,
+     *     supply_state?:array<string,mixed>,
+     *     selected_layer?:string,
+     *     rejected_alternatives?:list<array<string,mixed>>,
+     *     outcome_learning_ref?:string,
      * }  $payload
      * @return array{status:string, row?:array<string,mixed>}
      */
@@ -54,6 +58,14 @@ final class AtlasStrategyCouncilDecisionLedger
         $ambition = (string) ($payload['ambition_level'] ?? '');
         $evidence = is_array($payload['evidence_refs'] ?? null) ? array_values(array_map('strval', $payload['evidence_refs'])) : null;
         $decidedAt = (string) ($payload['decided_at'] ?? '');
+
+        // Supply-state + layer-selection learning hooks (opt-in; default to empty/neutral
+        // values so callers that predate this extension keep byte-identical rows and hashes).
+        $supplyState = is_array($payload['supply_state'] ?? null) ? $payload['supply_state'] : [];
+        ksort($supplyState);
+        $selectedLayer = (string) ($payload['selected_layer'] ?? '');
+        $rejectedAlternatives = is_array($payload['rejected_alternatives'] ?? null) ? array_values($payload['rejected_alternatives']) : [];
+        $outcomeLearningRef = (string) ($payload['outcome_learning_ref'] ?? '');
 
         if ($decisionId === '') {
             throw new RuntimeException('strategy decision ledger: missing decision_id');
@@ -89,6 +101,10 @@ final class AtlasStrategyCouncilDecisionLedger
             'ambition_level' => $ambition,
             'evidence_refs' => $evidence,
             'decided_at' => $decidedAt,
+            'supply_state' => $supplyState,
+            'selected_layer' => $selectedLayer,
+            'rejected_alternatives' => $rejectedAlternatives,
+            'outcome_learning_ref' => $outcomeLearningRef,
         ];
         ksort($canonical);
         $decisionHash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
