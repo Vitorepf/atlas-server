@@ -185,6 +185,95 @@ final class AtlasSelfConstructionOrganReadinessComposer
         ];
     }
 
+    public const CIRCUIT_STATUS_RUNTIME_READY   = 'runtime_ready';
+    public const CIRCUIT_STATUS_DORMANT_NOT_READY = 'dormant_not_ready';
+    public const CIRCUIT_STATUS_NEEDS_REPROOF   = 'needs_reproof';
+    public const CIRCUIT_STATUS_NOT_IMPLEMENTED = 'not_implemented';
+
+    private const PROOF_STALE_DAYS_THRESHOLD = 30;
+
+    /**
+     * Class-level readiness: a class is runtime_ready only once it has an
+     * implementation, tests, at least one real circuit consumer, AND fresh proof —
+     * implemented-but-unwired classes are dormant_not_ready, and stale proof on an
+     * otherwise-wired class is needs_reproof, never silently counted as ready.
+     *
+     * @param  array{classes?: list<array{
+     *   class_id?: string,
+     *   has_implementation?: bool,
+     *   has_tests?: bool,
+     *   consumer_count?: int,
+     *   proof_freshness_days?: int,
+     * }>}  $facts
+     * @return array{schema:string, entries:list<array<string,mixed>>, runtime_ready_classes:list<string>, dormant_classes:list<string>, needs_reproof_classes:list<string>}
+     */
+    public function composeCircuitReadiness(array $facts): array
+    {
+        $classes = is_array($facts['classes'] ?? null) ? $facts['classes'] : [];
+
+        $entries = [];
+        $runtimeReady = [];
+        $dormant = [];
+        $needsReproof = [];
+
+        foreach ($classes as $row) {
+            if (! is_array($row) || ! isset($row['class_id'])) {
+                continue;
+            }
+            $classId = (string) $row['class_id'];
+            $hasImplementation = (bool) ($row['has_implementation'] ?? false);
+            $hasTests = (bool) ($row['has_tests'] ?? false);
+            $consumerCount = max(0, (int) ($row['consumer_count'] ?? 0));
+            $proofFreshnessDays = array_key_exists('proof_freshness_days', $row)
+                ? max(0, (int) $row['proof_freshness_days'])
+                : null;
+
+            $reasons = [];
+            $status = match (true) {
+                ! $hasImplementation => self::CIRCUIT_STATUS_NOT_IMPLEMENTED,
+                $consumerCount === 0 || ! $hasTests => self::CIRCUIT_STATUS_DORMANT_NOT_READY,
+                $proofFreshnessDays === null || $proofFreshnessDays > self::PROOF_STALE_DAYS_THRESHOLD => self::CIRCUIT_STATUS_NEEDS_REPROOF,
+                default => self::CIRCUIT_STATUS_RUNTIME_READY,
+            };
+
+            if ($status === self::CIRCUIT_STATUS_NOT_IMPLEMENTED) {
+                $reasons[] = 'no_implementation';
+            }
+            if ($status === self::CIRCUIT_STATUS_DORMANT_NOT_READY) {
+                if ($consumerCount === 0) {
+                    $reasons[] = 'no_circuit_consumers';
+                }
+                if (! $hasTests) {
+                    $reasons[] = 'no_tests';
+                }
+            }
+            if ($status === self::CIRCUIT_STATUS_NEEDS_REPROOF) {
+                $reasons[] = $proofFreshnessDays === null ? 'no_proof_recorded' : "proof_stale:{$proofFreshnessDays}_days";
+            }
+
+            $entries[] = [
+                'class_id' => $classId,
+                'status'   => $status,
+                'reasons'  => $reasons,
+            ];
+
+            match ($status) {
+                self::CIRCUIT_STATUS_RUNTIME_READY => $runtimeReady[] = $classId,
+                self::CIRCUIT_STATUS_DORMANT_NOT_READY => $dormant[] = $classId,
+                self::CIRCUIT_STATUS_NEEDS_REPROOF => $needsReproof[] = $classId,
+                default => null,
+            };
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'entries' => $entries,
+            'runtime_ready_classes' => $runtimeReady,
+            'dormant_classes' => $dormant,
+            'needs_reproof_classes' => $needsReproof,
+        ];
+    }
+
     /** @return list<string> */
     private function evidenceFloorBlockers(array $row): array
     {

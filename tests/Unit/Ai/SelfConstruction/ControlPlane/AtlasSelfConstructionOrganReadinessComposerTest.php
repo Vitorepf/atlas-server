@@ -187,4 +187,128 @@ final class AtlasSelfConstructionOrganReadinessComposerTest extends TestCase
         $this->assertSame([], $verdict['degraded_organs']);
         $this->assertSame([], $verdict['next_required_organs']);
     }
+
+    // ── composeCircuitReadiness(): class-level runtime readiness ────────────────
+
+    private function readyClass(array $overrides = []): array
+    {
+        return array_merge([
+            'class_id' => 'AtlasFooOrgan',
+            'has_implementation' => true,
+            'has_tests' => true,
+            'consumer_count' => 2,
+            'proof_freshness_days' => 1,
+        ], $overrides);
+    }
+
+    // ── AC: implemented classes without consumers are dormant_not_ready ────────
+
+    public function test_implemented_class_without_consumers_is_dormant_not_ready(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$this->readyClass(['consumer_count' => 0])],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_DORMANT_NOT_READY,
+            $result['entries'][0]['status'],
+        );
+        $this->assertContains('AtlasFooOrgan', $result['dormant_classes']);
+        $this->assertContains('no_circuit_consumers', $result['entries'][0]['reasons']);
+    }
+
+    public function test_implemented_class_without_tests_is_dormant_not_ready(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$this->readyClass(['has_tests' => false])],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_DORMANT_NOT_READY,
+            $result['entries'][0]['status'],
+        );
+        $this->assertContains('no_tests', $result['entries'][0]['reasons']);
+    }
+
+    public function test_class_without_implementation_is_not_implemented(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$this->readyClass(['has_implementation' => false])],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_NOT_IMPLEMENTED,
+            $result['entries'][0]['status'],
+        );
+    }
+
+    // ── AC: stale proof marks readiness as needs_reproof ────────────────────────
+
+    public function test_stale_proof_marks_needs_reproof(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$this->readyClass(['proof_freshness_days' => 45])],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_NEEDS_REPROOF,
+            $result['entries'][0]['status'],
+        );
+        $this->assertContains('AtlasFooOrgan', $result['needs_reproof_classes']);
+    }
+
+    public function test_missing_proof_marks_needs_reproof(): void
+    {
+        $class = $this->readyClass();
+        unset($class['proof_freshness_days']);
+
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$class],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_NEEDS_REPROOF,
+            $result['entries'][0]['status'],
+        );
+        $this->assertContains('no_proof_recorded', $result['entries'][0]['reasons']);
+    }
+
+    // ── AC: implementation + tests + consumers + fresh proof is runtime_ready ──
+
+    public function test_fully_wired_class_with_fresh_proof_is_runtime_ready(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$this->readyClass()],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_RUNTIME_READY,
+            $result['entries'][0]['status'],
+        );
+        $this->assertContains('AtlasFooOrgan', $result['runtime_ready_classes']);
+        $this->assertSame([], $result['entries'][0]['reasons']);
+    }
+
+    public function test_dormant_check_takes_priority_over_stale_proof(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([
+            'classes' => [$this->readyClass(['consumer_count' => 0, 'proof_freshness_days' => 45])],
+        ]);
+
+        $this->assertSame(
+            AtlasSelfConstructionOrganReadinessComposer::CIRCUIT_STATUS_DORMANT_NOT_READY,
+            $result['entries'][0]['status'],
+        );
+    }
+
+    public function test_compose_circuit_readiness_output_has_required_keys(): void
+    {
+        $result = (new AtlasSelfConstructionOrganReadinessComposer)->composeCircuitReadiness([]);
+
+        $this->assertSame(AtlasSelfConstructionOrganReadinessComposer::SCHEMA, $result['schema']);
+        foreach (['entries', 'runtime_ready_classes', 'dormant_classes', 'needs_reproof_classes'] as $key) {
+            $this->assertArrayHasKey($key, $result);
+        }
+        $this->assertSame([], $result['entries']);
+    }
 }
