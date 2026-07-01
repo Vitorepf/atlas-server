@@ -244,4 +244,71 @@ final class AtlasSelfConstructionWorkerAssignmentMatcherTest extends TestCase
 
         $this->assertSame(['w-a', 'w-z'], array_column($verdict['eligible'], 'worker_id'));
     }
+
+    // ── AC: high recent give_back rate lowers assignment score for the family ──
+
+    public function test_high_give_back_rate_yields_caution_hint_without_family_list_membership(): void
+    {
+        $task   = $this->task(['task_family' => 'php_service']);
+        $worker = $this->worker(['give_back_rate_by_family' => ['php_service' => 0.75]]);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$worker], self::NOW);
+
+        $hint = $verdict['outcome_fit_hints'][0];
+        $this->assertSame('caution', $hint['fit']);
+        $this->assertSame(0.75, $hint['give_back_rate']);
+        $this->assertContains('high_give_back_rate:0.75', $hint['reasons']);
+    }
+
+    public function test_low_give_back_rate_does_not_trigger_caution(): void
+    {
+        $task   = $this->task(['task_family' => 'php_service']);
+        $worker = $this->worker(['give_back_rate_by_family' => ['php_service' => 0.2]]);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$worker], self::NOW);
+
+        $hint = $verdict['outcome_fit_hints'][0];
+        $this->assertSame('neutral', $hint['fit']);
+    }
+
+    public function test_high_give_back_rate_worker_ranked_below_neutral_worker_in_eligible(): void
+    {
+        $task = $this->task(['task_family' => 'php_service']);
+        $highGiveBack = $this->worker(['worker_id' => 'w-a-highrate', 'give_back_rate_by_family' => ['php_service' => 0.9]]);
+        $neutral = $this->worker(['worker_id' => 'w-z-neutral']);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$highGiveBack, $neutral], self::NOW);
+
+        $this->assertSame(['w-z-neutral', 'w-a-highrate'], array_column($verdict['eligible'], 'worker_id'));
+    }
+
+    // ── AC: stale worker outcome history is ignored rather than trusted ────────
+
+    public function test_stale_worker_history_falls_back_to_neutral_ignoring_success_families(): void
+    {
+        $task   = $this->task(['task_family' => 'php_service']);
+        $worker = $this->worker([
+            'success_families' => ['php_service'],
+            'history_freshness_unix' => self::NOW - 10000,
+        ]);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$worker], self::NOW, freshnessWindowSeconds: 60);
+
+        $hint = $verdict['outcome_fit_hints'][0];
+        $this->assertSame('neutral', $hint['fit']);
+        $this->assertContains('stale_worker_history_ignored', $hint['reasons']);
+    }
+
+    public function test_fresh_worker_history_still_trusts_success_families(): void
+    {
+        $task   = $this->task(['task_family' => 'php_service']);
+        $worker = $this->worker([
+            'success_families' => ['php_service'],
+            'history_freshness_unix' => self::NOW - 60,
+        ]);
+
+        $verdict = (new AtlasSelfConstructionWorkerAssignmentMatcher)->match($task, [$worker], self::NOW, freshnessWindowSeconds: 3600);
+
+        $this->assertSame('preferred', $verdict['outcome_fit_hints'][0]['fit']);
+    }
 }

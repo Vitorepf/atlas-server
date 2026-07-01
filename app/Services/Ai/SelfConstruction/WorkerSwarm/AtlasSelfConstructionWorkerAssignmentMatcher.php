@@ -49,6 +49,9 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
 
     public const DEFAULT_FRESHNESS_WINDOW_SECONDS = 3600;
 
+    /** A recent give_back rate at/above this fraction lowers assignment fit to caution. */
+    private const GIVE_BACK_RATE_CAUTION_THRESHOLD = 0.5;
+
     /**
      * @param  array<string,mixed>  $task
      * @param  list<array<string,mixed>>  $workers
@@ -127,7 +130,7 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
                 if (! is_array($w)) {
                     continue;
                 }
-                $hint = $this->outcomeHint($taskFamily, $w);
+                $hint = $this->outcomeHint($taskFamily, $w, $nowUnix, $freshnessWindowSeconds);
                 $outcomeHints[] = $hint;
                 $fitByWorkerId[$hint['worker_id']] = $hint['fit'];
             }
@@ -169,26 +172,44 @@ final class AtlasSelfConstructionWorkerAssignmentMatcher
 
     /**
      * @param  array<string,mixed>  $worker
-     * @return array{worker_id:string, fit:string, reasons:list<string>}
+     * @return array{worker_id:string, fit:string, reasons:list<string>, give_back_rate:float}
      */
-    private function outcomeHint(string $taskFamily, array $worker): array
+    private function outcomeHint(string $taskFamily, array $worker, int $nowUnix, int $freshnessWindowSeconds): array
     {
-        $workerId       = (string) ($worker['worker_id'] ?? '');
+        $workerId = (string) ($worker['worker_id'] ?? '');
+
+        // AC: stale worker outcome history is ignored rather than trusted — a worker
+        // reporting a history_freshness_unix older than the window falls back to neutral.
+        $historyFreshnessUnix = $worker['history_freshness_unix'] ?? null;
+        if (is_int($historyFreshnessUnix) && $nowUnix > 0 && $nowUnix - $historyFreshnessUnix > $freshnessWindowSeconds) {
+            return ['worker_id' => $workerId, 'fit' => 'neutral', 'reasons' => ['stale_worker_history_ignored'], 'give_back_rate' => 0.0];
+        }
+
         $poisonFamilies = array_map('strval', (array) ($worker['poison_families'] ?? []));
         $giveBackFams   = array_map('strval', (array) ($worker['give_back_families'] ?? []));
         $successFams    = array_map('strval', (array) ($worker['success_families'] ?? []));
+        $giveBackRates  = (array) ($worker['give_back_rate_by_family'] ?? []);
+        $giveBackRate   = (float) ($giveBackRates[$taskFamily] ?? 0.0);
 
-        // Worst-signal-first: poison > give_back > success.
+        // Worst-signal-first: poison > give_back (family match or high rate) > success.
         if (in_array($taskFamily, $poisonFamilies, true)) {
-            return ['worker_id' => $workerId, 'fit' => 'rejected_by_history', 'reasons' => ["poison_family_match:{$taskFamily}"]];
+            return ['worker_id' => $workerId, 'fit' => 'rejected_by_history', 'reasons' => ["poison_family_match:{$taskFamily}"], 'give_back_rate' => $giveBackRate];
         }
-        if (in_array($taskFamily, $giveBackFams, true)) {
-            return ['worker_id' => $workerId, 'fit' => 'caution', 'reasons' => ["give_back_family_match:{$taskFamily}"]];
+        if (in_array($taskFamily, $giveBackFams, true) || $giveBackRate >= self::GIVE_BACK_RATE_CAUTION_THRESHOLD) {
+            $reasons = [];
+            if (in_array($taskFamily, $giveBackFams, true)) {
+                $reasons[] = "give_back_family_match:{$taskFamily}";
+            }
+            if ($giveBackRate >= self::GIVE_BACK_RATE_CAUTION_THRESHOLD) {
+                $reasons[] = "high_give_back_rate:{$giveBackRate}";
+            }
+
+            return ['worker_id' => $workerId, 'fit' => 'caution', 'reasons' => $reasons, 'give_back_rate' => $giveBackRate];
         }
         if (in_array($taskFamily, $successFams, true)) {
-            return ['worker_id' => $workerId, 'fit' => 'preferred', 'reasons' => ["success_family_match:{$taskFamily}"]];
+            return ['worker_id' => $workerId, 'fit' => 'preferred', 'reasons' => ["success_family_match:{$taskFamily}"], 'give_back_rate' => $giveBackRate];
         }
 
-        return ['worker_id' => $workerId, 'fit' => 'neutral', 'reasons' => []];
+        return ['worker_id' => $workerId, 'fit' => 'neutral', 'reasons' => [], 'give_back_rate' => $giveBackRate];
     }
 }
