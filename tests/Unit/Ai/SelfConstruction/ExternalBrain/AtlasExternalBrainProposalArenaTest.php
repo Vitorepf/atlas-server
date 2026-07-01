@@ -383,4 +383,75 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
             $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM, $rejection['reason']);
         }
     }
+
+    // ── AC2: rhetorical "confidence" never scores; concrete evidence decides ──
+
+    public function test_high_confidence_without_code_or_evidence_loses_to_lower_confidence_evidence_backed(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('confident_but_blind', [
+                'confidence'                 => 0.95,
+                'evidence_strength'          => 0.0,
+                'has_runnable_evidence_path' => false,
+                'leverage'                   => 0.9,
+            ]),
+            $this->proposal('humble_but_proven', [
+                'confidence'                 => 0.3,
+                'evidence_strength'          => 0.7,
+                'has_runnable_evidence_path' => true,
+                'leverage'                   => 0.5,
+            ]),
+        ]]);
+
+        $this->assertSame('humble_but_proven', $result['winner']['proposal_id']);
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_NO_EVIDENCE_PATH, $reasons['confident_but_blind']);
+    }
+
+    // ── AC3: template-farm penalty ignores which class names are mentioned ────
+
+    public function test_repeated_template_shaped_proposals_are_penalized_despite_different_class_names(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('widget_a', [
+                'objective'              => 'Harden AtlasFooWidgetService so it validates input',
+                'template_similarity'    => 0.8,
+                'repeated_pattern_count' => 4,
+            ]),
+            $this->proposal('widget_b', [
+                'objective'              => 'Harden AtlasBarGadgetHandler so it validates input',
+                'template_similarity'    => 0.8,
+                'repeated_pattern_count' => 4,
+            ]),
+        ]]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $reasons = array_column($result['rejected'], 'reason', 'proposal_id');
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM, $reasons['widget_a']);
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM, $reasons['widget_b']);
+    }
+
+    // ── AC4: deletion-first simplification leverage can outscore a feature-add ──
+
+    public function test_simplification_leverage_wins_over_feature_addition_without_losing_capability(): void
+    {
+        $result = $this->arena->compete(['proposals' => [
+            $this->proposal('simplify_and_delete', [
+                'leverage'                => 0.9,
+                'compression_opportunity' => 1.0,
+                'evidence_strength'       => 0.6,
+                'implementability'        => 0.8,
+                'novelty'                 => 0.0,
+            ]),
+            $this->proposal('add_new_feature', [
+                'leverage'                => 0.3,
+                'compression_opportunity' => 0.0,
+                'evidence_strength'       => 0.7,
+                'implementability'        => 0.8,
+                'novelty'                 => 1.0,
+            ]),
+        ]]);
+
+        $this->assertSame('simplify_and_delete', $result['winner']['proposal_id']);
+    }
 }
