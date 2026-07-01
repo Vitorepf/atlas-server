@@ -110,11 +110,21 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
             $priority = self::GAP_PRIORITY[$gapType] ?? 99;
             $approach = $this->resolveApproach($gapType, $canBackfill, $canReplay, $canConsolidate, $canDocSync, $canIntegrationWiring);
 
+            // compound_impact_score: nominal impact plus a bonus for every capability this gap
+            // unlocks downstream, minus effort, minus a small penalty for stale evidence — but this
+            // NEVER overrides dependency ordering (see topologicalOrder), only breaks ties among
+            // simultaneously-ready gaps.
+            $compoundImpactScore = round(
+                $impactScore - $effortScore + (count($unlocks) * 0.10) + ($evidenceAgeHours / 1000.0),
+                4,
+            );
+
             $entries[$organId] = [
                 'organ_id'            => $organId,
                 'gap_type'            => $gapType,
                 '_priority'           => $priority,
-                '_score'              => $impactScore - $effortScore + ($evidenceAgeHours / 1000.0),
+                '_score'              => $compoundImpactScore,
+                'compound_impact_score' => $compoundImpactScore,
                 'owner_subsystem'     => $ownerSub,
                 'resolution_approach' => $approach,
                 'cheapest_next_proof' => $this->proofCommand($approach, $organId, $ownerSub),
@@ -153,6 +163,7 @@ final class AtlasExternalBrainFinal95GapBurnDownScheduler
                 'impact_score'        => $entry['impact_score'],
                 'effort_score'        => $entry['effort_score'],
                 'evidence_age_hours'  => $entry['evidence_age_hours'],
+                'compound_impact_score' => $entry['compound_impact_score'],
             ];
 
             if ($entry['depends_on'] !== [] || $entry['unlocks'] !== []) {

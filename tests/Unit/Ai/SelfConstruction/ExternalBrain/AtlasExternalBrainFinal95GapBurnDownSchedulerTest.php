@@ -620,4 +620,97 @@ final class AtlasExternalBrainFinal95GapBurnDownSchedulerTest extends TestCase
 
         $this->assertSame('no_gaps_to_schedule', $result['next_batch_recommendation']);
     }
+
+    // ── AC: compound_impact_score ─────────────────────────────────────────────
+
+    public function test_compound_impact_score_is_present_and_derived_from_inputs(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id' => 'a',
+            'gap_type' => 'missing',
+            'unlocks' => ['b', 'c'],
+            'impact_score' => 0.6,
+            'effort_score' => 0.2,
+            'evidence_age_hours' => 100.0,
+        ]]);
+
+        $entry = $result['burn_down_schedule'][0];
+        $this->assertArrayHasKey('compound_impact_score', $entry);
+        // 0.6 - 0.2 + (2 unlocks * 0.10) + (100/1000) = 0.7
+        $this->assertEqualsWithDelta(0.7, $entry['compound_impact_score'], 0.0001);
+    }
+
+    public function test_more_unlocks_yields_higher_compound_impact_score_at_equal_impact(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'few', 'gap_type' => 'missing', 'unlocks' => ['x']],
+            ['organ_id' => 'many', 'gap_type' => 'missing', 'unlocks' => ['x', 'y', 'z']],
+        ]);
+
+        $few = array_values(array_filter($result['burn_down_schedule'], fn ($e) => $e['organ_id'] === 'few'))[0];
+        $many = array_values(array_filter($result['burn_down_schedule'], fn ($e) => $e['organ_id'] === 'many'))[0];
+
+        $this->assertGreaterThan($few['compound_impact_score'], $many['compound_impact_score']);
+    }
+
+    // ── AC: dependency ordering still dominates nominal impact ───────────────
+
+    public function test_downstream_gap_never_ranks_before_unresolved_upstream_dependency_regardless_of_compound_score(): void
+    {
+        $result = $this->scheduler()->schedule([
+            [
+                'organ_id' => 'downstream',
+                'gap_type' => 'missing',
+                'depends_on' => ['upstream'],
+                'unlocks' => ['a', 'b', 'c', 'd'],
+                'impact_score' => 0.99,
+            ],
+            [
+                'organ_id' => 'upstream',
+                'gap_type' => 'missing',
+                'impact_score' => 0.01,
+            ],
+        ]);
+
+        $ids = array_column($result['burn_down_schedule'], 'organ_id');
+        $this->assertSame(['upstream', 'downstream'], $ids);
+    }
+
+    // ── AC: cheaper proof paths preferred over new_feature_work ──────────────
+
+    public function test_scheduler_prefers_cheaper_approaches_over_new_feature_work_when_available(): void
+    {
+        $result = $this->scheduler()->schedule([
+            ['organ_id' => 'a', 'gap_type' => 'missing', 'can_evidence_backfill' => true],
+            ['organ_id' => 'b', 'gap_type' => 'missing', 'can_proof_replay' => true],
+            ['organ_id' => 'c', 'gap_type' => 'missing', 'can_consolidate' => true],
+            ['organ_id' => 'd', 'gap_type' => 'doc_drift'],
+            ['organ_id' => 'e', 'gap_type' => 'missing'],
+        ]);
+
+        $approaches = array_column($result['burn_down_schedule'], 'resolution_approach', 'organ_id');
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_EVIDENCE_BACKFILL, $approaches['a']);
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_PROOF_REPLAY, $approaches['b']);
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_CONSOLIDATION, $approaches['c']);
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_DOC_SYNC, $approaches['d']);
+        $this->assertSame(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_NEW_FEATURE_WORK, $approaches['e']);
+    }
+
+    // ── AC: next_batch_recommendation names rank-1 gap, cheapest proof, unlocks ─
+
+    public function test_next_batch_recommendation_names_gap_approach_and_unlocks(): void
+    {
+        $result = $this->scheduler()->schedule([[
+            'organ_id' => 'top-gap',
+            'gap_type' => 'blocked',
+            'can_evidence_backfill' => true,
+            'unlocks' => ['downstream-a', 'downstream-b'],
+        ]]);
+
+        $recommendation = $result['next_batch_recommendation'];
+        $this->assertStringContainsString('top-gap', $recommendation);
+        $this->assertStringContainsString(AtlasExternalBrainFinal95GapBurnDownScheduler::APPROACH_EVIDENCE_BACKFILL, $recommendation);
+        $this->assertStringContainsString('downstream-a', $recommendation);
+        $this->assertStringContainsString('downstream-b', $recommendation);
+    }
 }
