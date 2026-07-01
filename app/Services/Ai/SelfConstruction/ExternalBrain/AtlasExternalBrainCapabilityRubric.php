@@ -75,7 +75,7 @@ final class AtlasExternalBrainCapabilityRubric
             ],
             [
                 'name' => 'domain_map_quality',
-                'weight' => 0.05,
+                'weight' => 0.025,
                 'description' => 'Maintains an accurate owner-domain and integration map of capabilities, not a flat implemented/not-implemented list.',
             ],
             [
@@ -85,7 +85,7 @@ final class AtlasExternalBrainCapabilityRubric
             ],
             [
                 'name' => 'queue_self_healing',
-                'weight' => 0.05,
+                'weight' => 0.025,
                 'description' => 'Detects and respecs malformed or poison-prone packets before muscles waste tokens on them.',
             ],
             [
@@ -102,6 +102,16 @@ final class AtlasExternalBrainCapabilityRubric
                 'name' => 'simplification_maturity',
                 'weight' => 0.05,
                 'description' => 'Retires, merges, or simplifies low-leverage and redundant surface instead of only adding new code.',
+            ],
+            [
+                'name' => 'downstream_unlocks',
+                'weight' => 0.025,
+                'description' => 'Delivers work that unblocks other queued or future capability, not just self-contained polish.',
+            ],
+            [
+                'name' => 'operational_safety',
+                'weight' => 0.025,
+                'description' => 'Never runs, dispatches or self-programs beyond its declared observe/report boundary while gaining capability.',
             ],
         ];
     }
@@ -126,6 +136,22 @@ final class AtlasExternalBrainCapabilityRubric
             [
                 'gate' => 'human_dependent_steady_state',
                 'description' => 'Requiring recurring human input (seeding, correction, re-activation) to sustain productive operation.',
+            ],
+            [
+                'gate' => 'proxy_only',
+                'description' => 'Optimizing a surface proxy (feature count, file count, task count) instead of genuine capability.',
+            ],
+            [
+                'gate' => 'proofless',
+                'description' => 'Claiming capability with no runnable, causal proof backing the claim.',
+            ],
+            [
+                'gate' => 'provider_dependent',
+                'description' => 'Requiring a paid external provider call to sustain steady-state operation.',
+            ],
+            [
+                'gate' => 'duplicated_capability',
+                'description' => 'Re-implementing capability that already exists elsewhere instead of extending or reusing it.',
             ],
         ];
     }
@@ -173,6 +199,8 @@ final class AtlasExternalBrainCapabilityRubric
                 'band'                => [0.0, 0.69],
                 'readiness_band'      => [0.0, 0.69],
                 'weighted_score'      => 0.0,
+                'score'               => 0.0,
+                'grade'               => 'F',
                 'final'               => false,
                 'triggered_gates'     => $active,
                 'blocking_gates'      => $active,
@@ -199,6 +227,8 @@ final class AtlasExternalBrainCapabilityRubric
             'band'                => $band,
             'readiness_band'      => $band,
             'weighted_score'      => round($weightedSum, 4),
+            'score'               => round($weightedSum, 4),
+            'grade'               => $this->grade($weightedSum, $final),
             'weak_dimensions'     => $weakDimensions,
             'weak_dimension_details' => $this->weakDimensionDetails($dimensionBreakdown),
             'final'               => $final,
@@ -226,6 +256,17 @@ final class AtlasExternalBrainCapabilityRubric
         }
 
         return $result;
+    }
+
+    private function grade(float $weightedSum, bool $final): string
+    {
+        return match (true) {
+            $final => 'A',
+            $weightedSum >= 0.85 => 'B',
+            $weightedSum >= 0.70 => 'C',
+            $weightedSum >= self::FINALITY_FLOOR => 'D',
+            default => 'F',
+        };
     }
 
     /**

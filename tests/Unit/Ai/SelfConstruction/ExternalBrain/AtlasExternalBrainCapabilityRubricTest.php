@@ -293,4 +293,80 @@ final class AtlasExternalBrainCapabilityRubricTest extends TestCase
         }
         $this->assertNotNull($result['next_capability_focus']);
     }
+
+    // ── AC: scores proof quality, autonomy lift, simplification, downstream unlocks, operational safety ──
+
+    public function test_dimensions_include_downstream_unlocks_and_operational_safety(): void
+    {
+        $names = array_column($this->rubric->dimensions(), 'name');
+
+        $this->assertContains('downstream_unlocks', $names);
+        $this->assertContains('operational_safety', $names);
+        $this->assertContains('proof_strength', $names);
+        $this->assertContains('autonomy_independence', $names);
+        $this->assertContains('simplification_maturity', $names);
+    }
+
+    // ── AC: hard-fails proxy-only, proofless, provider-dependent, duplicated-capability ──
+
+    public function test_hard_fail_gates_include_the_four_new_gates(): void
+    {
+        $gates = array_column($this->rubric->hardFailGates(), 'gate');
+
+        $this->assertContains('proxy_only', $gates);
+        $this->assertContains('proofless', $gates);
+        $this->assertContains('provider_dependent', $gates);
+        $this->assertContains('duplicated_capability', $gates);
+    }
+
+    public function test_duplicated_capability_gate_forces_below_final_even_with_perfect_scores(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $result = $this->rubric->evaluate($scores, ['duplicated_capability']);
+
+        $this->assertFalse($result['final']);
+        $this->assertContains('duplicated_capability', $result['blocking_gates']);
+    }
+
+    // ── AC: returns score, grade, hard-fail gates and next improvement recommendation ──
+
+    public function test_score_is_alias_of_weighted_score(): void
+    {
+        $result = $this->rubric->evaluate(['strategic_origination' => 0.8]);
+
+        $this->assertSame($result['weighted_score'], $result['score']);
+    }
+
+    public function test_grade_is_a_when_final(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $result = $this->rubric->evaluate($scores);
+
+        $this->assertTrue($result['final']);
+        $this->assertSame('A', $result['grade']);
+    }
+
+    public function test_grade_is_f_when_gate_triggered_regardless_of_score(): void
+    {
+        $scores = array_fill_keys(array_column($this->rubric->dimensions(), 'name'), 1.0);
+        $result = $this->rubric->evaluate($scores, ['proofless']);
+
+        $this->assertSame('F', $result['grade']);
+    }
+
+    public function test_grade_is_f_when_score_is_zero(): void
+    {
+        $result = $this->rubric->evaluate([]);
+
+        $this->assertSame('F', $result['grade']);
+    }
+
+    public function test_next_capability_focus_present_alongside_grade_and_score(): void
+    {
+        $result = $this->rubric->evaluate([]);
+
+        $this->assertArrayHasKey('score', $result);
+        $this->assertArrayHasKey('grade', $result);
+        $this->assertArrayHasKey('next_capability_focus', $result);
+    }
 }
