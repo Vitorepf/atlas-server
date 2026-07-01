@@ -70,6 +70,7 @@ final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
             'forbidden_output_shapes',
             'acceptance_floor',
             'budget_guard',
+            'no_wait_policy',
             'output_contract',
         ], $sectionNames);
     }
@@ -313,6 +314,31 @@ final class AtlasExternalBrainScaffoldedPromptAssemblerTest extends TestCase
             $this->assembler->assemble($input),
             $this->assembler->assemble($input),
         );
+    }
+
+    public function test_no_wait_policy_section_forbids_stopping_on_healthy_queue_depth(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+        $section = $this->findSection($result, 'no_wait_policy');
+
+        $this->assertStringContainsString('servable_now is healthy', $section['content']);
+        $this->assertStringContainsString('no valuable task exists', $section['content']);
+    }
+
+    public function test_unexplored_surfaces_requires_candidate_batch_or_exhausted_proof(): void
+    {
+        $result = $this->assembler->assemble($this->validInput([
+            'unexplored_surfaces' => ['app/Services/UnexploredArea.php'],
+        ]));
+
+        $this->assertContains('candidate_batch_or_exhausted_surface_proof', $result['required_artifacts']);
+    }
+
+    public function test_no_unexplored_surfaces_does_not_require_exhausted_proof(): void
+    {
+        $result = $this->assembler->assemble($this->validInput());
+
+        $this->assertNotContains('candidate_batch_or_exhausted_surface_proof', $result['required_artifacts']);
     }
 
     // ── helper ────────────────────────────────────────────────────────────────

@@ -42,12 +42,17 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
     private const SECTION_FORBIDDEN        = 'forbidden_output_shapes';
     private const SECTION_ACCEPTANCE_FLOOR = 'acceptance_floor';
     private const SECTION_BUDGET_GUARD     = 'budget_guard';
+    private const SECTION_NO_WAIT_POLICY   = 'no_wait_policy';
     private const SECTION_OUTPUT_CONTRACT  = 'output_contract';
 
     private const REQUIRED_ARTIFACTS = [
         'task_spec_with_allowed_files',
         'acceptance_criteria_runnable',
         'implementation_notes',
+    ];
+
+    private const REQUIRED_ARTIFACTS_UNEXPLORED = [
+        'candidate_batch_or_exhausted_surface_proof',
     ];
 
     /**
@@ -67,10 +72,16 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
         $dedupProvided     = array_key_exists('queued_targets', $input);
         $queuedTargets     = $dedupProvided ? $this->dedupTargets((array) $input['queued_targets']) : [];
         $budgetChars       = max(1, (int) ($input['context_budget_chars'] ?? self::DEFAULT_CONTEXT_BUDGET_CHARS));
+        $unexploredSurfaces = (array) ($input['unexplored_surfaces'] ?? []);
 
         $failureReason = $this->failCloseReason($allowDirectAnswer, $evidenceIntake, $dedupProvided);
         if ($failureReason !== null) {
             return $this->failed($failureReason, $budgetChars);
+        }
+
+        $requiredArtifacts = self::REQUIRED_ARTIFACTS;
+        if ($dedupProvided && $queuedTargets !== [] && $unexploredSurfaces !== []) {
+            $requiredArtifacts = array_merge($requiredArtifacts, self::REQUIRED_ARTIFACTS_UNEXPLORED);
         }
 
         $sections = [
@@ -82,7 +93,8 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
             ['section' => self::SECTION_FORBIDDEN,        'content' => $this->renderForbidden()],
             ['section' => self::SECTION_ACCEPTANCE_FLOOR, 'content' => $this->renderAcceptanceFloor()],
             ['section' => self::SECTION_BUDGET_GUARD,     'content' => $this->renderBudgetGuard($budgetChars)],
-            ['section' => self::SECTION_OUTPUT_CONTRACT,  'content' => $this->renderOutputContract()],
+            ['section' => self::SECTION_NO_WAIT_POLICY,   'content' => $this->renderNoWaitPolicy()],
+            ['section' => self::SECTION_OUTPUT_CONTRACT,  'content' => $this->renderOutputContract($requiredArtifacts)],
         ];
 
         return [
@@ -90,7 +102,7 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
             'assembled'                => true,
             'failure_reason'           => null,
             'prompt_sections'          => $sections,
-            'required_artifacts'       => self::REQUIRED_ARTIFACTS,
+            'required_artifacts'       => $requiredArtifacts,
             'anti_duplication_checks'  => array_values($queuedTargets),
             'max_context_budget_chars' => $budgetChars,
         ];
@@ -249,11 +261,23 @@ final class AtlasExternalBrainScaffoldedPromptAssembler
         ]);
     }
 
-    private function renderOutputContract(): string
+    private function renderNoWaitPolicy(): string
+    {
+        return implode("\n", [
+            '[NO-WAIT POLICY — read before deciding whether to originate]',
+            '- "servable_now is healthy" (sufficient queue depth) is NEVER a reason to stop originating.',
+            '- The only valid stop condition is "no valuable task exists" — a claim you must prove, not assume.',
+            '- If unexplored surfaces remain, either produce a candidate batch or a structured exhausted_surface_proof.',
+            '- Queue depth measures throughput capacity, not the existence of remaining value; do not conflate the two.',
+        ]);
+    }
+
+    /** @param  list<string>  $requiredArtifacts */
+    private function renderOutputContract(array $requiredArtifacts): string
     {
         return implode("\n", array_merge(
             ['[OUTPUT CONTRACT — your response must include ALL of the following]'],
-            array_map(static fn ($a) => '- ' . $a, self::REQUIRED_ARTIFACTS),
+            array_map(static fn ($a) => '- ' . $a, $requiredArtifacts),
         ));
     }
 }
