@@ -70,6 +70,25 @@ final class AgentControlPlaneTaskQueueOrchestrator
             ]);
         }
 
+        // Anti-farm gate: reject near-duplicate / template-farm candidates before they cost
+        // muscle. A gate exception is swallowed and admission proceeds fail-open, with the
+        // reason recorded on the eventual success envelope for observability.
+        $antiFarmGateError = null;
+        try {
+            $antiFarmBlock = $this->checkAntiFarmGates($packet, $packetInput);
+            if ($antiFarmBlock !== null) {
+                return $this->envelope('prepare_blocked', array_merge([
+                    'task_packet' => $packet,
+                    'validation' => $validation,
+                    'queue_entry' => null,
+                    'evidence_plan' => null,
+                    'continuation_summary' => null,
+                ], $antiFarmBlock));
+            }
+        } catch (Throwable $e) {
+            $antiFarmGateError = $e->getMessage();
+        }
+
         $enqueueResult = $this->queue->enqueue($packet, [
             'metadata' => [
                 'scope_lock_hash' => (string) $validation['scope_lock_hash'],
@@ -78,6 +97,12 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 // ordering hint (the version-ladder phase). The serving enforces depends_on at claim time.
                 'depends_on' => array_values(array_filter((array) data_get($packetInput, 'depends_on', []), 'is_string')),
                 'wave' => (int) data_get($packetInput, 'wave', 0),
+                // Anti-farm composition: persisted so a LATER candidate's semantic-duplicate check
+                // can compare against this packet's capability/family/intent (the builder itself
+                // never stores these — they only survive via this metadata bag).
+                'capability_key' => trim((string) data_get($packetInput, 'capability_key', '')),
+                'target_family' => trim((string) data_get($packetInput, 'target_family', '')),
+                'acceptance_intent' => trim((string) data_get($packetInput, 'acceptance_intent', '')),
             ],
             'priority' => (int) ($queueOptions['priority'] ?? 5),
             'tags' => (array) ($queueOptions['tags'] ?? []),
@@ -116,7 +141,86 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'queue_entry' => $enqueueResult,
             'evidence_plan' => $evidencePlan,
             'continuation_summary' => $continuation,
+            'anti_farm_gate_error' => $antiFarmGateError,
         ]);
+    }
+
+    /**
+     * Composes the two existing, independently-tested anti-farm organs against the packets
+     * currently in the queue. Returns the prepare_blocked payload fragment (merged into the
+     * envelope by the caller) when a candidate is a near-duplicate or template-farm packet,
+     * or null when admission may proceed.
+     *
+     * @param  array<string,mixed>  $packet       built packet (objective, acceptance_criteria, normalized_scope)
+     * @param  array<string,mixed>  $packetInput  raw caller input (may carry capability_key/target_family/acceptance_intent)
+     * @return array<string,mixed>|null
+     */
+    private function checkAntiFarmGates(array $packet, array $packetInput): ?array
+    {
+        $existingEntries = $this->queue->list(['status' => 'claimable']);
+        if ($existingEntries === []) {
+            return null;
+        }
+
+        $candidateForFarm = [
+            'objective' => (string) ($packet['objective'] ?? ''),
+            'acceptance_criteria' => (array) ($packet['acceptance_criteria'] ?? []),
+            'allowed_files' => (array) data_get($packet, 'normalized_scope.allowed_files', []),
+        ];
+
+        $farmGate = new TaskFabric\AtlasTaskFabricTemplateFarmSimilarityGate;
+        $matchedFarmIds = [];
+        $lastFarmAssessment = null;
+        foreach ($existingEntries as $entry) {
+            $existingPacket = (array) ($entry['task_packet'] ?? []);
+            $existingForFarm = [
+                'objective' => (string) ($existingPacket['objective'] ?? ''),
+                'acceptance_criteria' => (array) ($existingPacket['acceptance_criteria'] ?? []),
+                'allowed_files' => (array) data_get($existingPacket, 'normalized_scope.allowed_files', []),
+            ];
+            $assessment = $farmGate->assess([$candidateForFarm, $existingForFarm]);
+            if ((bool) ($assessment['blocking'] ?? false)) {
+                $matchedFarmIds[] = (string) ($entry['task_packet_id'] ?? '');
+                $lastFarmAssessment = $assessment;
+            }
+        }
+
+        if ($matchedFarmIds !== []) {
+            return [
+                'reason' => 'template_farm_similarity',
+                'matched_task_packet_ids' => $matchedFarmIds,
+                'template_farm_similarity_gate' => $lastFarmAssessment,
+            ];
+        }
+
+        $candidateForDup = [
+            'task_packet_id' => (string) ($packet['task_packet_id'] ?? ''),
+            'capability_key' => trim((string) data_get($packetInput, 'capability_key', '')),
+            'target_family' => trim((string) data_get($packetInput, 'target_family', '')),
+            'allowed_files' => (array) data_get($packet, 'normalized_scope.allowed_files', []),
+            'acceptance_intent' => trim((string) data_get($packetInput, 'acceptance_intent', '')),
+        ];
+        $existingForDup = array_map(static function (array $entry): array {
+            return [
+                'task_packet_id' => (string) ($entry['task_packet_id'] ?? ''),
+                'capability_key' => (string) data_get($entry, 'metadata.capability_key', ''),
+                'target_family' => (string) data_get($entry, 'metadata.target_family', ''),
+                'allowed_files' => (array) data_get($entry, 'task_packet.normalized_scope.allowed_files', []),
+                'acceptance_intent' => (string) data_get($entry, 'metadata.acceptance_intent', ''),
+            ];
+        }, $existingEntries);
+
+        $dupIndex = new TaskFabric\AtlasTaskFabricSemanticDuplicateIndex;
+        $dupResult = $dupIndex->check($candidateForDup, $existingForDup);
+        if ((string) ($dupResult['status'] ?? '') === TaskFabric\AtlasTaskFabricSemanticDuplicateIndex::DUPLICATE_SEMANTIC) {
+            return [
+                'reason' => 'semantic_duplicate',
+                'matched_task_packet_ids' => array_values(array_filter([(string) ($dupResult['matched_packet_id'] ?? '')])),
+                'semantic_duplicate_index' => $dupResult,
+            ];
+        }
+
+        return null;
     }
 
     /**
