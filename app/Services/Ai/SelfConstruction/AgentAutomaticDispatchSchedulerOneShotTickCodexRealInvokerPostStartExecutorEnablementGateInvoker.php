@@ -2,13 +2,13 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
-use InvalidArgumentException;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateInvoker
 {
     public function __construct(
         private readonly AgentCodexRealInvokerPostStartExecutorEnablementGate $postStartExecutorEnablementGate,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -206,14 +206,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartE
             'reason',
         ];
 
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        $hashes = [];
-        foreach ([
+        $hashFields = [
             'signed_dispatch_receipt_hash',
             'operator_release_receipt_hash',
             'operator_spawn_receipt_hash',
@@ -251,17 +244,12 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartE
             'termination_policy_hash',
             'rollback_plan_hash',
             'max_runtime_policy_hash',
-        ] as $field) {
-            $hashes[$field] = strtolower(trim((string) $input[$field]));
+        ];
 
-            if (preg_match('/^[a-f0-9]{64}$/', $hashes[$field]) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$field);
-            }
-        }
+        $normalized = $this->inputNormalizer->normalize($input, $required, $hashFields);
 
-        $normalized = [];
         foreach ($required as $field) {
-            $normalized[$field] = $hashes[$field] ?? (string) $input[$field];
+            $normalized[$field] = $normalized[$field] ?? (string) $input[$field];
         }
 
         return $normalized;
