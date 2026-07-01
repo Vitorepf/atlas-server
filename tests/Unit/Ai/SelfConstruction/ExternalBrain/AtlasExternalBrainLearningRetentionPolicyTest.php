@@ -311,4 +311,48 @@ final class AtlasExternalBrainLearningRetentionPolicyTest extends TestCase
         $this->assertSame(0, $r['revalidation_needed_count']);
         $this->assertSame(1, $r['decaying_count']);
     }
+
+    public function test_revalidation_needed_entry_has_non_empty_revalidation_chain(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['id' => 'r-stale', 'utility_score' => 0.8, 'age_days' => 45, 'confirmed' => false]),
+        ]]);
+
+        $entry = $r['revalidation_needed'][0];
+        $this->assertArrayHasKey('revalidation_chain', $entry);
+        $this->assertNotEmpty($entry['revalidation_chain']);
+        foreach ($entry['revalidation_chain'] as $step) {
+            $this->assertArrayHasKey('evidence_to_refresh', $step);
+            $this->assertTrue(array_key_exists('expires_at', $step) || array_key_exists('ttl_days', $step));
+            $this->assertArrayHasKey('next_decision_intent', $step);
+        }
+    }
+
+    public function test_fresh_confirmed_high_utility_remains_retained_without_revalidation(): void
+    {
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec(['utility_score' => 0.9, 'age_days' => 5, 'confirmed' => true]),
+        ]]);
+
+        $this->assertSame(1, $r['retained_count']);
+        $this->assertSame(0, $r['revalidation_needed_count']);
+        $this->assertSame('high_utility_recent', $r['retained'][0]['reason']);
+    }
+
+    public function test_contradiction_evidence_decays_even_when_high_utility_stale_and_unconfirmed(): void
+    {
+        // Same shape that would otherwise route to revalidation_needed — contradiction wins.
+        $r = $this->policy()->evaluate(['learning_records' => [
+            $this->rec([
+                'utility_score' => 0.8,
+                'age_days' => 45,
+                'confirmed' => false,
+                'contradiction_evidence' => ['outcome contradicted the hint'],
+            ]),
+        ]]);
+
+        $this->assertSame(0, $r['revalidation_needed_count']);
+        $this->assertSame(1, $r['decaying_count']);
+        $this->assertSame('contradicted_by_outcome_evidence', $r['decaying'][0]['reason']);
+    }
 }

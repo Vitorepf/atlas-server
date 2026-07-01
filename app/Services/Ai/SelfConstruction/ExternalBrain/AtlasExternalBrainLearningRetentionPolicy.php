@@ -72,6 +72,9 @@ final class AtlasExternalBrainLearningRetentionPolicy
             );
 
             $entry = ['id' => $id, 'type' => $type, 'utility_score' => $utility, 'age_days' => $ageDays, 'reason' => $reason];
+            if ($disposition === 'revalidation_needed') {
+                $entry['revalidation_chain'] = $this->revalidationChain($id, $type, $ageDays);
+            }
             match ($disposition) {
                 'retained'            => $retained[]           = $entry,
                 'decaying'            => $decaying[]           = $entry,
@@ -90,6 +93,32 @@ final class AtlasExternalBrainLearningRetentionPolicy
             'decaying_count'          => count($decaying),
             'retired_count'           => count($retired),
             'revalidation_needed_count' => count($revalidationNeeded),
+        ];
+    }
+
+    /**
+     * Builds the ordered revalidation_chain for a high-utility stale unconfirmed record:
+     * refresh evidence, expire it if still unconfirmed, then decide retain vs decay next.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function revalidationChain(string $id, string $type, int $ageDays): array
+    {
+        $ttlDays = self::RECENT_DAYS;
+
+        return [
+            [
+                'step' => 'refresh_evidence',
+                'evidence_to_refresh' => "confirmation_evidence_for:{$id}",
+                'ttl_days' => $ttlDays,
+                'next_decision_intent' => 'reconfirm_if_evidence_still_supports_utility',
+            ],
+            [
+                'step' => 'expire_if_unrefreshed',
+                'evidence_to_refresh' => "confirmation_evidence_for:{$id}",
+                'expires_at' => "now+{$ttlDays}d",
+                'next_decision_intent' => 'decay_to_default_if_no_fresh_evidence_within_ttl',
+            ],
         ];
     }
 
@@ -117,16 +146,16 @@ final class AtlasExternalBrainLearningRetentionPolicy
             return ['retained', 'poison_pattern_longevity'];
         }
 
-        // 3.5. High-utility stale unconfirmed → revalidation_needed (AC3 new).
-        if ($utility >= self::HIGH_UTILITY && $ageDays > self::RECENT_DAYS && ! $confirmed) {
-            return ['revalidation_needed', 'high_utility_stale_needs_revalidation'];
-        }
-
-        // 3.7. Contradicted by newer outcome evidence → decay (AC2 new). Checked before the
-        // generic unconfirmed-decay rule so real evidence-based contradiction is never masked
-        // by the vaguer "old_unconfirmed_hint" reason.
+        // 3.6. Contradicted by newer outcome evidence → decay (AC2). Checked before the
+        // revalidation and generic unconfirmed-decay rules so real evidence-based
+        // contradiction is never masked by a vaguer "needs a health check" signal.
         if ($contradictionEvidence !== []) {
             return ['decaying', 'contradicted_by_outcome_evidence'];
+        }
+
+        // 3.7. High-utility stale unconfirmed → revalidation_needed (AC3 new).
+        if ($utility >= self::HIGH_UTILITY && $ageDays > self::RECENT_DAYS && ! $confirmed) {
+            return ['revalidation_needed', 'high_utility_stale_needs_revalidation'];
         }
 
         // 4. Unconfirmed and too old → decay.
