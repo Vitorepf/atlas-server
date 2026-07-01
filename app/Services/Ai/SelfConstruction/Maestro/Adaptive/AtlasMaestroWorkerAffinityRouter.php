@@ -126,6 +126,7 @@ final class AtlasMaestroWorkerAffinityRouter
                 'poison_rate'    => round($winner['poison_rate'],    4),
                 'reason'         => 'high_task_family_give_back_or_poison',
             ] : null,
+            'demoted_workers' => array_column(array_filter($candidates, static fn (array $c): bool => $c['demoted']), 'client_id'),
         ];
     }
 
@@ -184,6 +185,7 @@ final class AtlasMaestroWorkerAffinityRouter
                     'reason'             => 'all_eligible_workers_have_allowed_files_conflict',
                     'conflict_workers'   => $conflictWorkers,
                     'overloaded_workers' => $overloadedWorkers,
+                    'avoid_reasons'      => $this->buildAvoidReasons($conflictWorkers, $overloadedWorkers, [], []),
                 ];
             }
 
@@ -192,6 +194,7 @@ final class AtlasMaestroWorkerAffinityRouter
                 'reason'             => 'all_eligible_workers_overloaded',
                 'overloaded_workers' => $overloadedWorkers,
                 'conflict_workers'   => [],
+                'avoid_reasons'      => $this->buildAvoidReasons([], $overloadedWorkers, [], []),
             ];
         }
 
@@ -231,6 +234,7 @@ final class AtlasMaestroWorkerAffinityRouter
                 'avoided_workers'    => $avoidedWorkers,
                 'conflict_workers'   => $conflictWorkers,
                 'overloaded_workers' => $overloadedWorkers,
+                'avoid_reasons'      => $this->buildAvoidReasons($conflictWorkers, $overloadedWorkers, $avoidedWorkers, []),
             ];
         }
 
@@ -252,10 +256,13 @@ final class AtlasMaestroWorkerAffinityRouter
         foreach ($steps as $step) {
             $result = $this->route($step['key'], $available);
             if ($result['status'] === self::ROUTED) {
+                $demotedOthers = array_values(array_diff($result['demoted_workers'] ?? [], [$result['worker']]));
+
                 $result['routing_key']       = $step['key'];
                 $result['conflict_workers']  = $conflictWorkers;
                 $result['overloaded_workers'] = $overloadedWorkers;
                 $result['avoided_workers']   = $avoidedWorkers;
+                $result['avoid_reasons']     = $this->buildAvoidReasons($conflictWorkers, $overloadedWorkers, $avoidedWorkers, $demotedOthers);
 
                 return $result;
             }
@@ -271,6 +278,40 @@ final class AtlasMaestroWorkerAffinityRouter
             'avoided_workers'     => $avoidedWorkers,
             'routing_key'         => $firstKey,
             'routing_explanation' => 'abstained_no_evidence_in_any_routing_key',
+            'avoid_reasons'       => $this->buildAvoidReasons($conflictWorkers, $overloadedWorkers, $avoidedWorkers, []),
         ];
+    }
+
+    /**
+     * Builds a per-worker map of WHY an available worker was not routed to — the "poor fit" reason —
+     * so callers never have to reverse-engineer intent from separate list fields.
+     *
+     * @param  list<string>  $conflictWorkers
+     * @param  list<string>  $overloadedWorkers
+     * @param  list<string>  $avoidedWorkers
+     * @param  list<string>  $demotedWorkers
+     * @return array<string,string>
+     */
+    private function buildAvoidReasons(
+        array $conflictWorkers,
+        array $overloadedWorkers,
+        array $avoidedWorkers,
+        array $demotedWorkers,
+    ): array {
+        $reasons = [];
+        foreach ($conflictWorkers as $worker) {
+            $reasons[$worker] = 'allowed_files_conflict';
+        }
+        foreach ($overloadedWorkers as $worker) {
+            $reasons[$worker] = 'active_claim_pressure_exceeded';
+        }
+        foreach ($avoidedWorkers as $worker) {
+            $reasons[$worker] = 'negative_outcome_evidence_family';
+        }
+        foreach ($demotedWorkers as $worker) {
+            $reasons[$worker] ??= 'negative_outcome_evidence_demoted';
+        }
+
+        return $reasons;
     }
 }

@@ -388,4 +388,126 @@ final class AtlasMaestroWorkerAffinityRouterTest extends TestCase
         $this->assertSame('codex-1', $out['worker'], 'lower-success clean worker beats high-success unsafe worker');
         $this->assertContains('claude-1', $out['avoided_workers']);
     }
+
+    // ── AC: avoid_reasons — poor-fit-but-available workers get an explicit reason ──
+
+    public function test_avoid_reasons_explains_conflict_worker(): void
+    {
+        $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasFoo.php';
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => [$conflictFile]],
+            ['claude-1', 'codex-1'],
+            [['worker_id' => 'claude-1', 'claimed_files' => [$conflictFile]]],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertArrayHasKey('claude-1', $out['avoid_reasons']);
+        $this->assertSame('allowed_files_conflict', $out['avoid_reasons']['claude-1']);
+    }
+
+    public function test_avoid_reasons_explains_overloaded_worker(): void
+    {
+        config(['atlas.maestro.adaptive.max_active_claims' => 2]);
+        for ($i = 0; $i < 4; $i++) {
+            $this->ledger->record('success', 'codex-1', 'wiring');
+        }
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => ['app/X.php']],
+            ['claude-1', 'codex-1'],
+            [
+                ['worker_id' => 'claude-1', 'claimed_files' => ['app/A.php']],
+                ['worker_id' => 'claude-1', 'claimed_files' => ['app/B.php']],
+            ],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('active_claim_pressure_exceeded', $out['avoid_reasons']['claude-1']);
+    }
+
+    public function test_avoid_reasons_explains_negative_outcome_family_avoidance(): void
+    {
+        $this->seedWorker('claude-1', 'family:qa', 3, 8);
+        $this->seedWorker('codex-1', 'wiring', 4, 0);
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'task_family' => 'qa', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('negative_outcome_evidence_family', $out['avoid_reasons']['claude-1']);
+    }
+
+    public function test_avoid_reasons_explains_demoted_worker_when_a_clean_worker_wins(): void
+    {
+        // claude-1 demoted (high give_back rate on task_class); codex-1 clean and wins.
+        $this->seedWorker('claude-1', 'wiring', 10, 8);
+        $this->seedWorker('codex-1', 'wiring', 3, 0);
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('codex-1', $out['worker']);
+        $this->assertSame('negative_outcome_evidence_demoted', $out['avoid_reasons']['claude-1']);
+    }
+
+    public function test_avoid_reasons_present_when_route_conflict(): void
+    {
+        $conflictFile = 'app/Services/Ai/SelfConstruction/ExternalBrain/AtlasBar.php';
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => [$conflictFile]],
+            ['claude-1', 'codex-1'],
+            [
+                ['worker_id' => 'claude-1', 'claimed_files' => [$conflictFile]],
+                ['worker_id' => 'codex-1',  'claimed_files' => [$conflictFile]],
+            ],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_CONFLICT, $out['status']);
+        $this->assertSame('allowed_files_conflict', $out['avoid_reasons']['claude-1']);
+        $this->assertSame('allowed_files_conflict', $out['avoid_reasons']['codex-1']);
+    }
+
+    // ── AC: best-fit route (highest proven task_class success wins) ──────────
+
+    public function test_best_fit_route_selects_highest_proven_success(): void
+    {
+        $this->seedWorker('claude-1', 'wiring', 8);
+        $this->seedWorker('codex-1', 'wiring', 3);
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTED, $out['status']);
+        $this->assertSame('claude-1', $out['worker']);
+        $this->assertSame([], $out['avoid_reasons']);
+    }
+
+    // ── AC: no-safe-worker fallback abstains with avoid_reasons populated ──────
+
+    public function test_no_safe_worker_fallback_abstains_with_avoid_reasons(): void
+    {
+        $this->seedWorker('claude-1', 'family:qa', 2, 5);
+        $this->seedWorker('codex-1', 'family:qa', 1, 4);
+
+        $out = $this->router()->routePacket(
+            ['task_class' => 'wiring', 'task_family' => 'qa', 'allowed_files' => []],
+            ['claude-1', 'codex-1'],
+        );
+
+        $this->assertSame(AtlasMaestroWorkerAffinityRouter::ROUTE_AVOIDED, $out['status']);
+        $this->assertSame('negative_outcome_evidence_family', $out['avoid_reasons']['claude-1']);
+        $this->assertSame('negative_outcome_evidence_family', $out['avoid_reasons']['codex-1']);
+    }
 }
