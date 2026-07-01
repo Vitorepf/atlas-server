@@ -38,6 +38,10 @@ final class AtlasMaestroSemanticAuditPanelTest extends TestCase
         $this->assertFalse($result['pass']);
         $this->assertSame([false, false, true], $result['votes']);
         $this->assertSame('semantic_quorum_failed', $result['panel_reason']);
+        $this->assertContains('allowed_files_intent_failed', $result['voter_reasons']);
+        $this->assertContains('orphan_caller_failed', $result['voter_reasons']);
+        $this->assertNotContains('acceptance_symbol_failed', $result['voter_reasons']);
+        $this->assertSame('semantic_quorum', $result['rejection_family']);
     }
 
     public function test_quorum_boundary_passes_with_two_of_three_votes_from_test_doubles(): void
@@ -85,6 +89,7 @@ final class AtlasMaestroSemanticAuditPanelTest extends TestCase
         $this->assertFalse($result['pass']);
         $this->assertSame([], $result['votes']);
         $this->assertSame('proxy_only_work_rejected', $result['panel_reason']);
+        $this->assertSame('proxy_only', $result['rejection_family']);
     }
 
     public function test_brain_lane_with_non_brain_files_is_rejected_for_lane_coherence(): void
@@ -99,6 +104,7 @@ final class AtlasMaestroSemanticAuditPanelTest extends TestCase
         $this->assertFalse($result['pass']);
         $this->assertSame([], $result['votes']);
         $this->assertSame('lane_file_coherence_failed', $result['panel_reason']);
+        $this->assertSame('lane_file_mismatch', $result['rejection_family']);
     }
 
     public function test_coherent_final_brain_packet_passes_all_checks(): void
@@ -164,9 +170,13 @@ final class AtlasMaestroSemanticAuditPanelTest extends TestCase
         ]);
 
         $this->assertTrue($result['pass']);
+        $this->assertArrayHasKey('votes', $result);
+        $this->assertArrayHasKey('panel_reason', $result);
         $this->assertArrayHasKey('runnable_acceptance', $result);
         $this->assertArrayHasKey('duplicate_symbol_risk', $result);
         $this->assertIsBool($result['runnable_acceptance']);
         $this->assertIsBool($result['duplicate_symbol_risk']);
+        $this->assertSame([], $result['voter_reasons']);
+        $this->assertNull($result['rejection_family']);
     }
 }

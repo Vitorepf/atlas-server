@@ -21,23 +21,48 @@ final class AtlasMaestroSemanticAuditPanel
     {
         // Hard pre-flight: proxy-only and lane/file incoherence are rejected before quorum.
         if ($this->isProxyOnlyWork($packet)) {
-            return ['pass' => false, 'votes' => [], 'panel_reason' => 'proxy_only_work_rejected'];
+            return [
+                'pass' => false,
+                'votes' => [],
+                'panel_reason' => 'proxy_only_work_rejected',
+                'voter_reasons' => [],
+                'rejection_family' => 'proxy_only',
+            ];
         }
         if ($this->hasLaneFileMismatch($packet)) {
-            return ['pass' => false, 'votes' => [], 'panel_reason' => 'lane_file_coherence_failed'];
+            return [
+                'pass' => false,
+                'votes' => [],
+                'panel_reason' => 'lane_file_coherence_failed',
+                'voter_reasons' => [],
+                'rejection_family' => 'lane_file_mismatch',
+            ];
         }
 
-        $votes = [
-            (bool) (($this->allowedFilesIntentChecker())->check($packet)['ok'] ?? false),
-            (bool) (($this->orphanCallerVerifier())->verify($packet)['ok'] ?? false),
-            $this->acceptanceCriteriaCitesRealSymbol($packet),
-        ];
+        $allowedFilesIntentOk = (bool) (($this->allowedFilesIntentChecker())->check($packet)['ok'] ?? false);
+        $orphanCallerOk = (bool) (($this->orphanCallerVerifier())->verify($packet)['ok'] ?? false);
+        $acceptanceSymbolOk = $this->acceptanceCriteriaCitesRealSymbol($packet);
+
+        $votes = [$allowedFilesIntentOk, $orphanCallerOk, $acceptanceSymbolOk];
         $pass = count(array_filter($votes)) >= 2;
+
+        $voterReasons = [];
+        if (! $allowedFilesIntentOk) {
+            $voterReasons[] = 'allowed_files_intent_failed';
+        }
+        if (! $orphanCallerOk) {
+            $voterReasons[] = 'orphan_caller_failed';
+        }
+        if (! $acceptanceSymbolOk) {
+            $voterReasons[] = 'acceptance_symbol_failed';
+        }
 
         return [
             'pass' => $pass,
             'votes' => $votes,
             'panel_reason' => $pass ? 'semantic_quorum_passed' : 'semantic_quorum_failed',
+            'voter_reasons' => $pass ? [] : $voterReasons,
+            'rejection_family' => $pass ? null : 'semantic_quorum',
             'runnable_acceptance' => $this->hasRunnableAcceptance($packet),
             'duplicate_symbol_risk' => $this->hasDuplicateSymbolRisk($packet),
         ];
