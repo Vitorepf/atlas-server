@@ -46,6 +46,8 @@ final class AtlasStrategyCouncilDecisionLedger
      *     selected_layer?:string,
      *     rejected_alternatives?:list<array<string,mixed>>,
      *     outcome_learning_ref?:string,
+     *     counterfactual_reason?:string,
+     *     proof_demand?:list<string>,
      * }  $payload
      * @return array{status:string, row?:array<string,mixed>}
      */
@@ -61,11 +63,16 @@ final class AtlasStrategyCouncilDecisionLedger
 
         // Supply-state + layer-selection learning hooks (opt-in; default to empty/neutral
         // values so callers that predate this extension keep byte-identical rows and hashes).
-        $supplyState = is_array($payload['supply_state'] ?? null) ? $payload['supply_state'] : [];
+        $supplyState = $this->stripForbidden(is_array($payload['supply_state'] ?? null) ? $payload['supply_state'] : []);
         ksort($supplyState);
         $selectedLayer = (string) ($payload['selected_layer'] ?? '');
-        $rejectedAlternatives = is_array($payload['rejected_alternatives'] ?? null) ? array_values($payload['rejected_alternatives']) : [];
+        $rejectedAlternatives = $this->stripForbidden(is_array($payload['rejected_alternatives'] ?? null) ? array_values($payload['rejected_alternatives']) : []);
         $outcomeLearningRef = (string) ($payload['outcome_learning_ref'] ?? '');
+
+        // Counterfactual-reasoning learning hooks (opt-in; default to empty/neutral values so
+        // callers that predate this extension keep byte-identical rows and hashes).
+        $counterfactualReason = (string) ($payload['counterfactual_reason'] ?? '');
+        $proofDemand = is_array($payload['proof_demand'] ?? null) ? array_values(array_map('strval', $payload['proof_demand'])) : [];
 
         if ($decisionId === '') {
             throw new RuntimeException('strategy decision ledger: missing decision_id');
@@ -105,6 +112,8 @@ final class AtlasStrategyCouncilDecisionLedger
             'selected_layer' => $selectedLayer,
             'rejected_alternatives' => $rejectedAlternatives,
             'outcome_learning_ref' => $outcomeLearningRef,
+            'counterfactual_reason' => $counterfactualReason,
+            'proof_demand' => $proofDemand,
         ];
         ksort($canonical);
         $decisionHash = hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -177,6 +186,31 @@ final class AtlasStrategyCouncilDecisionLedger
     public function export(int $limit = 50): array
     {
         return array_slice($this->all(), 0, max(0, $limit));
+    }
+
+    /**
+     * Provider-safe recursive strip — never let a nested supply_state/rejected_alternatives
+     * blob smuggle credentials into the append-only ledger.
+     *
+     * @param  array<int|string,mixed>  $arr
+     * @return array<int|string,mixed>
+     */
+    private function stripForbidden(array $arr): array
+    {
+        static $forbidden = [
+            'api_key', 'auth_token', 'bearer_token', 'credential', 'credentials',
+            'password', 'private_key', 'provider_key', 'secret', 'secret_key',
+            'session_token', 'token', 'webhook_secret',
+        ];
+        $out = [];
+        foreach ($arr as $key => $value) {
+            if (is_string($key) && in_array($key, $forbidden, true)) {
+                continue;
+            }
+            $out[$key] = is_array($value) ? $this->stripForbidden($value) : $value;
+        }
+
+        return $out;
     }
 
     private function alreadyRecorded(string $decisionHash): bool

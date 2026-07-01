@@ -188,4 +188,39 @@ final class AtlasStrategyCouncilDecisionLedgerTest extends TestCase
 
         $this->assertSame($a['row']['decision_hash'], $b['row']['decision_hash']);
     }
+
+    // ── AC: counterfactual reason, proof demand, provider-safe output ──
+
+    public function test_row_includes_counterfactual_reason_and_proof_demand(): void
+    {
+        $p = $this->payload();
+        $p['counterfactual_reason'] = 'rejected candidate would have starved the queue within 48h';
+        $p['proof_demand'] = ['sustained_queue_health_7d', 'no_regression_in_merge_governor'];
+
+        $res = $this->ledger->append($p);
+
+        $this->assertSame('rejected candidate would have starved the queue within 48h', $res['row']['counterfactual_reason']);
+        $this->assertSame(['sustained_queue_health_7d', 'no_regression_in_merge_governor'], $res['row']['proof_demand']);
+    }
+
+    public function test_counterfactual_reason_and_proof_demand_default_to_empty_when_absent(): void
+    {
+        $res = $this->ledger->append($this->payload());
+
+        $this->assertSame('', $res['row']['counterfactual_reason']);
+        $this->assertSame([], $res['row']['proof_demand']);
+    }
+
+    public function test_provider_safe_output_strips_credential_keys_from_supply_state_and_rejected_alternatives(): void
+    {
+        $p = $this->payload();
+        $p['supply_state'] = ['servable_now' => 12, 'api_key' => 'oops'];
+        $p['rejected_alternatives'] = [['layer' => 'replenish', 'password' => 'hunter2']];
+
+        $res = $this->ledger->append($p);
+
+        $this->assertArrayNotHasKey('api_key', $res['row']['supply_state']);
+        $this->assertArrayNotHasKey('password', $res['row']['rejected_alternatives'][0]);
+        $this->assertSame('replenish', $res['row']['rejected_alternatives'][0]['layer']);
+    }
 }
