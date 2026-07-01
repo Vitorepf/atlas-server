@@ -116,8 +116,13 @@ final class AtlasExternalBrainCostQualityParetoFront
         foreach ($options as $candidate) {
             $isDominated = false;
 
-            // Has frontier justification → never purely dominated by the quality/cost rule.
-            if ($candidate['frontier_justification'] !== '') {
+            // Has frontier justification with measurable lift/risk_reduction → never purely
+            // dominated by the quality/cost rule. A justification with no measurable backing
+            // does not exempt the option — it still competes on quality/cost like any other.
+            if ($candidate['frontier_justification'] !== ''
+                && ($candidate['expected_lift'] >= self::ESCALATION_QUALITY_DELTA_THRESHOLD
+                    || $candidate['risk_reduction'] >= self::ESCALATION_QUALITY_DELTA_THRESHOLD)
+            ) {
                 $paretoFront[] = $candidate;
                 continue;
             }

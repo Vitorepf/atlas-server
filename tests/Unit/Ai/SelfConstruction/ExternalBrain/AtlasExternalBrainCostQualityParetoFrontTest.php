@@ -14,11 +14,17 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
         return new AtlasExternalBrainCostQualityParetoFront();
     }
 
-    private function option(string $id, float $quality, float $cost, string $justification = ''): array
+    private function option(string $id, float $quality, float $cost, string $justification = '', float $riskReduction = 0.0, float $expectedLift = 0.0): array
     {
         $o = ['option_id' => $id, 'quality' => $quality, 'cost' => $cost];
         if ($justification !== '') {
             $o['frontier_justification'] = $justification;
+        }
+        if ($riskReduction > 0.0) {
+            $o['risk_reduction'] = $riskReduction;
+        }
+        if ($expectedLift > 0.0) {
+            $o['expected_lift'] = $expectedLift;
         }
 
         return $o;
@@ -157,7 +163,7 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
         $result = $this->front()->compute([
             'options' => [
                 $this->option('cheap-good', 0.90, 1.0),
-                $this->option('expensive-frontier', 0.80, 5.0, 'reduces catastrophic failure risk by 3×'),
+                $this->option('expensive-frontier', 0.80, 5.0, 'reduces catastrophic failure risk by 3×', riskReduction: 0.30),
             ],
         ]);
 
@@ -170,11 +176,25 @@ final class AtlasExternalBrainCostQualityParetoFrontTest extends TestCase
         $result = $this->front()->compute([
             'options' => [
                 $this->option('opt-a', 0.80, 1.0),
-                $this->option('frontier', 0.85, 10.0, 'prevents merge governor bypass'),
+                $this->option('frontier', 0.85, 10.0, 'prevents merge governor bypass', expectedLift: 0.20),
             ],
         ]);
 
         $this->assertNotEmpty(array_filter($result['risk_notes'], static fn (string $n): bool => str_contains($n, 'frontier')));
+    }
+
+    public function test_frontier_justification_without_measurable_lift_or_risk_reduction_is_not_exempt(): void
+    {
+        $result = $this->front()->compute([
+            'options' => [
+                $this->option('cheap-good', 0.90, 1.0),
+                $this->option('expensive-frontier', 0.80, 5.0, 'sounds important but has no measurable backing'),
+            ],
+        ]);
+
+        $paretoIds = array_column($result['pareto_options'], 'option_id');
+        $this->assertNotContains('expensive-frontier', $paretoIds, 'unjustified frontier claims must not escape dominance');
+        $this->assertContains('expensive-frontier', array_column($result['dominated_options'], 'option_id'));
     }
 
     // ── recommended_option ────────────────────────────────────────────────────
