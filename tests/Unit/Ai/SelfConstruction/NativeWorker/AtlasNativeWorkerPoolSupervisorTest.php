@@ -224,4 +224,125 @@ final class AtlasNativeWorkerPoolSupervisorTest extends TestCase
         $this->assertNotContains('native_apply', $kinds);
         $this->assertSame(4, $out['blocked_count']);
     }
+
+    // ── AC: capacityPlanFromNativeSignals() ──────────────────────────────────────
+
+    public function test_scale_up_recommended_when_claimable_exceeds_active_and_pool_has_room(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 10,
+            'active_leases' => 1,
+            'max_pool_size' => 5,
+        ]);
+
+        $this->assertSame('scale_up', $plan['recommendation']);
+        $this->assertSame(2, $plan['desired_pool_size']);
+    }
+
+    public function test_drain_recommended_when_active_leases_exceed_max_pool_size(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 1,
+            'active_leases' => 10,
+            'max_pool_size' => 5,
+        ]);
+
+        $this->assertSame('drain', $plan['recommendation']);
+    }
+
+    public function test_hold_recommended_when_recoverable_backlog_present_and_queue_dry(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 0,
+            'active_leases' => 1,
+            'recoverable_backlog_count' => 3,
+        ]);
+
+        $this->assertSame('hold', $plan['recommendation']);
+    }
+
+    public function test_repair_first_recommended_when_malformed_packets_present(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 10,
+            'active_leases' => 1,
+            'malformed_count' => 2,
+        ]);
+
+        $this->assertSame('repair_first', $plan['recommendation']);
+        $this->assertContains('malformed_packets_present', $plan['blockers']);
+    }
+
+    public function test_repair_first_recommended_when_safety_gates_unsafe(): void
+    {
+        $plan = (new AtlasNativeWorkerPoolSupervisor)->capacityPlanFromNativeSignals([
+            'claimable_depth' => 10,
+            'active_leases' => 1,
+            'queue_health' => 0.1,
+        ]);
+
+        $this->assertSame('repair_first', $plan['recommendation']);
+        $this->assertContains('queue_health_unsafe', $plan['safety_reasons']);
+    }
+
+    public function test_output_includes_all_required_keys_deterministically(): void
+    {
+        $facts = ['claimable_depth' => 5, 'active_leases' => 1, 'max_pool_size' => 5];
+        $sup = new AtlasNativeWorkerPoolSupervisor;
+
+        $a = $sup->capacityPlanFromNativeSignals($facts);
+        $b = $sup->capacityPlanFromNativeSignals($facts);
+
+        foreach (['recommendation', 'desired_pool_size', 'blockers', 'safety_reasons', 'next_recheck_interval'] as $key) {
+            $this->assertArrayHasKey($key, $a, "Missing key: {$key}");
+        }
+        $this->assertSame($a, $b);
+    }
+
+    // ── AC: run() refuses to start workers when safety gates are unsafe ─────────
+
+    public function test_run_refuses_to_start_when_queue_health_unsafe(): void
+    {
+        $invoked = false;
+        $out = (new AtlasNativeWorkerPoolSupervisor)->run([
+            'apply' => true,
+            'max_cycles' => 3,
+            'queue_health' => 0.05,
+            'cycle_callback' => function (int $i) use (&$invoked): array {
+                $invoked = true;
+
+                return ['outcome' => 'success'];
+            },
+        ]);
+
+        $this->assertFalse($invoked);
+        $this->assertTrue($out['dry_run']);
+        $this->assertSame('unsafe_to_start', $out['stop_reason']);
+        $this->assertContains('queue_health_unsafe', $out['safety_reasons']);
+    }
+
+    public function test_run_refuses_to_start_when_proof_ledger_unsafe(): void
+    {
+        $out = (new AtlasNativeWorkerPoolSupervisor)->run([
+            'apply' => true,
+            'max_cycles' => 1,
+            'proof_ledger_ok' => false,
+            'cycle_callback' => static fn (int $i): array => ['outcome' => 'success'],
+        ]);
+
+        $this->assertContains('proof_ledger_unsafe', $out['safety_reasons']);
+        $this->assertSame(0, $out['cycle_count']);
+    }
+
+    public function test_run_starts_normally_when_safety_facts_absent(): void
+    {
+        $out = (new AtlasNativeWorkerPoolSupervisor)->run([
+            'apply' => true,
+            'max_cycles' => 1,
+            'cycle_callback' => static fn (int $i): array => ['outcome' => 'success'],
+        ]);
+
+        $this->assertFalse($out['dry_run']);
+        $this->assertSame(1, $out['cycle_count']);
+    }
 }

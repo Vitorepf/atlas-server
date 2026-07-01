@@ -77,6 +77,100 @@ final class AtlasNativeWorkerPoolSupervisor
         ];
     }
 
+    /** queue_health below this is unsafe to start workers against. */
+    public const QUEUE_HEALTH_SAFE_FLOOR = 0.3;
+
+    /** Base recheck interval in seconds; doubled per active safety concern (capped). */
+    private const BASE_RECHECK_INTERVAL_SECONDS = 60;
+
+    private const MAX_RECHECK_INTERVAL_SECONDS = 900;
+
+    /**
+     * Deterministic capacity recommendation from native-worker-loop signals: claimable depth,
+     * active leases, recoverable backlog, malformed packet count, and recent native worker
+     * outcomes. Distinct contract from capacityPlan() (which reads a raw worker snapshot) --
+     * this one classifies scale_up/hold/drain/repair_first with desired_pool_size, blockers,
+     * safety_reasons, and a next_recheck_interval, so origination never scales blind.
+     *
+     * @param  array{
+     *   claimable_depth?:int, active_leases?:int, max_pool_size?:int,
+     *   recoverable_backlog_count?:int, malformed_count?:int,
+     *   recent_native_worker_failure_rate?:float, queue_health?:float,
+     *   proof_ledger_ok?:bool, worker_readiness_ok?:bool,
+     * }  $facts
+     * @return array{recommendation:string, desired_pool_size:int, blockers:list<string>, safety_reasons:list<string>, next_recheck_interval:int}
+     */
+    public function capacityPlanFromNativeSignals(array $facts): array
+    {
+        $claimableDepth = max(0, (int) ($facts['claimable_depth'] ?? 0));
+        $activeLeases = max(0, (int) ($facts['active_leases'] ?? 0));
+        $maxPoolSize = max(1, (int) ($facts['max_pool_size'] ?? 5));
+        $recoverableBacklog = max(0, (int) ($facts['recoverable_backlog_count'] ?? 0));
+        $malformedCount = max(0, (int) ($facts['malformed_count'] ?? 0));
+        $failureRate = max(0.0, min(1.0, (float) ($facts['recent_native_worker_failure_rate'] ?? 0.0)));
+
+        $safetyReasons = $this->safetyReasons($facts);
+        $blockers = [];
+
+        if ($malformedCount > 0) {
+            $blockers[] = 'malformed_packets_present';
+        }
+
+        $recommendation = match (true) {
+            $safetyReasons !== [] => 'repair_first',
+            $malformedCount > 0 => 'repair_first',
+            $recoverableBacklog > 0 && $claimableDepth === 0 => 'hold',
+            $activeLeases > $maxPoolSize => 'drain',
+            $failureRate > 0.5 => 'hold',
+            $claimableDepth > $activeLeases && $activeLeases < $maxPoolSize => 'scale_up',
+            default => 'hold',
+        };
+
+        $desiredPoolSize = match ($recommendation) {
+            'scale_up' => min($maxPoolSize, $activeLeases + 1),
+            'drain' => $maxPoolSize,
+            default => $activeLeases,
+        };
+
+        $recheckInterval = min(
+            self::MAX_RECHECK_INTERVAL_SECONDS,
+            self::BASE_RECHECK_INTERVAL_SECONDS * (1 + count($safetyReasons) + count($blockers)),
+        );
+
+        return [
+            'recommendation' => $recommendation,
+            'desired_pool_size' => $desiredPoolSize,
+            'blockers' => $blockers,
+            'safety_reasons' => $safetyReasons,
+            'next_recheck_interval' => $recheckInterval,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $facts
+     * @return list<string>
+     */
+    private function safetyReasons(array $facts): array
+    {
+        $reasons = [];
+        $queueHealth = (float) ($facts['queue_health'] ?? 1.0);
+        $proofLedgerOk = (bool) ($facts['proof_ledger_ok'] ?? true);
+        $workerReadinessOk = (bool) ($facts['worker_readiness_ok'] ?? true);
+
+        if ($queueHealth < self::QUEUE_HEALTH_SAFE_FLOOR) {
+            $reasons[] = 'queue_health_unsafe';
+        }
+        if (! $proofLedgerOk) {
+            $reasons[] = 'proof_ledger_unsafe';
+        }
+        if (! $workerReadinessOk) {
+            $reasons[] = 'worker_readiness_unsafe';
+        }
+        sort($reasons, SORT_STRING);
+
+        return $reasons;
+    }
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -84,6 +178,29 @@ final class AtlasNativeWorkerPoolSupervisor
     public function run(array $options = []): array
     {
         $apply = (bool) ($options['apply'] ?? false);
+
+        // Safety pre-flight: never start native workers when queue health, proof ledger, or
+        // worker readiness are unsafe -- absence of these facts is treated as safe (back-compat).
+        $safetyReasons = $this->safetyReasons($options);
+        if ($apply && $safetyReasons !== []) {
+            $payload = $this->envelope(
+                applied: false,
+                cyclesPlanned: (int) ($options['max_cycles'] ?? 0),
+                cyclesExecuted: 0,
+                maxCycles: (int) ($options['max_cycles'] ?? 0),
+                maxParallel: max(1, (int) ($options['max_parallel'] ?? 1)),
+                successCount: 0,
+                giveBackCount: 0,
+                failedCount: 0,
+                blockedActions: [],
+                receipts: [],
+                safetyStop: true,
+                stopReason: 'unsafe_to_start',
+            );
+            $payload['safety_reasons'] = $safetyReasons;
+
+            return $payload;
+        }
         $maxCycles = max(0, (int) ($options['max_cycles'] ?? 0));
         $maxParallel = max(1, (int) ($options['max_parallel'] ?? 1));
         $cycleCallback = $options['cycle_callback'] ?? null;
