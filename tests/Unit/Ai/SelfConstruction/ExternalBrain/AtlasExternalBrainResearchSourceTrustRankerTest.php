@@ -320,6 +320,21 @@ final class AtlasExternalBrainResearchSourceTrustRankerTest extends TestCase
         $this->assertContains('attach_runnable_test_or_gate_evidence', $r['atlas_adaptation_requirements']);
     }
 
+    public function test_atlas_adaptation_requirements_always_present_even_for_rejected_source(): void
+    {
+        $r = $this->ranker()->rank([
+            'source_type' => 'generic_summary',
+            'has_source_url' => false,
+            'source_date' => '',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainResearchSourceTrustRanker::USE_REJECT, $r['use_decision']);
+        $this->assertSame(AtlasExternalBrainResearchSourceTrustRanker::TASK_ADMISSION_REJECT, $r['task_admission_decision']);
+        $this->assertNotEmpty($r['atlas_adaptation_requirements']);
+        $this->assertContains('translate_into_atlas_native_task_spec_before_admission', $r['atlas_adaptation_requirements']);
+        $this->assertContains('attach_runnable_test_or_gate_evidence', $r['atlas_adaptation_requirements']);
+    }
+
     // ── AC4: generic summaries/blogs require primary_source_citation + repo_local_verification ──
 
     public function test_generic_summary_requires_primary_source_citation_and_repo_local_verification(): void
