@@ -11,7 +11,16 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * fake leaf implementation that can never wire into the actual behavior.
  *
  * Input shape: {objective?:string, allowed_files?:list<string>, known_collaborators?:list<string>,
- *               forbidden_files?:list<string>}
+ *               forbidden_files?:list<string>, acceptance_requires_test?:bool}
+ *
+ * acceptance_requires_test defaults to true (existing callers keep flagging
+ * missing_test_scope for impl-only scopes); set it to false when the acceptance
+ * criteria genuinely need no runnable test (e.g. a pure config/data change).
+ *
+ * recommended_closure: the smallest impl+test file pair that would close a
+ * test-only or impl-only scope — never a broad directory. Empty when the scope
+ * is already closed or the gap is a caller/collaborator path, not a single-file
+ * impl/test mirror.
  *
  * Pure — no I/O, no provider calls, no enqueue.
  */
@@ -34,17 +43,24 @@ final class AtlasTaskFabricAllowedFilesClosureProbe
         $allowed = array_values(array_map('strval', (array) ($task['allowed_files'] ?? [])));
         $objective = (string) ($task['objective'] ?? '');
         $forbidden = array_values(array_map('strval', (array) ($task['forbidden_files'] ?? [])));
+        $acceptanceRequiresTest = (bool) ($task['acceptance_requires_test'] ?? true);
 
         $findings = [];
 
-        $hasTest = array_filter($allowed, static fn (string $f): bool => str_contains($f, 'Test.php') || str_contains($f, '/tests/')) !== [];
-        $hasImpl = array_filter($allowed, static fn (string $f): bool => ! str_contains($f, 'Test.php') && ! str_contains($f, '/tests/')) !== [];
+        $testFiles = array_values(array_filter($allowed, static fn (string $f): bool => str_contains($f, 'Test.php') || str_contains($f, '/tests/')));
+        $implFiles = array_values(array_filter($allowed, static fn (string $f): bool => ! str_contains($f, 'Test.php') && ! str_contains($f, '/tests/')));
+        $hasTest = $testFiles !== [];
+        $hasImpl = $implFiles !== [];
+
+        $recommendedClosure = [];
 
         if ($allowed !== [] && $hasTest && ! $hasImpl) {
             $findings[] = 'missing_implementation_scope';
+            $recommendedClosure = [$this->deriveImplPath($testFiles[0]), $testFiles[0]];
         }
-        if ($allowed !== [] && $hasImpl && ! $hasTest) {
+        if ($allowed !== [] && $hasImpl && ! $hasTest && $acceptanceRequiresTest) {
             $findings[] = 'missing_test_scope';
+            $recommendedClosure = [$implFiles[0], $this->deriveTestPath($implFiles[0])];
         }
 
         $missingFiles = $this->missingCollaborators($task, $objective, $allowed);
@@ -70,7 +86,24 @@ final class AtlasTaskFabricAllowedFilesClosureProbe
             'findings' => $findings,
             'missing_files' => $missingFiles,
             'recommended_action' => $recommendedAction,
+            'recommended_closure' => $recommendedClosure,
         ];
+    }
+
+    private function deriveTestPath(string $implPath): string
+    {
+        $test = preg_replace('#^app/#', 'tests/Unit/', $implPath) ?? $implPath;
+        $test = preg_replace('/\.php$/', 'Test.php', $test) ?? $test;
+
+        return $test;
+    }
+
+    private function deriveImplPath(string $testPath): string
+    {
+        $impl = preg_replace('#^tests/Unit/#', 'app/', $testPath) ?? $testPath;
+        $impl = preg_replace('/Test\.php$/', '.php', $impl) ?? $impl;
+
+        return $impl;
     }
 
     /**

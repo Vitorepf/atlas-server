@@ -177,4 +177,79 @@ final class AtlasTaskFabricAllowedFilesClosureProbeTest extends TestCase
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    // ── AC2: missing_test_scope only emitted when acceptance requires a test ────
+
+    public function test_implementation_only_scope_is_accepted_when_acceptance_does_not_require_a_test(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Update AtlasFoo config default.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            'acceptance_requires_test' => false,
+        ]);
+
+        $this->assertNotContains('missing_test_scope', $r['findings']);
+    }
+
+    public function test_implementation_only_scope_still_flags_missing_test_scope_when_explicitly_required(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            'acceptance_requires_test' => true,
+        ]);
+
+        $this->assertContains('missing_test_scope', $r['findings']);
+    }
+
+    // ── AC3: recommended_closure is the smallest impl/test pair, no broad dirs ──
+
+    public function test_test_only_scope_recommends_minimal_impl_test_pair(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Add a characterization test for AtlasFoo.',
+            'allowed_files' => ['tests/Unit/Ai/Foo/AtlasFooTest.php'],
+        ]);
+
+        $this->assertSame(
+            ['app/Ai/Foo/AtlasFoo.php', 'tests/Unit/Ai/Foo/AtlasFooTest.php'],
+            $r['recommended_closure'],
+        );
+    }
+
+    public function test_implementation_only_scope_recommends_minimal_impl_test_pair(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+        ]);
+
+        $this->assertSame(
+            ['app/Services/Ai/Foo/AtlasFoo.php', 'tests/Unit/Services/Ai/Foo/AtlasFooTest.php'],
+            $r['recommended_closure'],
+        );
+    }
+
+    public function test_recommended_closure_never_contains_a_broad_directory(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Add a characterization test for AtlasFoo.',
+            'allowed_files' => ['tests/Unit/Ai/Foo/AtlasFooTest.php'],
+        ]);
+
+        $this->assertCount(2, $r['recommended_closure']);
+        foreach ($r['recommended_closure'] as $path) {
+            $this->assertStringEndsWith('.php', $path);
+        }
+    }
+
+    public function test_closed_scope_has_empty_recommended_closure(): void
+    {
+        $r = $this->svc()->probe([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php', 'tests/Unit/Ai/Foo/AtlasFooTest.php'],
+        ]);
+
+        $this->assertSame([], $r['recommended_closure']);
+    }
 }
