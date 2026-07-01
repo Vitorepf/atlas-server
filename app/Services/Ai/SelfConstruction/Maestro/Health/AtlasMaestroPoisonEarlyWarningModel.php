@@ -78,6 +78,14 @@ final class AtlasMaestroPoisonEarlyWarningModel
         'repeated_give_back' => 'respec_the_packet_before_next_claim_do_not_reserve_unchanged',
     ];
 
+    /** rescope/repairable signal => the concrete packet field the respec must change. */
+    private const REPAIR_ROUTE_FIELD_MAP = [
+        'test_only_has_contract' => 'allowed_files',
+        'missing_implementation_file' => 'allowed_files',
+        'contradictory_acceptance' => 'acceptance_criteria',
+        'schema_mismatch' => 'schema_version',
+    ];
+
     /**
      * @param  array<string,mixed>  $packet
      * @return array{schema_version:string, poison_risk:string, score:int, reasons:list<string>, recommended_action:string, confidence:float, risk_family:string, repairability:string, safe_next_action:string}
@@ -191,12 +199,18 @@ final class AtlasMaestroPoisonEarlyWarningModel
 
         // repair_route: the minimum concrete correction(s) for a repairable packet — never emitted
         // for retire_only (nothing to repair) or not_applicable (nothing wrong).
+        // repair_route_fields: the same signals, but mapped to the concrete packet FIELD that must
+        // change — lets the Replenisher target a respec at the exact field instead of parsing prose.
         $repairRoute = [];
+        $repairRouteFields = [];
         if ($repairability === self::REPAIRABILITY_REPAIRABLE) {
             foreach ($reasons as $reason) {
                 $reasonKey = str_contains($reason, ':') ? strstr($reason, ':', true) : $reason;
                 if (isset(self::REPAIR_ROUTE_MAP[$reasonKey]) && ! in_array(self::REPAIR_ROUTE_MAP[$reasonKey], $repairRoute, true)) {
                     $repairRoute[] = self::REPAIR_ROUTE_MAP[$reasonKey];
+                }
+                if (isset(self::REPAIR_ROUTE_FIELD_MAP[$reasonKey])) {
+                    $repairRouteFields[self::REPAIR_ROUTE_FIELD_MAP[$reasonKey]] = true;
                 }
             }
         }
@@ -212,6 +226,7 @@ final class AtlasMaestroPoisonEarlyWarningModel
             'repairability' => $repairability,
             'safe_next_action' => $safeNextAction,
             'repair_route' => $repairRoute,
+            'repair_route_fields' => $repairRouteFields === [] ? [] : array_fill_keys(array_keys($repairRouteFields), true),
         ];
     }
 

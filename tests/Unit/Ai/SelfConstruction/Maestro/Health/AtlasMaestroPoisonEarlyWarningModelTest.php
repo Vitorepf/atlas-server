@@ -294,6 +294,31 @@ final class AtlasMaestroPoisonEarlyWarningModelTest extends TestCase
         $this->assertSame([], $r['repair_route']);
     }
 
+    public function test_missing_implementation_file_maps_to_repair_route_fields_allowed_files(): void
+    {
+        $r = $this->svc()->score([
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+            'give_back_count' => 0,
+        ]);
+
+        $this->assertArrayHasKey('allowed_files', $r['repair_route_fields']);
+    }
+
+    public function test_contradictory_acceptance_maps_to_repair_route_fields_acceptance_criteria(): void
+    {
+        $r = $this->svc()->score(['contradictory_acceptance' => true, 'give_back_count' => 0]);
+
+        $this->assertArrayHasKey('acceptance_criteria', $r['repair_route_fields']);
+    }
+
+    public function test_retire_only_packet_has_no_repair_route_fields_and_keeps_auto_retire(): void
+    {
+        $r = $this->svc()->score(['forbidden_self_target' => true, 'give_back_count' => 0]);
+
+        $this->assertSame([], $r['repair_route_fields']);
+        $this->assertSame('auto_retire', $r['safe_next_action']);
+    }
+
     // ── new AC: repeated give_back affects risk_family and confidence before threshold 8 ──
 
     public function test_medium_give_back_affects_risk_family_and_confidence_before_threshold_8(): void
