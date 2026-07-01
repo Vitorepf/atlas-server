@@ -22,9 +22,18 @@ namespace App\Services\Ai\SelfConstruction\VerificationCourt;
  *   - declared-gates        — every entry from packet_facts.declared_gates
  *   - diff-check            — diff-style validation (lint / static analysis hint)
  *   - lane-freshness        — only when project_lane.project_id is supplied
+ *   - lane-evidence-isolation — only when project_lane.project_id is supplied (alongside
+ *     lane-freshness): proves the replay evidence itself never crossed a project-lane boundary.
+ *   - false-green-guard, receipt-quorum, freshness-replay — together, whenever risk_level=high
+ *     OR the change is broad-scope: a single false_green_guard is not enough proof for a
+ *     high-risk/multi-project change — a QUORUM of independent replay receipts and a freshness
+ *     check on those receipts are required too.
  *
  * INVARIANTS:
  *   - BLOCKED when evidence_contract_result.accepted !== true or no replayable gate can be derived.
+ *   - BLOCKED when every declared gate is vague (names no concrete file/test path) AND changed
+ *     files are present — UNLESS at least one declared gate concretely binds to a changed file.
+ *     A plan built entirely from unfalsifiable declared gates is not real proof.
  *   - DETERMINISTIC: identical input ⇒ identical command list; command ids are stable
  *     (sha256(category+payload)[0:12]).
  */
@@ -95,14 +104,22 @@ final class AtlasVerificationCourtGateReplayPlan
             $commands[] = $this->command('diff-check', 'diff_style_check', 'changed_files present', $changed);
         }
 
-        // false_green_guard — high risk or broad scope
+        // false_green_guard — high risk or broad scope. A single guard is not enough proof for a
+        // high-risk/multi-project change: it must be joined by an independent receipt QUORUM
+        // check and a freshness check on those receipts, so a stale or single-source replay
+        // can never masquerade as sufficient proof.
         if ($riskLevel === 'high' || count($changed) >= self::BROAD_SCOPE_THRESHOLD) {
             $commands[] = $this->command('false-green-guard', 'false_green_guard', 'high_risk_or_broad_scope', $changed);
+            $commands[] = $this->command('receipt-quorum', 'receipt_quorum_check', 'high_risk_or_broad_scope', $changed);
+            $commands[] = $this->command('freshness-replay', 'freshness_replay_check', 'high_risk_or_broad_scope', $changed);
         }
 
-        // lane-freshness — when project_lane carries a project_id
+        // lane-freshness / lane-evidence-isolation — when project_lane carries a project_id.
+        // Freshness alone proves the evidence is recent; isolation proves it never crossed a
+        // project-lane boundary — a multi-project change needs both.
         if ($lane !== null && (string) ($lane['project_id'] ?? '') !== '') {
             $commands[] = $this->command('lane-freshness:'.$lane['project_id'], 'lane_freshness_check', 'project_lane attached', $changed);
+            $commands[] = $this->command('lane-evidence-isolation:'.$lane['project_id'], 'lane_evidence_isolation_check', 'project_lane attached', $changed);
         }
 
         // worker-floor replay steps — any task touching queue, Maestro, replenisher, or autonomous
@@ -119,6 +136,13 @@ final class AtlasVerificationCourtGateReplayPlan
 
         if ($commands === [] && $blockers === []) {
             $blockers[] = 'no_replayable_gate_derivable';
+        }
+
+        // A plan built entirely from vague declared gates is unfalsifiable proof — it would pass
+        // or fail identically no matter what actually changed. Blocked UNLESS at least one
+        // declared gate concretely binds to a changed file (mixing vague + concrete is fine).
+        if ($changed !== [] && $declared !== [] && count($vagueGates) === count($declared)) {
+            $blockers[] = 'vague_declared_gates_without_concrete_replay_binding';
         }
 
         sort($blockers, SORT_STRING);

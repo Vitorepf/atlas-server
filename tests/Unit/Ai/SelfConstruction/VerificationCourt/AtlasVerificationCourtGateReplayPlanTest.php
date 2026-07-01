@@ -219,6 +219,140 @@ final class AtlasVerificationCourtGateReplayPlanTest extends TestCase
         $this->assertContains('worker_floor_check', $names);
     }
 
+    // ── AC: high-risk quorum + freshness commands ────────────────────────────
+
+    public function test_high_risk_change_includes_receipt_quorum_and_freshness_replay_alongside_false_green_guard(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/Foo.php'],
+            'risk_level' => 'high',
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('false_green_guard', $names);
+        $this->assertContains('receipt_quorum_check', $names);
+        $this->assertContains('freshness_replay_check', $names);
+    }
+
+    public function test_broad_scope_also_includes_receipt_quorum_and_freshness_replay(): void
+    {
+        $manyFiles = array_map(static fn (int $i): string => "app/Services/File{$i}.php", range(1, AtlasVerificationCourtGateReplayPlan::BROAD_SCOPE_THRESHOLD));
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => $manyFiles,
+            'risk_level' => 'low',
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('receipt_quorum_check', $names);
+        $this->assertContains('freshness_replay_check', $names);
+    }
+
+    public function test_low_risk_narrow_scope_excludes_quorum_and_freshness_commands(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/Foo.php'],
+            'risk_level' => 'low',
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertNotContains('receipt_quorum_check', $names);
+        $this->assertNotContains('freshness_replay_check', $names);
+    }
+
+    // ── AC: lane-evidence-isolation alongside lane-freshness ─────────────────
+
+    public function test_project_lane_change_includes_lane_evidence_isolation_check(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Foo.php'],
+            'project_lane' => ['project_id' => 'other-project'],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertContains('lane_freshness_check', $names);
+        $this->assertContains('lane_evidence_isolation_check', $names);
+    }
+
+    public function test_no_project_lane_excludes_lane_evidence_isolation_check(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Foo.php'],
+        ]);
+
+        $names = array_column($r['commands'], 'name');
+        $this->assertNotContains('lane_evidence_isolation_check', $names);
+    }
+
+    // ── AC: all-vague declared gates block unless a concrete gate binds ──────
+
+    public function test_all_vague_declared_gates_with_changed_files_blocks_the_plan(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Demo/Foo.php'],
+            'risk_level' => 'low',
+            'packet_facts' => ['declared_gates' => ['pint', 'static_analysis']],
+        ]);
+
+        $this->assertSame(AtlasVerificationCourtGateReplayPlan::STATUS_BLOCKED, $r['plan_status']);
+        $this->assertContains('vague_declared_gates_without_concrete_replay_binding', $r['blockers']);
+    }
+
+    public function test_one_concrete_declared_gate_among_vague_ones_keeps_the_plan_ready(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Demo/Foo.php'],
+            'risk_level' => 'low',
+            'packet_facts' => ['declared_gates' => ['pint', 'php artisan test tests/Unit/Demo/FooTest.php']],
+        ]);
+
+        $this->assertSame(AtlasVerificationCourtGateReplayPlan::STATUS_READY, $r['plan_status']);
+        $this->assertNotContains('vague_declared_gates_without_concrete_replay_binding', $r['blockers']);
+    }
+
+    public function test_vague_declared_gates_with_no_changed_files_does_not_block(): void
+    {
+        $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => [],
+            'packet_facts' => ['declared_gates' => ['pint']],
+        ]);
+
+        $this->assertNotContains('vague_declared_gates_without_concrete_replay_binding', $r['blockers']);
+    }
+
+    // ── AC: deterministic ids + evidence_hash for new commands ───────────────
+
+    public function test_new_commands_carry_deterministic_ids_and_evidence_hash(): void
+    {
+        $facts = [
+            'evidence_contract_result' => ['accepted' => true],
+            'changed_files' => ['app/Services/Ai/Foo.php'],
+            'risk_level' => 'high',
+            'project_lane' => ['project_id' => 'proj-a'],
+        ];
+        $p = new AtlasVerificationCourtGateReplayPlan;
+        $a = $p->derive($facts);
+        $b = $p->derive($facts);
+        $this->assertSame($a, $b, 'identical input must yield byte-identical output');
+
+        $byName = [];
+        foreach ($a['commands'] as $cmd) {
+            $byName[$cmd['name']] = $cmd;
+        }
+        foreach (['receipt_quorum_check', 'freshness_replay_check', 'lane_evidence_isolation_check'] as $name) {
+            $this->assertArrayHasKey($name, $byName);
+            $this->assertNotEmpty($byName[$name]['id']);
+            $this->assertNotEmpty($byName[$name]['evidence_hash']);
+        }
+    }
+
     public function test_unrelated_task_stays_minimal_without_worker_floor_steps(): void
     {
         $r = (new AtlasVerificationCourtGateReplayPlan)->derive([
