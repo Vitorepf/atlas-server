@@ -46,6 +46,17 @@ final class AtlasExternalBrainProviderPoolOutputNormalizer
         'claimed_success',
         'status',
         'uncertainty',
+        'client_class',
+    ];
+
+    private const CLIENT_CLASSES = ['local', 'subscription_ui', 'internal_runtime'];
+
+    // AC3: redact any key at any depth of provider_specific_fields whose name looks like a raw
+    // secret/transcript — the bounded top-level keys themselves stay visible (a validator needs
+    // to know a provider sent extra fields), only sensitive-looking nested values are stripped.
+    private const SENSITIVE_KEY_SUBSTRINGS = [
+        'secret', 'password', 'token', 'api_key', 'apikey', 'raw_prompt',
+        'credential', 'authorization', 'provider_trace',
     ];
 
     /**
@@ -97,12 +108,21 @@ final class AtlasExternalBrainProviderPoolOutputNormalizer
             default => 'failed',
         };
 
-        $providerSpecific = array_diff_key($raw, array_flip(self::CANONICAL_INPUT_FIELDS));
+        $providerSpecificRaw = array_diff_key($raw, array_flip(self::CANONICAL_INPUT_FIELDS));
+        [$providerSpecific, $redactedProviderFields] = $this->redactSensitive($providerSpecificRaw);
+
+        $clientClassRaw = strtolower(trim((string) ($raw['client_class'] ?? '')));
+        $clientClass = in_array($clientClassRaw, self::CLIENT_CLASSES, true) ? $clientClassRaw : 'unknown';
+
+        [$repairableFailureReasons, $proofHints] = $verifiedSuccess
+            ? [[], []]
+            : $this->repairGuidance($claimedSuccess, $testsReported, $evidenceRefs, $raw);
 
         return [
             'role' => (string) ($raw['role'] ?? 'muscle'),
             'provider_id' => (string) ($raw['provider_id'] ?? ''),
             'model_id' => (string) ($raw['model_id'] ?? ''),
+            'client_class' => $clientClass,
             'task_packet_id' => (string) ($raw['task_packet_id'] ?? ''),
             'changed_files' => $changedFiles,
             'proposed_patch_ref' => (string) ($raw['proposed_patch_ref'] ?? ''),
@@ -113,8 +133,92 @@ final class AtlasExternalBrainProviderPoolOutputNormalizer
             'claimed_success' => $claimedSuccess,
             'verified_success' => $verifiedSuccess,
             'uncertainty' => (float) ($raw['uncertainty'] ?? ($verifiedSuccess ? 0.0 : 1.0)),
+            'repairable_failure' => ! $verifiedSuccess,
+            'repairable_failure_reasons' => $repairableFailureReasons,
+            'proof_hints' => $proofHints,
             'provider_specific_fields' => $providerSpecific,
+            'redacted_provider_fields' => $redactedProviderFields,
         ];
+    }
+
+    /**
+     * AC2: never leaves a weak/malformed output with just a status — names concretely what's
+     * missing and what to do about it, so a repair loop targets an actual field.
+     *
+     * @param  list<string>  $testsReported
+     * @param  list<string>  $evidenceRefs
+     * @param  array<string,mixed>  $raw
+     * @return array{0:list<string>,1:list<string>}
+     */
+    private function repairGuidance(bool $claimedSuccess, array $testsReported, array $evidenceRefs, array $raw): array
+    {
+        $reasons = [];
+        $hints = [];
+
+        if (! $claimedSuccess) {
+            $reasons[] = 'provider_did_not_claim_success';
+            $hints[] = 'have_the_provider_explicitly_report_claimed_success_true_with_proof';
+        }
+        if ($testsReported === []) {
+            $reasons[] = 'missing_tests_reported';
+            $hints[] = 'attach_a_runnable_test_command_to_tests_reported';
+        }
+        if ($evidenceRefs === []) {
+            $reasons[] = 'missing_evidence_refs';
+            $hints[] = 'attach_concrete_evidence_refs_such_as_test_output_or_commit_hash';
+        }
+        if (array_key_exists('changed_files', $raw) && $raw['changed_files'] !== null && ! is_array($raw['changed_files'])) {
+            $reasons[] = 'malformed_changed_files_field';
+            $hints[] = 'resubmit_changed_files_as_a_list_of_file_paths';
+        }
+
+        if ($reasons === []) {
+            return [[], []];
+        }
+
+        return [$reasons, $hints];
+    }
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @return array{0:array<string,mixed>,1:list<string>}
+     */
+    private function redactSensitive(array $value): array
+    {
+        $redactedKeys = [];
+        $clean = $this->redactSensitiveRecursive($value, $redactedKeys);
+
+        sort($redactedKeys);
+
+        return [$clean, $redactedKeys];
+    }
+
+    /**
+     * @param  array<string,mixed>  $value
+     * @param  list<string>  $redactedKeys
+     * @return array<string,mixed>
+     */
+    private function redactSensitiveRecursive(array $value, array &$redactedKeys): array
+    {
+        $clean = [];
+        foreach ($value as $key => $item) {
+            $keyLower = strtolower((string) $key);
+            $isSensitive = false;
+            foreach (self::SENSITIVE_KEY_SUBSTRINGS as $needle) {
+                if (str_contains($keyLower, $needle)) {
+                    $isSensitive = true;
+                    break;
+                }
+            }
+            if ($isSensitive) {
+                $redactedKeys[] = (string) $key;
+
+                continue;
+            }
+            $clean[$key] = is_array($item) ? $this->redactSensitiveRecursive($item, $redactedKeys) : $item;
+        }
+
+        return $clean;
     }
 
     private function toStringList(mixed $value): array
