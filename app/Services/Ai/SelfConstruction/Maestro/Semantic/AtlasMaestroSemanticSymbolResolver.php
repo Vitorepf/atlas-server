@@ -239,6 +239,71 @@ final class AtlasMaestroSemanticSymbolResolver
         return $this->index = $index;
     }
 
+    /**
+     * Full resolution with weak-match rejection and caller/test evidence — used by task serving
+     * to ground a cited symbol in REAL code, not a plausible-looking name the caller invented.
+     *
+     * A namespace-qualified symbol that never resolves is flagged weak_symbol_match=true: a bare
+     * short name miss ("FooBar") is an honest fuzzy-search miss, but a fully-qualified guess
+     * ("App\Services\Ai\FooBar") that resolves to nothing means the caller fabricated a plausible
+     * path rather than citing a symbol verified to exist — never returned as an ordinary miss.
+     *
+     * @param  list<string>  $allowedFiles
+     * @return array<string,mixed>  resolveGrounded() output + {weak_symbol_match, caller_files, test_files}
+     */
+    public function resolveWithEvidence(string $fqSymbol, array $allowedFiles): array
+    {
+        $result = $this->resolveGrounded($fqSymbol, $allowedFiles);
+
+        if (! $result['exists']) {
+            $result['weak_symbol_match'] = str_contains(trim($fqSymbol), '\\');
+            $result['caller_files'] = [];
+            $result['test_files'] = [];
+
+            return $result;
+        }
+
+        $result['weak_symbol_match'] = false;
+        $short = $this->shortName(explode('::', trim($fqSymbol), 2)[0]);
+        $repoRoot = rtrim($this->repoRoot ?? base_path(), '/');
+        [$callerFiles, $testFiles] = $this->findEvidence($short, (string) ($result['file'] ?? ''), $repoRoot);
+        $result['caller_files'] = $callerFiles;
+        $result['test_files'] = $testFiles;
+
+        return $result;
+    }
+
+    /**
+     * @return array{0:list<string>,1:list<string>}  [caller_files, test_files] — both exclude the
+     *                                                 declaring file, sorted, deduplicated.
+     */
+    private function findEvidence(string $short, string $declaringFile, string $repoRoot): array
+    {
+        $this->fileIndex($repoRoot); // ensures allPaths is populated
+        $allFiles = array_values(array_unique(array_merge(...array_values($this->allPaths ?? []))));
+
+        $callers = [];
+        $tests = [];
+        foreach ($allFiles as $rel) {
+            if ($rel === $declaringFile) {
+                continue;
+            }
+            $contents = @file_get_contents($repoRoot.'/'.$rel);
+            if ($contents === false || ! str_contains($contents, $short)) {
+                continue;
+            }
+            if (str_starts_with($rel, 'tests/')) {
+                $tests[] = $rel;
+            } else {
+                $callers[] = $rel;
+            }
+        }
+        sort($callers, SORT_STRING);
+        sort($tests, SORT_STRING);
+
+        return [$callers, $tests];
+    }
+
     private function shortName(string $fqcn): string
     {
         $parts = explode('\\', trim($fqcn, '\\'));

@@ -107,4 +107,57 @@ final class AtlasMaestroSemanticSymbolResolverTest extends TestCase
         $this->assertArrayHasKey('ambiguous_paths', $out, 'must report sibling paths when short name is ambiguous');
         $this->assertNotEmpty($out['ambiguous_paths'], 'at least one sibling path must be listed');
     }
+
+    // ── resolveWithEvidence(): namespace-guess rejection + caller/test evidence ─────
+
+    public function test_namespace_only_guess_is_rejected_as_weak_symbol_match(): void
+    {
+        $out = $this->resolver()->resolveWithEvidence('App\\Services\\Ai\\NonExistentClassXyz123', []);
+
+        $this->assertFalse($out['exists']);
+        $this->assertTrue($out['weak_symbol_match'], 'a fully-qualified guess that never resolves must be flagged weak_symbol_match');
+    }
+
+    public function test_bare_short_name_miss_is_not_flagged_as_weak_symbol_match(): void
+    {
+        $out = $this->resolver()->resolveWithEvidence('CompletelyOrphanXyz999', []);
+
+        $this->assertFalse($out['exists']);
+        $this->assertFalse($out['weak_symbol_match'], 'a bare short-name miss is an honest fuzzy-search miss, not a namespace guess');
+    }
+
+    public function test_symbol_found_inside_allowed_files_returns_grounded_true(): void
+    {
+        $out = $this->resolver()->resolveWithEvidence(
+            'App\\Services\\Ai\\SelfConstruction\\AtlasTaskPacketQualityInspector',
+            ['app/Services/Ai/SelfConstruction/AtlasTaskPacketQualityInspector.php'],
+        );
+
+        $this->assertTrue($out['exists']);
+        $this->assertTrue($out['grounded']);
+        $this->assertFalse($out['weak_symbol_match']);
+    }
+
+    public function test_resolver_returns_caller_files_and_test_files_when_evidence_exists(): void
+    {
+        $out = $this->resolver()->resolveWithEvidence(
+            'App\\Services\\Ai\\SelfConstruction\\AtlasTaskPacketQualityInspector',
+            ['app/Services/Ai/SelfConstruction/AtlasTaskPacketQualityInspector.php'],
+        );
+
+        $this->assertArrayHasKey('caller_files', $out);
+        $this->assertArrayHasKey('test_files', $out);
+        $this->assertContains(
+            'tests/Unit/Ai/SelfConstruction/Maestro/Semantic/AtlasMaestroSemanticSymbolResolverTest.php',
+            $out['test_files'],
+        );
+    }
+
+    public function test_missing_symbol_has_empty_caller_and_test_file_evidence(): void
+    {
+        $out = $this->resolver()->resolveWithEvidence('App\\Services\\Ai\\NonExistentClassXyz123', []);
+
+        $this->assertSame([], $out['caller_files']);
+        $this->assertSame([], $out['test_files']);
+    }
 }
