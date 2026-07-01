@@ -11,6 +11,14 @@ use Closure;
  * AND the queue_status indicates unclaimed. Reads FACTS from AtlasMaestroPacketAgeFactReporter.
  *
  * Never mutates queue state. Never auto-parks. Operator/CLI decides downstream.
+ *
+ * Optional per-packet meta (from $packetMetaProvider) additively unlocks finer-grained actions —
+ * absent meta always falls back to the original park/keep behavior, byte-identical:
+ *   - value (float 0..1): stale + below LOW_VALUE_CEILING ⇒ 'retire' instead of 'park'.
+ *   - proof_strength (float 0..1): stale + high value + below STRONG_PROOF_FLOOR ⇒ 'refresh'.
+ *     Fresh (age <= threshold) + at/above STRONG_PROOF_FLOOR ⇒ explicit 'keep' proposal.
+ *   - dependency_fresh (bool): for dependency_critical + stale packets, weak proof or a stale
+ *     dependency (dependency_fresh === false) ⇒ 'rescue' instead of the default 'keep'.
  */
 final class AtlasMaestroPacketDecayPolicy
 {
@@ -19,6 +27,10 @@ final class AtlasMaestroPacketDecayPolicy
     public const UNCLAIMED_STATUSES = ['waiting', 'queued', 'enqueued', 'pending'];
     /** Poison/give_back family decays at this fraction of the normal threshold. */
     public const POISON_THRESHOLD_RATIO = 0.5;
+    /** value below this ⇒ 'low value' (retire candidate). */
+    public const LOW_VALUE_CEILING = 0.34;
+    /** proof_strength at/above this ⇒ 'strong proof'. */
+    public const STRONG_PROOF_FLOOR = 0.67;
 
     /** @var Closure():int */
     private Closure $thresholdProvider;
@@ -68,13 +80,24 @@ final class AtlasMaestroPacketDecayPolicy
             $meta = $this->packetMetaProvider !== null ? (array) ($this->packetMetaProvider)($id) : [];
             $critical = (bool) ($meta['dependency_critical'] ?? false);
             $poisonFamily = (int) ($meta['give_back_count'] ?? 0) > 0 || (bool) ($meta['poison'] ?? false);
+            $hasValueSignal = array_key_exists('value', $meta);
+            $value = (float) ($meta['value'] ?? 0.0);
+            $hasProofSignal = array_key_exists('proof_strength', $meta);
+            $proofStrength = (float) ($meta['proof_strength'] ?? 0.0);
+            $hasDependencyFreshSignal = array_key_exists('dependency_fresh', $meta);
+            $dependencyFresh = (bool) ($meta['dependency_fresh'] ?? true);
 
-            // Dependency-critical packets that are stale must be kept explicitly, never parked.
+            // Dependency-critical packets that are stale must be kept explicitly, never parked —
+            // unless proof is explicitly weak or the dependency is explicitly stale, then 'rescue'.
             if ($critical && $age > $threshold && in_array($status, self::UNCLAIMED_STATUSES, true)) {
+                $needsRescue = ($hasProofSignal && $proofStrength < self::STRONG_PROOF_FLOOR)
+                    || ($hasDependencyFreshSignal && ! $dependencyFresh);
                 $proposals[] = [
                     'age_seconds' => $age,
-                    'proposed_action' => 'keep',
-                    'reason' => 'keep_due_to_critical_dependency',
+                    'proposed_action' => $needsRescue ? 'rescue' : 'keep',
+                    'reason' => $needsRescue
+                        ? 'rescue_due_to_critical_dependency_weak_proof_or_stale_dependency'
+                        : 'keep_due_to_critical_dependency',
                     'task_packet_id' => $id,
                     'threshold_seconds' => $threshold,
                 ];
@@ -98,6 +121,40 @@ final class AtlasMaestroPacketDecayPolicy
             }
 
             if ($age <= $threshold) {
+                // Fresh + explicitly strong-proof packets get an affirmative keep proposal.
+                if ($hasProofSignal && $proofStrength >= self::STRONG_PROOF_FLOOR) {
+                    $proposals[] = [
+                        'age_seconds' => $age,
+                        'proposed_action' => 'keep',
+                        'reason' => 'keep_fresh_strong_proof',
+                        'task_packet_id' => $id,
+                        'threshold_seconds' => $threshold,
+                    ];
+                }
+                continue;
+            }
+
+            // Stale, low-value ⇒ retire rather than park.
+            if ($hasValueSignal && $value < self::LOW_VALUE_CEILING) {
+                $proposals[] = [
+                    'age_seconds' => $age,
+                    'proposed_action' => 'retire',
+                    'reason' => sprintf('retire_due_to_stale_low_value value=%.2f age_seconds=%d exceeds threshold_seconds=%d', $value, $age, $threshold),
+                    'task_packet_id' => $id,
+                    'threshold_seconds' => $threshold,
+                ];
+                continue;
+            }
+
+            // Stale, high-value, weak proof ⇒ refresh rather than park.
+            if ($hasValueSignal && $value >= self::LOW_VALUE_CEILING && $hasProofSignal && $proofStrength < self::STRONG_PROOF_FLOOR) {
+                $proposals[] = [
+                    'age_seconds' => $age,
+                    'proposed_action' => 'refresh',
+                    'reason' => sprintf('refresh_due_to_stale_high_value_weak_proof value=%.2f proof_strength=%.2f', $value, $proofStrength),
+                    'task_packet_id' => $id,
+                    'threshold_seconds' => $threshold,
+                ];
                 continue;
             }
 
