@@ -52,6 +52,17 @@ final class AtlasTaskFabricLowValueRetirementQueue
     /** respec_draft_confidence at/above this, combined with runnable acceptance, blocks retirement. */
     private const RESPEC_CONFIDENCE_THRESHOLD     = 0.70;
 
+    /** proof_strength BELOW this for a 'low_value' candidate routes to needs_evidence instead of deletion. */
+    private const NEEDS_EVIDENCE_PROOF_THRESHOLD  = 0.30;
+
+    /** leverage_score AT/ABOVE this protects an otherwise-low-value candidate as genuinely useful (keep). */
+    private const LEVERAGE_KEEP_THRESHOLD         = 0.70;
+
+    public const DECISION_RETIRE                  = 'retire';
+    public const DECISION_KEEP                     = 'keep';
+    public const DECISION_MERGE                    = 'merge';
+    public const DECISION_NEEDS_EVIDENCE           = 'needs_evidence';
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -62,9 +73,10 @@ final class AtlasTaskFabricLowValueRetirementQueue
         $criticalChainIds = array_flip(array_map('strval', (array) ($facts['critical_dependency_chains'] ?? [])));
         $valueThreshold   = (float) ($facts['value_threshold'] ?? self::DEFAULT_VALUE_THRESHOLD);
 
-        $retired    = [];
-        $protected  = [];
-        $ineligible = [];
+        $retired       = [];
+        $protected     = [];
+        $ineligible    = [];
+        $needsEvidence = [];
 
         foreach ($candidates as $c) {
             $id    = (string) ($c['id']             ?? '');
@@ -74,7 +86,7 @@ final class AtlasTaskFabricLowValueRetirementQueue
 
             // AC2: critical dependency chain — absolute block on retirement.
             if (isset($criticalChainIds[$id])) {
-                $protected[] = array_merge($entry, ['protection_reason' => 'on_critical_dependency_chain']);
+                $protected[] = array_merge($entry, ['protection_reason' => 'on_critical_dependency_chain', 'decision' => self::DECISION_KEEP]);
                 continue;
             }
 
@@ -83,31 +95,56 @@ final class AtlasTaskFabricLowValueRetirementQueue
             $respecConfidence = (float) ($c['respec_draft_confidence'] ?? 0.0);
             $hasRunnableAcceptance = (bool) ($c['has_runnable_acceptance'] ?? false);
             if ($respecConfidence >= self::RESPEC_CONFIDENCE_THRESHOLD && $hasRunnableAcceptance) {
-                $protected[] = array_merge($entry, ['protection_reason' => 'has_safe_claimable_recovery_path']);
+                $protected[] = array_merge($entry, ['protection_reason' => 'has_safe_claimable_recovery_path', 'decision' => self::DECISION_KEEP]);
                 continue;
             }
 
             $reason = $this->retirementReason($c, $valueThreshold);
 
             if ($reason !== null) {
+                $proofStrength = (float) ($c['proof_strength'] ?? 1.0);
+                $leverageScore = (float) ($c['leverage_score'] ?? 0.0);
+
+                // A low-value candidate with genuinely high architectural leverage is not
+                // padding — protect it as ineligible/keep rather than deleting real leverage.
+                if ($reason === 'low_value' && $leverageScore >= self::LEVERAGE_KEEP_THRESHOLD) {
+                    $ineligible[] = array_merge($entry, ['decision' => self::DECISION_KEEP]);
+                    continue;
+                }
+
+                // A low-value candidate with weak proof backing the retirement claim is not
+                // deleted outright — it needs more evidence before a destructive decision.
+                if ($reason === 'low_value' && $proofStrength < self::NEEDS_EVIDENCE_PROOF_THRESHOLD) {
+                    $needsEvidence[] = array_merge($entry, [
+                        'retirement_reason' => $reason,
+                        'proof_strength'    => $proofStrength,
+                        'decision'          => self::DECISION_NEEDS_EVIDENCE,
+                    ]);
+                    continue;
+                }
+
+                $replacementOrRespec = $this->replacementOrRespec($c);
                 $retired[] = array_merge($entry, [
                     'retirement_reason'     => $reason,
-                    'replacement_or_respec' => $this->replacementOrRespec($c),
+                    'replacement_or_respec' => $replacementOrRespec,
+                    'decision'              => $replacementOrRespec['action'] === 'replace' ? self::DECISION_MERGE : self::DECISION_RETIRE,
                 ]);
                 continue;
             }
 
-            $ineligible[] = $entry;
+            $ineligible[] = array_merge($entry, ['decision' => self::DECISION_KEEP]);
         }
 
         return [
-            'schema_version'  => self::SCHEMA,
-            'retired'         => $retired,
-            'protected'       => $protected,
-            'ineligible'      => $ineligible,
-            'total_retired'   => count($retired),
-            'total_protected' => count($protected),
-            'value_threshold' => $valueThreshold,
+            'schema_version'      => self::SCHEMA,
+            'retired'             => $retired,
+            'protected'           => $protected,
+            'ineligible'          => $ineligible,
+            'needs_evidence'      => $needsEvidence,
+            'total_retired'       => count($retired),
+            'total_protected'     => count($protected),
+            'total_needs_evidence' => count($needsEvidence),
+            'value_threshold'     => $valueThreshold,
         ];
     }
 

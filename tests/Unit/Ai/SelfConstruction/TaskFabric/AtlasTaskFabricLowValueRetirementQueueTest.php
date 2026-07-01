@@ -346,4 +346,74 @@ final class AtlasTaskFabricLowValueRetirementQueueTest extends TestCase
         $this->assertCount(1, $r['retired']);
         $this->assertEmpty($r['protected']);
     }
+
+    // ── decision vocabulary: retire / keep / merge / needs_evidence (AC) ──────
+
+    public function test_high_value_task_decision_is_keep(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('t1', 0.9)]]);
+
+        $this->assertCount(1, $r['ineligible']);
+        $this->assertSame(AtlasTaskFabricLowValueRetirementQueue::DECISION_KEEP, $r['ineligible'][0]['decision']);
+    }
+
+    public function test_duplicate_with_replacement_candidate_decision_is_merge(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id' => 't1',
+            'value_estimate' => 0.9,
+            'is_duplicate' => true,
+            'replacement_candidate' => 'task-better-v2',
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame(AtlasTaskFabricLowValueRetirementQueue::DECISION_MERGE, $r['retired'][0]['decision']);
+    }
+
+    public function test_padding_task_without_replacement_decision_is_retire(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [$this->spec('t1', 0.9, true)]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertSame(AtlasTaskFabricLowValueRetirementQueue::DECISION_RETIRE, $r['retired'][0]['decision']);
+    }
+
+    public function test_low_value_weak_proof_produces_needs_evidence_instead_of_deletion(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id' => 't1',
+            'value_estimate' => 0.05,
+            'proof_strength' => 0.1,
+        ]]]);
+
+        $this->assertEmpty($r['retired']);
+        $this->assertCount(1, $r['needs_evidence']);
+        $this->assertSame(AtlasTaskFabricLowValueRetirementQueue::DECISION_NEEDS_EVIDENCE, $r['needs_evidence'][0]['decision']);
+        $this->assertSame(1, $r['total_needs_evidence']);
+    }
+
+    public function test_low_value_strong_proof_still_retires_not_needs_evidence(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id' => 't1',
+            'value_estimate' => 0.05,
+            'proof_strength' => 0.9,
+        ]]]);
+
+        $this->assertCount(1, $r['retired']);
+        $this->assertEmpty($r['needs_evidence']);
+    }
+
+    public function test_low_value_high_leverage_score_is_kept_not_retired(): void
+    {
+        $r = $this->queue()->evaluate(['candidates' => [[
+            'id' => 't1',
+            'value_estimate' => 0.05,
+            'leverage_score' => 0.9,
+        ]]]);
+
+        $this->assertEmpty($r['retired']);
+        $this->assertCount(1, $r['ineligible']);
+        $this->assertSame(AtlasTaskFabricLowValueRetirementQueue::DECISION_KEEP, $r['ineligible'][0]['decision']);
+    }
 }
