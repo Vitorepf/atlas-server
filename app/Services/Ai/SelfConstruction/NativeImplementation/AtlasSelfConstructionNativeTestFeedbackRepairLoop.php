@@ -31,14 +31,33 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
 
     public const TEMPLATE_ADD_USE = 'add_missing_use_statement';
 
+    public const TEMPLATE_FIX_SYNTAX = 'fix_syntax_error';
+
+    public const TEMPLATE_STUB_METHOD = 'stub_missing_method';
+
+    public const TEMPLATE_FIX_TYPE_MISMATCH = 'align_declared_type';
+
     public const RESPONSE_NEEDS_EXTERNAL = 'needs_external_capability';
+
+    public const RESPONSE_GIVE_BACK_REQUIRED = 'give_back_required';
 
     private const KIND_TEMPLATE_MAP = [
         'missing_class' => self::TEMPLATE_STUB_CLASS,
         'namespace_mismatch' => self::TEMPLATE_FIX_NAMESPACE,
         'assertion_mismatch' => self::TEMPLATE_ALIGN_ASSERTION,
         'import_error' => self::TEMPLATE_ADD_USE,
+        'syntax_error' => self::TEMPLATE_FIX_SYNTAX,
+        'missing_method' => self::TEMPLATE_STUB_METHOD,
+        'type_mismatch' => self::TEMPLATE_FIX_TYPE_MISMATCH,
     ];
+
+    /**
+     * Failure kinds or facts that require broad redesign or an operator decision -- the loop
+     * never proposes a bounded template edit for these, it always gives the packet back.
+     */
+    private const GIVE_BACK_KINDS = ['out_of_scope_behavior'];
+
+    private const GIVE_BACK_FLAGS = ['contradictory_acceptance', 'forbidden_scope', 'requires_broad_redesign'];
 
     /**
      * @param  list<array<string,mixed>>  $failures
@@ -51,6 +70,7 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
         $maxRetryCount = isset($patchPlan['max_retry_count']) ? (int) $patchPlan['max_retry_count'] : PHP_INT_MAX;
         $proposals = [];
         $unknown = [];
+        $giveBackRequired = false;
 
         foreach ($failures as $f) {
             if (! is_array($f)) {
@@ -59,6 +79,23 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
             $kind = (string) ($f['failure_kind'] ?? '');
             $targetPath = (string) ($f['target_path'] ?? '');
             $retryCount = isset($f['retry_count']) ? (int) $f['retry_count'] : 0;
+
+            $activeGiveBackFlags = array_values(array_filter(
+                self::GIVE_BACK_FLAGS,
+                static fn (string $flag): bool => (bool) ($f[$flag] ?? false),
+            ));
+            if (in_array($kind, self::GIVE_BACK_KINDS, true) || $activeGiveBackFlags !== []) {
+                $giveBackRequired = true;
+                $unknown[] = [
+                    'failure_kind' => $kind ?: 'unknown',
+                    'original_payload' => $f,
+                    'reason' => $activeGiveBackFlags !== [] ? implode(',', $activeGiveBackFlags) : 'requires_broad_redesign',
+                    'terminal_repair_blocked' => true,
+                    'retryable' => false,
+                ];
+
+                continue;
+            }
 
             if ($retryCount >= $maxRetryCount) {
                 $unknown[] = [
@@ -107,11 +144,17 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
             ];
         }
 
+        $response = match (true) {
+            $giveBackRequired => self::RESPONSE_GIVE_BACK_REQUIRED,
+            $unknown !== [] && $proposals === [] => self::RESPONSE_NEEDS_EXTERNAL,
+            default => 'partial_or_complete',
+        };
+
         return [
             'schema_version' => self::SCHEMA,
             'proposals' => $proposals,
             'unknown_failures' => $unknown,
-            'response' => $unknown !== [] && $proposals === [] ? self::RESPONSE_NEEDS_EXTERNAL : 'partial_or_complete',
+            'response' => $response,
         ];
     }
 
@@ -125,6 +168,9 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoop
             'namespace_mismatch' => 'expected namespace '.(string) ($fact['expected_namespace'] ?? '?'),
             'assertion_mismatch' => 'expected '.(string) ($fact['expected'] ?? '?').' got '.(string) ($fact['actual'] ?? '?'),
             'import_error' => 'add use '.(string) ($fact['missing_symbol'] ?? '?').';',
+            'syntax_error' => 'fix syntax near '.(string) ($fact['location'] ?? '?'),
+            'missing_method' => 'stub method '.(string) ($fact['method_name'] ?? '?').' on '.(string) ($fact['class_name'] ?? '?'),
+            'type_mismatch' => 'expected type '.(string) ($fact['expected_type'] ?? '?').' got '.(string) ($fact['actual_type'] ?? '?'),
             default => '',
         };
     }

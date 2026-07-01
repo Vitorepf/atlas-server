@@ -184,4 +184,78 @@ final class AtlasSelfConstructionNativeTestFeedbackRepairLoopTest extends TestCa
             $this->assertStringNotContainsString($forbidden, $src, "repair loop source must NOT contain {$forbidden}");
         }
     }
+
+    // ── AC: syntax, missing method, type mismatch classifications ───────────────
+
+    public function test_syntax_error_yields_fix_syntax_template(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'syntax_error', 'target_path' => 'app/Foo.php', 'location' => 'line 12'],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::TEMPLATE_FIX_SYNTAX, $verdict['proposals'][0]['template_id']);
+        $this->assertStringContainsString('line 12', $verdict['proposals'][0]['hint']);
+    }
+
+    public function test_missing_method_yields_stub_method_template(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_method', 'target_path' => 'app/Foo.php', 'method_name' => 'bar', 'class_name' => 'AtlasFoo'],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::TEMPLATE_STUB_METHOD, $verdict['proposals'][0]['template_id']);
+        $this->assertStringContainsString('bar', $verdict['proposals'][0]['hint']);
+    }
+
+    public function test_type_mismatch_yields_fix_type_template(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'type_mismatch', 'target_path' => 'app/Foo.php', 'expected_type' => 'int', 'actual_type' => 'string'],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::TEMPLATE_FIX_TYPE_MISMATCH, $verdict['proposals'][0]['template_id']);
+        $this->assertStringContainsString('int', $verdict['proposals'][0]['hint']);
+    }
+
+    // ── AC: give_back_required for contradictory acceptance / forbidden scope / broad redesign ──
+
+    public function test_contradictory_acceptance_flag_returns_give_back_required(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'assertion_mismatch', 'target_path' => 'app/Foo.php', 'contradictory_acceptance' => true],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::RESPONSE_GIVE_BACK_REQUIRED, $verdict['response']);
+        $this->assertSame([], $verdict['proposals']);
+        $this->assertTrue($verdict['unknown_failures'][0]['terminal_repair_blocked']);
+    }
+
+    public function test_forbidden_scope_flag_returns_give_back_required(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'forbidden_scope' => true],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::RESPONSE_GIVE_BACK_REQUIRED, $verdict['response']);
+    }
+
+    public function test_out_of_scope_behavior_kind_returns_give_back_required(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'out_of_scope_behavior', 'target_path' => 'app/Foo.php'],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::RESPONSE_GIVE_BACK_REQUIRED, $verdict['response']);
+        $this->assertSame([], $verdict['proposals']);
+    }
+
+    public function test_give_back_takes_priority_over_needs_external_capability(): void
+    {
+        $verdict = (new AtlasSelfConstructionNativeTestFeedbackRepairLoop)->repair([
+            ['failure_kind' => 'totally_unknown_kind', 'target_path' => 'app/Foo.php'],
+            ['failure_kind' => 'missing_class', 'target_path' => 'app/Foo.php', 'forbidden_scope' => true],
+        ], $this->plan());
+
+        $this->assertSame(AtlasSelfConstructionNativeTestFeedbackRepairLoop::RESPONSE_GIVE_BACK_REQUIRED, $verdict['response']);
+    }
 }
