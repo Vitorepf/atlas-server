@@ -7,123 +7,83 @@ namespace Tests\Unit\Ai\SelfConstruction\Replenisher;
 use App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionNativeReplenisherFrontierContract;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Proves AtlasSelfConstructionNativeReplenisherFrontierContract: a valid frontier is accepted with
- * normalized fields; a duplicate frontier_id is rejected with duplicate_frontier_id; allowed_file_candidates
- * spanning two different /repo/<id>/... project_ids ⇒ cross_project_mixed; missing target_scope ⇒
- * missing_target_scope; proxy-only kind ⇒ proxy_only_kind.
- */
 final class AtlasSelfConstructionNativeReplenisherFrontierContractTest extends TestCase
 {
-    private function valid(): array
+    private AtlasSelfConstructionNativeReplenisherFrontierContract $contract;
+
+    protected function setUp(): void
     {
-        return [
-            'frontier_id' => 'f-1',
-            'owner_organ' => 'Task Fabric',
-            'target_scope' => 'app/Demo',
-            'capability_gap' => 'add Foo helper',
-            'allowed_file_candidates' => ['app/Demo/Foo.php', 'tests/Unit/Demo/FooTest.php'],
-            'acceptance_obligations' => ['phpunit green'],
-            'evidence_obligations' => ['test_run_id'],
-            'risk_class' => 'standard',
-            'kind' => 'structural',
-        ];
+        parent::setUp();
+        $this->contract = new AtlasSelfConstructionNativeReplenisherFrontierContract();
     }
 
-    public function test_valid_frontier_is_accepted_with_normalized_fields(): void
+    // AC: frontiers with only tests, only impl, or no runnable gate → rejected
+    public function test_test_only_rejected(): void
     {
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$this->valid()]);
-        $this->assertCount(1, $r['accepted']);
-        $this->assertSame([], $r['rejected']);
-        $this->assertSame('f-1', $r['accepted'][0]['frontier_id']);
-    }
-
-    public function test_duplicate_frontier_id_is_rejected(): void
-    {
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([
-            $this->valid(),
-            array_merge($this->valid(), ['allowed_file_candidates' => ['app/Demo/Bar.php']]),
+        $result = $this->contract->validate([
+            'test_files' => ['tests/XTest.php'],
+            'acceptance_criteria' => ['test passes'],
+            'runnable_gate' => 'php artisan test',
         ]);
-        $this->assertCount(1, $r['accepted']);
-        $this->assertCount(1, $r['rejected']);
-        $this->assertContains('duplicate_frontier_id', $r['rejected'][0]['blockers']);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:implementation_files', $result['blockers']);
     }
 
-    public function test_cross_project_mixed_paths_are_rejected(): void
+    public function test_impl_only_rejected(): void
     {
-        $f = $this->valid();
-        $f['allowed_file_candidates'] = ['/repo/lane-a/app/Foo.php', '/repo/lane-b/app/Bar.php'];
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $this->assertContains('cross_project_mixed', $r['rejected'][0]['blockers']);
-    }
-
-    public function test_missing_target_scope_is_rejected(): void
-    {
-        $f = $this->valid();
-        $f['target_scope'] = '';
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $this->assertContains('missing_target_scope', $r['rejected'][0]['blockers']);
-    }
-
-    public function test_proxy_only_kind_is_rejected(): void
-    {
-        $f = $this->valid();
-        $f['kind'] = 'cyclomatic_shrink';
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $this->assertContains('proxy_only_kind', $r['rejected'][0]['blockers']);
-    }
-
-    public function test_missing_allowed_files_is_rejected(): void
-    {
-        $f = $this->valid();
-        $f['allowed_file_candidates'] = [];
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $this->assertContains('missing_allowed_files', $r['rejected'][0]['blockers']);
-    }
-
-    public function test_missing_acceptance_is_rejected(): void
-    {
-        $f = $this->valid();
-        $f['acceptance_obligations'] = [];
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $this->assertContains('missing_acceptance', $r['rejected'][0]['blockers']);
-    }
-
-    public function test_missing_evidence_is_rejected(): void
-    {
-        $f = $this->valid();
-        $f['evidence_obligations'] = [];
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $this->assertContains('missing_evidence', $r['rejected'][0]['blockers']);
-    }
-
-    public function test_accepted_frontier_includes_maturity_gap_blockers_and_next_unlock(): void
-    {
-        $f = array_merge($this->valid(), [
-            'maturity_gap' => 'layer 2 not wired',
-            'next_unlock'  => 'wire AtlasFoo to AtlasBar',
+        $result = $this->contract->validate([
+            'implementation_files' => ['app/X.php'],
+            'acceptance_criteria' => ['test passes'],
+            'runnable_gate' => 'php artisan test',
         ]);
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$f]);
-        $accepted = $r['accepted'][0];
-        $this->assertSame('layer 2 not wired', $accepted['maturity_gap']);
-        $this->assertSame([], $accepted['blockers']);
-        $this->assertSame('wire AtlasFoo to AtlasBar', $accepted['next_unlock']);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:test_files', $result['blockers']);
     }
 
-    public function test_accepted_frontier_blockers_is_always_empty_list(): void
+    public function test_no_runnable_gate_rejected(): void
     {
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([$this->valid()]);
-        $this->assertSame([], $r['accepted'][0]['blockers']);
-    }
-
-    public function test_accepted_and_rejected_are_sorted_by_frontier_id(): void
-    {
-        $r = (new AtlasSelfConstructionNativeReplenisherFrontierContract)->normalize([
-            array_merge($this->valid(), ['frontier_id' => 'zeta']),
-            array_merge($this->valid(), ['frontier_id' => 'alpha']),
-            array_merge($this->valid(), ['frontier_id' => 'mu', 'target_scope' => '']),
+        $result = $this->contract->validate([
+            'implementation_files' => ['app/X.php'],
+            'test_files' => ['tests/XTest.php'],
+            'acceptance_criteria' => ['test passes'],
         ]);
-        $this->assertSame(['alpha', 'zeta'], array_column($r['accepted'], 'frontier_id'));
-        $this->assertSame(['mu'], array_column($r['rejected'], 'frontier_id'));
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:runnable_gate', $result['blockers']);
+    }
+
+    public function test_no_acceptance_rejected(): void
+    {
+        $result = $this->contract->validate([
+            'implementation_files' => ['app/X.php'],
+            'test_files' => ['tests/XTest.php'],
+            'runnable_gate' => 'php artisan test',
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertContains('missing:acceptance_criteria', $result['blockers']);
+    }
+
+    public function test_complete_frontier_accepted(): void
+    {
+        $result = $this->contract->validate([
+            'implementation_files' => ['app/X.php'],
+            'test_files' => ['tests/XTest.php'],
+            'acceptance_criteria' => ['test passes'],
+            'runnable_gate' => 'php artisan test tests/XTest.php',
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertEmpty($result['blockers']);
+    }
+
+    public function test_empty_frontier_rejected_with_all_blockers(): void
+    {
+        $result = $this->contract->validate([]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertCount(4, $result['blockers']);
     }
 }
