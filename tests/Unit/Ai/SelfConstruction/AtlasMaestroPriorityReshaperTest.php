@@ -314,4 +314,134 @@ final class AtlasMaestroPriorityReshaperTest extends TestCase
         $this->assertSame([], $r['boost_reasons']);
         $this->assertSame([], $r['downrank_reasons']);
     }
+
+    // ── AC1/AC2: value_tier prevents old high-value packets from being buried ──
+
+    public function test_old_high_value_packet_precedes_fresh_low_value_packet(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'value_tier_by_task_id' => ['pkt-old-valuable' => 5],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-old-valuable', 'enqueued_at' => '2026-06-01T00:00:00Z'],
+            ['task_packet_id' => 'pkt-fresh-cheap', 'enqueued_at' => '2026-06-25T05:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-old-valuable', 'pkt-fresh-cheap'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_value_tier_yields_to_dependency_criticality(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => ['pkt-critical' => 3],
+                'value_tier_by_task_id' => ['pkt-valuable' => 9],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-valuable', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-critical', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-critical', 'pkt-valuable'], array_column($ordered, 'task_packet_id'));
+    }
+
+    // ── AC1: worker_fit boosts a packet an available worker can actually serve ──
+
+    public function test_worker_fit_raises_packet_above_fifo_peer(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-old', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-new-fits', 'enqueued_at' => '2026-06-25T05:00:00Z'],
+        ];
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'worker_fit_by_task_id' => ['pkt-new-fits' => true],
+            ],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-new-fits', 'pkt-old'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_worker_starvation_unblock_outranks_worker_fit(): void
+    {
+        $packets = [
+            ['task_packet_id' => 'pkt-starved', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+            ['task_packet_id' => 'pkt-fits', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+        ];
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'worker_starvation_unblock_by_task_id' => ['pkt-starved' => true],
+                'worker_fit_by_task_id' => ['pkt-fits' => true],
+            ],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-starved', 'pkt-fits'], array_column($ordered, 'task_packet_id'));
+    }
+
+    // ── AC1: proof_demand is a weak tiebreak below give_back_risk ──────────────
+
+    public function test_lower_proof_demand_precedes_higher_proof_demand_at_equal_priority(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'proof_demand_by_task_id' => ['pkt-heavy' => 5, 'pkt-light' => 1],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-heavy', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-light', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-light', 'pkt-heavy'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_give_back_risk_outranks_proof_demand(): void
+    {
+        $snapshot = [
+            'facts' => [
+                'dependency_criticality_by_task_id' => [],
+                'high_give_back_risk_by_task_id' => ['pkt-light-risky' => true],
+                'proof_demand_by_task_id' => ['pkt-light-risky' => 1, 'pkt-heavy-clean' => 5],
+            ],
+        ];
+        $packets = [
+            ['task_packet_id' => 'pkt-light-risky', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-heavy-clean', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        // Heavier-proof but clean packet still outranks a lighter-proof but risky one.
+        $this->assertSame(['pkt-heavy-clean', 'pkt-light-risky'], array_column($ordered, 'task_packet_id'));
+    }
+
+    public function test_backward_compatible_when_new_facts_absent(): void
+    {
+        $snapshot = ['facts' => ['dependency_criticality_by_task_id' => ['pkt-A' => 3]]];
+        $packets = [
+            ['task_packet_id' => 'pkt-B', 'enqueued_at' => '2026-06-25T00:00:00Z'],
+            ['task_packet_id' => 'pkt-A', 'enqueued_at' => '2026-06-25T01:00:00Z'],
+        ];
+
+        $ordered = $this->reshaper()->reshape($packets, $snapshot, 'loop');
+
+        $this->assertSame(['pkt-A', 'pkt-B'], array_column($ordered, 'task_packet_id'));
+    }
 }

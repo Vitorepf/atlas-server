@@ -12,8 +12,18 @@ use RuntimeException;
  *
  * Comparator (lexicographic, FACTS only — no weights, no floats, no learned scores):
  *   1) higher dependency_criticality first (unblocks more downstream work)
- *   2) older enqueued_at first (FIFO tiebreak)
- *   3) lexical task_packet_id (deterministic final tiebreak)
+ *   2) higher value_tier first (AC: old high-value packets must never be buried under fresh
+ *      low-value ones — this stage runs before age, so value always outranks freshness)
+ *   3) worker_starvation_unblock: true before false (unblocks idle workers)
+ *   4) worker_fit: true before false (a packet a currently-available worker can actually serve)
+ *   5) poison: non-poison before poison (push quarantined families down)
+ *   6) high_give_back_risk: clean before risky
+ *   7) lower proof_demand first (lighter-proof packets clear the queue faster; weaker signal
+ *      than give_back_risk — a heavy-proof but otherwise clean packet still outranks a risky one)
+ *   8) older enqueued_at first (FIFO tiebreak)
+ *   9) lexical task_packet_id (deterministic final tiebreak)
+ * All new facts default to 0/false when absent, so callers that never set them keep identical
+ * ordering to before these facts existed.
  *
  * MASTER-OFF byte-identical no-op: when ATLAS_LOOP_MASTER_ENABLED=false, reshape() returns the
  * input order unchanged and writes NOTHING to disk.
@@ -69,16 +79,22 @@ final class AtlasMaestroPriorityReshaper
         $poison = (array) ($facts['poison_family_by_task_id'] ?? []);
         $starvation = (array) ($facts['worker_starvation_unblock_by_task_id'] ?? $facts['fairness_starvation_unblock_by_task_id'] ?? []);
         $giveBackRisk = (array) ($facts['high_give_back_risk_by_task_id'] ?? []);
+        $value = (array) ($facts['value_tier_by_task_id'] ?? []);
+        $workerFit = (array) ($facts['worker_fit_by_task_id'] ?? []);
+        $proofDemand = (array) ($facts['proof_demand_by_task_id'] ?? []);
 
-        $augmented = array_map(static function (array $packet) use ($criticality, $poison, $starvation, $giveBackRisk): array {
+        $augmented = array_map(static function (array $packet) use ($criticality, $poison, $starvation, $giveBackRisk, $value, $workerFit, $proofDemand): array {
             $id = (string) ($packet['task_packet_id'] ?? '');
 
             return [
                 'packet' => $packet,
                 '_criticality' => (int) ($criticality[$id] ?? 0),
+                '_value' => (int) ($value[$id] ?? 0),
                 '_starvation' => (bool) ($starvation[$id] ?? false),
+                '_worker_fit' => (bool) ($workerFit[$id] ?? false),
                 '_poison' => (bool) ($poison[$id] ?? false),
                 '_give_back_risk' => (bool) ($giveBackRisk[$id] ?? false),
+                '_proof_demand' => (int) ($proofDemand[$id] ?? 0),
                 '_enqueued_at' => (string) ($packet['enqueued_at'] ?? ''),
                 '_id' => $id,
             ];
@@ -90,29 +106,46 @@ final class AtlasMaestroPriorityReshaper
             if ($c !== 0) {
                 return $c;
             }
-            // (2) starvation-unblock: true before false (unblocks idle workers)
+            // (2) higher value_tier first — old high-value packets never buried under fresh
+            // low-value ones (this stage runs before age).
+            $c = $b['_value'] <=> $a['_value'];
+            if ($c !== 0) {
+                return $c;
+            }
+            // (3) starvation-unblock: true before false (unblocks idle workers)
             $c = ($b['_starvation'] ? 1 : 0) <=> ($a['_starvation'] ? 1 : 0);
             if ($c !== 0) {
                 return $c;
             }
-            // (3) poison: non-poison before poison (push quarantined families down)
+            // (4) worker_fit: true before false (a packet an available worker can actually serve)
+            $c = ($b['_worker_fit'] ? 1 : 0) <=> ($a['_worker_fit'] ? 1 : 0);
+            if ($c !== 0) {
+                return $c;
+            }
+            // (5) poison: non-poison before poison (push quarantined families down)
             $c = ($a['_poison'] ? 1 : 0) <=> ($b['_poison'] ? 1 : 0);
             if ($c !== 0) {
                 return $c;
             }
-            // (4) high give_back risk: clean before risky (sinks behind clean work, weaker than
+            // (6) high give_back risk: clean before risky (sinks behind clean work, weaker than
             // poison; criticality/starvation above already override this for explicit cases)
             $c = ($a['_give_back_risk'] ? 1 : 0) <=> ($b['_give_back_risk'] ? 1 : 0);
             if ($c !== 0) {
                 return $c;
             }
-            // (5) older enqueued_at first (strcmp on ISO-8601 sorts chronologically)
+            // (7) lower proof_demand first — weaker than give_back_risk, breaks ties among
+            // otherwise-clean packets by lighter proof burden.
+            $c = $a['_proof_demand'] <=> $b['_proof_demand'];
+            if ($c !== 0) {
+                return $c;
+            }
+            // (8) older enqueued_at first (strcmp on ISO-8601 sorts chronologically)
             $c = strcmp($a['_enqueued_at'], $b['_enqueued_at']);
             if ($c !== 0) {
                 return $c;
             }
 
-            // (6) lexical task_packet_id
+            // (9) lexical task_packet_id
             return strcmp($a['_id'], $b['_id']);
         });
 
