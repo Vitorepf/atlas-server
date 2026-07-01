@@ -60,6 +60,13 @@ final class AtlasMaestroFairnessGiniReporter
         $workerHist = $this->shareHistogram($workerThroughput);
         $taskClassHist = $this->shareHistogram($taskClassCounts);
 
+        $idleWorkerIds = array_values(array_filter(
+            array_keys($workerThroughput),
+            static fn (string $id): bool => $workerThroughput[$id] === 0,
+        ));
+        sort($idleWorkerIds, SORT_STRING);
+        $idleWorkerRatio = $workerThroughput !== [] ? (float) count($idleWorkerIds) / count($workerThroughput) : 0.0;
+
         return [
             'schema_version' => self::SCHEMA,
             'workers' => count($workerThroughput),
@@ -71,6 +78,9 @@ final class AtlasMaestroFairnessGiniReporter
             'task_class_share_histogram' => $taskClassHist,
             'max_worker_share_id' => $this->maxKey($workerHist),
             'max_task_class_share_id' => $this->maxKey($taskClassHist),
+            'idle_worker_ratio' => $idleWorkerRatio,
+            'idle_worker_ids' => $idleWorkerIds,
+            'max_idle_worker_id' => $idleWorkerIds[0] ?? null,
             'concentration_warnings' => $this->concentrationWarnings($workerHist, $taskClassHist),
         ];
     }

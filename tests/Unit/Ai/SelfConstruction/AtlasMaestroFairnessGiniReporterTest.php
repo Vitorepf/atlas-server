@@ -174,4 +174,65 @@ final class AtlasMaestroFairnessGiniReporterTest extends TestCase
         $this->assertSame(2, $report['total_completed']);
         $this->assertSame('maestro', $report['max_task_class_share_id']);
     }
+
+    // ── idle_worker_ratio ────────────────────────────────────────────────────
+
+    public function test_zero_throughput_workers_contribute_to_idle_worker_ratio(): void
+    {
+        $leases = [
+            ['client_id' => 'active', 'opened_at' => 1_000_000, 'released_at' => 1_000_001],
+            // in-flight-only lease: appears in the probe with lifetime_throughput=0.
+            ['client_id' => 'idle', 'opened_at' => 1_000_000, 'released_at' => null],
+        ];
+        $probe = new AtlasMaestroWorkerFleetProbe(fn () => $leases);
+        $tasks = [['task_packet_id' => 'maestro-task-1', 'outcome' => 'success']];
+
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertSame(['idle'], $report['idle_worker_ids']);
+        $this->assertEqualsWithDelta(0.5, $report['idle_worker_ratio'], 1e-9);
+    }
+
+    public function test_max_idle_worker_id_is_deterministic_with_multiple_idle_workers(): void
+    {
+        $leases = [
+            ['client_id' => 'zeta-idle', 'opened_at' => 1_000_000, 'released_at' => null],
+            ['client_id' => 'alpha-idle', 'opened_at' => 1_000_000, 'released_at' => null],
+        ];
+        $probe = new AtlasMaestroWorkerFleetProbe(fn () => $leases);
+
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => []))->report();
+
+        $this->assertSame('alpha-idle', $report['max_idle_worker_id']);
+        $this->assertSame(1.0, $report['idle_worker_ratio']);
+    }
+
+    public function test_no_idle_workers_yields_zero_ratio_and_null_max_idle_worker(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'a', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 5, 'median_lease_duration_seconds' => 0.0],
+        ]);
+
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => []))->report();
+
+        $this->assertSame(0.0, $report['idle_worker_ratio']);
+        $this->assertNull($report['max_idle_worker_id']);
+    }
+
+    public function test_existing_gini_and_concentration_fields_remain_unchanged_alongside_idle_axis(): void
+    {
+        $probe = $this->probe([
+            ['client_id' => 'a', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 100, 'median_lease_duration_seconds' => 0.0],
+            ['client_id' => 'b', 'last_seen_at' => 0, 'in_flight_count' => 0, 'lifetime_throughput' => 1, 'median_lease_duration_seconds' => 0.0],
+        ]);
+        $tasks = [['task_packet_id' => 'maestro-task-1', 'outcome' => 'success']];
+
+        $report = (new AtlasMaestroFairnessGiniReporter($probe, fn () => $tasks))->report();
+
+        $this->assertArrayHasKey('gini_workers', $report);
+        $this->assertArrayHasKey('gini_task_classes', $report);
+        $this->assertArrayHasKey('concentration_warnings', $report);
+        $this->assertArrayHasKey('idle_worker_ratio', $report);
+        $this->assertArrayHasKey('max_idle_worker_id', $report);
+    }
 }
