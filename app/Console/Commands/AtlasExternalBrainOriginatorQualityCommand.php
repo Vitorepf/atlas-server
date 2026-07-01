@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAcceptanceReplayCoverageMatrix;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdversarialCritiqueTournament;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierComplexityBudget;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierControlPlane;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -51,6 +52,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAcceptanceReplayCoverageMatrix $coverageMatrix,
         AtlasExternalBrainHighValueBatchComposer $batchComposer,
         AtlasExternalBrainAmplifierComplexityBudget $complexityBudget,
+        AtlasExternalBrainAmplifierControlPlane $amplifierControlPlane,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -138,6 +140,13 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // when the caller explicitly supplies a complexity_budget section.
         if (is_array($decoded['complexity_budget'] ?? null)) {
             $payload['complexity_budget'] = $complexityBudget->evaluate($decoded['complexity_budget']);
+        }
+
+        // Optional amplifier control-plane mode decision: a distinct concern from the
+        // complexity budget above (origination mode selection vs. system-wide budget),
+        // so it is only run when the caller explicitly supplies an amplifier_control_plane section.
+        if (is_array($decoded['amplifier_control_plane'] ?? null)) {
+            $payload['amplifier_control_plane'] = $amplifierControlPlane->decide($decoded['amplifier_control_plane']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
