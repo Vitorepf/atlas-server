@@ -252,4 +252,54 @@ final class AtlasMaestroTieredRoutingPolicyTest extends TestCase
         $this->assertSame($before->declaredMaxTier, $after->declaredMaxTier);
         $this->assertSame($before->meta, $after->meta);
     }
+
+    // ── AC: high-tier tasks require matching worker capability ────────────────
+
+    public function test_high_tier_task_requires_matching_worker_capability(): void
+    {
+        $this->registry->register('easy-cap-worker', 'easy');
+        $v = $this->policy->evaluate('easy-cap-worker', $this->hardestPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_REFUSE, $v['verdict']);
+
+        $this->registry->register('matching-worker', 'hardest');
+        $v2 = $this->policy->evaluate('matching-worker', $this->hardestPacket());
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v2['verdict']);
+    }
+
+    // ── AC: low-tier tasks remain routable to preserve throughput ──────────────
+
+    public function test_low_tier_task_remains_routable_to_any_capable_worker_preserving_throughput(): void
+    {
+        $this->registry->register('low-worker', 'easy');
+        $v = $this->policy->evaluate('low-worker', $this->easyPacket());
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v['verdict']);
+
+        $this->registry->register('high-worker', 'hardest');
+        $v2 = $this->policy->evaluate('high-worker', $this->easyPacket());
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_ALLOW, $v2['verdict']);
+    }
+
+    // ── AC: mismatches return hold_reason and capability_gap ───────────────────
+
+    public function test_mismatch_returns_hold_reason_and_capability_gap(): void
+    {
+        $this->registry->register('gap-worker', 'easy');
+        $v = $this->policy->evaluate('gap-worker', $this->hardestPacket());
+
+        $this->assertSame(AtlasMaestroTieredRoutingPolicy::VERDICT_REFUSE, $v['verdict']);
+        $this->assertArrayHasKey('hold_reason', $v);
+        $this->assertArrayHasKey('capability_gap', $v);
+        $this->assertNotEmpty($v['hold_reason']);
+        $this->assertSame(2, $v['capability_gap']); // hardest(3) - easy(1)
+    }
+
+    public function test_non_mismatch_verdicts_have_null_hold_reason(): void
+    {
+        $this->registry->register('fine-worker', 'hardest');
+        $v = $this->policy->evaluate('fine-worker', $this->easyPacket());
+
+        $this->assertNull($v['hold_reason']);
+        $this->assertSame(0, $v['capability_gap']);
+    }
 }

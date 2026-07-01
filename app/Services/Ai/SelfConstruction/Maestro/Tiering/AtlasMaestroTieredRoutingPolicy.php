@@ -69,6 +69,8 @@ final class AtlasMaestroTieredRoutingPolicy
                 'reason' => 'worker not registered; legacy un-tiered flow preserved',
                 'worker_outcome_confidence' => null,
                 'override_applied' => false,
+                'hold_reason' => null,
+                'capability_gap' => null,
             ];
         }
 
@@ -81,6 +83,8 @@ final class AtlasMaestroTieredRoutingPolicy
         $confidence = isset($meta['outcome_confidence']) ? (float) $meta['outcome_confidence'] : null;
 
         if ($workerRank < $packetRank) {
+            $capabilityGap = $packetRank - $workerRank;
+
             if ($overrideTierMismatch) {
                 return [
                     'schema' => self::SCHEMA,
@@ -96,8 +100,12 @@ final class AtlasMaestroTieredRoutingPolicy
                     ),
                     'worker_outcome_confidence' => $confidence,
                     'override_applied' => true,
+                    'hold_reason' => null,
+                    'capability_gap' => $capabilityGap,
                 ];
             }
+
+            $holdReason = sprintf('packet tier "%s" exceeds worker declared max tier "%s"', $packetTier, $workerTier);
 
             return [
                 'schema' => self::SCHEMA,
@@ -106,9 +114,11 @@ final class AtlasMaestroTieredRoutingPolicy
                 'packet_fact_basis' => $factBasis,
                 'worker_declared_max_tier' => $workerTier,
                 'client_id' => $clientId,
-                'reason' => sprintf('packet tier "%s" exceeds worker declared max tier "%s"', $packetTier, $workerTier),
+                'reason' => $holdReason,
                 'worker_outcome_confidence' => $confidence,
                 'override_applied' => false,
+                'hold_reason' => $holdReason,
+                'capability_gap' => $capabilityGap,
             ];
         }
 
@@ -134,6 +144,8 @@ final class AtlasMaestroTieredRoutingPolicy
                 ),
                 'worker_outcome_confidence' => $confidence,
                 'override_applied' => false,
+                'hold_reason' => null,
+                'capability_gap' => 0,
             ];
         }
 
@@ -147,6 +159,8 @@ final class AtlasMaestroTieredRoutingPolicy
             'reason' => sprintf('worker tier "%s" can serve packet tier "%s"', $workerTier, $packetTier),
             'worker_outcome_confidence' => $confidence,
             'override_applied' => false,
+            'hold_reason' => null,
+            'capability_gap' => 0,
         ];
     }
 }
