@@ -167,4 +167,58 @@ class AtlasMaestroBudgetGateTest extends TestCase
             self::assertStringNotContainsString($forbidden, $src, "budget gate must not contain {$forbidden}");
         }
     }
+
+    // ── AC: waste-aware routing ────────────────────────────────────────────────
+
+    private function gate(): AtlasMaestroBudgetGate
+    {
+        return new AtlasMaestroBudgetGate(new AtlasMaestroCostAggregator(new AtlasMaestroCostLedger($this->ledgerPath)));
+    }
+
+    public function test_blocks_budget_expansion_when_retry_loop_rate_or_wasted_token_rate_exceeds_threshold(): void
+    {
+        $retryLoop = $this->gate()->evaluateWasteAwareRouting(['retry_loop_rate' => 0.9]);
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_BLOCK, $retryLoop['budget_decision']);
+        self::assertContains('retry_loop_rate_exceeded', $retryLoop['blocked_reasons']);
+
+        $wastedTokens = $this->gate()->evaluateWasteAwareRouting(['wasted_token_rate' => 0.9]);
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_BLOCK, $wastedTokens['budget_decision']);
+        self::assertContains('wasted_token_rate_exceeded', $wastedTokens['blocked_reasons']);
+    }
+
+    public function test_allows_high_leverage_repairs_under_reduced_budget_with_waste_reduction_proof(): void
+    {
+        $verdict = $this->gate()->evaluateWasteAwareRouting([
+            'retry_loop_rate' => 0.9,
+            'high_leverage_repair' => true,
+            'verified_waste_reduction_proof' => true,
+        ]);
+
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_ALLOW_REDUCED, $verdict['budget_decision']);
+        self::assertLessThan(1.0, $verdict['budget_multiplier']);
+        self::assertGreaterThan(0.0, $verdict['budget_multiplier']);
+        self::assertNotNull($verdict['allowed_exception_reason']);
+    }
+
+    public function test_high_leverage_claim_alone_without_proof_does_not_bypass_block(): void
+    {
+        $verdict = $this->gate()->evaluateWasteAwareRouting([
+            'retry_loop_rate' => 0.9,
+            'high_leverage_repair' => true,
+        ]);
+
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_BLOCK, $verdict['budget_decision']);
+        self::assertNull($verdict['allowed_exception_reason']);
+    }
+
+    public function test_waste_aware_output_includes_budget_decision_multiplier_blocked_reasons_and_exception_reason(): void
+    {
+        $verdict = $this->gate()->evaluateWasteAwareRouting([]);
+
+        foreach (['budget_decision', 'budget_multiplier', 'blocked_reasons', 'allowed_exception_reason'] as $key) {
+            self::assertArrayHasKey($key, $verdict, "Missing key: {$key}");
+        }
+        self::assertSame(AtlasMaestroBudgetGate::DECISION_ALLOW, $verdict['budget_decision']);
+        self::assertSame(1.0, $verdict['budget_multiplier']);
+    }
 }

@@ -29,7 +29,73 @@ final class AtlasMaestroBudgetGate
 
     public const WINDOW_PER_TASK_CLASS_PER_DAY = 'per_task_class_per_day_cents';
 
+    public const DECISION_ALLOW = 'allow';
+
+    public const DECISION_ALLOW_REDUCED = 'allow_reduced';
+
+    public const DECISION_BLOCK = 'block';
+
+    private const RETRY_LOOP_RATE_THRESHOLD = 0.30;
+
+    private const WASTED_TOKEN_RATE_THRESHOLD = 0.40;
+
+    private const REDUCED_BUDGET_MULTIPLIER = 0.5;
+
     public function __construct(private readonly AtlasMaestroCostAggregator $aggregator) {}
+
+    /**
+     * Waste-aware routing gate: blocks or reduces the routing budget when recent attempts show
+     * high token waste or retry-loop churn, unless the current task is a proven high-leverage
+     * repair that already demonstrates it reduces the waste, not adds to it.
+     *
+     * @param  array{
+     *   retry_loop_rate?:float, wasted_token_rate?:float,
+     *   high_leverage_repair?:bool, verified_waste_reduction_proof?:bool,
+     * }  $facts
+     * @return array{budget_decision:string, budget_multiplier:float, blocked_reasons:list<string>, allowed_exception_reason:?string}
+     */
+    public function evaluateWasteAwareRouting(array $facts): array
+    {
+        $retryLoopRate = max(0.0, min(1.0, (float) ($facts['retry_loop_rate'] ?? 0.0)));
+        $wastedTokenRate = max(0.0, min(1.0, (float) ($facts['wasted_token_rate'] ?? 0.0)));
+        $highLeverageRepair = (bool) ($facts['high_leverage_repair'] ?? false);
+        $wasteReductionProof = (bool) ($facts['verified_waste_reduction_proof'] ?? false);
+
+        $blockedReasons = [];
+        if ($retryLoopRate > self::RETRY_LOOP_RATE_THRESHOLD) {
+            $blockedReasons[] = 'retry_loop_rate_exceeded';
+        }
+        if ($wastedTokenRate > self::WASTED_TOKEN_RATE_THRESHOLD) {
+            $blockedReasons[] = 'wasted_token_rate_exceeded';
+        }
+
+        if ($blockedReasons === []) {
+            return [
+                'budget_decision' => self::DECISION_ALLOW,
+                'budget_multiplier' => 1.0,
+                'blocked_reasons' => [],
+                'allowed_exception_reason' => null,
+            ];
+        }
+
+        // A high-leverage repair is only exempted when it carries its OWN proof of reducing
+        // waste — leverage claims alone never bypass a demonstrated waste problem.
+        if ($highLeverageRepair && $wasteReductionProof) {
+            return [
+                'budget_decision' => self::DECISION_ALLOW_REDUCED,
+                'budget_multiplier' => self::REDUCED_BUDGET_MULTIPLIER,
+                'blocked_reasons' => $blockedReasons,
+                'allowed_exception_reason' => 'high_leverage_repair_with_verified_waste_reduction_proof',
+            ];
+        }
+
+        return [
+            'budget_decision' => self::DECISION_BLOCK,
+            'budget_multiplier' => 0.0,
+            'blocked_reasons' => $blockedReasons,
+            'allowed_exception_reason' => null,
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $facts  Optional per-call context: cost_cents, fact_source.
