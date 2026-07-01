@@ -600,4 +600,63 @@ final class AtlasExternalBrainTaskGraphRoiSchedulerTest extends TestCase
             'high worker_pressure must narrow the first wave width',
         );
     }
+
+    // ── risk_adjusted_roi / delayed_poison_family_tasks / wave_candidate_reasons ──
+
+    public function test_risk_adjusted_roi_present_for_every_task(): void
+    {
+        $tasks = [$this->task('t1'), $this->task('t2')];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertArrayHasKey('t1', $r['risk_adjusted_roi']);
+        $this->assertArrayHasKey('t2', $r['risk_adjusted_roi']);
+    }
+
+    public function test_wave_candidate_reasons_covers_every_task_not_just_wave_zero(): void
+    {
+        $tasks = [
+            $this->task('root'),
+            $this->task('child', ['depends_on' => ['root']]),
+        ];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertArrayHasKey('root', $r['wave_candidate_reasons']);
+        $this->assertArrayHasKey('child', $r['wave_candidate_reasons']);
+    }
+
+    public function test_delayed_poison_family_tasks_flags_poison_family_ranked_behind_safe_task(): void
+    {
+        // 'alpha_safe' sorts first alphabetically so it wins the critical-path tie-break for
+        // this dependency-free pair — keeping 'zulu_risky' unambiguously off the critical path.
+        $tasks = [
+            $this->task('alpha_safe', ['task_family' => 'clean_family']),
+            $this->task('zulu_risky', ['task_family' => 'poison_family']),
+        ];
+        $r = $this->scheduler->schedule($tasks, ['poison_family_hints' => ['poison_family']]);
+
+        $this->assertContains('zulu_risky', $r['delayed_poison_family_tasks']);
+        $this->assertNotContains('alpha_safe', $r['delayed_poison_family_tasks']);
+    }
+
+    public function test_delayed_poison_family_tasks_excludes_critical_path_prerequisite(): void
+    {
+        // 'risky' is a required prerequisite for 'child' (on the critical path) — must not be delayed.
+        $tasks = [
+            $this->task('safe', ['task_family' => 'clean_family']),
+            $this->task('risky', ['task_family' => 'poison_family']),
+            $this->task('child', ['depends_on' => ['risky'], 'unlock_value' => 0.9]),
+        ];
+        $r = $this->scheduler->schedule($tasks, ['poison_family_hints' => ['poison_family']]);
+
+        $this->assertContains('risky', $r['critical_path']);
+        $this->assertNotContains('risky', $r['delayed_poison_family_tasks']);
+    }
+
+    public function test_delayed_poison_family_tasks_empty_when_no_poison_family(): void
+    {
+        $tasks = [$this->task('t1'), $this->task('t2')];
+        $r = $this->scheduler->schedule($tasks);
+
+        $this->assertSame([], $r['delayed_poison_family_tasks']);
+    }
 }

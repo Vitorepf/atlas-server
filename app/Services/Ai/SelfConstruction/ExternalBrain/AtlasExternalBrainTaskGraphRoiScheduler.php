@@ -102,6 +102,9 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
                 'frontier_unlocks'             => [],
                 'dependency_dead_end_warnings' => [],
                 'next_wave_candidate_reasons'  => [],
+                'risk_adjusted_roi'            => [],
+                'delayed_poison_family_tasks'  => [],
+                'wave_candidate_reasons'       => [],
             ];
         }
 
@@ -112,6 +115,9 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $waves = [];
         $warnings = [];
         $waveIndex = 0;
+        $riskAdjustedRoi = [];
+        $delayedPoisonFamilyTasks = [];
+        $criticalPathForDelay = array_flip($this->computeCriticalPath($taskMap, $layers));
 
         foreach ($layers as $layer) {
             // Sort: adjusted-ROI DESC (penalised by family risk, give_back_risk, blocked_prerequisite_risk), task_id ASC for determinism.
@@ -121,6 +127,23 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
 
                 return $ra !== $rb ? ($rb <=> $ra) : strcmp($a, $b);
             });
+
+            // AC1/AC2: track adjusted ROI per task and flag poison-family tasks that were
+            // delayed behind at least one safer, equally-available task in the same layer,
+            // unless that poison-family task is a required prerequisite on the critical path.
+            $seenSafeTaskInLayer = false;
+            foreach ($layer as $id) {
+                $score = $this->computeTaskScore($taskMap[$id], $familyRisk);
+                $riskAdjustedRoi[$id] = round($score['adjusted_roi'], 4);
+
+                $isPoisonFamily = $score['family_risk'] >= 1.0;
+                if ($isPoisonFamily && $seenSafeTaskInLayer && ! isset($criticalPathForDelay[$id])) {
+                    $delayedPoisonFamilyTasks[] = $id;
+                }
+                if (! $isPoisonFamily) {
+                    $seenSafeTaskInLayer = true;
+                }
+            }
 
             // Chunk into waves respecting effectiveWidth.
             foreach (array_chunk($layer, $effectiveWidth) as $chunk) {
@@ -136,6 +159,7 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         $deadEndWarnings          = $this->computeDeadEndWarnings($taskMap, $frontierUnlocks);
         $downstreamReach          = $this->computeDownstreamReach($taskMap, $frontierUnlocks, $layers);
         $nextWaveCandidateReasons = $this->computeNextWaveCandidateReasons($taskMap, $waves, $criticalPath, $downstreamReach, $familyRisk);
+        $waveCandidateReasons     = $this->computeWaveCandidateReasons($taskMap, $criticalPath, $downstreamReach, $familyRisk);
 
         return [
             'schema'                       => self::SCHEMA,
@@ -145,6 +169,9 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             'frontier_unlocks'             => $frontierUnlocks,
             'dependency_dead_end_warnings' => $deadEndWarnings,
             'next_wave_candidate_reasons'  => $nextWaveCandidateReasons,
+            'risk_adjusted_roi'            => $riskAdjustedRoi,
+            'delayed_poison_family_tasks'  => array_values(array_unique($delayedPoisonFamilyTasks)),
+            'wave_candidate_reasons'       => $waveCandidateReasons,
         ];
     }
 
@@ -331,6 +358,56 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         foreach ($firstWave as $id) {
             $task        = $taskMap[$id];
             $score       = $this->computeTaskScore($task, $familyRisk);
+            $taskReasons = [sprintf('roi_score:%.3f', round($score['raw_roi'], 3))];
+
+            $reach = $downstreamReach[$id] ?? 0;
+            if ($reach > 0) {
+                $taskReasons[] = "chain_unlocker:unlocks_{$reach}_downstream_tasks";
+            }
+
+            if (isset($criticalSet[$id])) {
+                $taskReasons[] = 'on_critical_path';
+            }
+
+            $family = $task['task_family'];
+            if ($score['family_risk'] > 0.0 && $family !== '') {
+                $taskReasons[] = sprintf('risk_penalty:family=%s:penalty=%.2f', $family, $score['family_risk']);
+            }
+
+            if ($task['give_back_risk'] > 0.0) {
+                $taskReasons[] = sprintf('give_back_risk:%.2f', $task['give_back_risk']);
+            }
+            if ($task['blocked_prerequisite_risk'] > 0.0) {
+                $taskReasons[] = sprintf('blocked_prerequisite_risk:%.2f', $task['blocked_prerequisite_risk']);
+            }
+
+            $reasons[$id] = $taskReasons;
+        }
+
+        return $reasons;
+    }
+
+    /**
+     * General version of computeNextWaveCandidateReasons — covers EVERY task in the schedule,
+     * not only wave 0, so callers can inspect why any task ranks where it does.
+     *
+     * @param  array<string, array<string, mixed>>  $taskMap
+     * @param  list<string>  $criticalPath
+     * @param  array<string, int>  $downstreamReach
+     * @param  array<string, float>  $familyRisk
+     * @return array<string, list<string>>
+     */
+    private function computeWaveCandidateReasons(
+        array $taskMap,
+        array $criticalPath,
+        array $downstreamReach,
+        array $familyRisk,
+    ): array {
+        $reasons = [];
+        $criticalSet = array_flip($criticalPath);
+
+        foreach ($taskMap as $id => $task) {
+            $score = $this->computeTaskScore($task, $familyRisk);
             $taskReasons = [sprintf('roi_score:%.3f', round($score['raw_roi'], 3))];
 
             $reach = $downstreamReach[$id] ?? 0;
