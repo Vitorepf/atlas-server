@@ -193,4 +193,204 @@ final class AtlasSelfConstructionCircuitClusterDetectorTest extends TestCase
 
         self::assertSame([], $result['clusters']);
     }
+
+    // ── AC: one-method wrapper families are grouped as wrapper_bloat_cluster ────
+
+    public function test_one_method_wrapper_family_is_flagged_wrapper_bloat_cluster(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganAlphaWrapper',
+                'capability_label' => 'passthrough_wrap',
+                'method_count' => 1,
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => [],
+                'consumers' => [],
+            ],
+            [
+                'name' => 'OrganBetaWrapper',
+                'capability_label' => 'passthrough_wrap',
+                'method_count' => 1,
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => [],
+                'consumers' => [],
+            ],
+        ]);
+
+        self::assertCount(1, $result['clusters']);
+        self::assertSame('wrapper_bloat_cluster', $result['clusters'][0]['cluster_type']);
+    }
+
+    public function test_multi_method_organs_are_not_flagged_wrapper_bloat(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'task_admission',
+                'method_count' => 3,
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['Caller'],
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'task_admission',
+                'method_count' => 4,
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['Caller'],
+            ],
+        ]);
+
+        self::assertNotSame('wrapper_bloat_cluster', $result['clusters'][0]['cluster_type']);
+    }
+
+    public function test_mixed_method_count_family_is_not_wrapper_bloat(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganAlphaWrapper',
+                'capability_label' => 'passthrough_wrap',
+                'method_count' => 1,
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => [],
+                'consumers' => [],
+            ],
+            [
+                'name' => 'OrganBetaMultiMethod',
+                'capability_label' => 'passthrough_wrap',
+                'method_count' => 5,
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => [],
+                'consumers' => [],
+            ],
+        ]);
+
+        self::assertNotSame('wrapper_bloat_cluster', $result['clusters'][0]['cluster_type']);
+    }
+
+    // ── AC: duplicated gate shards with same decision inputs → keeper + retirements ──
+
+    public function test_duplicated_gate_shards_with_shared_decision_inputs_emit_keeper_and_retirements(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'GateShardAlpha',
+                'capability_label' => 'admission_gate',
+                'is_gate_shard' => true,
+                'decision_inputs' => ['risk_score', 'quota'],
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => ['test_a', 'test_b'],
+                'consumers' => [],
+            ],
+            [
+                'name' => 'GateShardBeta',
+                'capability_label' => 'admission_gate',
+                'is_gate_shard' => true,
+                'decision_inputs' => ['risk_score', 'quota'],
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => ['test_a'],
+                'consumers' => [],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        self::assertSame('gate_shard_duplicate', $cluster['cluster_type']);
+        self::assertSame('GateShardAlpha', $cluster['keeper_candidate']);
+        self::assertSame(['GateShardBeta'], $cluster['retirement_candidates']);
+        self::assertSame(['quota', 'risk_score'], $cluster['shared_decision_inputs']);
+    }
+
+    public function test_gate_shards_without_shared_decision_inputs_are_not_flagged_duplicate(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'GateShardAlpha',
+                'capability_label' => 'admission_gate',
+                'is_gate_shard' => true,
+                'decision_inputs' => ['risk_score'],
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => [],
+                'consumers' => [],
+            ],
+            [
+                'name' => 'GateShardBeta',
+                'capability_label' => 'admission_gate',
+                'is_gate_shard' => true,
+                'decision_inputs' => ['quota'],
+                'inputs' => [],
+                'outputs' => [],
+                'proof_refs' => [],
+                'consumers' => [],
+            ],
+        ]);
+
+        $cluster = $result['clusters'][0];
+        self::assertNotSame('gate_shard_duplicate', $cluster['cluster_type']);
+        self::assertNull($cluster['keeper_candidate']);
+        self::assertSame([], $cluster['retirement_candidates']);
+    }
+
+    // ── AC: unrelated classes sharing a prefix are never clustered without evidence ──
+
+    public function test_shared_name_prefix_alone_never_clusters_without_capability_or_behavioral_evidence(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'AtlasFooHandlerOne',
+                'capability_label' => 'handler_capability_one',
+                'method_count' => 1,
+                'inputs' => ['x'],
+                'outputs' => ['y'],
+                'proof_refs' => ['test_x'],
+                'consumers' => ['CallerX'],
+            ],
+            [
+                'name' => 'AtlasFooHandlerTwo',
+                'capability_label' => 'handler_capability_two',
+                'method_count' => 1,
+                'inputs' => ['a'],
+                'outputs' => ['b'],
+                'proof_refs' => ['test_a'],
+                'consumers' => ['CallerA'],
+            ],
+        ]);
+
+        self::assertSame([], $result['clusters']);
+    }
+
+    public function test_default_cluster_type_is_capability_overlap_without_wrapper_or_gate_evidence(): void
+    {
+        $result = (new AtlasSelfConstructionCircuitClusterDetector)->detect([
+            [
+                'name' => 'OrganA',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['Caller'],
+            ],
+            [
+                'name' => 'OrganB',
+                'capability_label' => 'task_admission',
+                'inputs' => ['packet'],
+                'outputs' => ['verdict'],
+                'proof_refs' => ['test_run_1'],
+                'consumers' => ['Caller'],
+            ],
+        ]);
+
+        self::assertSame('capability_overlap', $result['clusters'][0]['cluster_type']);
+        self::assertNull($result['clusters'][0]['keeper_candidate']);
+        self::assertSame([], $result['clusters'][0]['retirement_candidates']);
+    }
 }

@@ -14,6 +14,16 @@ namespace App\Services\Ai\SelfConstruction\Simplification;
  * since two organs can look alike by name or signature yet serve different callers
  * with no shared evidence trail.
  *
+ * CLUSTER TYPE (cluster_type, evidence-driven, never name-based):
+ *   wrapper_bloat_cluster — every member reports method_count === 1 (a one-method
+ *                            pass-through organ); flags the family as bloat even
+ *                            when proof/consumer overlap alone would not qualify.
+ *   gate_shard_duplicate  — every member reports is_gate_shard === true AND shares
+ *                            decision_inputs; emits keeper_candidate (the member with
+ *                            the most proof_refs, ties broken alphabetically) and
+ *                            retirement_candidates (every other member).
+ *   capability_overlap    — default, no wrapper/gate-shard evidence present.
+ *
  * Pure / deterministic. No I/O.
  */
 final class AtlasSelfConstructionCircuitClusterDetector
@@ -91,16 +101,36 @@ final class AtlasSelfConstructionCircuitClusterDetector
 
             $clusterId = 'cluster_'.substr(hash('sha256', $label.'|'.implode(',', $names)), 0, 16);
 
+            $isWrapperBloat = $this->allMembersAreOneMethodWrappers($members);
+            $decisionInputOverlap = $this->intersectAcross($members, 'decision_inputs');
+            $isGateShardDuplicate = ! $isWrapperBloat
+                && $this->allMembersAreGateShards($members)
+                && $decisionInputOverlap !== [];
+
+            $clusterType = match (true) {
+                $isWrapperBloat => 'wrapper_bloat_cluster',
+                $isGateShardDuplicate => 'gate_shard_duplicate',
+                default => 'capability_overlap',
+            };
+
+            $keeperCandidate = null;
+            $retirementCandidates = [];
+            if ($isGateShardDuplicate) {
+                [$keeperCandidate, $retirementCandidates] = $this->pickKeeperAndRetirements($members);
+            }
+
             $clusters[] = [
                 'cluster_id' => $clusterId,
                 'capability_label' => $label,
                 'members' => $names,
+                'cluster_type' => $clusterType,
                 'shared_contracts' => [
                     'inputs' => $sharedInputs,
                     'outputs' => $sharedOutputs,
                 ],
                 'shared_responsibility_tags' => $responsibilityOverlap,
                 'shared_tests' => $testOverlap,
+                'shared_decision_inputs' => $decisionInputOverlap,
                 'overlap_score' => $overlapScore,
                 'duplicate_confidence' => $duplicateConfidence,
                 'merge_ready' => $mergeReady,
@@ -111,6 +141,8 @@ final class AtlasSelfConstructionCircuitClusterDetector
                     $mergeReady ? ' with proven proof and consumer overlap' : ' but lack proof and/or consumer overlap',
                 ),
                 'false_positive_risks' => $falsePositiveRisks,
+                'keeper_candidate' => $keeperCandidate,
+                'retirement_candidates' => $retirementCandidates,
             ];
         }
 
@@ -146,6 +178,57 @@ final class AtlasSelfConstructionCircuitClusterDetector
         sort($result);
 
         return $result;
+    }
+
+    /** @param  list<array<string,mixed>>  $members */
+    private function allMembersAreOneMethodWrappers(array $members): bool
+    {
+        foreach ($members as $organ) {
+            if (! array_key_exists('method_count', $organ) || (int) $organ['method_count'] !== 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param  list<array<string,mixed>>  $members */
+    private function allMembersAreGateShards(array $members): bool
+    {
+        foreach ($members as $organ) {
+            if (($organ['is_gate_shard'] ?? false) !== true) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $members
+     * @return array{0:string, 1:list<string>}
+     */
+    private function pickKeeperAndRetirements(array $members): array
+    {
+        $ranked = $members;
+        usort($ranked, static function (array $a, array $b): int {
+            $proofCountA = count((array) ($a['proof_refs'] ?? []));
+            $proofCountB = count((array) ($b['proof_refs'] ?? []));
+            if ($proofCountA !== $proofCountB) {
+                return $proofCountB <=> $proofCountA;
+            }
+
+            return strcmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+        });
+
+        $keeper = (string) ($ranked[0]['name'] ?? '');
+        $retirements = array_values(array_map(
+            static fn (array $o): string => (string) ($o['name'] ?? ''),
+            array_slice($ranked, 1),
+        ));
+        sort($retirements, SORT_STRING);
+
+        return [$keeper, $retirements];
     }
 
     /**
