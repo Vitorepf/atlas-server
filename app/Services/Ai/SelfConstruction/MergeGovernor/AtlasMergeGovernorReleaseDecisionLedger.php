@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\MergeGovernor;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -11,7 +12,7 @@ use RuntimeException;
  * repair_required / blocked outcome so the audit trail exists BEFORE autonomous release authority grows.
  *
  * INVARIANTS:
- *   - APPEND-ONLY: fopen('a') + flock(LOCK_EX); existing rows are NEVER overwritten or edited.
+ *   - APPEND-ONLY: kernel JsonlReceiptStore (flock LOCK_EX); existing rows are NEVER overwritten or edited.
  *   - VALIDATES: task_packet_id, candidate_hash, decision (allowlist), reasons, verification_hash,
  *     rollback_hash, project_lane, decided_at — missing/invalid ⇒ throws and DOES NOT WRITE.
  *   - IDEMPOTENT: duplicate decision_hash returns status=already_recorded without appending.
@@ -98,10 +99,6 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         sort($reasons, SORT_STRING);
         $decisionHash = $this->computeHash($taskId, $candHash, $decision, $reasons, $riskLevel, $verHash, $rollbackHash, $changedFilesHash, $laneProj, $decidedAt);
 
-        if ($this->alreadyRecorded($decisionHash)) {
-            return ['status' => self::STATUS_ALREADY];
-        }
-
         $row = [
             'schema' => self::SCHEMA,
             'task_packet_id' => $taskId,
@@ -116,9 +113,19 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             'decided_at' => $decidedAt,
             'decision_hash' => $decisionHash,
         ];
-        $this->appendOnly($row);
 
-        return ['status' => self::STATUS_OK, 'row' => $row];
+        // Idempotency check runs INSIDE the store's write lock; null return aborts the append.
+        $written = $this->store()->appendWith(function (?string $lastLine) use ($decisionHash, $row): ?array {
+            foreach ($this->all() as $r) {
+                if ((string) ($r['decision_hash'] ?? '') === $decisionHash) {
+                    return null;
+                }
+            }
+
+            return $row;
+        });
+
+        return $written === null ? ['status' => self::STATUS_ALREADY] : ['status' => self::STATUS_OK, 'row' => $row];
     }
 
     /**
@@ -166,18 +173,12 @@ final class AtlasMergeGovernorReleaseDecisionLedger
      */
     public function all(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
+        return $this->store()->replay();
+    }
 
-        return $out;
+    private function store(): JsonlReceiptStore
+    {
+        return new JsonlReceiptStore($this->ledgerPath);
     }
 
     /**
@@ -222,40 +223,4 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
-    private function alreadyRecorded(string $decisionHash): bool
-    {
-        foreach ($this->all() as $r) {
-            if ((string) ($r['decision_hash'] ?? '') === $decisionHash) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  array<string,mixed>  $row
-     */
-    private function appendOnly(array $row): void
-    {
-        $dir = dirname($this->ledgerPath);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fh = @fopen($this->ledgerPath, 'a');
-        if ($fh === false) {
-            throw new RuntimeException('release decision ledger cannot open '.$this->ledgerPath);
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new RuntimeException('release decision ledger cannot acquire LOCK_EX');
-            }
-            fwrite($fh, (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
-    }
 }

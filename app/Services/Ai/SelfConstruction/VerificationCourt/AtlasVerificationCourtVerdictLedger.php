@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\VerificationCourt;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -11,7 +12,7 @@ use RuntimeException;
  * audited BEFORE Merge Governor admission. Mirror of the merge-governor decision ledger pattern.
  *
  * INVARIANTS:
- *   - APPEND-ONLY: fopen('a') + flock(LOCK_EX); existing rows NEVER overwritten.
+ *   - APPEND-ONLY: kernel JsonlReceiptStore (flock LOCK_EX); existing rows NEVER overwritten.
  *   - VALIDATES: task_packet_id, evidence_hash, replay_plan_hash, verdict (allowlist), reasons,
  *     replay_outcome_hash, decided_at — missing/invalid ⇒ throws and DOES NOT WRITE.
  *   - IDEMPOTENT: duplicate verdict_hash ⇒ status=already_recorded, no second row.
@@ -103,14 +104,27 @@ final class AtlasVerificationCourtVerdictLedger
         ];
         $verdictHash = $this->hashCanonicalFields($canonical);
 
-        if ($this->alreadyRecorded($verdictHash)) {
-            return ['status' => self::STATUS_ALREADY];
-        }
-
         $row = $canonical + ['schema' => self::SCHEMA, 'verdict_hash' => $verdictHash];
-        $this->appendOnly($row);
 
-        return ['status' => self::STATUS_OK, 'row' => $row];
+        // Idempotency AND chain derivation run INSIDE the store's write lock: the previous
+        // verdict hash comes from the tail line handed to us under LOCK_EX, so concurrent
+        // writers can neither duplicate a verdict nor fork the chain. Null return aborts.
+        $written = $this->store()->appendWith(function (?string $lastLine) use ($verdictHash, &$row): ?array {
+            foreach ($this->all() as $r) {
+                if ((string) ($r['verdict_hash'] ?? '') === $verdictHash) {
+                    return null;
+                }
+            }
+
+            $last = $lastLine !== null ? json_decode($lastLine, true) : null;
+            $prevHash = is_array($last) && (string) ($last['verdict_hash'] ?? '') !== '' ? (string) $last['verdict_hash'] : null;
+            $row['previous_verdict_hash'] = $prevHash;
+            $row['ledger_chain_hash'] = hash('sha256', ($prevHash ?? '').$verdictHash);
+
+            return $row;
+        });
+
+        return $written === null ? ['status' => self::STATUS_ALREADY] : ['status' => self::STATUS_OK, 'row' => $row];
     }
 
     /**
@@ -118,18 +132,12 @@ final class AtlasVerificationCourtVerdictLedger
      */
     public function all(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $out = [];
-        foreach (file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $out[] = $decoded;
-            }
-        }
+        return $this->store()->replay();
+    }
 
-        return $out;
+    private function store(): JsonlReceiptStore
+    {
+        return new JsonlReceiptStore($this->ledgerPath);
     }
 
     /**
@@ -217,54 +225,4 @@ final class AtlasVerificationCourtVerdictLedger
         return ['ok' => false, 'tamper_reason' => $reason, 'tampered_row_index' => $index, 'checked_row_count' => $checkedRowCount];
     }
 
-    private function alreadyRecorded(string $verdictHash): bool
-    {
-        foreach ($this->all() as $r) {
-            if ((string) ($r['verdict_hash'] ?? '') === $verdictHash) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function lastVerdictHash(): ?string
-    {
-        $rows = $this->all();
-        if ($rows === []) {
-            return null;
-        }
-        $h = (string) (end($rows)['verdict_hash'] ?? '');
-
-        return $h !== '' ? $h : null;
-    }
-
-    /**
-     * @param  array<string,mixed>  $row
-     */
-    private function appendOnly(array &$row): void
-    {
-        $dir = dirname($this->ledgerPath);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-        $fh = @fopen($this->ledgerPath, 'a');
-        if ($fh === false) {
-            throw new RuntimeException('verdict ledger cannot open '.$this->ledgerPath);
-        }
-        try {
-            if (! flock($fh, LOCK_EX)) {
-                throw new RuntimeException('verdict ledger cannot acquire LOCK_EX');
-            }
-            $prevHash = $this->lastVerdictHash();
-            $row['previous_verdict_hash'] = $prevHash;
-            $row['ledger_chain_hash'] = hash('sha256', ($prevHash ?? '').$row['verdict_hash']);
-            fwrite($fh, (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n");
-            fflush($fh);
-            @\fsync($fh);
-        } finally {
-            flock($fh, LOCK_UN);
-            fclose($fh);
-        }
-    }
 }

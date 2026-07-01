@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+
 /**
  * Append-only JSONL ledger of admitted lesson plans. Idempotent on plan_hash: a second append
  * with the same plan_hash returns ['status' => 'already_recorded', ...] without writing a new
@@ -74,17 +76,6 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
         }
 
         $planHash = $this->planHash($plan);
-        if ($this->findByHash($planHash) !== null) {
-            return [
-                'schema_version' => self::SCHEMA,
-                'status' => 'already_recorded',
-                'plan_hash' => $planHash,
-            ];
-        }
-        $dir = \dirname($this->ledgerPath);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new \RuntimeException('learning_transfer_admission_ledger_mkdir_failed');
-        }
         $row = [
             'schema_version' => self::SCHEMA,
             'plan_hash' => $planHash,
@@ -99,34 +90,15 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
             'design_path_refs' => $designPathRefs,
         ];
         ksort($row, SORT_STRING);
-        $line = (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        $fh = @fopen($this->ledgerPath, 'ab+');
-        if ($fh === false) {
-            throw new \RuntimeException('learning_transfer_admission_ledger_open_failed');
-        }
-        try {
-            if (! @flock($fh, LOCK_EX)) {
-                throw new \RuntimeException('learning_transfer_admission_ledger_lock_failed');
-            }
-            // Re-check under lock to keep idempotency strict.
-            if ($this->findByHash($planHash) !== null) {
-                return [
-                    'schema_version' => self::SCHEMA,
-                    'status' => 'already_recorded',
-                    'plan_hash' => $planHash,
-                ];
-            }
-            fwrite($fh, $line."\n");
-            fflush($fh);
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+        // Idempotency check runs INSIDE the store's write lock; null return aborts the append.
+        $written = (new JsonlReceiptStore($this->ledgerPath))->appendWith(
+            fn (?string $lastLine): ?array => $this->findByHash($planHash) !== null ? null : $row,
+        );
 
         return [
             'schema_version' => self::SCHEMA,
-            'status' => 'recorded',
+            'status' => $written === null ? 'already_recorded' : 'recorded',
             'plan_hash' => $planHash,
         ];
     }
@@ -136,18 +108,7 @@ final class AtlasSelfConstructionLearningTransferAdmissionLedger
      */
     public function all(): array
     {
-        if (! is_file($this->ledgerPath)) {
-            return [];
-        }
-        $rows = [];
-        foreach ((array) file($this->ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->ledgerPath))->replay();
     }
 
     public function path(): string

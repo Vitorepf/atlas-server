@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
- * Append-only JSONL ledger of admitted lessons. Idempotent on lesson_hash; flock(LOCK_EX) on
- * every write; never overwrites prior rows; validates required fields before append.
+ * Append-only JSONL ledger of admitted lessons. Idempotent on lesson_hash; kernel
+ * JsonlReceiptStore (flock LOCK_EX) on every write; never overwrites prior rows; validates
+ * required fields before append.
  *
  * Default path: storage/atlas/governance/learning-ledger.jsonl (production). Tests pass a
  * custom path through the constructor.
@@ -57,18 +59,6 @@ final class AtlasSelfConstructionLearningLedger
     {
         $this->validate($lesson);
         $lessonHash = $this->lessonHash($lesson);
-        if ($this->findByHash($lessonHash) !== null) {
-            return [
-                'schema_version' => self::SCHEMA,
-                'status' => 'already_recorded',
-                'lesson_hash' => $lessonHash,
-            ];
-        }
-        $path = $this->path();
-        $dir = \dirname($path);
-        if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
-            throw new RuntimeException('learning_ledger_mkdir_failed:'.$dir);
-        }
         $row = [
             'schema_version' => self::SCHEMA,
             'lesson_hash' => $lessonHash,
@@ -76,34 +66,15 @@ final class AtlasSelfConstructionLearningLedger
             'lesson' => $this->sortRecursive($lesson),
         ];
         ksort($row, SORT_STRING);
-        $line = (string) json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        $fh = @fopen($path, 'ab+');
-        if ($fh === false) {
-            throw new RuntimeException('learning_ledger_open_failed');
-        }
-        try {
-            if (! @flock($fh, LOCK_EX)) {
-                throw new RuntimeException('learning_ledger_lock_failed');
-            }
-            // Re-check inside the lock to keep idempotency strict under contention.
-            if ($this->findByHash($lessonHash) !== null) {
-                return [
-                    'schema_version' => self::SCHEMA,
-                    'status' => 'already_recorded',
-                    'lesson_hash' => $lessonHash,
-                ];
-            }
-            fwrite($fh, $line."\n");
-            fflush($fh);
-        } finally {
-            @flock($fh, LOCK_UN);
-            fclose($fh);
-        }
+        // Idempotency check runs INSIDE the store's write lock; null return aborts the append.
+        $written = (new JsonlReceiptStore($this->path()))->appendWith(
+            fn (?string $lastLine): ?array => $this->findByHash($lessonHash) !== null ? null : $row,
+        );
 
         return [
             'schema_version' => self::SCHEMA,
-            'status' => 'recorded',
+            'status' => $written === null ? 'already_recorded' : 'recorded',
             'lesson_hash' => $lessonHash,
         ];
     }
@@ -113,19 +84,7 @@ final class AtlasSelfConstructionLearningLedger
      */
     public function all(): array
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return [];
-        }
-        $rows = [];
-        foreach ((array) file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $decoded = json_decode((string) $line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($this->path()))->replay();
     }
 
     public function path(): string
