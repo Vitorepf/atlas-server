@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAcceptanceReplayCoverageMatrix;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdversarialCritiqueTournament;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierComplexityBudget;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -49,6 +50,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainLeverageScorer $scorer,
         AtlasExternalBrainAcceptanceReplayCoverageMatrix $coverageMatrix,
         AtlasExternalBrainHighValueBatchComposer $batchComposer,
+        AtlasExternalBrainAmplifierComplexityBudget $complexityBudget,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -129,6 +131,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
             'batch_thesis' => $batch['batch_thesis'],
             'wave_plan' => $batch['wave_plan'],
         ];
+
+        // Optional system-wide amplifier complexity-budget check: this is a distinct
+        // concern from per-opportunity coverage auditing above (component/gate/judge/
+        // telemetry budgets vs. per-candidate acceptance replay), so it is only run
+        // when the caller explicitly supplies a complexity_budget section.
+        if (is_array($decoded['complexity_budget'] ?? null)) {
+            $payload['complexity_budget'] = $complexityBudget->evaluate($decoded['complexity_budget']);
+        }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
