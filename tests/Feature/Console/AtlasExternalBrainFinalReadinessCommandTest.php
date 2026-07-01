@@ -147,4 +147,57 @@ final class AtlasExternalBrainFinalReadinessCommandTest extends TestCase
         $this->assertNotEmpty($certStep);
         $this->assertSame('anti_goodhart_pass', $certStep[0]['target']);
     }
+
+    // ── finality evidence bundle ──────────────────────────────────────────────
+
+    private function fullyPassingFinalityEvidence(): array
+    {
+        return [
+            'dimensions' => [[
+                'name' => 'runtime',
+                'is_proven' => true,
+                'has_outcome_learning' => true,
+                'evidence_refs' => ['runtime_receipt'],
+            ]],
+        ];
+    }
+
+    public function test_fully_ready_scenario_with_finality_evidence_stays_final_95_ready(): void
+    {
+        $exitCode = Artisan::call('atlas:external-brain:final-readiness', ['--input' => $this->writeInput([
+            'area_evidence' => $this->fullyReadyAreaEvidence(),
+            'gaps' => [],
+            'certification_evidence' => $this->fullyPassingCertificationEvidence(),
+            'finality_evidence' => $this->fullyPassingFinalityEvidence(),
+        ])]);
+        $result = json_decode(trim(Artisan::output()), true);
+
+        $this->assertSame('final_95_ready', $result['overall_verdict']);
+        $this->assertTrue($result['finality_evidence']['is_final']);
+        $this->assertSame(0, $exitCode);
+    }
+
+    public function test_unwired_finality_dimension_blocks_overall_readiness_even_when_others_agree(): void
+    {
+        $result = $this->callCommand([
+            'area_evidence' => $this->fullyReadyAreaEvidence(),
+            'gaps' => [],
+            'certification_evidence' => $this->fullyPassingCertificationEvidence(),
+            'finality_evidence' => [
+                'dimensions' => [[
+                    'name' => 'runtime',
+                    'is_proven' => true,
+                    'has_outcome_learning' => true,
+                    'is_unwired' => true,
+                    'evidence_refs' => ['runtime_receipt'],
+                ]],
+            ],
+        ]);
+
+        $this->assertSame('not_ready', $result['overall_verdict']);
+        $this->assertFalse($result['finality_evidence']['is_final']);
+        $bundleStep = array_values(array_filter($result['blocker_ranked_closure_steps'], static fn (array $s): bool => $s['source'] === 'finality_evidence_bundle'));
+        $this->assertNotEmpty($bundleStep);
+        $this->assertSame('runtime', $bundleStep[0]['target']);
+    }
 }
