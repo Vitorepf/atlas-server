@@ -28,6 +28,10 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
 
     public const ACTION_CONSOLIDATE_WITH_NEXT_BATCH = 'consolidate_with_next_batch';
 
+    /** AC2: a queue deep enough that even "comfortable" undersells it — keep originating, but
+     *  more selectively, instead of easing off into mere consolidation. */
+    public const ACTION_SELECTIVE_ORIGINATOR_MODE = 'selective_originator_mode';
+
     public const TERMINAL_QUOTA_COMPLETE = 'quota_complete';
 
     public const TERMINAL_DISABLED_SWITCH = 'disabled_switch';
@@ -37,8 +41,16 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
     /** Claimable-depth-per-active-worker ratio at or above this is comfortable enough to consolidate. */
     private const COMFORTABLE_CLAIMABLE_PER_WORKER = 4.0;
 
+    /** Above this ratio the queue is deep, not just comfortable — switch to selective mode. */
+    private const DEEP_CLAIMABLE_PER_WORKER = 10.0;
+
     /** @var list<string> */
     private const ESCALATION_FRONTS = ['cross_domain_search', 'deep_architecture_scan', 'research_adaptation'];
+
+    /** AC3: additional recovery paths required before a local-surface-exhausted pivot fully
+     *  commits to research — named separately so the existing required_escalation_fronts
+     *  contract stays unchanged for existing callers. */
+    private const ADDITIONAL_RECOVERY_PATHS = ['second_pass', 'simplification'];
 
     /**
      * @param  array{
@@ -72,17 +84,47 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
         }
 
         if ($exhaustiveEscalationAttempted && ! $valueFoundAfterEscalation) {
+            // AC4: when the caller supplies structured evidence of which fronts were actually
+            // attempted, a bare claim is never trusted alone — missing fronts refuse the terminal
+            // state and instead name what's still required. Callers that don't supply this key at
+            // all keep the legacy (bool-trusting) contract, unchanged.
+            if (array_key_exists('escalation_fronts_attempted', $facts)) {
+                $frontsAttempted = array_values(array_unique(array_map('strval', (array) $facts['escalation_fronts_attempted'])));
+                $missingFronts = array_values(array_diff(self::ESCALATION_FRONTS, $frontsAttempted));
+                if ($missingFronts !== []) {
+                    return [
+                        'schema' => self::SCHEMA,
+                        'terminal' => false,
+                        'terminal_reason' => null,
+                        'next_action' => self::ACTION_PIVOT_OR_RESEARCH,
+                        'required_escalation_fronts' => $missingFronts,
+                        'reasons' => ['exhaustive_escalation_claimed_without_evidence_for_all_fronts:missing='.implode(',', $missingFronts)],
+                    ];
+                }
+            }
+
             return $this->terminalResult(self::TERMINAL_NO_VALUE_AFTER_EXHAUSTIVE_ESCALATION);
         }
 
         $localSurfaceExhausted = (bool) ($facts['local_surface_exhausted'] ?? false);
         if ($localSurfaceExhausted) {
+            // AC3: name second_pass/simplification as additional required paths whenever the
+            // caller hasn't already attempted them — additive to required_escalation_fronts,
+            // which stays exactly as before for existing callers.
+            $secondPassAttempted = (bool) ($facts['second_pass_attempted'] ?? false);
+            $simplificationAttempted = (bool) ($facts['simplification_attempted'] ?? false);
+            $additionalRecoveryPaths = array_values(array_filter([
+                $secondPassAttempted ? null : 'second_pass',
+                $simplificationAttempted ? null : 'simplification',
+            ]));
+
             return [
                 'schema' => self::SCHEMA,
                 'terminal' => false,
                 'terminal_reason' => null,
                 'next_action' => self::ACTION_PIVOT_OR_RESEARCH,
                 'required_escalation_fronts' => self::ESCALATION_FRONTS,
+                'additional_recovery_paths' => $additionalRecoveryPaths,
                 'reasons' => ['local_surface_exhausted:pivot_required_instead_of_no_task_created'],
             ];
         }
@@ -91,6 +133,19 @@ final class AtlasExternalBrainOriginatorDutyCycleContract
         $activeWorkers = max(1, (int) ($facts['active_workers'] ?? 1));
         $replenishAction = (string) ($facts['replenish_action'] ?? '');
         $claimablePerWorker = $claimableDepth / $activeWorkers;
+
+        // AC2: a genuinely deep queue is not merely "comfortable" — the mission stays active by
+        // switching to a more selective originator mode rather than easing into consolidation.
+        if ($replenishAction === 'wait' && $claimablePerWorker >= self::DEEP_CLAIMABLE_PER_WORKER) {
+            return [
+                'schema' => self::SCHEMA,
+                'terminal' => false,
+                'terminal_reason' => null,
+                'next_action' => self::ACTION_SELECTIVE_ORIGINATOR_MODE,
+                'required_escalation_fronts' => [],
+                'reasons' => ['queue_deep:'.round($claimablePerWorker, 2).'_per_worker_switches_to_selective_originator_mode_not_idle'],
+            ];
+        }
 
         if ($replenishAction === 'wait' && $claimablePerWorker >= self::COMFORTABLE_CLAIMABLE_PER_WORKER) {
             return [
