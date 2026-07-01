@@ -158,10 +158,12 @@ final class AtlasExternalBrainTaskFamilyYieldModel
             if ($recentConversions > 0) {
                 $entry['recommended_action'] = 'promote_for_replenishment';
                 $entry['recommended_family_action'] = 'promote_for_replenishment';
+                $entry['next_action'] = 'promote_for_replenishment';
                 $entry['reasons'][] = 'worker_floor_pressure_reliable_claimable_conversion';
             } elseif ($recentNegative > 0) {
                 $entry['recommended_action'] = 'deprioritize_worker_floor_pressure';
                 $entry['recommended_family_action'] = 'deprioritize_worker_floor_pressure';
+                $entry['next_action'] = 'deprioritize_worker_floor_pressure';
                 $entry['reasons'][] = 'worker_floor_pressure_recent_negative_outcomes';
             }
 
@@ -204,9 +206,16 @@ final class AtlasExternalBrainTaskFamilyYieldModel
             $reasons         = ['insufficient_sample'];
             $recommendedAction = 'watch';
         } else {
+            // AC: blend proof quality and downstream capability delta into yield — a family
+            // is not judged on green rate alone. Both default neutral (no-op) when the
+            // caller supplies no evidence for them, so existing callers keep prior behavior.
+            $proofQuality = max(0.0, min(1.0, (float) ($raw['proof_quality'] ?? 1.0)));
+            $downstreamCapabilityDelta = max(0.0, (float) ($raw['downstream_capability_delta'] ?? 0.0));
+
             $greenRate   = $successCount / $totalAttempted;
             $poisonRate  = ($giveBackCount + $poisonCount + $quarantineCount) / $totalAttempted;
-            $yieldScore  = max(0.0, min(1.0, $greenRate - $poisonRate * self::POISON_PENALTY_FACTOR));
+            $baseYield   = max(0.0, min(1.0, $greenRate - $poisonRate * self::POISON_PENALTY_FACTOR));
+            $yieldScore  = max(0.0, min(1.0, $baseYield * (0.7 + 0.3 * $proofQuality) + min(0.20, $downstreamCapabilityDelta * 0.05)));
             $roiScore    = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5))), 4);
             $penaltyApplied = $poisonRate >= self::HIGH_POISON_RATE ? 'high_poison_rate_penalty' : null;
             $classification = $this->classify($yieldScore);
@@ -254,6 +263,8 @@ final class AtlasExternalBrainTaskFamilyYieldModel
                 'recommended_action'     => $recommendedAction,
                 'recommended_family_action' => $recommendedAction,
                 'reasons'                => $reasons,
+                'reason'                 => $reasons[0] ?? 'no_notable_signal',
+                'next_action'            => $recommendedAction,
                 'stop_farming_reasons'   => $stopFarmingReasons,
             ],
             'low_yield_entry' => $lowYieldEntry,
@@ -277,6 +288,8 @@ final class AtlasExternalBrainTaskFamilyYieldModel
         $wiring        = max(0, (int) ($raw['verified_wiring_changes']     ?? 0));
         $hasClaimableConversions = array_key_exists('claimable_conversions', $raw);
         $claimableConversions    = max(0, (int) ($raw['claimable_conversions'] ?? 0));
+        $proofQuality = max(0.0, min(1.0, (float) ($raw['proof_quality'] ?? 1.0)));
+        $downstreamCapabilityDelta = max(0.0, (float) ($raw['downstream_capability_delta'] ?? 0.0));
 
         $deliveryScore = $deltas + $unlocks + $wiring;
         $rawYield      = round($deliveryScore / ($acceptedSpecs + 1), 6);
@@ -293,7 +306,9 @@ final class AtlasExternalBrainTaskFamilyYieldModel
             $penaltyApplied = 'zero_claimable_conversion_penalty';
         }
 
-        $yieldScore = max(0.0, min(1.0, $rawYield));
+        // AC: blend proof quality and downstream capability delta — both default neutral
+        // (no-op) so legacy callers that never supply them keep prior behavior exactly.
+        $yieldScore = max(0.0, min(1.0, $rawYield * (0.7 + 0.3 * $proofQuality) + min(0.20, $downstreamCapabilityDelta * 0.05)));
         $roiScore   = round(max(0.0, min(1.0, $yieldScore * (1.0 - $giveBackRate * 0.5) + $claimableConversions * 0.05)), 4);
 
         $classification = $this->classify($yieldScore);
@@ -360,6 +375,8 @@ final class AtlasExternalBrainTaskFamilyYieldModel
                 'recommended_action'     => $recommendedAction,
                 'recommended_family_action' => $recommendedAction,
                 'reasons'                => $reasons,
+                'reason'                 => $reasons[0] ?? 'no_notable_signal',
+                'next_action'            => $recommendedAction,
                 'stop_farming_reasons'   => $stopFarmingReasons,
             ],
             'low_yield_entry' => $lowYieldEntry,

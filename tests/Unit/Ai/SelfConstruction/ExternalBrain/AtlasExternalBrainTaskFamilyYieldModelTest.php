@@ -424,4 +424,103 @@ final class AtlasExternalBrainTaskFamilyYieldModelTest extends TestCase
         $this->assertSame('stop_farming', $r['family_yields'][0]['recommended_action']);
         $this->assertContains('high_give_back_rate', $r['family_yields'][0]['stop_farming_reasons']);
     }
+
+    // ── AC: high authored volume with low green commit rate produces low yield ──
+
+    public function test_high_authored_volume_with_low_green_rate_produces_low_yield(): void
+    {
+        $r = $this->model()->model(['families' => [
+            [
+                'family_id' => 'noisy',
+                'success_count' => 3,
+                'give_back_count' => 20,
+                'poison_count' => 0,
+                'quarantine_count' => 0,
+            ],
+        ]]);
+
+        $this->assertSame('low_yield', $r['family_yields'][0]['classification']);
+    }
+
+    // ── AC: modest volume with strong proof and capability delta produces high yield ──
+
+    public function test_modest_volume_with_strong_proof_and_capability_delta_produces_high_yield_outcome_path(): void
+    {
+        $r = $this->model()->model(['families' => [
+            [
+                'family_id' => 'sharp',
+                'success_count' => 3,
+                'give_back_count' => 0,
+                'poison_count' => 0,
+                'quarantine_count' => 0,
+                'proof_quality' => 1.0,
+                'downstream_capability_delta' => 4.0,
+            ],
+        ]]);
+
+        $this->assertSame('high_yield', $r['family_yields'][0]['classification']);
+    }
+
+    public function test_modest_volume_with_strong_proof_and_capability_delta_produces_high_yield_legacy_path(): void
+    {
+        $r = $this->model()->model(['families' => [$this->family([
+            'family_id' => 'sharp-legacy',
+            'accepted_specs' => 1,
+            'resolved_capability_deltas' => 1,
+            'proof_quality' => 1.0,
+            'downstream_capability_delta' => 4.0,
+        ])]]);
+
+        $this->assertSame('high_yield', $r['family_yields'][0]['classification']);
+    }
+
+    public function test_low_proof_quality_lowers_yield_relative_to_high_proof_quality(): void
+    {
+        $low = $this->model()->model(['families' => [$this->family([
+            'family_id' => 'low-proof',
+            'accepted_specs' => 3,
+            'resolved_capability_deltas' => 1,
+            'proof_quality' => 0.0,
+        ])]]);
+        $high = $this->model()->model(['families' => [$this->family([
+            'family_id' => 'high-proof',
+            'accepted_specs' => 3,
+            'resolved_capability_deltas' => 1,
+            'proof_quality' => 1.0,
+        ])]]);
+
+        $this->assertLessThan($high['family_yields'][0]['yield_score'], $low['family_yields'][0]['yield_score']);
+    }
+
+    public function test_proof_quality_and_downstream_delta_default_neutral_when_absent(): void
+    {
+        // Legacy fixture (accepted_specs=2, resolved_capability_deltas=2 → raw_yield=2/3)
+        // with no proof_quality/downstream_capability_delta must behave exactly as before.
+        $r = $this->model()->model(['families' => [$this->family()]]);
+
+        $this->assertEqualsWithDelta(0.6667, $r['family_yields'][0]['yield_score'], 0.0001);
+    }
+
+    // ── AC: output ranks task families with reason and next_action ─────────────
+
+    public function test_each_family_yield_has_reason_and_next_action(): void
+    {
+        $r = $this->model()->model(['families' => [$this->family()]]);
+        $entry = $r['family_yields'][0];
+
+        $this->assertArrayHasKey('reason', $entry);
+        $this->assertArrayHasKey('next_action', $entry);
+        $this->assertNotEmpty($entry['reason']);
+        $this->assertSame($entry['recommended_action'], $entry['next_action']);
+    }
+
+    public function test_reason_matches_first_of_reasons_list(): void
+    {
+        $r = $this->model()->model(['families' => [
+            $this->family(['give_back_rate' => 0.40, 'resolved_capability_deltas' => 2]),
+        ]]);
+        $entry = $r['family_yields'][0];
+
+        $this->assertSame($entry['reasons'][0], $entry['reason']);
+    }
 }
