@@ -29,6 +29,23 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
 
     private const CHURN_WEIGHT = 2.0;
 
+    private const PROOF_BOOST_WEIGHT = 0.5;
+
+    private const SIMPLIFICATION_BOOST_WEIGHT = 1.0;
+
+    /** give_back_drag / quality_adjusted_velocity at/above this ratio recommends slowing down. */
+    private const HEAVY_DRAG_RATIO = 0.5;
+
+    private const PROOF_STRENGTH_FLOOR = 0.3;
+
+    public const RECOMMENDATION_SCALE_UP = 'scale_up';
+
+    public const RECOMMENDATION_REDUCE_CHURN_FIRST = 'reduce_churn_before_scaling';
+
+    public const RECOMMENDATION_RAISE_PROOF_FIRST = 'raise_proof_strength_before_scaling';
+
+    public const RECOMMENDATION_STABILIZE = 'stabilize';
+
     /**
      * @param  list<array<string,mixed>>  $cycleFacts  list of per-cycle aggregates in chronological order
      * @return array<string,mixed>
@@ -48,11 +65,27 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
             $completeness = (float) ($current['evidence_completeness'] ?? 0.0);
 
             $leverageDelta = (float) ($current['leverage_delta'] ?? 0.0);
-            $churnCount = (int) ($current['give_back_count'] ?? 0)
+            $giveBackCount = (int) ($current['give_back_count'] ?? 0);
+            $churnCount = $giveBackCount
                 + (int) ($current['poison_count'] ?? 0)
                 + (int) ($current['retry_churn'] ?? 0);
             $churnPenalty = round($churnCount * self::CHURN_WEIGHT, 6);
             $qualityVelocity = round(max(0.0, $passed + $leverageDelta * self::LEVERAGE_WEIGHT - $churnPenalty), 6);
+
+            // Additive quality-adjustment facts: proof strength (defaults to evidence_completeness
+            // when not separately supplied) and simplification/deletion impact both raise the
+            // adjusted velocity; give_back drag isolates just the give_back contribution to churn.
+            $proofStrength = max(0.0, min(1.0, (float) ($current['proof_strength'] ?? $completeness)));
+            $simplificationImpact = max(0.0, min(1.0, (float) ($current['deletion_impact'] ?? $current['simplification_score'] ?? 0.0)));
+            $giveBackDrag = round($giveBackCount * self::CHURN_WEIGHT, 6);
+            $proofWeight = round($proofStrength, 6);
+            $simplificationWeight = round($simplificationImpact, 6);
+            $positiveContribution = $passed
+                + $leverageDelta * self::LEVERAGE_WEIGHT
+                + $simplificationImpact * self::SIMPLIFICATION_BOOST_WEIGHT
+                + $proofStrength * self::PROOF_BOOST_WEIGHT;
+            $qualityAdjustedVelocity = round(max(0.0, $positiveContribution - $churnPenalty), 6);
+            $recommendation = $this->recommendation($positiveContribution, $giveBackDrag, $proofStrength);
 
             if ($previous === null) {
                 $rows[] = [
@@ -68,6 +101,12 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
                     'churn_penalty' => $churnPenalty,
                     'quality_weighted_velocity' => $qualityVelocity,
                     'quality_velocity_trend' => self::TREND_FLAT,
+                    'raw_velocity' => $passed,
+                    'quality_adjusted_velocity' => $qualityAdjustedVelocity,
+                    'give_back_drag' => $giveBackDrag,
+                    'proof_weight' => $proofWeight,
+                    'simplification_weight' => $simplificationWeight,
+                    'recommendation' => $recommendation,
                 ];
             } else {
                 $tDelta = $passed - (int) $previous['passed_count'];
@@ -89,6 +128,12 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
                     'churn_penalty' => $churnPenalty,
                     'quality_weighted_velocity' => $qualityVelocity,
                     'quality_velocity_trend' => $this->trendFloat($qvDelta),
+                    'raw_velocity' => $passed,
+                    'quality_adjusted_velocity' => $qualityAdjustedVelocity,
+                    'give_back_drag' => $giveBackDrag,
+                    'proof_weight' => $proofWeight,
+                    'simplification_weight' => $simplificationWeight,
+                    'recommendation' => $recommendation,
                 ];
             }
             $previous = [
@@ -104,6 +149,21 @@ final class AtlasSelfConstructionCompoundingVelocityTracker
             'schema_version' => self::SCHEMA,
             'rows' => $rows,
         ];
+    }
+
+    private function recommendation(float $positiveContribution, float $giveBackDrag, float $proofStrength): string
+    {
+        if ($giveBackDrag > 0.0 && $giveBackDrag / max($positiveContribution, 0.0001) >= self::HEAVY_DRAG_RATIO) {
+            return self::RECOMMENDATION_REDUCE_CHURN_FIRST;
+        }
+        if ($proofStrength < self::PROOF_STRENGTH_FLOOR) {
+            return self::RECOMMENDATION_RAISE_PROOF_FIRST;
+        }
+        if ($positiveContribution - $giveBackDrag > 0.0) {
+            return self::RECOMMENDATION_SCALE_UP;
+        }
+
+        return self::RECOMMENDATION_STABILIZE;
     }
 
     private function trendInt(int $delta): string

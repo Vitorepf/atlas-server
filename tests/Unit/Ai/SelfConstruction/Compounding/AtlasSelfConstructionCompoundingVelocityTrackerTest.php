@@ -119,4 +119,81 @@ final class AtlasSelfConstructionCompoundingVelocityTrackerTest extends TestCase
             }
         }
     }
+
+    // ── AC: raw_velocity / quality_adjusted_velocity / give_back_drag / proof_weight / simplification_weight / recommendation ──
+
+    public function test_every_row_exposes_new_quality_adjustment_fields(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 5],
+        ]);
+        $row = $verdict['rows'][0];
+
+        foreach (['raw_velocity', 'quality_adjusted_velocity', 'give_back_drag', 'proof_weight', 'simplification_weight', 'recommendation'] as $key) {
+            $this->assertArrayHasKey($key, $row, "missing {$key}");
+        }
+    }
+
+    public function test_high_quality_fast_cycle_recommends_scale_up(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 10, 'proof_strength' => 0.9, 'give_back_count' => 0],
+        ]);
+        $row = $verdict['rows'][0];
+
+        $this->assertSame(10, $row['raw_velocity']);
+        $this->assertSame(AtlasSelfConstructionCompoundingVelocityTracker::RECOMMENDATION_SCALE_UP, $row['recommendation']);
+        $this->assertSame(0.0, $row['give_back_drag']);
+    }
+
+    public function test_noisy_fast_cycle_with_heavy_give_back_recommends_reduce_churn_first(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 10, 'proof_strength' => 0.9, 'give_back_count' => 10],
+        ]);
+        $row = $verdict['rows'][0];
+
+        $this->assertGreaterThan(0.0, $row['give_back_drag']);
+        $this->assertSame(AtlasSelfConstructionCompoundingVelocityTracker::RECOMMENDATION_REDUCE_CHURN_FIRST, $row['recommendation']);
+    }
+
+    public function test_slow_high_proof_cycle_recommends_scale_up_not_raise_proof(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 1, 'proof_strength' => 0.95, 'give_back_count' => 0],
+        ]);
+        $row = $verdict['rows'][0];
+
+        $this->assertSame(0.95, $row['proof_weight']);
+        $this->assertSame(AtlasSelfConstructionCompoundingVelocityTracker::RECOMMENDATION_SCALE_UP, $row['recommendation']);
+    }
+
+    public function test_low_proof_strength_recommends_raise_proof_first(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 3, 'proof_strength' => 0.1, 'give_back_count' => 0],
+        ]);
+        $row = $verdict['rows'][0];
+
+        $this->assertSame(AtlasSelfConstructionCompoundingVelocityTracker::RECOMMENDATION_RAISE_PROOF_FIRST, $row['recommendation']);
+    }
+
+    public function test_deletion_heavy_cycle_raises_simplification_weight_and_quality_adjusted_velocity(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([
+            ['cycle_id' => 'c-1', 'passed_count' => 2, 'deletion_impact' => 0.0, 'proof_strength' => 0.5],
+            ['cycle_id' => 'c-2', 'passed_count' => 2, 'deletion_impact' => 1.0, 'proof_strength' => 0.5],
+        ]);
+        $rows = $verdict['rows'];
+
+        $this->assertSame(1.0, $rows[1]['simplification_weight']);
+        $this->assertGreaterThan($rows[0]['quality_adjusted_velocity'], $rows[1]['quality_adjusted_velocity']);
+    }
+
+    public function test_zero_cycles_returns_empty_rows_safely(): void
+    {
+        $verdict = (new AtlasSelfConstructionCompoundingVelocityTracker)->track([]);
+
+        $this->assertSame([], $verdict['rows']);
+    }
 }
