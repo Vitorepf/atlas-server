@@ -125,4 +125,56 @@ final class AtlasExternalBrainModelTierEscalationPolicyCompilerTest extends Test
 
         $this->assertSame($compiler->compile($task), $compiler->compile($task));
     }
+
+    // ── AC: low-value tasks refuse escalation even when ambiguity/blast/give-back would otherwise trigger it ──
+
+    public function test_low_leverage_high_ambiguity_task_refuses_escalation(): void
+    {
+        $result = $this->compiler()->compile($this->task(['ambiguity' => 'high', 'leverage' => 'low']));
+
+        $this->assertNotSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+        $this->assertStringContainsString('low_leverage_escalation_refused', $result['escalation_reason']);
+    }
+
+    public function test_low_leverage_high_blast_radius_task_refuses_escalation(): void
+    {
+        $result = $this->compiler()->compile($this->task(['blast_radius' => 'high', 'leverage' => 'low']));
+
+        $this->assertNotSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+    }
+
+    public function test_low_leverage_repeated_give_back_refuses_escalation(): void
+    {
+        $result = $this->compiler()->compile($this->task(['give_back_count' => 3, 'leverage' => 'low']));
+
+        $this->assertNotSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+    }
+
+    public function test_high_leverage_high_ambiguity_still_escalates(): void
+    {
+        $result = $this->compiler()->compile($this->task(['ambiguity' => 'high', 'leverage' => 'high']));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+    }
+
+    // ── AC: architecture task kind with high risk always escalates, never lower-tier ──
+
+    public function test_architecture_task_with_high_risk_escalates_to_frontier_review(): void
+    {
+        $result = $this->compiler()->compile($this->task([
+            'task_kind' => 'architecture',
+            'risk_level' => 'high',
+            'historical_success_rate' => 0.95,
+        ]));
+
+        $this->assertSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+        $this->assertStringContainsString('architecture', $result['escalation_reason']);
+    }
+
+    public function test_architecture_task_with_low_risk_does_not_force_frontier(): void
+    {
+        $result = $this->compiler()->compile($this->task(['task_kind' => 'architecture', 'risk_level' => 'low']));
+
+        $this->assertNotSame(AtlasExternalBrainModelTierEscalationPolicyCompiler::TIER_FRONTIER_REVIEW, $result['selected_tier']);
+    }
 }

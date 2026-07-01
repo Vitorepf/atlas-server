@@ -13,9 +13,12 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Priority order (checked in this order so a weak-acceptance/low-risk task is routed to spec repair
  * BEFORE it can be swept into a frontier escalation it does not actually need):
  *   1. weak acceptance + low implementation risk  -> improve_spec_before_assignment
- *   2. high ambiguity / high blast radius / repeated give_back -> frontier_review
- *   3. low risk + high historical success for the task family -> small_with_scaffold
- *   4. no strong signal either way -> standard_review
+ *   2. architecture task kind + high risk -> frontier_review (never lower-tier, regardless of leverage)
+ *   3. high ambiguity / high blast radius / repeated give_back -> frontier_review, UNLESS the task
+ *      carries low leverage — a low-value task never justifies frontier spend, so it is refused and
+ *      routed to standard_review instead.
+ *   4. low risk + high historical success for the task family -> small_with_scaffold
+ *   5. no strong signal either way -> standard_review
  */
 final class AtlasExternalBrainModelTierEscalationPolicyCompiler
 {
@@ -46,6 +49,9 @@ final class AtlasExternalBrainModelTierEscalationPolicyCompiler
         $weakAcceptance = (string) ($task['acceptance_strength'] ?? 'strong') === 'weak';
         $lowImplementationRisk = (string) ($task['implementation_risk'] ?? 'low') === 'low';
         $riskLevel = (string) ($task['risk_level'] ?? 'low');
+        $leverage = (string) ($task['leverage'] ?? 'high');
+        $taskKind = (string) ($task['task_kind'] ?? 'standard');
+        $isLowLeverage = $leverage === 'low';
 
         if ($weakAcceptance && $lowImplementationRisk) {
             return $this->result(
@@ -56,15 +62,38 @@ final class AtlasExternalBrainModelTierEscalationPolicyCompiler
             );
         }
 
+        if ($taskKind === 'architecture' && $riskLevel === 'high') {
+            return $this->result(
+                self::TIER_FRONTIER_REVIEW,
+                'architecture_high_risk_requires_frontier',
+                [],
+                'require_operator_budget_approval_for_frontier',
+            );
+        }
+
         if ($ambiguity === 'high') {
+            if ($isLowLeverage) {
+                return $this->result(self::TIER_STANDARD_REVIEW, 'low_leverage_escalation_refused:high_ambiguity', [], 'standard_provider_budget');
+            }
             return $this->result(self::TIER_FRONTIER_REVIEW, 'high_ambiguity', [], 'require_operator_budget_approval_for_frontier');
         }
 
         if ($blastRadius === 'high') {
+            if ($isLowLeverage) {
+                return $this->result(self::TIER_STANDARD_REVIEW, 'low_leverage_escalation_refused:high_blast_radius', [], 'standard_provider_budget');
+            }
             return $this->result(self::TIER_FRONTIER_REVIEW, 'high_blast_radius', [], 'require_operator_budget_approval_for_frontier');
         }
 
         if ($giveBackCount >= self::GIVE_BACK_ESCALATION_THRESHOLD) {
+            if ($isLowLeverage) {
+                return $this->result(
+                    self::TIER_STANDARD_REVIEW,
+                    'low_leverage_escalation_refused:repeated_give_back:'.$giveBackCount,
+                    [],
+                    'standard_provider_budget',
+                );
+            }
             return $this->result(
                 self::TIER_FRONTIER_REVIEW,
                 'repeated_give_back:'.$giveBackCount,
