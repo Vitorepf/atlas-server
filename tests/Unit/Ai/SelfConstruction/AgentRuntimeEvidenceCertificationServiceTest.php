@@ -58,6 +58,67 @@ final class AgentRuntimeEvidenceCertificationServiceTest extends TestCase
         }
     }
 
+    // ── AC2: blocked certification includes violation_summary with grouped counts + next_repair_focus ──
+
+    public function test_blocked_certification_includes_violation_summary_with_grouped_counts_and_next_repair_focus(): void
+    {
+        $journal = new AgentRuntimeEvidenceJournalRepository;
+        foreach (AgentRuntimeEvidenceCertificationServiceTest::requiredTypes() as $i => $type) {
+            $journal->append([
+                'task_packet_id' => 'task-'.$i,
+                'agent_id' => 'agent-1',
+                'evidence_type' => $type,
+            ]);
+        }
+
+        $service = new AgentRuntimeEvidenceCertificationService(journal: $journal);
+        $result = $service->certify();
+
+        $this->assertArrayHasKey('violation_summary', $result);
+        $this->assertArrayHasKey('by_class', $result['violation_summary']);
+        $this->assertArrayHasKey('continuity', $result['violation_summary']['by_class']);
+        $this->assertGreaterThan(0, $result['violation_summary']['by_class']['continuity']);
+        $this->assertSame('continuity', $result['violation_summary']['next_repair_focus']);
+
+        // The single failing invariant here is the stitched-proxy continuity check.
+        $this->assertContains('per_task_continuity_not_stitched_proxy', array_column($result['violations'], 'name'));
+    }
+
+    // ── AC3: available certification keeps the exact next_action ──────────────
+
+    public function test_available_certification_keeps_next_action_for_local_journal(): void
+    {
+        $service = new AgentRuntimeEvidenceCertificationService;
+
+        $result = $service->certify();
+
+        $this->assertSame('available', $result['status']);
+        $this->assertSame('keep_runtime_evidence_journal_local_until_signed_ledger_promotion_gate', $result['next_action']);
+        $this->assertSame(['journal' => 0, 'receipt' => 0, 'continuity' => 0, 'runtime_safety' => 0], $result['violation_summary']['by_class']);
+        $this->assertNull($result['violation_summary']['next_repair_focus']);
+    }
+
+    // ── AC4: stitched proxy evidence stays blocked and appears under continuity violations ──
+
+    public function test_stitched_proxy_evidence_remains_blocked_and_appears_under_continuity_violations(): void
+    {
+        $journal = new AgentRuntimeEvidenceJournalRepository;
+        foreach (AgentRuntimeEvidenceCertificationServiceTest::requiredTypes() as $i => $type) {
+            $journal->append([
+                'task_packet_id' => 'task-'.$i,
+                'agent_id' => 'agent-1',
+                'evidence_type' => $type,
+            ]);
+        }
+
+        $service = new AgentRuntimeEvidenceCertificationService(journal: $journal);
+        $result = $service->certify();
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse($result['completion_claim_allowed']);
+        $this->assertGreaterThanOrEqual(1, $result['violation_summary']['by_class']['continuity']);
+    }
+
     /** @return list<string> */
     private static function requiredTypes(): array
     {

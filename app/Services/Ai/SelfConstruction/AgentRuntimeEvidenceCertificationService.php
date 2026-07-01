@@ -71,6 +71,7 @@ final class AgentRuntimeEvidenceCertificationService
 
         $violations = array_values(array_filter($invariants, static fn (array $i): bool => $i['ok'] === false));
         $allTrue = $violations === [];
+        $violationSummary = $this->violationSummary($violations);
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -80,6 +81,7 @@ final class AgentRuntimeEvidenceCertificationService
             'invariants_all_true' => $allTrue,
             'violation_count' => count($violations),
             'violations' => $violations,
+            'violation_summary' => $violationSummary,
             'journal_summary' => $summary,
             'journal_integrity' => $journalIntegrity,
             'per_task_continuity_summary' => $perTaskContinuitySummary,
@@ -139,6 +141,52 @@ final class AgentRuntimeEvidenceCertificationService
     private function inv(string $name, bool $ok, string $observation): array
     {
         return ['name' => $name, 'ok' => $ok, 'observation' => $observation];
+    }
+
+    /**
+     * Groups this class's fixed invariant set into journal/receipt/continuity/
+     * runtime_safety classes so a repair task can target the exact broken
+     * layer instead of re-reading every invariant name. next_repair_focus
+     * names the class with the most violations (fixed tie-break order below),
+     * so self-repair always attacks the highest-signal class first.
+     *
+     * @param  list<array<string,mixed>>  $violations
+     * @return array{by_class: array<string,int>, next_repair_focus: ?string}
+     */
+    private function violationSummary(array $violations): array
+    {
+        $classifier = [
+            'journal_repository_available' => 'journal',
+            'journal_summary_emits_hash' => 'journal',
+            'journal_integrity_ok' => 'journal',
+            'receipt_builder_emits_stable_hash' => 'receipt',
+            'receipt_is_not_ledger_entry' => 'receipt',
+            'continuity_index_detects_complete_required_set' => 'continuity',
+            'continuity_index_detects_missing_required_set' => 'continuity',
+            'per_task_continuity_not_stitched_proxy' => 'continuity',
+            'runtime_safety_all_false' => 'runtime_safety',
+        ];
+
+        $byClass = ['journal' => 0, 'receipt' => 0, 'continuity' => 0, 'runtime_safety' => 0];
+        foreach ($violations as $violation) {
+            $class = $classifier[(string) ($violation['name'] ?? '')] ?? 'unclassified';
+            $byClass[$class] = ($byClass[$class] ?? 0) + 1;
+        }
+
+        $nextRepairFocus = null;
+        $maxCount = 0;
+        foreach (['journal', 'receipt', 'continuity', 'runtime_safety', 'unclassified'] as $class) {
+            $count = $byClass[$class] ?? 0;
+            if ($count > $maxCount) {
+                $maxCount = $count;
+                $nextRepairFocus = $class;
+            }
+        }
+
+        return [
+            'by_class' => $byClass,
+            'next_repair_focus' => $nextRepairFocus,
+        ];
     }
 
     private function runtimeSafetyAllFalse(array $receipt, array $index): bool
