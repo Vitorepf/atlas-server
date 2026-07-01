@@ -204,4 +204,65 @@ final class AtlasVerificationCourtEvidenceContractTest extends TestCase
         sort($copy, SORT_STRING);
         $this->assertSame($copy, $r['blockers']);
     }
+
+    // --- worker-feed continuity for autonomy-quality claims ---
+
+    public function test_autonomy_quality_claim_without_worker_feed_continuity_is_rejected(): void
+    {
+        $e = $this->validEvidence();
+        $e['claims_autonomous_execution_quality'] = true;
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('missing_worker_feed_continuity', $r['blockers']);
+    }
+
+    public function test_autonomy_quality_claim_with_partial_continuity_lists_each_missing_field(): void
+    {
+        $e = $this->validEvidence();
+        $e['claims_autonomous_execution_quality'] = true;
+        $e['worker_feed_continuity'] = ['fresh' => true];
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('missing_worker_feed_continuity_claimable_depth', $r['blockers']);
+        $this->assertContains('missing_worker_feed_continuity_active_worker_count', $r['blockers']);
+        $this->assertContains('missing_worker_feed_continuity_no_claimable_task_repair_status', $r['blockers']);
+    }
+
+    public function test_autonomy_quality_claim_with_stale_continuity_is_rejected(): void
+    {
+        $e = $this->validEvidence();
+        $e['claims_autonomous_execution_quality'] = true;
+        $e['worker_feed_continuity'] = [
+            'claimable_depth' => 3,
+            'active_worker_count' => 2,
+            'no_claimable_task_repair_status' => 'resolved',
+            'fresh' => false,
+        ];
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('worker_feed_continuity_not_fresh', $r['blockers']);
+    }
+
+    public function test_autonomy_quality_claim_with_fresh_explicit_continuity_is_accepted(): void
+    {
+        $e = $this->validEvidence();
+        $e['claims_autonomous_execution_quality'] = true;
+        $e['worker_feed_continuity'] = [
+            'claimable_depth' => 3,
+            'active_worker_count' => 2,
+            'no_claimable_task_repair_status' => 'resolved',
+            'fresh' => true,
+        ];
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($e);
+        $this->assertTrue($r['accepted']);
+        $this->assertNull($r['verified']);
+        $this->assertSame([], $r['blockers']);
+    }
+
+    public function test_dry_run_evidence_without_autonomy_quality_claim_is_unaffected(): void
+    {
+        $r = (new AtlasVerificationCourtEvidenceContract)->evaluate($this->validEvidence());
+        $this->assertTrue($r['accepted']);
+        $this->assertSame([], $r['blockers']);
+    }
 }

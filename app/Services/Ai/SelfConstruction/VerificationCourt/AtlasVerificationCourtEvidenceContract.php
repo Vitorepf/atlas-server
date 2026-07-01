@@ -22,6 +22,18 @@ namespace App\Services\Ai\SelfConstruction\VerificationCourt;
  *   - non_atlas_native_runtime_owner:<owner>
  *   - empty_command_proof   (commands_run had only entries without a name/exit_code)
  *
+ * WORKER-FEED CONTINUITY (opt-in, only checked when evidence sets
+ * `claims_autonomous_execution_quality=true` — a dry-run-only allegation with no such claim is
+ * unaffected): the allegation must carry a `worker_feed_continuity` array with `claimable_depth`,
+ * `active_worker_count`, and `no_claimable_task_repair_status`, and that array must be explicitly
+ * marked `fresh=true` — a claim of autonomous execution quality backed by stale or absent
+ * worker-feed evidence never gets to lean on the court's benefit of the doubt.
+ *   - missing_worker_feed_continuity
+ *   - missing_worker_feed_continuity_claimable_depth
+ *   - missing_worker_feed_continuity_active_worker_count
+ *   - missing_worker_feed_continuity_no_claimable_task_repair_status
+ *   - worker_feed_continuity_not_fresh
+ *
  * INVARIANTS:
  *   - PURE — no I/O, no provider call. DETERMINISTIC envelope.
  *   - The output schema explicitly carries `verified` set to NULL. Never true. Only the court grants
@@ -32,6 +44,8 @@ final class AtlasVerificationCourtEvidenceContract
     public const SCHEMA = 'atlas.verificationcourt.evidence_contract.v1';
 
     public const RUNTIME_OWNER_NATIVE = 'atlas_native';
+
+    public const CLAIM_AUTONOMOUS_EXECUTION_QUALITY_KEY = 'claims_autonomous_execution_quality';
 
     /**
      * @param  array<string,mixed>  $evidence
@@ -113,6 +127,27 @@ final class AtlasVerificationCourtEvidenceContract
         $runtimeOwner = (string) ($evidence['runtime_owner'] ?? '');
         if ($runtimeOwner !== self::RUNTIME_OWNER_NATIVE) {
             $blockers[] = 'non_atlas_native_runtime_owner:'.($runtimeOwner === '' ? 'missing' : $runtimeOwner);
+        }
+
+        $claimsAutonomyQuality = (bool) ($evidence[self::CLAIM_AUTONOMOUS_EXECUTION_QUALITY_KEY] ?? false);
+        if ($claimsAutonomyQuality) {
+            $continuity = is_array($evidence['worker_feed_continuity'] ?? null) ? $evidence['worker_feed_continuity'] : null;
+            if ($continuity === null) {
+                $blockers[] = 'missing_worker_feed_continuity';
+            } else {
+                if (! array_key_exists('claimable_depth', $continuity)) {
+                    $blockers[] = 'missing_worker_feed_continuity_claimable_depth';
+                }
+                if (! array_key_exists('active_worker_count', $continuity)) {
+                    $blockers[] = 'missing_worker_feed_continuity_active_worker_count';
+                }
+                if (! array_key_exists('no_claimable_task_repair_status', $continuity)) {
+                    $blockers[] = 'missing_worker_feed_continuity_no_claimable_task_repair_status';
+                }
+                if (($continuity['fresh'] ?? false) !== true) {
+                    $blockers[] = 'worker_feed_continuity_not_fresh';
+                }
+            }
         }
 
         sort($blockers, SORT_STRING);
