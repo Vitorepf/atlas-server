@@ -5,202 +5,94 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Pure stop policy. Decides when the external brain should stop adding fresh
- * build tasks and switch to audit, consolidation, or evidence backfill instead.
+ * Pure policy that decides whether queue saturation should stop origination.
  *
- * Decision hierarchy (first match wins):
- *   allow_enqueue_exception — queue is saturated but proposed task has exceptional
- *                             value_density (≥ 0.8) OR dependency_unlock_score > 0;
- *                             enqueue is allowed as a high-value exception
- *   consolidate_or_audit    — queue is saturated and proposed task lacks exceptional value;
- *                             stop adding, focus inward
- *   unblock_first           — muscles starved + recoverable_backlog > 0
- *   originate_more          — muscles starved + nothing to unblock
- *   monitor                 — healthy, not saturated (default)
+ * Comfortable queue depth NEVER stops high-value origination — it only shifts
+ * strategy toward higher selectivity and consolidation.
  *
- * Thresholds:
- *   saturation_threshold              default 20   — claimable_depth at saturation
- *   muscle_burn_rate_floor            default 5    — minimum servable_now
- *   exceptional_value_density_floor   default 0.80 — minimum value_density for exception
+ * True stop is only when no high-value frontier, no research path, AND no
+ * simplification path remain.
  *
- * Pure: no I/O, no side effects.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainQueueSaturationStopPolicy
 {
     public const SCHEMA = 'atlas.external_brain.queue_saturation_stop_policy.v1';
 
-    public const DECISION_ALLOW_ENQUEUE_EXCEPTION        = 'allow_enqueue_exception';
-    public const DECISION_CONSOLIDATE_OR_AUDIT           = 'consolidate_or_audit';
-    public const DECISION_ORIGINATE_MORE                 = 'originate_more';
-    public const DECISION_UNBLOCK_FIRST                  = 'unblock_first';
-    public const DECISION_MONITOR                        = 'monitor';
-    public const DECISION_PAUSE_CREATION_AND_CONSOLIDATE = 'pause_creation_and_consolidate';
-    public const DECISION_CONTINUE_CREATION              = 'continue_creation';
-    public const DECISION_SELF_HEAL_BEFORE_MORE_VOLUME   = 'self_heal_before_more_volume';
+    public const ACTION_STOP = 'stop';
 
-    private const DEFAULT_SATURATION_THRESHOLD            = 20;
-    private const DEFAULT_MUSCLE_BURN_RATE_FLOOR          = 5;
-    private const DEFAULT_EXCEPTIONAL_VALUE_DENSITY_FLOOR = 0.80;
-    private const DEFAULT_AGE_SATURATION_THRESHOLD        = 14;   // days old = stale queue
-    private const DEFAULT_LOW_SERVE_RATE_THRESHOLD        = 0.30; // fraction below = low throughput
-    private const DEFAULT_POISON_PRESSURE_THRESHOLD       = 1;    // ≥ this → self-heal
-    private const DEFAULT_VALUE_DENSITY_CREATION_FLOOR    = 0.60; // minimum for continue_creation
+    public const ACTION_CONTINUE_SELECTIVE = 'continue_with_higher_selectivity';
+
+    public const ACTION_CONSOLIDATION_REFILL = 'consolidation_refill';
 
     /**
      * @param  array{
-     *   claimable_depth?: int,
-     *   servable_now?: int,
-     *   recoverable_backlog?: int,
-     *   muscle_burn_rate_floor?: int,
-     *   saturation_threshold?: int,
-     *   value_density?: float,
-     *   dependency_unlock_score?: int,
-     *   exceptional_value_density_floor?: float,
-     * }  $input
+     *   claimable_depth?:int,
+     *   saturation_threshold?:int,
+     *   high_value_frontier_count?:int,
+     *   research_path_available?:bool,
+     *   simplification_path_available?:bool,
+     *   task_quality_erosion?:float,
+     * }  $facts
+     * @return array{
+     *   schema:string,
+     *   action:string,
+     *   reasons:list<string>,
+     * }
      */
-    public function evaluate(array $input): array
+    public function evaluate(array $facts): array
     {
-        $claimableDepth      = max(0, (int)   ($input['claimable_depth']                ?? 0));
-        $servableNow         = max(0, (int)   ($input['servable_now']                   ?? 0));
-        $recoverableBacklog  = max(0, (int)   ($input['recoverable_backlog']            ?? 0));
-        $burnRateFloor       = max(1, (int)   ($input['muscle_burn_rate_floor']         ?? self::DEFAULT_MUSCLE_BURN_RATE_FLOOR));
-        $saturationThreshold = max(1, (int)   ($input['saturation_threshold']           ?? self::DEFAULT_SATURATION_THRESHOLD));
-        $valueDensity        = max(0.0, min(1.0, (float) ($input['value_density']       ?? 0.0)));
-        $dependencyUnlock    = max(0, (int)   ($input['dependency_unlock_score']        ?? 0));
-        $exceptionFloor      = max(0.0, (float) ($input['exceptional_value_density_floor'] ?? self::DEFAULT_EXCEPTIONAL_VALUE_DENSITY_FLOOR));
+        $claimable = max(0, (int) ($facts['claimable_depth'] ?? 0));
+        $threshold = max(1, (int) ($facts['saturation_threshold'] ?? 150));
+        $highValueFrontier = max(0, (int) ($facts['high_value_frontier_count'] ?? 0));
+        $researchPath = (bool) ($facts['research_path_available'] ?? false);
+        $simplificationPath = (bool) ($facts['simplification_path_available'] ?? false);
+        $qualityErosion = max(0.0, min(1.0, (float) ($facts['task_quality_erosion'] ?? 0.0)));
 
-        // New inputs (AC1/AC2/AC3)
-        $claimableAgeDays    = max(0, (int)   ($input['claimable_age_days']             ?? 0));
-        $serveRate           = max(0.0, min(1.0, (float) ($input['serve_rate']          ?? 1.0)));
-        $poisonPacketCount   = max(0, (int)   ($input['poison_packet_count']            ?? 0));
-        $malformedPacketRate = max(0.0, min(1.0, (float) ($input['malformed_packet_rate'] ?? 0.0)));
-        $ageSatThreshold     = max(1, (int)   ($input['age_saturation_threshold']       ?? self::DEFAULT_AGE_SATURATION_THRESHOLD));
-        $lowServeRateFloor   = max(0.0, (float) ($input['low_serve_rate_threshold']     ?? self::DEFAULT_LOW_SERVE_RATE_THRESHOLD));
-        $poisonThreshold     = max(1, (int)   ($input['poison_pressure_threshold']      ?? self::DEFAULT_POISON_PRESSURE_THRESHOLD));
-        $creationFloor       = max(0.0, (float) ($input['value_density_creation_floor'] ?? self::DEFAULT_VALUE_DENSITY_CREATION_FLOOR));
+        $isSaturated = $claimable >= $threshold;
 
-        // Worker-shaped starvation floor (AC: prefer active_worker_count *
-        // minimum_claimable_per_worker over the flat burn-rate floor when
-        // both worker-shape inputs are present).
-        $activeWorkerCount         = max(0, (int) ($input['active_worker_count'] ?? 0));
-        $minimumClaimablePerWorker = max(0, (int) ($input['minimum_claimable_per_worker'] ?? 0));
-        $workerStarvationFloor     = $activeWorkerCount > 0 && $minimumClaimablePerWorker > 0
-            ? $activeWorkerCount * $minimumClaimablePerWorker
-            : $burnRateFloor;
-
-        $queueSaturated      = $claimableDepth >= $saturationThreshold;
-        $musclesStarved      = $servableNow < $workerStarvationFloor;
-        $isExceptionalValue  = $valueDensity >= $exceptionFloor || $dependencyUnlock > 0;
-        $poisonPressure      = $poisonPacketCount >= $poisonThreshold || $malformedPacketRate > 0.0;
-        $queueStaleByAge     = $claimableAgeDays >= $ageSatThreshold;
-        $lowThroughput       = $serveRate < $lowServeRateFloor;
-
-        // Saturation status reflects the queue's underlying health condition, independent of decision.
-        $saturationStatus = match (true) {
-            $poisonPressure  => 'poisoned',
-            $queueStaleByAge => 'stale',
-            $queueSaturated  => 'saturated',
-            $musclesStarved  => 'starved',
-            default          => 'healthy',
-        };
-
-        // AC3: poison/malformed pressure → self-heal before anything else
-        if ($poisonPressure) {
-            return $this->result(
-                self::DECISION_SELF_HEAL_BEFORE_MORE_VOLUME,
-                "poison_packet_count={$poisonPacketCount}, malformed_packet_rate={$malformedPacketRate}; queue integrity compromised",
-                'self_heal_queue_integrity_before_adding_volume',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
+        // True stop: no paths remain at all.
+        if ($highValueFrontier === 0 && ! $researchPath && ! $simplificationPath) {
+            return $this->envelope(self::ACTION_STOP, [
+                'stop: no high-value frontier',
+                'stop: no research path',
+                'stop: no simplification path',
+            ]);
         }
 
-        if ($queueSaturated && $isExceptionalValue) {
-            return $this->result(
-                self::DECISION_ALLOW_ENQUEUE_EXCEPTION,
-                "queue saturated (depth={$claimableDepth}) but task has exceptional value: value_density={$valueDensity}, dependency_unlock_score={$dependencyUnlock}",
-                'enqueue_this_task_then_reassess',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
+        // Saturation with quality erosion → consolidation_refill (don't pad).
+        if ($isSaturated && $qualityErosion > 0.2) {
+            return $this->envelope(self::ACTION_CONSOLIDATION_REFILL, [
+                'saturation:' . $claimable . '>=' . $threshold,
+                'quality_erosion:' . round($qualityErosion, 2),
+                'prefer_consolidation_over_padding',
+            ]);
         }
 
-        // AC1: stale queue (old tasks accumulating) + low serve rate → pause and consolidate
-        if ($queueStaleByAge && $lowThroughput) {
-            return $this->result(
-                self::DECISION_PAUSE_CREATION_AND_CONSOLIDATE,
-                "claimable_age_days={$claimableAgeDays} ≥ threshold={$ageSatThreshold} and serve_rate={$serveRate} < floor={$lowServeRateFloor}; tasks pile up faster than consumed",
-                'pause_creation_and_consolidate_existing_queue',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
+        // Saturated but paths remain → continue with higher selectivity (NOT stop).
+        if ($isSaturated) {
+            return $this->envelope(self::ACTION_CONTINUE_SELECTIVE, [
+                'saturated:' . $claimable . '>=' . $threshold,
+                'paths_remain: frontier=' . $highValueFrontier . ' research=' . ($researchPath ? 'yes' : 'no') . ' simplification=' . ($simplificationPath ? 'yes' : 'no'),
+                'shift_to_higher_selectivity',
+            ]);
         }
 
-        if ($queueSaturated && ! $musclesStarved) {
-            return $this->result(
-                self::DECISION_CONSOLIDATE_OR_AUDIT,
-                "claimable_depth={$claimableDepth} ≥ threshold={$saturationThreshold} and value_density={$valueDensity} below exception floor={$exceptionFloor}; block low-value enqueue",
-                'run_audit_or_evidence_backfill_next_cycle',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
-        }
-
-        if ($musclesStarved && $recoverableBacklog > 0) {
-            return $this->result(
-                self::DECISION_UNBLOCK_FIRST,
-                "servable_now={$servableNow} < floor={$burnRateFloor} but recoverable_backlog={$recoverableBacklog} tasks can be freed",
-                'unblock_blocked_tasks_before_originating_new_work',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
-        }
-
-        if ($musclesStarved && $recoverableBacklog === 0) {
-            return $this->result(
-                self::DECISION_ORIGINATE_MORE,
-                "servable_now={$servableNow} < floor={$burnRateFloor} and recoverable_backlog=0; muscles genuinely starved",
-                'originate_fresh_tasks_to_refill_worker_pipeline',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
-        }
-
-        // AC2: healthy throughput + fresh queue → continue_creation ONLY when value density stays high
-        if (! $queueStaleByAge && ! $lowThroughput && $valueDensity >= $creationFloor) {
-            return $this->result(
-                self::DECISION_CONTINUE_CREATION,
-                "queue fresh (age={$claimableAgeDays}d < {$ageSatThreshold}d), serve_rate={$serveRate} healthy, value_density={$valueDensity} ≥ floor={$creationFloor}",
-                'continue_creation_at_current_cadence',
-                $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-            );
-        }
-
-        return $this->result(
-            self::DECISION_MONITOR,
-            "claimable_depth={$claimableDepth} and servable_now={$servableNow} are both healthy; no intervention needed",
-            'continue_normal_origination_cadence',
-            $claimableDepth, $servableNow, $valueDensity, $dependencyUnlock, $saturationStatus,
-        );
+        // Not saturated → continue normally.
+        return $this->envelope(self::ACTION_CONTINUE_SELECTIVE, [
+            'not_saturated:' . $claimable . '<' . $threshold,
+        ]);
     }
 
-    private function result(
-        string $decision,
-        string $reason,
-        string $nextCycleHint,
-        int $claimableDepth,
-        int $servableNow,
-        float $valueDensity,
-        int $dependencyUnlockScore,
-        string $saturationStatus,
-    ): array {
+    /** @param  list<string>  $reasons */
+    private function envelope(string $action, array $reasons): array
+    {
+        sort($reasons, SORT_STRING);
+
         return [
-            'schema'                  => self::SCHEMA,
-            'decision'                => $decision,
-            'reason'                  => $reason,
-            'decision_reason'         => $reason,
-            'next_cycle_hint'         => $nextCycleHint,
-            'next_action'             => $nextCycleHint,
-            'claimable_depth'         => $claimableDepth,
-            'queue_depth'             => $claimableDepth,
-            'servable_now'            => $servableNow,
-            'value_density'           => $valueDensity,
-            'dependency_unlock_score' => $dependencyUnlockScore,
-            'saturation_status'       => $saturationStatus,
+            'schema' => self::SCHEMA,
+            'action' => $action,
+            'reasons' => $reasons,
         ];
     }
 }
