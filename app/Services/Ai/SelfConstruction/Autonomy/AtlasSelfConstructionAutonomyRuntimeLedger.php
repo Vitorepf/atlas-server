@@ -32,6 +32,20 @@ final class AtlasSelfConstructionAutonomyRuntimeLedger
     public const KIND_DEGRADED = 'degraded';
     public const KIND_REFUSED = 'refused';
 
+    /** AC4: bound payload size — a runtime ledger row is a receipt, never a transcript. */
+    private const MAX_REASONS = 10;
+
+    private const MAX_REASON_LENGTH = 300;
+
+    /** AC4: reasons matching any of these are secret-like or raw-provider-transcript-like — redact wholesale. */
+    private const SECRET_LIKE_REASON_PATTERNS = [
+        '/api[_-]?key/i',
+        '/bearer\s+[a-z0-9._-]+/i',
+        '/sk-[a-z0-9]{10,}/i',
+        '/password\s*[:=]/i',
+        '/-----BEGIN [A-Z ]*PRIVATE KEY-----/i',
+    ];
+
     public function __construct(private readonly string $ledgerPath) {}
 
     /**
@@ -175,12 +189,13 @@ final class AtlasSelfConstructionAutonomyRuntimeLedger
         }
 
         $createdAtUnix = (int) ($event['created_at_unix'] ?? 0);
+        $rawReasons = array_values(array_map('strval', (array) ($event['reasons'] ?? [])));
         $body = [
             'schema_version' => self::SCHEMA,
             'kind' => $kind,
             'level' => (string) ($event['level'] ?? ''),
             'decision' => (string) ($event['decision'] ?? ''),
-            'reasons' => array_values(array_map('strval', (array) ($event['reasons'] ?? []))),
+            'reasons' => $this->boundReasons($rawReasons),
             'lane' => (string) ($event['lane'] ?? ''),
             'created_at_unix' => $createdAtUnix,
             'created_at' => $createdAtUnix > 0 ? gmdate('Y-m-d\TH:i:s\Z', $createdAtUnix) : '',
@@ -188,6 +203,60 @@ final class AtlasSelfConstructionAutonomyRuntimeLedger
         $body['evidence_hash'] = $this->hashBody($body);
 
         return $body;
+    }
+
+    /**
+     * AC4: bound payload size and redact secret-like / raw-transcript-like content.
+     *
+     * @param  list<string>  $reasons
+     * @return list<string>
+     */
+    private function boundReasons(array $reasons): array
+    {
+        $bounded = [];
+        foreach (array_slice($reasons, 0, self::MAX_REASONS) as $reason) {
+            foreach (self::SECRET_LIKE_REASON_PATTERNS as $pattern) {
+                if (preg_match($pattern, $reason) === 1) {
+                    $reason = '[redacted:secret_like_content]';
+                    break;
+                }
+            }
+            if (strlen($reason) > self::MAX_REASON_LENGTH) {
+                $reason = substr($reason, 0, self::MAX_REASON_LENGTH).'...[truncated]';
+            }
+            $bounded[] = $reason;
+        }
+
+        return $bounded;
+    }
+
+    /**
+     * Filtered read by event kind (class), autonomy level, decision (outcome), lane and a
+     * [since_unix, until_unix] time window. Every filter is AND-ed; an omitted filter matches
+     * everything. Read-only — never mutates the ledger.
+     *
+     * @param  array{kind?:string, level?:string, decision?:string, lane?:string, since_unix?:int, until_unix?:int}  $filters
+     * @return list<array<string,mixed>>
+     */
+    public function query(array $filters): array
+    {
+        return array_values(array_filter($this->all(), function (array $row) use ($filters): bool {
+            foreach (['kind', 'level', 'decision', 'lane'] as $field) {
+                if (isset($filters[$field]) && (string) ($row[$field] ?? '') !== (string) $filters[$field]) {
+                    return false;
+                }
+            }
+
+            $ts = (int) ($row['created_at_unix'] ?? 0);
+            if (isset($filters['since_unix']) && $ts < (int) $filters['since_unix']) {
+                return false;
+            }
+            if (isset($filters['until_unix']) && $ts > (int) $filters['until_unix']) {
+                return false;
+            }
+
+            return true;
+        }));
     }
 
     /**

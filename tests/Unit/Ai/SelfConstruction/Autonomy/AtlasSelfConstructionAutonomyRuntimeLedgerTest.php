@@ -206,4 +206,110 @@ final class AtlasSelfConstructionAutonomyRuntimeLedgerTest extends TestCase
         }
         $this->assertSame('2023-11-14T22:16:40Z', $row['created_at']);
     }
+
+    // ── AC3: query() — filtered reads by event class, level, outcome, time window ──
+
+    public function test_query_filters_by_kind_level_decision_and_lane(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 1]);
+        $ledger->append(['kind' => 'refused', 'level' => 'L1', 'decision' => 'reject', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 2]);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L2', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-B', 'created_at_unix' => 3]);
+
+        $rows = $ledger->query(['kind' => 'promoted', 'level' => 'L1']);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('lane-A', $rows[0]['lane']);
+    }
+
+    public function test_query_filters_by_decision_outcome(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 1]);
+        $ledger->append(['kind' => 'refused', 'level' => 'L1', 'decision' => 'reject', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 2]);
+
+        $rows = $ledger->query(['decision' => 'reject']);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('refused', $rows[0]['kind']);
+    }
+
+    public function test_query_filters_by_time_window(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 100]);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 200]);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 300]);
+
+        $rows = $ledger->query(['since_unix' => 150, 'until_unix' => 250]);
+
+        $this->assertCount(1, $rows);
+        $this->assertSame(200, $rows[0]['created_at_unix']);
+    }
+
+    public function test_query_with_no_filters_returns_all_and_does_not_mutate(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $ledger->append(['kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow', 'reasons' => [], 'lane' => 'lane-A', 'created_at_unix' => 1]);
+
+        $rows = $ledger->query([]);
+
+        $this->assertCount(1, $rows);
+        $this->assertCount(1, $ledger->all());
+    }
+
+    // ── AC4: bounded payload + secret/transcript redaction ─────────────────────
+
+    public function test_reasons_list_is_bounded_to_max_count(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $manyReasons = array_map(static fn (int $i): string => "reason-{$i}", range(1, 20));
+
+        $row = $ledger->append([
+            'kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow',
+            'reasons' => $manyReasons, 'lane' => 'lane-A', 'created_at_unix' => 1,
+        ]);
+
+        $this->assertLessThanOrEqual(10, count($row['reasons']));
+    }
+
+    public function test_overlong_reason_string_is_truncated(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+        $long = str_repeat('x', 1000);
+
+        $row = $ledger->append([
+            'kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow',
+            'reasons' => [$long], 'lane' => 'lane-A', 'created_at_unix' => 1,
+        ]);
+
+        $this->assertLessThan(1000, strlen($row['reasons'][0]));
+        $this->assertStringEndsWith('...[truncated]', $row['reasons'][0]);
+    }
+
+    public function test_secret_like_reason_is_redacted(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+
+        $row = $ledger->append([
+            'kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow',
+            'reasons' => ['leaked Bearer sk-abc123456789def token in transcript'],
+            'lane' => 'lane-A', 'created_at_unix' => 1,
+        ]);
+
+        $this->assertSame('[redacted:secret_like_content]', $row['reasons'][0]);
+        $this->assertStringNotContainsString('sk-abc123456789def', json_encode($row));
+    }
+
+    public function test_normal_reason_is_not_redacted(): void
+    {
+        $ledger = new AtlasSelfConstructionAutonomyRuntimeLedger($this->ledgerPath);
+
+        $row = $ledger->append([
+            'kind' => 'promoted', 'level' => 'L1', 'decision' => 'allow',
+            'reasons' => ['evidence_ok'], 'lane' => 'lane-A', 'created_at_unix' => 1,
+        ]);
+
+        $this->assertSame(['evidence_ok'], $row['reasons']);
+    }
 }
