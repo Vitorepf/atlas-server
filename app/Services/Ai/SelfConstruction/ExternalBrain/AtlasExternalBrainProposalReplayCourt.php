@@ -135,10 +135,17 @@ final class AtlasExternalBrainProposalReplayCourt
                     4,
                 );
             } else {
-                $rejected[] = ['id' => $id, 'rejection_reasons' => $failures];
                 $repairHint = $this->repairHint($failures);
+                $safeToResubmit = $repairHint !== null;
+
+                $rejected[] = ['id' => $id, 'rejection_reasons' => $failures, 'safe_to_resubmit' => $safeToResubmit];
+
                 if ($repairHint !== null) {
-                    $repairable[] = ['id' => $id, 'repair_hint' => $repairHint];
+                    $repairable[] = [
+                        'id' => $id,
+                        'repair_hint' => $repairHint,
+                        'repair_synthesis' => $this->repairSynthesis($failures, $minScaffold),
+                    ];
                 }
             }
         }
@@ -179,6 +186,36 @@ final class AtlasExternalBrainProposalReplayCourt
         }
 
         return $hints ? implode('; ', $hints) : null;
+    }
+
+    /**
+     * @param  list<string>  $failures
+     * @return array{missing_evidence:list<string>, scaffold_repair_steps:list<string>, acceptance_rewrite_hint:string, safe_to_resubmit:bool}
+     */
+    private function repairSynthesis(array $failures, float $minScaffold): array
+    {
+        $missingEvidence = in_array('evidence_check', $failures, true)
+            ? ['attach_at_least_one_evidence_reference']
+            : [];
+
+        $scaffoldRepairSteps = in_array('scaffold_compliance', $failures, true)
+            ? ["raise_scaffold_score_to_at_least_{$minScaffold}"]
+            : [];
+
+        $rewriteParts = [];
+        if ($scaffoldRepairSteps !== []) {
+            $rewriteParts[] = 'raise scaffold score before re-submission';
+        }
+        if ($missingEvidence !== []) {
+            $rewriteParts[] = 'attach runnable evidence before re-submission';
+        }
+
+        return [
+            'missing_evidence' => $missingEvidence,
+            'scaffold_repair_steps' => $scaffoldRepairSteps,
+            'acceptance_rewrite_hint' => implode('; ', $rewriteParts),
+            'safe_to_resubmit' => true,
+        ];
     }
 
     public const DECISION_REPLAY        = 'replay';

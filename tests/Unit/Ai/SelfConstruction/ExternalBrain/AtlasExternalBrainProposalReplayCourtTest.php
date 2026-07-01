@@ -342,4 +342,62 @@ final class AtlasExternalBrainProposalReplayCourtTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainProposalReplayCourt::DECISION_KEEP_REJECTED, $result['decisions'][0]['decision']);
     }
+
+    // ── repair_synthesis ─────────────────────────────────────────────────────
+
+    public function test_evidence_only_failure_repair_synthesis_has_required_fields(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'        => [$this->good(['evidence' => []])],
+            'require_evidence' => true,
+        ]);
+
+        $synthesis = $r['repairable_proposals'][0]['repair_synthesis'];
+        foreach (['missing_evidence', 'scaffold_repair_steps', 'acceptance_rewrite_hint', 'safe_to_resubmit'] as $k) {
+            $this->assertArrayHasKey($k, $synthesis, "Missing key: {$k}");
+        }
+        $this->assertNotEmpty($synthesis['missing_evidence']);
+        $this->assertSame([], $synthesis['scaffold_repair_steps']);
+        $this->assertTrue($synthesis['safe_to_resubmit']);
+    }
+
+    public function test_low_scaffold_only_repair_synthesis_has_scaffold_steps(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'         => [$this->good(['scaffold_score' => 0.40])],
+            'min_scaffold_score' => 0.60,
+        ]);
+
+        $synthesis = $r['repairable_proposals'][0]['repair_synthesis'];
+        $this->assertNotEmpty($synthesis['scaffold_repair_steps']);
+        $this->assertSame([], $synthesis['missing_evidence']);
+        $this->assertTrue($synthesis['safe_to_resubmit']);
+    }
+
+    public function test_rejected_proposal_includes_safe_to_resubmit_true_when_repairable(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'        => [$this->good(['evidence' => []])],
+            'require_evidence' => true,
+        ]);
+
+        $this->assertTrue($r['rejected_proposals'][0]['safe_to_resubmit']);
+    }
+
+    public function test_duplicate_target_rejected_proposal_safe_to_resubmit_false(): void
+    {
+        $r = $this->court()->adjudicate([
+            'proposals'              => [$this->good()],
+            'existing_queue_targets' => ['app/Services/Foo.php'],
+        ]);
+
+        $this->assertFalse($r['rejected_proposals'][0]['safe_to_resubmit']);
+    }
+
+    public function test_task_fabric_failure_rejected_proposal_safe_to_resubmit_false(): void
+    {
+        $r = $this->court()->adjudicate(['proposals' => [$this->good(['objective' => ''])]]);
+
+        $this->assertFalse($r['rejected_proposals'][0]['safe_to_resubmit']);
+    }
 }
