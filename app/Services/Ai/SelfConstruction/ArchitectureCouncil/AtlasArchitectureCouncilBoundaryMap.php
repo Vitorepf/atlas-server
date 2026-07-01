@@ -39,6 +39,15 @@ final class AtlasArchitectureCouncilBoundaryMap
         'Strategy Council|Worker Swarm|create_packet' => 'strategy_may_not_create_executable_packets_directly',
     ];
 
+    /** Remediation hint per forbidden-edge reason — always preserves simple shared-main task execution. */
+    public const FORBIDDEN_EDGE_REMEDIATION_HINTS = [
+        'workers_may_not_merge' => 'route the merge decision through Merge Governor instead of executing it from Worker Swarm; keep the worker task limited to declaring evidence.',
+        'workers_may_not_grant_final_verification' => 'route final verification through Verification Court instead of self-granting from Worker Swarm; keep the worker task limited to submitting evidence.',
+        'task_fabric_may_not_approve_merit' => 'route merit approval through Verification Court instead of Task Fabric; keep Task Fabric limited to packet origination.',
+        'task_fabric_may_not_merge' => 'route the merge decision through Merge Governor instead of Task Fabric; keep Task Fabric limited to packet origination.',
+        'strategy_may_not_create_executable_packets_directly' => 'route packet creation through Task Fabric instead of Strategy Council; keep Strategy Council limited to naming the next theme.',
+    ];
+
     public const SHARED_ARTIFACTS = [
         'context_pack',
         'evidence_ledger',
@@ -110,7 +119,23 @@ final class AtlasArchitectureCouncilBoundaryMap
                 if (isset(self::FORBIDDEN_EDGES[$key])) {
                     if (! isset($seenForbidden[$key])) {
                         $seenForbidden[$key] = true;
-                        $forbidden[] = ['edge' => compact('from', 'to', 'action'), 'reason' => self::FORBIDDEN_EDGES[$key]];
+                        $reason = self::FORBIDDEN_EDGES[$key];
+                        $offendingArtifactOrPath = $action;
+                        foreach (self::SHARED_ARTIFACTS as $artifact) {
+                            if (str_contains($action, $artifact)) {
+                                $offendingArtifactOrPath = $artifact;
+                                break;
+                            }
+                        }
+                        $forbidden[] = [
+                            'edge' => compact('from', 'to', 'action'),
+                            'reason' => $reason,
+                            'source_boundary' => $from,
+                            'target_boundary' => $to,
+                            'offending_artifact_or_path' => $offendingArtifactOrPath,
+                            'remediation_hint' => self::FORBIDDEN_EDGE_REMEDIATION_HINTS[$reason]
+                                ?? 'remove this edge; route the action through the organ authorised for it while keeping the rest of the task on simple shared-main execution.',
+                        ];
                     }
 
                     continue;
