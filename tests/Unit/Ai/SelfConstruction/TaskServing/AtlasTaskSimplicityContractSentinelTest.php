@@ -169,4 +169,71 @@ final class AtlasTaskSimplicityContractSentinelTest extends TestCase
         $this->assertArrayNotHasKey('score', $result);
         $this->assertFalse($result['mutates_queue']);
     }
+
+    // ── AC: batch simplicity violations, repeated health-noise advisories, and pass state separately ──
+
+    public function test_simple_batch_passes_with_no_violations_or_advisories(): void
+    {
+        $result = $this->sentinel()->evaluateBatch([
+            $this->specRecord('s-1', ['app/Services/Foo.php', 'tests/Unit/FooTest.php'], 'implement Foo service'),
+        ]);
+
+        $this->assertTrue($result['batch_pass']);
+        $this->assertSame(0, $result['defect_count']);
+        $this->assertSame([], $result['repeated_objectives']);
+        $this->assertSame([], $result['health_noise_advisories']);
+    }
+
+    public function test_over_engineered_batch_with_repeated_template_objective_fails_batch_pass(): void
+    {
+        $sameObj = 'generate the scaffold class';
+        $result = $this->sentinel()->evaluateBatch([
+            $this->specRecord('oe-1', ['app/A.php', 'tests/ATest.php'], $sameObj),
+            $this->specRecord('oe-2', ['app/B.php', 'tests/BTest.php'], $sameObj),
+        ]);
+
+        $this->assertFalse($result['batch_pass']);
+        $this->assertGreaterThan(0, $result['defect_count']);
+        $this->assertNotEmpty($result['repeated_objectives']);
+        $this->assertSame([], $result['health_noise_advisories']);
+    }
+
+    public function test_repeated_ghost_health_followups_are_advisory_not_a_batch_violation(): void
+    {
+        $healthObj = 'investigate ghost lease accounting mismatch';
+        $result = $this->sentinel()->evaluateBatch([
+            $this->specRecord('hn-1', ['app/Health1.php', 'tests/Health1Test.php'], $healthObj),
+            $this->specRecord('hn-2', ['app/Health2.php', 'tests/Health2Test.php'], $healthObj),
+        ]);
+
+        $this->assertTrue($result['batch_pass'], 'repeated health-noise followups must not fail the batch');
+        $this->assertSame(0, $result['defect_count']);
+        $this->assertSame([], $result['repeated_objectives']);
+        $this->assertNotEmpty($result['health_noise_advisories']);
+        $ids = $result['health_noise_advisories'][0];
+        $this->assertContains('hn-1', $ids);
+        $this->assertContains('hn-2', $ids);
+    }
+
+    public function test_mixed_batch_reports_deterministic_counts_across_violations_and_advisories(): void
+    {
+        $templateObj = 'generate the scaffold class';
+        $healthObj = 'investigate ghost lease accounting mismatch';
+        $records = [
+            $this->specRecord('m-1', ['app/A.php', 'tests/ATest.php'], $templateObj),
+            $this->specRecord('m-2', ['app/B.php', 'tests/BTest.php'], $templateObj),
+            $this->specRecord('m-3', ['app/Health1.php', 'tests/Health1Test.php'], $healthObj),
+            $this->specRecord('m-4', ['app/Health2.php', 'tests/Health2Test.php'], $healthObj),
+            $this->specRecord('m-5', ['app/Clean.php', 'tests/CleanTest.php'], 'implement clean service'),
+        ];
+
+        $first = $this->sentinel()->evaluateBatch($records);
+        $second = $this->sentinel()->evaluateBatch($records);
+
+        $this->assertSame($first, $second, 'evaluateBatch must be deterministic');
+        $this->assertFalse($first['batch_pass']);
+        $this->assertCount(1, $first['repeated_objectives']);
+        $this->assertCount(1, $first['health_noise_advisories']);
+        $this->assertSame(1, $first['defect_count']);
+    }
 }

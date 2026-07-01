@@ -18,6 +18,14 @@ final class AtlasTaskSimplicityContractSentinel
 
     public const SAMPLE_LIMIT = 10;
 
+    /** Objective text containing any of these signals is a recurring operational health-check
+     *  followup, not a template-farm violation — repeated because the underlying condition keeps
+     *  recurring (e.g. ghost leases), not because the spec was copy-pasted for padding. */
+    private const HEALTH_NOISE_SIGNALS = [
+        'health', 'ghost lease', 'lease mismatch', 'reap', 'stale lease',
+        'diagnostic', 'queue repair', 'lease accounting', 'serving jam',
+    ];
+
     public function __construct(private readonly AtlasTaskSimplicityContractAuditor $auditor)
     {
     }
@@ -55,7 +63,10 @@ final class AtlasTaskSimplicityContractSentinel
             };
         }
 
-        // Cross-spec: repeated objective text → template-farm repetition.
+        // Cross-spec: repeated objective text → template-farm repetition, UNLESS the shared
+        // objective text is itself an operational health-check followup (repeats because the
+        // underlying condition keeps recurring, e.g. ghost leases) — that's advisory noise, not
+        // a simplicity-contract violation.
         $objectiveMap = [];
         foreach ($records as $record) {
             $packet = is_array($record['task_packet'] ?? null) ? $record['task_packet'] : $record;
@@ -65,9 +76,22 @@ final class AtlasTaskSimplicityContractSentinel
                 $objectiveMap[$obj][] = $id;
             }
         }
-        $repeatedObjectives = array_values(
-            array_filter(array_values($objectiveMap), static fn (array $ids): bool => count($ids) > 1)
-        );
+        $repeatedObjectives = [];
+        $healthNoiseAdvisories = [];
+        foreach ($objectiveMap as $obj => $ids) {
+            if (count($ids) <= 1) {
+                continue;
+            }
+            if ($this->isHealthNoiseObjective($obj)) {
+                $healthNoiseAdvisories[] = $ids;
+            } else {
+                $repeatedObjectives[] = $ids;
+            }
+        }
+        $repeatedObjectives = array_values($repeatedObjectives);
+        $healthNoiseAdvisories = array_values($healthNoiseAdvisories);
+
+        $defectCount = count($broadScope) + count($testOnly) + count($noImplFile) + count($repeatedObjectives);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -75,9 +99,23 @@ final class AtlasTaskSimplicityContractSentinel
             'test_only' => array_values(array_unique($testOnly)),
             'no_impl_file' => array_values(array_unique($noImplFile)),
             'repeated_objectives' => $repeatedObjectives,
-            'defect_count' => count($broadScope) + count($testOnly) + count($noImplFile) + count($repeatedObjectives),
+            'health_noise_advisories' => $healthNoiseAdvisories,
+            'defect_count' => $defectCount,
+            'batch_pass' => $defectCount === 0,
             'mutates_queue' => false,
         ];
+    }
+
+    private function isHealthNoiseObjective(string $objective): bool
+    {
+        $lower = strtolower($objective);
+        foreach (self::HEALTH_NOISE_SIGNALS as $signal) {
+            if (str_contains($lower, $signal)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
