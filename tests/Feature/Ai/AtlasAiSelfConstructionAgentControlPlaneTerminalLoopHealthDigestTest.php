@@ -609,7 +609,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTerminalLoopHealthDigestTest
             'lease_id' => (string) $claim['lease_id'],
             'actor' => 'agent-rollup',
             'files_changed' => ['app/Services/Ai/SelfConstruction/rollup-1.php'],
-            'commands_run' => ['php artisan test --filter=rollup'],
+            'commands_run' => ['php artisan test app/Services/Ai/SelfConstruction/rollup-1.php'],
             'tests_or_gates_result' => 'passed',
             'git_status_short' => 'M app/Services/Ai/SelfConstruction/rollup-1.php',
             'git_diff_check_result' => 'clean',
