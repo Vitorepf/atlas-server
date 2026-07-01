@@ -82,6 +82,14 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 $status = self::STATUS_CONTRACT_MISSING;
                 $totalImplemented++;
                 $totalContractMissing++;
+                $debtItems[] = [
+                    'capability_id'       => $id,
+                    'missing_connections' => $missingConnections,
+                    'next_wiring_actions' => array_merge(
+                        ['add_contract: define capability contract before this can affect a real decision'],
+                        $this->nextWiringActions($isWired, $missingConnections, $consumerCount),
+                    ),
+                ];
             } elseif ($consumerCount === 0 && ! $isWired && empty($missingConnections)) {
                 $status = self::STATUS_DORMANT;
                 $totalImplemented++;
@@ -149,6 +157,7 @@ final class AtlasExternalBrainCapabilityIntegrationMap
                 'dormant_implemented' => $totalDormant,
                 'contract_missing'    => $totalContractMissing,
                 'not_implemented'     => $totalNotImplemented,
+                'fully_integrated'    => count($fulfilled),
             ],
             'circuits'                => $circuits,
             'isolated_organs'         => $isolatedOrgans,

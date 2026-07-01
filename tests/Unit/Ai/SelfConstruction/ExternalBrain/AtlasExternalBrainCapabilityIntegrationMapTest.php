@@ -201,6 +201,23 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
         $this->assertSame(1, $r['debt_summary']['contract_missing']);
     }
 
+    public function test_contract_missing_capability_produces_next_wiring_actions(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [$this->cap([
+            'id'           => 'no_spec',
+            'has_contract' => false,
+        ])]]);
+
+        $debtItem = null;
+        foreach ($r['integration_debt_items'] as $item) {
+            if ($item['capability_id'] === 'no_spec') {
+                $debtItem = $item;
+            }
+        }
+        $this->assertNotNull($debtItem, 'contract_missing capability must appear in integration_debt_items');
+        $this->assertContains('add_contract: define capability contract before this can affect a real decision', $debtItem['next_wiring_actions']);
+    }
+
     public function test_has_contract_true_does_not_change_classification(): void
     {
         $r = $this->mapper()->map(['capabilities' => [$this->cap(['has_contract' => true])]]);
@@ -272,6 +289,18 @@ final class AtlasExternalBrainCapabilityIntegrationMapTest extends TestCase
 
         $this->assertArrayHasKey('dormant_implemented', $r['debt_summary']);
         $this->assertArrayHasKey('contract_missing',    $r['debt_summary']);
+    }
+
+    public function test_debt_summary_fully_integrated_count_matches_fulfilled_capabilities(): void
+    {
+        $r = $this->mapper()->map(['capabilities' => [
+            $this->cap(['id' => 'ok1', 'is_wired' => true, 'integration_points' => ['a'], 'connected_to' => ['a']]),
+            $this->cap(['id' => 'ok2', 'is_wired' => true, 'integration_points' => ['b'], 'connected_to' => ['b']]),
+        ]]);
+
+        $this->assertArrayHasKey('fully_integrated', $r['debt_summary']);
+        $this->assertSame(count($r['fulfilled_capabilities']), $r['debt_summary']['fully_integrated']);
+        $this->assertSame(2, $r['debt_summary']['fully_integrated']);
     }
 
     // ── AC: circuits, isolated_organs, circuit_recommendations in output ──────
