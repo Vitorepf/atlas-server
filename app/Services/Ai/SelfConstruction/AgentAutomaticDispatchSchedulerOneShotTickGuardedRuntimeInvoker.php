@@ -2,14 +2,15 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Arr;
 use InvalidArgumentException;
 
 class AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker
 {
     public function __construct(
         private readonly AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter $writer,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -55,47 +56,31 @@ class AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker
      */
     private function normalize(array $input): array
     {
-        $required = [
-            'release_receipt_hash',
-            'selected_wakeup_key',
-            'dispatch_envelope_hash',
-            'source_release_preflight_hash',
-            'source_mutating_writer_contract_hash',
-            'source_mutating_writer_preflight_hash',
-            'receipt_hash',
-            'signed_by',
-            'signed_at',
-            'expires_at',
-            'payload',
-        ];
-
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        foreach ([
-            'release_receipt_hash',
-            'dispatch_envelope_hash',
-            'source_release_preflight_hash',
-            'source_mutating_writer_contract_hash',
-            'source_mutating_writer_preflight_hash',
-            'receipt_hash',
-            'adapter_contract_hash',
-        ] as $hashField) {
-            if (! Arr::has($input, $hashField) || $input[$hashField] === null || $input[$hashField] === '') {
-                continue;
-            }
-
-            $hash = strtolower((string) $input[$hashField]);
-
-            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$hashField);
-            }
-
-            $input[$hashField] = $hash;
-        }
+        $input = $this->inputNormalizer->normalize(
+            $input,
+            [
+                'release_receipt_hash',
+                'selected_wakeup_key',
+                'dispatch_envelope_hash',
+                'source_release_preflight_hash',
+                'source_mutating_writer_contract_hash',
+                'source_mutating_writer_preflight_hash',
+                'receipt_hash',
+                'signed_by',
+                'signed_at',
+                'expires_at',
+                'payload',
+            ],
+            [
+                'release_receipt_hash',
+                'dispatch_envelope_hash',
+                'source_release_preflight_hash',
+                'source_mutating_writer_contract_hash',
+                'source_mutating_writer_preflight_hash',
+                'receipt_hash',
+                'adapter_contract_hash',
+            ],
+        );
 
         CarbonImmutable::parse((string) $input['signed_at']);
         $expiresAt = CarbonImmutable::parse((string) $input['expires_at']);

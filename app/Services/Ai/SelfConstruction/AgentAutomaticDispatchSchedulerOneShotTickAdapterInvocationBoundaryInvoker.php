@@ -2,13 +2,14 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Arr;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
 use InvalidArgumentException;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker
 {
     public function __construct(
         private readonly AgentDispatchExecutorAdapterInvocationBoundary $adapterInvocationBoundary,
+        private readonly OneShotTickInputNormalizer $inputNormalizer = new OneShotTickInputNormalizer,
     ) {}
 
     /**
@@ -50,38 +51,26 @@ final class AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryI
      */
     private function normalize(array $input): array
     {
-        $required = [
-            'run_key',
-            'adapter_invocation_id',
-            'provider_start_attempt_id',
-            'provider',
-            'adapter',
-            'command',
-            'cwd',
-            'context_pack_hash',
-            'continuation_summary_hash',
-            'actor',
-            'session',
-            'max_runtime_minutes',
-            'max_cost_usd',
-            'reason',
-        ];
-
-        foreach ($required as $field) {
-            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
-                throw new InvalidArgumentException('missing_'.$field);
-            }
-        }
-
-        foreach (['context_pack_hash', 'continuation_summary_hash'] as $hashField) {
-            $hash = strtolower((string) $input[$hashField]);
-
-            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
-                throw new InvalidArgumentException('invalid_'.$hashField);
-            }
-
-            $input[$hashField] = $hash;
-        }
+        $input = $this->inputNormalizer->normalize(
+            $input,
+            [
+                'run_key',
+                'adapter_invocation_id',
+                'provider_start_attempt_id',
+                'provider',
+                'adapter',
+                'command',
+                'cwd',
+                'context_pack_hash',
+                'continuation_summary_hash',
+                'actor',
+                'session',
+                'max_runtime_minutes',
+                'max_cost_usd',
+                'reason',
+            ],
+            ['context_pack_hash', 'continuation_summary_hash'],
+        );
 
         if ((int) $input['max_runtime_minutes'] < 1) {
             throw new InvalidArgumentException('invalid_max_runtime_minutes');
