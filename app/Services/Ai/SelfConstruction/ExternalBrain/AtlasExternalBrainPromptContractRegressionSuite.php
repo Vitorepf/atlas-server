@@ -17,9 +17,14 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   anti_provider_human_dependency — never depends on a human/operator/external provider as runtime owner
  *   dedup_anti_template           — dedupes against prior proposals / avoids templated repeats
  *
- * Plus one DEFECT check (not a presence requirement):
- *   quota_farm_risk — the prompt rewards raw proposal/task COUNT without also requiring
- *                     value/diversity/evidence — a quota-farming incentive.
+ * Plus DEFECT checks (not presence requirements — a risky phrase fails unless mitigated):
+ *   quota_farm_risk           — rewards raw proposal/task COUNT without value/diversity/evidence.
+ *   comfortable_queue_stop_risk — allows stopping/pausing on comfortable queue depth without also
+ *                                 requiring verified target exhaustion.
+ *   proxy_task_risk           — permits proxy/cosmetic tasks (renaming, formatting churn, no-behavior
+ *                                 refactors) as valid progress without requiring genuine/substantive impact.
+ *   vague_evidence_risk       — permits vague, speculative, or low-evidence origination without
+ *                                 requiring concrete/verified evidence.
  *
  * OUTPUT: { schema, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string> }
  *
@@ -69,7 +74,21 @@ final class AtlasExternalBrainPromptContractRegressionSuite
 
     private const COMFORTABLE_QUEUE_STOP_PATTERN = '/(stop|pause|halt|end the run).{0,60}(queue (is |depth (is )?)?(sufficient|comfortable|full|healthy|enough)|enough (tasks|work) (queued|in the queue))|(queue (is |depth (is )?)?(sufficient|comfortable|full|healthy|enough)|enough (tasks|work) (queued|in the queue)).{0,60}(stop|pause|halt|end the run)/is';
 
-    private const COMFORTABLE_QUEUE_STOP_PATCH_NOTE = 'Prompt tells the brain to stop/pause when queue depth looks comfortable. A comfortable queue is never a stop condition — require explicit high-value-search escalation instead.';
+    private const COMFORTABLE_QUEUE_STOP_PATCH_NOTE = 'Prompt tells the brain to stop/pause when queue depth looks comfortable. A comfortable queue is never a stop condition — require explicit verified target exhaustion instead.';
+
+    private const TARGET_EXHAUSTION_MITIGATION_PATTERN = '/(verified? target exhaustion|confirm\w* (the )?target (is |has been )?exhausted|exhaustively verified|target (is |has been )?(fully |)exhausted (and |,)?verified|verified (that )?(the )?target (is |has been )?exhausted)/i';
+
+    private const PROXY_TASK_RISK_PATTERN = '/(proxy (task|metric)s?|cosmetic (change|edit|refactor)s?|renaming[- ]only|formatting[- ]only churn|refactor\w* with no behavior change|micro[- ]edit(s)? (counts?|count) as (progress|success|value))/i';
+
+    private const PROXY_TASK_MITIGATION_PATTERN = '/(genuine value|real (impact|value)|substantive|behavior[- ]changing|non[- ]cosmetic|exponential)/i';
+
+    private const PROXY_TASK_PATCH_NOTE = 'Prompt permits proxy/cosmetic tasks (renaming, formatting churn, no-behavior-change refactors) as valid progress. Require genuine, substantive, behavior-changing impact instead of proxy metrics.';
+
+    private const VAGUE_EVIDENCE_RISK_PATTERN = '/(vague (reasoning|evidence)|low[- ]evidence (origination|proposal)|speculat\w* (candidate|proposal)s? (is|are) (fine|acceptable|ok)|no evidence (is |)(required|needed)|guess\w* (is|are) (fine|acceptable))/i';
+
+    private const VAGUE_EVIDENCE_MITIGATION_PATTERN = '/(concrete evidence|verified evidence|require\w* evidence|substantiat\w*|verified? target exhaustion)/i';
+
+    private const VAGUE_EVIDENCE_PATCH_NOTE = 'Prompt permits vague, speculative, or low-evidence origination. Require concrete, verified evidence before any candidate is proposed.';
 
     /**
      * @return array{schema:string, pass:bool, score:float, failed_clauses:list<string>, required_patch_notes:list<string>, detected_strengths:list<string>, quota_farm_risk:bool}
@@ -79,7 +98,7 @@ final class AtlasExternalBrainPromptContractRegressionSuite
         $failedClauses = [];
         $patchNotes = [];
         $detectedStrengths = [];
-        $totalChecks = count(self::REQUIRED_CLAUSES) + 2; // +2 for the quota-farm and comfortable-queue-stop defect checks
+        $totalChecks = count(self::REQUIRED_CLAUSES) + 4; // +4: quota-farm, comfortable-queue-stop, proxy-task, vague-evidence
         $passedChecks = 0;
 
         foreach (self::REQUIRED_CLAUSES as $key => [$pattern, $note]) {
@@ -102,13 +121,34 @@ final class AtlasExternalBrainPromptContractRegressionSuite
             $detectedStrengths[] = 'no_quota_farm_risk';
         }
 
-        $hasComfortableQueueStopRisk = preg_match(self::COMFORTABLE_QUEUE_STOP_PATTERN, $prompt) === 1;
+        $hasComfortableQueueStopRisk = preg_match(self::COMFORTABLE_QUEUE_STOP_PATTERN, $prompt) === 1
+            && preg_match(self::TARGET_EXHAUSTION_MITIGATION_PATTERN, $prompt) !== 1;
         if ($hasComfortableQueueStopRisk) {
             $failedClauses[] = 'comfortable_queue_stop_risk';
             $patchNotes[] = self::COMFORTABLE_QUEUE_STOP_PATCH_NOTE;
         } else {
             $passedChecks++;
             $detectedStrengths[] = 'no_comfortable_queue_stop_risk';
+        }
+
+        $hasProxyTaskRisk = preg_match(self::PROXY_TASK_RISK_PATTERN, $prompt) === 1
+            && preg_match(self::PROXY_TASK_MITIGATION_PATTERN, $prompt) !== 1;
+        if ($hasProxyTaskRisk) {
+            $failedClauses[] = 'proxy_task_risk';
+            $patchNotes[] = self::PROXY_TASK_PATCH_NOTE;
+        } else {
+            $passedChecks++;
+            $detectedStrengths[] = 'no_proxy_task_risk';
+        }
+
+        $hasVagueEvidenceRisk = preg_match(self::VAGUE_EVIDENCE_RISK_PATTERN, $prompt) === 1
+            && preg_match(self::VAGUE_EVIDENCE_MITIGATION_PATTERN, $prompt) !== 1;
+        if ($hasVagueEvidenceRisk) {
+            $failedClauses[] = 'vague_evidence_risk';
+            $patchNotes[] = self::VAGUE_EVIDENCE_PATCH_NOTE;
+        } else {
+            $passedChecks++;
+            $detectedStrengths[] = 'no_vague_evidence_risk';
         }
 
         return [

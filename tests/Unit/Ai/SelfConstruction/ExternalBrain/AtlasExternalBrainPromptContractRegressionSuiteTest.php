@@ -144,11 +144,13 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
         $r = $this->suite()->validate($this->validPrompt());
 
         $this->assertFalse($r['quota_farm_risk']);
-        $this->assertCount(9, $r['detected_strengths']);
+        $this->assertCount(11, $r['detected_strengths']);
         $this->assertContains('has_persistence_contract', $r['detected_strengths']);
         $this->assertContains('has_escalation_beyond_local_candidates', $r['detected_strengths']);
         $this->assertContains('no_quota_farm_risk', $r['detected_strengths']);
         $this->assertContains('no_comfortable_queue_stop_risk', $r['detected_strengths']);
+        $this->assertContains('no_proxy_task_risk', $r['detected_strengths']);
+        $this->assertContains('no_vague_evidence_risk', $r['detected_strengths']);
     }
 
     public function test_quota_farm_risk_true_for_raw_count_without_mitigation(): void
@@ -164,7 +166,10 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
     public function test_empty_prompt_only_passes_the_defect_checks(): void
     {
         $r = $this->suite()->validate('');
-        $this->assertSame(['no_quota_farm_risk', 'no_comfortable_queue_stop_risk'], $r['detected_strengths']);
+        $this->assertSame(
+            ['no_quota_farm_risk', 'no_comfortable_queue_stop_risk', 'no_proxy_task_risk', 'no_vague_evidence_risk'],
+            $r['detected_strengths'],
+        );
     }
 
     // ── AC2: stop-when-queue-comfortable language fails with comfortable_queue_stop_risk ──
@@ -234,5 +239,62 @@ final class AtlasExternalBrainPromptContractRegressionSuiteTest extends TestCase
 
         $this->assertFalse($r['quota_farm_risk']);
         $this->assertNotContains('quota_farm_risk', $r['failed_clauses']);
+    }
+
+    // ── AC5: comfortable-queue-stop mitigated by verified target exhaustion ──
+
+    public function test_stop_when_queue_comfortable_mitigated_by_verified_target_exhaustion_does_not_fail(): void
+    {
+        $prompt = $this->validPrompt()
+            .' Stop the run when the queue depth is comfortable, only after verified target exhaustion.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertNotContains('comfortable_queue_stop_risk', $r['failed_clauses']);
+    }
+
+    // ── AC6: proxy-task regression — cosmetic/renaming-only tasks counted as progress ──
+
+    public function test_proxy_task_language_fails_with_proxy_task_risk(): void
+    {
+        $prompt = $this->validPrompt()
+            .' Cosmetic refactors and formatting-only churn count as progress toward the target.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertFalse($r['pass']);
+        $this->assertContains('proxy_task_risk', $r['failed_clauses']);
+    }
+
+    public function test_proxy_task_language_mitigated_by_genuine_value_requirement_does_not_fail(): void
+    {
+        $prompt = $this->validPrompt()
+            .' Cosmetic refactors only count toward the target when they carry genuine value.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertNotContains('proxy_task_risk', $r['failed_clauses']);
+    }
+
+    // ── AC7: vague-evidence regression — low-evidence origination permitted ──
+
+    public function test_vague_evidence_language_fails_with_vague_evidence_risk(): void
+    {
+        $prompt = $this->validPrompt().' Speculative candidates are fine — no evidence is required.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertFalse($r['pass']);
+        $this->assertContains('vague_evidence_risk', $r['failed_clauses']);
+    }
+
+    public function test_vague_evidence_language_mitigated_by_concrete_evidence_requirement_does_not_fail(): void
+    {
+        $prompt = $this->validPrompt()
+            .' Speculative candidates are fine as long as they are backed by concrete evidence.';
+
+        $r = $this->suite()->validate($prompt);
+
+        $this->assertNotContains('vague_evidence_risk', $r['failed_clauses']);
     }
 }
