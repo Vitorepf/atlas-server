@@ -47,28 +47,30 @@ final class AtlasExternalBrainPromptToPolicyExtractor
         'scope'    => ['task_shape',        'macro_task_acceptance_criteria', 'task_packet_validator'],
     ];
 
-    // keyword → [category, trigger, enforcement_check]
+    // keyword → [category, trigger, enforcement_check, blocked_behavior]
     private const CATEGORY_MAP = [
-        'proxy'    => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup'],
-        'faxina'   => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup'],
-        'cleanup'  => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup'],
-        'template' => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_template_farm_detected'],
-        'farm'     => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_template_farm_detected'],
-        'evidence' => ['evidence_discipline',   'at_evidence_validation',     'reject_if_no_runnable_evidence'],
-        'proof'    => ['evidence_discipline',   'at_evidence_validation',     'reject_if_no_runnable_evidence'],
-        'gate'     => ['evidence_discipline',   'at_evidence_validation',     'reject_if_gate_check_absent'],
-        'human'    => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_requires_human_approval'],
-        'operator' => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_requires_operator_intervention'],
-        'provider' => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_provider_dependency_detected'],
-        'memory'   => ['memory_discipline',     'at_memory_write',            'reject_if_non_atlas_native_store'],
-        'prompt'   => ['memory_discipline',     'at_memory_write',            'reject_if_prompt_treated_as_memory'],
-        'context'  => ['memory_discipline',     'at_memory_write',            'reject_if_context_not_curated'],
-        'macro'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow'],
-        'scope'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow'],
+        'proxy'    => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup', 'proxy_progress_without_delivery'],
+        'faxina'   => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup', 'proxy_progress_without_delivery'],
+        'cleanup'  => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_objective_is_proxy_or_cleanup', 'proxy_progress_without_delivery'],
+        'template' => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_template_farm_detected', 'template_farming'],
+        'farm'     => ['proxy_anti_pattern',    'at_task_origination',        'reject_if_template_farm_detected', 'template_farming'],
+        'evidence' => ['evidence_discipline',   'at_evidence_validation',     'reject_if_no_runnable_evidence', 'unproven_progress_claim'],
+        'proof'    => ['evidence_discipline',   'at_evidence_validation',     'reject_if_no_runnable_evidence', 'unproven_progress_claim'],
+        'gate'     => ['evidence_discipline',   'at_evidence_validation',     'reject_if_gate_check_absent', 'unproven_progress_claim'],
+        'human'    => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_requires_human_approval', 'human_dependency_reintroduction'],
+        'operator' => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_requires_operator_intervention', 'operator_dependency_reintroduction'],
+        'provider' => ['autonomy_constraint',   'at_dependency_scan',         'reject_if_provider_dependency_detected', 'provider_dependency_reintroduction'],
+        'memory'   => ['memory_discipline',     'at_memory_write',            'reject_if_non_atlas_native_store', 'non_atlas_native_memory_write'],
+        'prompt'   => ['memory_discipline',     'at_memory_write',            'reject_if_prompt_treated_as_memory', 'non_atlas_native_memory_write'],
+        'context'  => ['memory_discipline',     'at_memory_write',            'reject_if_context_not_curated', 'non_atlas_native_memory_write'],
+        'macro'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow', 'undersized_task_shape'],
+        'scope'    => ['task_shape_discipline', 'at_task_packet_validation',  'reject_if_scope_too_narrow', 'undersized_task_shape'],
+        'wait'     => ['continuity_or_origination_discipline', 'at_continuity_check', 'reject_if_wait_used_as_progress', 'wait_as_progress'],
+        'queue'    => ['continuity_or_origination_discipline', 'at_continuity_check', 'reject_if_wait_used_as_progress', 'wait_as_progress'],
     ];
 
     private const DEFAULT_DIMENSION = ['general_policy', 'implementation_notes', 'policy_backlog'];
-    private const DEFAULT_CATEGORY  = ['general_policy_rule', 'at_policy_evaluation', 'log_and_flag_for_review'];
+    private const DEFAULT_CATEGORY  = ['general_policy_rule', 'at_policy_evaluation', 'log_and_flag_for_review', 'undisciplined_behavior'];
 
     /**
      * @param  array{prompt_observations?: list<array<string,mixed>>}  $input
@@ -99,13 +101,14 @@ final class AtlasExternalBrainPromptToPolicyExtractor
             }
 
             [$ownerDimension, $evidenceRequirement, $enforcementPoint] = $this->classifyDimension($text);
-            [$category, $trigger, $enforcementCheck]                   = $this->classifyCategory($text);
+            [$category, $trigger, $enforcementCheck, $blockedBehavior] = $this->classifyCategory($text);
 
             $candidates[] = [
                 'normalized_text'             => $this->normalize($text),
                 'category'                    => $category,
                 'trigger'                     => $trigger,
                 'enforcement_check'           => $enforcementCheck,
+                'blocked_behavior'            => $blockedBehavior,
                 'owner_dimension'             => $ownerDimension,
                 'evidence_requirement'        => $evidenceRequirement,
                 'suggested_enforcement_point' => $enforcementPoint,
@@ -151,7 +154,7 @@ final class AtlasExternalBrainPromptToPolicyExtractor
         return self::DEFAULT_DIMENSION;
     }
 
-    /** @return array{string,string,string} */
+    /** @return array{string,string,string,string} */
     private function classifyCategory(string $text): array
     {
         $lower = strtolower($text);

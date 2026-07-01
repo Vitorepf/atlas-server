@@ -102,6 +102,38 @@ final class AtlasExternalBrainPromptToPolicyExtractorTest extends TestCase
 
     // ── AC1: category classification by keyword ───────────────────────────────
 
+    // ── AC1: wait/queue-depth-as-completion → continuity_or_origination_discipline ──
+
+    public function test_wait_because_queue_depth_sufficient_maps_to_continuity_discipline(): void
+    {
+        $result = $this->extract($this->obs('we are waiting because queue depth is sufficient', ['occurrence_count' => 4]));
+
+        $candidate = $result['policy_candidates'][0];
+        $this->assertSame('continuity_or_origination_discipline', $candidate['category']);
+        $this->assertSame('wait_as_progress', $candidate['blocked_behavior']);
+    }
+
+    // ── AC2: template farming / proxy progress → enforceable candidate ────────
+
+    public function test_template_farming_observation_has_non_empty_trigger_and_enforcement_check(): void
+    {
+        $result = $this->extract($this->obs('this looks like template farming', ['occurrence_count' => 3]));
+
+        $candidate = $result['policy_candidates'][0];
+        $this->assertNotEmpty($candidate['trigger']);
+        $this->assertNotEmpty($candidate['enforcement_check']);
+        $this->assertSame('template_farming', $candidate['blocked_behavior']);
+    }
+
+    public function test_proxy_progress_observation_has_non_empty_trigger_and_enforcement_check(): void
+    {
+        $result = $this->extract($this->obs('reports proxy progress without real delivery', ['occurrence_count' => 3]));
+
+        $candidate = $result['policy_candidates'][0];
+        $this->assertNotEmpty($candidate['trigger']);
+        $this->assertNotEmpty($candidate['enforcement_check']);
+    }
+
     public function test_proxy_keyword_maps_to_proxy_anti_pattern_category(): void
     {
         $result = $this->extract($this->obs('avoid proxy tasks'));
