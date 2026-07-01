@@ -66,6 +66,46 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompilerTest extends TestCas
         $this->assertSame(['gap-a', 'gap-b'], $result['chain'][0]['gap_ids']);
     }
 
+    public function test_shared_unblocker_emits_dependent_gap_ids_proof_contracts_and_reuse_reason(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                [
+                    'gap_id' => 'gap-a',
+                    'blockers' => [
+                        ['type' => 'missing_context', 'unblocker_id' => 'shared-context-fix', 'acceptance_strength' => 'a-strength'],
+                    ],
+                ],
+                [
+                    'gap_id' => 'gap-b',
+                    'blockers' => [
+                        ['type' => 'missing_context', 'unblocker_id' => 'shared-context-fix', 'acceptance_strength' => 'b-strength'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $node = $result['chain'][0];
+        $this->assertSame(['gap-a', 'gap-b'], $node['dependent_gap_ids']);
+        $this->assertArrayHasKey('gap-a', $node['proof_contracts_by_gap']);
+        $this->assertArrayHasKey('gap-b', $node['proof_contracts_by_gap']);
+        $this->assertSame('a-strength', $node['proof_contracts_by_gap']['gap-a']['acceptance_strength']);
+        $this->assertSame('b-strength', $node['proof_contracts_by_gap']['gap-b']['acceptance_strength']);
+        $this->assertSame('shared unblocker_id: shared-context-fix', $node['reuse_reason']);
+    }
+
+    public function test_non_shared_node_reuse_reason_is_null(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([
+            'gaps' => [
+                ['gap_id' => 'gap-a', 'blockers' => [['type' => 'missing_context']]],
+            ],
+        ]);
+
+        $this->assertNull($result['chain'][0]['reuse_reason']);
+        $this->assertSame(['gap-a'], $result['chain'][0]['dependent_gap_ids']);
+    }
+
     public function test_non_shared_node_gap_ids_contains_only_its_own_gap(): void
     {
         $result = (new AtlasExternalBrainCapabilityGapTaskChainCompiler)->compile([

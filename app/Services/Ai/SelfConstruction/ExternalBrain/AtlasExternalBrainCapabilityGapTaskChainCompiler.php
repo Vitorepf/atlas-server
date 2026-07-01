@@ -79,6 +79,12 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
                 $unblockerId = trim((string) ($blocker['unblocker_id'] ?? ''));
                 $unblockerKey = $unblockerId !== '' ? $unblockerId : $gapId.':'.$type;
 
+                $proofContract = [
+                    'acceptance_strength' => (string) ($blocker['acceptance_strength'] ?? self::BLOCKER_DEFAULT_ACCEPTANCE[$type]),
+                    'expected_delta' => (string) ($blocker['expected_delta'] ?? self::BLOCKER_DEFAULT_EXPECTED_DELTA[$type]),
+                    'allowed_files_hint' => array_values((array) ($blocker['allowed_files_hint'] ?? [])),
+                ];
+
                 if (! array_key_exists($unblockerKey, $taskIdByUnblockerKey)) {
                     $taskId = $unblockerKey;
                     $taskIdByUnblockerKey[$unblockerKey] = $taskId;
@@ -88,18 +94,24 @@ final class AtlasExternalBrainCapabilityGapTaskChainCompiler
                         'task_id' => $taskId,
                         'gap_id' => $gapId,
                         'gap_ids' => [$gapId],
+                        'dependent_gap_ids' => [$gapId],
                         'blocker_type' => $type,
                         'dependency_ids' => $previousTaskId !== null ? [$previousTaskId] : [],
-                        'allowed_files_hint' => array_values((array) ($blocker['allowed_files_hint'] ?? [])),
-                        'acceptance_strength' => (string) ($blocker['acceptance_strength'] ?? self::BLOCKER_DEFAULT_ACCEPTANCE[$type]),
-                        'expected_delta' => (string) ($blocker['expected_delta'] ?? self::BLOCKER_DEFAULT_EXPECTED_DELTA[$type]),
+                        'allowed_files_hint' => $proofContract['allowed_files_hint'],
+                        'acceptance_strength' => $proofContract['acceptance_strength'],
+                        'expected_delta' => $proofContract['expected_delta'],
+                        'proof_contracts_by_gap' => [$gapId => $proofContract],
+                        'reuse_reason' => $unblockerId !== '' ? "shared unblocker_id: {$unblockerId}" : null,
                     ];
                 } else {
                     // Shared unblocker: another gap references the same node — record it without duplicating the node.
                     $idx = $chainIndexByUnblockerKey[$unblockerKey];
                     if (! in_array($gapId, $chain[$idx]['gap_ids'], true)) {
                         $chain[$idx]['gap_ids'][] = $gapId;
+                        $chain[$idx]['dependent_gap_ids'][] = $gapId;
                     }
+                    // Preserve this gap's own proof contract even though the task node is shared.
+                    $chain[$idx]['proof_contracts_by_gap'][$gapId] = $proofContract;
                 }
 
                 $taskId = $taskIdByUnblockerKey[$unblockerKey];
