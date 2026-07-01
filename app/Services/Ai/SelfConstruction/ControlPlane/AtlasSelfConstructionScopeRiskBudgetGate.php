@@ -175,6 +175,22 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
             }
         }
 
+        // 24h+ autonomous cycles touching medium+ risk or more than a single-file scope must
+        // declare a burn-window budget (failure and give_back ceilings) up front, else an
+        // unattended run has no circuit breaker if it starts burning tasks.
+        $autonomyWindowHours = isset($facts['autonomy_window_hours']) && is_numeric($facts['autonomy_window_hours'])
+            ? (float) $facts['autonomy_window_hours']
+            : 0.0;
+        $scopeIsBroadOrRisky = count($normalizedScope) > 1 || in_array($risk, ['medium', 'high', 'hardest'], true);
+        if ($autonomyWindowHours >= 24.0 && $scopeIsBroadOrRisky) {
+            $burnWindow = is_array($facts['burn_window'] ?? null) ? $facts['burn_window'] : null;
+            $hasFailureCeiling = $burnWindow !== null && is_numeric($burnWindow['max_failure_rate'] ?? null);
+            $hasGiveBackCeiling = $burnWindow !== null && is_numeric($burnWindow['max_give_back_rate'] ?? null);
+            if (! $hasFailureCeiling || ! $hasGiveBackCeiling) {
+                $blockers[] = 'autonomy_window_requires_burn_budget';
+            }
+        }
+
         sort($blockers, SORT_STRING);
 
         return [

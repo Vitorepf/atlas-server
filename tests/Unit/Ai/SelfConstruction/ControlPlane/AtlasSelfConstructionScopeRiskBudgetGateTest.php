@@ -282,4 +282,52 @@ final class AtlasSelfConstructionScopeRiskBudgetGateTest extends TestCase
         $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
         $this->assertTrue($r['allowed']);
     }
+
+    // ── AC: 24h+ autonomy window requires a burn-window budget ──────────────────
+
+    public function test_24h_window_with_medium_risk_and_missing_burn_window_is_blocked(): void
+    {
+        $f = $this->safeFacts();
+        $f['autonomy_window_hours'] = 24;
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertContains('autonomy_window_requires_burn_budget', $r['blockers']);
+        $this->assertFalse($r['allowed']);
+    }
+
+    public function test_24h_window_with_burn_window_supplied_is_allowed(): void
+    {
+        $f = $this->safeFacts();
+        $f['autonomy_window_hours'] = 30;
+        $f['burn_window'] = ['max_failure_rate' => 0.2, 'max_give_back_rate' => 0.3];
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertNotContains('autonomy_window_requires_burn_budget', $r['blockers']);
+        $this->assertTrue($r['allowed']);
+    }
+
+    public function test_short_window_does_not_require_burn_budget_even_for_high_risk(): void
+    {
+        $f = $this->safeFacts();
+        $f['autonomy_window_hours'] = 4;
+        $f['risk_class'] = 'high';
+        $f['cycle_window'] = ['remaining_cycles' => 3];
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertNotContains('autonomy_window_requires_burn_budget', $r['blockers']);
+    }
+
+    public function test_24h_window_with_narrow_low_risk_scope_does_not_require_burn_budget(): void
+    {
+        $f = $this->safeFacts();
+        $f['risk_class'] = 'low';
+        $f['autonomy_window_hours'] = 30;
+
+        $r = (new AtlasSelfConstructionScopeRiskBudgetGate)->evaluate($f);
+
+        $this->assertNotContains('autonomy_window_requires_burn_budget', $r['blockers']);
+    }
 }
