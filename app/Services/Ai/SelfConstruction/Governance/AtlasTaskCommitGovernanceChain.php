@@ -110,11 +110,15 @@ final class AtlasTaskCommitGovernanceChain
                 'rollback_plan' => ['mode' => 'git_revert_scoped_commit'],
                 'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
                 'scope_deviations' => [],
+                'task_evidence_ref' => $taskId !== '' ? $taskId : $evidenceHash,
             ]);
 
             $rollback = ($this->rollbackGate ?? new AtlasMergeGovernorRollbackPlanGate)->evaluate([
                 'affected_files' => $changed,
                 'restore_strategy' => 'git_revert_scoped_commit',
+                'restore_target' => $taskId !== '' ? 'git_revert:'.$taskId : 'git_revert:HEAD',
+                'pre_image_hash' => $evidenceHash,
+                'verification_command' => 'php artisan atlas:task test-suite',
                 'verification_after_rollback' => ['php -l', 'artisan about', 'task tests'],
                 'owner_scope' => $projectId,
                 'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
@@ -194,8 +198,10 @@ final class AtlasTaskCommitGovernanceChain
                 'candidate_hash' => $candidateHash,
                 'decision' => $decision,
                 'reasons' => $reasons,
+                'risk_level' => (string) ($risk['risk_level'] ?? ''),
                 'verification_hash' => $evidenceHash !== '' ? $evidenceHash : $candidateHash,
                 'rollback_hash' => $this->deterministicHash($rollback),
+                'changed_files_hash' => $this->deterministicHash($changed),
                 'project_lane' => ['project_id' => $projectId],
                 'decided_at' => $decidedAt,
             ])['status'] ?? 'error');
