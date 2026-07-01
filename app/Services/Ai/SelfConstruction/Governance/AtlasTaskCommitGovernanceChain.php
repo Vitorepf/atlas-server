@@ -58,19 +58,26 @@ final class AtlasTaskCommitGovernanceChain
         ?callable $clock = null,
         private readonly ?string $modeOverride = null,
         private readonly ?AtlasVerificationCourtFalseGreenDetector $falseGreenDetector = null,
+        private readonly ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
     ) {
         $this->clock = $clock ?? static fn (): string => now()->toIso8601String();
     }
 
     /**
-     * Resolved governance mode (gradual arming). An explicit constructor override wins; otherwise env-driven,
-     * defaulting to observe so the chain always RUNS and RECORDS but never blocks until the operator arms it.
+     * Resolved governance mode (gradual arming). An explicit constructor override always wins (test/caller
+     * injection); otherwise resolution goes through the {@see AtlasTaskGovernancePolicyPlane} — env override
+     * beats the policy-plane's config-declared mode for $riskLevel, which beats the 'observe' default — so
+     * the chain always RUNS and RECORDS but never blocks until the operator arms it.
      */
-    public function mode(): string
+    public function mode(?string $riskLevel = null): string
     {
-        $raw = strtolower(trim($this->modeOverride ?? (string) env('ATLAS_MERGE_GOVERNANCE_MODE', self::MODE_OBSERVE)));
+        if ($this->modeOverride !== null) {
+            $raw = strtolower(trim($this->modeOverride));
 
-        return in_array($raw, [self::MODE_OFF, self::MODE_OBSERVE, self::MODE_ENFORCE], true) ? $raw : self::MODE_OBSERVE;
+            return in_array($raw, [self::MODE_OFF, self::MODE_OBSERVE, self::MODE_ENFORCE], true) ? $raw : self::MODE_OBSERVE;
+        }
+
+        return ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->modeFor($riskLevel ?? '');
     }
 
     /**
@@ -137,6 +144,11 @@ final class AtlasTaskCommitGovernanceChain
                 ],
                 'release_window_policy' => ['allowed_risk_levels' => $this->releaseWindow()],
             ]);
+
+            // Risk-level-aware refinement: once the packet's risk_level is known, the policy plane's
+            // per-risk-level mode wins over the config-wide default (explicit override / env still absolute
+            // since mode() checks those first — this can only ever narrow, never bypass, that precedence).
+            $mode = $this->mode((string) $risk['risk_level']);
 
             $decision = (string) $admission['decision'];
             $blockers = array_values(array_map('strval', (array) $admission['blockers']));
@@ -241,13 +253,10 @@ final class AtlasTaskCommitGovernanceChain
         };
     }
 
-    /** @return list<string> allowed risk levels for the release window (env-tunable for arming). */
+    /** @return list<string> allowed risk levels for the release window (policy-plane driven, env-tunable). */
     private function releaseWindow(): array
     {
-        $raw = (string) env('ATLAS_MERGE_GOVERNANCE_RISK_WINDOW', 'low,medium');
-        $levels = array_values(array_filter(array_map('trim', explode(',', $raw)), static fn (string $s): bool => $s !== ''));
-
-        return $levels === [] ? ['low', 'medium'] : $levels;
+        return ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->releaseWindow();
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -33,16 +34,24 @@ final class AtlasTaskCommitVerificationGate
     public function __construct(
         private readonly ?string $repoRootOverride = null,
         ?callable $runner = null,
+        private readonly ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
     ) {
         $this->runner = $runner ?? fn (array $cmd, string $cwd, float $timeout): array => $this->realRun($cmd, $cwd, $timeout);
     }
 
-    /** Default ON. Operator can disable via .env (ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT=false) without touching pétreo config. */
+    /**
+     * Default ON. Operator can disable via .env (ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT=false) without
+     * touching pétreo config — the env var stays an absolute emergency override; when unset, the default
+     * is read through the policy plane (config/atlas_task_governance.php), defaulting to true when absent.
+     */
     public function enabled(): bool
     {
-        $v = env('ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT', true);
+        $envRaw = env('ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT');
+        if ($envRaw !== null) {
+            return filter_var($envRaw, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+        }
 
-        return filter_var($v, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+        return ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->verifierEnabledDefault();
     }
 
     /**
