@@ -97,6 +97,13 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             default              => 0.0,
         };
 
+        $missingStrongEvidenceKinds = array_values(array_diff(self::STRONG_EVIDENCE_KINDS, $strongEvidence));
+
+        $proxyOnlyReasons = array_map(
+            static fn (string $signal): string => "proxy_only_signal:{$signal}",
+            $rejectedProxyKinds,
+        );
+
         return [
             'schema' => self::SCHEMA,
             'claim' => $claimText,
@@ -108,7 +115,30 @@ final class AtlasExternalBrainAutonomyClaimAuditor
             'rejected_proxy_kinds' => $rejectedProxyKinds,
             'evidence_freshness' => $evidenceFreshness,
             'next_evidence_task' => $this->nextEvidenceTask($status, $strongEvidence, $claimText),
+            'next_proof_chain' => $this->nextProofChain($status, $missingStrongEvidenceKinds, $claimText),
+            'missing_strong_evidence_kinds' => $missingStrongEvidenceKinds,
+            'proxy_only_reasons' => $proxyOnlyReasons,
+            'proof_priority' => $status === self::STATUS_PROVEN ? null : ($missingStrongEvidenceKinds[0] ?? null),
         ];
+    }
+
+    /**
+     * Full ordered chain of remaining evidence tasks — not just the single next step —
+     * so a partial claim shows every gap standing between it and proven, in priority order.
+     *
+     * @param  list<string>  $missingKinds
+     * @return list<string>
+     */
+    private function nextProofChain(string $status, array $missingKinds, string $claimText): array
+    {
+        if ($status === self::STATUS_PROVEN) {
+            return [];
+        }
+
+        return array_map(
+            static fn (string $kind): string => sprintf('Produce %s evidence to support claim: "%s".', $kind, $claimText),
+            $missingKinds,
+        );
     }
 
     /** @param  list<string>  $strongEvidence */

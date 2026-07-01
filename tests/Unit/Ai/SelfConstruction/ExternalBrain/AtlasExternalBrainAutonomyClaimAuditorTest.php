@@ -242,4 +242,48 @@ final class AtlasExternalBrainAutonomyClaimAuditorTest extends TestCase
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    public function test_partial_claim_next_proof_chain_lists_all_missing_kinds(): void
+    {
+        $result = $this->svc()->audit([
+            'claim' => 'atlas is 95% autonomous',
+            'evidence_refs' => ['runnable_end_to_end_replay'],
+        ]);
+
+        $this->assertSame('partial', $result['status']);
+        $this->assertCount(3, $result['next_proof_chain']);
+        $this->assertSame(['fresh_outcome_learning', 'server_side_test_receipt', 'live_metric_snapshot'], $result['missing_strong_evidence_kinds']);
+        $this->assertSame('fresh_outcome_learning', $result['proof_priority']);
+    }
+
+    public function test_proven_claim_has_empty_proof_chain_and_null_priority(): void
+    {
+        $result = $this->svc()->audit([
+            'claim' => 'atlas is 95% autonomous',
+            'evidence_refs' => ['runnable_end_to_end_replay', 'fresh_outcome_learning'],
+        ]);
+
+        $this->assertSame([], $result['next_proof_chain']);
+        $this->assertNull($result['proof_priority']);
+    }
+
+    public function test_proxy_claim_has_proxy_only_reasons(): void
+    {
+        $result = $this->svc()->audit([
+            'claim' => 'queue is healthy',
+            'proxy_signals' => ['queue_count', 'task_count'],
+        ]);
+
+        $this->assertSame('proxy', $result['status']);
+        $this->assertNotEmpty($result['proxy_only_reasons']);
+        $this->assertContains('proxy_only_signal:queue_count', $result['proxy_only_reasons']);
+    }
+
+    public function test_proxy_claim_never_upgrades_to_partial_or_proven(): void
+    {
+        foreach (['queue_count', 'task_count', 'novelty', 'green_self_report'] as $signal) {
+            $result = $this->svc()->audit(['claim' => 'x', 'proxy_signals' => [$signal]]);
+            $this->assertSame('proxy', $result['status']);
+        }
+    }
 }
