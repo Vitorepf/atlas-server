@@ -105,4 +105,60 @@ final class AtlasSelfConstructionSafeDeletionPlannerTest extends TestCase
             'rollback_notes_missing',
         ], $plan['risk_reasons']);
     }
+
+    public function test_candidate_with_runtime_consumer_is_blocked_from_deletion(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'runtime_consumers' => ['AtlasSomeCommand'],
+            'replacement_owner' => 'NewOrgan',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('runtime_consumer_present:AtlasSomeCommand', $plan['risk_reasons']);
+    }
+
+    public function test_candidate_with_public_contract_consumer_is_blocked_from_deletion(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'public_contract_consumers' => ['ExternalApiClient'],
+            'replacement_owner' => 'NewOrgan',
+        ]);
+
+        $this->assertSame('blocked', $plan['action']);
+        $this->assertContains('public_contract_consumer_present:ExternalApiClient', $plan['risk_reasons']);
+    }
+
+    public function test_dead_replacement_covered_candidate_emits_full_executable_deletion_plan(): void
+    {
+        $plan = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion([
+            'candidate_id' => 'OldOrgan',
+            'replacement_owner' => 'NewOrgan',
+            'allowed_files' => ['app/Services/Old.php'],
+            'required_tests' => ['tests/Unit/OldTest.php'],
+        ]);
+
+        $this->assertSame('safe_delete', $plan['action']);
+        $this->assertSame(['delete_file:app/Services/Old.php'], $plan['deletion_steps']);
+        $this->assertSame(['remove_imports_of:OldOrgan_from:app/Services/Old.php'], $plan['import_cleanup_steps']);
+        $this->assertSame(['php artisan test tests/Unit/OldTest.php'], $plan['replay_gates']);
+        $this->assertTrue($plan['rollback_receipt_required']);
+        $this->assertSame([], $plan['risk_reasons']);
+    }
+
+    public function test_plan_hash_is_deterministic(): void
+    {
+        $input = [
+            'candidate_id' => 'OldOrgan',
+            'replacement_owner' => 'NewOrgan',
+            'allowed_files' => ['app/Services/Old.php'],
+            'required_tests' => ['tests/Unit/OldTest.php'],
+        ];
+
+        $first = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion($input);
+        $second = (new AtlasSelfConstructionSafeDeletionPlanner)->planSafeDeletion($input);
+
+        $this->assertSame($first['plan_hash'], $second['plan_hash']);
+    }
 }

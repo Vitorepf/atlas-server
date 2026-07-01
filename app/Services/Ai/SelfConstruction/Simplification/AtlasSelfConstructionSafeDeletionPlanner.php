@@ -59,4 +59,85 @@ final class AtlasSelfConstructionSafeDeletionPlanner
             'risk_reasons' => [],
         ];
     }
+
+    /**
+     * Consumer-proof deletion plan: any runtime consumer or public contract consumer blocks
+     * deletion outright, regardless of how dead the code otherwise looks. Only truly dead,
+     * replacement-covered candidates receive an executable deletion plan.
+     *
+     * @param  array{
+     *   candidate_id?:              string,
+     *   runtime_consumers?:         list<string>,
+     *   public_contract_consumers?: list<string>,
+     *   replacement_owner?:         string,
+     *   allowed_files?:             list<string>,
+     *   required_tests?:            list<string>,
+     * }  $candidate
+     * @return array<string,mixed>
+     */
+    public function planSafeDeletion(array $candidate): array
+    {
+        $candidateId = trim((string) ($candidate['candidate_id'] ?? ''));
+        $runtimeConsumers = array_values(array_unique(array_map('strval', (array) ($candidate['runtime_consumers'] ?? []))));
+        $publicContractConsumers = array_values(array_unique(array_map('strval', (array) ($candidate['public_contract_consumers'] ?? []))));
+        $replacementOwner = trim((string) ($candidate['replacement_owner'] ?? ''));
+        $allowedFiles = array_values(array_unique(array_map('strval', (array) ($candidate['allowed_files'] ?? []))));
+        $requiredTests = array_values(array_unique(array_map('strval', (array) ($candidate['required_tests'] ?? []))));
+
+        $reasons = [];
+        if ($runtimeConsumers !== []) {
+            $reasons[] = 'runtime_consumer_present:'.implode(',', $runtimeConsumers);
+        }
+        if ($publicContractConsumers !== []) {
+            $reasons[] = 'public_contract_consumer_present:'.implode(',', $publicContractConsumers);
+        }
+        if ($reasons === [] && $replacementOwner === '') {
+            $reasons[] = 'replacement_owner_missing';
+        }
+
+        if ($reasons !== []) {
+            return [
+                'action' => 'blocked',
+                'candidate_id' => $candidateId,
+                'risk_reasons' => $reasons,
+                'plan_hash' => $this->planHash($candidateId, 'blocked', $reasons),
+            ];
+        }
+
+        $deletionSteps = array_map(
+            static fn (string $file): string => "delete_file:{$file}",
+            $allowedFiles,
+        );
+        $importCleanupSteps = array_map(
+            static fn (string $file): string => "remove_imports_of:{$candidateId}_from:{$file}",
+            $allowedFiles,
+        );
+        $replayGates = $requiredTests !== []
+            ? ['php artisan test '.implode(' ', $requiredTests)]
+            : [];
+
+        $plan = [
+            'action' => 'safe_delete',
+            'candidate_id' => $candidateId,
+            'deletion_steps' => $deletionSteps,
+            'import_cleanup_steps' => $importCleanupSteps,
+            'replay_gates' => $replayGates,
+            'rollback_receipt_required' => true,
+            'risk_reasons' => [],
+        ];
+        $plan['plan_hash'] = $this->planHash($candidateId, 'safe_delete', array_merge($deletionSteps, $importCleanupSteps, $replayGates));
+
+        return $plan;
+    }
+
+    /** @param  list<string>  $parts */
+    private function planHash(string $candidateId, string $action, array $parts): string
+    {
+        sort($parts, SORT_STRING);
+
+        return hash('sha256', json_encode(
+            ['candidate_id' => $candidateId, 'action' => $action, 'parts' => $parts],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ));
+    }
 }
