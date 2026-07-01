@@ -342,6 +342,74 @@ final class AtlasExternalBrainTieredCognitionRouterTest extends TestCase
         $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
     }
 
+    // ── AC3: frontier refused for explicitly low-value low-risk work ─────────
+
+    public function test_high_leverage_trigger_is_refused_for_explicit_low_value_low_risk_work(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.30,
+            'ambiguity_score'         => 0.10,
+            'leverage_score'          => 0.90,
+            'impact_score'            => 0.05,
+            'risk_class'              => 'low',
+        ]);
+        $this->assertNotSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_SCAFFOLDED, $r['assigned_tier']);
+        $this->assertTrue($r['frontier_refused']);
+        $this->assertStringContainsString('frontier_refused', $r['reason']);
+    }
+
+    public function test_quality_delta_trigger_is_refused_for_explicit_low_value_low_risk_work(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.6,
+            'expected_quality_delta'  => 0.50,
+            'impact_score'            => 0.05,
+            'risk_class'              => 'low',
+        ]);
+        $this->assertNotSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertTrue($r['frontier_refused']);
+    }
+
+    public function test_frontier_refused_defaults_to_false_when_frontier_reached_normally(): void
+    {
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.9,
+            'is_conflicting_evidence' => true,
+        ]);
+        $this->assertFalse($r['frontier_refused']);
+    }
+
+    public function test_frontier_refusal_requires_both_impact_score_and_risk_class_explicit(): void
+    {
+        // Only impact_score set, risk_class omitted — must NOT refuse (partial declaration is not enough).
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'scaffold_evidence_strength' => 0.30,
+            'leverage_score'          => 0.90,
+            'impact_score'            => 0.05,
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertFalse($r['frontier_refused']);
+    }
+
+    public function test_conflicting_evidence_never_refused_even_when_declared_low_value(): void
+    {
+        // Hard safety triggers (conflicting evidence, critical risk, frontier types, ambiguity)
+        // are never subject to the low-value refusal — only the ROI-driven soft triggers are.
+        $r = $this->router()->route([
+            'origination_type'        => 'extraction',
+            'is_conflicting_evidence' => true,
+            'impact_score'            => 0.05,
+            'risk_class'              => 'low',
+        ]);
+        $this->assertSame(AtlasExternalBrainTieredCognitionRouter::TIER_FRONTIER, $r['assigned_tier']);
+        $this->assertFalse($r['frontier_refused']);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_output_is_deterministic(): void
