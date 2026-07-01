@@ -21,6 +21,16 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * An implementation file is any allowed_file that is NOT under 'tests/' and does NOT
  * end with 'Test.php' or 'Spec.php'.
  *
+ * Macro refactor / simplification gate (blocking): when the objective/criteria identify
+ * this as a refactor/simplification task (keywords: refactor, simplify, restructure,
+ * consolidate, deduplicate, rewrite), a broad green test suite is not sufficient proof —
+ * evidence_refs must additionally cover three replay dimensions:
+ *   before_after_behavior_replay — proof the behavior before/after the change matches
+ *   rollback_evidence            — proof the change can be safely rolled back
+ *   edge_case_replay             — proof edge cases were replayed, not just the happy path
+ * Any dimension missing evidence lands in missing_replay_dimensions and rejects the spec;
+ * next_required_proof names the next evidence_ref to add to close the first gap.
+ *
  * Pure: no I/O, no side effects.
  */
 final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
@@ -36,8 +46,20 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
     public const DIM_BRITTLE_PROXY       = 'brittle_proxy';
     public const DIM_CLAIMED_LEVERAGE    = 'claimed_leverage_coverage';
     public const DIM_COMMAND_SCOPE_BINDING = 'command_scope_binding';
+    public const DIM_REPLAY_COVERAGE      = 'replay_coverage';
 
     private const RUNNABLE_MARKERS = ['artisan', 'vendor/bin', 'phpunit'];
+
+    private const REFACTOR_TASK_KEYWORDS = [
+        'refactor', 'simplify', 'simplification', 'restructure', 'consolidate',
+        'deduplicate', 'de-duplicate', 'rewrite',
+    ];
+
+    private const REPLAY_DIMENSION_EVIDENCE_KEYS = [
+        'before_after_behavior_replay' => ['before_after_replay', 'before_after_behavior', 'behavior_replay'],
+        'rollback_evidence'            => ['rollback_evidence', 'rollback_proof', 'rollback_plan'],
+        'edge_case_replay'             => ['edge_case_replay', 'edge_case_coverage', 'edge_case_proof'],
+    ];
 
     private const IMPACT_DIMENSIONS = [
         'multi_component'  => ['multi-component', 'cross-component', 'integration', 'multiple capabilities', 'spans multiple'],
@@ -79,6 +101,13 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         $isBrittleProxy      = $this->isBrittleProxy($criteria);
         $claimedLeverageGaps = $this->findLeverageGaps($criteria, $objective, $evidenceRefs);
         $commandBoundToScope = ! $hasRunnableCommand || $this->commandBoundToScope($criteria, $allowedFiles);
+        $isRefactorTask      = $this->isRefactorTask($objective, $criteria);
+        $missingReplayDimensions = $isRefactorTask ? $this->findMissingReplayDimensions($evidenceRefs) : [];
+        $nextRequiredProof   = $missingReplayDimensions === [] ? null : sprintf(
+            'Add an evidence_ref matching one of: %s (to close the missing "%s" replay dimension).',
+            implode(', ', self::REPLAY_DIMENSION_EVIDENCE_KEYS[$missingReplayDimensions[0]]),
+            $missingReplayDimensions[0],
+        );
 
         $rejections = [];
         if (! $hasRunnableCommand) {
@@ -112,6 +141,13 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
                 'dimension' => self::DIM_COMMAND_SCOPE_BINDING,
             ];
         }
+        if ($missingReplayDimensions !== []) {
+            $rejections[] = [
+                'reason'    => 'incomplete_replay_coverage',
+                'dimension' => self::DIM_REPLAY_COVERAGE,
+                'gaps'      => $missingReplayDimensions,
+            ];
+        }
 
         return [
             'schema'                => self::SCHEMA,
@@ -123,9 +159,13 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
                 'is_brittle_proxy'            => $isBrittleProxy,
                 'claimed_leverage_coverage_met' => $claimedLeverageGaps === [],
                 'command_bound_to_scope'      => $commandBoundToScope,
+                'is_refactor_task'            => $isRefactorTask,
+                'refactor_replay_coverage_met' => $missingReplayDimensions === [],
             ],
-            'rejections'            => $rejections,
-            'claimed_leverage_gaps' => $claimedLeverageGaps,
+            'rejections'                => $rejections,
+            'claimed_leverage_gaps'     => $claimedLeverageGaps,
+            'missing_replay_dimensions' => $missingReplayDimensions,
+            'next_required_proof'       => $nextRequiredProof,
         ];
     }
 
@@ -263,6 +303,45 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrix
         }
 
         return false;
+    }
+
+    /** @param list<string> $criteria */
+    private function isRefactorTask(string $objective, array $criteria): bool
+    {
+        $haystack = strtolower($objective.' '.implode(' ', $criteria));
+        foreach (self::REFACTOR_TASK_KEYWORDS as $kw) {
+            if (str_contains($haystack, $kw)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return list<string>
+     */
+    private function findMissingReplayDimensions(array $evidenceRefs): array
+    {
+        $refs = array_map('strtolower', $evidenceRefs);
+        $missing = [];
+        foreach (self::REPLAY_DIMENSION_EVIDENCE_KEYS as $dimension => $keys) {
+            $covered = false;
+            foreach ($keys as $key) {
+                foreach ($refs as $ref) {
+                    if (str_contains($ref, $key)) {
+                        $covered = true;
+                        break 2;
+                    }
+                }
+            }
+            if (! $covered) {
+                $missing[] = $dimension;
+            }
+        }
+
+        return $missing;
     }
 
     private function isTestPath(string $path): bool

@@ -352,4 +352,81 @@ final class AtlasExternalBrainAcceptanceReplayCoverageMatrixTest extends TestCas
 
         $this->assertContains('claimed_leverage_without_coverage', array_column($result['rejections'], 'reason'));
     }
+
+    // ── AC2/AC3/AC4: macro refactor/simplification replay coverage ───────────
+
+    public function test_refactor_task_with_complete_replay_coverage_is_accepted(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'refactor the queue draining logic to remove duplication',
+            'evidence_refs' => [
+                'tests_or_gates_result',
+                'before_after_behavior_replay',
+                'rollback_evidence',
+                'edge_case_replay',
+            ],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+        $this->assertSame([], $result['missing_replay_dimensions']);
+        $this->assertNull($result['next_required_proof']);
+        $this->assertTrue($result['coverage_flags']['refactor_replay_coverage_met']);
+    }
+
+    public function test_refactor_task_missing_rollback_evidence_is_rejected(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'simplify the originator by consolidating duplicate branches',
+            'evidence_refs' => [
+                'tests_or_gates_result',
+                'before_after_behavior_replay',
+                'edge_case_replay',
+            ],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertContains('rollback_evidence', $result['missing_replay_dimensions']);
+        $this->assertContains('incomplete_replay_coverage', array_column($result['rejections'], 'reason'));
+        $this->assertStringContainsString('rollback_evidence', (string) $result['next_required_proof']);
+    }
+
+    public function test_refactor_task_missing_edge_case_replay_is_rejected(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'restructure the pipeline for clarity',
+            'evidence_refs' => [
+                'tests_or_gates_result',
+                'before_after_behavior_replay',
+                'rollback_evidence',
+            ],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertContains('edge_case_replay', $result['missing_replay_dimensions']);
+    }
+
+    public function test_refactor_task_with_only_broad_green_evidence_is_insufficient(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec([
+            'objective'     => 'refactor AtlasFoo to simplify its internal branching',
+            'evidence_refs' => ['tests_or_gates_result'],
+        ]));
+
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_REJECTED, $result['verdict']);
+        $this->assertSame(
+            ['before_after_behavior_replay', 'rollback_evidence', 'edge_case_replay'],
+            $result['missing_replay_dimensions'],
+        );
+        $this->assertFalse($result['coverage_flags']['refactor_replay_coverage_met']);
+        $this->assertNotNull($result['next_required_proof']);
+    }
+
+    public function test_non_refactor_task_is_unaffected_by_replay_coverage_gate(): void
+    {
+        $result = $this->matrix->audit($this->goodSpec());
+
+        $this->assertFalse($result['coverage_flags']['is_refactor_task']);
+        $this->assertSame([], $result['missing_replay_dimensions']);
+        $this->assertSame(AtlasExternalBrainAcceptanceReplayCoverageMatrix::VERDICT_ACCEPTED, $result['verdict']);
+    }
 }
