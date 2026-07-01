@@ -103,4 +103,97 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlaneTest extends 
             $this->assertArrayHasKey($key, $result);
         }
     }
+
+    // ── planCampaign: batch candidate-set decisions ───────────────────────────
+
+    private function candidate(string $id, string $actionType, string $risk, array $overrides = []): array
+    {
+        return array_merge([
+            'id' => $id,
+            'action_type' => $actionType,
+            'risk' => $risk,
+        ], $this->safeInput(), $overrides);
+    }
+
+    public function test_deletion_first_candidates_lead_additive_in_next_wave(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('cleanup-a', 'additive_cleanup', 'low'),
+                $this->candidate('organ-b', 'delete', 'low'),
+                $this->candidate('merge-c', 'merge', 'low'),
+            ],
+        ]);
+
+        $this->assertSame(['organ-b', 'merge-c'], $result['deletion_first_candidates']);
+        $this->assertSame(['cleanup-a'], $result['additive_candidates']);
+        $this->assertSame(['organ-b', 'merge-c', 'cleanup-a'], $result['next_wave']);
+    }
+
+    public function test_high_risk_candidate_missing_replay_proof_is_blocked(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('risky-delete', 'delete', 'high', ['replay_plan' => ['ready' => false]]),
+            ],
+        ]);
+
+        $this->assertSame(['risky-delete'], $result['blocked_high_risk_candidates']);
+        $this->assertSame([], $result['deletion_first_candidates']);
+        $this->assertSame([], $result['next_wave']);
+    }
+
+    public function test_high_risk_candidate_missing_parity_is_blocked(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('risky-merge', 'merge', 'high', ['parity_matrix' => ['parity_verified' => false]]),
+            ],
+        ]);
+
+        $this->assertSame(['risky-merge'], $result['blocked_high_risk_candidates']);
+    }
+
+    public function test_high_risk_candidate_with_full_proof_is_not_blocked(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('proven-delete', 'delete', 'high'),
+            ],
+        ]);
+
+        $this->assertSame([], $result['blocked_high_risk_candidates']);
+        $this->assertSame(['proven-delete'], $result['deletion_first_candidates']);
+    }
+
+    public function test_knowledge_sync_required_after_merge_delete_or_import_rewrite(): void
+    {
+        $deleteResult = $this->controlPlane()->planCampaign([
+            'candidates' => [$this->candidate('organ-b', 'delete', 'low')],
+        ]);
+        $this->assertTrue($deleteResult['knowledge_sync_required']);
+
+        $importResult = $this->controlPlane()->planCampaign([
+            'candidates' => [$this->candidate('module-x', 'import_rewrite', 'low')],
+        ]);
+        $this->assertTrue($importResult['knowledge_sync_required']);
+
+        $additiveResult = $this->controlPlane()->planCampaign([
+            'candidates' => [$this->candidate('cleanup-a', 'additive_cleanup', 'low')],
+        ]);
+        $this->assertFalse($additiveResult['knowledge_sync_required']);
+    }
+
+    public function test_unproven_low_risk_candidate_is_held_not_placed_in_next_wave(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('unproven', 'delete', 'low', ['equivalence_dossier' => ['behavior_equivalence_proven' => false]]),
+            ],
+        ]);
+
+        $this->assertSame(['unproven'], $result['held_candidates']);
+        $this->assertSame([], $result['next_wave']);
+        $this->assertSame([], $result['blocked_high_risk_candidates']);
+    }
 }

@@ -54,6 +54,73 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
     ];
 
     /**
+     * Batch campaign snapshot: each candidate carries its own section bundle,
+     * an `action_type` (delete|merge|additive_cleanup|import_rewrite) and a
+     * `risk` label. High-risk candidates lacking parity/replay/rollback proof
+     * are blocked outright; proven delete/merge candidates lead the next wave
+     * ahead of additive cleanup, so real code removal is never starved by
+     * lower-leverage tidy-up.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function planCampaign(array $input): array
+    {
+        $candidates = (array) ($input['candidates'] ?? []);
+
+        $deletionFirst = [];
+        $additive = [];
+        $blockedHighRisk = [];
+        $held = [];
+        $knowledgeSyncRequired = false;
+
+        foreach ($candidates as $candidate) {
+            $candidate = (array) $candidate;
+            $id = (string) ($candidate['id'] ?? '');
+            $actionType = (string) ($candidate['action_type'] ?? '');
+            $risk = (string) ($candidate['risk'] ?? 'low');
+
+            $evaluation = $this->evaluateCandidate($candidate);
+            $isHighRiskMissingProof = $risk === 'high'
+                && (! $evaluation['proof_readiness'] || ! $evaluation['rollback_readiness']);
+
+            $syncingAction = in_array($actionType, ['delete', 'merge', 'import_rewrite'], true);
+
+            if ($isHighRiskMissingProof) {
+                $blockedHighRisk[] = $id;
+
+                continue;
+            }
+
+            if ($evaluation['decision'] !== self::DECISION_GO) {
+                $held[] = $id;
+
+                continue;
+            }
+
+            if (in_array($actionType, ['delete', 'merge'], true)) {
+                $deletionFirst[] = $id;
+            } else {
+                $additive[] = $id;
+            }
+
+            if ($syncingAction) {
+                $knowledgeSyncRequired = true;
+            }
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'deletion_first_candidates' => $deletionFirst,
+            'additive_candidates' => $additive,
+            'blocked_high_risk_candidates' => $blockedHighRisk,
+            'held_candidates' => $held,
+            'next_wave' => array_merge($deletionFirst, $additive),
+            'knowledge_sync_required' => $knowledgeSyncRequired,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
@@ -165,6 +232,44 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             'rollback_readiness' => $rollbackReadiness,
             'docs_sync_required' => $docsSyncRequired,
         ];
+    }
+
+    /**
+     * Same fail_closed/hold/go decision as decide(), stripped down to just
+     * {decision, proof_readiness, rollback_readiness} for per-candidate batch
+     * evaluation. Missing required sections are treated as fail_closed.
+     *
+     * @param  array<string,mixed>  $sections
+     * @return array{decision:string, proof_readiness:bool, rollback_readiness:bool}
+     */
+    private function evaluateCandidate(array $sections): array
+    {
+        foreach (self::REQUIRED_SECTIONS as $section) {
+            if (! isset($sections[$section]) || ! is_array($sections[$section])) {
+                return ['decision' => self::DECISION_FAIL_CLOSED, 'proof_readiness' => false, 'rollback_readiness' => false];
+            }
+        }
+
+        $deletionSafe = (bool) ($sections['deletion_plan']['safe'] ?? false);
+        $unsafeConsumers = (array) ($sections['consumer_impact']['unsafe_consumers'] ?? []);
+        $parityVerified = (bool) ($sections['parity_matrix']['parity_verified'] ?? false);
+        $rollbackPresent = (bool) ($sections['rollback_receipts']['present'] ?? false);
+        $replayReady = (bool) ($sections['replay_plan']['ready'] ?? false);
+        $equivalenceProven = (bool) ($sections['equivalence_dossier']['behavior_equivalence_proven'] ?? false);
+        $docsSyncRequired = (bool) ($sections['docs_sync']['required'] ?? false);
+
+        $proofReadiness = $equivalenceProven && $parityVerified;
+        $rollbackReadiness = $rollbackPresent && $replayReady;
+
+        if (! $deletionSafe || $unsafeConsumers !== [] || ! $parityVerified || ! $rollbackPresent || ! $replayReady) {
+            return ['decision' => self::DECISION_FAIL_CLOSED, 'proof_readiness' => $proofReadiness, 'rollback_readiness' => $rollbackReadiness];
+        }
+
+        if (! $equivalenceProven || $docsSyncRequired) {
+            return ['decision' => self::DECISION_HOLD, 'proof_readiness' => $proofReadiness, 'rollback_readiness' => $rollbackReadiness];
+        }
+
+        return ['decision' => self::DECISION_GO, 'proof_readiness' => $proofReadiness, 'rollback_readiness' => $rollbackReadiness];
     }
 
     /**
