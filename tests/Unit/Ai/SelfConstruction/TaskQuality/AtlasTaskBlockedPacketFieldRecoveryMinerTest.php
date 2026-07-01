@@ -198,6 +198,132 @@ final class AtlasTaskBlockedPacketFieldRecoveryMinerTest extends TestCase
         $this->assertSame(0.0, $r['confidence']);
     }
 
+    // ── AC2/AC3: recoveries list — recoverable scope gap ────────────────────────
+
+    public function test_recoverable_scope_gap_produces_high_confidence_safe_recovery(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'scope_in' => ['app/Services/Ai/Foo/AtlasFoo.php', 'tests/Unit/Ai/Foo/AtlasFooTest.php'],
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'missing_implementation_file');
+        $this->assertNotNull($entry);
+        $this->assertGreaterThanOrEqual(0.5, $entry['confidence']);
+        $this->assertTrue($entry['safe_to_respec']);
+        $this->assertNotEmpty($entry['source_evidence']);
+    }
+
+    // ── unrecoverable forbidden target ──────────────────────────────────────────
+
+    public function test_unrecoverable_forbidden_target_is_never_safe_to_respec(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement app/Services/Ai/AutonomousEvolution/Constitution/Bylaw.php so it validates input.',
+            'metadata' => [
+                'forbidden_or_property_gated' => ['app/Services/Ai/AutonomousEvolution/Constitution/Bylaw.php'],
+            ],
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'forbidden_target');
+        $this->assertNotNull($entry);
+        $this->assertSame(0.0, $entry['confidence']);
+        $this->assertFalse($entry['safe_to_respec']);
+    }
+
+    // ── missing runnable proof ───────────────────────────────────────────────────
+
+    public function test_missing_runnable_proof_is_recovered_from_existing_test_path(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement AtlasFoo so it validates input thoroughly across edge cases.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php', 'tests/Unit/Ai/Foo/AtlasFooTest.php'],
+            'acceptance_criteria' => ['Must validate thoroughly'],
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'missing_runnable_proof');
+        $this->assertNotNull($entry);
+        $this->assertTrue($entry['safe_to_respec']);
+        $this->assertContains('test_path_inferred_acceptance', $entry['source_evidence']);
+    }
+
+    // ── contradictory acceptance ─────────────────────────────────────────────────
+
+    public function test_contradictory_acceptance_is_flagged_and_never_safe(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            'acceptance_criteria' => [
+                'result must be idempotent',
+                'result must not be idempotent',
+            ],
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'contradictory_acceptance');
+        $this->assertNotNull($entry);
+        $this->assertSame(0.0, $entry['confidence']);
+        $this->assertFalse($entry['safe_to_respec']);
+    }
+
+    // ── test-only scope ───────────────────────────────────────────────────────────
+
+    public function test_test_only_scope_is_flagged_and_never_safe(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['tests/Unit/Ai/Foo/AtlasFooTest.php'],
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'test_only_scope');
+        $this->assertNotNull($entry);
+        $this->assertFalse($entry['safe_to_respec']);
+    }
+
+    // ── dependency inversion ──────────────────────────────────────────────────────
+
+    public function test_dependency_inversion_is_flagged_when_dependency_matches_own_scope(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Implement AtlasFoo so it validates input.',
+            'allowed_files' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+            'dependencies' => ['app/Services/Ai/Foo/AtlasFoo.php'],
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'dependency_inversion');
+        $this->assertNotNull($entry);
+        $this->assertTrue($entry['safe_to_respec']);
+    }
+
+    // ── low-confidence output ─────────────────────────────────────────────────────
+
+    public function test_low_confidence_recovery_is_never_safe_to_respec(): void
+    {
+        $r = $this->svc()->recover([
+            'objective' => 'Update app/Foo.php now.',
+        ]);
+
+        $entry = $this->findRecovery($r['recoveries'], 'missing_implementation_file');
+        $this->assertNotNull($entry);
+        $this->assertLessThan(0.5, $entry['confidence']);
+        $this->assertFalse($entry['safe_to_respec']);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $recoveries
+     * @return array<string,mixed>|null
+     */
+    private function findRecovery(array $recoveries, string $field): ?array
+    {
+        foreach ($recoveries as $entry) {
+            if ($entry['recovered_field'] === $field) {
+                return $entry;
+            }
+        }
+
+        return null;
+    }
+
     // ── determinism ───────────────────────────────────────────────────────────
 
     public function test_recover_is_deterministic(): void

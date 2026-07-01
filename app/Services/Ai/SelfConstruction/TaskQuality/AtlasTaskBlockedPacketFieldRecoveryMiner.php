@@ -111,6 +111,17 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
             $missingFields[] = 'required_evidence';
         }
 
+        $recoveries = $this->buildRecoveries(
+            $packet,
+            $existingAllowed,
+            $recoveredAllowed,
+            $existingAcceptance,
+            $recoveredAcceptance,
+            $refusalReasons,
+            $evidenceSources,
+            $confidence,
+        );
+
         return [
             'schema' => self::SCHEMA,
             'recovered_fields' => [
@@ -122,6 +133,169 @@ final class AtlasTaskBlockedPacketFieldRecoveryMiner
             'evidence_sources' => $evidenceSources,
             'refusal_reasons' => $refusalReasons,
             'missing_fields' => $missingFields,
+            'recoveries' => $recoveries,
+        ];
+    }
+
+    /**
+     * One entry per blocking-issue category this miner can diagnose: missing_implementation_file,
+     * test_only_scope, forbidden_target, missing_runnable_proof, dependency_inversion, and
+     * contradictory_acceptance. Each entry is itself safe-by-construction — confidence and
+     * safe_to_respec always reflect how concrete the underlying signal was, never an optimistic
+     * guess.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  list<string>  $existingAllowed
+     * @param  list<string>  $recoveredAllowed
+     * @param  list<string>  $existingAcceptance
+     * @param  list<string>  $recoveredAcceptance
+     * @param  list<string>  $refusalReasons
+     * @param  list<string>  $evidenceSources
+     * @return list<array{recovered_field:string, confidence:float, source_evidence:list<string>, safe_to_respec:bool}>
+     */
+    private function buildRecoveries(
+        array $packet,
+        array $existingAllowed,
+        array $recoveredAllowed,
+        array $existingAcceptance,
+        array $recoveredAcceptance,
+        array $refusalReasons,
+        array $evidenceSources,
+        float $confidence,
+    ): array {
+        $recoveries = [];
+
+        if ($existingAllowed !== [] && $this->isTestOnlyScope($existingAllowed)) {
+            $recoveries[] = $this->recoveryEntry('test_only_scope', 0.0, ['existing_allowed_files_test_only'], false);
+        } elseif ($existingAllowed === []) {
+            if (in_array('target_forbidden_or_property_gated_without_evidence', $refusalReasons, true)) {
+                $recoveries[] = $this->recoveryEntry('forbidden_target', 0.0, [], false);
+            } elseif ($recoveredAllowed !== []) {
+                $recoveries[] = $this->recoveryEntry('missing_implementation_file', $confidence, $evidenceSources, $confidence >= 0.5);
+            } elseif ($refusalReasons !== []) {
+                $recoveries[] = $this->recoveryEntry('missing_implementation_file', 0.0, [], false);
+            }
+        }
+
+        $acceptanceToCheck = $existingAcceptance !== [] ? $existingAcceptance : $recoveredAcceptance;
+        $hasRunnableProof = false;
+        foreach ($acceptanceToCheck as $c) {
+            if (str_contains($c, 'php artisan')) {
+                $hasRunnableProof = true;
+
+                break;
+            }
+        }
+        if (! $hasRunnableProof) {
+            $testPath = null;
+            foreach ($recoveredAllowed as $f) {
+                if (str_contains($f, 'Test.php') || str_contains($f, '/tests/')) {
+                    $testPath = $f;
+
+                    break;
+                }
+            }
+            if ($testPath !== null) {
+                $recoveries[] = $this->recoveryEntry('missing_runnable_proof', 0.7, ['test_path_inferred_acceptance'], true);
+            } elseif ($acceptanceToCheck !== []) {
+                $recoveries[] = $this->recoveryEntry('missing_runnable_proof', 0.0, [], false);
+            }
+        }
+
+        $dependencies = array_values(array_map('strval', (array) ($packet['dependencies'] ?? [])));
+        $selfReferential = array_values(array_intersect($dependencies, array_merge($existingAllowed, $recoveredAllowed)));
+        if ($selfReferential !== []) {
+            $recoveries[] = $this->recoveryEntry('dependency_inversion', 0.6, ['dependency_matches_own_scope'], true);
+        }
+
+        if ($this->hasContradictoryAcceptance($acceptanceToCheck)) {
+            $recoveries[] = $this->recoveryEntry('contradictory_acceptance', 0.0, ['acceptance_criteria_self_contradictory'], false);
+        }
+
+        return $recoveries;
+    }
+
+    /** @param  list<string>  $files */
+    private function isTestOnlyScope(array $files): bool
+    {
+        $hasTest = false;
+        $hasImpl = false;
+        foreach ($files as $f) {
+            if (str_contains($f, 'Test.php') || str_contains($f, '/tests/')) {
+                $hasTest = true;
+            } else {
+                $hasImpl = true;
+            }
+        }
+
+        return $hasTest && ! $hasImpl;
+    }
+
+    /** @param  list<string>  $criteria */
+    private function hasContradictoryAcceptance(array $criteria): bool
+    {
+        foreach ($criteria as $a) {
+            foreach ($criteria as $b) {
+                if ($a === $b) {
+                    continue;
+                }
+                if ($this->areContradictory($a, $b)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Detects "X must Y" vs "X must not Y" / "X cannot Y" / "X never Y" pairs — same remainder
+     * text, opposite polarity. A deliberately narrow heuristic: it never guesses contradiction
+     * from loosely related wording.
+     */
+    private function areContradictory(string $a, string $b): bool
+    {
+        $normalize = static function (string $s): string {
+            $s = strtolower(trim($s));
+            $s = preg_replace('/\bmust not\b|\bcannot\b|\bcan not\b|\bnever\b/', '¬', $s) ?? $s;
+            $s = preg_replace('/\bmust\b/', '', $s) ?? $s;
+            $s = preg_replace('/\s+/', ' ', $s) ?? $s;
+
+            return trim($s);
+        };
+
+        $an = $normalize($a);
+        $bn = $normalize($b);
+
+        if (! str_contains($an, '¬') && str_contains($bn, '¬')) {
+            return $this->stripNegator($bn) === $an;
+        }
+        if (! str_contains($bn, '¬') && str_contains($an, '¬')) {
+            return $this->stripNegator($an) === $bn;
+        }
+
+        return false;
+    }
+
+    private function stripNegator(string $s): string
+    {
+        $s = str_replace('¬', '', $s);
+        $s = preg_replace('/\s+/', ' ', $s) ?? $s;
+
+        return trim($s);
+    }
+
+    /**
+     * @param  list<string>  $sourceEvidence
+     * @return array{recovered_field:string, confidence:float, source_evidence:list<string>, safe_to_respec:bool}
+     */
+    private function recoveryEntry(string $field, float $confidence, array $sourceEvidence, bool $safeToRespec): array
+    {
+        return [
+            'recovered_field' => $field,
+            'confidence' => max(0.0, min(1.0, round($confidence, 2))),
+            'source_evidence' => array_values(array_unique($sourceEvidence)),
+            'safe_to_respec' => $safeToRespec,
         ];
     }
 
