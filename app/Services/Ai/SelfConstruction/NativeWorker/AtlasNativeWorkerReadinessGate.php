@@ -36,6 +36,12 @@ final class AtlasNativeWorkerReadinessGate
         'learning_receipt_writer',
     ];
 
+    public const STATUS_READY = 'ready';
+
+    public const STATUS_DEGRADED = 'degraded';
+
+    public const STATUS_BLOCKED = 'blocked';
+
     public function __construct(private readonly AtlasNativeWorkerCapabilityRegistry $registry) {}
 
     /**
@@ -120,18 +126,37 @@ final class AtlasNativeWorkerReadinessGate
         // Cross-check that the capability registry agrees the final capabilities exist (catches a
         // registry/component drift that would otherwise let a partial swarm pass).
         $registryIds = array_column($this->registry->capabilities(), 'capability_id');
+        $capabilityFit = true;
         foreach (AtlasNativeWorkerCapabilityRegistry::FINAL_CAPABILITY_IDS as $expected) {
             if (! in_array($expected, $registryIds, true)) {
                 $blockers[] = 'registry_missing_final_capability:'.$expected;
+                $capabilityFit = false;
             }
         }
 
+        $drainPressure = (int) ($observed['queue_pressure'] ?? 0);
+        $evidenceReadiness = in_array('evidence_writer', $verified, true);
+        $commandSafety = (bool) ($observed['command_plan_runner_available'] ?? false);
+
+        $ready = $blockers === [];
+        $status = match (true) {
+            ! $ready => self::STATUS_BLOCKED,
+            $drainPressure > 0 => self::STATUS_DEGRADED,
+            default => self::STATUS_READY,
+        };
+
         return [
             'schema' => self::SCHEMA,
-            'ready' => $blockers === [],
+            'ready' => $ready,
+            'status' => $status,
             'blockers' => $blockers,
+            'reasons' => $blockers,
             'components_required' => self::REQUIRED_COMPONENTS,
             'components_verified' => $verified,
+            'capability_fit' => $capabilityFit,
+            'drain_pressure' => $drainPressure,
+            'evidence_readiness' => $evidenceReadiness,
+            'command_safety' => $commandSafety,
         ];
     }
 }

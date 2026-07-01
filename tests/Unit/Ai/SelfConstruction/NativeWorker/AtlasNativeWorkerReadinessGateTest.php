@@ -143,4 +143,69 @@ final class AtlasNativeWorkerReadinessGateTest extends TestCase
         $json = (string) json_encode($v);
         $this->assertDoesNotMatchRegularExpression('/score|grade|percent|hype/i', $json);
     }
+
+    // ── AC: ready / blocked / degraded status + capability_fit / drain_pressure / evidence_readiness / command_safety ──
+
+    public function test_all_ready_with_zero_queue_pressure_yields_status_ready(): void
+    {
+        $v = $this->gate()->evaluate($this->allReady());
+
+        $this->assertSame(AtlasNativeWorkerReadinessGate::STATUS_READY, $v['status']);
+        $this->assertTrue($v['capability_fit']);
+        $this->assertSame(0, $v['drain_pressure']);
+        $this->assertTrue($v['evidence_readiness']);
+        $this->assertTrue($v['command_safety']);
+    }
+
+    public function test_missing_evidence_writer_yields_evidence_readiness_false(): void
+    {
+        $o = $this->allReady();
+        unset($o['components']['evidence_writer']);
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['evidence_readiness']);
+        $this->assertSame(AtlasNativeWorkerReadinessGate::STATUS_BLOCKED, $v['status']);
+    }
+
+    public function test_unsafe_command_plan_yields_command_safety_false_and_blocked(): void
+    {
+        $o = $this->allReady();
+        $o['command_plan_runner_available'] = false;
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['command_safety']);
+        $this->assertSame(AtlasNativeWorkerReadinessGate::STATUS_BLOCKED, $v['status']);
+    }
+
+    public function test_insufficient_capability_yields_capability_fit_false(): void
+    {
+        $o = $this->allReady();
+        $o['runtime_owner'] = 'external_provider';
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertFalse($v['ready']);
+        $this->assertSame(AtlasNativeWorkerReadinessGate::STATUS_BLOCKED, $v['status']);
+    }
+
+    public function test_positive_drain_pressure_with_no_blockers_yields_degraded_status(): void
+    {
+        $o = $this->allReady();
+        $o['queue_pressure'] = 3;
+        $o['available_worker_count'] = 5;
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertTrue($v['ready']);
+        $this->assertSame(AtlasNativeWorkerReadinessGate::STATUS_DEGRADED, $v['status']);
+        $this->assertSame(3, $v['drain_pressure']);
+    }
+
+    public function test_reasons_field_mirrors_blockers(): void
+    {
+        $o = $this->allReady();
+        $o['rollback_available'] = false;
+        $v = $this->gate()->evaluate($o);
+
+        $this->assertSame($v['blockers'], $v['reasons']);
+        $this->assertContains('rollback_unavailable', $v['reasons']);
+    }
 }
