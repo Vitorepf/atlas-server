@@ -25,6 +25,15 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
 
     public const STATUS_INDEX_STALE = 'index_stale';
 
+    private const DEFAULT_MAX_ARTIFACT_AGE_SECONDS = 86400;
+
+    /** artifact name => command hint for the smallest follow-up that resyncs it. */
+    private const SYNC_COMMAND_HINTS = [
+        'docs' => 'update docs/engineering-knowledge-base then run: atlas engineering knowledge sync --prune',
+        'memory' => 'record the memory outcome for this change (atlas memory:record or equivalent)',
+        'code_index' => 'atlas engineering knowledge index-code --prune',
+    ];
+
     /**
      * @param  array<string, mixed>  $change
      * @return array<string, mixed>
@@ -41,24 +50,50 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
 
         $staleSurfaces = [];
         $requiredActions = [];
+        $missingArtifacts = [];
+        $staleArtifacts = [];
 
         // A public contract change must sync docs/memory even when internally small
         // (is_internal_refactor) — only pure test-only edits are exempt.
         $knowledgeSurfaceApplies = $behaviorChanged && ! $isTestOnly
             && ($publicContractChanged || ! $isInternalRefactor);
 
+        $nowUnix = (int) ($change['now_unix'] ?? time());
+        $maxAgeSeconds = (int) ($change['max_artifact_age_seconds'] ?? self::DEFAULT_MAX_ARTIFACT_AGE_SECONDS);
+
+        // AC1/AC2: distinguishes MISSING (never produced) from STALE (produced, but the
+        // recorded timestamp is older than the freshness window) — fresh_context must block on
+        // either, but callers get a precise remediation target instead of one flat "stale" bucket.
+        $classifyArtifact = function (string $name, bool $present, mixed $syncedAt) use (&$missingArtifacts, &$staleArtifacts, $nowUnix, $maxAgeSeconds): bool {
+            if (! $present) {
+                $missingArtifacts[] = $name;
+
+                return false;
+            }
+            if ($syncedAt !== null && ($nowUnix - (int) $syncedAt) > $maxAgeSeconds) {
+                $staleArtifacts[] = $name;
+
+                return false;
+            }
+
+            return true;
+        };
+
         if ($knowledgeSurfaceApplies) {
-            if (! $docsUpdated) {
+            $docsFresh = $classifyArtifact('docs', $docsUpdated, $change['docs_synced_at'] ?? null);
+            if (! $docsFresh) {
                 $staleSurfaces[] = 'docs';
                 $requiredActions[] = 'docs_patch';
             }
-            if (! $memoryFactsRecorded) {
+            $memoryFresh = $classifyArtifact('memory', $memoryFactsRecorded, $change['memory_recorded_at'] ?? null);
+            if (! $memoryFresh) {
                 $staleSurfaces[] = 'memory';
                 $requiredActions[] = 'memory_outcome_record';
             }
         }
 
-        if (! $codeIndexFresh) {
+        $codeIndexArtifactFresh = $classifyArtifact('code_index', $codeIndexFresh, $change['code_index_indexed_at'] ?? null);
+        if (! $codeIndexArtifactFresh) {
             $staleSurfaces[] = 'code_index';
             $requiredActions[] = 'index_code_refresh';
         }
@@ -69,11 +104,26 @@ final class AtlasExternalBrainDocsMemorySyncVerifier
             default => self::STATUS_INDEX_STALE,
         };
 
+        $missingArtifacts = array_values(array_unique($missingArtifacts));
+        $staleArtifacts = array_values(array_unique($staleArtifacts));
+        $freshContext = $missingArtifacts === [] && $staleArtifacts === [];
+
+        $syncCommandHints = [];
+        foreach (array_unique(array_merge($missingArtifacts, $staleArtifacts)) as $artifact) {
+            if (isset(self::SYNC_COMMAND_HINTS[$artifact])) {
+                $syncCommandHints[] = self::SYNC_COMMAND_HINTS[$artifact];
+            }
+        }
+
         return [
             'schema' => self::SCHEMA,
             'sync_status' => $syncStatus,
             'required_actions' => array_values(array_unique($requiredActions)),
             'stale_surfaces' => array_values(array_unique($staleSurfaces)),
+            'fresh_context' => $freshContext,
+            'missing_artifacts' => $missingArtifacts,
+            'stale_artifacts' => $staleArtifacts,
+            'sync_command_hints' => $syncCommandHints,
             'evidence' => [
                 'behavior_changed='.($behaviorChanged ? 'true' : 'false'),
                 'is_test_only='.($isTestOnly ? 'true' : 'false'),

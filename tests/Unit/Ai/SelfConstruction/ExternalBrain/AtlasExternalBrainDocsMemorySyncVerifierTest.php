@@ -185,4 +185,98 @@ final class AtlasExternalBrainDocsMemorySyncVerifierTest extends TestCase
         $this->assertNotContains('docs', $result['stale_surfaces']);
         $this->assertNotContains('memory', $result['stale_surfaces']);
     }
+
+    // ── AC1/AC2: fresh_context, missing_artifacts, stale_artifacts, sync_command_hints ──
+
+    public function test_fresh_sync_yields_fresh_context_true_and_empty_artifact_lists(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'docs_updated' => true,
+            'memory_facts_recorded' => true,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertTrue($result['fresh_context']);
+        $this->assertSame([], $result['missing_artifacts']);
+        $this->assertSame([], $result['stale_artifacts']);
+        $this->assertSame([], $result['sync_command_hints']);
+    }
+
+    public function test_missing_docs_blocks_fresh_context_and_reports_missing_artifact(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'docs_updated' => false,
+            'memory_facts_recorded' => true,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertFalse($result['fresh_context']);
+        $this->assertContains('docs', $result['missing_artifacts']);
+        $this->assertNotEmpty($result['sync_command_hints']);
+    }
+
+    public function test_stale_memory_by_timestamp_blocks_fresh_context_and_reports_stale_artifact(): void
+    {
+        $now = 1_700_100_000;
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'docs_updated' => true,
+            'memory_facts_recorded' => true,
+            'memory_recorded_at' => $now - 200_000,
+            'code_index_fresh' => true,
+            'now_unix' => $now,
+            'max_artifact_age_seconds' => 86_400,
+        ]);
+
+        $this->assertFalse($result['fresh_context']);
+        $this->assertContains('memory', $result['stale_artifacts']);
+        $this->assertNotContains('memory', $result['missing_artifacts']);
+    }
+
+    public function test_recent_memory_timestamp_within_freshness_window_is_fresh(): void
+    {
+        $now = 1_700_100_000;
+        $result = $this->verifier()->verify([
+            'behavior_changed' => true,
+            'docs_updated' => true,
+            'memory_facts_recorded' => true,
+            'memory_recorded_at' => $now - 100,
+            'code_index_fresh' => true,
+            'now_unix' => $now,
+            'max_artifact_age_seconds' => 86_400,
+        ]);
+
+        $this->assertTrue($result['fresh_context']);
+        $this->assertSame([], $result['stale_artifacts']);
+    }
+
+    public function test_missing_code_index_blocks_fresh_context_and_reports_missing_artifact(): void
+    {
+        $result = $this->verifier()->verify([
+            'behavior_changed' => false,
+            'code_index_fresh' => false,
+        ]);
+
+        $this->assertFalse($result['fresh_context']);
+        $this->assertContains('code_index', $result['missing_artifacts']);
+        $this->assertNotEmpty($result['sync_command_hints']);
+    }
+
+    public function test_no_sync_needed_cosmetic_change_is_fresh_context_true(): void
+    {
+        // A cosmetic change (no behavior change, no test-only/internal flag needed) with an
+        // already-fresh code index needs no follow-up at all.
+        $result = $this->verifier()->verify([
+            'behavior_changed' => false,
+            'code_index_fresh' => true,
+        ]);
+
+        $this->assertTrue($result['fresh_context']);
+        $this->assertSame(AtlasExternalBrainDocsMemorySyncVerifier::STATUS_NO_ACTION, $result['sync_status']);
+        $this->assertSame([], $result['missing_artifacts']);
+        $this->assertSame([], $result['stale_artifacts']);
+        $this->assertSame([], $result['sync_command_hints']);
+    }
 }
