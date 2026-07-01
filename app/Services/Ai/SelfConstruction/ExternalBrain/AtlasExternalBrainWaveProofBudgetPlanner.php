@@ -11,12 +11,28 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * task, then adds the task's own acceptance_criteria and required_evidence as explicit checks.
  *
  * per_task_required_checks = unique(acceptance_criteria checks + required_evidence checks +
- *                                    risk-derived minimum proofs)
+ *                                    risk-derived minimum proofs + blast-radius/weak-model checks)
+ *
+ * Allocation also grows with:
+ *   - refactor_blast_radius (int, consumers/files touched): a wide-blast refactor earns extra
+ *     consumer_impact/rollback_plan checks and budget headroom — a flat evidence floor is never
+ *     enough once behavior-preservation must be proven across many callers.
+ *   - model_weakness_score (float 0-1): a task routed to a muscle known to be weak on this class
+ *     of work earns an extra collision_sweep check — the model's own track record is a risk input.
+ *   - expected_leverage (float 0-1): a high-leverage task earns extra budget headroom, since it is
+ *     worth deeper proof rather than being throttled by the flat per-task ceiling.
  *
  * A task is over budget when:
- *   - its required_checks exceed MAX_CHECKS_PER_TASK (the gate is simply too broad for one task), OR
+ *   - its required_checks exceed the risk/blast/leverage-adjusted budget (still capped at
+ *     ABSOLUTE_MAX_CHECKS_PER_TASK), OR
  *   - required_evidence is empty (the task asks for proof but names none — refused, never silently
  *     treated as "no evidence needed").
+ *
+ * recommended_action per over-budget task/wave:
+ *   - missing_evidence            → 'strengthen' (name at least one required_evidence entry)
+ *   - too_broad + high blast radius + weak model → 'defer' (compounding risk: wait for a
+ *     stronger muscle or a smaller scope, splitting alone will not fix it)
+ *   - too_broad (otherwise)       → 'split'
  *
  * The WAVE is proof_over_budget when:
  *   - any task is individually over budget, OR
@@ -32,11 +48,21 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
     public const STATUS_WITHIN_BUDGET = 'within_budget';
     public const STATUS_PROOF_OVER_BUDGET = 'proof_over_budget';
 
+    public const ACTION_SPLIT = 'split';
+    public const ACTION_STRENGTHEN = 'strengthen';
+    public const ACTION_DEFER = 'defer';
+
     private const BASE_MAX_CHECKS_PER_TASK = 6;
     private const ABSOLUTE_MAX_CHECKS_PER_TASK = 12;
     private const CHECK_BUDGET_PER_MUSCLE = 10;
     private const DEFAULT_PER_MUSCLE_MINUTE_BUDGET = 45.0;
     private const DEFAULT_MINUTES_PER_CHECK = 5.0;
+
+    private const HIGH_BLAST_RADIUS_THRESHOLD = 3;
+    private const WEAK_MODEL_THRESHOLD = 0.6;
+    private const HIGH_LEVERAGE_THRESHOLD = 0.7;
+    private const BLAST_RADIUS_BUDGET_BONUS = 2;
+    private const LEVERAGE_BUDGET_BONUS = 1;
 
     /** Risk-adjusted proof budget multiplier: higher risk earns a larger (but still capped) budget. */
     private const RISK_BUDGET_MULTIPLIER = [
@@ -77,6 +103,12 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
             $acceptanceCriteria = $this->stringList($task['acceptance_criteria'] ?? []);
             $requiredEvidence = $this->stringList($task['required_evidence'] ?? []);
             $affectedFileFamilies = $this->stringList($task['affected_file_families'] ?? []);
+            $blastRadius = max(0, (int) ($task['refactor_blast_radius'] ?? 0));
+            $modelWeaknessScore = max(0.0, min(1.0, (float) ($task['model_weakness_score'] ?? 0.0)));
+            $expectedLeverage = max(0.0, min(1.0, (float) ($task['expected_leverage'] ?? 0.0)));
+            $highBlastRadius = $blastRadius >= self::HIGH_BLAST_RADIUS_THRESHOLD;
+            $modelWeak = $modelWeaknessScore >= self::WEAK_MODEL_THRESHOLD;
+            $highLeverage = $expectedLeverage >= self::HIGH_LEVERAGE_THRESHOLD;
 
             $minimumProofs = (array) ($this->proofDemand->derive(['task' => ['risk_level' => $riskLevel]])['required_proofs'] ?? []);
 
@@ -90,12 +122,21 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
             foreach ($minimumProofs as $proofType) {
                 $checks[] = 'proof:'.$proofType;
             }
+            if ($highBlastRadius) {
+                $checks[] = 'proof:consumer_impact';
+                $checks[] = 'proof:rollback_plan';
+            }
+            if ($modelWeak) {
+                $checks[] = 'proof:collision_sweep';
+            }
             $checks = array_values(array_unique($checks));
 
             $missingEvidence = $requiredEvidence === [];
             $riskBudget = (int) min(
                 self::ABSOLUTE_MAX_CHECKS_PER_TASK,
-                round(self::BASE_MAX_CHECKS_PER_TASK * (self::RISK_BUDGET_MULTIPLIER[$riskLevel] ?? 1.0)),
+                round(self::BASE_MAX_CHECKS_PER_TASK * (self::RISK_BUDGET_MULTIPLIER[$riskLevel] ?? 1.0))
+                    + ($highBlastRadius ? self::BLAST_RADIUS_BUDGET_BONUS : 0)
+                    + ($highLeverage ? self::LEVERAGE_BUDGET_BONUS : 0),
             );
             $tooBroad = count($checks) > $riskBudget;
 
@@ -106,6 +147,13 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
             $waveTotalEstimatedMinutes += $estimatedMinutes;
             $waveTotalChecks += count($checks);
 
+            $recommendedAction = match (true) {
+                $missingEvidence => self::ACTION_STRENGTHEN,
+                $tooBroad && $highBlastRadius && $modelWeak => self::ACTION_DEFER,
+                $tooBroad => self::ACTION_SPLIT,
+                default => null,
+            };
+
             $perTaskRequiredChecks[] = [
                 'task_id' => $taskId,
                 'required_checks' => $checks,
@@ -114,8 +162,12 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
                 'risk_level' => $riskLevel,
                 'risk_adjusted_budget' => $riskBudget,
                 'affected_file_families' => $affectedFileFamilies,
+                'refactor_blast_radius' => $blastRadius,
+                'model_weakness_score' => $modelWeaknessScore,
+                'expected_leverage' => $expectedLeverage,
                 'missing_evidence' => $missingEvidence,
                 'too_broad' => $tooBroad,
+                'recommended_action' => $recommendedAction,
             ];
 
             if ($missingEvidence) {
@@ -133,12 +185,17 @@ final class AtlasExternalBrainWaveProofBudgetPlanner
                     $tooBroad ? sprintf('required_checks=%d_exceeds_risk_adjusted_budget=%d', count($checks), $riskBudget) : null,
                 ]));
 
+                $recommendation = match ($recommendedAction) {
+                    self::ACTION_STRENGTHEN => "add at least one required_evidence entry for task {$taskId} before it can be accepted",
+                    self::ACTION_DEFER => sprintf('defer task %s (required_checks=%d exceeds budget=%d, high blast radius=%d, weak model=%.2f) — split alone will not fix compounding risk', $taskId, count($checks), $riskBudget, $blastRadius, $modelWeaknessScore),
+                    default => sprintf('split task %s (required_checks=%d exceeds risk-adjusted budget=%d) into a follow-up task instead of dispatching it as-is', $taskId, count($checks), $riskBudget),
+                };
+
                 $proofSlimmingRecommendations[] = [
                     'task_id' => $taskId,
                     'reasons' => $reasons,
-                    'recommendation' => $missingEvidence
-                        ? "add at least one required_evidence entry for task {$taskId} before it can be accepted"
-                        : sprintf('split task %s (required_checks=%d exceeds risk-adjusted budget=%d) into a follow-up task instead of dispatching it as-is', $taskId, count($checks), $riskBudget),
+                    'recommended_action' => $recommendedAction,
+                    'recommendation' => $recommendation,
                 ];
             }
         }
