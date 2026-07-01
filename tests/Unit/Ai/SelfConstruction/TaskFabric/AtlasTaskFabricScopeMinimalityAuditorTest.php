@@ -144,4 +144,38 @@ final class AtlasTaskFabricScopeMinimalityAuditorTest extends TestCase
 
         $this->assertSame(3, $r['allowed_files_count']);
     }
+
+    // ── unrelated-file scope bloat (opt-in via objective_symbols) ────────────────
+
+    public function test_unrelated_file_is_flagged_as_scope_bloat_when_objective_symbols_supplied(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php', 'app/Services/Unrelated.php'],
+            'objective_symbols' => ['Foo'],
+        ]));
+
+        $this->assertFalse($r['scope_ok']);
+        $this->assertContains('app/Services/Unrelated.php', $r['unrelated_files']);
+        $this->assertNotContains('app/Services/Foo.php', $r['unrelated_files']);
+    }
+
+    public function test_compact_scope_with_matching_impl_and_test_is_accepted_with_objective_symbols(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php'],
+            'objective_symbols' => ['Foo'],
+        ]));
+
+        $this->assertTrue($r['scope_ok']);
+        $this->assertSame([], $r['unrelated_files']);
+    }
+
+    public function test_no_objective_symbols_preserves_legacy_behavior(): void
+    {
+        $r = $this->svc()->audit($this->cleanSpec([
+            'allowed_files' => ['app/Services/Foo.php', 'tests/Unit/FooTest.php', 'app/Services/Unrelated.php'],
+        ]));
+
+        $this->assertSame([], $r['unrelated_files']);
+    }
 }

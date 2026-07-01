@@ -59,12 +59,42 @@ final class AtlasTaskFabricScopeMinimalityAuditor
             $missingRequired[] = 'test_file';
         }
 
+        // Unrelated-file bloat: when objective_symbols is supplied (opt-in — legacy callers
+        // that never pass it keep prior behavior unchanged), an allowed file whose basename
+        // matches none of the declared symbols is scope bloat a muscle would have to read
+        // through for no reason, without ever removing the implementation/test pair itself.
+        $unrelatedFiles = [];
+        $objectiveSymbols = array_key_exists('objective_symbols', $spec)
+            ? array_values(array_map('strval', (array) $spec['objective_symbols']))
+            : null;
+        if ($objectiveSymbols !== null && $objectiveSymbols !== []) {
+            foreach ($allowed as $file) {
+                if (in_array($file, $overbroadFiles, true)) {
+                    continue;
+                }
+                $base = basename($file, '.php');
+                $base = preg_replace('/Test$/', '', $base) ?? $base;
+                $matches = false;
+                foreach ($objectiveSymbols as $symbol) {
+                    if (str_contains($symbol, $base) || str_contains($base, $symbol)) {
+                        $matches = true;
+
+                        break;
+                    }
+                }
+                if (! $matches) {
+                    $unrelatedFiles[] = $file;
+                }
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA,
-            'scope_ok' => $hiddenSelfTargets === [] && $overbroadFiles === [] && $missingRequired === [],
+            'scope_ok' => $hiddenSelfTargets === [] && $overbroadFiles === [] && $missingRequired === [] && $unrelatedFiles === [],
             'missing_required_files' => $missingRequired,
             'overbroad_files' => $overbroadFiles,
             'hidden_self_target_flags' => $hiddenSelfTargets,
+            'unrelated_files' => $unrelatedFiles,
             'allowed_files_count' => count($allowed),
         ];
     }
