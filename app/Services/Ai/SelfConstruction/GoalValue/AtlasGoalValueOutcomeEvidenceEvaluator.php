@@ -15,10 +15,23 @@ namespace App\Services\Ai\SelfConstruction\GoalValue;
  *   autonomy_lift       — needs a receipt with kind=autonomy_added AND a learning ref
  *   simplification      — needs a receipt with kind=simplification AND a passing verification ref
  *   reuse               — needs a receipt with kind=reuse_existing AND a code-index gate ref
+ *   risk_reduction      — needs a receipt with kind=risk_reduced AND a passing verification ref
+ *   quality_improvement — needs a receipt with kind=quality_improved AND a regression-test gate ref
+ *
+ * STATUS (real/partial/proxy/blocked/unknown impact — AC2):
+ *   confirmed (real impact)   — receipt + supporting ref present, evidence_strength=strong (default)
+ *   partial   (partial impact) — receipt + supporting ref present, but the receipt declares
+ *                                 evidence_strength=weak: real but not fully proven
+ *   proxy     (proxy impact)   — would otherwise be confirmed, but a discount_signals entry
+ *                                 (AC4: cosmetic_wrapper, count_only_commit, proofless_green_test)
+ *                                 applies to it — discounted OUT of goal value, never counted as real
+ *   blocked   (blocked impact) — receipt present but supporting ref/delta missing or a regression
+ *                                 signal fired
+ *   unknown   (unknown impact) — no receipt of the required kind at all
  *
  * INVARIANTS:
  *   - DETERMINISTIC envelope (facts sorted by class).
- *   - REPORTS one row per declared class with status ∈ {confirmed, unknown, blocked} + reason.
+ *   - REPORTS one row per declared class with status ∈ {confirmed, partial, proxy, unknown, blocked} + reason.
  *   - NO scalar score / rank.
  */
 final class AtlasGoalValueOutcomeEvidenceEvaluator
@@ -37,11 +50,19 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
 
     public const CLASS_WORKER_CONTINUITY = 'worker_continuity';
 
+    public const CLASS_RISK_REDUCTION = 'risk_reduction';
+
+    public const CLASS_QUALITY_IMPROVEMENT = 'quality_improvement';
+
     public const STATUS_CONFIRMED = 'confirmed';
 
     public const STATUS_UNKNOWN = 'unknown';
 
     public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_PARTIAL = 'partial';
+
+    public const STATUS_PROXY = 'proxy';
 
     /**
      * @param  array{
@@ -64,6 +85,9 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             : [];
         $capabilityDelta = is_array($facts['capability_delta'] ?? null) ? $facts['capability_delta'] : [];
         $queueContinuityDelta = is_array($facts['queue_continuity_delta'] ?? null) ? $facts['queue_continuity_delta'] : [];
+        $discountSignals = is_array($facts['discount_signals'] ?? null)
+            ? array_values(array_filter($facts['discount_signals'], 'is_array'))
+            : [];
 
         $valueFacts = [];
 
@@ -74,6 +98,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             (bool) ($verification['server_side_green'] ?? false),
             'verification ref absent or not server_side_green',
             (string) ($verification['ref'] ?? ''),
+            $this->receiptEvidenceStrength($receipts, 'new_capability'),
         );
         if ($capLiftFact['status'] === self::STATUS_CONFIRMED) {
             $before = trim((string) ($capabilityDelta['before'] ?? ''));
@@ -90,6 +115,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             $this->hasPassingGate($gates, 'regression_test'),
             'regression_test gate absent or not passing',
             $this->firstRef($gates, 'regression_test'),
+            $this->receiptEvidenceStrength($receipts, 'fix_failure'),
         );
         $valueFacts[] = $this->classFact(
             self::CLASS_AUTONOMY_LIFT,
@@ -97,6 +123,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             $this->hasLearningKind($learning, 'autonomy_lift'),
             'autonomy_lift learning ref absent',
             $this->firstLearningRef($learning, 'autonomy_lift'),
+            $this->receiptEvidenceStrength($receipts, 'autonomy_added'),
         );
         $valueFacts[] = $this->classFact(
             self::CLASS_SIMPLIFICATION,
@@ -104,6 +131,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             (bool) ($verification['server_side_green'] ?? false),
             'verification ref absent or not server_side_green',
             (string) ($verification['ref'] ?? ''),
+            $this->receiptEvidenceStrength($receipts, 'simplification'),
         );
         $valueFacts[] = $this->classFact(
             self::CLASS_REUSE,
@@ -111,6 +139,23 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             $this->hasPassingGate($gates, 'code_index'),
             'code_index gate absent or not passing',
             $this->firstRef($gates, 'code_index'),
+            $this->receiptEvidenceStrength($receipts, 'reuse_existing'),
+        );
+        $valueFacts[] = $this->classFact(
+            self::CLASS_RISK_REDUCTION,
+            $this->findReceipt($receipts, 'risk_reduced'),
+            (bool) ($verification['server_side_green'] ?? false),
+            'verification ref absent or not server_side_green',
+            (string) ($verification['ref'] ?? ''),
+            $this->receiptEvidenceStrength($receipts, 'risk_reduced'),
+        );
+        $valueFacts[] = $this->classFact(
+            self::CLASS_QUALITY_IMPROVEMENT,
+            $this->findReceipt($receipts, 'quality_improved'),
+            $this->hasPassingGate($gates, 'regression_test'),
+            'regression_test gate absent or not passing',
+            $this->firstRef($gates, 'regression_test'),
+            $this->receiptEvidenceStrength($receipts, 'quality_improved'),
         );
 
         // worker_continuity: receipt + passing queue_continuity gate + measured
@@ -149,6 +194,30 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
             }, $valueFacts);
         }
 
+        // AC4: discount cosmetic wrappers, count-only commits and proofless green tests from goal
+        // value — a class that would otherwise be confirmed is downgraded to proxy_impact, never
+        // counted as real. Runs after the regression-signal pass so a genuine regression always
+        // wins over a cosmetic discount when both fire on the same class.
+        if ($discountSignals !== []) {
+            $discountRefs = array_values(array_filter(array_map(static fn (array $s): string => (string) ($s['ref'] ?? ''), $discountSignals)));
+            $applicableClasses = array_values(array_filter(array_map(static fn (array $s): string => (string) ($s['applies_to_class'] ?? ''), $discountSignals)));
+            $discountKinds = array_values(array_unique(array_map(static fn (array $s): string => (string) ($s['kind'] ?? 'cosmetic_wrapper'), $discountSignals)));
+
+            $valueFacts = array_map(static function (array $fact) use ($discountRefs, $applicableClasses, $discountKinds): array {
+                if ($fact['status'] !== self::STATUS_CONFIRMED && $fact['status'] !== self::STATUS_PARTIAL) {
+                    return $fact;
+                }
+                if ($applicableClasses !== [] && ! in_array($fact['class'], $applicableClasses, true)) {
+                    return $fact;
+                }
+                $fact['status'] = self::STATUS_PROXY;
+                $fact['reason'] = 'discounted: '.implode(',', $discountKinds);
+                $fact['evidence_refs'] = array_values(array_unique(array_merge($fact['evidence_refs'], $discountRefs)));
+
+                return $fact;
+            }, $valueFacts);
+        }
+
         usort($valueFacts, static fn (array $a, array $b): int => strcmp($a['class'], $b['class']));
 
         return [
@@ -182,7 +251,7 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
     /**
      * @return array{class:string, status:string, reason:string, evidence_refs:list<string>}
      */
-    private function classFact(string $class, ?string $receiptRef, bool $supportingRefOk, string $blockedReason, string $supportingRef): array
+    private function classFact(string $class, ?string $receiptRef, bool $supportingRefOk, string $blockedReason, string $supportingRef, string $evidenceStrength = 'strong'): array
     {
         if ($receiptRef === null) {
             return ['class' => $class, 'status' => self::STATUS_UNKNOWN, 'reason' => 'no receipt of required kind', 'evidence_refs' => []];
@@ -192,7 +261,25 @@ final class AtlasGoalValueOutcomeEvidenceEvaluator
         }
         $refs = array_values(array_filter([$receiptRef, $supportingRef], static fn (string $r): bool => $r !== ''));
 
+        if ($evidenceStrength === 'weak') {
+            return ['class' => $class, 'status' => self::STATUS_PARTIAL, 'reason' => 'receipt + supporting ref present but evidence_strength=weak', 'evidence_refs' => $refs];
+        }
+
         return ['class' => $class, 'status' => self::STATUS_CONFIRMED, 'reason' => 'receipt + supporting ref present', 'evidence_refs' => $refs];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $receipts
+     */
+    private function receiptEvidenceStrength(array $receipts, string $kind): string
+    {
+        foreach ($receipts as $r) {
+            if (is_array($r) && (string) ($r['kind'] ?? '') === $kind) {
+                return (string) ($r['evidence_strength'] ?? 'strong');
+            }
+        }
+
+        return 'strong';
     }
 
     /**

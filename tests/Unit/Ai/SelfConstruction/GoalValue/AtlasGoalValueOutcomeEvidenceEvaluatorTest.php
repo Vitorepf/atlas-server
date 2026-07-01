@@ -194,6 +194,120 @@ final class AtlasGoalValueOutcomeEvidenceEvaluatorTest extends TestCase
         $this->assertSame($sorted, $classes, 'value_facts must be sorted alphabetically by class');
     }
 
+    // ── AC3: risk_reduction and quality_improvement need explicit receipt + supporting ref ──
+
+    public function test_risk_reduction_confirmed_with_receipt_and_verification(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'risk_reduced', 'ref' => 'rec-risk']],
+            'verification' => ['server_side_green' => true, 'ref' => 'v-risk'],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_CONFIRMED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_RISK_REDUCTION]['status']);
+    }
+
+    public function test_risk_reduction_unknown_without_receipt(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_UNKNOWN, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_RISK_REDUCTION]['status']);
+    }
+
+    public function test_quality_improvement_confirmed_with_receipt_and_passing_regression_gate(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'quality_improved', 'ref' => 'rec-qual']],
+            'gates' => [['kind' => 'regression_test', 'ref' => 'gate-qual', 'passed' => true]],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_CONFIRMED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_QUALITY_IMPROVEMENT]['status']);
+    }
+
+    public function test_quality_improvement_blocked_without_passing_gate(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'quality_improved', 'ref' => 'rec-qual']],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_QUALITY_IMPROVEMENT]['status']);
+    }
+
+    // ── AC2: partial impact via evidence_strength=weak ──────────────────────────
+
+    public function test_weak_evidence_strength_yields_partial_not_confirmed(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'reuse_existing', 'ref' => 'rec-reuse', 'evidence_strength' => 'weak']],
+            'gates' => [['kind' => 'code_index', 'ref' => 'gate-2', 'passed' => true]],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_PARTIAL, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_REUSE]['status']);
+    }
+
+    public function test_default_evidence_strength_is_strong_and_yields_confirmed(): void
+    {
+        // Backward compatibility: omitting evidence_strength entirely must reproduce confirmed exactly.
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'reuse_existing', 'ref' => 'rec-reuse']],
+            'gates' => [['kind' => 'code_index', 'ref' => 'gate-2', 'passed' => true]],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_CONFIRMED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_REUSE]['status']);
+    }
+
+    // ── AC4: discounts cosmetic wrappers, count-only commits and proofless green tests ──
+
+    public function test_discount_signal_downgrades_confirmed_class_to_proxy(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'simplification', 'ref' => 'rec-simpl']],
+            'verification' => ['server_side_green' => true, 'ref' => 'v-1'],
+            'discount_signals' => [['kind' => 'cosmetic_wrapper', 'ref' => 'discount-1', 'applies_to_class' => AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_SIMPLIFICATION]],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $fact = $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_SIMPLIFICATION];
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_PROXY, $fact['status']);
+        $this->assertContains('rec-simpl', $fact['evidence_refs']);
+        $this->assertContains('discount-1', $fact['evidence_refs']);
+    }
+
+    public function test_global_discount_signal_without_applies_to_class_discounts_all_confirmed(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [
+                ['kind' => 'simplification', 'ref' => 'rec-simpl'],
+                ['kind' => 'reuse_existing', 'ref' => 'rec-reuse'],
+            ],
+            'verification' => ['server_side_green' => true, 'ref' => 'v-1'],
+            'gates' => [['kind' => 'code_index', 'ref' => 'gate-2', 'passed' => true]],
+            'discount_signals' => [['kind' => 'count_only_commit']],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_PROXY, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_SIMPLIFICATION]['status']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_PROXY, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_REUSE]['status']);
+    }
+
+    public function test_discount_signal_never_upgrades_unknown_or_blocked_to_proxy(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'new_capability', 'ref' => 'rec-1']], // verification absent → blocked
+            'discount_signals' => [['kind' => 'proofless_green_test']],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_BLOCKED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_CAPABILITY_LIFT]['status']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_UNKNOWN, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_REUSE]['status']);
+    }
+
+    public function test_no_discount_signals_leaves_confirmed_classes_untouched(): void
+    {
+        $r = (new AtlasGoalValueOutcomeEvidenceEvaluator)->evaluate([
+            'receipts' => [['kind' => 'simplification', 'ref' => 'rec-simpl']],
+            'verification' => ['server_side_green' => true, 'ref' => 'v-1'],
+        ]);
+        $byClass = $this->indexByClass($r['value_facts']);
+        $this->assertSame(AtlasGoalValueOutcomeEvidenceEvaluator::STATUS_CONFIRMED, $byClass[AtlasGoalValueOutcomeEvidenceEvaluator::CLASS_SIMPLIFICATION]['status']);
+    }
+
     /**
      * @param  list<array<string,mixed>>  $facts
      * @return array<string,array<string,mixed>>
