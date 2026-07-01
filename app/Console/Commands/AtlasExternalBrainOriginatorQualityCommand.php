@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAdversarial
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierComplexityBudget;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierControlPlane;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierEndToEndTrial;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAmplifierFallbackRunbook;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -55,6 +56,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainAmplifierComplexityBudget $complexityBudget,
         AtlasExternalBrainAmplifierControlPlane $amplifierControlPlane,
         AtlasExternalBrainAmplifierEndToEndTrial $endToEndTrial,
+        AtlasExternalBrainAmplifierFallbackRunbook $fallbackRunbook,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -157,6 +159,13 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // amplifier_end_to_end_trial section.
         if (is_array($decoded['amplifier_end_to_end_trial'] ?? null)) {
             $payload['amplifier_end_to_end_trial'] = $endToEndTrial->run($decoded['amplifier_end_to_end_trial']);
+        }
+
+        // Optional amplifier fallback runbook: compiles the strengthening-step sequence and
+        // escalation decision for a small-model run. Distinct from the tier trial above, so
+        // it only runs when the caller explicitly supplies an amplifier_fallback_runbook section.
+        if (is_array($decoded['amplifier_fallback_runbook'] ?? null)) {
+            $payload['amplifier_fallback_runbook'] = $fallbackRunbook->compile($decoded['amplifier_fallback_runbook']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
