@@ -30,6 +30,9 @@ final class AtlasMaestroFairnessGiniReporter
 
     private const CONCENTRATION_THRESHOLD = 0.6;
 
+    /** Share below this (with >=2 dimension keys present) marks that key as starved. */
+    private const STARVATION_SHARE_THRESHOLD = 0.05;
+
     /** @var callable(): iterable<array<string,mixed>> */
     private $completedTaskSource;
 
@@ -49,7 +52,7 @@ final class AtlasMaestroFairnessGiniReporter
     public function report(): array
     {
         $workerThroughput = $this->workerThroughput();
-        $taskClassCounts = $this->taskClassCounts();
+        [$taskClassCounts, $laneCounts, $tierCounts] = $this->taskDimensionCounts();
 
         $totalWorkers = array_sum($workerThroughput);
         $totalTaskClasses = array_sum($taskClassCounts);
@@ -59,6 +62,8 @@ final class AtlasMaestroFairnessGiniReporter
 
         $workerHist = $this->shareHistogram($workerThroughput);
         $taskClassHist = $this->shareHistogram($taskClassCounts);
+        $laneHist = $this->shareHistogram($laneCounts);
+        $tierHist = $this->shareHistogram($tierCounts);
 
         $idleWorkerIds = array_values(array_filter(
             array_keys($workerThroughput),
@@ -82,6 +87,16 @@ final class AtlasMaestroFairnessGiniReporter
             'idle_worker_ids' => $idleWorkerIds,
             'max_idle_worker_id' => $idleWorkerIds[0] ?? null,
             'concentration_warnings' => $this->concentrationWarnings($workerHist, $taskClassHist),
+            'gini_lanes' => $this->gini(array_values($laneCounts)),
+            'lane_share_histogram' => $laneHist,
+            'max_lane_share_id' => $this->maxKey($laneHist),
+            'starved_lanes' => $this->starvedKeys($laneHist),
+            'gini_tiers' => $this->gini(array_values($tierCounts)),
+            'tier_share_histogram' => $tierHist,
+            'max_tier_share_id' => $this->maxKey($tierHist),
+            'starved_tiers' => $this->starvedKeys($tierHist),
+            'starved_workers' => $this->starvedKeys($workerHist),
+            'starved_task_classes' => $this->starvedKeys($taskClassHist),
         ];
     }
 
@@ -107,11 +122,16 @@ final class AtlasMaestroFairnessGiniReporter
     }
 
     /**
-     * @return array<string,int>
+     * Single pass over the completed-task source, counting task_class (existing), lane and
+     * risk_tier dimensions together — avoids re-iterating a possibly non-rewindable generator.
+     *
+     * @return array{0:array<string,int>,1:array<string,int>,2:array<string,int>}
      */
-    private function taskClassCounts(): array
+    private function taskDimensionCounts(): array
     {
-        $out = [];
+        $taskClass = [];
+        $lane = [];
+        $tier = [];
         try {
             foreach (($this->completedTaskSource)() as $row) {
                 if (! is_array($row)) {
@@ -125,15 +145,45 @@ final class AtlasMaestroFairnessGiniReporter
                 if ($outcome !== 'success' && $outcome !== '') {
                     continue;
                 }
-                $taskClass = $this->taskClassOf($packetId);
-                $out[$taskClass] = ($out[$taskClass] ?? 0) + 1;
+                $cls = $this->taskClassOf($packetId);
+                $taskClass[$cls] = ($taskClass[$cls] ?? 0) + 1;
+
+                $laneVal = trim((string) ($row['lane'] ?? ''));
+                if ($laneVal !== '') {
+                    $lane[$laneVal] = ($lane[$laneVal] ?? 0) + 1;
+                }
+
+                $tierVal = trim((string) ($row['risk_tier'] ?? ''));
+                if ($tierVal !== '') {
+                    $tier[$tierVal] = ($tier[$tierVal] ?? 0) + 1;
+                }
             }
         } catch (\Throwable) {
             // facts-only — drop on read error.
         }
-        ksort($out);
+        ksort($taskClass);
+        ksort($lane);
+        ksort($tier);
 
-        return $out;
+        return [$taskClass, $lane, $tier];
+    }
+
+    /**
+     * @param  array<string,float>  $histogram
+     * @return list<string>
+     */
+    private function starvedKeys(array $histogram): array
+    {
+        if (count($histogram) < 2) {
+            return [];
+        }
+        $starved = array_values(array_filter(
+            array_keys($histogram),
+            fn (string $k): bool => $histogram[$k] < self::STARVATION_SHARE_THRESHOLD,
+        ));
+        sort($starved, SORT_STRING);
+
+        return $starved;
     }
 
     private function taskClassOf(string $packetId): string
