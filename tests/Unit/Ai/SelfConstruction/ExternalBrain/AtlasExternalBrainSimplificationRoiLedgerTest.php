@@ -400,11 +400,26 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $this->assertSame(0.0, $r['approved'][0]['risk_adjusted_roi']);
     }
 
-    public function test_high_risk_candidate_with_rollback_proof_has_reduced_but_nonzero_risk_adjusted_roi(): void
+    public function test_high_risk_candidate_with_only_rollback_proof_still_has_zero_risk_adjusted_roi(): void
     {
+        // AC2: high-risk needs BOTH proofs — rollback alone never proves behavior was preserved.
         $candidate = array_merge($this->merge('HR2', 1.0), [
             'risk_level' => 'high',
             'rollback_proof' => 'receipt:rb1',
+        ]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame(1.0, $r['approved'][0]['raw_roi']);
+        $this->assertSame(0.0, $r['approved'][0]['risk_adjusted_roi']);
+    }
+
+    public function test_high_risk_candidate_with_both_proofs_has_reduced_but_nonzero_risk_adjusted_roi(): void
+    {
+        $candidate = array_merge($this->merge('HR3', 1.0), [
+            'risk_level' => 'high',
+            'rollback_proof' => 'receipt:rb1',
+            'behavior_preservation_proof' => 'receipt:bp1',
         ]);
 
         $r = $this->ledger()->record(['candidates' => [$candidate]]);
@@ -549,5 +564,85 @@ final class AtlasExternalBrainSimplificationRoiLedgerTest extends TestCase
         $summary = $r['batch_roi_summary'];
         $this->assertSame($summary['approved_roi'], $r['approved']['0']['raw_roi'] ?? $r['approved'][0]['raw_roi']);
         $this->assertLessThan($summary['approved_roi'], $summary['risk_adjusted_approved_roi']);
+    }
+
+    // ── new AC1: cosmetic candidates never count toward structural_roi credit ──
+
+    public function test_cosmetic_candidate_has_zero_structural_roi_credit_despite_positive_roi_estimate(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [$this->deletion('D1')]]);
+
+        $this->assertSame('low_value_cosmetic', $r['approved'][0]['roi_classification']);
+        $this->assertGreaterThan(0.0, $r['approved'][0]['roi_estimate']);
+        $this->assertSame(0.0, $r['approved'][0]['structural_roi_credit']);
+    }
+
+    public function test_high_value_candidate_has_nonzero_structural_roi_credit(): void
+    {
+        $candidate = array_merge($this->deletion('D1'), ['collapsed_organs' => 1]);
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame('high_value', $r['approved'][0]['roi_classification']);
+        $this->assertGreaterThan(0.0, $r['approved'][0]['structural_roi_credit']);
+    }
+
+    // ── new AC2: high-risk merge/simplify requires BOTH proofs before structural credit ──
+
+    public function test_high_risk_high_value_candidate_without_behavior_proof_has_zero_structural_credit(): void
+    {
+        $candidate = array_merge($this->merge('HR4', 1.0), [
+            'collapsed_organs' => 1,
+            'risk_level' => 'high',
+            'rollback_proof' => 'receipt:rb1',
+        ]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertSame('high_value', $r['approved'][0]['roi_classification']);
+        $this->assertSame(0.0, $r['approved'][0]['structural_roi_credit']);
+    }
+
+    public function test_high_risk_high_value_candidate_with_both_proofs_has_nonzero_structural_credit(): void
+    {
+        $candidate = array_merge($this->merge('HR5', 1.0), [
+            'collapsed_organs' => 1,
+            'risk_level' => 'high',
+            'rollback_proof' => 'receipt:rb1',
+            'behavior_preservation_proof' => 'receipt:bp1',
+        ]);
+
+        $r = $this->ledger()->record(['candidates' => [$candidate]]);
+
+        $this->assertGreaterThan(0.0, $r['approved'][0]['structural_roi_credit']);
+    }
+
+    // ── new AC3: batch_roi_summary separates structural_roi from cosmetic_roi ──
+
+    public function test_batch_roi_summary_separates_structural_roi_from_cosmetic_roi(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [
+            $this->deletion('D1'), // cosmetic
+            array_merge($this->merge('M1', 1.0), ['collapsed_organs' => 1]), // structural
+        ]]);
+
+        $summary = $r['batch_roi_summary'];
+        $this->assertArrayHasKey('structural_roi', $summary);
+        $this->assertArrayHasKey('cosmetic_roi', $summary);
+        $this->assertSame(0.7, $summary['cosmetic_roi']);
+        $this->assertSame(1.0, $summary['structural_roi']);
+    }
+
+    public function test_batch_roi_summary_reports_top_refusal_reasons_alongside_structural_split(): void
+    {
+        $r = $this->ledger()->record(['candidates' => [
+            $this->deletion('D1', ''), // refused
+            array_merge($this->merge('M1', 1.0), ['collapsed_organs' => 1]),
+        ]]);
+
+        $summary = $r['batch_roi_summary'];
+        $this->assertNotEmpty($summary['top_refusal_reasons']);
+        $this->assertSame('deletion_without_replacement_proof', $summary['top_refusal_reasons'][0]['reason']);
+        $this->assertSame(1.0, $summary['structural_roi']);
+        $this->assertSame(0.0, $summary['cosmetic_roi']);
     }
 }

@@ -77,6 +77,11 @@ final class AtlasExternalBrainSimplificationRoiLedger
             } else {
                 $bpStatus   = ($action === 'delete') ? 'proof_verified' : 'roi_positive_no_proof';
                 $riskAdjustedRoi = $this->riskAdjustedRoi($roiEstimate, $candidate);
+                $roiClassification = $this->roiClassification($candidate);
+                // structural_roi_credit is the real, defensible credit toward approved ROI: zero
+                // for cosmetic candidates (no structural benefit) regardless of a positive
+                // roi_estimate, and already risk/proof-discounted for genuine structural ones.
+                $structuralRoiCredit = $roiClassification === 'high_value' ? $riskAdjustedRoi : 0.0;
                 $approved[] = [
                     'id'                          => $id,
                     'action'                      => $action,
@@ -91,10 +96,11 @@ final class AtlasExternalBrainSimplificationRoiLedger
                     'dependency_reduction'        => max(0, (int) ($candidate['dependency_reduction'] ?? 0)),
                     'risk_reduced'                => (bool) ($candidate['risk_reduced'] ?? false),
                     'maintenance_savings'         => max(0.0, (float) ($candidate['maintenance_savings'] ?? 0.0)),
-                    'roi_classification'          => $this->roiClassification($candidate),
+                    'roi_classification'          => $roiClassification,
                     'approved_roi'                => $roiEstimate,
                     'raw_roi'                     => $roiEstimate,
                     'risk_adjusted_roi'           => $riskAdjustedRoi,
+                    'structural_roi_credit'       => $structuralRoiCredit,
                     'next_simplification_action'  => 'execute_simplification:'.$id,
                 ];
                 $totalRoi   += $roiEstimate;
@@ -104,6 +110,11 @@ final class AtlasExternalBrainSimplificationRoiLedger
         $approvedRoi   = round($totalRoi, 3);
         $refusedRoiRnd = round($refusedRoi, 3);
         $riskAdjustedApprovedRoi = round(array_sum(array_column($approved, 'risk_adjusted_roi')), 3);
+        $structuralRoi = round(array_sum(array_column($approved, 'structural_roi_credit')), 3);
+        $cosmeticRoi = round(array_sum(array_map(
+            static fn (array $e): float => $e['roi_classification'] === 'low_value_cosmetic' ? (float) $e['roi_estimate'] : 0.0,
+            $approved,
+        )), 3);
 
         return [
             'schema_version'               => self::SCHEMA,
@@ -124,6 +135,8 @@ final class AtlasExternalBrainSimplificationRoiLedger
                 'approved_roi'               => $approvedRoi,
                 'refused_roi'                => $refusedRoiRnd,
                 'risk_adjusted_approved_roi' => $riskAdjustedApprovedRoi,
+                'structural_roi'             => $structuralRoi,
+                'cosmetic_roi'               => $cosmeticRoi,
                 'top_refusal_reasons'        => $this->topRefusalReasons($refused),
             ],
         ];
@@ -178,9 +191,12 @@ final class AtlasExternalBrainSimplificationRoiLedger
     {
         $riskLevel = strtolower(trim((string) ($candidate['risk_level'] ?? 'low')));
         $hasRollbackProof = (string) ($candidate['rollback_proof'] ?? '') !== '';
+        $hasBehaviorProof = (string) ($candidate['behavior_preservation_proof'] ?? '') !== '';
 
         $factor = match (true) {
-            $riskLevel === 'high' && ! $hasRollbackProof => 0.0,
+            // High-risk merges/simplifications need BOTH proofs before any credit — a rollback
+            // path alone does not prove the change preserved behavior, and vice versa.
+            $riskLevel === 'high' && (! $hasRollbackProof || ! $hasBehaviorProof) => 0.0,
             $riskLevel === 'high' => 0.9,
             $riskLevel === 'medium' && ! $hasRollbackProof => 0.5,
             $riskLevel === 'medium' => 0.85,
