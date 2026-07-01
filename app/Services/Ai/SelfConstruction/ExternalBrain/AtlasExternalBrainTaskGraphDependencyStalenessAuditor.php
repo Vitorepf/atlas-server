@@ -28,6 +28,9 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
 {
     public const SCHEMA = 'atlas.external_brain.task_graph_dependency_staleness_auditor.v1';
 
+    /** A still-waiting dependency older than this many days is flagged stale, not just legitimate. */
+    private const STALE_DEPENDENCY_AGE_DAYS = 30;
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -38,6 +41,12 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
         $statuses = (array) ($facts['statuses'] ?? []);
         $completionOutcomes = (array) ($facts['completion_outcomes'] ?? []);
         $supersededTargets = (array) ($facts['superseded_targets'] ?? []);
+        // AC2: a dependency can be satisfied by capability implemented elsewhere without ever
+        // being formally renamed via superseded_targets — opt-in via this separate fact map.
+        $capabilityAlreadyImplemented = (array) ($facts['capability_already_implemented'] ?? []);
+        // AC3: age-based staleness for a dependency still in a legitimate waiting status —
+        // opt-in via this fact map, so callers who don't supply it are unaffected.
+        $dependencyAgeDays = (array) ($facts['dependency_age_days'] ?? []);
 
         $staleEdges = [];
         $satisfiedDependencies = [];
@@ -87,11 +96,28 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
 
             if ($supersededBy !== '') {
                 $rescopePlan = "repoint {$taskId}'s dependency from {$dependsOn} to its replacement {$supersededBy}";
-                $supersededDependents[] = $edgeRow + ['superseded_by' => $supersededBy, 'rescope_plan' => $rescopePlan];
+                $supersededDependents[] = $edgeRow + ['superseded_by' => $supersededBy, 'reason' => 'formally_superseded', 'rescope_plan' => $rescopePlan];
                 $repairOrRetireRecommendations[] = [
                     'task_id' => $taskId,
                     'action' => 'repair',
                     'reason' => 'dependency_superseded_repoint_to_'.$supersededBy,
+                ];
+                $flag($taskId, $dependsOn, $rescopePlan, 'rescope');
+
+                continue;
+            }
+
+            // AC2: capability already implemented elsewhere — the dependency was never formally
+            // renamed, but the thing it was blocking on already exists, so it's superseded in
+            // effect, not merely satisfied by the literal dependsOn task completing.
+            $implementedBy = trim((string) ($capabilityAlreadyImplemented[$dependsOn] ?? ''));
+            if ($implementedBy !== '') {
+                $rescopePlan = "repoint {$taskId}'s dependency from {$dependsOn} to {$implementedBy}, which already implements the capability it was waiting on";
+                $supersededDependents[] = $edgeRow + ['superseded_by' => $implementedBy, 'reason' => 'capability_already_implemented_elsewhere', 'rescope_plan' => $rescopePlan];
+                $repairOrRetireRecommendations[] = [
+                    'task_id' => $taskId,
+                    'action' => 'repair',
+                    'reason' => 'dependency_capability_already_implemented_by_'.$implementedBy,
                 ];
                 $flag($taskId, $dependsOn, $rescopePlan, 'rescope');
 
@@ -132,7 +158,35 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
                 continue;
             }
 
+            // AC3: still in a legitimate waiting status, but if it's been waiting for a long
+            // time, that itself is a staleness signal worth resequencing around — flagged with
+            // the literal reason=stale_dependency (distinct from a dangling/unknown reference).
+            $ageDays = max(0, (int) ($dependencyAgeDays[$dependsOn] ?? 0));
+            if ($ageDays > self::STALE_DEPENDENCY_AGE_DAYS) {
+                $rescopePlan = "resequence {$taskId}: dependency {$dependsOn} has been waiting {$ageDays} days — verify it is still required, or drop/replace it";
+                $staleEdges[] = $edgeRow + ['reason' => 'stale_dependency', 'age_days' => $ageDays, 'rescope_plan' => $rescopePlan];
+                $repairOrRetireRecommendations[] = [
+                    'task_id' => $taskId,
+                    'action' => 'resequence',
+                    'reason' => 'stale_dependency',
+                ];
+                $flag($taskId, $dependsOn, $rescopePlan, 'resequence');
+
+                continue;
+            }
+
             // Still legitimately waiting (queued/claimable/claimed/blocked/etc) — not stale.
+        }
+
+        // AC4: a concrete resequencing plan for the task graph — one entry per flagged task,
+        // naming exactly which dependency blocks it and what to do about it.
+        $resequenceActions = [];
+        foreach (array_keys($staleTaskIds) as $taskId) {
+            $resequenceActions[] = [
+                'task_id' => $taskId,
+                'action' => $recommendedChainAction[$taskId] ?? 'rescope',
+                'blocked_by' => $dependencyBlockers[$taskId] ?? [],
+            ];
         }
 
         return [
@@ -146,6 +200,7 @@ final class AtlasExternalBrainTaskGraphDependencyStalenessAuditor
             'stale_task_ids' => array_values(array_keys($staleTaskIds)),
             'dependency_blockers' => $dependencyBlockers,
             'recommended_chain_action' => array_intersect_key($recommendedChainAction, $staleTaskIds),
+            'resequence_actions' => $resequenceActions,
             'mutates_queue' => false,
         ];
     }
