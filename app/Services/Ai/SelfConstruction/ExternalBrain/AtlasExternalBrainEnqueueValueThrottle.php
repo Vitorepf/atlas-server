@@ -62,6 +62,15 @@ final class AtlasExternalBrainEnqueueValueThrottle
 
     private const WORKER_DRAIN_CONFIDENCE_THRESHOLD = 0.3;
 
+    /** fraction of the batch reported as filler/non-substantive before it's blocked as padding. */
+    private const PADDING_RATIO_THRESHOLD = 0.3;
+
+    /** queue_depth above this is "deep" — only a high-leverage batch may still enqueue. */
+    private const DEEP_QUEUE_THRESHOLD = 20;
+
+    /** floor each of novelty/structural-leverage/proof-demand must clear to justify a deep-queue enqueue. */
+    private const HIGH_LEVERAGE_THRESHOLD = 0.7;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -75,6 +84,14 @@ final class AtlasExternalBrainEnqueueValueThrottle
         $workerDrainConfidence = max(0.0, min(1.0, (float) ($input['worker_drain_confidence'] ?? 0.0)));
         $roadmapCoverageScore = max(0.0, min(1.0, (float) ($input['roadmap_coverage_score'] ?? 0.0)));
         $candidateTaskIds = is_array($input['candidate_task_ids'] ?? null) ? array_values($input['candidate_task_ids']) : [];
+        $queueDepth = max(0, (int) ($input['queue_depth'] ?? 0));
+        $paddingRatio = max(0.0, min(1.0, (float) ($input['padding_ratio'] ?? 0.0)));
+        $structuralLeverageScore = max(0.0, min(1.0, (float) ($input['structural_leverage_score'] ?? 0.0)));
+        $proofDemandScore = max(0.0, min(1.0, (float) ($input['proof_demand_score'] ?? 0.0)));
+
+        $highLeverage = $noveltyScore >= self::HIGH_LEVERAGE_THRESHOLD
+            && $structuralLeverageScore >= self::HIGH_LEVERAGE_THRESHOLD
+            && $proofDemandScore >= self::HIGH_LEVERAGE_THRESHOLD;
 
         $blockers = [];
         if ($batchValueScore < self::LOW_VALUE_THRESHOLD) {
@@ -94,6 +111,12 @@ final class AtlasExternalBrainEnqueueValueThrottle
         }
         if ($workerDrainConfidence < self::WORKER_DRAIN_CONFIDENCE_THRESHOLD) {
             $blockers[] = 'worker_throughput_insufficient';
+        }
+        if ($paddingRatio >= self::PADDING_RATIO_THRESHOLD) {
+            $blockers[] = 'padding_detected';
+        }
+        if ($queueDepth > self::DEEP_QUEUE_THRESHOLD && ! $highLeverage) {
+            $blockers[] = 'queue_saturated_low_leverage';
         }
 
         $allowEnqueue = $blockers === [];
@@ -122,14 +145,34 @@ final class AtlasExternalBrainEnqueueValueThrottle
             in_array('theme_saturated', $blockers, true) => 'pivot_to_different_theme',
             in_array('unrelated_to_high_priority_gaps', $blockers, true) => 'realign_to_roadmap_coverage_gaps',
             in_array('worker_throughput_insufficient', $blockers, true) => 'wait_for_worker_capacity_to_recover',
+            in_array('padding_detected', $blockers, true) => 'remove_padding_and_resubmit_only_substantive_tasks',
+            in_array('queue_saturated_low_leverage', $blockers, true) => 'prove_high_novelty_leverage_and_proof_demand_before_deep_queue_enqueue',
             $onlySalvageableBlockers => 'trim_batch_to_salvageable_subset',
             default => 'review_batch_manually',
+        };
+
+        // AC4: repetition risk — how much this batch looks like saturated/duplicated theme work.
+        $repetitionRisk = round(((1.0 - $noveltyScore) + (1.0 - $impactDiversityScore)) / 2, 4);
+
+        // AC4: smallest score delta needed on the primary blocking dimension, mirroring the
+        // same priority order as pivot_recommendation. Structural/shape blockers (batch size,
+        // padding, queue depth) need a repair, not a score bump, so they yield 0.0 here.
+        $minimumImprovementNeeded = match (true) {
+            $allowEnqueue => 0.0,
+            in_array('low_value', $blockers, true) => round(self::LOW_VALUE_THRESHOLD - $batchValueScore, 4),
+            in_array('theme_saturated', $blockers, true) => round(self::SATURATION_NOVELTY_THRESHOLD - $noveltyScore, 4),
+            in_array('unrelated_to_high_priority_gaps', $blockers, true) => round(self::ROADMAP_COVERAGE_THRESHOLD - $roadmapCoverageScore, 4),
+            in_array('worker_throughput_insufficient', $blockers, true) => round(self::WORKER_DRAIN_CONFIDENCE_THRESHOLD - $workerDrainConfidence, 4),
+            default => 0.0,
         };
 
         return [
             'schema' => self::SCHEMA,
             'enqueue_decision' => $allowEnqueue ? 'allow' : 'block',
             'allow_enqueue' => $allowEnqueue,
+            'value_score' => $batchValueScore,
+            'repetition_risk' => $repetitionRisk,
+            'minimum_improvement_needed' => $minimumImprovementNeeded,
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'trimmed_task_ids' => $trimmedTaskIds,
