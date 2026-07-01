@@ -35,43 +35,73 @@ final class AtlasExternalBrainCapabilityRubric
         return [
             [
                 'name' => 'strategic_origination',
-                'weight' => 0.20,
+                'weight' => 0.14,
                 'description' => 'Identifies and originates high-leverage work from first principles; does not rely on human seeding.',
             ],
             [
                 'name' => 'grounded_system_comprehension',
-                'weight' => 0.15,
+                'weight' => 0.105,
                 'description' => 'Reads and correctly models the Atlas codebase, memory, and invariants before proposing changes.',
             ],
             [
                 'name' => 'high_leverage_task_synthesis',
-                'weight' => 0.20,
+                'weight' => 0.14,
                 'description' => 'Synthesizes tasks that unlock compounding value; avoids one-off polish with no systemic reach.',
             ],
             [
                 'name' => 'anti_goodhart_resistance',
-                'weight' => 0.15,
+                'weight' => 0.105,
                 'description' => 'Optimizes true capability outcomes; does not exploit proxy metrics (line counts, task throughput).',
             ],
             [
                 'name' => 'learning_from_muscle_outcomes',
-                'weight' => 0.10,
+                'weight' => 0.07,
                 'description' => 'Updates origination strategy from worker delivery rates and rejection patterns.',
             ],
             [
                 'name' => 'autonomous_continuation',
-                'weight' => 0.10,
+                'weight' => 0.07,
                 'description' => 'Sustains productive origination indefinitely without human prompting or intervention.',
             ],
             [
                 'name' => 'research_pattern_expansion',
-                'weight' => 0.05,
+                'weight' => 0.035,
                 'description' => 'Harvests external patterns (papers, OSS) and integrates them into Atlas capability.',
             ],
             [
                 'name' => 'final_certification',
-                'weight' => 0.05,
+                'weight' => 0.035,
                 'description' => 'Self-certifies only when evidence is verified; never claims completion on unverified assertions.',
+            ],
+            [
+                'name' => 'domain_map_quality',
+                'weight' => 0.05,
+                'description' => 'Maintains an accurate owner-domain and integration map of capabilities, not a flat implemented/not-implemented list.',
+            ],
+            [
+                'name' => 'outcome_learning',
+                'weight' => 0.05,
+                'description' => 'Converts give_back, poison, and acceptance patterns from live task outcomes into better next-batch origination.',
+            ],
+            [
+                'name' => 'queue_self_healing',
+                'weight' => 0.05,
+                'description' => 'Detects and respecs malformed or poison-prone packets before muscles waste tokens on them.',
+            ],
+            [
+                'name' => 'proof_strength',
+                'weight' => 0.05,
+                'description' => 'Backs capability claims with runnable, causal evidence rather than file-presence or self-declaration.',
+            ],
+            [
+                'name' => 'autonomy_independence',
+                'weight' => 0.05,
+                'description' => 'Sustains and escalates origination without recurring human or external-provider dependency.',
+            ],
+            [
+                'name' => 'simplification_maturity',
+                'weight' => 0.05,
+                'description' => 'Retires, merges, or simplifies low-leverage and redundant surface instead of only adding new code.',
             ],
         ];
     }

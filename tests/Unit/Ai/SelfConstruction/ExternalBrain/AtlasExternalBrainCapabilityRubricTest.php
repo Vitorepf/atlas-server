@@ -30,6 +30,12 @@ final class AtlasExternalBrainCapabilityRubricTest extends TestCase
             'autonomous_continuation',
             'research_pattern_expansion',
             'final_certification',
+            'domain_map_quality',
+            'outcome_learning',
+            'queue_self_healing',
+            'proof_strength',
+            'autonomy_independence',
+            'simplification_maturity',
         ];
         foreach ($expectedNames as $name) {
             $this->assertContains($name, $names, "dimension {$name} must be present");
