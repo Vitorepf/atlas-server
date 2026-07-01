@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAutonomyReg
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCurriculum;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -69,6 +70,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainBlindSpotCurriculum $blindSpotCurriculum,
         AtlasExternalBrainCapabilityRubric $capabilityRubric,
         AtlasExternalBrainCausalAblationBatchStudy $causalAblationBatchStudy,
+        AtlasExternalBrainConsolidationFirstCircuitBreaker $consolidationFirstCircuitBreaker,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -252,6 +254,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
                 $decoded['causal_ablation_compare']['control'],
                 $decoded['causal_ablation_compare']['treatment'],
             );
+        }
+
+        // Optional consolidation-first circuit breaker: decides whether the brain should
+        // consolidate/simplify before adding more organs. Distinct from the causal ablation
+        // compare above (sprawl-signal gating vs. control/treatment contrast), so it only
+        // runs when the caller explicitly supplies a consolidation_first section.
+        if (is_array($decoded['consolidation_first'] ?? null)) {
+            $payload['consolidation_first'] = $consolidationFirstCircuitBreaker->evaluate($decoded['consolidation_first']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
