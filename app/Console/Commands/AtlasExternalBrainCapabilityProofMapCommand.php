@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainAreaImpactLedger;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityDebtLedger;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityEvidenceProvenanceLedger;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityIntegrationMap;
@@ -50,6 +51,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
         AtlasExternalBrainCapabilityIntegrationMap $integrationMap,
         AtlasExternalBrainCapabilityEvidenceProvenanceLedger $evidenceLedger,
         AtlasExternalBrainCapabilityDebtLedger $debtLedger,
+        AtlasExternalBrainAreaImpactLedger $areaImpactLedger,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -68,6 +70,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
         $capabilities = is_array($decoded['capabilities'] ?? null) ? $decoded['capabilities'] : [];
         $capabilityEvidence = is_array($decoded['capability_evidence'] ?? null) ? $decoded['capability_evidence'] : [];
         $debtRecords = is_array($decoded['debt_records'] ?? null) ? $decoded['debt_records'] : [];
+        $areaImpactSamples = is_array($decoded['area_impact_samples'] ?? null) ? $decoded['area_impact_samples'] : [];
 
         $integrationReport = $integrationMap->map(['capabilities' => $capabilities]);
         $integrationByCapability = array_column($integrationReport['capability_map'], null, 'capability_id');
@@ -82,6 +85,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
         $evidenceByCapability = array_column($evidenceAssessments, null, 'capability_id');
 
         $debtReport = $debtLedger->assess(['debt_records' => $debtRecords]);
+        $areaImpactReport = $areaImpactLedger->aggregate(['samples' => $areaImpactSamples]);
 
         $capabilityIds = array_values(array_unique(array_merge(
             array_keys($integrationByCapability),
@@ -120,6 +124,7 @@ final class AtlasExternalBrainCapabilityProofMapCommand extends Command
             'integration_map' => $integrationReport,
             'evidence_assessments' => $evidenceAssessments,
             'capability_debt_ledger' => $debtReport,
+            'area_impact_ledger' => $areaImpactReport,
         ];
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
