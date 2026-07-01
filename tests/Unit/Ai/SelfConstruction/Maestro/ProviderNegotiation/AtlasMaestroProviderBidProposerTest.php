@@ -313,6 +313,161 @@ final class AtlasMaestroProviderBidProposerTest extends TestCase
         $this->assertNotContains('atlas_native_capability_proof_required', $bid->ineligibilityReasons);
     }
 
+    // ── AC: adequate local/subscription profiles receive eligible bids before higher-cost profiles ──
+
+    public function test_adequate_safe_profile_bids_sort_before_higher_cost_profiles(): void
+    {
+        $task = $this->taskEnvelope();
+        $localProfile = $this->profile('local-safe', locality: 'local');
+        $remoteProfile = $this->profile('remote-costly', locality: 'remote');
+
+        $bidSet = (new AtlasMaestroProviderBidProposer)->propose($task, [$remoteProfile, $localProfile]);
+
+        $this->assertSame('local-safe', $bidSet->bids[0]->providerId);
+        $this->assertTrue($bidSet->bids[0]->eligibilityBool);
+    }
+
+    // ── AC: higher-cost escalation requires high task risk or missing local capability ──
+
+    public function test_remote_provider_requires_escalation_reason_when_safe_alternative_exists(): void
+    {
+        $task = $this->taskEnvelope(); // public sensitivity, not high risk
+        $localProfile = $this->profile('local-adequate', locality: 'local');
+        $remoteProfile = $this->profile('remote-no-justification', locality: 'remote');
+
+        $bidSet = (new AtlasMaestroProviderBidProposer)->propose($task, [$localProfile, $remoteProfile]);
+        $remoteBid = array_values(array_filter($bidSet->bids, fn ($b) => $b->providerId === 'remote-no-justification'))[0];
+
+        $this->assertFalse($remoteBid->eligibilityBool);
+        $this->assertContains('escalation_reason_required', $remoteBid->ineligibilityReasons);
+    }
+
+    public function test_remote_provider_eligible_when_task_is_high_risk_despite_safe_alternative(): void
+    {
+        $task = new TaskEnvelope(
+            taskId: 't-highrisk',
+            kind: 'loop',
+            requiredCapabilities: ['php', 'tests'],
+            deadline: '2026-06-24T08:00:00Z',
+            localOnly: false,
+            sensitivityClass: 'secret',
+        );
+        $localProfile = $this->profile('local-adequate-2', locality: 'local');
+        $remoteProfile = new ProviderProfile(
+            providerId: 'remote-secret-capable',
+            declaredCapabilities: ['php', 'tests'],
+            observedCostPerTokenIn: 2.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 25,
+            locality: 'remote',
+            sensitivityAllowed: ['public', 'secret'],
+            extras: ['tier' => 'hard'],
+        );
+
+        $bidSet = (new AtlasMaestroProviderBidProposer)->propose($task, [$localProfile, $remoteProfile]);
+        $remoteBid = array_values(array_filter($bidSet->bids, fn ($b) => $b->providerId === 'remote-secret-capable'))[0];
+
+        $this->assertNotContains('escalation_reason_required', $remoteBid->ineligibilityReasons);
+    }
+
+    public function test_remote_provider_eligible_when_no_local_capability_exists(): void
+    {
+        $task = $this->taskEnvelope();
+        $remoteProfile = $this->profile('remote-only-option', locality: 'remote');
+
+        $bidSet = (new AtlasMaestroProviderBidProposer)->propose($task, [$remoteProfile]);
+        $remoteBid = $bidSet->bids[0];
+
+        $this->assertNotContains('escalation_reason_required', $remoteBid->ineligibilityReasons);
+        $this->assertTrue($remoteBid->eligibilityBool);
+    }
+
+    // ── AC: malformed provider profiles are rejected with actionable diagnostics ──
+
+    public function test_malformed_profile_with_empty_provider_id_is_rejected_with_diagnostic(): void
+    {
+        $task = $this->taskEnvelope();
+        $malformed = new ProviderProfile(
+            providerId: '',
+            declaredCapabilities: ['php', 'tests'],
+            observedCostPerTokenIn: 1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'local',
+            sensitivityAllowed: ['public'],
+        );
+
+        $bid = (new AtlasMaestroProviderBidProposer)->propose($task, [$malformed])->bids[0];
+
+        $this->assertFalse($bid->eligibilityBool);
+        $this->assertContains('malformed_profile:empty_provider_id', $bid->ineligibilityReasons);
+    }
+
+    public function test_malformed_profile_with_invalid_locality_is_rejected_with_diagnostic(): void
+    {
+        $task = $this->taskEnvelope();
+        $malformed = new ProviderProfile(
+            providerId: 'bad-locality',
+            declaredCapabilities: ['php', 'tests'],
+            observedCostPerTokenIn: 1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'moon',
+            sensitivityAllowed: ['public'],
+        );
+
+        $bid = (new AtlasMaestroProviderBidProposer)->propose($task, [$malformed])->bids[0];
+
+        $this->assertFalse($bid->eligibilityBool);
+        $this->assertContains('malformed_profile:invalid_locality:moon', $bid->ineligibilityReasons);
+    }
+
+    public function test_malformed_profile_with_negative_cost_is_rejected_with_diagnostic(): void
+    {
+        $task = $this->taskEnvelope();
+        $malformed = new ProviderProfile(
+            providerId: 'negative-cost',
+            declaredCapabilities: ['php', 'tests'],
+            observedCostPerTokenIn: -1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'local',
+            sensitivityAllowed: ['public'],
+        );
+
+        $bid = (new AtlasMaestroProviderBidProposer)->propose($task, [$malformed])->bids[0];
+
+        $this->assertFalse($bid->eligibilityBool);
+        $this->assertContains('malformed_profile:negative_cost_per_token_in', $bid->ineligibilityReasons);
+        $this->assertSame(0, $bid->declaredCostUnits);
+    }
+
+    public function test_malformed_profile_does_not_block_other_valid_profiles_in_same_batch(): void
+    {
+        $task = $this->taskEnvelope();
+        $malformed = new ProviderProfile(
+            providerId: '',
+            declaredCapabilities: ['php', 'tests'],
+            observedCostPerTokenIn: 1.0,
+            observedCostPerTokenOut: 1.0,
+            observedP50LatencyMs: 100,
+            currentLoadPct: 0,
+            locality: 'local',
+            sensitivityAllowed: ['public'],
+        );
+        $valid = $this->profile('valid-provider', locality: 'local');
+
+        $bidSet = (new AtlasMaestroProviderBidProposer)->propose($task, [$malformed, $valid]);
+
+        $validBid = array_values(array_filter($bidSet->bids, fn ($b) => $b->providerId === 'valid-provider'))[0];
+        $this->assertTrue($validBid->eligibilityBool);
+        $this->assertCount(2, $bidSet->bids);
+    }
+
     private function taskEnvelope(): TaskEnvelope
     {
         return new TaskEnvelope(
@@ -325,7 +480,7 @@ final class AtlasMaestroProviderBidProposerTest extends TestCase
         );
     }
 
-    private function profile(string $providerId, string $locality = 'local'): ProviderProfile
+    private function profile(string $providerId, string $locality = 'local', array $extras = ['tier' => 'hard']): ProviderProfile
     {
         return new ProviderProfile(
             providerId: $providerId,
@@ -336,6 +491,7 @@ final class AtlasMaestroProviderBidProposerTest extends TestCase
             currentLoadPct: 25,
             locality: $locality,
             sensitivityAllowed: ['public', 'secret'],
+            extras: $extras,
         );
     }
 }
