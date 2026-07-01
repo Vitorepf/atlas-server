@@ -75,6 +75,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 $stale ? 'throughput_data_stale' : 'throughput_data_missing',
                 $claimable, $servable, $blocked,
                 $nearWorkerFloor, $activeWorkerCount, $claimablePerActiveWorker,
+                array_key_exists('active_worker_count', $snapshot),
             );
         }
 
@@ -156,6 +157,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
         bool $nearWorkerFloor = false,
         int $activeWorkerCount = 0,
         ?float $claimablePerActiveWorker = null,
+        bool $hasWorkerFloorSignal = false,
     ): array {
         $riskLevel = self::RISK_CRITICAL;
         $continuityStatus = self::CONTINUITY_STABLE;
@@ -168,7 +170,7 @@ final class AtlasSelfConstructionQueueContinuityForecaster
             $recommendedBatch = max(self::DEFAULT_BATCH_SIZE, $gap);
         }
 
-        return [
+        $envelope = [
             'schema_version' => self::SCHEMA,
             'hours_until_dry' => 0.0,
             'replenish_by' => null,
@@ -181,7 +183,15 @@ final class AtlasSelfConstructionQueueContinuityForecaster
                 'servable' => $servable,
                 'blocked' => $blocked,
             ],
-            'continuity_status' => $continuityStatus,
         ];
+
+        // continuity_status is only meaningful when the caller supplied worker-floor signals
+        // (even active_worker_count=0 counts as a supplied signal); a bare fail-closed with no
+        // worker-floor context at all omits the key rather than emitting a guessed default.
+        if ($nearWorkerFloor || $hasWorkerFloorSignal) {
+            $envelope['continuity_status'] = $continuityStatus;
+        }
+
+        return $envelope;
     }
 }
