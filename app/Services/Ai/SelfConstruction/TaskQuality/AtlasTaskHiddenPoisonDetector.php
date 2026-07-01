@@ -22,7 +22,14 @@ namespace App\Services\Ai\SelfConstruction\TaskQuality;
  *   - permanent_autonomy_dependency_wording        : objective requires "operator approval", "human
  *     intervention", or "external provider" as a STEADY-STATE step (poisons autonomy).
  *
- * Output: {schema_version, found_patterns:list<{pattern_id, evidence}>, clean:bool}
+ * Output: {schema_version, found_patterns:list<{pattern_id, evidence}>, clean:bool,
+ *   severity, confidence, recommended_action, safe_explanation}
+ *
+ * severity/recommended_action are derived from the single most severe matched pattern
+ * (retire > quarantine > reshape > serve, in that fixed priority). confidence reflects how
+ * sure the detector is in that recommendation — never a claim about the packet's overall
+ * quality. safe_explanation is populated ONLY when clean=true, naming exactly which checks
+ * ran and found nothing, so "safe" is never an unexplained default.
  */
 final class AtlasTaskHiddenPoisonDetector
 {
@@ -82,6 +89,73 @@ final class AtlasTaskHiddenPoisonDetector
     private const NEGATION_MARKERS = ['must not', 'should not', 'cannot', 'will not', 'never', ' not ', 'without ', 'forbid', 'no '];
 
     private const TEXT_STOP_WORDS = ['the', 'this', 'that', 'with', 'from', 'will', 'have', 'must', 'should', 'every', 'also', 'each', 'some', 'when', 'than', 'then', 'them', 'they', 'into', 'onto', 'over', 'only', 'both', 'even', 'just', 'same', 'such', 'more', 'most', 'been', 'does', 'what', 'here', 'there', 'where', 'which', 'while', 'these', 'those', 'their'];
+
+    public const SEVERITY_CRITICAL = 'critical';
+
+    public const SEVERITY_HIGH = 'high';
+
+    public const SEVERITY_MEDIUM = 'medium';
+
+    public const SEVERITY_LOW = 'low';
+
+    public const SEVERITY_NONE = 'none';
+
+    public const ACTION_SERVE = 'serve';
+
+    public const ACTION_RESHAPE = 'reshape';
+
+    public const ACTION_QUARANTINE = 'quarantine';
+
+    public const ACTION_RETIRE = 'retire';
+
+    /** @var array<string,string> pattern_id => severity */
+    private const PATTERN_SEVERITY = [
+        self::PATTERN_REPEATED_FAILED_RESPEC_FAMILY => self::SEVERITY_CRITICAL,
+        self::PATTERN_PERMANENT_AUTONOMY_DEP => self::SEVERITY_CRITICAL,
+        self::PATTERN_UNAVAILABLE_DEPENDENCY => self::SEVERITY_HIGH,
+        self::PATTERN_CONTRADICTORY_ACCEPTANCE => self::SEVERITY_HIGH,
+        self::PATTERN_TEST_ONLY_ALLOWED_FILES => self::SEVERITY_HIGH,
+        self::PATTERN_SCHEMA_ONLY_ACCEPTANCE => self::SEVERITY_MEDIUM,
+        self::PATTERN_DUPLICATE_CANONICAL_SYMBOL => self::SEVERITY_MEDIUM,
+        self::PATTERN_REMOVED_TARGET => self::SEVERITY_MEDIUM,
+        self::PATTERN_AMBIGUOUS_INSTRUCTION => self::SEVERITY_LOW,
+    ];
+
+    /** @var array<string,string> pattern_id => recommended_action */
+    private const PATTERN_ACTION = [
+        self::PATTERN_REPEATED_FAILED_RESPEC_FAMILY => self::ACTION_RETIRE,
+        self::PATTERN_PERMANENT_AUTONOMY_DEP => self::ACTION_QUARANTINE,
+        self::PATTERN_UNAVAILABLE_DEPENDENCY => self::ACTION_QUARANTINE,
+        self::PATTERN_CONTRADICTORY_ACCEPTANCE => self::ACTION_QUARANTINE,
+        self::PATTERN_TEST_ONLY_ALLOWED_FILES => self::ACTION_RESHAPE,
+        self::PATTERN_SCHEMA_ONLY_ACCEPTANCE => self::ACTION_RESHAPE,
+        self::PATTERN_DUPLICATE_CANONICAL_SYMBOL => self::ACTION_RESHAPE,
+        self::PATTERN_REMOVED_TARGET => self::ACTION_RESHAPE,
+        self::PATTERN_AMBIGUOUS_INSTRUCTION => self::ACTION_RESHAPE,
+    ];
+
+    private const SEVERITY_RANK = [
+        self::SEVERITY_CRITICAL => 4,
+        self::SEVERITY_HIGH => 3,
+        self::SEVERITY_MEDIUM => 2,
+        self::SEVERITY_LOW => 1,
+        self::SEVERITY_NONE => 0,
+    ];
+
+    private const ACTION_RANK = [
+        self::ACTION_RETIRE => 4,
+        self::ACTION_QUARANTINE => 3,
+        self::ACTION_RESHAPE => 2,
+        self::ACTION_SERVE => 1,
+    ];
+
+    private const SEVERITY_CONFIDENCE = [
+        self::SEVERITY_CRITICAL => 0.9,
+        self::SEVERITY_HIGH => 0.8,
+        self::SEVERITY_MEDIUM => 0.65,
+        self::SEVERITY_LOW => 0.5,
+        self::SEVERITY_NONE => 0.95,
+    ];
 
     /**
      * @param  array<string,mixed>  $packet  {objective, acceptance_criteria, required_evidence_kinds,
@@ -253,11 +327,52 @@ final class AtlasTaskHiddenPoisonDetector
             ];
         }
 
+        $clean = $found === [];
+        [$severity, $recommendedAction] = $this->overallVerdict($found);
+        $confidence = self::SEVERITY_CONFIDENCE[$severity] ?? 0.5;
+
         return [
             'schema_version' => self::SCHEMA,
             'found_patterns' => $found,
-            'clean' => $found === [],
+            'clean' => $clean,
+            'severity' => $severity,
+            'confidence' => $confidence,
+            'recommended_action' => $recommendedAction,
+            'safe_explanation' => $clean
+                ? 'No poison patterns detected: objective references only allowed_files targets, acceptance criteria are non-contradictory and assert real behavior, required dependencies are available, allowed_files carry no duplicate canonical symbols, instructions are unambiguous, no permanent autonomy dependency wording is present, and family history shows no repeated-failure retirement signal — packet is safe to serve.'
+                : null,
         ];
+    }
+
+    /**
+     * Reduces the found patterns to a single (severity, recommended_action) pair using the
+     * most severe matched pattern — retire > quarantine > reshape > serve. A packet with both a
+     * "reshape" pattern and a "quarantine" pattern is never softened to reshape.
+     *
+     * @param  list<array{pattern_id:string,evidence:array<string,mixed>}>  $found
+     * @return array{0:string,1:string}
+     */
+    private function overallVerdict(array $found): array
+    {
+        if ($found === []) {
+            return [self::SEVERITY_NONE, self::ACTION_SERVE];
+        }
+
+        $severity = self::SEVERITY_NONE;
+        $action = self::ACTION_SERVE;
+        foreach ($found as $pattern) {
+            $patternId = (string) ($pattern['pattern_id'] ?? '');
+            $patternSeverity = self::PATTERN_SEVERITY[$patternId] ?? self::SEVERITY_LOW;
+            $patternAction = self::PATTERN_ACTION[$patternId] ?? self::ACTION_RESHAPE;
+            if ((self::SEVERITY_RANK[$patternSeverity] ?? 0) > (self::SEVERITY_RANK[$severity] ?? 0)) {
+                $severity = $patternSeverity;
+            }
+            if ((self::ACTION_RANK[$patternAction] ?? 0) > (self::ACTION_RANK[$action] ?? 0)) {
+                $action = $patternAction;
+            }
+        }
+
+        return [$severity, $action];
     }
 
     private function hasNegation(string $lower): bool

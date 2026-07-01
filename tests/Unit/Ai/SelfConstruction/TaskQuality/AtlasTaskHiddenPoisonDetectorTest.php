@@ -233,4 +233,107 @@ final class AtlasTaskHiddenPoisonDetectorTest extends TestCase
 
         $this->assertSame($before, json_encode($packet), 'detector MUST NOT mutate the packet (queue invariant)');
     }
+
+    // ── AC2: severity, confidence, recommended_action ──────────────────────────
+
+    public function test_clean_packet_recommends_serve_with_no_severity(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X with bounded evidence.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::SEVERITY_NONE, $verdict['severity']);
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::ACTION_SERVE, $verdict['recommended_action']);
+        $this->assertIsFloat($verdict['confidence']);
+        $this->assertGreaterThan(0.0, $verdict['confidence']);
+    }
+
+    public function test_repeated_failed_respec_family_recommends_retire_with_critical_severity(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X with bounded evidence.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => [
+                'family_status' => 'blocked',
+                'failed_respec_count' => 4,
+                'give_back_count' => 0,
+                'field_recovery_confidence' => 0.2,
+                'has_runnable_acceptance' => false,
+            ],
+        ]);
+
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::SEVERITY_CRITICAL, $verdict['severity']);
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::ACTION_RETIRE, $verdict['recommended_action']);
+    }
+
+    public function test_contradictory_acceptance_recommends_quarantine(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service.',
+            'acceptance_criteria' => ['the endpoint must return JSON', 'the endpoint must not return JSON'],
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::ACTION_QUARANTINE, $verdict['recommended_action']);
+        $this->assertNotSame(AtlasTaskHiddenPoisonDetector::SEVERITY_NONE, $verdict['severity']);
+    }
+
+    public function test_allowed_files_test_only_trap_recommends_reshape(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Add coverage for a feature.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['tests/Unit/FooTest.php'],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::ACTION_RESHAPE, $verdict['recommended_action']);
+    }
+
+    public function test_most_severe_pattern_wins_when_multiple_patterns_found(): void
+    {
+        // Ambiguous instruction (low/reshape) AND contradictory acceptance (high/quarantine)
+        // present at once — the more severe verdict must win, never be softened.
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service. TBD if this applies.',
+            'acceptance_criteria' => ['the endpoint must return JSON', 'the endpoint must not return JSON'],
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::ACTION_QUARANTINE, $verdict['recommended_action']);
+        $this->assertSame(AtlasTaskHiddenPoisonDetector::SEVERITY_HIGH, $verdict['severity']);
+    }
+
+    // ── AC4: safe_explanation is present only when clean ────────────────────────
+
+    public function test_safe_explanation_present_when_clean(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service that does X with bounded evidence.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['app/Foo.php', 'tests/FooTest.php'],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertNotNull($verdict['safe_explanation']);
+        $this->assertNotEmpty($verdict['safe_explanation']);
+    }
+
+    public function test_safe_explanation_null_when_poison_found(): void
+    {
+        $verdict = (new AtlasTaskHiddenPoisonDetector)->detect([
+            'objective' => 'Build a service. TBD if this applies.',
+            'acceptance_criteria' => ['unit test passes'],
+            'allowed_files' => ['app/Foo.php'],
+            'quality_facts' => [],
+        ]);
+
+        $this->assertNull($verdict['safe_explanation']);
+    }
 }
