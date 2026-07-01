@@ -97,6 +97,11 @@ final class AtlasExternalBrainMuscleSkillFitRouter
         });
 
         $primaryMuscle = (isset($ranked[0]) && ! $ranked[0]['disqualified_from_primary']) ? $ranked[0]['muscle_id'] : null;
+        // Fallback must never be a disqualified candidate either — a repeated give_back/scope-failure
+        // muscle sorts after every qualified candidate, so if rank[1] is disqualified there is no
+        // second qualified candidate to fall back to; promoting it anyway would silently undo the
+        // disqualification the moment the primary becomes unavailable.
+        $fallbackMuscle = (isset($ranked[1]) && ! $ranked[1]['disqualified_from_primary']) ? $ranked[1]['muscle_id'] : null;
 
         $rank = 1;
         foreach ($ranked as &$entry) {
@@ -110,7 +115,7 @@ final class AtlasExternalBrainMuscleSkillFitRouter
             'task_family'     => $taskFamily,
             'ranked_muscles'  => $ranked,
             'primary_muscle'  => $primaryMuscle,
-            'fallback_muscle' => $ranked[1]['muscle_id'] ?? null,
+            'fallback_muscle' => $fallbackMuscle,
         ];
     }
 

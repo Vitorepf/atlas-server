@@ -258,4 +258,50 @@ final class AtlasExternalBrainMuscleSkillFitRouterTest extends TestCase
 
         $this->assertNull($r['ranked_muscles'][0]['scope_match']);
     }
+
+    // ── AC4: fallback is never a disqualified candidate ────────────────────────
+
+    public function test_fallback_muscle_is_never_the_only_other_candidate_when_it_is_disqualified(): void
+    {
+        $r = $this->router()->route([
+            'task_family' => 'php_service',
+            'candidates' => [
+                [
+                    'muscle_id' => 'good',
+                    'history' => ['php_service' => ['success' => 5, 'total' => 5]],
+                ],
+                [
+                    'muscle_id' => 'bad',
+                    'history' => ['php_service' => ['give_back' => 9, 'total' => 9]],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('good', $r['primary_muscle']);
+        $this->assertNull($r['fallback_muscle'], 'a disqualified candidate must never be promoted to fallback');
+    }
+
+    public function test_fallback_muscle_prefers_the_best_non_disqualified_second_candidate(): void
+    {
+        $r = $this->router()->route([
+            'task_family' => 'php_service',
+            'candidates' => [
+                [
+                    'muscle_id' => 'best',
+                    'history' => ['php_service' => ['success' => 5, 'total' => 5]],
+                ],
+                [
+                    'muscle_id' => 'disqualified',
+                    'history' => ['php_service' => ['give_back' => 9, 'total' => 9]],
+                ],
+                [
+                    'muscle_id' => 'second-best',
+                    'history' => ['php_service' => ['success' => 3, 'total' => 5]],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('best', $r['primary_muscle']);
+        $this->assertSame('second-best', $r['fallback_muscle']);
+    }
 }
