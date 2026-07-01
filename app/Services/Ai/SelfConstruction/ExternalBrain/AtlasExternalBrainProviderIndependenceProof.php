@@ -190,6 +190,35 @@ final class AtlasExternalBrainProviderIndependenceProof
             ];
         }
 
+        // AC1/AC2: phase_criticality distinguishes mandatory steady-state phases from optional
+        // accelerator-only phases; native_fallback_missing names the smallest missing native
+        // fallback per phase; provider_optional_accelerator_phases lists phases that merely use
+        // an optional frontier accelerator (never required); steady_state_blockers names every
+        // critical phase that is not yet provider-independent.
+        $phaseCriticality = [];
+        foreach ($evaluatedPhases as $phase) {
+            $phaseCriticality[$phase] = in_array($phase, self::MANDATORY_PHASES, true) ? 'critical' : 'optional';
+        }
+        foreach (self::MANDATORY_PHASES as $mandatory) {
+            $phaseCriticality[$mandatory] ??= 'critical';
+        }
+
+        $nativeFallbackMissing = [];
+        foreach ($missingProofs as $entry) {
+            $nativeFallbackMissing[$entry['phase']] = $entry['missing_coverage'];
+        }
+
+        $providerOptionalAcceleratorPhases = array_values(array_map(
+            static fn (array $c): string => $c['phase'],
+            array_filter($circuitClassifications, static fn (array $c): bool => $c['classification'] === self::CLASSIFICATION_PROVIDER_ACCELERATED),
+        ));
+
+        $providerRequiredPhaseNames = array_column($providerRequiredPhases, 'phase');
+        $steadyStateBlockers = array_values(array_filter(
+            self::MANDATORY_PHASES,
+            static fn (string $p): bool => array_key_exists($p, $nativeFallbackMissing) || in_array($p, $providerRequiredPhaseNames, true),
+        ));
+
         return [
             'schema'                         => self::SCHEMA,
             'independent'                    => $independent,
@@ -199,6 +228,10 @@ final class AtlasExternalBrainProviderIndependenceProof
             'missing_proofs'                 => $missingProofs,
             'circuit_classifications'        => $circuitClassifications,
             'steady_state_autonomy_matrix'   => $steadyStateMatrix,
+            'phase_criticality'              => $phaseCriticality,
+            'native_fallback_missing'        => $nativeFallbackMissing,
+            'provider_optional_accelerator_phases' => $providerOptionalAcceleratorPhases,
+            'steady_state_blockers'          => $steadyStateBlockers,
         ];
     }
 }

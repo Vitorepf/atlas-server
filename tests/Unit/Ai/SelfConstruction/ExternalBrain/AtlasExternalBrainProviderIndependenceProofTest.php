@@ -341,4 +341,69 @@ final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
         $this->assertFalse($matrix['rollback']['rollback']);
         $this->assertSame('', $matrix['rollback']['atlas_native_owner']);
     }
+
+    // ── phase_criticality / native_fallback_missing / accelerator phases / steady_state_blockers ──
+
+    public function test_phase_criticality_marks_mandatory_phases_critical(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => $this->allMandatory()]);
+
+        foreach (AtlasExternalBrainProviderIndependenceProof::MANDATORY_PHASES as $mandatory) {
+            $this->assertSame('critical', $result['phase_criticality'][$mandatory]);
+        }
+    }
+
+    public function test_phase_criticality_marks_non_mandatory_phase_optional(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => array_merge(
+            $this->allMandatory(),
+            [$this->fullPhase('cross_domain_expansion')],
+        )]);
+
+        $this->assertSame('optional', $result['phase_criticality']['cross_domain_expansion']);
+    }
+
+    public function test_native_fallback_missing_names_absent_coverage_types(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => $this->allMandatory([
+            'rollback' => ['has_benchmark_coverage' => false],
+        ])]);
+
+        $this->assertContains('has_benchmark_coverage', $result['native_fallback_missing']['rollback']);
+    }
+
+    public function test_provider_optional_accelerator_phases_lists_accelerated_phases(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => array_merge(
+            $this->allMandatory(),
+            [$this->fullPhase('optional_boost', ['optional_frontier_accelerators' => ['frontier_review']])],
+        )]);
+
+        $this->assertContains('optional_boost', $result['provider_optional_accelerator_phases']);
+    }
+
+    public function test_steady_state_blockers_lists_mandatory_phases_missing_coverage(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => $this->allMandatory([
+            'rollback' => ['has_benchmark_coverage' => false],
+        ])]);
+
+        $this->assertContains('rollback', $result['steady_state_blockers']);
+    }
+
+    public function test_steady_state_blockers_empty_when_fully_independent(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => $this->allMandatory()]);
+
+        $this->assertSame([], $result['steady_state_blockers']);
+    }
+
+    public function test_steady_state_blockers_lists_provider_required_mandatory_phase(): void
+    {
+        $result = $this->proof->prove(['proof_claims' => $this->allMandatory([
+            'task_origination' => ['requires_live_provider' => true],
+        ])]);
+
+        $this->assertContains('task_origination', $result['steady_state_blockers']);
+    }
 }
