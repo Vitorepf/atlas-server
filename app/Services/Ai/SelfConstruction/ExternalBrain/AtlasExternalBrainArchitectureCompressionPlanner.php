@@ -255,13 +255,7 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
             return $ao !== $bo ? $ao <=> $bo : strcmp((string) $a['candidate_id'], (string) $b['candidate_id']);
         });
 
-        $summary = [
-            'total_expected_line_delta' => (int) array_sum(array_column($candidates, 'expected_line_delta')),
-            'safe_delete_count'         => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_DELETE)),
-            'merge_count'               => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_MERGE)),
-            'simplify_count'            => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_SIMPLIFY)),
-            'blocked_count'             => count(array_filter($candidates, static fn (array $c): bool => $c['action'] === self::ACTION_KEEP)),
-        ];
+        $summary = $this->buildSummary($candidates);
 
         return [
             'schema'     => self::SCHEMA,
@@ -493,6 +487,41 @@ final class AtlasExternalBrainArchitectureCompressionPlanner
         }
 
         return $meta;
+    }
+
+    /**
+     * Single summary/count derivation path: iterates candidates once so
+     * safe_delete_count, merge_count, simplify_count, and blocked_count cannot
+     * drift independently when a new action branch is added.
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @return array{total_expected_line_delta:int, safe_delete_count:int, merge_count:int, simplify_count:int, blocked_count:int}
+     */
+    private function buildSummary(array $candidates): array
+    {
+        $counts = [
+            self::ACTION_DELETE   => 0,
+            self::ACTION_MERGE    => 0,
+            self::ACTION_SIMPLIFY => 0,
+            self::ACTION_KEEP     => 0,
+        ];
+        $totalLineDelta = 0;
+
+        foreach ($candidates as $candidate) {
+            $action = (string) ($candidate['action'] ?? '');
+            if (isset($counts[$action])) {
+                $counts[$action]++;
+            }
+            $totalLineDelta += (int) ($candidate['expected_line_delta'] ?? 0);
+        }
+
+        return [
+            'total_expected_line_delta' => $totalLineDelta,
+            'safe_delete_count'         => $counts[self::ACTION_DELETE],
+            'merge_count'               => $counts[self::ACTION_MERGE],
+            'simplify_count'            => $counts[self::ACTION_SIMPLIFY],
+            'blocked_count'             => $counts[self::ACTION_KEEP],
+        ];
     }
 
     private function scoreCandidate(
