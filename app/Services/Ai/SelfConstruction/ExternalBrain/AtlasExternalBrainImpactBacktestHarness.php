@@ -16,6 +16,18 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Overclaim: predicted - actual >= OVERCLAIM_THRESHOLD (2.0).
  * Calibration score: fraction of tasks where abs(predicted - actual) < 1.0.
  * Hints emitted when overclaim_rate >= 30%, or give_back / proxy penalty > 0.
+ *
+ * proof_strength / runtime_evidence (optional per-task): tasks may carry proof_strength
+ * (float, 0..1) and runtime_evidence_present (bool). When supplied, they are bucketed into
+ * proof_strength_calibration (weak vs strong) and runtime_evidence_calibration (with vs without)
+ * so a wave-planner can see whether weak proof or absent runtime evidence correlates with worse
+ * calibration error, independent of task family.
+ *
+ * originator_pattern (optional per-task): tasks may carry an originator_pattern id. Any pattern
+ * whose overclaim_rate reaches ORIGINATOR_OVERCLAIM_RATE_FOR_PENALTY is reported in
+ * originator_pattern_penalties, and every family/originator with sample data gets an
+ * impact_weight_suggestions entry (suggested_weight in [0.1, 1.5], 1.0=neutral, <1.0=discount an
+ * overclaiming source, >1.0=boost an underclaiming one) directly usable by Task Fabric admission.
  */
 final class AtlasExternalBrainImpactBacktestHarness
 {
@@ -30,6 +42,10 @@ final class AtlasExternalBrainImpactBacktestHarness
     public const MIN_OVERCLAIM_RATE_FOR_HINT = 0.30;
 
     public const PENALTY_OUTCOMES = ['give_back', 'proxy_implementation', 'no_capability_delta', 'quarantine'];
+
+    public const PROOF_STRENGTH_STRONG_FLOOR = 0.5;
+
+    public const ORIGINATOR_OVERCLAIM_RATE_FOR_PENALTY = 0.30;
 
     /**
      * @param  array<string,mixed>  $input  scored_tasks list
@@ -50,11 +66,18 @@ final class AtlasExternalBrainImpactBacktestHarness
                 'calibration_error' => null,
                 'total_tasks' => 0,
                 'family_calibration' => [],
+                'proof_strength_calibration' => [],
+                'runtime_evidence_calibration' => [],
+                'originator_pattern_penalties' => [],
+                'impact_weight_suggestions' => [],
             ];
         }
 
         $byOutcome = [];
         $byFamily = [];
+        $byProofBand = [];
+        $byEvidenceBand = [];
+        $byOriginator = [];
         $overclaims = [];
         $penalized = [];
         $wellCalibrated = 0;
@@ -72,6 +95,19 @@ final class AtlasExternalBrainImpactBacktestHarness
 
             $byOutcome[$outcome][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta];
             $byFamily[$family][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta, 'outcome' => $outcome];
+
+            if (array_key_exists('proof_strength', $t)) {
+                $band = (float) $t['proof_strength'] >= self::PROOF_STRENGTH_STRONG_FLOOR ? 'strong' : 'weak';
+                $byProofBand[$band][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta];
+            }
+            if (array_key_exists('runtime_evidence_present', $t)) {
+                $band = ((bool) $t['runtime_evidence_present']) ? 'with_runtime_evidence' : 'without_runtime_evidence';
+                $byEvidenceBand[$band][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta];
+            }
+            $originatorPattern = trim((string) ($t['originator_pattern'] ?? ''));
+            if ($originatorPattern !== '') {
+                $byOriginator[$originatorPattern][] = ['predicted' => $predicted, 'actual' => $actual, 'delta' => $delta];
+            }
 
             if ($delta >= self::OVERCLAIM_THRESHOLD) {
                 $overclaims[] = [
@@ -199,6 +235,66 @@ final class AtlasExternalBrainImpactBacktestHarness
             ];
         }
 
+        // AC2: proof_strength / runtime_evidence calibration bands (only populated when at
+        // least one task carried the corresponding optional field).
+        $bandCalibration = function (array $byBand): array {
+            $out = [];
+            foreach ($byBand as $band => $entries) {
+                $count = count($entries);
+                $avgPredicted = array_sum(array_column($entries, 'predicted')) / $count;
+                $avgActual = array_sum(array_column($entries, 'actual')) / $count;
+                $avgError = round(array_sum(array_map(static fn (array $e): float => abs($e['delta']), $entries)) / $count, 4);
+                $out[$band] = [
+                    'count' => $count,
+                    'avg_predicted_leverage' => round($avgPredicted, 2),
+                    'avg_actual_leverage' => round($avgActual, 2),
+                    'avg_error' => $avgError,
+                ];
+            }
+
+            return $out;
+        };
+        $proofStrengthCalibration = $bandCalibration($byProofBand);
+        $runtimeEvidenceCalibration = $bandCalibration($byEvidenceBand);
+
+        // AC3: originator-pattern overclaim penalty. AC4: impact-weight suggestions.
+        $suggestedWeight = static fn (float $avgDelta): float => round(max(0.1, min(1.5, 1.0 - ($avgDelta / 10.0))), 2);
+
+        $originatorPatternPenalties = [];
+        $impactWeightSuggestions = [];
+        foreach ($byOriginator as $originator => $entries) {
+            $count = count($entries);
+            $overclaimRate = count(array_filter($entries, static fn (array $e): bool => $e['delta'] >= self::OVERCLAIM_THRESHOLD)) / $count;
+            $avgPredicted = array_sum(array_column($entries, 'predicted')) / $count;
+            $avgActual = array_sum(array_column($entries, 'actual')) / $count;
+            $avgDelta = $avgPredicted - $avgActual;
+
+            if ($overclaimRate >= self::ORIGINATOR_OVERCLAIM_RATE_FOR_PENALTY) {
+                $originatorPatternPenalties[] = [
+                    'originator_pattern' => $originator,
+                    'overclaim_rate' => round($overclaimRate, 2),
+                    'sample_count' => $count,
+                    'penalty_reason' => 'overclaim_rate_exceeds_threshold',
+                ];
+            }
+
+            $impactWeightSuggestions[] = [
+                'scope' => 'originator_pattern',
+                'scope_id' => $originator,
+                'suggested_weight' => $suggestedWeight($avgDelta),
+                'rationale' => sprintf('avg_overclaim_delta=%.2f sample_count=%d', $avgDelta, $count),
+            ];
+        }
+        foreach ($familyCalibration as $fc) {
+            $avgDelta = $fc['average_predicted'] - $fc['average_actual'];
+            $impactWeightSuggestions[] = [
+                'scope' => 'task_family',
+                'scope_id' => $fc['task_family'],
+                'suggested_weight' => $suggestedWeight($avgDelta),
+                'rationale' => sprintf('avg_overclaim_delta=%.2f sample_count=%d', $avgDelta, $fc['sample_count']),
+            ];
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'calibration_buckets' => $calibrationBuckets,
@@ -209,6 +305,10 @@ final class AtlasExternalBrainImpactBacktestHarness
             'calibration_error' => round($absDeltaSum / $totalTasks, 4),
             'total_tasks' => $totalTasks,
             'family_calibration' => $familyCalibration,
+            'proof_strength_calibration' => $proofStrengthCalibration,
+            'runtime_evidence_calibration' => $runtimeEvidenceCalibration,
+            'originator_pattern_penalties' => $originatorPatternPenalties,
+            'impact_weight_suggestions' => $impactWeightSuggestions,
         ];
     }
 

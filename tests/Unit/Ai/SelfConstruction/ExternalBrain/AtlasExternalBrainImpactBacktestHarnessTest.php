@@ -378,4 +378,125 @@ final class AtlasExternalBrainImpactBacktestHarnessTest extends TestCase
 
         $this->assertSame(3, $r['family_calibration'][0]['sample_count']);
     }
+
+    // ── AC2: proof_strength / runtime_evidence calibration ──────────────────────
+
+    public function test_proof_strength_calibration_absent_when_no_task_supplies_it(): void
+    {
+        $r = $this->bt([$this->task('t1', 5.0, 5.0)]);
+
+        $this->assertSame([], $r['proof_strength_calibration']);
+        $this->assertSame([], $r['runtime_evidence_calibration']);
+    }
+
+    public function test_proof_strength_calibration_buckets_weak_and_strong(): void
+    {
+        $weak = $this->task('w1', 9.0, 6.0);
+        $weak['proof_strength'] = 0.2;
+        $strong = $this->task('s1', 5.0, 5.0);
+        $strong['proof_strength'] = 0.9;
+
+        $r = $this->bt([$weak, $strong]);
+
+        $this->assertArrayHasKey('weak', $r['proof_strength_calibration']);
+        $this->assertArrayHasKey('strong', $r['proof_strength_calibration']);
+        $this->assertGreaterThan(
+            $r['proof_strength_calibration']['strong']['avg_error'],
+            $r['proof_strength_calibration']['weak']['avg_error'],
+        );
+    }
+
+    public function test_runtime_evidence_calibration_buckets_with_and_without(): void
+    {
+        $withEvidence = $this->task('e1', 5.0, 5.0);
+        $withEvidence['runtime_evidence_present'] = true;
+        $withoutEvidence = $this->task('e2', 9.0, 6.0);
+        $withoutEvidence['runtime_evidence_present'] = false;
+
+        $r = $this->bt([$withEvidence, $withoutEvidence]);
+
+        $this->assertSame(1, $r['runtime_evidence_calibration']['with_runtime_evidence']['count']);
+        $this->assertSame(1, $r['runtime_evidence_calibration']['without_runtime_evidence']['count']);
+    }
+
+    // ── AC3: penalizes overclaiming originator patterns ─────────────────────────
+
+    private function originatorTask(string $id, float $predicted, float $actual, string $originator): array
+    {
+        return array_merge($this->task($id, $predicted, $actual), ['originator_pattern' => $originator]);
+    }
+
+    public function test_originator_pattern_absent_when_no_task_supplies_it(): void
+    {
+        $r = $this->bt([$this->task('t1', 5.0, 5.0)]);
+
+        $this->assertSame([], $r['originator_pattern_penalties']);
+    }
+
+    public function test_originator_pattern_with_high_overclaim_rate_is_penalized(): void
+    {
+        $r = $this->bt([
+            $this->originatorTask('o1', 9.0, 6.0, 'pattern-x'),
+            $this->originatorTask('o2', 9.0, 6.0, 'pattern-x'),
+            $this->originatorTask('o3', 5.0, 5.0, 'pattern-x'),
+        ]);
+
+        $penalized = array_column($r['originator_pattern_penalties'], 'originator_pattern');
+        $this->assertContains('pattern-x', $penalized);
+        $penalty = $r['originator_pattern_penalties'][0];
+        $this->assertSame(3, $penalty['sample_count']);
+        $this->assertSame('overclaim_rate_exceeds_threshold', $penalty['penalty_reason']);
+    }
+
+    public function test_originator_pattern_with_good_calibration_is_not_penalized(): void
+    {
+        $r = $this->bt([
+            $this->originatorTask('o1', 5.0, 5.0, 'pattern-good'),
+            $this->originatorTask('o2', 5.0, 5.0, 'pattern-good'),
+        ]);
+
+        $this->assertSame([], $r['originator_pattern_penalties']);
+    }
+
+    // ── AC4: impact-weight suggestions for future Task Fabric admission ────────
+
+    public function test_impact_weight_suggestions_present_per_family(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 9.0, 6.0, 'overclaiming-family')]);
+
+        $suggestion = array_values(array_filter(
+            $r['impact_weight_suggestions'],
+            static fn (array $s): bool => $s['scope'] === 'task_family' && $s['scope_id'] === 'overclaiming-family',
+        ))[0];
+        $this->assertLessThan(1.0, $suggestion['suggested_weight'], 'an overclaiming family must be discounted below neutral');
+    }
+
+    public function test_impact_weight_suggestions_present_per_originator_pattern(): void
+    {
+        $r = $this->bt([$this->originatorTask('o1', 2.0, 6.0, 'underclaiming-pattern')]);
+
+        $suggestion = array_values(array_filter(
+            $r['impact_weight_suggestions'],
+            static fn (array $s): bool => $s['scope'] === 'originator_pattern' && $s['scope_id'] === 'underclaiming-pattern',
+        ))[0];
+        $this->assertGreaterThan(1.0, $suggestion['suggested_weight'], 'an underclaiming pattern should be boosted above neutral');
+    }
+
+    public function test_impact_weight_suggestion_neutral_when_well_calibrated(): void
+    {
+        $r = $this->bt([$this->familyTask('t1', 5.0, 5.0, 'stable-family')]);
+
+        $suggestion = array_values(array_filter(
+            $r['impact_weight_suggestions'],
+            static fn (array $s): bool => $s['scope'] === 'task_family' && $s['scope_id'] === 'stable-family',
+        ))[0];
+        $this->assertSame(1.0, $suggestion['suggested_weight']);
+    }
+
+    public function test_impact_weight_suggestions_empty_when_no_tasks(): void
+    {
+        $r = $this->svc()->backtest([]);
+
+        $this->assertSame([], $r['impact_weight_suggestions']);
+    }
 }
