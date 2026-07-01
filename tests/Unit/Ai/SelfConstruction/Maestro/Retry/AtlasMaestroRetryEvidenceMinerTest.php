@@ -258,4 +258,113 @@ final class AtlasMaestroRetryEvidenceMinerTest extends TestCase
         $this->assertSame('neutral', $facts[0]['outcome']);
         $this->assertSame('no_action_neutral', $facts[0]['policy_action']);
     }
+
+    // ── mineFailurePatterns(): AC2 grouping by task_family/worker_class/failure_reason/outcome ──
+
+    private function failureRow(array $overrides = []): array
+    {
+        return $overrides + [
+            'task_family' => 'gate-impl',
+            'worker_class' => 'minimax-m3',
+            'failure_reason' => 'missing_scope',
+            'eventual_outcome' => 'failure',
+        ];
+    }
+
+    public function test_failure_patterns_group_by_family_worker_and_reason(): void
+    {
+        $rows = [
+            $this->failureRow(['eventual_outcome' => 'success']),
+            $this->failureRow(['task_family' => 'discovery', 'eventual_outcome' => 'success']),
+        ];
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertCount(2, $facts, 'different task_family must produce distinct buckets');
+        $families = array_column($facts, 'task_family');
+        $this->assertContains('gate-impl', $families);
+        $this->assertContains('discovery', $families);
+    }
+
+    public function test_identical_dimensions_aggregate_into_one_bucket(): void
+    {
+        $rows = [
+            $this->failureRow(['eventual_outcome' => 'success']),
+            $this->failureRow(['eventual_outcome' => 'quarantine']),
+            $this->failureRow(['eventual_outcome' => 'quarantine']),
+        ];
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertCount(1, $facts);
+        $this->assertSame(3, $facts[0]['observed_attempts']);
+        $this->assertSame(1, $facts[0]['observed_successes']);
+        $this->assertSame(2, $facts[0]['observed_quarantines']);
+    }
+
+    // ── AC3: repairable failure patterns are distinguished from poison signatures ──
+
+    public function test_pattern_with_at_least_one_success_is_repairable_not_poison(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION;
+        $rows = [$this->failureRow(['eventual_outcome' => 'success'])];
+        for ($i = 1; $i < $min; $i++) {
+            $rows[] = $this->failureRow(['eventual_outcome' => 'quarantine']);
+        }
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertSame('repairable_failure', $facts[0]['pattern_class']);
+        $this->assertSame('retry_with_reshape', $facts[0]['routing_action']);
+    }
+
+    public function test_pattern_always_quarantined_on_sufficient_sample_is_poison_signature(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION;
+        $rows = array_fill(0, $min, $this->failureRow(['eventual_outcome' => 'quarantine']));
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertSame('poison_signature', $facts[0]['pattern_class']);
+        $this->assertSame(1.0, $facts[0]['quarantine_rate']);
+    }
+
+    public function test_below_min_sample_is_insufficient_regardless_of_outcomes(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION;
+        $rows = array_fill(0, $min - 1, $this->failureRow(['eventual_outcome' => 'quarantine']));
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertTrue($facts[0]['insufficient_sample']);
+        $this->assertSame('insufficient_sample', $facts[0]['pattern_class']);
+    }
+
+    // ── AC4: routing facts usable by repeated-failure router / give_back reshape strategy ──
+
+    public function test_poison_signature_routes_to_quarantine_do_not_retry(): void
+    {
+        $min = AtlasMaestroRetryEvidenceMiner::MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION;
+        $rows = array_fill(0, $min, $this->failureRow(['eventual_outcome' => 'quarantine']));
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertSame('quarantine_do_not_retry', $facts[0]['routing_action']);
+    }
+
+    public function test_insufficient_sample_routes_to_hold(): void
+    {
+        $rows = [$this->failureRow()];
+
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns($rows);
+
+        $this->assertSame('hold_insufficient_sample', $facts[0]['routing_action']);
+    }
+
+    public function test_empty_rows_yield_empty_facts(): void
+    {
+        $facts = (new AtlasMaestroRetryEvidenceMiner())->mineFailurePatterns([]);
+
+        $this->assertSame([], $facts);
+    }
 }

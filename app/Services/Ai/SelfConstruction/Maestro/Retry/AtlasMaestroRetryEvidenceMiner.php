@@ -13,6 +13,18 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Retry;
  *
  * Two ledgers that differ only in filenames but share the same structural delta produce the SAME
  * fingerprint, so they aggregate into ONE row.
+ *
+ * mineFailurePatterns() is a separate, independent grouping over generic retry rows (task_family,
+ * worker_class, failure_reason, eventual_outcome) — it does not touch mine()'s structural-delta
+ * pathway or output shape. It classifies each (task_family, worker_class, failure_reason) bucket as:
+ *   poison_signature    — quarantine_rate >= POISON_QUARANTINE_RATE_FLOOR AND zero successes on a
+ *                          sufficient sample: never worth retrying
+ *   repairable_failure   — at least one observed success: worth retrying (with reshape)
+ *   insufficient_sample  — below MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION: no classification yet
+ *   unclassified_failure — sufficient sample, zero successes, but quarantine rate below the poison
+ *                          floor (mixed non-quarantine failures)
+ * routing_action names the fact usable directly by a repeated-failure router or the give_back
+ * reshape strategy: quarantine_do_not_retry / retry_with_reshape / hold_insufficient_sample / no_action.
  */
 final class AtlasMaestroRetryEvidenceMiner
 {
@@ -20,6 +32,12 @@ final class AtlasMaestroRetryEvidenceMiner
 
     /** Minimum attempts needed before a pattern becomes actionable policy. */
     public const MIN_SAMPLE_FOR_POLICY = 5;
+
+    /** Minimum attempts needed before a failure-family pattern gets a poison/repairable classification. */
+    public const MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION = 5;
+
+    /** Quarantine rate at/above which a zero-success bucket is treated as a poison signature. */
+    public const POISON_QUARANTINE_RATE_FLOOR = 0.8;
 
     /**
      * @param  list<array<string,mixed>>  $ledgerRows  raw rows from AtlasMaestroGiveBackRetryReceiptLedger::forTask()
@@ -78,6 +96,85 @@ final class AtlasMaestroRetryEvidenceMiner
             ];
         }
         usort($facts, static fn (array $a, array $b): int => strcmp($a['reshape_pattern_fingerprint'], $b['reshape_pattern_fingerprint']));
+
+        return $facts;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $rows  each: task_family, worker_class, failure_reason, eventual_outcome (success|quarantine|<other>)
+     * @return list<array<string,mixed>>
+     */
+    public function mineFailurePatterns(array $rows): array
+    {
+        $buckets = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $taskFamily = (string) ($row['task_family'] ?? 'unknown');
+            $workerClass = (string) ($row['worker_class'] ?? 'unknown');
+            $failureReason = (string) ($row['failure_reason'] ?? 'unknown');
+            $outcome = (string) ($row['eventual_outcome'] ?? 'failure');
+
+            $key = implode('|', [$taskFamily, $workerClass, $failureReason]);
+            $buckets[$key] ??= [
+                'task_family' => $taskFamily,
+                'worker_class' => $workerClass,
+                'failure_reason' => $failureReason,
+                'attempts' => 0,
+                'successes' => 0,
+                'quarantines' => 0,
+                'other_failures' => 0,
+            ];
+            $buckets[$key]['attempts']++;
+            match ($outcome) {
+                'success' => $buckets[$key]['successes']++,
+                'quarantine' => $buckets[$key]['quarantines']++,
+                default => $buckets[$key]['other_failures']++,
+            };
+        }
+
+        $facts = [];
+        foreach ($buckets as $bucket) {
+            $total = $bucket['attempts'];
+            $insufficientSample = $total < self::MIN_SAMPLE_FOR_FAILURE_PATTERN_CLASSIFICATION;
+            $quarantineRate = $total > 0 ? round($bucket['quarantines'] / $total, 4) : 0.0;
+            $successRate = $total > 0 ? round($bucket['successes'] / $total, 4) : 0.0;
+
+            $patternClass = match (true) {
+                $insufficientSample => 'insufficient_sample',
+                $bucket['successes'] > 0 => 'repairable_failure',
+                $quarantineRate >= self::POISON_QUARANTINE_RATE_FLOOR => 'poison_signature',
+                default => 'unclassified_failure',
+            };
+
+            $routingAction = match ($patternClass) {
+                'poison_signature' => 'quarantine_do_not_retry',
+                'repairable_failure' => 'retry_with_reshape',
+                'insufficient_sample' => 'hold_insufficient_sample',
+                default => 'no_action',
+            };
+
+            $facts[] = [
+                'task_family' => $bucket['task_family'],
+                'worker_class' => $bucket['worker_class'],
+                'failure_reason' => $bucket['failure_reason'],
+                'observed_attempts' => $total,
+                'observed_successes' => $bucket['successes'],
+                'observed_quarantines' => $bucket['quarantines'],
+                'observed_other_failures' => $bucket['other_failures'],
+                'success_rate' => $successRate,
+                'quarantine_rate' => $quarantineRate,
+                'insufficient_sample' => $insufficientSample,
+                'pattern_class' => $patternClass,
+                'routing_action' => $routingAction,
+            ];
+        }
+
+        usort($facts, static fn (array $a, array $b): int => strcmp(
+            $a['task_family'].'|'.$a['worker_class'].'|'.$a['failure_reason'],
+            $b['task_family'].'|'.$b['worker_class'].'|'.$b['failure_reason'],
+        ));
 
         return $facts;
     }
