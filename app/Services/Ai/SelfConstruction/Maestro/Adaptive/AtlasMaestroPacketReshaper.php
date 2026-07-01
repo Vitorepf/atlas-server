@@ -48,37 +48,43 @@ final class AtlasMaestroPacketReshaper
      */
     public function propose(array $packet, array $poisonPatterns): array
     {
+        $originalHash = $this->hash($packet);
         $proposals = [];
         foreach ($poisonPatterns as $pattern) {
             $type = (string) ($pattern['type'] ?? '');
 
             if ((bool) ($pattern['unchanged_since_last_attempt'] ?? false)) {
-                $proposals[] = $this->refuseBlindRetry($packet, $pattern, $type);
-
-                continue;
-            }
-
-            // A repair proposal is only as trustworthy as the mined pattern behind it. When the
-            // repair_confidence for a repairable pattern is anything below 'high', hold for more
-            // evidence instead of auto-repairing on a weak/mixed signal.
-            if (in_array($type, ['missing_impl_file', 'schema_mismatch'], true)
+                $proposal = $this->refuseBlindRetry($packet, $pattern, $type);
+            } elseif (in_array($type, ['missing_impl_file', 'schema_mismatch'], true)
+                // A repair proposal is only as trustworthy as the mined pattern behind it. When the
+                // repair_confidence for a repairable pattern is anything below 'high', hold for more
+                // evidence instead of auto-repairing on a weak/mixed signal.
                 && (string) ($pattern['repair_confidence'] ?? 'high') !== 'high') {
-                $proposals[] = $this->holdForEvidence($packet, $pattern, $type);
-
-                continue;
+                $proposal = $this->holdForEvidence($packet, $pattern, $type);
+            } else {
+                $proposal = match ($type) {
+                    'missing_impl_file'        => $this->repairMissingImplFile($packet, $pattern),
+                    'contradictory_acceptance' => $this->retireContradictory($packet, $pattern),
+                    'forbidden_target'         => $this->retireForbiddenTarget($packet, $pattern),
+                    'schema_mismatch'          => $this->repairSchemaMismatch($packet, $pattern),
+                    'duplicate_or_noop'        => $this->repairDuplicateOrNoop($packet, $pattern),
+                    'scope_gap'                => $this->fixScopeGap($packet, $pattern),
+                    'duplicate_capability'     => $this->cancelDuplicateCapability($packet, $pattern),
+                    'over_broad_scope'         => $this->splitOverBroadScope($packet, $pattern),
+                    default                    => $this->retireUnknown($packet, $pattern),
+                };
             }
 
-            $proposals[] = match ($type) {
-                'missing_impl_file'        => $this->repairMissingImplFile($packet, $pattern),
-                'contradictory_acceptance' => $this->retireContradictory($packet, $pattern),
-                'forbidden_target'         => $this->retireForbiddenTarget($packet, $pattern),
-                'schema_mismatch'          => $this->repairSchemaMismatch($packet, $pattern),
-                'duplicate_or_noop'        => $this->repairDuplicateOrNoop($packet, $pattern),
-                'scope_gap'                => $this->fixScopeGap($packet, $pattern),
-                'duplicate_capability'     => $this->cancelDuplicateCapability($packet, $pattern),
-                'over_broad_scope'         => $this->splitOverBroadScope($packet, $pattern),
-                default                    => $this->retireUnknown($packet, $pattern),
-            };
+            // AC2: every proposal carries a uniform, auditable core regardless of pattern/action —
+            // root_cause (why), repair_confidence (how trustworthy), and the hash pair proving
+            // whether the respec actually changed anything relative to the original packet.
+            $rootCause = (string) ($pattern['reason'] ?? $pattern['detail'] ?? $pattern['existing_capability_ref'] ?? $type);
+            $proposal['root_cause'] = $rootCause !== '' ? $rootCause : 'unknown';
+            $proposal['repair_confidence'] = $proposal['repair_confidence'] ?? (string) ($pattern['repair_confidence'] ?? 'high');
+            $proposal['original_hash'] = $originalHash;
+            $proposal['reshaped_hash'] = isset($proposal['respec']) ? $this->hash($proposal['respec']) : $originalHash;
+
+            $proposals[] = $proposal;
         }
 
         return ['schema' => self::SCHEMA, 'proposals' => $proposals];

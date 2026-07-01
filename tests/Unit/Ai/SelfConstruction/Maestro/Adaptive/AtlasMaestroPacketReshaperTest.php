@@ -412,4 +412,59 @@ final class AtlasMaestroPacketReshaperTest extends TestCase
 
         $this->assertSame('repair', $result['proposals'][0]['action']);
     }
+
+    // ── AC2: every proposal carries reshape_action, root_cause, repair_confidence, original_hash, reshaped_hash ──
+
+    public function test_every_proposal_type_carries_the_uniform_audit_fields(): void
+    {
+        $packet = $this->packetWithAcceptance();
+        $patterns = [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php']],
+            ['type' => 'contradictory_acceptance', 'reason' => 'conflict'],
+            ['type' => 'forbidden_target', 'detail' => 'pétreo target'],
+            ['type' => 'schema_mismatch', 'expected_schema' => 'v2'],
+            ['type' => 'duplicate_or_noop'],
+            ['type' => 'scope_gap', 'missing_scope_roots' => ['app/Extra']],
+            ['type' => 'duplicate_capability', 'existing_capability_ref' => 'AtlasFooService'],
+            ['type' => 'over_broad_scope'],
+            ['type' => 'unknown_pattern'],
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/X.php'], 'repair_confidence' => 'low'],
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/X.php'], 'unchanged_since_last_attempt' => true],
+        ];
+
+        $result = (new AtlasMaestroPacketReshaper)->propose($packet, $patterns);
+
+        foreach ($result['proposals'] as $proposal) {
+            foreach (['reshape_action', 'root_cause', 'repair_confidence', 'original_hash', 'reshaped_hash'] as $key) {
+                $this->assertArrayHasKey($key, $proposal, "proposal for pattern '{$proposal['pattern']}' must include {$key}");
+            }
+            $this->assertSame(64, strlen($proposal['original_hash']));
+            $this->assertSame(64, strlen($proposal['reshaped_hash']));
+            $this->assertNotSame('', $proposal['root_cause']);
+        }
+    }
+
+    public function test_root_cause_reflects_pattern_reason_when_present(): void
+    {
+        $result = (new AtlasMaestroPacketReshaper)->propose($this->packetWithAcceptance(), [
+            ['type' => 'contradictory_acceptance', 'reason' => 'criterion A requires X; criterion B forbids X'],
+        ]);
+
+        $this->assertSame('criterion A requires X; criterion B forbids X', $result['proposals'][0]['root_cause']);
+    }
+
+    public function test_reshaped_hash_differs_from_original_hash_only_when_a_respec_is_produced(): void
+    {
+        $packet = $this->packetWithAcceptance();
+
+        $repaired = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'missing_impl_file', 'missing_files' => ['app/Services/Foo.php']],
+        ])['proposals'][0];
+        $this->assertNotSame($repaired['original_hash'], $repaired['reshaped_hash']);
+
+        $retired = (new AtlasMaestroPacketReshaper)->propose($packet, [
+            ['type' => 'contradictory_acceptance', 'reason' => 'conflict'],
+        ])['proposals'][0];
+        $this->assertSame($retired['original_hash'], $retired['reshaped_hash']);
+    }
 }
