@@ -89,7 +89,7 @@ final class AtlasAutonomousRuntimeCycleStateMachine
      * Attempt a transition. Returns a verdict envelope.
      *
      * @param  array<string,mixed>  $fact  optional facts the caller attached to the transition request
-     * @return array{accepted:bool, from:string, to:string, reason:?string}
+     * @return array{accepted:bool, from:string, to:string, reason:?string, receipt:?array{transition_hash:string,from:string,to:string}}
      */
     public function transitionTo(string $next, array $fact = []): array
     {
@@ -101,7 +101,7 @@ final class AtlasAutonomousRuntimeCycleStateMachine
             }
             $this->state = self::SAFETY_STOP;
 
-            return ['accepted' => true, 'from' => $from, 'to' => self::SAFETY_STOP, 'reason' => null];
+            return $this->accept($from, self::SAFETY_STOP, $fact);
         }
 
         if ($from === self::SAFETY_STOP) {
@@ -113,7 +113,7 @@ final class AtlasAutonomousRuntimeCycleStateMachine
             }
             $this->state = self::OBSERVE;
 
-            return ['accepted' => true, 'from' => $from, 'to' => self::OBSERVE, 'reason' => null];
+            return $this->accept($from, self::OBSERVE, $fact);
         }
 
         $expected = $this->nextDeclared($from);
@@ -126,15 +126,30 @@ final class AtlasAutonomousRuntimeCycleStateMachine
 
         $this->state = $next;
 
-        return ['accepted' => true, 'from' => $from, 'to' => $next, 'reason' => null];
+        return $this->accept($from, $next, $fact);
     }
 
     /**
-     * @return array{accepted:false, from:string, to:string, reason:string}
+     * @param  array<string,mixed>  $fact
+     * @return array{accepted:true, from:string, to:string, reason:null, receipt:array{transition_hash:string,from:string,to:string}}
+     */
+    private function accept(string $from, string $to, array $fact): array
+    {
+        $receipt = [
+            'transition_hash' => hash('sha256', $from.'->'.$to.'|'.json_encode($fact, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            'from' => $from,
+            'to' => $to,
+        ];
+
+        return ['accepted' => true, 'from' => $from, 'to' => $to, 'reason' => null, 'receipt' => $receipt];
+    }
+
+    /**
+     * @return array{accepted:false, from:string, to:string, reason:string, receipt:null}
      */
     private function reject(string $from, string $to, string $reason): array
     {
-        return ['accepted' => false, 'from' => $from, 'to' => $to, 'reason' => $reason];
+        return ['accepted' => false, 'from' => $from, 'to' => $to, 'reason' => $reason, 'receipt' => null];
     }
 
     private function nextDeclared(string $current): ?string

@@ -141,4 +141,38 @@ final class AtlasAutonomousRuntimeCycleStateMachineTest extends TestCase
         $this->assertFalse($verdict['accepted']);
         $this->assertSame('already_in_safety_stop', $verdict['reason']);
     }
+
+    // ── AC: accepted transitions carry a receipt; rejected ones carry a reason ──
+
+    public function test_accepted_transition_carries_receipt_fields(): void
+    {
+        $sm = new AtlasAutonomousRuntimeCycleStateMachine;
+        $verdict = $sm->transitionTo(AtlasAutonomousRuntimeCycleStateMachine::DECIDE);
+
+        $this->assertTrue($verdict['accepted']);
+        $this->assertNull($verdict['reason']);
+        $this->assertArrayHasKey('receipt', $verdict);
+        $this->assertNotNull($verdict['receipt']);
+        $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::OBSERVE, $verdict['receipt']['from']);
+        $this->assertSame(AtlasAutonomousRuntimeCycleStateMachine::DECIDE, $verdict['receipt']['to']);
+        $this->assertNotEmpty($verdict['receipt']['transition_hash']);
+    }
+
+    public function test_rejected_transition_has_null_receipt_and_carries_reason(): void
+    {
+        $sm = new AtlasAutonomousRuntimeCycleStateMachine;
+        $verdict = $sm->transitionTo(AtlasAutonomousRuntimeCycleStateMachine::EXECUTE);
+
+        $this->assertFalse($verdict['accepted']);
+        $this->assertNull($verdict['receipt']);
+        $this->assertNotEmpty($verdict['reason']);
+    }
+
+    public function test_receipt_transition_hash_is_deterministic_for_identical_input(): void
+    {
+        $a = (new AtlasAutonomousRuntimeCycleStateMachine)->transitionTo(AtlasAutonomousRuntimeCycleStateMachine::DECIDE);
+        $b = (new AtlasAutonomousRuntimeCycleStateMachine)->transitionTo(AtlasAutonomousRuntimeCycleStateMachine::DECIDE);
+
+        $this->assertSame($a['receipt']['transition_hash'], $b['receipt']['transition_hash']);
+    }
 }
