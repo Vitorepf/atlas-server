@@ -101,6 +101,165 @@ class AtlasSelfConstructionLearningLedgerTest extends TestCase
         self::assertSame($this->path, $ledger->path());
     }
 
+    // ── new AC: poison_pattern requires structured fields ─────────────────────
+
+    private function poisonLesson(array $overrides = []): array
+    {
+        return array_merge($this->lesson(class: 'poison_pattern'), [
+            'give_back_root' => 'duplicate_capability',
+            'prevented_future_failure' => 'stops re-implementing FooService',
+            'repair_strategy' => 'quarantine_and_dedup',
+        ], $overrides);
+    }
+
+    public function test_poison_pattern_lesson_with_all_fields_is_recorded(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $result = $ledger->append($this->poisonLesson());
+        self::assertSame('recorded', $result['status']);
+    }
+
+    public function test_poison_pattern_missing_give_back_root_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->poisonLesson(['give_back_root' => '']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/give_back_root/');
+        $ledger->append($lesson);
+    }
+
+    public function test_poison_pattern_missing_prevented_future_failure_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->poisonLesson();
+        unset($lesson['prevented_future_failure']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/prevented_future_failure/');
+        $ledger->append($lesson);
+    }
+
+    public function test_poison_pattern_missing_repair_strategy_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->poisonLesson(['repair_strategy' => '']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/repair_strategy/');
+        $ledger->append($lesson);
+    }
+
+    // ── new AC: success_pattern requires structured fields ─────────────────────
+
+    private function successLesson(array $overrides = []): array
+    {
+        return array_merge($this->lesson(class: 'success_pattern'), [
+            'task_family' => 'engineering.brain',
+            'green_commit_ref' => 'abc1234',
+            'reusable_design_path' => 'fact-injected pure gate pattern',
+        ], $overrides);
+    }
+
+    public function test_success_pattern_lesson_with_all_fields_is_recorded(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $result = $ledger->append($this->successLesson());
+        self::assertSame('recorded', $result['status']);
+    }
+
+    public function test_success_pattern_missing_task_family_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->successLesson(['task_family' => '']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/task_family/');
+        $ledger->append($lesson);
+    }
+
+    public function test_success_pattern_missing_green_commit_ref_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->successLesson();
+        unset($lesson['green_commit_ref']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/green_commit_ref/');
+        $ledger->append($lesson);
+    }
+
+    public function test_success_pattern_missing_reusable_design_path_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->successLesson(['reusable_design_path' => '']);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/reusable_design_path/');
+        $ledger->append($lesson);
+    }
+
+    // ── new AC: placeholder evidence_refs rejected ──────────────────────────────
+
+    public function test_placeholder_evidence_ref_todo_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->lesson();
+        $lesson['evidence_refs'] = ['TODO: add real evidence'];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/placeholder/');
+        $ledger->append($lesson);
+    }
+
+    public function test_placeholder_evidence_ref_fake_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->lesson();
+        $lesson['evidence_refs'] = ['fake-evidence-1'];
+        $this->expectException(RuntimeException::class);
+        $ledger->append($lesson);
+    }
+
+    public function test_empty_evidence_ref_entry_is_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->lesson();
+        $lesson['evidence_refs'] = ['evidence://a', ''];
+        $this->expectException(RuntimeException::class);
+        $ledger->append($lesson);
+    }
+
+    public function test_real_evidence_refs_still_accepted(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $result = $ledger->append($this->lesson());
+        self::assertSame('recorded', $result['status']);
+    }
+
+    // ── forbidden fields still rejected ─────────────────────────────────────────
+
+    public function test_forbidden_provider_field_still_rejected(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $lesson = $this->lesson();
+        $lesson['raw_prompt'] = 'leaked prompt text';
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/forbidden_field/');
+        $ledger->append($lesson);
+    }
+
+    // ── new AC: lessonHash changes with structured poison/success fields ───────
+
+    public function test_lesson_hash_changes_when_poison_fields_change(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $a = $ledger->lessonHash($this->poisonLesson());
+        $b = $ledger->lessonHash($this->poisonLesson(['repair_strategy' => 'different_strategy']));
+        self::assertNotSame($a, $b);
+    }
+
+    public function test_lesson_hash_changes_when_success_fields_change(): void
+    {
+        $ledger = new AtlasSelfConstructionLearningLedger($this->path);
+        $a = $ledger->lessonHash($this->successLesson());
+        $b = $ledger->lessonHash($this->successLesson(['green_commit_ref' => 'def5678']));
+        self::assertNotSame($a, $b);
+    }
+
     public function test_lesson_hash_is_deterministic_across_key_order(): void
     {
         $ledger = new AtlasSelfConstructionLearningLedger($this->path);

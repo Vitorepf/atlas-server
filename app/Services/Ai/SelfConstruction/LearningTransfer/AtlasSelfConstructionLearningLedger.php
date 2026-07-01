@@ -26,6 +26,27 @@ final class AtlasSelfConstructionLearningLedger
         'evidence_refs',
     ];
 
+    public const CLASS_POISON_PATTERN = 'poison_pattern';
+
+    public const CLASS_SUCCESS_PATTERN = 'success_pattern';
+
+    /** A poison_pattern lesson must name what future failure it prevents and how to repair it. */
+    private const POISON_PATTERN_REQUIRED_FIELDS = [
+        'give_back_root',
+        'prevented_future_failure',
+        'repair_strategy',
+    ];
+
+    /** A success_pattern lesson must name the reusable design path, not just that it worked once. */
+    private const SUCCESS_PATTERN_REQUIRED_FIELDS = [
+        'task_family',
+        'green_commit_ref',
+        'reusable_design_path',
+    ];
+
+    /** Case-insensitive substrings that make an evidence_refs entry a placeholder, not real proof. */
+    private const PLACEHOLDER_EVIDENCE_NEEDLES = ['todo', 'fake', 'synthetic', 'example', 'tbd'];
+
     public function __construct(private readonly ?string $ledgerPath = null) {}
 
     /**
@@ -158,9 +179,41 @@ final class AtlasSelfConstructionLearningLedger
         if ($lesson['evidence_refs'] === []) {
             throw new RuntimeException('learning_ledger_evidence_refs_empty');
         }
+        foreach ($lesson['evidence_refs'] as $ref) {
+            $refValue = strtolower(trim((string) $ref));
+            if ($refValue === '') {
+                throw new RuntimeException('learning_ledger_evidence_refs_empty_entry');
+            }
+            foreach (self::PLACEHOLDER_EVIDENCE_NEEDLES as $needle) {
+                if (str_contains($refValue, $needle)) {
+                    throw new RuntimeException('learning_ledger_evidence_refs_placeholder:'.$needle);
+                }
+            }
+        }
         foreach (['raw_prompt', 'provider_trace', 'conversation_text', 'secret'] as $forbidden) {
             if (array_key_exists($forbidden, $lesson)) {
                 throw new RuntimeException('learning_ledger_forbidden_field:'.$forbidden);
+            }
+        }
+
+        $class = (string) $lesson['class'];
+        if ($class === self::CLASS_POISON_PATTERN) {
+            $this->requireNonEmptyFields($lesson, self::POISON_PATTERN_REQUIRED_FIELDS, 'poison_pattern');
+        }
+        if ($class === self::CLASS_SUCCESS_PATTERN) {
+            $this->requireNonEmptyFields($lesson, self::SUCCESS_PATTERN_REQUIRED_FIELDS, 'success_pattern');
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $lesson
+     * @param  list<string>  $fields
+     */
+    private function requireNonEmptyFields(array $lesson, array $fields, string $classLabel): void
+    {
+        foreach ($fields as $field) {
+            if (trim((string) ($lesson[$field] ?? '')) === '') {
+                throw new RuntimeException("learning_ledger_{$classLabel}_missing_field:{$field}");
             }
         }
     }
