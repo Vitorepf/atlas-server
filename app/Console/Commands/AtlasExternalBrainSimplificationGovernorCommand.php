@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainArchitectur
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainComplexityDebtBurnDownPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganSprawlReductionPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainSimplificationRoiLedger;
+use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationCampaignControlPlane;
 use Illuminate\Console\Command;
 
 /**
@@ -42,6 +43,7 @@ final class AtlasExternalBrainSimplificationGovernorCommand extends Command
         AtlasExternalBrainComplexityDebtBurnDownPlanner $burnDownPlanner,
         AtlasExternalBrainOrganSprawlReductionPlanner $sprawlPlanner,
         AtlasExternalBrainSimplificationRoiLedger $roiLedger,
+        AtlasSelfConstructionSimplificationCampaignControlPlane $campaignControlPlane,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -67,6 +69,22 @@ final class AtlasExternalBrainSimplificationGovernorCommand extends Command
         $sprawlPlan = $sprawlPlanner->plan($sprawlOrgans);
         $roiRecord = $roiLedger->record($roiCandidates);
 
+        // Optional: bridge the governed circuit-consolidation (Self-Construction) campaign decision
+        // into the same operator surface. Absent when self_construction_campaign isn't supplied —
+        // never suppresses the pre-existing compression/burn-down/sprawl/ROI output either way.
+        $selfConstructionControlPlane = null;
+        if (is_array($decoded['self_construction_campaign'] ?? null)) {
+            $decision = $campaignControlPlane->decide($decoded['self_construction_campaign']);
+            $selfConstructionControlPlane = [
+                'decision' => $decision['decision'],
+                'reasons' => $decision['reasons'],
+                'next_action' => $decision['next_action'],
+                'proof_readiness' => $decision['proof_readiness'],
+                'rollback_readiness' => $decision['rollback_readiness'],
+                'docs_sync_required' => $decision['docs_sync_required'],
+            ];
+        }
+
         $payload = [
             'schema' => self::SCHEMA,
             'compression_plan' => $compressionPlan,
@@ -82,6 +100,10 @@ final class AtlasExternalBrainSimplificationGovernorCommand extends Command
             'approved_roi' => $roiRecord['approved_roi'],
             'refused_roi' => $roiRecord['refused_roi'],
         ];
+
+        if ($selfConstructionControlPlane !== null) {
+            $payload['self_construction_control_plane'] = $selfConstructionControlPlane;
+        }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 

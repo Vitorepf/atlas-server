@@ -68,6 +68,95 @@ final class AtlasExternalBrainSimplificationGovernorCommandTest extends TestCase
         $this->assertSame([], $decoded['compression_plan']['candidates']);
         $this->assertSame([], $decoded['first_safe_consolidation_wave']);
         $this->assertEqualsWithDelta(0.0, $decoded['approved_roi'], 0.001);
+        $this->assertArrayNotHasKey('self_construction_control_plane', $decoded);
+    }
+
+    /** @return array<string,mixed> */
+    private function safeSelfConstructionCampaign(): array
+    {
+        return [
+            'redundancy_map' => ['clusters' => [['cluster_id' => 'c1', 'members' => ['organ-a', 'organ-b']]]],
+            'equivalence_dossier' => ['behavior_equivalence_proven' => true],
+            'deletion_plan' => ['safe' => true, 'targets' => ['organ-a']],
+            'consumer_impact' => ['unsafe_consumers' => []],
+            'parity_matrix' => ['parity_verified' => true],
+            'rollback_receipts' => ['present' => true],
+            'replay_plan' => ['ready' => true],
+            'docs_sync' => ['required' => false],
+        ];
+    }
+
+    public function test_self_construction_campaign_go_decision_is_bridged_into_output(): void
+    {
+        $this->writeInput(['self_construction_campaign' => $this->safeSelfConstructionCampaign()]);
+
+        [$exit, $out] = $this->runCmd(['--input' => $this->inputFile]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode($out, true);
+        $control = $decoded['self_construction_control_plane'];
+        $this->assertSame('go', $control['decision']);
+        $this->assertSame([], $control['reasons']);
+        $this->assertSame('proceed_with_consolidation', $control['next_action']);
+        $this->assertTrue($control['proof_readiness']);
+        $this->assertTrue($control['rollback_readiness']);
+        $this->assertFalse($control['docs_sync_required']);
+        // Existing sections must remain present alongside the new bridged section.
+        $this->assertArrayHasKey('compression_plan', $decoded);
+        $this->assertArrayHasKey('complexity_burn_down', $decoded);
+        $this->assertArrayHasKey('organ_sprawl_reduction', $decoded);
+        $this->assertArrayHasKey('simplification_roi', $decoded);
+    }
+
+    public function test_unsafe_self_construction_campaign_surfaces_fail_closed_without_suppressing_other_sections(): void
+    {
+        $campaign = $this->safeSelfConstructionCampaign();
+        $campaign['deletion_plan']['safe'] = false;
+
+        $this->writeInput([
+            'self_construction_campaign' => $campaign,
+            'roi_candidates' => [
+                'candidates' => [
+                    ['id' => 'cand-1', 'action' => 'delete', 'roi_estimate' => 5.0],
+                ],
+            ],
+        ]);
+
+        [$exit, $out] = $this->runCmd(['--input' => $this->inputFile]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode($out, true);
+        $control = $decoded['self_construction_control_plane'];
+        $this->assertSame('fail_closed', $control['decision']);
+        $this->assertContains('unsafe_deletion_plan', $control['reasons']);
+        // Pre-existing output must not be suppressed by the new bridged fail_closed decision.
+        $this->assertArrayHasKey('compression_plan', $decoded);
+        $this->assertSame('deletion_without_replacement_proof', $decoded['simplification_roi']['refused'][0]['refusal_reason']);
+    }
+
+    public function test_missing_self_construction_campaign_omits_bridged_section(): void
+    {
+        $this->writeInput([
+            'sprawl_organs' => [
+                'organs' => [
+                    [
+                        'organ_id' => 'organ-g',
+                        'evidence_strength' => 0.05,
+                        'has_replacement_owner' => true,
+                        'has_test_coverage' => true,
+                        'line_count' => 50,
+                        'capability_labels' => ['x'],
+                    ],
+                ],
+            ],
+        ]);
+
+        [$exit, $out] = $this->runCmd(['--input' => $this->inputFile]);
+
+        $this->assertSame(0, $exit, $out);
+        $decoded = json_decode($out, true);
+        $this->assertArrayNotHasKey('self_construction_control_plane', $decoded);
+        $this->assertContains('organ-g', $decoded['first_safe_consolidation_wave']);
     }
 
     public function test_stale_scaffold_with_owner_and_coverage_is_safe_delete(): void
