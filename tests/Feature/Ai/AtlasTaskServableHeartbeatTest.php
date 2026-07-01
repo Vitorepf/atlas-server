@@ -35,7 +35,11 @@ final class AtlasTaskServableHeartbeatTest extends TestCase
             receiptPath: $this->tempReceipt,
             nowIso: fn () => '2026-06-25T05:00:00Z',
             artisanCaller: function (string $cmd): int { $this->artisanCalls[] = $cmd; return 0; },
-            snapshotProvider: fn (): array => ['servable_now' => $servable, 'claimable_depth' => $claimable],
+            snapshotProvider: fn (): array => [
+                'servable_now' => $servable,
+                'claimable_depth' => $claimable,
+                'health_flags' => ['serving_jammed' => $claimable > 0 && $servable === 0],
+            ],
         );
     }
 
@@ -97,5 +101,46 @@ final class AtlasTaskServableHeartbeatTest extends TestCase
         $decoded = json_decode(trim(Artisan::output()), true);
         $this->assertSame('recovery_fired', $decoded['status']);
         $this->assertTrue($decoded['ok']);
+    }
+
+    public function test_cli_json_includes_replenish_hint_and_facts(): void
+    {
+        app()->instance(AtlasTaskServableHeartbeatService::class, $this->service(servable: 2, claimable: 5));
+        $exit = Artisan::call('atlas:task:servable-heartbeat', ['--json' => true]);
+        $this->assertSame(0, $exit);
+        $decoded = json_decode(trim(Artisan::output()), true);
+
+        $this->assertArrayHasKey('replenish_hint', $decoded);
+        $this->assertArrayHasKey('replenish_facts', $decoded);
+        foreach (['servable_now', 'active_leases', 'recoverable_total', 'malformed_claimable_count', 'reasons'] as $key) {
+            $this->assertArrayHasKey($key, $decoded['replenish_facts']);
+        }
+    }
+
+    public function test_healthy_queue_with_no_active_leases_returns_wait_not_urgent(): void
+    {
+        app()->instance(AtlasTaskServableHeartbeatService::class, $this->service(servable: 5, claimable: 5));
+        $exit = Artisan::call('atlas:task:servable-heartbeat', ['--json' => true]);
+        $this->assertSame(0, $exit);
+        $decoded = json_decode(trim(Artisan::output()), true);
+
+        $this->assertContains($decoded['replenish_hint'], ['wait', 'replenish_soon']);
+        $this->assertNotSame('urgent', $decoded['replenish_hint']);
+    }
+
+    public function test_dry_queue_only_fires_recovery_actions_declared_by_the_service(): void
+    {
+        app()->instance(AtlasTaskServableHeartbeatService::class, $this->service(servable: 0, claimable: 3));
+        $exit = Artisan::call('atlas:task:servable-heartbeat', ['--json' => true]);
+        $this->assertSame(0, $exit);
+        $decoded = json_decode(trim(Artisan::output()), true);
+
+        // The replenish hint is read-only observation — it must never introduce actions beyond
+        // the service's own recovery sequence.
+        $this->assertSame(
+            AtlasTaskServableHeartbeatService::RECOVERY_SEQUENCE,
+            $decoded['actions_fired'],
+        );
+        $this->assertSame('urgent', $decoded['replenish_hint']);
     }
 }
