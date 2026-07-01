@@ -52,6 +52,54 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
 
     private const BOLD_WORKER_CAPACITY_FLOOR = 0.8;
 
+    private const RELIABILITY_CRISIS_THRESHOLD = 0.4;
+
+    private const PROOF_GAP_THRESHOLD = 0.5;
+
+    private const AMBITION_DEBT_THRESHOLD = 0.6;
+
+    private const LOW_WORKER_CAPACITY_THRESHOLD = 0.4;
+
+    private const HIGH_AMBITION_COMPOUND_THRESHOLD = 0.7;
+
+    private const HIGH_AMBITION_CAPACITY_FLOOR = 0.6;
+
+    /** @var array<string,float> baseline — every lane's weight sums to 1.0. */
+    private const AMBITION_BUDGET_HEALTHY = [
+        'frontier' => 0.30, 'simplification' => 0.15, 'reliability' => 0.20,
+        'self_healing' => 0.15, 'proof_hardening' => 0.20,
+    ];
+
+    /** @var array<string,float> reliability is failing — stabilize before anything else. */
+    private const AMBITION_BUDGET_RELIABILITY_CRISIS = [
+        'frontier' => 0.05, 'simplification' => 0.05, 'reliability' => 0.60,
+        'self_healing' => 0.20, 'proof_hardening' => 0.10,
+    ];
+
+    /** @var array<string,float> proof coverage is thin — harden proof before more frontier work. */
+    private const AMBITION_BUDGET_PROOF_GAP = [
+        'frontier' => 0.05, 'simplification' => 0.05, 'reliability' => 0.15,
+        'self_healing' => 0.10, 'proof_hardening' => 0.65,
+    ];
+
+    /** @var array<string,float> simplification debt is high — collapse duplication first. */
+    private const AMBITION_BUDGET_HIGH_DEBT = [
+        'frontier' => 0.10, 'simplification' => 0.55, 'reliability' => 0.15,
+        'self_healing' => 0.10, 'proof_hardening' => 0.10,
+    ];
+
+    /** @var array<string,float> worker capacity is low — favor safer, lower-effort lanes. */
+    private const AMBITION_BUDGET_LOW_WORKER_CAPACITY = [
+        'frontier' => 0.05, 'simplification' => 0.25, 'reliability' => 0.35,
+        'self_healing' => 0.20, 'proof_hardening' => 0.15,
+    ];
+
+    /** @var array<string,float> compound impact is high AND capacity is available — push frontier. */
+    private const AMBITION_BUDGET_HIGH_AMBITION = [
+        'frontier' => 0.60, 'simplification' => 0.10, 'reliability' => 0.10,
+        'self_healing' => 0.05, 'proof_hardening' => 0.15,
+    ];
+
     /**
      * @param  array{
      *     leverage_rank?:string,
@@ -220,6 +268,63 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicy
             'lanes' => $allocation,
             'farmed_lanes_redirected' => $farmedLanes,
             'reasons' => $reasons,
+        ];
+    }
+
+    /**
+     * Ambition budget allocation across frontier/simplification/reliability/self_healing/
+     * proof_hardening — balancing compound impact against worker capacity, never chasing
+     * frontier exploration when reliability, proof, or the workforce itself cannot sustain it.
+     * Priority order (first match wins; safety/stability signals always outrank ambition):
+     *   1. reliability_score < reliability_crisis_threshold  → reliability dominant
+     *   2. proof_coverage < proof_gap_threshold              → proof_hardening dominant
+     *   3. simplification_debt_score > debt_threshold        → simplification dominant
+     *   4. worker_capacity < low_worker_capacity_threshold   → conservative (reliability+simplification) dominant
+     *   5. compound_impact_score > ambition_threshold AND worker_capacity >= capacity_floor → frontier dominant
+     *   6. default                                           → healthy balanced allocation
+     *
+     * @param  array<string,mixed>  $facts
+     * @return array{schema:string, budget:array<string,float>, reason_codes:list<string>}
+     */
+    public function allocateAmbitionBudget(array $facts): array
+    {
+        $reliabilityScore = (float) ($facts['reliability_score'] ?? 1.0);
+        $proofCoverage = (float) ($facts['proof_coverage'] ?? 1.0);
+        $simplificationDebtScore = (float) ($facts['simplification_debt_score'] ?? 0.0);
+        $workerCapacity = (float) ($facts['worker_capacity'] ?? 1.0);
+        $compoundImpactScore = (float) ($facts['compound_impact_score'] ?? 0.0);
+
+        [$budget, $reasonCode] = match (true) {
+            $reliabilityScore < self::RELIABILITY_CRISIS_THRESHOLD => [
+                self::AMBITION_BUDGET_RELIABILITY_CRISIS,
+                sprintf('reliability_crisis:reliability_score=%.2f_below_threshold=%.2f', $reliabilityScore, self::RELIABILITY_CRISIS_THRESHOLD),
+            ],
+            $proofCoverage < self::PROOF_GAP_THRESHOLD => [
+                self::AMBITION_BUDGET_PROOF_GAP,
+                sprintf('proof_gap:proof_coverage=%.2f_below_threshold=%.2f', $proofCoverage, self::PROOF_GAP_THRESHOLD),
+            ],
+            $simplificationDebtScore > self::AMBITION_DEBT_THRESHOLD => [
+                self::AMBITION_BUDGET_HIGH_DEBT,
+                sprintf('high_debt:simplification_debt_score=%.2f_exceeds_threshold=%.2f', $simplificationDebtScore, self::AMBITION_DEBT_THRESHOLD),
+            ],
+            $workerCapacity < self::LOW_WORKER_CAPACITY_THRESHOLD => [
+                self::AMBITION_BUDGET_LOW_WORKER_CAPACITY,
+                sprintf('low_worker_capacity:worker_capacity=%.2f_below_threshold=%.2f', $workerCapacity, self::LOW_WORKER_CAPACITY_THRESHOLD),
+            ],
+            $compoundImpactScore > self::HIGH_AMBITION_COMPOUND_THRESHOLD && $workerCapacity >= self::HIGH_AMBITION_CAPACITY_FLOOR => [
+                self::AMBITION_BUDGET_HIGH_AMBITION,
+                sprintf('high_ambition:compound_impact_score=%.2f_exceeds_threshold=%.2f_with_worker_capacity=%.2f', $compoundImpactScore, self::HIGH_AMBITION_COMPOUND_THRESHOLD, $workerCapacity),
+            ],
+            default => [
+                self::AMBITION_BUDGET_HEALTHY,
+                'balanced:all_signals_within_healthy_range',
+            ],
+        };
+
+        return [
+            'schema' => self::SCHEMA,
+            'budget' => $budget,
+            'reason_codes' => [$reasonCode],
         ];
     }
 

@@ -264,4 +264,106 @@ final class AtlasStrategyCouncilAmbitionBudgetPolicyTest extends TestCase
         $this->assertSame(40, $r['lanes']['proof']);
         $this->assertContains('research', $r['farmed_lanes_redirected']);
     }
+
+    // ── allocateAmbitionBudget(): frontier/simplification/reliability/self_healing/proof_hardening ──
+
+    private function ambitionBudget(array $facts = []): array
+    {
+        return (new AtlasStrategyCouncilAmbitionBudgetPolicy)->allocateAmbitionBudget($facts);
+    }
+
+    private function assertBudgetSumsToOne(array $r): void
+    {
+        $this->assertEqualsWithDelta(1.0, array_sum($r['budget']), 0.0001);
+        foreach (['frontier', 'simplification', 'reliability', 'self_healing', 'proof_hardening'] as $lane) {
+            $this->assertArrayHasKey($lane, $r['budget'], "missing lane {$lane}");
+        }
+    }
+
+    // ── AC: high ambition ─────────────────────────────────────────────────────────
+
+    public function test_high_ambition_shifts_budget_toward_frontier(): void
+    {
+        $r = $this->ambitionBudget([
+            'compound_impact_score' => 0.9,
+            'worker_capacity' => 0.8,
+        ]);
+
+        $this->assertBudgetSumsToOne($r);
+        $this->assertGreaterThan(0.4, $r['budget']['frontier']);
+        $this->assertStringContainsString('high_ambition', $r['reason_codes'][0]);
+    }
+
+    // ── AC: high debt ─────────────────────────────────────────────────────────────
+
+    public function test_high_debt_shifts_budget_toward_simplification(): void
+    {
+        $r = $this->ambitionBudget(['simplification_debt_score' => 0.85]);
+
+        $this->assertBudgetSumsToOne($r);
+        $this->assertGreaterThan(0.4, $r['budget']['simplification']);
+        $this->assertStringContainsString('high_debt', $r['reason_codes'][0]);
+    }
+
+    // ── AC: low worker capacity ───────────────────────────────────────────────────
+
+    public function test_low_worker_capacity_shifts_budget_conservatively(): void
+    {
+        $r = $this->ambitionBudget(['worker_capacity' => 0.1]);
+
+        $this->assertBudgetSumsToOne($r);
+        $this->assertLessThan(0.2, $r['budget']['frontier']);
+        $this->assertStringContainsString('low_worker_capacity', $r['reason_codes'][0]);
+    }
+
+    // ── AC: reliability crisis ────────────────────────────────────────────────────
+
+    public function test_reliability_crisis_shifts_budget_toward_reliability(): void
+    {
+        $r = $this->ambitionBudget(['reliability_score' => 0.1]);
+
+        $this->assertBudgetSumsToOne($r);
+        $this->assertGreaterThan(0.5, $r['budget']['reliability']);
+        $this->assertStringContainsString('reliability_crisis', $r['reason_codes'][0]);
+    }
+
+    public function test_reliability_crisis_takes_precedence_over_everything_else(): void
+    {
+        $r = $this->ambitionBudget([
+            'reliability_score' => 0.1,
+            'proof_coverage' => 0.1,
+            'simplification_debt_score' => 0.9,
+            'worker_capacity' => 0.1,
+        ]);
+
+        $this->assertGreaterThan(0.5, $r['budget']['reliability']);
+    }
+
+    // ── AC: proof gap ─────────────────────────────────────────────────────────────
+
+    public function test_proof_gap_shifts_budget_toward_proof_hardening(): void
+    {
+        $r = $this->ambitionBudget(['proof_coverage' => 0.2]);
+
+        $this->assertBudgetSumsToOne($r);
+        $this->assertGreaterThan(0.5, $r['budget']['proof_hardening']);
+        $this->assertStringContainsString('proof_gap', $r['reason_codes'][0]);
+    }
+
+    // ── AC: deterministic allocation ─────────────────────────────────────────────
+
+    public function test_ambition_budget_allocation_is_deterministic(): void
+    {
+        $facts = ['compound_impact_score' => 0.5, 'worker_capacity' => 0.5];
+
+        $this->assertSame($this->ambitionBudget($facts), $this->ambitionBudget($facts));
+    }
+
+    public function test_healthy_facts_yield_balanced_ambition_budget(): void
+    {
+        $r = $this->ambitionBudget([]);
+
+        $this->assertBudgetSumsToOne($r);
+        $this->assertStringContainsString('balanced', $r['reason_codes'][0]);
+    }
 }
