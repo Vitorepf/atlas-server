@@ -44,6 +44,9 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
     /** Worker-feed evidence older than this is considered stale, never trusted for a final verdict. */
     private const WORKER_FEED_EVIDENCE_STALE_SECONDS = 3600;
 
+    /** Soak-test evidence older than this is considered stale, never trusted for a final verdict. */
+    private const SOAK_EVIDENCE_STALE_SECONDS = 86400;
+
     /**
      * @param  array<string,mixed>  $auditVerdict
      * @param  array<string,mixed>  $transitionMap
@@ -56,9 +59,13 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
      *         A final autonomy claim may NEVER assert worker-feed continuity is healthy from stale,
      *         missing, or sub-floor evidence — only fresh healthy floor metrics or an explicit
      *         no_claimable_task_repaired receipt satisfy this gate.
+     * @param  array<string,mixed>  $soakEvidence {status?:'pass'|'fail', age_seconds?:int}.
+     *         Unlike the other evidence params this is NEVER skippable: a final autonomy claim
+     *         must always be backed by a fresh, passing soak run — readiness=ready alone is never
+     *         sufficient proof that the system actually held up under sustained autonomous load.
      * @return array<string,mixed>
      */
-    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = [], array $regressionFacts = [], array $workerFeedEvidence = []): array
+    public function compose(array $auditVerdict, array $transitionMap, array $readinessPolicy, array $capabilityFacts = [], array $capabilityEvidence = [], array $regressionFacts = [], array $workerFeedEvidence = [], array $soakEvidence = []): array
     {
         $atlasNative = (bool) ($auditVerdict['atlas_native'] ?? false);
         $auditBlockers = array_values((array) ($auditVerdict['blockers'] ?? []));
@@ -174,6 +181,16 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
             return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, [], $evidenceDemands);
         }
 
+        // INCOMPLETE — soak evidence is mandatory (never skippable): missing, stale, or failed.
+        $soakReason = $this->soakUnhealthyReason($soakEvidence);
+        if ($soakReason !== null) {
+            $blockers = ['soak_evidence:'.$soakReason];
+            $nextActions[] = 'refresh_soak_test_evidence';
+            $evidenceDemands[] = 'provide_fresh_passing_soak_evidence';
+
+            return $this->envelope(self::VERDICT_INCOMPLETE, $blockers, $nextActions, $score, [], $evidenceDemands);
+        }
+
         // INCOMPLETE — worker-feed continuity evidence provided but stale, missing, or below floor.
         // A final autonomy claim can never assert workers are being fed from evidence that can't
         // prove it right now.
@@ -219,6 +236,29 @@ final class AtlasSelfConstructionFinalAutonomyVerdict
         $workerFeedFloor = (float) $evidence['worker_feed_floor'];
         if ($claimablePerActiveWorker < $workerFeedFloor) {
             return 'below_floor';
+        }
+
+        return null;
+    }
+
+    /**
+     * Never skippable: a final autonomy claim always requires fresh, passing soak evidence.
+     * Missing evidence entirely reads as 'missing_soak_evidence', matching AC1 verbatim.
+     *
+     * @param  array<string,mixed>  $evidence
+     */
+    private function soakUnhealthyReason(array $evidence): ?string
+    {
+        if ($evidence === [] || ! array_key_exists('status', $evidence)) {
+            return 'missing_soak_evidence';
+        }
+
+        if (array_key_exists('age_seconds', $evidence) && (int) $evidence['age_seconds'] > self::SOAK_EVIDENCE_STALE_SECONDS) {
+            return 'stale_soak_evidence';
+        }
+
+        if ((string) $evidence['status'] !== 'pass') {
+            return 'failed_soak_evidence';
         }
 
         return null;
