@@ -136,6 +136,16 @@ final class AgentControlPlaneDeterministicChainReplayService
         ];
         $invariantsAllTrue = ! in_array(false, $invariants, true);
 
+        $minimumProofBundleRequirements = [
+            'slices' => $includeSlices && count($replayedSlices) > 0,
+            'edges' => $includeEdges,
+            'proof_bundle' => $proofBundle !== null,
+            'runtime_safety' => (bool) data_get($runtimeSafety, 'runtime_safety_all_false', false),
+            'cycle_integrity' => (bool) data_get($cycleIntegrity, 'cycle_ok', false),
+            'terminal_horizon' => (bool) data_get($terminalHorizon, 'horizon_ok', false),
+        ];
+        $readinessClaimAllowed = ! in_array(false, $minimumProofBundleRequirements, true);
+
         $replayId = (string) Str::uuid();
         $generatedAt = CarbonImmutable::now()->toIso8601String();
 
@@ -171,6 +181,8 @@ final class AgentControlPlaneDeterministicChainReplayService
             'warnings' => $warnings,
             'invariants' => $invariants,
             'invariants_all_true' => $invariantsAllTrue,
+            'minimum_proof_bundle_requirements' => $minimumProofBundleRequirements,
+            'readiness_claim_allowed' => $readinessClaimAllowed,
             'options_applied' => [
                 'include_slices' => $includeSlices,
                 'include_edges' => $includeEdges,

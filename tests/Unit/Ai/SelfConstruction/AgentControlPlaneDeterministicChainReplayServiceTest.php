@@ -36,6 +36,40 @@ final class AgentControlPlaneDeterministicChainReplayServiceTest extends TestCas
         $this->assertNotSame($first['replay_id'], $second['replay_id']);
     }
 
+    public function test_replay_includes_minimum_proof_bundle_requirements(): void
+    {
+        $replay = $this->newService()->replay();
+
+        $this->assertArrayHasKey('minimum_proof_bundle_requirements', $replay);
+        foreach (['slices', 'edges', 'proof_bundle', 'runtime_safety', 'cycle_integrity', 'terminal_horizon'] as $component) {
+            $this->assertArrayHasKey($component, $replay['minimum_proof_bundle_requirements'], "missing minimum proof bundle component: {$component}");
+        }
+    }
+
+    public function test_readiness_claim_allowed_is_false_when_proof_bundle_excluded(): void
+    {
+        $replay = $this->newService()->replay(['include_proof_bundle' => false]);
+
+        $this->assertFalse($replay['minimum_proof_bundle_requirements']['proof_bundle']);
+        $this->assertFalse($replay['readiness_claim_allowed']);
+    }
+
+    public function test_readiness_claim_allowed_is_false_when_slices_excluded(): void
+    {
+        $replay = $this->newService()->replay(['include_slices' => false]);
+
+        $this->assertFalse($replay['minimum_proof_bundle_requirements']['slices']);
+        $this->assertFalse($replay['readiness_claim_allowed']);
+    }
+
+    public function test_deterministic_replay_hash_changes_when_proof_content_changes(): void
+    {
+        $first = $this->newService()->replay(['override_chain_integrity' => ['status' => 'available']]);
+        $second = $this->newService()->replay(['override_chain_integrity' => ['status' => 'blocked']]);
+
+        $this->assertNotSame($first['deterministic_replay_hash'], $second['deterministic_replay_hash']);
+    }
+
     private function newService(): AgentControlPlaneDeterministicChainReplayService
     {
         $audit = new AgentControlPlaneChainIntegrityAuditService($this->readiness());
