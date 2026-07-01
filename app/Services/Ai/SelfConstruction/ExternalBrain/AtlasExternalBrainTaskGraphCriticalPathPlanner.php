@@ -56,6 +56,8 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
 
     private const RISK_PENALTIES = ['high' => 0.30, 'medium' => 0.10, 'low' => 0.0];
 
+    private const WORKER_FEED_DRAIN_HIGH_THRESHOLD = 1.0;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -79,6 +81,10 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
                 'maturity_gap_coverage' => (float) ($raw['maturity_gap_coverage'] ?? 0.0),
                 'evidence_strength' => array_key_exists('evidence_strength', $raw) ? (float) $raw['evidence_strength'] : 1.0,
                 'status' => (string) ($raw['status'] ?? 'queued'),
+                'active_worker_drain' => max(0.0, (float) ($raw['active_worker_drain'] ?? 0.0)),
+                'produces_claimable_count' => max(0, (int) ($raw['produces_claimable_count'] ?? 0)),
+                'is_replenishment_node' => (bool) ($raw['is_replenishment_node'] ?? false),
+                'is_unblock_node' => (bool) ($raw['is_unblock_node'] ?? false),
             ];
         }
 
@@ -162,6 +168,8 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
 
         $parallelizableBranches = $this->connectedComponents($usable, $tasks, $criticalPath);
 
+        [$workerFeedRisk, $workerFeedReason] = $this->workerFeedRisk($criticalPath, $tasks);
+
         return [
             'schema' => self::SCHEMA,
             'critical_path_task_ids' => $criticalPath,
@@ -169,7 +177,45 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlanner
             'bottleneck_tasks' => $bottleneckTasks,
             'parallelizable_branches' => $parallelizableBranches,
             'next_best_task' => $criticalPath[0] ?? null,
+            'worker_feed_risk' => $workerFeedRisk,
+            'worker_feed_risk_reason' => $workerFeedReason,
         ];
+    }
+
+    /**
+     * @param  list<string>  $criticalPath
+     * @param  array<string,array<string,mixed>>  $tasks
+     * @return array{0:string,1:string}
+     */
+    private function workerFeedRisk(array $criticalPath, array $tasks): array
+    {
+        if ($criticalPath === []) {
+            return ['low', 'empty_critical_path'];
+        }
+
+        $totalDrain = 0.0;
+        $hasReplenishmentOrUnblockNode = false;
+        $hasNearTermClaimableProducer = false;
+
+        foreach ($criticalPath as $id) {
+            $task = $tasks[$id];
+            $totalDrain += $task['active_worker_drain'];
+            if ($task['is_replenishment_node'] || $task['is_unblock_node']) {
+                $hasReplenishmentOrUnblockNode = true;
+            }
+            if ($task['produces_claimable_count'] > 0) {
+                $hasNearTermClaimableProducer = true;
+            }
+        }
+
+        $highDrain = $totalDrain > self::WORKER_FEED_DRAIN_HIGH_THRESHOLD;
+        $noReplenishment = ! $hasReplenishmentOrUnblockNode && ! $hasNearTermClaimableProducer;
+
+        if ($highDrain && $noReplenishment) {
+            return ['high', sprintf('active_worker_drain=%.4f > %.2f with no replenishment/unblock/claimable-producing node on the path', $totalDrain, self::WORKER_FEED_DRAIN_HIGH_THRESHOLD)];
+        }
+
+        return ['low', $highDrain ? 'high_drain_but_replenishment_or_claimable_producer_present' : 'drain_within_threshold'];
     }
 
     /** @param array<string,mixed> $task */

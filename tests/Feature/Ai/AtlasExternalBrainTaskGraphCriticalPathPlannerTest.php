@@ -24,6 +24,42 @@ final class AtlasExternalBrainTaskGraphCriticalPathPlannerTest extends TestCase
         $this->assertGreaterThan(0, $result['path_score']);
     }
 
+    public function test_high_drain_path_with_no_replenishment_marks_worker_feed_risk_high(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphCriticalPathPlanner)->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.8],
+                ['task_id' => 'child', 'depends_on' => ['root'], 'leverage_score' => 0.8, 'status' => 'queued', 'active_worker_drain' => 0.7],
+            ],
+        ]);
+
+        $this->assertSame('high', $result['worker_feed_risk']);
+    }
+
+    public function test_high_drain_path_with_unblock_node_keeps_worker_feed_risk_low(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphCriticalPathPlanner)->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.8],
+                ['task_id' => 'child', 'depends_on' => ['root'], 'leverage_score' => 0.8, 'status' => 'queued', 'active_worker_drain' => 0.7, 'is_unblock_node' => true],
+            ],
+        ]);
+
+        $this->assertSame('low', $result['worker_feed_risk']);
+    }
+
+    public function test_high_drain_path_with_claimable_producing_node_keeps_worker_feed_risk_low(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphCriticalPathPlanner)->plan([
+            'tasks' => [
+                ['task_id' => 'root', 'leverage_score' => 0.9, 'status' => 'queued', 'active_worker_drain' => 0.8],
+                ['task_id' => 'child', 'depends_on' => ['root'], 'leverage_score' => 0.8, 'status' => 'queued', 'active_worker_drain' => 0.7, 'produces_claimable_count' => 3],
+            ],
+        ]);
+
+        $this->assertSame('low', $result['worker_feed_risk']);
+    }
+
     public function test_blocked_task_is_excluded_from_path_even_with_high_leverage(): void
     {
         $result = (new AtlasExternalBrainTaskGraphCriticalPathPlanner)->plan([
