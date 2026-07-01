@@ -357,4 +357,88 @@ final class AtlasTaskGraphStrategicChainPlannerTest extends TestCase
         $this->assertContains('hr1', $allIds);
         $this->assertContains('hr2', $allIds);
     }
+
+    // ── AC: worker-feed prioritization under starvation risk ────────────────────
+
+    public function test_worker_feed_tasks_ordered_before_expansion_when_below_target(): void
+    {
+        $r = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 0.3],
+            'tasks' => [
+                $this->task(['id' => 'expand_a']),
+                $this->task(['id' => 'feed_b', 'worker_feed' => true]),
+            ],
+        ]);
+
+        $flatOrder = array_merge(...$r['chains']);
+        $this->assertSame('feed_b', $flatOrder[0]);
+        $this->assertSame('expand_a', $flatOrder[1]);
+    }
+
+    public function test_replenish_soon_recommendation_also_activates_worker_feed_precedence(): void
+    {
+        $r = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 5.0, 'replenish_recommendation' => 'replenish_soon'],
+            'tasks' => [
+                $this->task(['id' => 'expand_a']),
+                $this->task(['id' => 'feed_b', 'worker_feed' => true]),
+            ],
+        ]);
+
+        $flatOrder = array_merge(...$r['chains']);
+        $this->assertSame('feed_b', $flatOrder[0], 'replenish_soon must force worker_feed precedence even with a comfortable ratio');
+    }
+
+    // ── AC: prerequisite order + risk guards still hold under worker-feed priority ──
+
+    public function test_prerequisite_order_holds_even_when_prerequisite_is_worker_feed_deprioritized(): void
+    {
+        $r = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 0.3],
+            'tasks' => [
+                $this->task(['id' => 'proof', 'unlocks' => ['impl']]),
+                $this->task(['id' => 'impl', 'prerequisites' => ['proof']]),
+                $this->task(['id' => 'feed_b', 'worker_feed' => true]),
+            ],
+        ]);
+
+        $allIds = array_merge(...$r['chains']);
+        $proofPos = array_search('proof', $allIds, true);
+        $implPos = array_search('impl', $allIds, true);
+        $this->assertLessThan($implPos, $proofPos, 'prerequisite ordering must hold even under worker-feed prioritization');
+        $this->assertEmpty($r['unresolved_tasks']);
+    }
+
+    public function test_high_risk_depth_guard_holds_under_worker_feed_priority(): void
+    {
+        $r = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 0.3],
+            'tasks' => [
+                $this->task(['id' => 'hr1', 'risk' => 0.80, 'worker_feed' => true]),
+                $this->task(['id' => 'hr2', 'risk' => 0.90, 'worker_feed' => true]),
+            ],
+            'high_risk_threshold' => 0.70,
+        ]);
+
+        $this->assertNotEmpty($r['risk_guards']);
+        $this->assertSame('parallel_high_risk_disallowed', $r['risk_guards'][0]['reason']);
+    }
+
+    public function test_cyclic_tasks_stay_unresolved_and_excluded_from_chains_under_worker_feed(): void
+    {
+        $r = $this->planner()->plan([
+            'queue_facts' => ['claimable_per_active_worker' => 0.3],
+            'tasks' => [
+                $this->task(['id' => 'cyc_a', 'prerequisites' => ['cyc_b']]),
+                $this->task(['id' => 'cyc_b', 'prerequisites' => ['cyc_a']]),
+                $this->task(['id' => 'feed_c', 'worker_feed' => true]),
+            ],
+        ]);
+
+        $this->assertSame(['cyc_a', 'cyc_b'], $r['unresolved_tasks']);
+        $flatOrder = $r['chains'] === [] ? [] : array_merge(...$r['chains']);
+        $this->assertNotContains('cyc_a', $flatOrder);
+        $this->assertNotContains('cyc_b', $flatOrder);
+        $this->assertContains('feed_c', $flatOrder);
+    }
 }
