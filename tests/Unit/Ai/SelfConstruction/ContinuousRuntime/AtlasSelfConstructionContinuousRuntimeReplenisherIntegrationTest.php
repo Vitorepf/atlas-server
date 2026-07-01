@@ -281,4 +281,81 @@ final class AtlasSelfConstructionContinuousRuntimeReplenisherIntegrationTest ext
         $this->assertSame('top_up', $verdict['request']['action']);
         $this->assertLessThanOrEqual(8, $verdict['request']['target_new_packet_count']);
     }
+
+    // ── AC1: originate only when quality floor is satisfied ────────────────────
+
+    public function test_originate_when_worker_drain_target_availability_and_quality_floor_all_satisfied(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-clean'],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'quality_signals' => ['quality_floor_score' => 0.9],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+    }
+
+    public function test_quality_floor_below_threshold_holds_instead_of_originating(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-lowq'],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'quality_signals' => ['quality_floor_score' => 0.2, 'quality_floor_threshold' => 0.5],
+        ]);
+
+        $this->assertSame('hold', $verdict['request']['action']);
+        $this->assertSame(0, $verdict['request']['target_new_packet_count']);
+        $this->assertStringContainsString('quality_floor_not_met', $verdict['request']['reasons'][0]);
+    }
+
+    public function test_quality_floor_below_threshold_holds_even_on_high_runway_override_path(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-lowq-drain', 'drain_rate_hint' => 10.0],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5, 'depth_floor' => 3, 'target_depth' => 6],
+            'quality_signals' => ['quality_floor_score' => 0.1, 'quality_floor_threshold' => 0.5],
+        ]);
+
+        $this->assertSame('hold', $verdict['request']['action']);
+    }
+
+    // ── AC2: repair_or_hold when malformed, poison, duplicate, or low-value signals dominate ──
+
+    public function test_poison_signals_route_to_repair_first(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-poison'],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3],
+            'quality_signals' => ['poison_count' => 2],
+        ]);
+
+        $this->assertSame('repair_first', $verdict['request']['action']);
+        $this->assertSame(0, $verdict['request']['target_new_packet_count']);
+        $this->assertSame(2, $verdict['request']['poison_count']);
+    }
+
+    public function test_low_value_dominance_holds_below_floor(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-lowvalue'],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 1, 'depth_floor' => 3, 'target_depth' => 6],
+            'quality_signals' => ['low_value_count' => 5],
+        ]);
+
+        $this->assertSame('hold', $verdict['request']['action']);
+        $this->assertSame(5, $verdict['request']['low_value_count']);
+    }
+
+    // ── AC4: worker-drain urgency still originates when quality floor holds ────
+
+    public function test_worker_drain_urgency_originates_when_quality_floor_satisfied(): void
+    {
+        $verdict = (new AtlasSelfConstructionContinuousRuntimeReplenisherIntegration)->integrate([
+            'runtime_cycle' => ['cycle_id' => 'cyc-drain-clean', 'drain_rate_hint' => 10.0],
+            'queue_health' => ['malformed_count' => 0, 'claimable_depth' => 5, 'depth_floor' => 3, 'target_depth' => 6],
+            'quality_signals' => ['quality_floor_score' => 0.95],
+        ]);
+
+        $this->assertSame('top_up', $verdict['request']['action']);
+    }
 }
