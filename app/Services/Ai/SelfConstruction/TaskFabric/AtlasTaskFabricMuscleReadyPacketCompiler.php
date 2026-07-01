@@ -59,6 +59,10 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
         ));
         if (! $this->hasRunnableAcceptance($acceptance)) {
             $blockers[] = 'no_runnable_acceptance';
+        } elseif (! $this->isBoundToTestTarget($acceptance, $test)) {
+            // A generic "php artisan test exits 0" with no test path or --filter names nothing:
+            // it can pass by running an unrelated suite. Acceptance must name the concrete target.
+            $blockers[] = 'acceptance_not_bound_to_test_target';
         }
 
         $evidence = array_values(array_filter(
@@ -133,6 +137,32 @@ final class AtlasTaskFabricMuscleReadyPacketCompiler
     {
         foreach ($acceptance as $criterion) {
             if (preg_match('/php\s+artisan\s+test|phpunit|exits?\s+0|passes\b/i', $criterion) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Requires the acceptance text to name the concrete test target: either the test_target
+     * path itself, its basename, or an explicit --filter=/PHPUnit class filter argument.
+     *
+     * @param  list<string>  $acceptance
+     */
+    private function isBoundToTestTarget(array $acceptance, string $test): bool
+    {
+        if ($test === '') {
+            return false;
+        }
+
+        $basename = basename($test);
+
+        foreach ($acceptance as $criterion) {
+            if (str_contains($criterion, $test) || str_contains($criterion, $basename)) {
+                return true;
+            }
+            if (preg_match('/--filter[=\s]/i', $criterion) === 1) {
                 return true;
             }
         }

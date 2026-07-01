@@ -118,6 +118,24 @@ final class AtlasTaskFabricMuscleReadyPacketCompilerTest extends TestCase
         $this->assertContains('no_runnable_acceptance', $r['blockers']);
     }
 
+    public function test_generic_runnable_acceptance_without_test_target_is_refused(): void
+    {
+        $r = $this->svc()->compile($this->validIntent(['acceptance_criteria' => ['php artisan test exits 0']]));
+
+        $this->assertFalse($r['admitted']);
+        $this->assertContains('acceptance_not_bound_to_test_target', $r['blockers']);
+    }
+
+    public function test_acceptance_naming_concrete_test_path_is_admitted(): void
+    {
+        $r = $this->svc()->compile($this->validIntent([
+            'acceptance_criteria' => ['php artisan test tests/Unit/Ai/Foo/AtlasFooServiceTest.php exits 0'],
+        ]));
+
+        $this->assertTrue($r['admitted']);
+        $this->assertSame([], $r['blockers']);
+    }
+
     public function test_missing_required_evidence_is_refused(): void
     {
         $r = $this->svc()->compile($this->validIntent(['required_evidence' => []]));
