@@ -75,7 +75,11 @@ final class AtlasExternalBrainFrontierDistillationPatternLibrary
     ];
 
     private const RETIRE_GIVE_BACK_THRESHOLD = 3;
-    private const RETIRE_GIVE_BACK_RATE      = 0.50;
+    // Must stay reachable independent of RETIRE_GIVE_BACK_THRESHOLD: with give_back
+    // capped below that threshold (<=2) and MIN_OUTCOMES_FOR_RATE=4, the maximum
+    // possible rate is 2/4=0.50, so this ceiling must be strictly below 0.50 or the
+    // rate-based retirement path is mathematically unreachable (dead code).
+    private const RETIRE_GIVE_BACK_RATE      = 0.40;
     private const RETIRE_LOW_VALUE_THRESHOLD = 2;
     private const MIN_OUTCOMES_FOR_RATE      = 4;
     private const MAX_INJECTION_RULES        = 3;
