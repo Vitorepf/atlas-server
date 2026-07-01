@@ -258,6 +258,54 @@ final class AtlasExternalBrainCapabilityDebtLedgerTest extends TestCase
         }
     }
 
+    // ── AC: aging pressure + appearance count ─────────────────────────────────
+
+    public function test_older_unresolved_debt_gains_aging_pressure_in_priority(): void
+    {
+        $fresh = $this->debt('fresh', 'weak_scoring', leverage: 3, risk: 3);
+        $fresh['first_seen_age_days'] = 0;
+        $old = $this->debt('old', 'stale_task_family', leverage: 3, risk: 3);
+        $old['first_seen_age_days'] = 20;
+
+        $r = $this->assess([$fresh, $old]);
+        $byId = collect($r['ledger_entries'])->keyBy('debt_id');
+
+        $this->assertGreaterThan($byId['fresh']['priority_score'], $byId['old']['priority_score']);
+        $this->assertGreaterThan(0, $byId['old']['aging_pressure']);
+        $this->assertSame(0, $byId['fresh']['aging_pressure']);
+    }
+
+    public function test_repeated_appearance_count_increases_priority_without_resolving_authored_spec_only(): void
+    {
+        $rare = $this->debt('rare', 'weak_scoring', leverage: 3, risk: 3, status: 'resolved', authoredSpec: true, evidence: '');
+        $rare['appearance_count'] = 1;
+        $frequent = $this->debt('frequent', 'stale_task_family', leverage: 3, risk: 3, status: 'resolved', authoredSpec: true, evidence: '');
+        $frequent['appearance_count'] = 6;
+
+        $r = $this->assess([$rare, $frequent]);
+        $byId = collect($r['ledger_entries'])->keyBy('debt_id');
+
+        $this->assertGreaterThan($byId['rare']['priority_score'], $byId['frequent']['priority_score']);
+        $this->assertSame('unresolved', $byId['frequent']['status']);
+        $this->assertTrue($byId['frequent']['authored_spec_only']);
+    }
+
+    public function test_resolved_entries_still_require_resolution_evidence_and_do_not_block_maturity(): void
+    {
+        $r = $this->assess([
+            $this->debt('d1', 'weak_scoring', status: 'resolved', evidence: 'gate passed with score 9.0'),
+        ]);
+
+        $this->assertSame('resolved', $r['ledger_entries'][0]['status']);
+        $this->assertFalse($r['maturity_blocked']);
+
+        $withoutEvidence = $this->assess([
+            $this->debt('d2', 'weak_scoring', status: 'resolved', evidence: ''),
+        ]);
+        $this->assertSame('unresolved', $withoutEvidence['ledger_entries'][0]['status']);
+        $this->assertTrue($withoutEvidence['maturity_blocked']);
+    }
+
     // ── rankByUnblockValue ──────────────────────────────────────────────────────
 
     private function debtRecord(array $overrides = []): array

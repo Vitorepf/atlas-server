@@ -34,6 +34,16 @@ final class AtlasExternalBrainCapabilityDebtLedger
         'repeated_give_back_root_cause',
     ];
 
+    /** Aging pressure added to priority_score per day the debt has remained unresolved (capped). */
+    private const AGING_PRESSURE_PER_DAY = 1;
+
+    private const AGING_PRESSURE_CAP = 30;
+
+    /** Priority bonus per repeated appearance of the same debt across cycles (capped). */
+    private const APPEARANCE_BONUS_PER_COUNT = 2;
+
+    private const APPEARANCE_BONUS_CAP = 20;
+
     /**
      * @param  array<string,mixed>  $input  debt_records list
      * @return array<string,mixed>
@@ -67,12 +77,24 @@ final class AtlasExternalBrainCapabilityDebtLedger
             $isResolved = $hasEvidence && (string) ($r['status'] ?? '') === 'resolved';
             $authoredSpecOnly = ! empty($r['authored_spec']) && ! $hasEvidence;
 
+            $ageDays = max(0, (int) ($r['first_seen_age_days'] ?? 0));
+            $appearanceCount = max(1, (int) ($r['appearance_count'] ?? 1));
+
+            // Aging/appearance pressure only compounds priority for still-unresolved debt —
+            // a resolved entry never needs to outrank fresh work just because it is old.
+            $agingPressure = $isResolved ? 0 : min(self::AGING_PRESSURE_CAP, $ageDays * self::AGING_PRESSURE_PER_DAY);
+            $appearanceBonus = $isResolved ? 0 : min(self::APPEARANCE_BONUS_CAP, ($appearanceCount - 1) * self::APPEARANCE_BONUS_PER_COUNT);
+
             $entries[] = [
                 'debt_id' => (string) ($r['debt_id'] ?? 'unknown'),
                 'capability_dimension' => $dim,
                 'leverage' => $r['leverage'],
                 'risk' => $r['risk'],
-                'priority_score' => $r['_score'],
+                'first_seen_age_days' => $ageDays,
+                'appearance_count' => $appearanceCount,
+                'aging_pressure' => $agingPressure,
+                'appearance_bonus' => $appearanceBonus,
+                'priority_score' => $r['_score'] + $agingPressure + $appearanceBonus,
                 'status' => $isResolved ? 'resolved' : 'unresolved',
                 'authored_spec_only' => $authoredSpecOnly,
             ];
