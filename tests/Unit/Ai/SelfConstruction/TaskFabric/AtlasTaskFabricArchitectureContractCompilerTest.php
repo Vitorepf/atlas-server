@@ -146,6 +146,17 @@ final class AtlasTaskFabricArchitectureContractCompilerTest extends TestCase
         $this->assertContains('no_auto_merge', $draft['task_constraints']);
     }
 
+    public function test_critical_risk_produces_min_refs_3(): void
+    {
+        $c = $this->validContract();
+        $c['risk_class'] = 'critical';
+        $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($c)[0];
+
+        $this->assertSame(3, $draft['evidence_floor']['min_refs']);
+        $this->assertContains('evidence_refs_min:3', $draft['task_constraints']);
+        $this->assertContains('no_auto_merge', $draft['task_constraints']);
+    }
+
     public function test_anti_proxy_clauses_forbid_all_proxy_kinds(): void
     {
         $draft = (new AtlasTaskFabricArchitectureContractCompiler)->compile($this->validContract())[0];
