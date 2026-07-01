@@ -172,4 +172,47 @@ final class AtlasSelfConstructionCapabilitySunsetPolicyTest extends TestCase
 
         $this->assertSame(AtlasSelfConstructionCapabilitySunsetPolicy::SCHEMA, $r['schema_version']);
     }
+
+    // ── AC: critical capabilities are protected from merge without substitution evidence ──
+
+    public function test_critical_capability_without_safety_evidence_refuses_merge(): void
+    {
+        $r = $this->svc()->evaluate($this->cap([
+            'replacement_owner_id' => 'cap-owner-1',
+            'replacement_owner_ready' => true,
+            'is_critical' => true,
+            'safety_evidence' => [],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionCapabilitySunsetPolicy::DECISION_KEEP, $r['decision']);
+        $this->assertTrue($r['refused']);
+        $this->assertContains('critical_no_substitution_evidence', $r['reasons']);
+        $this->assertContains('merge_refused', $r['reasons']);
+    }
+
+    public function test_critical_capability_with_safety_evidence_can_merge(): void
+    {
+        $r = $this->svc()->evaluate($this->cap([
+            'replacement_owner_id' => 'cap-owner-1',
+            'replacement_owner_ready' => true,
+            'is_critical' => true,
+            'safety_evidence' => ['migration_dry_run_passed'],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionCapabilitySunsetPolicy::DECISION_MERGE, $r['decision']);
+        $this->assertFalse($r['refused']);
+    }
+
+    public function test_non_critical_capability_merges_without_safety_evidence(): void
+    {
+        $r = $this->svc()->evaluate($this->cap([
+            'replacement_owner_id' => 'cap-owner-1',
+            'replacement_owner_ready' => true,
+            'is_critical' => false,
+            'safety_evidence' => [],
+        ]));
+
+        $this->assertSame(AtlasSelfConstructionCapabilitySunsetPolicy::DECISION_MERGE, $r['decision']);
+        $this->assertFalse($r['refused']);
+    }
 }

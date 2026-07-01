@@ -9,15 +9,19 @@ namespace App\Services\Ai\SelfConstruction\ContinuousRuntime;
  * kept, frozen, merged into a replacement, or retired.
  *
  * Priority (first match wins):
- *   1. replacement_owner_id non-empty AND replacement_owner_ready=true  → merge
+ *   1. replacement_owner_id non-empty AND replacement_owner_ready=true
+ *         + is_critical with no safety_evidence                         → keep (refused merge)
+ *         + otherwise                                                    → merge
  *   2. value_proof < 3 AND usage < 3 AND maintenance_cost > 7
  *         + is_critical with no safety_evidence                         → keep (refused retire)
  *         + otherwise                                                    → retire
  *   3. value_proof < 3 (any other case)                                 → freeze
  *   4. default                                                          → keep
  *
- * refused=true means retirement was requested by the signal pattern but blocked by
- * the critical-capability safety gate.
+ * refused=true means retirement or merge was requested by the signal pattern but
+ * blocked by the critical-capability safety gate: a critical capability may never
+ * be merged away or retired without evidence that its replacement/substitution is
+ * actually safe.
  */
 final class AtlasSelfConstructionCapabilitySunsetPolicy
 {
@@ -68,8 +72,17 @@ final class AtlasSelfConstructionCapabilitySunsetPolicy
         $reasons = [];
 
         if ($replacementOwner !== '' && $replacementReady) {
-            $decision = self::DECISION_MERGE;
-            $reasons[] = 'replacement_owner_ready';
+            if ($isCritical && $safetyEvidence === []) {
+                // AC: a critical capability may never be merged away without evidence that
+                // the replacement genuinely covers it — a ready-flag alone is not proof.
+                $decision = self::DECISION_KEEP;
+                $reasons[] = 'critical_no_substitution_evidence';
+                $reasons[] = 'merge_refused';
+                $refused = true;
+            } else {
+                $decision = self::DECISION_MERGE;
+                $reasons[] = 'replacement_owner_ready';
+            }
         } elseif ($valueProof < self::VALUE_LOW_THRESHOLD && $usageFreq < self::USAGE_LOW_THRESHOLD && $maintCost > self::COST_HIGH_THRESHOLD) {
             if ($isCritical && $safetyEvidence === []) {
                 $decision = self::DECISION_KEEP;
