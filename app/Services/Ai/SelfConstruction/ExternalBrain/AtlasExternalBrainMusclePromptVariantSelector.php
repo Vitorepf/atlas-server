@@ -96,21 +96,37 @@ final class AtlasExternalBrainMusclePromptVariantSelector
      */
     public function select(array $input): array
     {
-        $muscleType  = strtolower(trim((string) ($input['muscle_type'] ?? self::VARIANT_EXTERNAL_MUSCLE)));
-        $riskLevel   = strtolower(trim((string) ($input['risk_level'] ?? 'low')));
-        $contextSize = strtolower(trim((string) ($input['context_size'] ?? 'normal')));
-        $taskMode    = strtolower(trim((string) ($input['task_mode'] ?? 'normal')));
+        $muscleType      = strtolower(trim((string) ($input['muscle_type'] ?? self::VARIANT_EXTERNAL_MUSCLE)));
+        $riskLevel       = strtolower(trim((string) ($input['risk_level'] ?? 'low')));
+        $contextSize     = strtolower(trim((string) ($input['context_size'] ?? 'normal')));
+        $taskMode        = strtolower(trim((string) ($input['task_mode'] ?? 'normal')));
+        $tokenBudgetClass = strtolower(trim((string) ($input['token_budget_class'] ?? 'normal')));
+
+        // token_budget_class=tiny means the client's context window is too small for the full
+        // codebase/architecture sections regardless of muscle_type/risk — but a recovery task or
+        // a genuinely high-risk change still outrank a tight budget.
+        $tinyBudget = $tokenBudgetClass === 'tiny';
 
         $variantId = match (true) {
             in_array($taskMode, ['recovery', 'give_back'], true) => self::VARIANT_RECOVERY_GIVE_BACK_TASK,
             $riskLevel === 'high' => self::VARIANT_HIGH_RISK_TASK,
-            $contextSize === 'low' => self::VARIANT_LOW_CONTEXT_TASK,
+            $contextSize === 'low' || $tinyBudget => self::VARIANT_LOW_CONTEXT_TASK,
             $muscleType === self::VARIANT_LOCAL_SUBSCRIPTION_CLIENT => self::VARIANT_LOCAL_SUBSCRIPTION_CLIENT,
             default => self::VARIANT_EXTERNAL_MUSCLE,
         };
 
         $included = self::VARIANT_SECTIONS[$variantId];
         $omitted  = array_values(array_diff(self::ALL_SECTIONS, $included));
+
+        $omittedSectionReasons = [];
+        foreach ($omitted as $section) {
+            $omittedSectionReasons[$section] = sprintf(
+                "'%s' omitted: not part of the %s prompt variant (%s)",
+                $section,
+                $variantId,
+                self::VARIANT_REASONS[$variantId],
+            );
+        }
 
         $guardrails = [
             'allowed_files_only',
@@ -123,12 +139,14 @@ final class AtlasExternalBrainMusclePromptVariantSelector
         }
 
         return [
-            'schema'             => self::SCHEMA,
-            'prompt_variant_id'  => $variantId,
-            'included_sections'  => $included,
-            'omitted_sections'   => $omitted,
-            'guardrails'         => $guardrails,
-            'reason'             => self::VARIANT_REASONS[$variantId],
+            'schema'                   => self::SCHEMA,
+            'prompt_variant_id'        => $variantId,
+            'token_budget_class'       => $tokenBudgetClass,
+            'included_sections'        => $included,
+            'omitted_sections'         => $omitted,
+            'omitted_section_reasons'  => $omittedSectionReasons,
+            'guardrails'               => $guardrails,
+            'reason'                   => self::VARIANT_REASONS[$variantId],
         ];
     }
 }

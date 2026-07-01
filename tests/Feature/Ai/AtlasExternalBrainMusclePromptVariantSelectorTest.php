@@ -119,4 +119,46 @@ final class AtlasExternalBrainMusclePromptVariantSelectorTest extends TestCase
 
         $this->assertSame($first, $second);
     }
+
+    public function test_tiny_token_budget_selects_low_context_task_even_for_external_muscle_low_risk(): void
+    {
+        $r = $this->selector()->select([
+            'muscle_type' => 'external_muscle',
+            'risk_level' => 'low',
+            'token_budget_class' => 'tiny',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainMusclePromptVariantSelector::VARIANT_LOW_CONTEXT_TASK, $r['prompt_variant_id']);
+    }
+
+    public function test_high_risk_still_selects_high_risk_task_over_tiny_budget_unless_recovery(): void
+    {
+        $r = $this->selector()->select([
+            'risk_level' => 'high',
+            'token_budget_class' => 'tiny',
+        ]);
+
+        $this->assertSame(AtlasExternalBrainMusclePromptVariantSelector::VARIANT_HIGH_RISK_TASK, $r['prompt_variant_id']);
+
+        $recovery = $this->selector()->select([
+            'risk_level' => 'high',
+            'token_budget_class' => 'tiny',
+            'task_mode' => 'recovery',
+        ]);
+        $this->assertSame(AtlasExternalBrainMusclePromptVariantSelector::VARIANT_RECOVERY_GIVE_BACK_TASK, $recovery['prompt_variant_id']);
+    }
+
+    public function test_every_omitted_section_has_a_reason_and_local_client_keeps_no_paid_api_dependency(): void
+    {
+        $r = $this->selector()->select([
+            'muscle_type' => 'local_subscription_client',
+            'token_budget_class' => 'tiny',
+        ]);
+
+        foreach ($r['omitted_sections'] as $section) {
+            $this->assertArrayHasKey($section, $r['omitted_section_reasons']);
+            $this->assertNotEmpty($r['omitted_section_reasons'][$section]);
+        }
+        $this->assertContains('no_paid_api_dependency', $r['guardrails']);
+    }
 }
