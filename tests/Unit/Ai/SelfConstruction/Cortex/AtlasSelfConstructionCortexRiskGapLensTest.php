@@ -263,6 +263,48 @@ final class AtlasSelfConstructionCortexRiskGapLensTest extends TestCase
         $this->assertSame('totally_invalid_posture', $byClass[AtlasSelfConstructionCortexRiskGapLens::GAP_UNSAFE_MERGE]['evidence']['posture']);
     }
 
+    // ── leverage_hints ───────────────────────────────────────────────────────
+
+    public function test_named_gaps_carry_leverage_hints_with_task_family_and_acceptance_focus(): void
+    {
+        $r = (new AtlasSelfConstructionCortexRiskGapLens)->project([
+            'source_inventory' => ['blockers' => ['missing_required_source:memory']],
+            'queue_health' => ['malformed_count' => 2, 'repeated_give_back_count' => 3],
+            'worker_outcomes' => ['weak' => true],
+        ]);
+        $byClass = [];
+        foreach ($r['gaps'] as $gap) {
+            $byClass[$gap['class']] = $gap;
+        }
+
+        foreach ([
+            AtlasSelfConstructionCortexRiskGapLens::GAP_STALE_CONTEXT,
+            AtlasSelfConstructionCortexRiskGapLens::GAP_MALFORMED_QUEUE,
+            AtlasSelfConstructionCortexRiskGapLens::GAP_REPEATED_GIVE_BACK,
+            AtlasSelfConstructionCortexRiskGapLens::GAP_WEAK_WORKER_OUTCOMES,
+        ] as $class) {
+            $this->assertArrayHasKey($class, $byClass);
+            $hints = $byClass[$class]['leverage_hints'];
+            $this->assertArrayHasKey('task_family', $hints);
+            $this->assertArrayHasKey('acceptance_focus', $hints);
+            $this->assertArrayHasKey('avoid_proxy_warning', $hints);
+            $this->assertNotSame('', $hints['task_family']);
+            $this->assertNotSame('', $hints['acceptance_focus']);
+        }
+    }
+
+    public function test_leverage_hints_are_deterministic_and_carry_no_scalar_score(): void
+    {
+        $facts = ['queue_health' => ['malformed_count' => 1]];
+        $a = (new AtlasSelfConstructionCortexRiskGapLens)->project($facts);
+        $b = (new AtlasSelfConstructionCortexRiskGapLens)->project($facts);
+
+        $this->assertSame($a, $b);
+        $hints = $a['gaps'][0]['leverage_hints'];
+        $this->assertArrayNotHasKey('score', $hints);
+        $this->assertArrayNotHasKey('rank', $hints);
+    }
+
     // ── originator_hints ──────────────────────────────────────────────────────
 
     public function test_every_gap_carries_originator_hints_with_all_four_keys(): void

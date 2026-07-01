@@ -85,7 +85,7 @@ final class AtlasSelfConstructionCortexRiskGapLens
         }
         if ($hasStale) {
             $ev = ['inventory_blockers' => $invBlockers];
-            $gaps[] = ['class' => self::GAP_STALE_CONTEXT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_STALE_CONTEXT, $ev)];
+            $gaps[] = ['class' => self::GAP_STALE_CONTEXT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_STALE_CONTEXT, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_STALE_CONTEXT)];
         }
 
         $verification = is_array($facts['verification'] ?? null) ? $facts['verification'] : [];
@@ -98,21 +98,21 @@ final class AtlasSelfConstructionCortexRiskGapLens
                 'knowledge_sync_conformant' => (bool) ($knowledgeSync['conformant'] ?? false),
                 'knowledge_sync_blockers'   => array_values((array) ($knowledgeSync['blockers'] ?? [])),
             ];
-            $gaps[] = ['class' => self::GAP_MISSING_RECEIPTS, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MISSING_RECEIPTS, $ev)];
+            $gaps[] = ['class' => self::GAP_MISSING_RECEIPTS, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MISSING_RECEIPTS, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_MISSING_RECEIPTS)];
         }
 
         $merge = is_array($facts['merge'] ?? null) ? $facts['merge'] : [];
         $posture = (string) ($merge['posture'] ?? '');
         if ($posture !== '' && $posture !== 'safe') {
             $ev = ['posture' => $posture];
-            $gaps[] = ['class' => self::GAP_UNSAFE_MERGE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_UNSAFE_MERGE, $ev)];
+            $gaps[] = ['class' => self::GAP_UNSAFE_MERGE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_UNSAFE_MERGE, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_UNSAFE_MERGE)];
         }
 
         $queueHealth = is_array($facts['queue_health'] ?? null) ? $facts['queue_health'] : [];
         $malformed = max(0, (int) ($queueHealth['malformed_count'] ?? 0));
         if ($malformed > 0) {
             $ev = ['malformed_count' => $malformed];
-            $gaps[] = ['class' => self::GAP_MALFORMED_QUEUE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MALFORMED_QUEUE, $ev)];
+            $gaps[] = ['class' => self::GAP_MALFORMED_QUEUE, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_MALFORMED_QUEUE, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_MALFORMED_QUEUE)];
         }
 
         // Blocked/quarantined debt is dead supply, never claimable — report it separately from
@@ -121,19 +121,19 @@ final class AtlasSelfConstructionCortexRiskGapLens
         $blockedCount = max(0, (int) ($queueHealth['blocked_count'] ?? 0));
         if ($blockedCount > 0) {
             $ev = ['blocked_count' => $blockedCount, 'claimable_count' => $claimableCount, 'dead_supply' => true];
-            $gaps[] = ['class' => self::GAP_BLOCKED_DEBT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_BLOCKED_DEBT, $ev)];
+            $gaps[] = ['class' => self::GAP_BLOCKED_DEBT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_BLOCKED_DEBT, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_BLOCKED_DEBT)];
         }
 
         $quarantinedCount = max(0, (int) ($queueHealth['quarantined_count'] ?? 0));
         if ($quarantinedCount > 0) {
             $ev = ['quarantined_count' => $quarantinedCount, 'claimable_count' => $claimableCount, 'dead_supply' => true];
-            $gaps[] = ['class' => self::GAP_QUARANTINED_DEBT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_QUARANTINED_DEBT, $ev)];
+            $gaps[] = ['class' => self::GAP_QUARANTINED_DEBT, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_QUARANTINED_DEBT, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_QUARANTINED_DEBT)];
         }
 
         $gbCount = max(0, (int) ($queueHealth['repeated_give_back_count'] ?? 0));
         if ($gbCount >= 3) {
             $ev = ['repeated_give_back_count' => $gbCount];
-            $gaps[] = ['class' => self::GAP_REPEATED_GIVE_BACK, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_REPEATED_GIVE_BACK, $ev)];
+            $gaps[] = ['class' => self::GAP_REPEATED_GIVE_BACK, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_REPEATED_GIVE_BACK, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_REPEATED_GIVE_BACK)];
         }
 
         $workerOutcomes = is_array($facts['worker_outcomes'] ?? null) ? $facts['worker_outcomes'] : [];
@@ -141,25 +141,25 @@ final class AtlasSelfConstructionCortexRiskGapLens
         $weakOutcomes = (bool) ($workerOutcomes['weak'] ?? false) || $weakWorkers !== [];
         if ($weakOutcomes) {
             $ev = ['weak' => (bool) ($workerOutcomes['weak'] ?? false), 'weak_workers' => $weakWorkers];
-            $gaps[] = ['class' => self::GAP_WEAK_WORKER_OUTCOMES, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_WEAK_WORKER_OUTCOMES, $ev)];
+            $gaps[] = ['class' => self::GAP_WEAK_WORKER_OUTCOMES, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_WEAK_WORKER_OUTCOMES, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_WEAK_WORKER_OUTCOMES)];
         }
 
         $codeIndex = is_array($facts['code_index'] ?? null) ? $facts['code_index'] : [];
         if ((bool) ($codeIndex['stale'] ?? false)) {
             $ev = ['stale' => true];
-            $gaps[] = ['class' => self::GAP_STALE_CODE_INDEX, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_STALE_CODE_INDEX, $ev)];
+            $gaps[] = ['class' => self::GAP_STALE_CODE_INDEX, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_STALE_CODE_INDEX, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_STALE_CODE_INDEX)];
         }
 
         $laneGovernance = is_array($facts['lane_governance'] ?? null) ? $facts['lane_governance'] : [];
         if ((bool) ($laneGovernance['leak_detected'] ?? false)) {
             $ev = ['leak_detected' => true, 'leaked_paths' => array_values(array_map('strval', (array) ($laneGovernance['leaked_paths'] ?? [])))];
-            $gaps[] = ['class' => self::GAP_PROJECT_LANE_LEAK, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_PROJECT_LANE_LEAK, $ev)];
+            $gaps[] = ['class' => self::GAP_PROJECT_LANE_LEAK, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_PROJECT_LANE_LEAK, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_PROJECT_LANE_LEAK)];
         }
 
         $sweep = is_array($facts['sweep_health'] ?? null) ? $facts['sweep_health'] : [];
         if ((bool) ($sweep['coverage_unknown'] ?? false)) {
             $ev = ['coverage_unknown' => true];
-            $gaps[] = ['class' => self::GAP_UNPROVED_RUNTIME, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_UNPROVED_RUNTIME, $ev)];
+            $gaps[] = ['class' => self::GAP_UNPROVED_RUNTIME, 'evidence' => $ev, 'originator_hints' => $this->hints(self::GAP_UNPROVED_RUNTIME, $ev), 'leverage_hints' => $this->leverageHints(self::GAP_UNPROVED_RUNTIME)];
         }
 
         usort($gaps, static fn (array $a, array $b): int => strcmp($a['class'], $b['class']));
@@ -253,5 +253,22 @@ final class AtlasSelfConstructionCortexRiskGapLens
                 'avoid_proxy_warning' => 'task_volume_is_not_evidence_of_gap_closure',
             ],
         };
+    }
+
+    /**
+     * Concrete leverage hints for the external brain: what task family would reduce this gap.
+     * Derived deterministically from the same gap-class facts as hints() — no scalar score/rank.
+     *
+     * @return array{task_family:string, acceptance_focus:string, avoid_proxy_warning:string}
+     */
+    private function leverageHints(string $class): array
+    {
+        $base = $this->hints($class, []);
+
+        return [
+            'task_family'         => $base['suggested_lane'],
+            'acceptance_focus'    => $base['required_evidence'],
+            'avoid_proxy_warning' => $base['avoid_proxy_warning'],
+        ];
     }
 }
