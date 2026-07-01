@@ -304,24 +304,95 @@ final class AtlasExternalBrainPortfolioBalancer
             $out = array_values(array_merge($other, $trimmed));
         }
 
-        // Risk-dimension aggregates from candidate fields.
+        // Single balance-metrics circuit: risk averages, risk flags, replacement
+        // category/recommendations, and scaffold-dominance flag all derive from
+        // this one pass so no metric can disagree with another about wave health.
+        $metrics = $this->computeBalanceMetrics($candidates, $categoryCounts, $consolidationDebt);
+        $avgGbr              = $metrics['avg_give_back_risk'];
+        $avgPr               = $metrics['avg_proxy_risk'];
+        $avgLev              = $metrics['avg_leverage_score'];
+        $riskFlags           = $metrics['risk_flags'];
+        $balanceReasons      = $metrics['balance_reasons'];
+        $replacementCat      = $metrics['replacement_category'];
+        $replacementRecs     = $metrics['replacement_recommendations'];
+        $consolidationDebtHigh = $metrics['consolidation_debt_flag'];
+
+        foreach ($deficits as $d) {
+            $balanceReasons[] = 'missing_capability_dimension:'.$d['category'];
+        }
+        foreach ($surpluses as $s) {
+            $balanceReasons[] = 'category_diversity:surplus:'.$s['category'];
+        }
+
+        $status = match (true) {
+            $riskFlags !== []                     => 'unbalanced',
+            $deficits !== [] && $surpluses !== [] => 'rebalanced',
+            $deficits !== []                      => 'deficit',
+            $surpluses !== []                     => 'rebalanced',
+            default                               => 'balanced',
+        };
+
+        return [
+            'schema'                       => self::SCHEMA,
+            'status'                       => $status,
+            'passed'                       => $status === 'balanced',
+            'total_in'                     => $total,
+            'total_out'                    => count($out),
+            'deficits'                     => $deficits,
+            'surpluses'                    => $surpluses,
+            'category_counts'              => $categoryCounts,
+            'risk_tier_counts'             => $riskTierCounts,
+            'avg_leverage_score'           => round($avgLev, 4),
+            'avg_give_back_risk'           => round($avgGbr, 4),
+            'avg_proxy_risk'               => round($avgPr, 4),
+            'unbalanced_risk_flags'        => $riskFlags,
+            'balance_reasons'              => $balanceReasons,
+            'replacement_category'         => $replacementCat,
+            'replacement_recommendations'  => $replacementRecs,
+            'consolidation_debt_flag'      => $consolidationDebtHigh,
+            'candidates'                   => $out,
+        ];
+    }
+
+    /**
+     * Single balance metrics circuit: computes give_back/proxy/leverage
+     * averages, the risk flags they trigger, replacement category selection,
+     * operator-priority coverage recommendations, and the scaffold-dominance
+     * flag from one pass over the candidates — so no two metrics can disagree
+     * about whether the wave is healthy.
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @param  array<string,int>          $categoryCounts
+     * @return array{avg_give_back_risk:float, avg_proxy_risk:float, avg_leverage_score:float, risk_flags:list<string>, balance_reasons:list<string>, replacement_category:?string, replacement_recommendations:list<array<string,string>>, consolidation_debt_flag:bool}
+     */
+    private function computeBalanceMetrics(array $candidates, array $categoryCounts, float $consolidationDebt): array
+    {
+        $total = count($candidates);
+
         $totalGbr = 0.0;
         $totalPr  = 0.0;
         $totalLev = 0.0;
+        $scaffoldCount = 0;
         foreach ($candidates as $c) {
             $totalGbr += (float) ($c['give_back_risk']  ?? 0.0);
             $totalPr  += (float) ($c['proxy_risk']      ?? 0.0);
             $totalLev += (float) ($c['leverage_score']  ?? 0.5);
+
+            $subtype = strtolower(trim((string) ($c['category_subtype'] ?? '')));
+            if (in_array($subtype, self::SCAFFOLD_SUBTYPES, true)) {
+                $scaffoldCount++;
+            }
         }
         $n      = max(1, $total);
         $avgGbr = $totalGbr / $n;
         $avgPr  = $totalPr  / $n;
         $avgLev = $totalLev / $n;
+        $scaffoldRatio = $total > 0 ? $scaffoldCount / $total : 0.0;
 
-        $riskFlags              = [];
-        $balanceReasons         = [];
-        $replacementCat         = null;
-        $replacementRecs        = [];
+        $riskFlags       = [];
+        $balanceReasons  = [];
+        $replacementCat  = null;
+        $replacementRecs = [];
 
         if ($total > 0 && $avgGbr > self::MAX_AVG_GIVE_BACK_RISK) {
             $riskFlags[]      = 'high_give_back_risk';
@@ -358,54 +429,21 @@ final class AtlasExternalBrainPortfolioBalancer
         }
 
         // Scaffold dominance check: too much new_organ/scaffold when consolidation_debt is high.
-        $scaffoldCount = 0;
-        foreach ($candidates as $c) {
-            $subtype = strtolower(trim((string) ($c['category_subtype'] ?? '')));
-            if (in_array($subtype, self::SCAFFOLD_SUBTYPES, true)) {
-                $scaffoldCount++;
-            }
-        }
-        $scaffoldRatio        = $total > 0 ? $scaffoldCount / $total : 0.0;
         $consolidationDebtHigh = $consolidationDebt > self::CONSOLIDATION_DEBT_THRESHOLD;
         if ($total > 0 && $consolidationDebtHigh && $scaffoldRatio > self::SCAFFOLD_DOMINANCE_THRESHOLD) {
             $riskFlags[]      = 'scaffold_dominance_with_high_consolidation_debt';
             $balanceReasons[] = 'consolidation_debt:high:'.round($consolidationDebt, 2).':scaffold_ratio:'.round($scaffoldRatio, 2);
         }
 
-        foreach ($deficits as $d) {
-            $balanceReasons[] = 'missing_capability_dimension:'.$d['category'];
-        }
-        foreach ($surpluses as $s) {
-            $balanceReasons[] = 'category_diversity:surplus:'.$s['category'];
-        }
-
-        $status = match (true) {
-            $riskFlags !== []                     => 'unbalanced',
-            $deficits !== [] && $surpluses !== [] => 'rebalanced',
-            $deficits !== []                      => 'deficit',
-            $surpluses !== []                     => 'rebalanced',
-            default                               => 'balanced',
-        };
-
         return [
-            'schema'                       => self::SCHEMA,
-            'status'                       => $status,
-            'passed'                       => $status === 'balanced',
-            'total_in'                     => $total,
-            'total_out'                    => count($out),
-            'deficits'                     => $deficits,
-            'surpluses'                    => $surpluses,
-            'category_counts'              => $categoryCounts,
-            'risk_tier_counts'             => $riskTierCounts,
-            'avg_leverage_score'           => round($avgLev, 4),
-            'avg_give_back_risk'           => round($avgGbr, 4),
-            'avg_proxy_risk'               => round($avgPr, 4),
-            'unbalanced_risk_flags'        => $riskFlags,
-            'balance_reasons'              => $balanceReasons,
-            'replacement_category'         => $replacementCat,
-            'replacement_recommendations'  => $replacementRecs,
-            'consolidation_debt_flag'      => $consolidationDebtHigh,
-            'candidates'                   => $out,
+            'avg_give_back_risk' => $avgGbr,
+            'avg_proxy_risk' => $avgPr,
+            'avg_leverage_score' => $avgLev,
+            'risk_flags' => $riskFlags,
+            'balance_reasons' => $balanceReasons,
+            'replacement_category' => $replacementCat,
+            'replacement_recommendations' => $replacementRecs,
+            'consolidation_debt_flag' => $consolidationDebtHigh,
         ];
     }
 
