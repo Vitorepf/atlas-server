@@ -240,4 +240,112 @@ final class AtlasExternalBrainFrontierHarvestYieldModelTest extends TestCase
 
         $this->assertSame($this->model()->model($input), $this->model()->model($input));
     }
+
+    // ── AC: yield decline with remaining unsearched high-risk files ────────────
+
+    public function test_yield_decline_with_unsearched_high_risk_files_recommends_second_pass_targeted(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [[
+                'frontier_id' => 'declining',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 5,
+                'duplicate_count' => 10,
+                'forbidden_wall_count' => 0,
+                'unsearched_high_risk_file_count' => 12,
+            ]],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_SECOND_PASS_TARGETED, $result['results'][0]['decision']);
+    }
+
+    public function test_no_unsearched_high_risk_files_falls_back_to_stop(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [[
+                'frontier_id' => 'declining',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 5,
+                'duplicate_count' => 10,
+                'forbidden_wall_count' => 0,
+            ]],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_STOP_FRONTIER_HARVEST, $result['results'][0]['decision']);
+    }
+
+    // ── AC: exhausted surface with open architecture gaps ───────────────────────
+
+    public function test_exhausted_surface_with_open_architecture_gap_recommends_research_or_simplification(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [[
+                'frontier_id' => 'exhausted',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 0,
+                'duplicate_count' => 0,
+                'forbidden_wall_count' => 0,
+                'open_architecture_gap_count' => 3,
+            ]],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_RESEARCH_OR_SIMPLIFICATION, $result['results'][0]['decision']);
+    }
+
+    public function test_unsearched_high_risk_files_take_priority_over_architecture_gap(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [[
+                'frontier_id' => 'both',
+                'raw_seed_count' => 100,
+                'unique_high_value_count' => 0,
+                'duplicate_count' => 0,
+                'forbidden_wall_count' => 0,
+                'unsearched_high_risk_file_count' => 4,
+                'open_architecture_gap_count' => 3,
+            ]],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainFrontierHarvestYieldModel::DECISION_SECOND_PASS_TARGETED, $result['results'][0]['decision']);
+    }
+
+    // ── AC: model returns expected_yield, confidence and next_search_pattern ────
+
+    public function test_result_includes_expected_yield_confidence_and_next_search_pattern(): void
+    {
+        $result = $this->model()->model(['frontiers' => [$this->goodFrontier()]]);
+        $entry = $result['results'][0];
+
+        $this->assertArrayHasKey('expected_yield', $entry);
+        $this->assertArrayHasKey('confidence', $entry);
+        $this->assertArrayHasKey('next_search_pattern', $entry);
+        $this->assertSame($entry['marginal_yield'], $entry['expected_yield']);
+        $this->assertNotEmpty($entry['next_search_pattern']);
+    }
+
+    public function test_confidence_is_low_for_small_sample(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [[
+                'frontier_id' => 'small',
+                'raw_seed_count' => 5,
+                'unique_high_value_count' => 3,
+            ]],
+        ]);
+
+        $this->assertSame('low', $result['results'][0]['confidence']);
+    }
+
+    public function test_confidence_is_high_for_large_sample(): void
+    {
+        $result = $this->model()->model([
+            'frontiers' => [[
+                'frontier_id' => 'large',
+                'raw_seed_count' => 200,
+                'unique_high_value_count' => 60,
+            ]],
+        ]);
+
+        $this->assertSame('high', $result['results'][0]['confidence']);
+    }
 }

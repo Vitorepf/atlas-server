@@ -72,11 +72,25 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
     public const DECISION_CHANGE_STRATEGY = 'change_strategy';
     public const DECISION_CONSOLIDATE = 'consolidate';
     public const DECISION_STOP_FRONTIER_HARVEST = 'stop_frontier_harvest';
+    public const DECISION_SECOND_PASS_TARGETED = 'second_pass_targeted';
+    public const DECISION_RESEARCH_OR_SIMPLIFICATION = 'research_or_simplification';
 
     private const DEFAULT_MARGINAL_YIELD_FLOOR = 0.15;
     private const DEFAULT_DUPLICATE_RATE_CEILING = 0.50;
     private const DEFAULT_FORBIDDEN_WALL_RATE_CEILING = 0.30;
     private const DEFAULT_MIN_EXPECTED_BATCH_VALUE = 1.0;
+
+    private const SAMPLE_LOW_CONFIDENCE_CEILING = 20;
+    private const SAMPLE_HIGH_CONFIDENCE_FLOOR = 100;
+
+    private const NEXT_SEARCH_PATTERNS = [
+        self::DECISION_CHANGE_STRATEGY => 'switch_harvest_method_around_the_forbidden_boundary',
+        self::DECISION_CONSOLIDATE => 'dedup_and_consolidate_before_the_next_harvest_pass',
+        self::DECISION_CONTINUE => 'continue_the_current_harvest_pattern',
+        self::DECISION_SECOND_PASS_TARGETED => 'targeted_second_pass_on_remaining_unsearched_high_risk_files',
+        self::DECISION_RESEARCH_OR_SIMPLIFICATION => 'shift_to_research_or_simplification_for_the_open_architecture_gap',
+        self::DECISION_STOP_FRONTIER_HARVEST => 'stop_harvesting_this_frontier_and_switch_domain',
+    ];
 
     /**
      * @param  array<string,mixed>  $input
@@ -103,6 +117,8 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
             $duplicateCount = max(0, (int) ($f['duplicate_count'] ?? 0));
             $forbiddenWallCount = max(0, (int) ($f['forbidden_wall_count'] ?? 0));
             $compoundingImpactPerTask = (float) ($f['compounding_impact_per_task'] ?? 1.0);
+            $unsearchedHighRiskFileCount = max(0, (int) ($f['unsearched_high_risk_file_count'] ?? 0));
+            $openArchitectureGapCount = max(0, (int) ($f['open_architecture_gap_count'] ?? 0));
 
             $denominator = max(1, $rawSeedCount);
             $marginalYield = round($uniqueHighValueCount / $denominator, 4);
@@ -129,6 +145,17 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
                 $decision = self::DECISION_CONTINUE;
                 $reasons[] = sprintf('marginal_yield=%.2f >= floor=%.2f', $marginalYield, $marginalYieldFloor);
                 $reasons[] = sprintf('expected_next_batch_value=%.2f >= min=%.2f', $expectedNextBatchValue, $minExpectedBatchValue);
+            } elseif ($unsearchedHighRiskFileCount > 0) {
+                // AC: yield has declined, but unsearched high-risk files remain — a targeted
+                // second pass on those specific files is still worth the tokens, unlike a
+                // generic re-scan of an already-mined surface.
+                $decision = self::DECISION_SECOND_PASS_TARGETED;
+                $reasons[] = sprintf('yield_declined_but_unsearched_high_risk_file_count=%d remains', $unsearchedHighRiskFileCount);
+            } elseif ($openArchitectureGapCount > 0) {
+                // AC: the code surface itself is exhausted (no unsearched files left), but an
+                // open architecture gap means the next leverage is structural, not more mining.
+                $decision = self::DECISION_RESEARCH_OR_SIMPLIFICATION;
+                $reasons[] = sprintf('code_surface_exhausted_with_open_architecture_gap_count=%d', $openArchitectureGapCount);
             } else {
                 $decision = self::DECISION_STOP_FRONTIER_HARVEST;
                 if ($marginalYield < $marginalYieldFloor) {
@@ -138,6 +165,12 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
                     $reasons[] = sprintf('expected_next_batch_value=%.2f < min=%.2f', $expectedNextBatchValue, $minExpectedBatchValue);
                 }
             }
+
+            $confidence = match (true) {
+                $rawSeedCount < self::SAMPLE_LOW_CONFIDENCE_CEILING => 'low',
+                $rawSeedCount >= self::SAMPLE_HIGH_CONFIDENCE_FLOOR => 'high',
+                default => 'medium',
+            };
 
             $results[] = [
                 'frontier_id' => $frontierId,
@@ -153,6 +186,9 @@ final class AtlasExternalBrainFrontierHarvestYieldModel
                     'forbidden_wall_count' => $forbiddenWallCount,
                 ],
                 'reasons' => $reasons,
+                'expected_yield' => $marginalYield,
+                'confidence' => $confidence,
+                'next_search_pattern' => self::NEXT_SEARCH_PATTERNS[$decision],
             ];
         }
 
