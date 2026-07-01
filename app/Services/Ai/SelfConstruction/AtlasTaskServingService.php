@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\EngineeringKernel\Adapters\MaestroCostBudgetMeterAdapter;
+use App\Services\Ai\EngineeringKernel\BudgetMeter;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
+use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostAggregator;
+use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostLedger;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
 use Closure;
 use Throwable;
@@ -55,6 +59,8 @@ final class AtlasTaskServingService
 
     private readonly AtlasTaskGovernancePolicyPlane $policyPlane;
 
+    private readonly BudgetMeter $budgetMeter;
+
     /** @var Closure(array<string,mixed>,array<string,mixed>):array<string,mixed> */
     private readonly Closure $evidenceContractEvaluator;
 
@@ -68,6 +74,7 @@ final class AtlasTaskServingService
         ?AtlasTaskPostLandCanarySentinel $canarySentinel = null,
         ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
         ?Closure $evidenceContractEvaluator = null,
+        ?BudgetMeter $budgetMeter = null,
     ) {
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
         $this->committer = $committer ?? new AtlasTaskScopedCommitter;
@@ -75,6 +82,12 @@ final class AtlasTaskServingService
         $this->governance = $governance ?? new AtlasTaskCommitGovernanceChain;
         $this->canarySentinel = $canarySentinel ?? new AtlasTaskPostLandCanarySentinel;
         $this->policyPlane = $policyPlane ?? new AtlasTaskGovernancePolicyPlane;
+        // Default to the Maestro adapter over the SAME cost ledger `atlas:task:maestro:cost` reads,
+        // so task-lane usage facts become visible per-muscle with zero new storage.
+        $this->budgetMeter = $budgetMeter ?? new MaestroCostBudgetMeterAdapter(
+            new AtlasMaestroCostLedger(storage_path('atlas/maestro/cost_ledger.jsonl')),
+            new AtlasMaestroCostAggregator,
+        );
         // COMPOSED, never reimplemented: the default evaluator is a thin closure over the real
         // AtlasVerificationCourtEvidenceContract::verify(). Swappable only for tests that need to
         // prove the fail-open exception path (the real contract never throws).
@@ -324,6 +337,34 @@ final class AtlasTaskServingService
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
 
+            // Usage metering: one fact per resolved commit through the shared BudgetMeter mechanism,
+            // landing in the SAME Maestro cost ledger `atlas:task:maestro:cost` reads. Swallowed on
+            // any failure — observability must never fail a report.
+            try {
+                $filesCommittedCount = count((array) ($commit['files_committed'] ?? []));
+                $verificationChecksRun = count((array) ($verificationFacts['checks'] ?? []));
+                $wallSeconds = $this->leaseAgeSeconds($leaseId) ?? 0;
+                $this->budgetMeter->measure([
+                    'task_packet_id' => $taskPacketId,
+                    'agent_id' => $clientId,
+                    'files_committed_count' => $filesCommittedCount,
+                    'verification_checks_run' => $verificationChecksRun,
+                    'wall_seconds' => $wallSeconds,
+                    // Ledger-required synonyms (AtlasMaestroCostLedger::REQUIRED_FIELDS) so the fact
+                    // is well-formed and actually lands, not silently skipped.
+                    'task_class' => 'task_lane_commit',
+                    'provider' => $clientId,
+                    'model' => 'n/a',
+                    'cycle_id' => 'task_lane',
+                    'tokens_in' => $filesCommittedCount,
+                    'tokens_out' => $verificationChecksRun,
+                    'cost_cents' => $wallSeconds,
+                    'recorded_at' => date('c'),
+                ]);
+            } catch (Throwable) {
+                // fail-open: metering must never break a resolved report
+            }
+
             // GOVERNOR'S CANARY LEG — policy-plane gated (default OFF, byte-identical to today when off).
             // Probes the just-landed tree; a sentinel error is swallowed fail-open so a canary bug never
             // touches the already-resolved report.
@@ -388,6 +429,32 @@ final class AtlasTaskServingService
             'lease_id' => $leaseId,
             'result' => $result,
         ]);
+    }
+
+    /**
+     * Best-effort lease age in seconds, decoded from the lease id's embedded ULID timestamp
+     * (Crockford base32, first 10 chars = ms since epoch) — no orchestrator call needed. Returns
+     * null when the id isn't ULID-shaped ("when available", never throws).
+     */
+    private function leaseAgeSeconds(string $leaseId): ?int
+    {
+        $id = str_starts_with($leaseId, 'lease_') ? substr($leaseId, 6) : $leaseId;
+        $tsChars = strtoupper(substr($id, 0, 10));
+        if (strlen($tsChars) !== 10) {
+            return null;
+        }
+        $alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+        $ms = 0;
+        foreach (str_split($tsChars) as $char) {
+            $value = strpos($alphabet, $char);
+            if ($value === false) {
+                return null;
+            }
+            $ms = $ms * 32 + $value;
+        }
+        $nowMs = (int) round(microtime(true) * 1000);
+
+        return intdiv(max(0, $nowMs - $ms), 1000);
     }
 
     /** Whitelist filters to a neutral set so a client can never inject an engine-typed/platform field. */
