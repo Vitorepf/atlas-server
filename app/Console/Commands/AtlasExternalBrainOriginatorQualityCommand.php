@@ -17,6 +17,7 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBlindSpotCu
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityRubric;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCausalAblationBatchStudy;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainConsolidationFirstCircuitBreaker;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainContextBudgetDistiller;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainHighValueBatchComposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLeverageScorer;
 use Illuminate\Console\Command;
@@ -71,6 +72,7 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         AtlasExternalBrainCapabilityRubric $capabilityRubric,
         AtlasExternalBrainCausalAblationBatchStudy $causalAblationBatchStudy,
         AtlasExternalBrainConsolidationFirstCircuitBreaker $consolidationFirstCircuitBreaker,
+        AtlasExternalBrainContextBudgetDistiller $contextBudgetDistiller,
     ): int {
         $inputPath = trim((string) $this->option('input'));
         if ($inputPath === '' || ! is_file($inputPath)) {
@@ -262,6 +264,14 @@ final class AtlasExternalBrainOriginatorQualityCommand extends Command
         // runs when the caller explicitly supplies a consolidation_first section.
         if (is_array($decoded['consolidation_first'] ?? null)) {
             $payload['consolidation_first'] = $consolidationFirstCircuitBreaker->evaluate($decoded['consolidation_first']);
+        }
+
+        // Optional context budget distillation: compacts a full context pack into a
+        // budget-constrained high-signal subset. Distinct from the consolidation-first
+        // gate above (context compaction vs. sprawl gating), so it only runs when the
+        // caller explicitly supplies a context_budget_distiller section.
+        if (is_array($decoded['context_budget_distiller'] ?? null)) {
+            $payload['context_budget_distiller'] = $contextBudgetDistiller->distill($decoded['context_budget_distiller']);
         }
 
         $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
