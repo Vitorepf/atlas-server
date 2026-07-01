@@ -313,4 +313,103 @@ final class AtlasExternalBrainLocalJudgeCalibrationCourtTest extends TestCase
         $suspect = current(array_filter($r['suspect_judges'], fn ($s) => $s['judge_id'] === 'j1'));
         $this->assertSame('over_optimistic', $suspect['issue']);
     }
+
+    // ── AC2/AC3: promotion decisions — promote/shadow/demote/escalate ─────────
+
+    private function falseGreenOutcome(): array
+    {
+        return ['commit_success' => true, 'give_back' => false, 'duplicate' => false, 'false_green' => true];
+    }
+
+    private function highValueOutcome(): array
+    {
+        return ['commit_success' => true, 'give_back' => false, 'duplicate' => false, 'high_value' => true];
+    }
+
+    public function test_uncalibrated_judge_promotion_decision_is_escalate(): void
+    {
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.80, $this->nOutcomes(2, $this->successOutcome()))],
+        ]);
+
+        $jr = $r['judge_results']['j1'];
+        $this->assertSame(AtlasExternalBrainLocalJudgeCalibrationCourt::DECISION_ESCALATE, $jr['promotion_decision']);
+        $this->assertSame('uncalibrated_insufficient_samples', $jr['promotion_reason']);
+    }
+
+    public function test_false_green_outcome_forces_escalate_even_when_otherwise_calibrated(): void
+    {
+        $outcomes = array_merge(
+            $this->nOutcomes(4, $this->successOutcome()),
+            [$this->falseGreenOutcome()],
+        );
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.20, $outcomes)],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainLocalJudgeCalibrationCourt::DECISION_ESCALATE, $r['judge_results']['j1']['promotion_decision']);
+        $this->assertSame('false_green_detected', $r['judge_results']['j1']['promotion_reason']);
+    }
+
+    public function test_single_category_replay_evidence_yields_shadow_not_promote(): void
+    {
+        // All 5 outcomes are the same 'normal' category — not enough diverse replay evidence.
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.90, $this->nOutcomes(5, $this->successOutcome()))],
+        ]);
+
+        $this->assertSame(AtlasExternalBrainLocalJudgeCalibrationCourt::DECISION_SHADOW, $r['judge_results']['j1']['promotion_decision']);
+        $this->assertSame('insufficient_diverse_replay_evidence', $r['judge_results']['j1']['promotion_reason']);
+        $this->assertSame(1, $r['judge_results']['j1']['distinct_categories_covered']);
+    }
+
+    public function test_diverse_calibrated_evidence_promotes(): void
+    {
+        $outcomes = array_merge(
+            $this->nOutcomes(3, $this->successOutcome()),
+            $this->nOutcomes(2, $this->highValueOutcome()),
+        );
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 1.0, $outcomes)],
+        ]);
+
+        $jr = $r['judge_results']['j1'];
+        $this->assertSame(AtlasExternalBrainLocalJudgeCalibrationCourt::DECISION_PROMOTE, $jr['promotion_decision']);
+        $this->assertSame('calibrated_with_diverse_evidence', $jr['promotion_reason']);
+        $this->assertGreaterThanOrEqual(2, $jr['distinct_categories_covered']);
+    }
+
+    public function test_suspect_judge_with_diverse_evidence_is_demoted_not_promoted(): void
+    {
+        $outcomes = array_merge(
+            $this->nOutcomes(3, $this->failureOutcome()),
+            $this->nOutcomes(2, $this->giveBackOutcome()),
+        );
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.90, $outcomes)],
+        ]);
+
+        $jr = $r['judge_results']['j1'];
+        $this->assertSame(AtlasExternalBrainLocalJudgeCalibrationCourt::DECISION_DEMOTE, $jr['promotion_decision']);
+        $this->assertSame('over_optimistic', $jr['promotion_reason']);
+    }
+
+    public function test_category_breakdown_reflects_outcome_mix(): void
+    {
+        $outcomes = array_merge(
+            $this->nOutcomes(2, $this->successOutcome()),
+            $this->nOutcomes(1, $this->giveBackOutcome()),
+            $this->nOutcomes(1, $this->proxyOutcome()),
+            $this->nOutcomes(1, $this->falseGreenOutcome()),
+        );
+        $r = $this->court()->calibrate([
+            'judges' => [$this->judge('j1', 0.5, $outcomes)],
+        ]);
+
+        $breakdown = $r['judge_results']['j1']['category_breakdown'];
+        $this->assertSame(2, $breakdown['normal']);
+        $this->assertSame(1, $breakdown['give_back']);
+        $this->assertSame(1, $breakdown['proxy']);
+        $this->assertSame(1, $breakdown['false_green']);
+    }
 }
