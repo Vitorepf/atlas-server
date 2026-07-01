@@ -99,11 +99,13 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'depends_on' => array_values(array_filter((array) data_get($packetInput, 'depends_on', []), 'is_string')),
                 'wave' => (int) data_get($packetInput, 'wave', 0),
                 // Anti-farm composition: persisted so a LATER candidate's semantic-duplicate check
-                // can compare against this packet's capability/family/intent (the builder itself
-                // never stores these — they only survive via this metadata bag).
-                'capability_key' => trim((string) data_get($packetInput, 'capability_key', '')),
-                'target_family' => trim((string) data_get($packetInput, 'target_family', '')),
-                'acceptance_intent' => trim((string) data_get($packetInput, 'acceptance_intent', '')),
+                // can compare against this packet's capability/family/intent. The builder now
+                // derives these deterministically onto packet.metadata whenever the caller omits
+                // them, so this reads the BUILT packet's metadata (derived-or-caller-supplied),
+                // never blank for a real (non-empty objective/allowed_files) packet.
+                'capability_key' => trim((string) data_get($packet, 'metadata.capability_key', '')),
+                'target_family' => trim((string) data_get($packet, 'metadata.target_family', '')),
+                'acceptance_intent' => trim((string) data_get($packet, 'metadata.acceptance_intent', '')),
             ],
             'priority' => (int) ($queueOptions['priority'] ?? 5),
             'tags' => (array) ($queueOptions['tags'] ?? []),
@@ -203,10 +205,13 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
         $candidateForDup = [
             'task_packet_id' => (string) ($packet['task_packet_id'] ?? ''),
-            'capability_key' => trim((string) data_get($packetInput, 'capability_key', '')),
-            'target_family' => trim((string) data_get($packetInput, 'target_family', '')),
+            // Read the BUILT packet's metadata (derived-or-caller-supplied), not the raw caller
+            // input — the raw input is blank for almost every real caller, which is exactly the
+            // gap that let same-capability keyless candidates slide past the duplicate index.
+            'capability_key' => trim((string) data_get($packet, 'metadata.capability_key', '')),
+            'target_family' => trim((string) data_get($packet, 'metadata.target_family', '')),
             'allowed_files' => (array) data_get($packet, 'normalized_scope.allowed_files', []),
-            'acceptance_intent' => trim((string) data_get($packetInput, 'acceptance_intent', '')),
+            'acceptance_intent' => trim((string) data_get($packet, 'metadata.acceptance_intent', '')),
         ];
         $existingForDup = array_map(static function (array $entry): array {
             return [

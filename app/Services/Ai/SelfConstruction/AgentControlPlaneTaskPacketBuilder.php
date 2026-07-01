@@ -249,6 +249,26 @@ final class AgentControlPlaneTaskPacketBuilder
             'evidence' => $evidenceRequirements['required'],
         ]);
 
+        // Semantic dedup keys: the anti-farm duplicate index (AtlasTaskFabricSemanticDuplicateIndex)
+        // compares capability_key/target_family/acceptance_intent, but almost no caller supplies
+        // them, so it runs blind on empty strings for most real packets. Derive all three
+        // deterministically from what the packet already carries whenever the caller omits them;
+        // a caller-supplied value always wins over derivation. Pure string work, no provider call.
+        $metadata = [
+            'capability_key' => $this->resolveSemanticKey(
+                (string) ($input['capability_key'] ?? ''),
+                fn (): string => $this->deriveCapabilityKey($objective, $allowed),
+            ),
+            'target_family' => $this->resolveSemanticKey(
+                (string) ($input['target_family'] ?? ''),
+                fn (): string => $this->deriveTargetFamily($allowed),
+            ),
+            'acceptance_intent' => $this->resolveSemanticKey(
+                (string) ($input['acceptance_intent'] ?? ''),
+                fn (): string => $this->deriveAcceptanceIntent($acceptance, $this->primaryTargetClassBasename($allowed)),
+            ),
+        ];
+
         $packet = [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -260,6 +280,7 @@ final class AgentControlPlaneTaskPacketBuilder
             'operator_id' => $operatorId,
             'parent_run_id' => $parentRunId,
             'normalized_scope' => $normalizedScope,
+            'metadata' => $metadata,
             'axis_exception_granted' => $axisExceptionsGrantedFor !== [] ? [
                 'axes' => $axisExceptionsGrantedFor,
                 'source' => $source,
@@ -381,6 +402,146 @@ final class AgentControlPlaneTaskPacketBuilder
         }
 
         return $reasons;
+    }
+
+    /**
+     * Caller-supplied value always wins over derivation; derivation only runs (lazily, via the
+     * closure) when the caller omitted the key.
+     */
+    private function resolveSemanticKey(string $callerValue, \Closure $derive): string
+    {
+        $trimmed = trim($callerValue);
+
+        return $trimmed !== '' ? $trimmed : $derive();
+    }
+
+    private function isSemanticTestPath(string $path): bool
+    {
+        $normalized = strtolower(str_replace('\\', '/', $path));
+
+        return str_contains($normalized, '/tests/')
+            || str_starts_with($normalized, 'tests/')
+            || str_ends_with($normalized, 'test.php');
+    }
+
+    /**
+     * The primary target class basename: the first NON-test allowed file's basename (without
+     * extension), falling back to the first allowed file at all when every entry is a test path.
+     *
+     * @param  list<string>  $allowed
+     */
+    private function primaryTargetClassBasename(array $allowed): string
+    {
+        foreach ($allowed as $path) {
+            if (! $this->isSemanticTestPath($path)) {
+                return $this->basenameWithoutExtension($path);
+            }
+        }
+
+        return $allowed !== [] ? $this->basenameWithoutExtension($allowed[0]) : '';
+    }
+
+    private function basenameWithoutExtension(string $path): string
+    {
+        $base = basename($path);
+
+        return preg_replace('/\.php$/i', '', $base) ?? $base;
+    }
+
+    /**
+     * capability_key = the objective's leading verb + the primary target class basename,
+     * lowercased and joined — e.g. "Fix AtlasFooBar.php" + allowed_files=[".../AtlasFooBar.php"]
+     * → "fix_atlasfoobar".
+     *
+     * @param  list<string>  $allowed
+     */
+    private function deriveCapabilityKey(string $objective, array $allowed): string
+    {
+        $verb = '';
+        if (preg_match('/^\s*([A-Za-z]+)/', $objective, $matches) === 1) {
+            $verb = strtolower($matches[1]);
+        }
+        $target = strtolower($this->primaryTargetClassBasename($allowed));
+
+        return implode('_', array_filter([$verb, $target], static fn (string $part): bool => $part !== ''));
+    }
+
+    /**
+     * target_family = the deepest shared directory of the non-test allowed_files (falling back
+     * to ALL allowed_files when every entry is a test path).
+     *
+     * @param  list<string>  $allowed
+     */
+    private function deriveTargetFamily(array $allowed): string
+    {
+        $nonTest = array_values(array_filter($allowed, fn (string $p): bool => ! $this->isSemanticTestPath($p)));
+        $candidates = $nonTest !== [] ? $nonTest : $allowed;
+        if ($candidates === []) {
+            return '';
+        }
+
+        $segmentLists = array_map(static function (string $path): array {
+            $dir = trim(dirname(str_replace('\\', '/', $path)), '/');
+
+            return $dir === '.' ? [] : explode('/', $dir);
+        }, $candidates);
+
+        $common = $segmentLists[0];
+        foreach (array_slice($segmentLists, 1) as $segments) {
+            $max = min(count($common), count($segments));
+            $i = 0;
+            while ($i < $max && $common[$i] === $segments[$i]) {
+                $i++;
+            }
+            $common = array_slice($common, 0, $i);
+        }
+
+        return implode('/', $common);
+    }
+
+    /** Boilerplate phrases stripped from an acceptance criterion to isolate its actual intent. */
+    private const ACCEPTANCE_INTENT_BOILERPLATE_PATTERNS = [
+        '/php artisan test\s*(--filter=)?/i',
+        '/\.\/vendor\/bin\/phpunit\s*(--filter=)?/i',
+        '/composer test\s*(--\s*)?(--filter=)?/i',
+        '/exits?\s*0/i',
+        '/exit_code\s*=\s*0/i',
+        '/passes?\s*green/i',
+    ];
+
+    /**
+     * acceptance_intent = the first acceptance criterion with the primary target's class tokens
+     * (e.g. "AtlasFooBar" and "AtlasFooBarTest") and the canonical runnable-proof phrases
+     * (e.g. "php artisan test --filter=", "exits 0") stripped out.
+     *
+     * @param  list<string>  $acceptance
+     */
+    private function deriveAcceptanceIntent(array $acceptance, string $primaryTarget): string
+    {
+        if ($acceptance === []) {
+            return '';
+        }
+
+        $stripped = (string) $acceptance[0];
+        if ($primaryTarget !== '') {
+            $stripped = preg_replace('/\b'.preg_quote($primaryTarget, '/').'(Test)?\b/i', '', $stripped) ?? $stripped;
+        }
+        foreach (self::ACCEPTANCE_INTENT_BOILERPLATE_PATTERNS as $pattern) {
+            $stripped = preg_replace($pattern, '', $stripped) ?? $stripped;
+        }
+
+        $stripped = trim(preg_replace('/\s+/', ' ', $stripped) ?? $stripped);
+
+        // A placeholder criterion (e.g. "ok", "pass", "done") carries no real semantic signal —
+        // treating it as a meaningful intent would make the duplicate index match packets that
+        // merely share a generic placeholder and a directory, never actual duplicate work. Below
+        // this floor, no intent is derived (empty never matches in the duplicate index).
+        $wordCount = $stripped === '' ? 0 : count(preg_split('/\s+/', $stripped) ?: []);
+        if ($wordCount < 2 || strlen($stripped) < 8) {
+            return '';
+        }
+
+        return $stripped;
     }
 
     /**
