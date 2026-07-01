@@ -295,4 +295,186 @@ final class AtlasExternalBrainArchitectureCompressionPlannerTest extends TestCas
         $this->assertSame(1, $s['blocked_count']);
         $this->assertLessThan(0, $s['total_expected_line_delta']);
     }
+
+    // ── Worker-floor protection: stale scaffold that feeds active workers ────
+
+    public function test_stale_scaffold_feeding_active_workers_is_kept_when_worker_floor_low_and_no_replacement_path(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('worker_feed', [
+                    'stale_scaffold_marker'      => true,
+                    'test_coverage'              => true,
+                    'replacement_owner'          => 'owner',
+                    'feeds_active_workers'       => true,
+                    'replacement_claimable_path' => false,
+                ]),
+            ],
+            'worker_floor_low' => true,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('worker_feed_capacity_protected', $candidate['reason']);
+        $this->assertFalse($candidate['worker_feed_preserved']);
+    }
+
+    public function test_stale_scaffold_feeding_active_workers_deletes_when_replacement_claimable_path_true(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('worker_feed', [
+                    'stale_scaffold_marker'      => true,
+                    'test_coverage'              => true,
+                    'replacement_owner'          => 'owner',
+                    'feeds_active_workers'       => true,
+                    'replacement_claimable_path' => true,
+                ]),
+            ],
+            'worker_floor_low' => true,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_DELETE, $candidate['action']);
+        $this->assertTrue($candidate['worker_feed_preserved']);
+    }
+
+    public function test_stale_scaffold_feeding_active_workers_deletes_when_worker_floor_not_low(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('worker_feed', [
+                    'stale_scaffold_marker'      => true,
+                    'test_coverage'              => true,
+                    'replacement_owner'          => 'owner',
+                    'feeds_active_workers'       => true,
+                    'replacement_claimable_path' => false,
+                ]),
+            ],
+            'worker_floor_low' => false,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_DELETE, $candidate['action']);
+    }
+
+    public function test_merge_candidate_blocked_when_worker_floor_low_and_group_feeds_workers_without_replacement_path(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('ma', [
+                    'capability_labels'         => ['shared'],
+                    'feeds_active_workers'      => true,
+                    'replacement_claimable_path' => false,
+                ]),
+                $this->organ('mb', ['capability_labels' => ['shared']]),
+            ],
+            'worker_floor_low' => true,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP, $candidate['action']);
+        $this->assertSame('worker_feed_capacity_protected', $candidate['reason']);
+        $this->assertFalse($candidate['worker_feed_preserved']);
+    }
+
+    public function test_merge_candidate_preserved_when_group_has_replacement_claimable_path(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('ma', [
+                    'capability_labels'         => ['shared'],
+                    'feeds_active_workers'      => true,
+                    'replacement_claimable_path' => true,
+                ]),
+                $this->organ('mb', ['capability_labels' => ['shared']]),
+            ],
+            'worker_floor_low' => true,
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(AtlasExternalBrainArchitectureCompressionPlanner::ACTION_MERGE, $candidate['action']);
+        $this->assertTrue($candidate['worker_feed_preserved']);
+    }
+
+    // ── required_tests / preserved_contracts on merge and delete candidates ──
+
+    public function test_merge_candidate_includes_required_tests_and_preserved_contracts(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('ma', [
+                    'capability_labels' => ['shared'],
+                    'contracts'         => ['ContractA'],
+                    'required_tests'    => ['tests/A.php'],
+                ]),
+                $this->organ('mb', [
+                    'capability_labels' => ['shared'],
+                    'contracts'         => ['ContractB'],
+                    'required_tests'    => ['tests/B.php'],
+                ]),
+            ],
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(['ContractA', 'ContractB'], $candidate['preserved_contracts']);
+        $this->assertSame(['tests/A.php', 'tests/B.php'], $candidate['required_tests']);
+    }
+
+    public function test_delete_candidate_includes_required_tests_and_preserved_contracts(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('del', [
+                    'stale_scaffold_marker' => true,
+                    'test_coverage'         => true,
+                    'replacement_owner'     => 'owner',
+                    'contracts'             => ['ContractZ'],
+                    'required_tests'        => ['tests/Z.php'],
+                ]),
+            ],
+        ]);
+
+        $candidate = $result['candidates'][0];
+        $this->assertSame(['ContractZ'], $candidate['preserved_contracts']);
+        $this->assertSame(['tests/Z.php'], $candidate['required_tests']);
+    }
+
+    // ── compression_score still favors low-risk delete/merge with high line reduction ──
+
+    public function test_low_risk_delete_with_high_line_reduction_ranks_above_medium_risk_keep(): void
+    {
+        $result = (new AtlasExternalBrainArchitectureCompressionPlanner)->plan([
+            'organs' => [
+                $this->organ('del', [
+                    'stale_scaffold_marker' => true,
+                    'test_coverage'         => true,
+                    'replacement_owner'     => 'owner',
+                    'line_count'            => 500,
+                    'capability_labels'     => ['unique_del'],
+                ]),
+                $this->organ('bigkeep', [
+                    'line_count'        => 300,
+                    'test_coverage'     => false,
+                    'capability_labels' => ['unique_bigkeep'],
+                ]),
+            ],
+            'growth_threshold' => 200,
+        ]);
+
+        $deleteCandidate = null;
+        $keepCandidate = null;
+        foreach ($result['candidates'] as $candidate) {
+            if ($candidate['action'] === AtlasExternalBrainArchitectureCompressionPlanner::ACTION_DELETE) {
+                $deleteCandidate = $candidate;
+            }
+            if ($candidate['action'] === AtlasExternalBrainArchitectureCompressionPlanner::ACTION_KEEP) {
+                $keepCandidate = $candidate;
+            }
+        }
+
+        $this->assertNotNull($deleteCandidate);
+        $this->assertNotNull($keepCandidate);
+        $this->assertGreaterThan($keepCandidate['compression_score'], $deleteCandidate['compression_score']);
+    }
 }
