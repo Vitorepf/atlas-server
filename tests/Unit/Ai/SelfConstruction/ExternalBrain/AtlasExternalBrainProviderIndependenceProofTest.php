@@ -197,6 +197,27 @@ final class AtlasExternalBrainProviderIndependenceProofTest extends TestCase
         $this->assertFalse($cov['rollback']);
     }
 
+    // ── Multiple simultaneous provider-dependence reasons ───────────────────────
+
+    public function test_multiple_simultaneous_provider_dependence_reasons_are_all_reported(): void
+    {
+        $claims = $this->allMandatory([
+            'rollback' => [
+                'requires_live_provider' => true,
+                'requires_manual_provider_selection' => true,
+                'has_provider_specific_traces' => true,
+            ],
+        ]);
+
+        $result = $this->proof->prove(['proof_claims' => $claims]);
+
+        $reasons = $this->reasonsForPhase($result, 'rollback');
+        self::assertContains('requires_live_provider', $reasons);
+        self::assertContains('requires_manual_provider_selection', $reasons);
+        self::assertContains('has_provider_specific_traces', $reasons);
+        self::assertCount(3, $reasons);
+    }
+
     // ── Determinism ───────────────────────────────────────────────────────────
 
     public function test_identical_input_yields_identical_output(): void
