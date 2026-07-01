@@ -143,6 +143,95 @@ final class AtlasArchitectureCouncilInvariantExtractorTest extends TestCase
         $this->assertContains('self_certification_forbidden', $verdict['blockers']);
     }
 
+    // ── AC2: scope boundary, dependency order, proof floor, rollback requirement ──
+
+    public function test_scope_locked_emits_scope_boundary_invariant(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'task_fabric',
+            'scope_locked' => true,
+        ]);
+
+        $ids = array_column($verdict['invariants'], 'invariant_id');
+        $this->assertContains('scope_boundary', $ids);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_declares_dependency_order_emits_dependency_order_invariant(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'task_fabric',
+            'declares_dependency_order' => true,
+        ]);
+
+        $ids = array_column($verdict['invariants'], 'invariant_id');
+        $this->assertContains('dependency_order', $ids);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_requires_proof_with_positive_floor_emits_proof_floor_invariant(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'verification_court',
+            'requires_proof' => true,
+            'proof_floor' => 0.8,
+        ]);
+
+        $ids = array_column($verdict['invariants'], 'invariant_id');
+        $this->assertContains('proof_floor', $ids);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    // ── AC3/AC4: vague contract rejection — missing proof invariant ──────────
+
+    public function test_requires_proof_without_proof_floor_is_a_vague_contract_and_blocked(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'verification_court',
+            'requires_proof' => true,
+        ]);
+
+        $this->assertSame([], $verdict['invariants']);
+        $this->assertContains('vague_contract:missing_proof_floor', $verdict['blockers']);
+    }
+
+    public function test_requires_proof_with_zero_floor_is_a_vague_contract_and_blocked(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'verification_court',
+            'requires_proof' => true,
+            'proof_floor' => 0,
+        ]);
+
+        $this->assertContains('vague_contract:missing_proof_floor', $verdict['blockers']);
+    }
+
+    // ── AC4: rollback invariant extraction ────────────────────────────────────
+
+    public function test_requires_rollback_with_plan_ref_emits_rollback_requirement_invariant(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'merge_governor',
+            'requires_rollback' => true,
+            'rollback_plan_ref' => 'rollback_plan:merge_governor_v1',
+        ]);
+
+        $ids = array_column($verdict['invariants'], 'invariant_id');
+        $this->assertContains('rollback_requirement', $ids);
+        $this->assertSame([], $verdict['blockers']);
+    }
+
+    public function test_requires_rollback_without_plan_ref_is_a_vague_contract_and_blocked(): void
+    {
+        $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([
+            'organ' => 'merge_governor',
+            'requires_rollback' => true,
+        ]);
+
+        $this->assertSame([], $verdict['invariants']);
+        $this->assertContains('vague_contract:missing_rollback_plan_ref', $verdict['blockers']);
+    }
+
     public function test_empty_must_hold_in_extra_invariants_is_blocked(): void
     {
         $verdict = (new AtlasArchitectureCouncilInvariantExtractor)->extract([

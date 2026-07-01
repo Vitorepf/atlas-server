@@ -17,8 +17,14 @@ namespace App\Services\Ai\SelfConstruction\ArchitectureCouncil;
  *   - shared_main_topology       : when contract.workspace_topology == 'shared_local_main_with_scope_lock'
  *   - evidence_required          : when contract.requires_evidence == true
  *   - no_self_certification      : when contract.allows_self_certification == false (i.e. forbidden)
+ *   - scope_boundary             : when contract.scope_locked == true
+ *   - dependency_order           : when contract.declares_dependency_order == true
+ *   - proof_floor                : when contract.requires_proof == true AND contract.proof_floor is a positive number
+ *   - rollback_requirement       : when contract.requires_rollback == true AND contract.rollback_plan_ref is non-empty
  *
  * Empty contracts are blocked. Duplicate invariant_ids inside contract.extra_invariants are blocked.
+ * A contract too vague to become an enforceable rule is also blocked: requires_proof=true without a
+ * concrete positive proof_floor, or requires_rollback=true without a concrete rollback_plan_ref.
  */
 final class AtlasArchitectureCouncilInvariantExtractor
 {
@@ -100,6 +106,54 @@ final class AtlasArchitectureCouncilInvariantExtractor
                 'must_hold' => 'an organ may not certify its own output',
                 'violation_effect' => 'block_promotion',
                 'test_hint' => 'assert verifier_organ != producer_organ',
+            ];
+        }
+
+        if ((bool) ($contract['scope_locked'] ?? false)) {
+            $emitted[] = [
+                'invariant_id' => 'scope_boundary',
+                'organ' => $organ,
+                'must_hold' => $organ.' writes only within its declared scope_lock/allowed_files; no writes outside the declared scope',
+                'violation_effect' => 'block_promotion',
+                'test_hint' => 'assert every write_set path for '.$organ.' is a member of the declared scope_lock allowed_files',
+            ];
+        }
+
+        if ((bool) ($contract['declares_dependency_order'] ?? false)) {
+            $emitted[] = [
+                'invariant_id' => 'dependency_order',
+                'organ' => $organ,
+                'must_hold' => $organ.' declared dependencies must resolve before it executes; no forward reference or cycle',
+                'violation_effect' => 'block_promotion',
+                'test_hint' => 'assert the dependency graph is topologically sorted with no cycle involving '.$organ,
+            ];
+        }
+
+        if ((bool) ($contract['requires_proof'] ?? false)) {
+            $proofFloor = $contract['proof_floor'] ?? null;
+            if (! is_numeric($proofFloor) || (float) $proofFloor <= 0.0) {
+                return $this->envelope([], ['vague_contract:missing_proof_floor']);
+            }
+            $emitted[] = [
+                'invariant_id' => 'proof_floor',
+                'organ' => $organ,
+                'must_hold' => $organ.' verified evidence score must meet or exceed proof_floor='.$proofFloor,
+                'violation_effect' => 'park_for_evidence',
+                'test_hint' => 'assert evidence_score >= '.$proofFloor.' before promotion',
+            ];
+        }
+
+        if ((bool) ($contract['requires_rollback'] ?? false)) {
+            $rollbackPlanRef = (string) ($contract['rollback_plan_ref'] ?? '');
+            if ($rollbackPlanRef === '') {
+                return $this->envelope([], ['vague_contract:missing_rollback_plan_ref']);
+            }
+            $emitted[] = [
+                'invariant_id' => 'rollback_requirement',
+                'organ' => $organ,
+                'must_hold' => $organ.' must reference a concrete rollback plan ('.$rollbackPlanRef.') before it may promote',
+                'violation_effect' => 'block_promotion',
+                'test_hint' => 'assert rollback_plan_ref is non-empty and resolves to a real rollback procedure',
             ];
         }
 
