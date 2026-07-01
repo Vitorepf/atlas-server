@@ -239,6 +239,80 @@ final class AgentRuntimeRegistryLoadBalancingPolicy
         return 0.0;
     }
 
+    public const CLASS_ROUTE_REASON_NO_CLAIMABLE_CLASS = 'no_claimable_class_available';
+
+    public const CLASS_ROUTE_REASON_SUPPLY_PRESSURE_BALANCE = 'supply_pressure_balance_claimable_classes';
+
+    public const CLASS_ROUTE_REASON_HIGHEST_CLAIMABLE = 'route_to_highest_claimable_class';
+
+    /** total servable_now below active_leases * this multiplier triggers balanced-supply routing. */
+    private const CLASS_ROUTE_SUPPLY_PRESSURE_MULTIPLIER = 10;
+
+    /**
+     * Route a worker toward a task class/queue, never toward a class with zero claimable
+     * packets while another claimable class exists. Under supply pressure (total servable_now
+     * below active_leases * 10) prefers the LEAST-drained claimable class, so dispatch never
+     * exhausts a scarce high-value class first while a less-scarce class sits idle.
+     *
+     * @param  array<int, array{class_id?: string, claimable_now?: int}>  $classes
+     * @param  array{servable_now?: int, active_leases?: int}  $facts
+     * @return array{schema_version:string, selected_class:?string, reason:string, supply_pressure:bool, ranked_classes: list<array<string,mixed>>}
+     */
+    public function routeToClass(array $classes, array $facts = []): array
+    {
+        $normalized = [];
+        foreach ($classes as $c) {
+            $classId = (string) ($c['class_id'] ?? '');
+            if ($classId === '') {
+                continue;
+            }
+            $normalized[] = [
+                'class_id' => $classId,
+                'claimable_now' => max(0, (int) ($c['claimable_now'] ?? 0)),
+            ];
+        }
+
+        $claimable = array_values(array_filter($normalized, static fn (array $c): bool => $c['claimable_now'] > 0));
+
+        $servableNow = isset($facts['servable_now']) ? (int) $facts['servable_now'] : array_sum(array_column($normalized, 'claimable_now'));
+        $activeLeases = (int) ($facts['active_leases'] ?? 0);
+        $supplyPressure = $activeLeases > 0 && $servableNow < $activeLeases * self::CLASS_ROUTE_SUPPLY_PRESSURE_MULTIPLIER;
+
+        if ($claimable === []) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'selected_class' => null,
+                'reason' => self::CLASS_ROUTE_REASON_NO_CLAIMABLE_CLASS,
+                'supply_pressure' => $supplyPressure,
+                'ranked_classes' => [],
+            ];
+        }
+
+        if ($supplyPressure) {
+            usort($claimable, static function (array $a, array $b): int {
+                $cmp = $a['claimable_now'] <=> $b['claimable_now'];
+
+                return $cmp !== 0 ? $cmp : strcmp($a['class_id'], $b['class_id']);
+            });
+            $reason = self::CLASS_ROUTE_REASON_SUPPLY_PRESSURE_BALANCE;
+        } else {
+            usort($claimable, static function (array $a, array $b): int {
+                $cmp = $b['claimable_now'] <=> $a['claimable_now'];
+
+                return $cmp !== 0 ? $cmp : strcmp($a['class_id'], $b['class_id']);
+            });
+            $reason = self::CLASS_ROUTE_REASON_HIGHEST_CLAIMABLE;
+        }
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'selected_class' => $claimable[0]['class_id'],
+            'reason' => $reason,
+            'supply_pressure' => $supplyPressure,
+            'ranked_classes' => $claimable,
+        ];
+    }
+
     /**
      * @return array<string, bool>
      */

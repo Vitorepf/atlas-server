@@ -209,4 +209,68 @@ final class AgentRuntimeRegistryLoadBalancingPolicyTest extends TestCase
 
         $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::DECISION_WAIT_OR_ROUTE_ELSEWHERE, $result['decision']);
     }
+
+    // --- routeToClass: claimable-supply-preserving class routing ---
+
+    public function test_route_to_class_prefers_balanced_supply_under_pressure(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->routeToClass(
+            [
+                ['class_id' => 'scarce', 'claimable_now' => 1],
+                ['class_id' => 'plentiful', 'claimable_now' => 4],
+            ],
+            ['servable_now' => 5, 'active_leases' => 1], // 5 < 1*10 => supply pressure
+        );
+
+        $this->assertTrue($result['supply_pressure']);
+        $this->assertSame('scarce', $result['selected_class']);
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::CLASS_ROUTE_REASON_SUPPLY_PRESSURE_BALANCE, $result['reason']);
+    }
+
+    public function test_route_to_class_prefers_highest_claimable_without_pressure(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->routeToClass(
+            [
+                ['class_id' => 'low', 'claimable_now' => 1],
+                ['class_id' => 'high', 'claimable_now' => 40],
+            ],
+            ['servable_now' => 50, 'active_leases' => 1], // 50 >= 1*10 => no pressure
+        );
+
+        $this->assertFalse($result['supply_pressure']);
+        $this->assertSame('high', $result['selected_class']);
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::CLASS_ROUTE_REASON_HIGHEST_CLAIMABLE, $result['reason']);
+    }
+
+    public function test_route_to_class_never_selects_class_with_no_claimable_packets_while_others_exist(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->routeToClass(
+            [
+                ['class_id' => 'empty', 'claimable_now' => 0],
+                ['class_id' => 'useful', 'claimable_now' => 3],
+            ],
+            ['servable_now' => 3, 'active_leases' => 1],
+        );
+
+        $this->assertSame('useful', $result['selected_class']);
+        $this->assertNotSame('empty', $result['selected_class']);
+    }
+
+    public function test_route_to_class_with_no_claimable_classes_at_all_returns_null(): void
+    {
+        $svc = new AgentRuntimeRegistryLoadBalancingPolicy;
+        $result = $svc->routeToClass(
+            [
+                ['class_id' => 'empty-a', 'claimable_now' => 0],
+                ['class_id' => 'empty-b', 'claimable_now' => 0],
+            ],
+            ['servable_now' => 0, 'active_leases' => 1],
+        );
+
+        $this->assertNull($result['selected_class']);
+        $this->assertSame(AgentRuntimeRegistryLoadBalancingPolicy::CLASS_ROUTE_REASON_NO_CLAIMABLE_CLASS, $result['reason']);
+    }
 }
