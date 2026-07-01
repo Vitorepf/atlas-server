@@ -87,6 +87,9 @@ final class AtlasExternalBrainLocalClientFallbackPolicy
             'decision' => $decision,
             'reason' => $reason,
             'missing_atlas_native_fallback_capabilities' => $missingAtlasNativeFallbackCapabilities,
+            // False only when an independent (Atlas-native or manual) fallback actually exists —
+            // otherwise steady-state autonomy silently depends on an external provider/client.
+            'steady_state_provider_dependency' => ! $hasIndependentFallback,
             'mutates_queue' => false,
         ];
     }

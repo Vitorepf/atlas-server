@@ -41,6 +41,7 @@ final class AtlasExternalBrainLocalClientFallbackPolicyTest extends TestCase
 
         $this->assertSame('continue_with_local_client', $result['decision']);
         $this->assertFalse($result['mutates_queue']);
+        $this->assertFalse($result['steady_state_provider_dependency']);
     }
 
     public function test_blocks_local_client_as_sole_path_for_steady_state_autonomy(): void
@@ -56,6 +57,7 @@ final class AtlasExternalBrainLocalClientFallbackPolicyTest extends TestCase
         $this->assertSame('local_client_would_be_sole_path_for_steady_state_autonomy', $result['reason']);
         $this->assertContains('atlas_native_fallback_capacity', $result['missing_atlas_native_fallback_capabilities']);
         $this->assertContains('manual_muscle_availability', $result['missing_atlas_native_fallback_capabilities']);
+        $this->assertTrue($result['steady_state_provider_dependency']);
     }
 
     public function test_falls_back_to_atlas_native_when_local_client_unavailable(): void
