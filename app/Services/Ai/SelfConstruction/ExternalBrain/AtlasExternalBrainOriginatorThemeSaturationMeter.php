@@ -5,167 +5,145 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
 /**
- * Detects when recent task origination is over-concentrated in one theme
- * (e.g. "local clients" or "provider pools") and the brain should pivot.
- * Read-only: it groups already-authored task facts and recommends the next
- * theme — it never deletes or mutates queued tasks.
+ * Pure meter that detects theme saturation by allowed-file directory and repeated
+ * design path, emitting a pivot plan that forces the next batch into a different
+ * high-leverage lane.
  *
- * Groups recent authored tasks by theme, target_family, capability_type, and
- * allowed_file directory (dirname of the first allowed_files entry).
+ * A new prerequisite unlock prevents false saturation for legitimately compounding themes.
  *
- * saturation_ratio = (count of the dominant theme) / (total tasks).
- * overrepresented_themes = every theme whose share >= saturation_threshold.
- *
- * saturation_high=true only when the dominant theme is overrepresented AND
- * none of its tasks unlocked a new prerequisite (new_prerequisite_unlock)
- * and they all share the same distinct_impact_class — i.e. repetition
- * without novelty.
- *
- * recommended_next_theme is the first candidate_next_theme that is not
- * overrepresented; forbidden_next_themes is overrepresented_themes.
- *
- * INPUT:
- *   recent_authored_tasks: list<{
- *     theme?:                   string
- *     target_family?:           string
- *     capability_type?:         string
- *     allowed_files?:           list<string>
- *     new_prerequisite_unlock?: bool (default false)
- *     distinct_impact_class?:   string (default '')
- *   }>
- *   context: {
- *     saturation_threshold?:  float (default 0.6)
- *     candidate_next_themes?: list<string> (default [])
- *   }
- *
- * OUTPUT:
- *   { schema, total_tasks, theme_counts, target_family_counts,
- *     capability_type_counts, allowed_file_directory_counts,
- *     dominant_theme, saturation_ratio, overrepresented_themes,
- *     saturation_high, recommended_next_theme, forbidden_next_themes }
- *
- * Pure: no I/O, no queue mutation, no side effects.
+ * NO network I/O, NO file I/O, NO provider calls.
  */
 final class AtlasExternalBrainOriginatorThemeSaturationMeter
 {
     public const SCHEMA = 'atlas.external_brain.originator_theme_saturation_meter.v1';
 
-    private const DEFAULT_SATURATION_THRESHOLD = 0.6;
+    public const SATURATION_HIGH = 'saturation_high';
+    public const SATURATION_LOW = 'saturation_low';
+
+    private const DIRECTORY_REPEAT_THRESHOLD = 3;
+    private const DESIGN_PATH_REPEAT_THRESHOLD = 3;
 
     /**
-     * @param  list<array<string,mixed>>  $recentAuthoredTasks
-     * @param  array<string,mixed>  $context
-     * @return array<string,mixed>
+     * @param  list<array{
+     *   theme_label?:string,
+     *   allowed_files?:list<string>,
+     *   design_path?:string,
+     *   prerequisite_unlock?:bool,
+     * }>  $recentBatches
+     * @return array{
+     *   schema:string,
+     *   saturation:string,
+     *   pivot_plan:array{
+     *     forbidden_directories:list<string>,
+     *     forbidden_design_paths:list<string>,
+     *     recommended_next_theme:?string,
+     *   },
+     *   reasons:list<string>,
+     * }
      */
-    public function measure(array $recentAuthoredTasks, array $context = []): array
+    public function measure(array $recentBatches): array
     {
-        $threshold = max(0.0, min(1.0, (float) ($context['saturation_threshold'] ?? self::DEFAULT_SATURATION_THRESHOLD)));
-        $candidateNextThemes = is_array($context['candidate_next_themes'] ?? null) ? array_values($context['candidate_next_themes']) : [];
-
-        $total = count($recentAuthoredTasks);
-
-        $themeCounts = [];
-        $targetFamilyCounts = [];
-        $capabilityTypeCounts = [];
         $directoryCounts = [];
-        $tasksByTheme = [];
+        $designPathCounts = [];
+        $hasNewPrereqUnlock = false;
 
-        foreach ($recentAuthoredTasks as $task) {
-            $theme = (string) ($task['theme'] ?? '');
-            $targetFamily = (string) ($task['target_family'] ?? '');
-            $capabilityType = (string) ($task['capability_type'] ?? '');
-            $allowedFiles = is_array($task['allowed_files'] ?? null) ? $task['allowed_files'] : [];
-            $directory = $allowedFiles === [] ? '' : dirname((string) $allowedFiles[0]);
-
-            if ($theme !== '') {
-                $themeCounts[$theme] = ($themeCounts[$theme] ?? 0) + 1;
-                $tasksByTheme[$theme][] = $task;
-            }
-            if ($targetFamily !== '') {
-                $targetFamilyCounts[$targetFamily] = ($targetFamilyCounts[$targetFamily] ?? 0) + 1;
-            }
-            if ($capabilityType !== '') {
-                $capabilityTypeCounts[$capabilityType] = ($capabilityTypeCounts[$capabilityType] ?? 0) + 1;
-            }
-            if ($directory !== '') {
-                $directoryCounts[$directory] = ($directoryCounts[$directory] ?? 0) + 1;
-            }
-        }
-
-        arsort($themeCounts);
-        $dominantTheme = $themeCounts === [] ? null : (string) array_key_first($themeCounts);
-        $dominantCount = $dominantTheme === null ? 0 : $themeCounts[$dominantTheme];
-        $saturationRatio = $total > 0 ? $dominantCount / $total : 0.0;
-
-        $overrepresentedThemes = [];
-        foreach ($themeCounts as $theme => $count) {
-            if ($total > 0 && ($count / $total) >= $threshold) {
-                $overrepresentedThemes[] = (string) $theme;
-            }
-        }
-
-        $noveltyScores = [];
-        foreach ($tasksByTheme as $theme => $themeTasks) {
-            $hasUnlock = false;
-            $themeImpactClasses = [];
-            foreach ($themeTasks as $task) {
-                if ((bool) ($task['new_prerequisite_unlock'] ?? false)) {
-                    $hasUnlock = true;
+        foreach ($recentBatches as $batch) {
+            $files = (array) ($batch['allowed_files'] ?? []);
+            foreach ($files as $file) {
+                $dir = dirname((string) $file);
+                if ($dir !== '.' && $dir !== '') {
+                    $directoryCounts[$dir] = ($directoryCounts[$dir] ?? 0) + 1;
                 }
-                $themeImpactClasses[(string) ($task['distinct_impact_class'] ?? '')] = true;
             }
-            $noveltyScores[$theme] = round(
-                ($hasUnlock ? 0.5 : 0.0) + (count($themeImpactClasses) > 1 ? 0.5 : 0.0),
-                4,
-            );
-        }
 
-        $saturationHigh = false;
-        $saturationReasons = [];
-        if ($dominantTheme !== null && in_array($dominantTheme, $overrepresentedThemes, true)) {
-            $dominantTasks = $tasksByTheme[$dominantTheme] ?? [];
-            $hasNewUnlock = false;
-            $impactClasses = [];
-            foreach ($dominantTasks as $task) {
-                if ((bool) ($task['new_prerequisite_unlock'] ?? false)) {
-                    $hasNewUnlock = true;
-                }
-                $impactClasses[(string) ($task['distinct_impact_class'] ?? '')] = true;
+            $designPath = (string) ($batch['design_path'] ?? '');
+            if ($designPath !== '') {
+                $designPathCounts[$designPath] = ($designPathCounts[$designPath] ?? 0) + 1;
             }
-            $saturationHigh = ! $hasNewUnlock && count($impactClasses) <= 1;
-            if ($saturationHigh) {
-                $repeatedClass = $impactClasses === [] ? '' : (string) array_key_first($impactClasses);
-                $saturationReasons[] = "repeated_theme:{$dominantTheme}";
-                $saturationReasons[] = $repeatedClass === ''
-                    ? 'no_distinct_leverage_class'
-                    : "repeated_leverage_class:{$repeatedClass}";
-                $saturationReasons[] = 'no_new_prerequisite_unlock';
+
+            if (($batch['prerequisite_unlock'] ?? false) === true) {
+                $hasNewPrereqUnlock = true;
             }
         }
 
-        $recommendedNextTheme = null;
-        foreach ($candidateNextThemes as $candidate) {
-            if (! in_array((string) $candidate, $overrepresentedThemes, true)) {
-                $recommendedNextTheme = (string) $candidate;
-                break;
+        // Find saturated directories and design paths
+        $saturatedDirs = [];
+        foreach ($directoryCounts as $dir => $count) {
+            if ($count >= self::DIRECTORY_REPEAT_THRESHOLD) {
+                $saturatedDirs[] = $dir;
             }
         }
+
+        $saturatedPaths = [];
+        foreach ($designPathCounts as $path => $count) {
+            if ($count >= self::DESIGN_PATH_REPEAT_THRESHOLD) {
+                $saturatedPaths[] = $path;
+            }
+        }
+
+        $reasons = [];
+
+        // Prerequisite unlock exempts saturation (legitimate compounding)
+        if ($hasNewPrereqUnlock) {
+            $reasons[] = 'prerequisite_unlock_exempts_saturation';
+        }
+
+        // Saturation detected when both directory AND design path repeat
+        $isSaturated = ! $hasNewPrereqUnlock
+            && count($saturatedDirs) > 0
+            && count($saturatedPaths) > 0;
+
+        if ($isSaturated) {
+            $reasons[] = 'directory_repeat:' . implode(',', $saturatedDirs);
+            $reasons[] = 'design_path_repeat:' . implode(',', $saturatedPaths);
+            sort($reasons, SORT_STRING);
+
+            return [
+                'schema' => self::SCHEMA,
+                'saturation' => self::SATURATION_HIGH,
+                'pivot_plan' => [
+                    'forbidden_directories' => $saturatedDirs,
+                    'forbidden_design_paths' => $saturatedPaths,
+                    'recommended_next_theme' => $this->recommendNextTheme($saturatedDirs),
+                ],
+                'reasons' => $reasons,
+            ];
+        }
+
+        sort($reasons, SORT_STRING);
 
         return [
             'schema' => self::SCHEMA,
-            'total_tasks' => $total,
-            'theme_counts' => $themeCounts,
-            'target_family_counts' => $targetFamilyCounts,
-            'capability_type_counts' => $capabilityTypeCounts,
-            'allowed_file_directory_counts' => $directoryCounts,
-            'dominant_theme' => $dominantTheme,
-            'saturation_ratio' => round($saturationRatio, 4),
-            'novelty_scores' => $noveltyScores,
-            'overrepresented_themes' => $overrepresentedThemes,
-            'saturation_high' => $saturationHigh,
-            'saturation_reasons' => $saturationReasons,
-            'recommended_next_theme' => $recommendedNextTheme,
-            'forbidden_next_themes' => $overrepresentedThemes,
+            'saturation' => self::SATURATION_LOW,
+            'pivot_plan' => [
+                'forbidden_directories' => [],
+                'forbidden_design_paths' => [],
+                'recommended_next_theme' => null,
+            ],
+            'reasons' => $reasons !== [] ? $reasons : ['no_saturation_detected'],
         ];
+    }
+
+    /**
+     * @param  list<string>  $saturatedDirs
+     */
+    private function recommendNextTheme(array $saturatedDirs): ?string
+    {
+        // Simple heuristic: recommend a different domain based on what's saturated
+        $allLanes = ['external_brain', 'verification_court', 'knowledge_sync', 'replenisher', 'simplification', 'task_fabric'];
+        foreach ($allLanes as $lane) {
+            $notInSaturated = true;
+            foreach ($saturatedDirs as $dir) {
+                if (stripos($dir, $lane) !== false) {
+                    $notInSaturated = false;
+                    break;
+                }
+            }
+            if ($notInSaturated) {
+                return $lane;
+            }
+        }
+
+        return 'novel_research';
     }
 }
