@@ -40,6 +40,8 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
 
     private const MAX_GUIDANCE_TAGS = 5;
 
+    private const RUNNABLE_ACCEPTANCE_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
+
     private const CLASS_TO_FIELD = [
         'duplicate_capability' => 'acceptance_guidance',
         'scope_gap' => 'scope_guidance',
@@ -53,12 +55,12 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
     /**
      * @param  array<string,mixed>  $plan      a context update plan (output of ContextUpdatePlan::plan())
      * @param  array<string,mixed>  $template  in-memory packet template
-     * @return array{updated_template:array<string,mixed>, applied:bool, blockers:list<string>, target_field:?string, template_delta_hash:?string, evidence_refs:list<string>}
+     * @return array{updated_template:array<string,mixed>, applied:bool, blockers:list<string>, target_field:?string, template_delta_hash:?string, evidence_refs:list<string>, reason:?string}
      */
     public function apply(array $plan, array $template): array
     {
         $fail = function (array $blockers, ?string $field = null) use ($template): array {
-            return ['updated_template' => $template, 'applied' => false, 'blockers' => $blockers, 'target_field' => $field, 'template_delta_hash' => null, 'evidence_refs' => []];
+            return ['updated_template' => $template, 'applied' => false, 'blockers' => $blockers, 'target_field' => $field, 'template_delta_hash' => null, 'evidence_refs' => [], 'reason' => null];
         };
 
         $rollout = (string) ($plan['rollout_class'] ?? '');
@@ -117,11 +119,77 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdater
         }
 
         $existing[] = $guidanceTag;
-        $template[$field] = $existing;
+        $mutatedTemplate = $template;
+        $mutatedTemplate[$field] = $existing;
+
+        // A learned mutation must never leave the packet unclaimable: implementation scope, test
+        // scope, a runnable acceptance proof, and required evidence must all survive the change.
+        $contractViolations = $this->claimableContractViolations($mutatedTemplate);
+        if ($contractViolations !== []) {
+            return $fail(array_map(static fn (string $v): string => 'claimable_contract_violated:'.$v, $contractViolations), $field);
+        }
 
         $evidenceRefs = array_values(array_map('strval', (array) ($plan['evidence_refs'] ?? [])));
         $deltaHash = hash('sha256', (string) json_encode(['field' => $field, 'tags' => $existing], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
-        return ['updated_template' => $template, 'applied' => true, 'blockers' => [], 'target_field' => $field, 'template_delta_hash' => $deltaHash, 'evidence_refs' => $evidenceRefs];
+        return [
+            'updated_template' => $mutatedTemplate,
+            'applied' => true,
+            'blockers' => [],
+            'target_field' => $field,
+            'template_delta_hash' => $deltaHash,
+            'evidence_refs' => $evidenceRefs,
+            'reason' => 'claimable_contract_preserved',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $template
+     * @return list<string>
+     */
+    private function claimableContractViolations(array $template): array
+    {
+        $violations = [];
+
+        $allowedFiles = array_values(array_map('strval', (array) ($template['allowed_files'] ?? [])));
+        $implementationFiles = array_values(array_filter($allowedFiles, static fn (string $f): bool => ! self::isTestPath($f)));
+        $testFiles = array_values(array_filter($allowedFiles, [self::class, 'isTestPath']));
+
+        if ($implementationFiles === []) {
+            $violations[] = 'missing_implementation_scope';
+        }
+        if ($testFiles === []) {
+            $violations[] = 'missing_test_scope';
+        }
+
+        $acceptanceCriteria = array_values(array_map('strval', (array) ($template['acceptance_criteria'] ?? [])));
+        $hasRunnableAcceptance = false;
+        foreach ($acceptanceCriteria as $criterion) {
+            $lower = strtolower($criterion);
+            foreach (self::RUNNABLE_ACCEPTANCE_MARKERS as $marker) {
+                if (str_contains($lower, $marker)) {
+                    $hasRunnableAcceptance = true;
+
+                    break 2;
+                }
+            }
+        }
+        if (! $hasRunnableAcceptance) {
+            $violations[] = 'missing_runnable_acceptance';
+        }
+
+        $requiredEvidence = array_values(array_map('strval', (array) ($template['required_evidence'] ?? [])));
+        if ($requiredEvidence === []) {
+            $violations[] = 'missing_required_evidence';
+        }
+
+        return $violations;
+    }
+
+    private static function isTestPath(string $path): bool
+    {
+        $norm = ltrim(str_replace('\\', '/', trim($path)), '/');
+
+        return str_starts_with($norm, 'tests/') || str_contains($norm, '/tests/') || str_ends_with($norm, 'Test.php');
     }
 }

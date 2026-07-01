@@ -17,8 +17,8 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdaterTest exten
     private function validTemplate(array $extra = []): array
     {
         return array_merge([
-            'allowed_files' => ['app/Foo.php'],
-            'acceptance_criteria' => ['Foo must work'],
+            'allowed_files' => ['app/Foo.php', 'tests/Unit/FooTest.php'],
+            'acceptance_criteria' => ['Runnable proof: ./vendor/bin/phpunit tests/Unit/FooTest.php'],
             'required_evidence' => ['tests_or_gates_result'],
         ], $extra);
     }
@@ -139,5 +139,58 @@ final class AtlasSelfConstructionLearningTransferPacketTemplateUpdaterTest exten
             $this->assertFalse($result['applied'], "dep=$dep must be blocked");
             $this->assertContains('forbidden_steady_state_dependency:'.$dep, $result['blockers'], "dep=$dep blocker missing");
         }
+    }
+
+    public function test_accepted_mutation_records_claimable_contract_preserved_reason(): void
+    {
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('missing_dependency'), $this->validTemplate());
+
+        $this->assertTrue($result['applied']);
+        $this->assertSame('claimable_contract_preserved', $result['reason']);
+    }
+
+    public function test_template_missing_implementation_file_is_rejected(): void
+    {
+        $template = $this->validTemplate(['allowed_files' => ['tests/Unit/FooTest.php']]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('missing_dependency'), $template);
+
+        $this->assertFalse($result['applied']);
+        $this->assertContains('claimable_contract_violated:missing_implementation_scope', $result['blockers']);
+    }
+
+    public function test_template_missing_test_file_is_rejected(): void
+    {
+        $template = $this->validTemplate(['allowed_files' => ['app/Foo.php']]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('missing_dependency'), $template);
+
+        $this->assertFalse($result['applied']);
+        $this->assertContains('claimable_contract_violated:missing_test_scope', $result['blockers']);
+    }
+
+    public function test_template_missing_runnable_acceptance_is_rejected(): void
+    {
+        $template = $this->validTemplate(['acceptance_criteria' => ['looks good to me']]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('missing_dependency'), $template);
+
+        $this->assertFalse($result['applied']);
+        $this->assertContains('claimable_contract_violated:missing_runnable_acceptance', $result['blockers']);
+    }
+
+    public function test_template_missing_required_evidence_is_rejected(): void
+    {
+        $template = $this->validTemplate(['required_evidence' => []]);
+
+        $result = (new AtlasSelfConstructionLearningTransferPacketTemplateUpdater)
+            ->apply($this->admittedPlan('missing_dependency'), $template);
+
+        $this->assertFalse($result['applied']);
+        $this->assertContains('claimable_contract_violated:missing_required_evidence', $result['blockers']);
     }
 }
