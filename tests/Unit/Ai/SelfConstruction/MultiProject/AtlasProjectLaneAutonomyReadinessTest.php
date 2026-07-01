@@ -160,6 +160,52 @@ final class AtlasProjectLaneAutonomyReadinessTest extends TestCase
         $this->assertContains('receipt:missing_hash', $verdict['blockers']);
     }
 
+    public function test_mismatched_project_id_in_organ_fact_blocks(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['admission'] = ['admitted' => true, 'project_id' => 'other-project'];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_BLOCKED, $verdict['state']);
+        $this->assertContains('evidence_chain_broken', $verdict['blockers']);
+        $this->assertContains('evidence_chain:project_id_mismatch:admission', $verdict['blockers']);
+        $this->assertContains('repair_project_evidence_chain_binding', $verdict['next_atlas_actions']);
+    }
+
+    public function test_missing_evidence_chain_hash_blocks(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['verification_court'] = ['passed' => true, 'evidence_chain_hash' => ''];
+        $organs['receipt_policy'] = ['passed' => true, 'evidence_chain_hash' => 'hash-abc'];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_BLOCKED, $verdict['state']);
+        $this->assertContains('evidence_chain_broken', $verdict['blockers']);
+        $this->assertContains('evidence_chain:missing_evidence_chain_hash:verification_court', $verdict['blockers']);
+        $this->assertContains('repair_project_evidence_chain_binding', $verdict['next_atlas_actions']);
+    }
+
+    public function test_mismatched_evidence_chain_hash_across_organs_blocks(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['verification_court'] = ['passed' => true, 'evidence_chain_hash' => 'hash-a'];
+        $organs['receipt_policy'] = ['passed' => true, 'evidence_chain_hash' => 'hash-b'];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_BLOCKED, $verdict['state']);
+        $this->assertContains('evidence_chain:evidence_chain_hash_mismatch', $verdict['blockers']);
+    }
+
+    public function test_matching_evidence_chain_hash_across_organs_stays_ready(): void
+    {
+        $organs = $this->happyOrgans();
+        $organs['verification_court'] = ['passed' => true, 'evidence_chain_hash' => 'hash-a', 'project_id' => 'p'];
+        $organs['receipt_policy'] = ['passed' => true, 'evidence_chain_hash' => 'hash-a', 'project_id' => 'p'];
+
+        $verdict = (new AtlasProjectLaneAutonomyReadiness)->compose('p', $organs);
+        $this->assertSame(AtlasProjectLaneAutonomyReadiness::STATE_READY, $verdict['state']);
+    }
+
     public function test_next_atlas_actions_are_deduplicated(): void
     {
         // runtime_soak failure and verification_court failure both emit 'rerun_verification_commands'.

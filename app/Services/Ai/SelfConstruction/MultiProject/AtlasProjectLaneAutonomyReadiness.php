@@ -137,6 +137,38 @@ final class AtlasProjectLaneAutonomyReadiness
             $nextActions[] = 'run_atlas_engineering_knowledge_sync';
         }
 
+        // EVIDENCE CHAIN — organs that opt in (by declaring project_id and/or evidence_chain_hash)
+        // must all agree: same project_id as the lane, and the same non-empty evidence_chain_hash.
+        // A single lane merging evidence from a mismatched project, or with a broken hash link
+        // between organs, is BLOCKING (no audit continuity = no autonomy).
+        $evidenceOrgans = ['admission', 'isolation', 'verification_court', 'release_governor', 'receipt_policy', 'rollback', 'runtime_soak', 'knowledge_sync'];
+        $chainIssues = [];
+        $declaredHashes = [];
+        foreach ($evidenceOrgans as $organKey) {
+            $fact = (array) ($organFacts[$organKey] ?? []);
+            if (array_key_exists('project_id', $fact) && (string) $fact['project_id'] !== $projectId) {
+                $chainIssues[] = "project_id_mismatch:{$organKey}";
+            }
+            if (array_key_exists('evidence_chain_hash', $fact)) {
+                $hash = (string) ($fact['evidence_chain_hash'] ?? '');
+                if ($hash === '') {
+                    $chainIssues[] = "missing_evidence_chain_hash:{$organKey}";
+                } else {
+                    $declaredHashes[$organKey] = $hash;
+                }
+            }
+        }
+        if (count(array_unique($declaredHashes)) > 1) {
+            $chainIssues[] = 'evidence_chain_hash_mismatch';
+        }
+        if ($chainIssues !== []) {
+            $blockers[] = 'evidence_chain_broken';
+            foreach ($chainIssues as $issue) {
+                $blockers[] = 'evidence_chain:'.$issue;
+            }
+            $nextActions[] = 'repair_project_evidence_chain_binding';
+        }
+
         if ($blockers !== []) {
             $state = self::STATE_BLOCKED;
         } elseif ($holds !== []) {
