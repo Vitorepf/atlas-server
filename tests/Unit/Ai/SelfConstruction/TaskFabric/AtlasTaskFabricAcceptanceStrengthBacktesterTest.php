@@ -129,4 +129,56 @@ final class AtlasTaskFabricAcceptanceStrengthBacktesterTest extends TestCase
 
         $this->assertSame($backtester->backtest($criteria, 'low'), $backtester->backtest($criteria, 'low'));
     }
+
+    // ── worker-proof needs (AC) ──────────────────────────────────────────────
+
+    private function strongCriteria(): array
+    {
+        return ['/opt/homebrew/bin/php artisan test --filter=FooTest exits 0, produces the expected output for valid input, and rejects invalid input by throwing a validation exception'];
+    }
+
+    public function test_rejects_acceptance_that_cannot_be_run_by_a_cold_worker_missing_impl_and_test_paths(): void
+    {
+        $result = $this->backtester()->backtest($this->strongCriteria(), 'low', [
+            'allowed_files' => [],
+            'required_evidence' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertFalse($result['admit']);
+        $this->assertFalse($result['has_worker_proof']);
+        $this->assertContains('missing_worker_proof:implementation_path', $result['findings']);
+        $this->assertContains('missing_worker_proof:test_path', $result['findings']);
+    }
+
+    public function test_rejects_acceptance_missing_required_evidence(): void
+    {
+        $result = $this->backtester()->backtest($this->strongCriteria(), 'low', [
+            'allowed_files' => ['app/Services/Foo/FooService.php', 'tests/Unit/Services/Foo/FooServiceTest.php'],
+            'required_evidence' => [],
+        ]);
+
+        $this->assertFalse($result['admit']);
+        $this->assertContains('missing_worker_proof:required_evidence', $result['findings']);
+    }
+
+    public function test_marks_strong_only_when_scope_and_evidence_are_explicit(): void
+    {
+        $result = $this->backtester()->backtest($this->strongCriteria(), 'low', [
+            'allowed_files' => ['app/Services/Foo/FooService.php', 'tests/Unit/Services/Foo/FooServiceTest.php'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ]);
+
+        $this->assertSame(AtlasTaskFabricAcceptanceStrengthBacktester::TIER_STRONG, $result['tier']);
+        $this->assertTrue($result['admit']);
+        $this->assertTrue($result['has_worker_proof']);
+    }
+
+    public function test_omitting_packet_facts_preserves_original_criteria_only_scoring(): void
+    {
+        $result = $this->backtester()->backtest($this->strongCriteria());
+
+        $this->assertSame(AtlasTaskFabricAcceptanceStrengthBacktester::TIER_STRONG, $result['tier']);
+        $this->assertTrue($result['admit']);
+        $this->assertTrue($result['has_worker_proof']);
+    }
 }

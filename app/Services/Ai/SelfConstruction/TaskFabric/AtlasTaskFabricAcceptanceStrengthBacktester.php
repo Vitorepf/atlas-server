@@ -38,11 +38,20 @@ final class AtlasTaskFabricAcceptanceStrengthBacktester
 
     private const HIGH_RISK_LEVELS = ['high', 'irreversible'];
 
+    private const TEST_PATH_PATTERN = 'Test.php';
+
+    private const IMPL_PATH_PATTERNS = [
+        'Service.php', 'Command.php', 'Controller.php', 'Repository.php',
+        'Handler.php', 'Listener.php', 'Job.php', 'Policy.php', 'Provider.php',
+        '/Services/', '/Commands/', '/Controllers/', '/Repositories/',
+    ];
+
     /**
      * @param  list<string>  $acceptanceCriteria
+     * @param  array{allowed_files?:list<string>, required_evidence?:list<string>}  $packetFacts  cold-worker proof needs
      * @return array<string, mixed>
      */
-    public function backtest(array $acceptanceCriteria, string $riskLevel = 'low'): array
+    public function backtest(array $acceptanceCriteria, string $riskLevel = 'low', array $packetFacts = []): array
     {
         $criteria = array_values(array_filter(array_map('strval', $acceptanceCriteria), static fn (string $c): bool => trim($c) !== ''));
 
@@ -52,6 +61,7 @@ final class AtlasTaskFabricAcceptanceStrengthBacktester
         $anyWeakCriterion = false;
         $anyNegativeCase = false;
         $anyHumanDependency = false;
+        $anyRunnableCommand = false;
 
         if ($criteria === []) {
             $findings[] = 'no_acceptance_criteria';
@@ -100,6 +110,7 @@ final class AtlasTaskFabricAcceptanceStrengthBacktester
             $score = ($hasRunnable ? 1 : 0) + ($hasPositive ? 1 : 0) + ($hasNegative ? 1 : 0);
             $totalScore += $score;
             $anyNegativeCase = $anyNegativeCase || $hasNegative;
+            $anyRunnableCommand = $anyRunnableCommand || $hasRunnable;
 
             if (! $hasRunnable) {
                 $requiredImprovements[] = 'add_deterministic_runnable_command';
@@ -112,18 +123,51 @@ final class AtlasTaskFabricAcceptanceStrengthBacktester
             $requiredImprovements[] = 'add_negative_or_edge_case_for_high_risk_task';
         }
 
+        // Cold-worker proof needs: implementation path, test path, at least one runnable command
+        // across the criteria set, and declared required evidence — all must be explicit before a
+        // packet can be trusted to reach a worker with no prior context.
+        $allowedFiles = array_map('strval', (array) ($packetFacts['allowed_files'] ?? []));
+        $requiredEvidence = array_map('strval', (array) ($packetFacts['required_evidence'] ?? []));
+        $workerProofChecked = $packetFacts !== [];
+        $hasImplementationPath = $this->hasAnyFileMatching($allowedFiles, self::IMPL_PATH_PATTERNS, false);
+        $hasTestPath = $this->hasAnyFileMatching($allowedFiles, [self::TEST_PATH_PATTERN], true);
+        $hasEvidenceFields = $requiredEvidence !== [];
+
+        if ($workerProofChecked && ! $hasImplementationPath) {
+            $findings[] = 'missing_worker_proof:implementation_path';
+            $requiredImprovements[] = 'add_implementation_file_to_allowed_files';
+        }
+        if ($workerProofChecked && ! $hasTestPath) {
+            $findings[] = 'missing_worker_proof:test_path';
+            $requiredImprovements[] = 'add_test_file_to_allowed_files';
+        }
+        if ($workerProofChecked && ! $anyRunnableCommand) {
+            $findings[] = 'missing_worker_proof:runnable_command';
+            $requiredImprovements[] = 'add_deterministic_runnable_command';
+        }
+        if ($workerProofChecked && ! $hasEvidenceFields) {
+            $findings[] = 'missing_worker_proof:required_evidence';
+            $requiredImprovements[] = 'declare_required_evidence_fields';
+        }
+
+        // Only gate on worker-proof facts when the caller opted in by passing packetFacts —
+        // callers that never pass it keep the original criteria-text-only scoring behavior.
+        $hasWorkerProof = ! $workerProofChecked
+            || ($hasImplementationPath && $hasTestPath && $anyRunnableCommand && $hasEvidenceFields);
+
         $maxPossible = max(1, count($criteria) * 3);
         $strengthScore = (int) round(100 * $totalScore / $maxPossible);
 
         $tier = match (true) {
             $criteria === [] || $anyWeakCriterion || $strengthScore < 40 => self::TIER_WEAK,
-            $strengthScore >= 80 => self::TIER_STRONG,
+            $strengthScore >= 80 && $hasWorkerProof => self::TIER_STRONG,
             default => self::TIER_MODERATE,
         };
 
         $admit = $tier !== self::TIER_WEAK
             && ! $anyHumanDependency
-            && ! ($isHighRisk && ! $anyNegativeCase);
+            && ! ($isHighRisk && ! $anyNegativeCase)
+            && $hasWorkerProof;
 
         return [
             'schema' => self::SCHEMA,
@@ -132,7 +176,25 @@ final class AtlasTaskFabricAcceptanceStrengthBacktester
             'findings' => array_values(array_unique($findings)),
             'required_improvements' => array_values(array_unique($requiredImprovements)),
             'admit' => $admit,
+            'has_worker_proof' => $hasWorkerProof,
         ];
+    }
+
+    /**
+     * @param  list<string>  $files
+     * @param  list<string>  $patterns
+     */
+    private function hasAnyFileMatching(array $files, array $patterns, bool $matchAny): bool
+    {
+        foreach ($files as $file) {
+            foreach ($patterns as $pattern) {
+                if (str_contains($file, $pattern)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
