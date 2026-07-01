@@ -177,4 +177,61 @@ final class AtlasMaestroPacketProvenanceComposerTest extends TestCase
         $this->assertTrue($verdict['ok']);
         $this->assertSame('OK', $verdict['reason_code']);
     }
+
+    // ── AC: content_hash from canonical task fields ───────────────────────────
+
+    private function packet(array $overrides = []): array
+    {
+        return array_merge([
+            'objective' => 'Fix the widget so it renders correctly',
+            'allowed_files' => ['app/Widget.php', 'tests/Unit/WidgetTest.php'],
+            'acceptance_criteria' => ['php artisan test tests/Unit/WidgetTest.php exits 0'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ], $overrides);
+    }
+
+    public function test_content_hash_derived_from_objective_allowed_files_acceptance_and_required_evidence(): void
+    {
+        $composer = new \App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceComposer;
+
+        $r1 = $composer->composeContentHash($this->packet());
+        $r2 = $composer->composeContentHash($this->packet());
+        $this->assertSame($r1['content_hash'], $r2['content_hash']);
+
+        $changed = $composer->composeContentHash($this->packet(['objective' => 'Different objective entirely']));
+        $this->assertNotSame($r1['content_hash'], $changed['content_hash']);
+    }
+
+    public function test_ignores_mutable_transient_fields_when_computing_content_hash(): void
+    {
+        $composer = new \App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceComposer;
+
+        $withoutTransient = $composer->composeContentHash($this->packet());
+        $withTransient = $composer->composeContentHash($this->packet([
+            'lease_id' => 'lease-abc',
+            'status' => 'claimed',
+            'give_back_count' => 5,
+            'updated_at' => '2026-06-30T00:00:00Z',
+        ]));
+
+        $this->assertSame($withoutTransient['content_hash'], $withTransient['content_hash']);
+        $this->assertContains('lease_id', $withTransient['omitted_transient_fields']);
+        $this->assertContains('status', $withTransient['omitted_transient_fields']);
+    }
+
+    public function test_content_hash_output_includes_provenance_record_canonical_fields_and_omitted_transient_fields(): void
+    {
+        $composer = new \App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceComposer;
+
+        $r = $composer->composeContentHash($this->packet(['lease_id' => 'lease-abc']));
+
+        foreach (['provenance_record', 'content_hash', 'canonical_fields', 'omitted_transient_fields'] as $key) {
+            $this->assertArrayHasKey($key, $r, "Missing key: {$key}");
+        }
+        $this->assertSame(
+            ['objective', 'allowed_files', 'acceptance_criteria', 'required_evidence'],
+            $r['canonical_fields'],
+        );
+        $this->assertContains('lease_id', $r['omitted_transient_fields']);
+    }
 }

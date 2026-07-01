@@ -17,6 +17,52 @@ final class AtlasMaestroPacketProvenanceComposer
         'loop_emergence',
     ];
 
+    /** @var list<string> Canonical task-content fields the content_hash is derived from. */
+    private const CANONICAL_CONTENT_FIELDS = ['objective', 'allowed_files', 'acceptance_criteria', 'required_evidence'];
+
+    /**
+     * Derives a content_hash from only the CANONICAL task content — objective, allowed_files,
+     * acceptance_criteria, required_evidence — so mutable/transient packet fields (lease_id,
+     * status, claim state, give_back_count, timestamps, ...) never change a packet's identity
+     * hash just because it moved through the queue.
+     *
+     * @param  array<string,mixed>  $packet
+     * @return array{provenance_record:array<string,mixed>, content_hash:string, canonical_fields:list<string>, omitted_transient_fields:list<string>}
+     */
+    public function composeContentHash(array $packet): array
+    {
+        $canonicalPayload = [];
+        foreach (self::CANONICAL_CONTENT_FIELDS as $field) {
+            $value = $packet[$field] ?? null;
+            if ($field === 'objective') {
+                $canonicalPayload[$field] = trim((string) $value);
+
+                continue;
+            }
+            $list = is_array($value) ? array_values(array_map('strval', $value)) : [];
+            sort($list, SORT_STRING);
+            $canonicalPayload[$field] = $list;
+        }
+
+        $contentHash = hash('sha256', $this->canonicalJson($canonicalPayload));
+
+        $omittedTransientFields = array_values(array_diff(
+            array_keys($packet),
+            self::CANONICAL_CONTENT_FIELDS,
+        ));
+        sort($omittedTransientFields, SORT_STRING);
+
+        return [
+            'provenance_record' => [
+                'content_hash' => $contentHash,
+                'canonical_fields' => self::CANONICAL_CONTENT_FIELDS,
+            ],
+            'content_hash' => $contentHash,
+            'canonical_fields' => self::CANONICAL_CONTENT_FIELDS,
+            'omitted_transient_fields' => $omittedTransientFields,
+        ];
+    }
+
     /**
      * @param  array<string,mixed>  $inputs
      * @return array<string,mixed>
