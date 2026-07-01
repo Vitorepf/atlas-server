@@ -130,6 +130,29 @@ final class AtlasExternalBrainModelAmplifierOperatingLoopTest extends TestCase
         $this->assertSame('run_small', $r['decision']);
     }
 
+    public function test_decision_output_includes_autonomy_and_escalation_fields(): void
+    {
+        $r = $this->decide();
+        $this->assertArrayHasKey('autonomy_preservation_score', $r);
+        $this->assertArrayHasKey('escalation_cost_reason', $r);
+        $this->assertArrayHasKey('steady_state_safe', $r);
+    }
+
+    public function test_strong_scaffold_evidence_blocks_frontier_escalation(): void
+    {
+        $r = $this->decide([
+            'benchmark_score' => 0.60,
+            'frontier_available' => true,
+            'escalation_budget_remaining' => true,
+            'scaffold_available' => true,
+            'scaffold_evidence' => ['lift_score' => 0.5, 'retire_signal' => false, 'repair_signal' => false],
+        ]);
+
+        $this->assertNotSame('escalate_frontier', $r['decision']);
+        $this->assertSame('run_scaffolded', $r['decision']);
+        $this->assertTrue($r['steady_state_safe']);
+    }
+
     // ── default: run_small (steady-state, no frontier required) ──────────────
 
     public function test_default_decision_is_run_small(): void

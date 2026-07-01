@@ -40,6 +40,9 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
 
     public const ESCALATION_SCORE_THRESHOLD = 0.70;
 
+    /** Scaffold lift at/above this is strong enough to keep frontier as an accelerator, not a dependency. */
+    public const STRONG_SCAFFOLD_LIFT_THRESHOLD = 0.30;
+
     /**
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
@@ -70,11 +73,15 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
             || $weakOutputRefusing
             || $giveBackRisk > $giveBackRiskThreshold;
 
+        // Small-model scaffold evidence strong enough to cover the gap keeps frontier as an
+        // accelerator, never a dependency — escalation is refused even when otherwise eligible.
+        $scaffoldStrongEnough = $scaffoldAvail && ! $proxyLeak && $lift >= self::STRONG_SCAFFOLD_LIFT_THRESHOLD;
+
         $decision = match (true) {
             $proxyLeak                                                  => self::DECISION_REPAIR_SCAFFOLD,
             $retireSignal                                               => self::DECISION_RETIRE_SCAFFOLD,
             $repairSignal                                               => self::DECISION_REPAIR_SCAFFOLD,
-            $frontierAvail && $escalationBudget && $benchmark < self::ESCALATION_SCORE_THRESHOLD
+            $frontierAvail && $escalationBudget && $benchmark < self::ESCALATION_SCORE_THRESHOLD && ! $scaffoldStrongEnough
                                                                         => self::DECISION_ESCALATE_FRONTIER,
             $scaffoldAvail && $lift > 0.0                               => self::DECISION_RUN_SCAFFOLDED,
             default                                                     => self::DECISION_RUN_SMALL,
@@ -88,11 +95,29 @@ final class AtlasExternalBrainModelAmplifierOperatingLoop
             default                          => 'default_steady_state',
         };
 
+        $steadyStateSafe = ! in_array($decision, [self::DECISION_ESCALATE_FRONTIER], true);
+
+        $escalationCostReason = match (true) {
+            $decision === self::DECISION_ESCALATE_FRONTIER => 'frontier_used_as_accelerator_only:benchmark_below_threshold_and_scaffold_evidence_insufficient',
+            $scaffoldStrongEnough && $frontierAvail && $escalationBudget && $benchmark < self::ESCALATION_SCORE_THRESHOLD
+                => 'frontier_escalation_avoided:strong_scaffold_evidence_covers_the_gap',
+            default => 'frontier_not_needed_for_steady_state',
+        };
+
+        $autonomyPreservationScore = match (true) {
+            $decision === self::DECISION_ESCALATE_FRONTIER => 0.40,
+            $decision === self::DECISION_REPAIR_SCAFFOLD || $decision === self::DECISION_RETIRE_SCAFFOLD => 0.70,
+            default => 1.0,
+        };
+
         return [
             'schema_version'  => self::SCHEMA,
             'decision'        => $decision,
             'rationale'       => $rationale,
             'frontier_required' => false,
+            'autonomy_preservation_score' => $autonomyPreservationScore,
+            'escalation_cost_reason' => $escalationCostReason,
+            'steady_state_safe' => $steadyStateSafe,
             'receipt'         => [
                 'proxy_leak_detected' => $proxyLeak,
                 'frontier_available'  => $frontierAvail,
