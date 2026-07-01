@@ -113,6 +113,57 @@ class AtlasSelfConstructionAutonomyDegradationPolicyTest extends TestCase
         $this->assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::REASON_ROLLBACK_FAILURE, $verdict['reason']);
     }
 
+    // ── AC: fallback_mode / trigger / lost_capability / preserved_capability / recovery_condition / receipt ──
+
+    public function test_provider_outage_downgrades_with_local_fallback_receipt(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide(['provider_outage_detected' => true]);
+
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_DOWNGRADE, $verdict['fallback_mode']);
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::REASON_PROVIDER_OUTAGE, $verdict['trigger']);
+        self::assertSame('local_atlas_native_execution', $verdict['preserved_capability']);
+        self::assertNotEmpty($verdict['lost_capability']);
+        self::assertNotEmpty($verdict['recovery_condition']);
+        self::assertStringContainsString('fallback_mode=downgrade', $verdict['receipt']);
+    }
+
+    public function test_queue_corruption_via_queue_jam_repairs_first_with_receipt(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide(['queue_jam_detected' => true]);
+
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_REPAIR_FIRST, $verdict['fallback_mode']);
+        self::assertSame('in_flight_task_completion', $verdict['preserved_capability']);
+        self::assertNotEmpty($verdict['receipt']);
+    }
+
+    public function test_high_false_green_risk_requires_rollback_with_preserved_replay_capability(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide(['false_green_detected' => true]);
+
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_ROLLBACK_REQUIRED, $verdict['fallback_mode']);
+        self::assertSame('rollback_and_evidence_replay_capability', $verdict['preserved_capability']);
+        self::assertStringContainsString('rollback_verified', $verdict['recovery_condition']);
+    }
+
+    public function test_stale_context_downgrades_with_local_fallback(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide(['stale_context_detected' => true]);
+
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_DOWNGRADE, $verdict['fallback_mode']);
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::REASON_STALE_CONTEXT, $verdict['trigger']);
+        self::assertSame('local_atlas_native_execution', $verdict['preserved_capability']);
+    }
+
+    public function test_clean_no_degradation_state_preserves_full_autonomy(): void
+    {
+        $verdict = (new AtlasSelfConstructionAutonomyDegradationPolicy)->decide([]);
+
+        self::assertSame(AtlasSelfConstructionAutonomyDegradationPolicy::ACTION_NO_ACTION, $verdict['fallback_mode']);
+        self::assertSame('none', $verdict['lost_capability']);
+        self::assertSame('full_autonomous_execution', $verdict['preserved_capability']);
+        self::assertArrayHasKey('receipt', $verdict);
+    }
+
     public function test_policy_never_widens_scope_or_relaxes_gates_under_any_signal(): void
     {
         $signals = [

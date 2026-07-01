@@ -46,7 +46,45 @@ final class AtlasSelfConstructionAutonomyDegradationPolicy
 
     public const REASON_COST_OR_RISK_BREACH = 'cost_or_risk_breach_detected';
 
+    public const REASON_PROVIDER_OUTAGE = 'provider_outage_detected';
+
+    public const REASON_STALE_CONTEXT = 'stale_context_detected';
+
     public const REPEATED_POISON_THRESHOLD = 3;
+
+    /**
+     * Per-action fallback facts: what capability is lost, what is preserved (never zero — Atlas-native
+     * execution always survives), and what condition must clear before the fallback lifts.
+     *
+     * @var array<string,array{lost_capability:string, preserved_capability:string, recovery_condition:string}>
+     */
+    private const FALLBACK_FACTS = [
+        self::ACTION_PAUSE => [
+            'lost_capability' => 'autonomous_execution',
+            'preserved_capability' => 'read_only_inspection',
+            'recovery_condition' => 'rollback_completes_successfully',
+        ],
+        self::ACTION_ROLLBACK_REQUIRED => [
+            'lost_capability' => 'trust_in_last_green_state',
+            'preserved_capability' => 'rollback_and_evidence_replay_capability',
+            'recovery_condition' => 'rollback_verified_and_reproof_green',
+        ],
+        self::ACTION_DOWNGRADE => [
+            'lost_capability' => 'frontier_or_expanded_provider_access',
+            'preserved_capability' => 'local_atlas_native_execution',
+            'recovery_condition' => 'triggering_signal_clears',
+        ],
+        self::ACTION_REPAIR_FIRST => [
+            'lost_capability' => 'new_task_intake',
+            'preserved_capability' => 'in_flight_task_completion',
+            'recovery_condition' => 'queue_or_poison_signal_clears',
+        ],
+        self::ACTION_NO_ACTION => [
+            'lost_capability' => 'none',
+            'preserved_capability' => 'full_autonomous_execution',
+            'recovery_condition' => 'n/a',
+        ],
+    ];
 
     /**
      * @param  array<string,mixed>  $facts
@@ -82,6 +120,15 @@ final class AtlasSelfConstructionAutonomyDegradationPolicy
                 relaxesGates: false,
             );
         }
+        if ($this->bool($facts, 'provider_outage_detected')) {
+            return $this->envelope(
+                self::ACTION_DOWNGRADE,
+                self::REASON_PROVIDER_OUTAGE,
+                $facts,
+                widensScope: false,
+                relaxesGates: false,
+            );
+        }
         if ($this->bool($facts, 'missing_evidence_detected')) {
             return $this->envelope(
                 self::ACTION_DOWNGRADE,
@@ -104,6 +151,15 @@ final class AtlasSelfConstructionAutonomyDegradationPolicy
             return $this->envelope(
                 self::ACTION_REPAIR_FIRST,
                 self::REASON_QUEUE_JAM,
+                $facts,
+                widensScope: false,
+                relaxesGates: false,
+            );
+        }
+        if ($this->bool($facts, 'stale_context_detected')) {
+            return $this->envelope(
+                self::ACTION_DOWNGRADE,
+                self::REASON_STALE_CONTEXT,
                 $facts,
                 widensScope: false,
                 relaxesGates: false,
@@ -138,12 +194,27 @@ final class AtlasSelfConstructionAutonomyDegradationPolicy
         bool $widensScope,
         bool $relaxesGates,
     ): array {
+        $fallbackFacts = self::FALLBACK_FACTS[$action] ?? self::FALLBACK_FACTS[self::ACTION_NO_ACTION];
+
         return [
             'schema_version' => self::SCHEMA,
             'action' => $action,
             'reason' => $reason,
             'widens_scope' => $widensScope,
             'relaxes_gates' => $relaxesGates,
+            'fallback_mode' => $action,
+            'trigger' => $reason,
+            'lost_capability' => $fallbackFacts['lost_capability'],
+            'preserved_capability' => $fallbackFacts['preserved_capability'],
+            'recovery_condition' => $fallbackFacts['recovery_condition'],
+            'receipt' => sprintf(
+                'fallback_mode=%s trigger=%s lost=%s preserved=%s recovery=%s',
+                $action,
+                $reason,
+                $fallbackFacts['lost_capability'],
+                $fallbackFacts['preserved_capability'],
+                $fallbackFacts['recovery_condition'],
+            ),
             'observed_facts' => [
                 'false_green_detected' => $this->bool($facts, 'false_green_detected'),
                 'rollback_failure_detected' => $this->bool($facts, 'rollback_failure_detected'),
@@ -151,6 +222,8 @@ final class AtlasSelfConstructionAutonomyDegradationPolicy
                 'missing_evidence_detected' => $this->bool($facts, 'missing_evidence_detected'),
                 'queue_jam_detected' => $this->bool($facts, 'queue_jam_detected'),
                 'cost_or_risk_breach_detected' => $this->bool($facts, 'cost_or_risk_breach_detected'),
+                'provider_outage_detected' => $this->bool($facts, 'provider_outage_detected'),
+                'stale_context_detected' => $this->bool($facts, 'stale_context_detected'),
             ],
         ];
     }
