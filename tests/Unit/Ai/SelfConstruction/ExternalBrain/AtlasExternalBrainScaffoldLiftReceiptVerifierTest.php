@@ -263,7 +263,20 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifierTest extends TestCase
 
     // ── promotion_readiness ────────────────────────────────────────────────────
 
-    public function test_promotion_readiness_true_when_verified(): void
+    public function test_promotion_readiness_promote_when_verified_with_heldout_case_delta_evidence(): void
+    {
+        $r = $this->verifier()->verify([
+            'pairs'               => $this->goodPairs(5, 0.5, 0.8),
+            'required_dimensions' => ['accuracy'],
+            'min_sample_size'     => 5,
+            'min_lift_threshold'  => 0.05,
+            'evidence_type'       => 'heldout_case_delta',
+        ]);
+        $this->assertSame(AtlasExternalBrainScaffoldLiftReceiptVerifier::PROMOTION_PROMOTE, $r['promotion_readiness']);
+        $this->assertTrue($r['verified']);
+    }
+
+    public function test_promotion_readiness_awaiting_heldout_evidence_when_verified_without_it(): void
     {
         $r = $this->verifier()->verify([
             'pairs'               => $this->goodPairs(5, 0.5, 0.8),
@@ -271,17 +284,19 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifierTest extends TestCase
             'min_sample_size'     => 5,
             'min_lift_threshold'  => 0.05,
         ]);
-        $this->assertTrue($r['promotion_readiness']);
+        $this->assertSame(AtlasExternalBrainScaffoldLiftReceiptVerifier::PROMOTION_AWAITING_HELDOUT_EVIDENCE, $r['promotion_readiness']);
         $this->assertTrue($r['verified']);
+        $this->assertNotSame(AtlasExternalBrainScaffoldLiftReceiptVerifier::PROMOTION_PROMOTE, $r['promotion_readiness']);
     }
 
-    public function test_promotion_readiness_false_when_rejected(): void
+    public function test_promotion_readiness_not_verified_when_rejected(): void
     {
         $r = $this->verifier()->verify([
             'pairs'           => $this->goodPairs(2),
             'min_sample_size' => 5,
+            'evidence_type'   => 'heldout_case_delta',
         ]);
-        $this->assertFalse($r['promotion_readiness']);
+        $this->assertSame(AtlasExternalBrainScaffoldLiftReceiptVerifier::PROMOTION_NOT_VERIFIED, $r['promotion_readiness']);
     }
 
     // ── worse_give_back_delta ─────────────────────────────────────────────────

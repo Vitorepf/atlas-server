@@ -78,6 +78,10 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
 
     private const DEFAULT_EVIDENCE_TYPE = 'before_after_benchmark';
 
+    public const PROMOTION_PROMOTE = 'promote';
+    public const PROMOTION_AWAITING_HELDOUT_EVIDENCE = 'awaiting_heldout_evidence';
+    public const PROMOTION_NOT_VERIFIED = 'not_verified';
+
     /**
      * @param  array<string,mixed>  $facts
      * @return array<string,mixed>
@@ -199,12 +203,19 @@ final class AtlasExternalBrainScaffoldLiftReceiptVerifier
         }
 
         $verified           = empty($rejectedClaims) && $sampleSize > 0;
-        $promotionReadiness = $verified;
 
         // Evidence-type gate: lift is never accepted on a self-declared/anecdotal/single-result
         // claim, regardless of how the benchmark pairs scored.
         $evidenceType = (string) ($facts['evidence_type'] ?? self::DEFAULT_EVIDENCE_TYPE);
         $evidenceTypeAccepted = in_array($evidenceType, self::ACCEPTED_EVIDENCE_TYPES, true);
+
+        // Promotion requires held-out case delta evidence specifically -- a benchmark-only
+        // or repeated-outcome claim can be "verified" without ever earning promote.
+        $promotionReadiness = match (true) {
+            ! $verified => self::PROMOTION_NOT_VERIFIED,
+            $evidenceType === 'heldout_case_delta' => self::PROMOTION_PROMOTE,
+            default => self::PROMOTION_AWAITING_HELDOUT_EVIDENCE,
+        };
 
         $missingEvidence = [];
         if (! $evidenceTypeAccepted) {
