@@ -34,6 +34,7 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisorTest extends TestCase
         $result = $this->advisor()->advise($this->task([
             'age_days' => 45,
             'superseded_capability' => true,
+            'replacement_task_id' => 'task-replacement-1',
         ]));
 
         $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RETIRE, $result['decision']);
@@ -45,6 +46,7 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisorTest extends TestCase
         $result = $this->advisor()->advise($this->task([
             'age_days' => 60,
             'duplicate_target' => true,
+            'replacement_task_id' => 'task-replacement-2',
         ]));
 
         $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RETIRE, $result['decision']);
@@ -112,5 +114,42 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisorTest extends TestCase
         $task = $this->task(['age_days' => 45, 'superseded_capability' => true]);
 
         $this->assertSame($advisor->advise($task), $advisor->advise($task));
+    }
+
+    // ── AC: replacement proof gates retirement ─────────────────────────────────
+
+    public function test_stale_duplicate_target_without_replacement_task_id_does_not_retire_blindly(): void
+    {
+        $result = $this->advisor()->advise($this->task([
+            'age_days' => 60,
+            'duplicate_target' => true,
+        ]));
+
+        $this->assertNotSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RETIRE, $result['decision']);
+        $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC, $result['decision']);
+    }
+
+    public function test_stale_superseded_capability_with_replacement_task_id_retires_with_remove_from_queue(): void
+    {
+        $result = $this->advisor()->advise($this->task([
+            'age_days' => 45,
+            'superseded_capability' => true,
+            'replacement_task_id' => 'task-replacement-3',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RETIRE, $result['decision']);
+        $this->assertSame('remove_from_queue', $result['next_action']);
+    }
+
+    public function test_high_strategic_value_blocked_work_with_clear_repair_path_still_returns_respec(): void
+    {
+        $result = $this->advisor()->advise($this->task([
+            'age_days' => 45,
+            'status' => 'blocked',
+            'repair_path_clear' => true,
+            'strategic_value' => 'high',
+        ]));
+
+        $this->assertSame(AtlasExternalBrainStaleBacklogRetirementAdvisor::DECISION_RESPEC, $result['decision']);
     }
 }

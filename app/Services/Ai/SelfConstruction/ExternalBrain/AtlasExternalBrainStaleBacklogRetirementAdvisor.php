@@ -43,6 +43,7 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisor
         $duplicate = (bool) ($task['duplicate_target'] ?? false);
         $repairPathClear = (bool) ($task['repair_path_clear'] ?? false);
         $strategicValue = (string) ($task['strategic_value'] ?? 'low');
+        $replacementTaskId = trim((string) ($task['replacement_task_id'] ?? ''));
 
         $ageBand = match (true) {
             $ageDays < self::AGING_THRESHOLD_DAYS => 'fresh',
@@ -54,7 +55,15 @@ final class AtlasExternalBrainStaleBacklogRetirementAdvisor
         if ($isOld && ($superseded || $duplicate)) {
             $reason = $superseded ? 'superseded_capability' : 'duplicate_target';
 
-            return $this->result($taskId, $family, $ageBand, self::DECISION_RETIRE, $reason, 'remove_from_queue');
+            if ($replacementTaskId !== '') {
+                return $this->result($taskId, $family, $ageBand, self::DECISION_RETIRE, $reason, 'remove_from_queue');
+            }
+
+            return $this->result(
+                $taskId, $family, $ageBand, self::DECISION_RESPEC,
+                $reason.'_without_replacement_proof',
+                'confirm_replacement_task_id_before_retirement',
+            );
         }
 
         if ($isOld && $status === 'blocked' && $repairPathClear && $strategicValue === 'high') {
