@@ -183,4 +183,85 @@ final class AtlasTaskLeaseMismatchExplainerTest extends TestCase
         $this->assertStringNotContainsString('prompt', strtolower((string) $serialized));
         $this->assertStringNotContainsString('provider_trace', strtolower((string) $serialized));
     }
+
+    // ── AC: emits cause, severity, recoverable flag, recommended_action, provider-safe summary ──
+
+    public function test_clean_state_has_none_severity_recoverable_true_and_no_action(): void
+    {
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot());
+
+        $this->assertSame('none', $result['severity']);
+        $this->assertTrue($result['recoverable']);
+        $this->assertSame('no_action', $result['recommended_action']);
+        $this->assertNotEmpty($result['cause']);
+        $this->assertIsString($result['summary']);
+        $this->assertNotEmpty($result['summary']);
+    }
+
+    public function test_ghost_lease_accounting_mismatch_is_low_severity_and_recoverable(): void
+    {
+        // "ghost lease" — active_leases outnumber claimed_records, nothing recoverable, queue still servable.
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => false,
+            'active_leases' => 4,
+            'claimed_records' => 1,
+            'recoverable' => ['total' => 0],
+            'servable_now' => 6,
+        ]));
+
+        $this->assertSame(AtlasTaskLeaseMismatchExplainer::VERDICT_LEASE_ACCOUNTING_MISMATCH, $result['verdict']);
+        $this->assertSame('low', $result['severity']);
+        $this->assertTrue($result['recoverable']);
+        $this->assertSame('observe_or_reconcile_accounting', $result['recommended_action']);
+    }
+
+    public function test_expired_recoverable_lease_is_low_severity_and_recoverable_with_reap_action(): void
+    {
+        // "expired recoverable lease" — recoverable.total > 0.
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => false,
+            'recoverable' => ['total' => 2],
+        ]));
+
+        $this->assertSame(AtlasTaskLeaseMismatchExplainer::VERDICT_RECOVERABLE_BACKLOG, $result['verdict']);
+        $this->assertSame('low', $result['severity']);
+        $this->assertTrue($result['recoverable']);
+        $this->assertSame('reap_leases', $result['recommended_action']);
+    }
+
+    public function test_claimed_orphan_serving_blocked_is_high_severity_and_not_recoverable(): void
+    {
+        // "claimed orphan" surfaced as a serving-blocked state (nothing servable, blocking flag set).
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => true,
+            'servable_now' => 0,
+            'recoverable' => ['total' => 0],
+            'health_flags' => ['dry_queue' => false, 'serving_jammed' => true],
+        ]));
+
+        $this->assertSame(AtlasTaskLeaseMismatchExplainer::VERDICT_SERVING_BLOCKED, $result['verdict']);
+        $this->assertSame('high', $result['severity']);
+        $this->assertFalse($result['recoverable']);
+        $this->assertStringContainsString('investigate', $result['recommended_action']);
+    }
+
+    public function test_released_task_degraded_state_is_medium_severity_and_not_recoverable(): void
+    {
+        // "released task" left in an unclassified degraded state (no blocking flag, no recoverable backlog).
+        $result = (new AtlasTaskLeaseMismatchExplainer)->explain($this->snapshot([
+            'healthy' => false,
+            'leases_match_claimed' => false,
+            'active_leases' => 1,
+            'claimed_records' => 1,
+            'servable_now' => 5,
+            'recoverable' => ['total' => 0],
+        ]));
+
+        $this->assertSame(AtlasTaskLeaseMismatchExplainer::VERDICT_DEGRADED, $result['verdict']);
+        $this->assertSame('medium', $result['severity']);
+        $this->assertFalse($result['recoverable']);
+    }
 }

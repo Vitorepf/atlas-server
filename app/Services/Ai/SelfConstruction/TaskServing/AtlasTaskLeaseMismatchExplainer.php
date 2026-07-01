@@ -28,6 +28,26 @@ final class AtlasTaskLeaseMismatchExplainer
 
     private const BLOCKING_FLAGS = ['dry_queue', 'serving_jammed'];
 
+    private const SEVERITY_NONE = 'none';
+
+    private const SEVERITY_LOW = 'low';
+
+    private const SEVERITY_MEDIUM = 'medium';
+
+    private const SEVERITY_HIGH = 'high';
+
+    /** Verdicts that resolve without deep investigation — recoverable by definition. */
+    private const RECOVERABLE_VERDICTS = [self::VERDICT_HEALTHY, self::VERDICT_RECOVERABLE_BACKLOG, self::VERDICT_LEASE_ACCOUNTING_MISMATCH];
+
+    /** @var array<string,string> */
+    private const SEVERITY_BY_VERDICT = [
+        self::VERDICT_HEALTHY => self::SEVERITY_NONE,
+        self::VERDICT_RECOVERABLE_BACKLOG => self::SEVERITY_LOW,
+        self::VERDICT_LEASE_ACCOUNTING_MISMATCH => self::SEVERITY_LOW,
+        self::VERDICT_DEGRADED => self::SEVERITY_MEDIUM,
+        self::VERDICT_SERVING_BLOCKED => self::SEVERITY_HIGH,
+    ];
+
     /** claimable_depth at or above this is considered high queue supply. */
     private const HIGH_SUPPLY_CLAIMABLE_DEPTH = 5;
 
@@ -108,12 +128,17 @@ final class AtlasTaskLeaseMismatchExplainer
             'verdict' => $verdict,
             'serving_impact' => $servingImpact,
             'recommendation' => $recommendation,
+            'recommended_action' => $recommendation,
             'blocking_flag' => $blockingFlag,
             'active_leases' => $context['active_leases'],
             'claimed_records' => $context['claimed_records'],
             'mismatch_class' => $mismatchClass,
             'likely_source' => $likelySource,
+            'cause' => $likelySource,
             'next_diagnostic_step' => $nextDiagnosticStep,
+            'severity' => self::SEVERITY_BY_VERDICT[$verdict] ?? self::SEVERITY_MEDIUM,
+            'recoverable' => in_array($verdict, self::RECOVERABLE_VERDICTS, true),
+            'summary' => sprintf('%s: %s (%s)', $verdict, $recommendation, $mismatchClass),
             // Worker-safe: never distinguish "high supply" via 0 vs positive, so a single claimable
             // task doesn't misleadingly read as sufficient supply while the coordination layer is unhealthy.
             'queue_supply_ok' => $context['claimable_depth'] >= self::HIGH_SUPPLY_CLAIMABLE_DEPTH,
