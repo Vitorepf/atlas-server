@@ -10,7 +10,9 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  * Separates areas into: proven | partially_proven | missing | duplicated | overgrown.
  * Refuses overall final_ready when any critical area lacks direct evidence or has unresolved issues.
  *
- * CRITICAL AREAS (auto-critical regardless of input flag):
+ * CRITICAL AREAS (auto-critical regardless of input flag, ALWAYS evaluated even when the
+ * caller omits them from the input map -- an omitted critical area is seeded as 'missing',
+ * never silently dropped from the critical set):
  *   originator, task_fabric, maestro, learning, anti_goodhart, runtime, consolidation,
  *   workers, gates, receipts, memory_docs_sync, model_amplifier
  *
@@ -103,6 +105,15 @@ final class AtlasExternalBrainFinalReadinessMap
         $bestAction           = 'none';
         $criticalCount        = 0;
         $criticalReadyCount   = 0;
+
+        // Every canonical critical area must be evaluated by default -- an area the caller
+        // never mentions is not "not applicable", it is unproven. Seed it as missing so it
+        // still counts as a blocker instead of silently dropping out of the critical set.
+        foreach (self::AUTO_CRITICAL_AREAS as $criticalArea) {
+            if (! array_key_exists($criticalArea, $areaEvidence)) {
+                $areaEvidence[$criticalArea] = ['status' => self::STATUS_MISSING];
+            }
+        }
 
         // Sort areas deterministically.
         ksort($areaEvidence);

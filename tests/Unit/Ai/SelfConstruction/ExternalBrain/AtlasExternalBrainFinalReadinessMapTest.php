@@ -14,6 +14,24 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         return new AtlasExternalBrainFinalReadinessMap();
     }
 
+    private function entryFor(array $result, string $area): array
+    {
+        foreach ($result['area_readiness'] as $entry) {
+            if ($entry['area'] === $area) {
+                return $entry;
+            }
+        }
+
+        $this->fail("no area_readiness entry found for area '{$area}'");
+    }
+
+    /** All 12 canonical critical areas, in AUTO_CRITICAL_AREAS order. */
+    private const CRITICAL_AREAS = [
+        'originator', 'task_fabric', 'maestro', 'learning',
+        'anti_goodhart', 'runtime', 'consolidation',
+        'workers', 'gates', 'receipts', 'memory_docs_sync', 'model_amplifier',
+    ];
+
     /** All 12 critical areas fully proven with all evidence signals. */
     private function allProven(): array
     {
@@ -61,9 +79,10 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     {
         $result = $this->map()->map(['originator' => ['status' => 'proven']]);
 
-        $this->assertCount(1, $result['area_readiness']);
+        // 1 explicit area + 11 other canonical critical areas seeded as missing.
+        $this->assertCount(12, $result['area_readiness']);
         foreach (['area', 'status', 'is_critical', 'next_closure_action'] as $f) {
-            $this->assertArrayHasKey($f, $result['area_readiness'][0]);
+            $this->assertArrayHasKey($f, $this->entryFor($result, 'originator'));
         }
     }
 
@@ -78,12 +97,17 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         $this->assertSame('none', $result['next_closure_action']);
     }
 
-    public function test_empty_input_yields_final_ready_no_blocking_areas(): void
+    public function test_empty_input_yields_not_ready_with_all_critical_areas_blocking(): void
     {
-        // No evidence = no critical areas in input → nothing to block.
+        // Empty input must NOT be trusted as final -- every canonical critical area is
+        // evaluated by default and, with zero evidence, blocks final_ready.
         $result = $this->map()->map([]);
 
-        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_FINAL_READY, $result['overall_status']);
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_NOT_READY, $result['overall_status']);
+        foreach (self::CRITICAL_AREAS as $area) {
+            $this->assertContains($area, $result['blocking_areas']);
+        }
+        $this->assertCount(count(self::CRITICAL_AREAS), $result['blocking_areas']);
     }
 
     // ── overall_status: not_ready ─────────────────────────────────────────────
@@ -173,7 +197,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
             'custom_area' => ['status' => 'missing'],
         ]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'custom_area');
         $this->assertFalse($entry['is_critical']);
     }
 
@@ -183,7 +207,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
             'custom_area' => ['status' => 'missing', 'critical' => true],
         ]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'custom_area');
         $this->assertTrue($entry['is_critical']);
     }
 
@@ -204,7 +228,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     {
         $result = $this->map()->map(['originator' => ['status' => 'missing']]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'originator');
         $this->assertSame('seed_evidence_for:originator', $entry['next_closure_action']);
     }
 
@@ -212,7 +236,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     {
         $result = $this->map()->map(['task_fabric' => ['status' => 'partially_proven']]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'task_fabric');
         $this->assertSame('complete_proof_for:task_fabric', $entry['next_closure_action']);
     }
 
@@ -220,7 +244,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     {
         $result = $this->map()->map(['maestro' => ['status' => 'duplicated', 'unresolved_count' => 2]]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'maestro');
         $this->assertSame('resolve_duplicates_in:maestro', $entry['next_closure_action']);
     }
 
@@ -228,7 +252,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
     {
         $result = $this->map()->map(['runtime' => ['status' => 'overgrown', 'unresolved_count' => 1]]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'runtime');
         $this->assertSame('consolidate_overgrown:runtime', $entry['next_closure_action']);
     }
 
@@ -245,7 +269,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
             'owner'                   => 'atlas',
         ]]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'learning');
         $this->assertSame('none', $entry['next_closure_action']);
     }
 
@@ -403,7 +427,7 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
             'operator_independence'   => true,
         ]]);
 
-        $entry = $result['area_readiness'][0];
+        $entry = $this->entryFor($result, 'anti_goodhart');
         $this->assertSame('add_evidence_for:anti_goodhart', $entry['next_closure_action']);
     }
 
@@ -417,6 +441,33 @@ final class AtlasExternalBrainFinalReadinessMapTest extends TestCase
         ]);
 
         $this->assertArrayNotHasKey('custom_non_critical', $result['missing_evidence_by_area']);
+    }
+
+    // ── AC: full canonical critical-area set evaluated by default ─────────────
+
+    public function test_partial_evidence_map_marks_omitted_critical_areas_as_missing(): void
+    {
+        // Only 'originator' provided; the other 11 canonical critical areas are omitted.
+        $result = $this->map()->map(['originator' => ['status' => 'proven', 'unresolved_count' => 0,
+            'has_runnable_proof' => true, 'knowledge_sync_current' => true, 'operator_independence' => true,
+            'evidence_refs' => ['ev'], 'owner' => 'atlas']]);
+
+        $omitted = array_diff(self::CRITICAL_AREAS, ['originator']);
+        foreach ($omitted as $area) {
+            $entry = $this->entryFor($result, $area);
+            $this->assertSame(AtlasExternalBrainFinalReadinessMap::STATUS_MISSING, $entry['status']);
+            $this->assertContains($area, $result['blocking_areas']);
+        }
+        $this->assertNotContains('originator', $result['blocking_areas']);
+    }
+
+    public function test_all_canonical_critical_areas_fully_evidenced_yields_final_ready(): void
+    {
+        $result = $this->map()->map($this->allProven());
+
+        $this->assertSame(AtlasExternalBrainFinalReadinessMap::OVERALL_FINAL_READY, $result['overall_status']);
+        $this->assertSame([], $result['blocking_areas']);
+        $this->assertCount(count(self::CRITICAL_AREAS), $result['area_readiness']);
     }
 
     // ── determinism ───────────────────────────────────────────────────────────
