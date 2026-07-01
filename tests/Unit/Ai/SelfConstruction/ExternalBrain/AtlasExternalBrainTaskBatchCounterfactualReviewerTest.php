@@ -196,4 +196,62 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewerTest extends TestCa
 
         $this->assertGreaterThan(0.0, $r['chain_value_delta']);
     }
+
+    // ── new AC: worker_capacity_cost penalizes huge low-value batches ────────
+
+    public function test_huge_batch_with_high_worker_capacity_cost_and_low_chain_value_is_split_or_replaced(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $proposed = [
+            ['objective' => 'Tweak A', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/A.php'], 'worker_capacity_cost' => 2.0],
+            ['objective' => 'Tweak B', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/B.php'], 'worker_capacity_cost' => 2.0],
+            ['objective' => 'Tweak C', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/C.php'], 'worker_capacity_cost' => 2.0],
+            ['objective' => 'Tweak D', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/D.php'], 'worker_capacity_cost' => 2.0],
+            ['objective' => 'Tweak E', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/E.php'], 'worker_capacity_cost' => 2.0],
+            ['objective' => 'Tweak F', 'type' => 'template', 'leverage' => 'low', 'allowed_files' => ['app/F.php'], 'worker_capacity_cost' => 2.0],
+        ];
+        $counterfactual = [
+            ['objective' => 'Design context router', 'type' => 'architecture', 'leverage' => 'high', 'allowed_files' => ['app/Router.php'], 'worker_capacity_cost' => 0.5],
+        ];
+
+        $r = $reviewer->review($proposed, $counterfactual);
+
+        $this->assertContains($r['decision'], [
+            AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_REPLACE,
+            AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_SPLIT,
+        ]);
+    }
+
+    public function test_smaller_counterfactual_with_higher_dependency_chain_unlock_value_wins_over_worker_capacity_cost(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $proposed = [
+            ['objective' => 'Do busywork A', 'type' => 'bug_fix', 'leverage' => 'low', 'allowed_files' => ['app/A.php'], 'worker_capacity_cost' => 3.0],
+            ['objective' => 'Do busywork B', 'type' => 'bug_fix', 'leverage' => 'low', 'allowed_files' => ['app/B.php'], 'worker_capacity_cost' => 3.0],
+        ];
+        $counterfactual = [
+            ['objective' => 'Unblock the dependency chain', 'type' => 'architecture', 'leverage' => 'high', 'allowed_files' => ['app/Chain.php'], 'dependency_chain_unlock_value' => 3.0, 'worker_capacity_cost' => 0.0],
+        ];
+
+        $r = $reviewer->review($proposed, $counterfactual);
+
+        $this->assertGreaterThan($r['proposed_score'], $r['counterfactual_score']);
+        $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_REPLACE, $r['decision']);
+    }
+
+    public function test_low_worker_capacity_cost_high_leverage_batch_still_returns_keep(): void
+    {
+        $reviewer = new AtlasExternalBrainTaskBatchCounterfactualReviewer;
+
+        $batch = [
+            ['objective' => 'Design core arch', 'type' => 'architecture', 'leverage' => 'high', 'allowed_files' => ['app/Arch.php'], 'worker_capacity_cost' => 0.2],
+            ['objective' => 'Implement evidence', 'type' => 'evolution', 'leverage' => 'high', 'allowed_files' => ['app/Evid.php'], 'worker_capacity_cost' => 0.2],
+        ];
+
+        $r = $reviewer->review($batch, []);
+
+        $this->assertSame(AtlasExternalBrainTaskBatchCounterfactualReviewer::DECISION_KEEP, $r['decision']);
+    }
 }

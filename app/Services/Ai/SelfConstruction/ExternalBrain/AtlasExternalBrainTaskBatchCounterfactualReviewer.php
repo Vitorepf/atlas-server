@@ -131,7 +131,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
     {
         $count = count($batch);
         if ($count === 0) {
-            return ['score' => 0.0, 'high_leverage' => 0, 'low_leverage' => 0, 'diversity' => 0.0, 'duplicate_risk' => 0.0, 'give_back_risk' => 0.0, 'chain_value' => 0.0, 'risks' => []];
+            return ['score' => 0.0, 'high_leverage' => 0, 'low_leverage' => 0, 'diversity' => 0.0, 'duplicate_risk' => 0.0, 'give_back_risk' => 0.0, 'chain_value' => 0.0, 'worker_capacity_cost' => 0.0, 'risks' => []];
         }
 
         $highLeverage = 0;
@@ -141,6 +141,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
         $objectives = [];
         $giveBackRiskSum = 0.0;
         $chainValueSum = 0.0;
+        $workerCapacityCostSum = 0.0;
 
         foreach ($batch as $task) {
             $leverage = strtolower(trim((string) ($task['leverage'] ?? 'low')));
@@ -157,6 +158,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             $objectives[] = strtolower(trim((string) ($task['objective'] ?? '')));
             $giveBackRiskSum += (float) ($task['give_back_risk'] ?? 0.0);
             $chainValueSum += max(0.0, (float) ($task['dependency_chain_unlock_value'] ?? 0.0));
+            $workerCapacityCostSum += max(0.0, (float) ($task['worker_capacity_cost'] ?? 0.0));
         }
 
         // Score: leverage weighted, diversity bonus, opportunity cost penalty for filler,
@@ -166,7 +168,10 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
         $diversity = count($types) / max(1, $count);
         $fillerPenalty = $lowLeverage * 0.3;
         $chainBonus = min(4.0, $chainValueSum);
-        $score = max(0.0, min(10.0, round($leverageScore + ($diversity * 2.0) - $fillerPenalty + $chainBonus, 2)));
+        // Worker-capacity starvation penalty: capacity cost not justified by chain-unlock value
+        // (a huge batch that would starve active muscles for little downstream unlock is penalized).
+        $capacityStarvationPenalty = max(0.0, $workerCapacityCostSum - $chainValueSum) * 0.5;
+        $score = max(0.0, min(10.0, round($leverageScore + ($diversity * 2.0) - $fillerPenalty + $chainBonus - $capacityStarvationPenalty, 2)));
 
         // Duplicate risk: ratio of duplicate allowed_files
         $uniqueFiles = count(array_unique($allowedFiles));
@@ -200,6 +205,7 @@ final class AtlasExternalBrainTaskBatchCounterfactualReviewer
             'duplicate_risk' => $duplicateRisk,
             'give_back_risk' => $giveBackRisk,
             'chain_value'    => round($chainValueSum, 2),
+            'worker_capacity_cost' => round($workerCapacityCostSum, 2),
             'risks'          => $risks,
         ];
     }
