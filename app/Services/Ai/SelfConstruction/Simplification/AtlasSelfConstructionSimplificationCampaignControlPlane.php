@@ -73,6 +73,9 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
         $blockedHighRisk = [];
         $held = [];
         $knowledgeSyncRequired = false;
+        $proofReadiness = [];
+        $rollbackReadiness = [];
+        $blockedWaves = [];
 
         foreach ($candidates as $candidate) {
             $candidate = (array) $candidate;
@@ -81,6 +84,9 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             $risk = (string) ($candidate['risk'] ?? 'low');
 
             $evaluation = $this->evaluateCandidate($candidate);
+            $proofReadiness[$id] = $evaluation['proof_readiness'];
+            $rollbackReadiness[$id] = $evaluation['rollback_readiness'];
+
             $isHighRiskMissingProof = $risk === 'high'
                 && (! $evaluation['proof_readiness'] || ! $evaluation['rollback_readiness']);
 
@@ -88,12 +94,14 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
 
             if ($isHighRiskMissingProof) {
                 $blockedHighRisk[] = $id;
+                $blockedWaves[] = $id;
 
                 continue;
             }
 
             if ($evaluation['decision'] !== self::DECISION_GO) {
                 $held[] = $id;
+                $blockedWaves[] = $id;
 
                 continue;
             }
@@ -117,6 +125,9 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlane
             'held_candidates' => $held,
             'next_wave' => array_merge($deletionFirst, $additive),
             'knowledge_sync_required' => $knowledgeSyncRequired,
+            'proof_readiness' => $proofReadiness,
+            'rollback_readiness' => $rollbackReadiness,
+            'blocked_waves' => $blockedWaves,
         ];
     }
 

@@ -196,4 +196,34 @@ final class AtlasSelfConstructionSimplificationCampaignControlPlaneTest extends 
         $this->assertSame([], $result['next_wave']);
         $this->assertSame([], $result['blocked_high_risk_candidates']);
     }
+
+    // ── AC3: campaign output includes proof_readiness/rollback_readiness/blocked_waves ──
+
+    public function test_plan_campaign_output_includes_required_keys(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [$this->candidate('organ-b', 'delete', 'low')],
+        ]);
+
+        foreach (['proof_readiness', 'rollback_readiness', 'knowledge_sync_required', 'deletion_first_candidates', 'blocked_waves'] as $k) {
+            $this->assertArrayHasKey($k, $result, "Missing key: {$k}");
+        }
+        $this->assertTrue($result['proof_readiness']['organ-b']);
+        $this->assertTrue($result['rollback_readiness']['organ-b']);
+        $this->assertSame([], $result['blocked_waves']);
+    }
+
+    public function test_blocked_waves_includes_held_and_blocked_high_risk_candidates(): void
+    {
+        $result = $this->controlPlane()->planCampaign([
+            'candidates' => [
+                $this->candidate('risky-delete', 'delete', 'high', ['replay_plan' => ['ready' => false]]),
+                $this->candidate('unproven', 'delete', 'low', ['equivalence_dossier' => ['behavior_equivalence_proven' => false]]),
+            ],
+        ]);
+
+        $this->assertContains('risky-delete', $result['blocked_waves']);
+        $this->assertContains('unproven', $result['blocked_waves']);
+        $this->assertFalse($result['proof_readiness']['unproven']);
+    }
 }
