@@ -238,6 +238,29 @@ final class AgentRuntimeEvidenceJournalRepository
         $index = $this->loadIndex();
         $issues = [];
 
+        $seenIds = [];
+        $duplicateIds = [];
+        foreach ($index as $entry) {
+            $id = (string) ($entry['journal_entry_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            if (isset($seenIds[$id])) {
+                $duplicateIds[$id] = true;
+
+                continue;
+            }
+            $seenIds[$id] = true;
+        }
+        $duplicateIds = array_keys($duplicateIds);
+        sort($duplicateIds);
+        foreach ($duplicateIds as $id) {
+            $issues[] = [
+                'journal_entry_id' => $id,
+                'issue' => 'duplicate_journal_entry_id',
+            ];
+        }
+
         foreach ($index as $entry) {
             $journalEntryId = (string) ($entry['journal_entry_id'] ?? '');
             $path = $this->recordPath($journalEntryId);

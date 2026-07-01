@@ -104,6 +104,36 @@ final class AgentRuntimeEvidenceJournalRepositoryTest extends TestCase
         $this->assertContains('non_local_evidence_claims_canonical_ledger_entry', $codes);
     }
 
+    public function test_duplicate_journal_entry_id_is_reported_deterministically(): void
+    {
+        $appended = $this->appendEntry('task-dup');
+        $journalEntryId = $appended['journal_entry_id'];
+
+        $index = json_decode((string) Storage::disk('local')->get(AgentRuntimeEvidenceJournalRepository::INDEX_PATH), true);
+        $index[] = $index[0];
+        Storage::disk('local')->put(AgentRuntimeEvidenceJournalRepository::INDEX_PATH, json_encode($index));
+
+        $first = $this->repo->integrityAudit();
+        $second = $this->repo->integrityAudit();
+
+        $this->assertSame('drift_detected', $first['status']);
+        $codes = array_column($first['issues'], 'issue');
+        $this->assertContains('duplicate_journal_entry_id', $codes);
+        $this->assertSame($first['issues'], $second['issues']);
+    }
+
+    public function test_append_and_list_keep_local_evidence_never_canonical_and_never_ledger_writable(): void
+    {
+        $appended = $this->appendEntry('task-non-canonical');
+
+        $this->assertFalse($appended['record']['is_canonical_evidence_ledger_entry']);
+        $this->assertFalse($appended['ledger_write_allowed']);
+
+        $listed = $this->repo->list(['task_packet_id' => 'task-non-canonical']);
+        $this->assertCount(1, $listed);
+        $this->assertFalse($listed[0]['is_canonical_evidence_ledger_entry']);
+    }
+
     public function test_audit_does_not_mutate_records_or_index_and_is_idempotent(): void
     {
         $this->appendEntry('task-readonly');
