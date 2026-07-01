@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionAutonomyModePolicy;
+use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionBrainAuditAutoPriorityPolicy;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionNextActionSelector;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionOrganReadinessComposer;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
@@ -33,7 +34,7 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
 
     public const EXIT_USAGE = 2;
 
-    protected $signature = 'atlas:self-construction:control-plane {action : inspect|mode|scope|scope-gate|next|policy} {--facts= : path to a JSON facts payload} {--json}';
+    protected $signature = 'atlas:self-construction:control-plane {action : inspect|mode|scope|scope-gate|next|policy|audit-priority} {--facts= : path to a JSON facts payload} {--json}';
 
     protected $description = 'Read-only Control-Plane CLI: inspect | mode | scope | scope-gate | next.';
 
@@ -42,6 +43,7 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
         AtlasSelfConstructionNextActionSelector $selector,
         AtlasSelfConstructionAutonomyModePolicy $autonomyPolicy,
         AtlasSelfConstructionScopeRiskBudgetGate $scopeRiskBudgetGate,
+        AtlasSelfConstructionBrainAuditAutoPriorityPolicy $auditPriorityPolicy,
     ): int {
         $action = (string) $this->argument('action');
 
@@ -52,8 +54,25 @@ final class AtlasSelfConstructionControlPlaneCommand extends Command
             'scope-gate' => $this->scopeGateAction($scopeRiskBudgetGate),
             'next' => $this->nextAction($organReadiness, $selector),
             'policy' => $this->policyAction($autonomyPolicy),
+            'audit-priority' => $this->auditPriorityAction($auditPriorityPolicy),
             default => $this->usage('unknown action: '.$action),
         };
+    }
+
+    /**
+     * `audit-priority` consults AtlasSelfConstructionBrainAuditAutoPriorityPolicy on the supplied
+     * facts payload (audit_snapshot + pending_actions) and emits its FACT-only priority verdict.
+     * Wires the policy into the operator-visible CLI so it is no longer an orphan.
+     */
+    private function auditPriorityAction(AtlasSelfConstructionBrainAuditAutoPriorityPolicy $policy): int
+    {
+        $facts = $this->loadFacts();
+        if ($facts === null) {
+            return self::EXIT_USAGE;
+        }
+        $this->emit($policy->apply($facts));
+
+        return self::EXIT_OK;
     }
 
     /**
