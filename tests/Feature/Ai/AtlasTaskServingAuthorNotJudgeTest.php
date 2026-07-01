@@ -97,6 +97,69 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         self::assertSame([], $res['task']['packet_quality']['blocking_deficiencies']);
     }
 
+    // ── prepareAndEnqueue own quality-rejection + receipt + author-not-judge guarantees ──
+
+    public function test_prepare_and_enqueue_rejects_not_self_sufficient_packet_and_returns_quality_not_queue_entry(): void
+    {
+        // Passes the builder's own checks (non-empty objective/scope/acceptance) but the write
+        // scope is a bare DIRECTORY, not a concrete file — a deficiency only the quality
+        // inspector catches, not the builder itself.
+        $input = $this->input('bare-dir-packet');
+        $input['allowed_files'] = ['app/Services/Ai/SelfConstruction/'];
+        $input['scope_in'] = ['app/Services/Ai/SelfConstruction/'];
+
+        $result = $this->orchestrator()->prepareAndEnqueue(['task_packet' => $input]);
+
+        self::assertSame('prepare_blocked', $result['event']);
+        self::assertSame('task_packet_not_self_sufficient', $result['reason']);
+        self::assertNull($result['queue_entry']);
+        self::assertFalse($result['packet_quality']['self_sufficient']);
+        self::assertContains('bare_directory_in_allowed_files', $result['packet_quality']['blocking_deficiencies']);
+    }
+
+    public function test_successful_prepare_and_enqueue_appends_exactly_one_of_each_planning_receipt(): void
+    {
+        $taskPacketId = 'receipt-once-'.bin2hex(random_bytes(4));
+        $orch = $this->orchestrator();
+        $result = $orch->prepareAndEnqueue(['task_packet' => $this->input($taskPacketId)]);
+
+        self::assertSame('prepared_and_enqueued', $result['event']);
+        self::assertNotNull($result['queue_entry']);
+
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get($taskPacketId);
+        $receiptKinds = array_map(
+            static fn (array $r): string => (string) ($r['receipt_kind'] ?? ''),
+            (array) data_get($record, 'receipts', []),
+        );
+
+        foreach (['scope_lock_runtime_validated', 'evidence_plan_prepared', 'continuation_summary_prepared'] as $expectedKind) {
+            self::assertSame(
+                1,
+                count(array_filter($receiptKinds, static fn (string $k): bool => $k === $expectedKind)),
+                "expected exactly one '{$expectedKind}' receipt, got: ".implode(',', $receiptKinds),
+            );
+        }
+    }
+
+    public function test_prepare_and_enqueue_stays_author_not_judge_never_claims_completes_or_executes(): void
+    {
+        $taskPacketId = 'author-not-judge';
+        $result = $this->orchestrator()->prepareAndEnqueue(['task_packet' => $this->input($taskPacketId)]);
+
+        self::assertSame('prepared_and_enqueued', $result['event']);
+        self::assertFalse($result['dispatch_allowed']);
+        self::assertFalse($result['provider_call_allowed']);
+        self::assertFalse($result['token_spend_allowed']);
+        self::assertFalse($result['self_programming_allowed']);
+        self::assertFalse($result['ledger_write_allowed']);
+        self::assertFalse($result['completion_real_allowed']);
+        self::assertFalse($result['runtime_execution_allowed']);
+
+        // Enqueued as claimable, never pre-claimed by the authoring path itself.
+        $record = (new AgentControlPlaneTaskPacketQueueRepository)->get($taskPacketId);
+        self::assertSame('claimable', (string) ($record['status'] ?? ''));
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
