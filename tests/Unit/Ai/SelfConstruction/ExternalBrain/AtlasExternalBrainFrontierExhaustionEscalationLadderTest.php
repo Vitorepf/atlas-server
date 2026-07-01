@@ -151,4 +151,99 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadderTest extends Tes
         self::assertNotEmpty($result['skipped_actions']);
         self::assertNotEmpty($result['escalation_rationale']);
     }
+
+    // ── AC: low initial yield recommends second_pass_search first ──────────────
+
+    public function test_low_initial_yield_recommends_second_pass_search_first(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([
+            'initial_yield' => 0.10,
+        ]);
+
+        self::assertSame(
+            AtlasExternalBrainFrontierExhaustionEscalationLadder::RUNG2_SECOND_PASS_SEARCH,
+            $result['recommendation'],
+        );
+    }
+
+    public function test_healthy_initial_yield_recommends_nothing(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([
+            'initial_yield' => 0.90,
+        ]);
+
+        self::assertNull($result['recommendation']);
+    }
+
+    // ── AC: repeated low second-pass yield recommends outcome_mining or simplification ──
+
+    public function test_repeated_low_second_pass_yield_recommends_outcome_mining_by_default(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([
+            'initial_yield' => 0.10,
+            'second_pass_yield' => 0.05,
+            'attempted_rungs_with_evidence' => ['second_pass_search'],
+        ]);
+
+        self::assertSame(
+            AtlasExternalBrainFrontierExhaustionEscalationLadder::RUNG2_OUTCOME_MINING,
+            $result['recommendation'],
+        );
+    }
+
+    public function test_repeated_low_second_pass_yield_recommends_simplification_when_structurally_complex(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([
+            'initial_yield' => 0.10,
+            'second_pass_yield' => 0.05,
+            'attempted_rungs_with_evidence' => ['second_pass_search'],
+            'structurally_complex' => true,
+        ]);
+
+        self::assertSame(
+            AtlasExternalBrainFrontierExhaustionEscalationLadder::RUNG2_SIMPLIFICATION,
+            $result['recommendation'],
+        );
+    }
+
+    // ── AC: honest_stop appears only after all ladder rungs are exhausted with evidence ──
+
+    public function test_honest_stop_only_after_all_rungs_attempted_with_evidence(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([
+            'initial_yield' => 0.05,
+            'second_pass_yield' => 0.05,
+            'attempted_rungs_with_evidence' => ['second_pass_search', 'outcome_mining', 'simplification'],
+        ]);
+
+        self::assertSame(
+            AtlasExternalBrainFrontierExhaustionEscalationLadder::RUNG2_HONEST_STOP,
+            $result['recommendation'],
+        );
+    }
+
+    public function test_honest_stop_not_reached_with_partial_rungs_attempted(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([
+            'initial_yield' => 0.05,
+            'second_pass_yield' => 0.05,
+            'attempted_rungs_with_evidence' => ['second_pass_search', 'outcome_mining'],
+        ]);
+
+        self::assertNotSame(
+            AtlasExternalBrainFrontierExhaustionEscalationLadder::RUNG2_HONEST_STOP,
+            $result['recommendation'],
+        );
+    }
+
+    public function test_escalate_exhaustion_output_has_required_keys(): void
+    {
+        $result = (new AtlasExternalBrainFrontierExhaustionEscalationLadder)->escalateExhaustion([]);
+
+        self::assertSame(AtlasExternalBrainFrontierExhaustionEscalationLadder::SCHEMA, $result['schema']);
+        foreach (['recommendation', 'attempted_rungs_with_evidence', 'remaining_rungs', 'reasons'] as $key) {
+            self::assertArrayHasKey($key, $result);
+        }
+        self::assertNotEmpty($result['reasons']);
+    }
 }

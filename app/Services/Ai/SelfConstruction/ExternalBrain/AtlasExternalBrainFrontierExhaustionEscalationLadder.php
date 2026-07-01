@@ -178,4 +178,99 @@ final class AtlasExternalBrainFrontierExhaustionEscalationLadder
             'escalation_rationale' => 'standard_escalation_order_local_probes_and_transfer_before_frontier_rerun',
         ];
     }
+
+    public const RUNG2_SECOND_PASS_SEARCH = 'second_pass_search';
+    public const RUNG2_OUTCOME_MINING     = 'outcome_mining';
+    public const RUNG2_SIMPLIFICATION     = 'simplification';
+    public const RUNG2_HONEST_STOP        = 'honest_stop';
+
+    /** @var list<string> */
+    private const ALL_SECOND_PASS_RUNGS = [
+        self::RUNG2_SECOND_PASS_SEARCH,
+        self::RUNG2_OUTCOME_MINING,
+        self::RUNG2_SIMPLIFICATION,
+    ];
+
+    private const SECOND_PASS_LOW_YIELD_THRESHOLD = 0.30;
+
+    /**
+     * Walks apparent frontier exhaustion through second-pass code search, outcome
+     * mining, and simplification before any honest_stop — a low initial yield is
+     * never itself proof that no more value exists locally.
+     *
+     * Priority (first match wins):
+     *   honest_stop         — every rung below has already been attempted with evidence
+     *   second_pass_search  — initial_yield is low and second_pass_search not yet attempted
+     *   outcome_mining /
+     *   simplification      — second_pass_yield is still low; simplification when the
+     *                         surface is structurally_complex, otherwise outcome_mining
+     *   null (no escalation)— yield is healthy, nothing to escalate
+     *
+     * @param  array{
+     *   initial_yield?: float,
+     *   second_pass_yield?: float,
+     *   attempted_rungs_with_evidence?: list<string>,
+     *   structurally_complex?: bool,
+     * }  $facts
+     * @return array{schema:string, recommendation:?string, attempted_rungs_with_evidence:list<string>, remaining_rungs:list<string>, reasons:list<string>}
+     */
+    public function escalateExhaustion(array $facts): array
+    {
+        $initialYield = max(0.0, min(1.0, (float) ($facts['initial_yield'] ?? 1.0)));
+        $secondPassYield = array_key_exists('second_pass_yield', $facts)
+            ? max(0.0, min(1.0, (float) $facts['second_pass_yield']))
+            : null;
+        $attemptedRungs = array_values(array_map('strval', (array) ($facts['attempted_rungs_with_evidence'] ?? [])));
+        $structurallyComplex = (bool) ($facts['structurally_complex'] ?? false);
+
+        $remainingRungs = array_values(array_diff(self::ALL_SECOND_PASS_RUNGS, $attemptedRungs));
+
+        if ($remainingRungs === []) {
+            return [
+                'schema' => self::SCHEMA,
+                'recommendation' => self::RUNG2_HONEST_STOP,
+                'attempted_rungs_with_evidence' => $attemptedRungs,
+                'remaining_rungs' => [],
+                'reasons' => ['all_second_pass_rungs_exhausted_with_evidence:honest_stop_earned'],
+            ];
+        }
+
+        if ($initialYield < self::SECOND_PASS_LOW_YIELD_THRESHOLD
+            && ! in_array(self::RUNG2_SECOND_PASS_SEARCH, $attemptedRungs, true)
+        ) {
+            return [
+                'schema' => self::SCHEMA,
+                'recommendation' => self::RUNG2_SECOND_PASS_SEARCH,
+                'attempted_rungs_with_evidence' => $attemptedRungs,
+                'remaining_rungs' => $remainingRungs,
+                'reasons' => [sprintf(
+                    'initial_yield=%.2f below threshold=%.2f: run second_pass_search before concluding exhaustion',
+                    $initialYield, self::SECOND_PASS_LOW_YIELD_THRESHOLD,
+                )],
+            ];
+        }
+
+        if ($secondPassYield !== null && $secondPassYield < self::SECOND_PASS_LOW_YIELD_THRESHOLD) {
+            $recommendation = $structurallyComplex ? self::RUNG2_SIMPLIFICATION : self::RUNG2_OUTCOME_MINING;
+
+            return [
+                'schema' => self::SCHEMA,
+                'recommendation' => $recommendation,
+                'attempted_rungs_with_evidence' => $attemptedRungs,
+                'remaining_rungs' => $remainingRungs,
+                'reasons' => [sprintf(
+                    'second_pass_yield=%.2f still below threshold: escalate to %s',
+                    $secondPassYield, $recommendation,
+                )],
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'recommendation' => null,
+            'attempted_rungs_with_evidence' => $attemptedRungs,
+            'remaining_rungs' => $remainingRungs,
+            'reasons' => ['yield_healthy_no_escalation_needed'],
+        ];
+    }
 }
