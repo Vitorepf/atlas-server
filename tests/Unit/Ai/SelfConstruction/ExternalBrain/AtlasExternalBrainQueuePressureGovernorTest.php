@@ -518,4 +518,65 @@ final class AtlasExternalBrainQueuePressureGovernorTest extends TestCase
 
         $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_ENQUEUE_NOW, $result['decision']);
     }
+
+    // ── evaluateWorkerFloor: comfortable queue never returns a passive hold ────
+
+    public function test_comfortable_worker_floor_returns_continue_search_for_high_leverage_with_positive_max_tasks(): void
+    {
+        $result = $this->governor()->evaluateWorkerFloor([
+            'malformed_count' => 0,
+            'claimable_per_active_worker' => 10.0,
+            'active_leases' => 3,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_CONTINUE_SEARCH_FOR_HIGH_LEVERAGE, $result['action']);
+        $this->assertGreaterThan(0, $result['max_tasks']);
+    }
+
+    public function test_malformed_count_still_returns_hold_despite_comfortable_buffer(): void
+    {
+        $result = $this->governor()->evaluateWorkerFloor([
+            'malformed_count' => 4,
+            'claimable_per_active_worker' => 10.0,
+            'active_leases' => 3,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_HOLD, $result['action']);
+        $this->assertSame(0, $result['max_tasks']);
+    }
+
+    public function test_thin_worker_buffer_still_requests_bounded_batch_not_continue_search(): void
+    {
+        // Starvation-driven request must remain distinct from the comfortable-queue signal.
+        $result = $this->governor()->evaluateWorkerFloor([
+            'malformed_count' => 0,
+            'claimable_per_active_worker' => 1.0,
+            'active_leases' => 3,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::ACTION_REQUEST_BOUNDED_BATCH, $result['action']);
+    }
+
+    // ── decide(): stop is reserved for true saturated queue AND lease pressure ─
+
+    public function test_decide_does_not_stop_on_sufficient_queue_depth_alone(): void
+    {
+        // claimable_depth is high but active_leases is low — not both dimensions saturated.
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 3],
+            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+        ));
+
+        $this->assertNotSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
+    }
+
+    public function test_decide_stops_only_when_queue_and_lease_pressure_are_both_critical(): void
+    {
+        $result = $this->governor()->decide($this->input(
+            queueState: ['claimable_depth' => 35, 'active_leases' => 20],
+            candidate:  ['leverage_score' => 0.50, 'task_class' => 'normal'],
+        ));
+
+        $this->assertSame(AtlasExternalBrainQueuePressureGovernor::DECISION_STOP, $result['decision']);
+    }
 }

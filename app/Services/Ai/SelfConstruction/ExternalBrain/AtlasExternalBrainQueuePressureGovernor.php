@@ -162,9 +162,15 @@ final class AtlasExternalBrainQueuePressureGovernor
 
     public const ACTION_HOLD = 'hold';
 
+    public const ACTION_CONTINUE_SEARCH_FOR_HIGH_LEVERAGE = 'continue_search_for_high_leverage';
+
     private const WORKER_FLOOR_RATIO = 2.0;
 
     private const BOUNDED_BATCH_MAX_TASKS = 3;
+
+    /** A comfortable worker buffer is never a reason to go passive — the external brain keeps
+     *  searching for high-leverage work, just at a lighter batch ceiling than a starvation batch. */
+    private const COMFORTABLE_BATCH_MAX_TASKS = 5;
 
     /**
      * Thin worker buffer overrides passive wait guidance: when claimable depth
@@ -172,6 +178,11 @@ final class AtlasExternalBrainQueuePressureGovernor
      * choked with malformed packets needing a sweep first, request a small
      * bounded batch instead of waiting — a flood-sized batch would just
      * compound a low-quality backlog, so the request stays capped.
+     *
+     * A comfortable buffer (no starvation, no malformed backlog) is likewise never a reason to
+     * go idle: it returns continue_search_for_high_leverage with a light positive max_tasks
+     * ceiling, not a passive hold. Only malformed_count>0 still returns hold, since malformed
+     * repair must be swept before generation resumes.
      *
      * @param  array<string,mixed>  $health  { malformed_count?: int,
      *   claimable_per_active_worker?: float }
@@ -214,9 +225,9 @@ final class AtlasExternalBrainQueuePressureGovernor
 
         return [
             'schema' => self::SCHEMA,
-            'action' => self::ACTION_HOLD,
-            'reason' => 'worker buffer comfortable; no extra generation requested',
-            'max_tasks' => 0,
+            'action' => self::ACTION_CONTINUE_SEARCH_FOR_HIGH_LEVERAGE,
+            'reason' => 'worker buffer comfortable; keep searching for high-leverage work at a light batch ceiling',
+            'max_tasks' => self::COMFORTABLE_BATCH_MAX_TASKS,
         ];
     }
 
