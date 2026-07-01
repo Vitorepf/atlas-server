@@ -438,4 +438,134 @@ final class AtlasProjectLaneTaskFabricRouterTest extends TestCase
         $this->assertNull($r['selected_lane']);
         $this->assertSame(0.0, $r['confidence']);
     }
+
+    // ── AC2: task_family fit contributes to lane scoring ──────────────────────
+
+    public function test_task_family_fit_breaks_a_tie_between_otherwise_equal_lanes(): void
+    {
+        $lanes = [
+            ['lane_id' => 'lane-a', 'workspace_id' => 'ws-shared', 'domain_area' => 'shared', 'supports_task_families' => ['evolution-loop-hardening']],
+            ['lane_id' => 'lane-b', 'workspace_id' => 'ws-shared', 'domain_area' => 'shared', 'supports_task_families' => ['open-brain-indexing']],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($lanes, [
+            'workspace_id' => 'ws-shared',
+            'domain_area' => 'shared',
+            'task_family' => 'evolution-loop-hardening',
+        ]);
+
+        $this->assertSame('lane-a', $r['selected_lane']);
+        $this->assertSame([], $r['ambiguity_reasons']);
+    }
+
+    // ── AC2/AC3: context_freshness — stale lane excluded from routing entirely ──
+
+    public function test_stale_context_lane_is_excluded_and_named_in_rejected_lanes(): void
+    {
+        $lanes = [
+            ['lane_id' => 'lane-stale', 'workspace_id' => 'ws-a', 'domain_area' => 'evolution-loop', 'context_freshness' => ['conformant' => false, 'blockers' => ['docs_sync_stale']]],
+            ['lane_id' => 'lane-fresh', 'workspace_id' => 'ws-a', 'domain_area' => 'evolution-loop'],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($lanes, [
+            'workspace_id' => 'ws-a',
+            'domain_area' => 'evolution-loop',
+        ]);
+
+        $this->assertSame('lane-fresh', $r['selected_lane']);
+        $rejected = array_column($r['rejected_lanes'], 'reason', 'lane_id');
+        $this->assertSame('stale_context', $rejected['lane-stale']);
+        $this->assertArrayHasKey('lane-stale', array_column($r['rejected_lanes'], 'next_repair_action', 'lane_id'));
+    }
+
+    public function test_all_lanes_stale_refuses_with_no_valid_lane_selected(): void
+    {
+        $lanes = [
+            ['lane_id' => 'lane-a', 'context_freshness' => ['conformant' => false, 'blockers' => ['stale']]],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($lanes, ['workspace_id' => 'ws-a']);
+
+        $this->assertNull($r['selected_lane']);
+        $this->assertNotEmpty($r['ambiguity_reasons']);
+        $this->assertNotNull($r['required_context_probe']);
+        $this->assertSame('stale_context', $r['rejected_lanes'][0]['reason']);
+    }
+
+    // ── AC2/AC3: verification_policy mismatch excludes a lane ─────────────────
+
+    public function test_verification_policy_mismatch_excludes_lane(): void
+    {
+        $lanes = [
+            ['lane_id' => 'lane-wrong-policy', 'workspace_id' => 'ws-a', 'verification_policy' => 'manual_review'],
+            ['lane_id' => 'lane-right-policy', 'workspace_id' => 'ws-a', 'verification_policy' => 'automated_tests'],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($lanes, [
+            'workspace_id' => 'ws-a',
+            'required_verification_policy' => 'automated_tests',
+        ]);
+
+        $this->assertSame('lane-right-policy', $r['selected_lane']);
+        $rejected = array_column($r['rejected_lanes'], 'reason', 'lane_id');
+        $this->assertSame('verification_policy_mismatch', $rejected['lane-wrong-policy']);
+    }
+
+    // ── AC2/AC3: queue_namespace mismatch excludes a lane (cross-project leak guard) ──
+
+    public function test_queue_namespace_mismatch_excludes_lane(): void
+    {
+        $lanes = [
+            ['lane_id' => 'lane-other-ns', 'workspace_id' => 'ws-a', 'queue_namespace' => 'lane.other-project.ffff.main'],
+            ['lane_id' => 'lane-correct-ns', 'workspace_id' => 'ws-a', 'queue_namespace' => 'lane.atlas-server.abcd.main'],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($lanes, [
+            'workspace_id' => 'ws-a',
+            'required_queue_namespace' => 'lane.atlas-server.abcd.main',
+        ]);
+
+        $this->assertSame('lane-correct-ns', $r['selected_lane']);
+        $rejected = array_column($r['rejected_lanes'], 'reason', 'lane_id');
+        $this->assertSame('queue_namespace_mismatch', $rejected['lane-other-ns']);
+    }
+
+    // ── AC4: rejected_lanes + next_repair_action present for every non-selected candidate ──
+
+    public function test_rejected_lanes_include_next_repair_action_for_lower_scoring_lane(): void
+    {
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($this->lanes(), [
+            'workspace_id' => 'ws-a',
+            'domain_area' => 'evolution-loop',
+            'required_evidence' => ['tests_or_gates_result'],
+            'worker_capability' => 'phpunit',
+        ]);
+
+        $this->assertSame('lane-a', $r['selected_lane']);
+        $this->assertNotEmpty($r['rejected_lanes']);
+        foreach ($r['rejected_lanes'] as $rejection) {
+            $this->assertArrayHasKey('lane_id', $rejection);
+            $this->assertArrayHasKey('reason', $rejection);
+            $this->assertArrayHasKey('next_repair_action', $rejection);
+            $this->assertNotEmpty($rejection['next_repair_action']);
+        }
+    }
+
+    public function test_tied_lanes_all_appear_in_rejected_lanes_with_tie_reason(): void
+    {
+        $tiedLanes = [
+            ['lane_id' => 'lane-a', 'workspace_id' => 'ws-shared', 'domain_area' => 'shared-domain'],
+            ['lane_id' => 'lane-b', 'workspace_id' => 'ws-shared', 'domain_area' => 'shared-domain'],
+        ];
+
+        $r = (new AtlasProjectLaneTaskFabricRouter)->selectLane($tiedLanes, [
+            'workspace_id' => 'ws-shared',
+            'domain_area' => 'shared-domain',
+        ]);
+
+        $this->assertNull($r['selected_lane']);
+        $reasons = array_column($r['rejected_lanes'], 'reason', 'lane_id');
+        $this->assertStringStartsWith('tied_at_score_', $reasons['lane-a']);
+        $this->assertStringStartsWith('tied_at_score_', $reasons['lane-b']);
+    }
 }
