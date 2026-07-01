@@ -132,4 +132,73 @@ final class AtlasExternalBrainEnqueueValueThrottleTest extends TestCase
         $this->assertFalse($result['allow_enqueue']);
         $this->assertNotEmpty($result['blockers']);
     }
+
+    // ── new AC: salvage only when trimmed subset still clears quality floors ──
+
+    public function test_salvageable_batch_with_healthy_floors_passes_salvage_quality_floor(): void
+    {
+        $result = $this->throttle->throttle($this->input([
+            'recommended_batch_size' => 11,
+            'candidate_task_ids' => ['t1', 't2', 't3', 't4'],
+        ]));
+
+        $this->assertNotEmpty($result['trimmed_task_ids']);
+        $this->assertTrue($result['salvage_quality_floor_passed']);
+    }
+
+    public function test_low_value_blocks_enqueue_with_no_salvage_subset(): void
+    {
+        $result = $this->throttle->throttle($this->input(['batch_value_score' => 0.1]));
+
+        $this->assertFalse($result['allow_enqueue']);
+        $this->assertSame([], $result['trimmed_task_ids']);
+        $this->assertFalse($result['salvage_quality_floor_passed']);
+    }
+
+    public function test_theme_saturated_blocks_enqueue_with_no_salvage_subset(): void
+    {
+        $result = $this->throttle->throttle($this->input(['novelty_score' => 0.1]));
+
+        $this->assertFalse($result['allow_enqueue']);
+        $this->assertSame([], $result['trimmed_task_ids']);
+        $this->assertFalse($result['salvage_quality_floor_passed']);
+    }
+
+    public function test_missing_roadmap_coverage_blocks_enqueue_with_no_salvage_subset(): void
+    {
+        $result = $this->throttle->throttle($this->input(['roadmap_coverage_score' => 0.1]));
+
+        $this->assertFalse($result['allow_enqueue']);
+        $this->assertSame([], $result['trimmed_task_ids']);
+        $this->assertFalse($result['salvage_quality_floor_passed']);
+    }
+
+    public function test_weak_worker_throughput_blocks_enqueue_with_no_salvage_subset(): void
+    {
+        $result = $this->throttle->throttle($this->input(['worker_drain_confidence' => 0.1]));
+
+        $this->assertFalse($result['allow_enqueue']);
+        $this->assertSame([], $result['trimmed_task_ids']);
+        $this->assertFalse($result['salvage_quality_floor_passed']);
+    }
+
+    // ── new AC: output shape + purity ────────────────────────────────────────
+
+    public function test_output_includes_salvage_quality_floor_passed_and_pivot_recommendation(): void
+    {
+        $healthy = $this->throttle->throttle($this->input());
+
+        $this->assertArrayHasKey('salvage_quality_floor_passed', $healthy);
+        $this->assertArrayHasKey('pivot_recommendation', $healthy);
+        $this->assertFalse($healthy['salvage_quality_floor_passed']);
+        $this->assertNull($healthy['pivot_recommendation']);
+    }
+
+    public function test_throttle_never_mutates_the_queue(): void
+    {
+        $result = $this->throttle->throttle($this->input());
+
+        self::assertArrayNotHasKey('queue_mutated', $result);
+        self::assertIsArray($result);
+    }
 }

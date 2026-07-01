@@ -107,6 +107,15 @@ final class AtlasExternalBrainEnqueueValueThrottle
             $trimmedTaskIds = array_slice($candidateTaskIds, 0, $keep);
         }
 
+        // salvage_quality_floor_passed: the trimmed subset is only worth enqueuing when value,
+        // novelty, roadmap coverage, and worker confidence all clear their floors — batch_too_large
+        // and duplicate_prone are volume/shape defects, never a substitute for real quality.
+        $salvageQualityFloorPassed = $trimmedTaskIds !== []
+            && $batchValueScore >= self::LOW_VALUE_THRESHOLD
+            && $noveltyScore >= self::SATURATION_NOVELTY_THRESHOLD
+            && $roadmapCoverageScore >= self::ROADMAP_COVERAGE_THRESHOLD
+            && $workerDrainConfidence >= self::WORKER_DRAIN_CONFIDENCE_THRESHOLD;
+
         $pivotRecommendation = match (true) {
             $allowEnqueue => null,
             in_array('low_value', $blockers, true) => 'wait_for_higher_value_candidates',
@@ -124,6 +133,7 @@ final class AtlasExternalBrainEnqueueValueThrottle
             'blockers' => $blockers,
             'blocker_count' => count($blockers),
             'trimmed_task_ids' => $trimmedTaskIds,
+            'salvage_quality_floor_passed' => $salvageQualityFloorPassed,
             'pivot_recommendation' => $pivotRecommendation,
         ];
     }
