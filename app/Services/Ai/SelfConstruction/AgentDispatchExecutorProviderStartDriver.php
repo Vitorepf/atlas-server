@@ -24,6 +24,11 @@ class AgentDispatchExecutorProviderStartDriver
 
     private const REQUIRED_LAUNCH_CONTRACT_FIELDS = ['executor_contract_hash', 'command', 'max_runtime_minutes', 'max_cost_usd'];
 
+    /** Hard ceilings a launch contract may never exceed, regardless of who requested it. */
+    private const MAX_RUNTIME_MINUTES_CEILING = 240;
+
+    private const MAX_COST_USD_CEILING = 25.0;
+
     /**
      * @var list<string>
      */
@@ -85,17 +90,35 @@ class AgentDispatchExecutorProviderStartDriver
             $missingProof[] = 'launch_contract_missing_'.$field;
         }
 
+        // Ceilings are only evaluated once the contract fields are present -- an incomplete
+        // contract already refuses the start via the missing-field reasons above.
+        if ($missingContractFields === []) {
+            $runtimeMinutes = (int) ($launchContract['max_runtime_minutes'] ?? 0);
+            $costUsd = (float) ($launchContract['max_cost_usd'] ?? 0.0);
+            if ($runtimeMinutes > self::MAX_RUNTIME_MINUTES_CEILING) {
+                $missingProof[] = 'launch_contract_max_runtime_minutes_exceeds_ceiling';
+            }
+            if ($costUsd > self::MAX_COST_USD_CEILING) {
+                $missingProof[] = 'launch_contract_max_cost_usd_exceeds_ceiling';
+            }
+        }
+
         $startAllowed = $missingProof === [];
+        $executorContractHash = (string) ($launchContract['executor_contract_hash'] ?? '');
 
         return [
             'start_allowed' => $startAllowed,
             'missing_proof' => $missingProof,
             'launch_contract_summary' => $startAllowed ? [
-                'executor_contract_hash' => (string) ($launchContract['executor_contract_hash'] ?? ''),
+                'executor_contract_hash' => $executorContractHash,
                 'command' => (string) ($launchContract['command'] ?? ''),
                 'max_runtime_minutes' => (int) ($launchContract['max_runtime_minutes'] ?? 0),
                 'max_cost_usd' => (float) ($launchContract['max_cost_usd'] ?? 0.0),
             ] : null,
+            'executor_contract_hash' => $startAllowed ? $executorContractHash : null,
+            // Provider-safe receipt: proves the preflight ran and approved this exact contract
+            // hash, without exposing any command string, cwd, or provider secret.
+            'launch_receipt' => $startAllowed ? hash('sha256', $executorContractHash.'|'.($proof['task_eligibility_status'] ?? '')) : null,
             'adapter_ready' => $adapterReady,
             'adapter_proof_stale' => $adapterProofStale,
             'task_eligibility_status' => $taskEligibilityStatus,
@@ -110,6 +133,16 @@ class AgentDispatchExecutorProviderStartDriver
     public function startProviderOnce(array $input): array
     {
         $normalized = $this->normalize($input);
+
+        // Preflight gate: when the caller supplies proof, a stale/missing proof or a launch
+        // contract that violates a ceiling refuses the start BEFORE any DB record is created --
+        // callers that do not supply proof keep the prior (proof-less) behavior unchanged.
+        if (array_key_exists('proof', $input) && is_array($input['proof'])) {
+            $preflight = $this->checkStartPreconditions($input['proof']);
+            if (! $preflight['start_allowed']) {
+                throw new InvalidArgumentException('preflight_blocked:'.($preflight['missing_proof'][0] ?? 'unknown'));
+            }
+        }
 
         foreach (self::REQUIRED_TABLES as $table) {
             if (! Schema::hasTable($table)) {
@@ -430,6 +463,8 @@ class AgentDispatchExecutorProviderStartDriver
             'adapter_invocation_allowed' => false,
             'dispatch_allowed' => false,
             'ledger_event_id' => $ledgerEventId,
+            'executor_contract_hash' => (string) data_get($run->metadata, 'executor_contract_hash'),
+            'launch_receipt' => hash('sha256', (string) data_get($run->metadata, 'executor_contract_hash').'|'.$run->run_key),
         ];
     }
 
