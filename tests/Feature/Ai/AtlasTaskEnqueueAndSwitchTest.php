@@ -98,6 +98,115 @@ final class AtlasTaskEnqueueAndSwitchTest extends TestCase
         @unlink($servingEnv);
     }
 
+    // ── AgentControlPlaneTaskPacketBuilder hard value contract (opt-in) ──────────
+
+    private function hardValuePayload(array $overrides = []): array
+    {
+        return array_merge([
+            'objective' => 'wire the FooBar into the registry',
+            'allowed_files' => ['app/Services/Foo/Bar.php', 'tests/Unit/Services/Foo/BarTest.php'],
+            'acceptance_criteria' => ['php artisan test --filter=BarTest passes'],
+            'required_evidence' => ['tests_or_gates_result', 'implementation_notes'],
+            'structural_value_rationale' => 'closes a real capability gap',
+            'require_hard_value_contract' => true,
+        ], $overrides);
+    }
+
+    public function test_hard_value_contract_blocks_packet_missing_implementation_file(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValuePayload([
+            'allowed_files' => ['tests/Unit/Services/Foo/BarTest.php'],
+        ]));
+
+        $this->assertSame('blocked', $packet['status']);
+        $this->assertContains('missing_implementation_file', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_packet_missing_test_file_and_runnable_proof(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValuePayload([
+            'allowed_files' => ['app/Services/Foo/Bar.php'],
+            'acceptance_criteria' => ['the FooBar resolves from the container'],
+        ]));
+
+        $this->assertSame('blocked', $packet['status']);
+        $this->assertContains('missing_runnable_test_file', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_packet_missing_required_evidence(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValuePayload([
+            'required_evidence' => [],
+        ]));
+
+        $this->assertSame('blocked', $packet['status']);
+        $this->assertContains('missing_required_evidence', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_blocks_packet_missing_structural_value_rationale(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValuePayload([
+            'structural_value_rationale' => '',
+        ]));
+
+        $this->assertSame('blocked', $packet['status']);
+        $this->assertContains('missing_structural_value_rationale', $packet['blocking_reasons']);
+    }
+
+    public function test_hard_value_contract_admits_a_fully_specified_packet(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValuePayload());
+
+        $this->assertSame('planned', $packet['status']);
+        $this->assertSame([], $packet['blocking_reasons']);
+    }
+
+    public function test_default_packet_keeps_atlas_native_simplicity_contract_without_operator_dependency(): void
+    {
+        $packet = (new AgentControlPlaneTaskPacketBuilder)->build($this->hardValuePayload());
+
+        $this->assertSame('atlas_native', $packet['simplicity_contract']['final_runtime_owner']);
+        $this->assertFalse($packet['simplicity_contract']['operator_dependency_allowed']);
+        $this->assertFalse($packet['simplicity_contract']['human_or_external_provider_dependency_allowed']);
+        $this->assertFalse($packet['simplicity_contract']['steady_state_requires_operator']);
+    }
+
+    public function test_task_packet_hash_ignores_generated_at_and_task_packet_id(): void
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $a = $builder->build($this->hardValuePayload(['task_packet_id' => 'id-a']));
+        $b = $builder->build($this->hardValuePayload(['task_packet_id' => 'id-b']));
+
+        $this->assertSame($a['task_packet_hash'], $b['task_packet_hash']);
+    }
+
+    public function test_task_packet_hash_changes_when_objective_changes(): void
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $a = $builder->build($this->hardValuePayload(['objective' => 'objective one']));
+        $b = $builder->build($this->hardValuePayload(['objective' => 'objective two']));
+
+        $this->assertNotSame($a['task_packet_hash'], $b['task_packet_hash']);
+    }
+
+    public function test_task_packet_hash_changes_when_allowed_files_change(): void
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $a = $builder->build($this->hardValuePayload(['allowed_files' => ['app/A.php', 'tests/Unit/ATest.php']]));
+        $b = $builder->build($this->hardValuePayload(['allowed_files' => ['app/B.php', 'tests/Unit/BTest.php']]));
+
+        $this->assertNotSame($a['task_packet_hash'], $b['task_packet_hash']);
+    }
+
+    public function test_task_packet_hash_changes_when_acceptance_criteria_change(): void
+    {
+        $builder = new AgentControlPlaneTaskPacketBuilder;
+        $a = $builder->build($this->hardValuePayload(['acceptance_criteria' => ['php artisan test --filter=A']]));
+        $b = $builder->build($this->hardValuePayload(['acceptance_criteria' => ['php artisan test --filter=B']]));
+
+        $this->assertNotSame($a['task_packet_hash'], $b['task_packet_hash']);
+    }
+
     private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
     {
         return new AgentControlPlaneTaskQueueOrchestrator(
