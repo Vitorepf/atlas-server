@@ -51,6 +51,7 @@ final class AtlasExternalBrainCritiqueQuorumReducer
         $unresolvedConflicts = [];
         $repairActions = [];
         $acceptedTradeoffs = [];
+        $unevidencedOpinions = [];
         $seenRepairs = [];
 
         foreach ($byType as $type => $findings) {
@@ -99,9 +100,26 @@ final class AtlasExternalBrainCritiqueQuorumReducer
 
             if ($severity === 'high') {
                 $maxEvidenceStrength = 0.0;
+                $hasAnyEvidence = false;
                 foreach ($findings as $f) {
                     $maxEvidenceStrength = max($maxEvidenceStrength, min(1.0, max(0.0, (float) ($f['evidence_strength'] ?? 0.0))));
+                    if (trim((string) ($f['evidence'] ?? '')) !== '' || (float) ($f['evidence_strength'] ?? 0.0) > 0.0) {
+                        $hasAnyEvidence = true;
+                    }
                 }
+
+                // AC2: a 'high' severity claim with NO evidence at all is an unevidenced opinion —
+                // it must never sit in blocking_findings dressed up as a real evidence-backed blocker.
+                if (! $hasAnyEvidence) {
+                    $unevidencedOpinions[] = [
+                        'type' => $type,
+                        'severity' => $severity,
+                        'agreement_count' => count($findings),
+                    ];
+
+                    continue;
+                }
+
                 $blockingFindings[] = [
                     'type'              => $type,
                     'severity'          => $severity,
@@ -109,6 +127,7 @@ final class AtlasExternalBrainCritiqueQuorumReducer
                     'evidence_strength' => $maxEvidenceStrength,
                     'agreement_count'   => count($findings),
                     'blocker_class'     => (string) ($best['blocker_class'] ?? ''),
+                    'evidence_backed'   => true,
                 ];
                 foreach ($findings as $f) {
                     $repair = trim((string) ($f['repair_action'] ?? ''));
@@ -140,6 +159,7 @@ final class AtlasExternalBrainCritiqueQuorumReducer
             'unresolved_conflicts' => $unresolvedConflicts,
             'repair_actions'      => $repairActions,
             'accepted_tradeoffs'  => $acceptedTradeoffs,
+            'unevidenced_opinions' => $unevidencedOpinions,
         ];
     }
 
@@ -153,6 +173,16 @@ final class AtlasExternalBrainCritiqueQuorumReducer
 
             if ($strongEvidence && ($strongAgreement || $safetyClass)) {
                 return ['reject', 'high_severity_blocker_with_sufficient_evidence'];
+            }
+        }
+
+        // AC1: a MINORITY high-severity blocker (agreement_count below the strong-agreement floor,
+        // non-safety blocker_class) still carries strong evidence — it must never be silently
+        // overruled by shallow majority approval. Escalate instead of quietly downgrading to repair.
+        foreach ($blockingFindings as $bf) {
+            $strongEvidence = ($bf['evidence_strength'] ?? 0.0) >= self::STRONG_EVIDENCE_THRESHOLD;
+            if ($strongEvidence) {
+                return ['escalate', 'minority_high_severity_blocker_with_strong_evidence_cannot_be_overruled'];
             }
         }
 

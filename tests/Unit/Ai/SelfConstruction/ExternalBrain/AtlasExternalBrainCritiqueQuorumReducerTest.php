@@ -267,6 +267,80 @@ final class AtlasExternalBrainCritiqueQuorumReducerTest extends TestCase
         $this->assertSame(AtlasExternalBrainCritiqueQuorumReducer::SCHEMA, $r['schema_version']);
     }
 
+    // ── AC1: minority high-severity blocker with evidence cannot be overruled ──
+
+    public function test_majority_approval_does_not_overrule_minority_high_severity_blocker_with_strong_evidence(): void
+    {
+        // 1 critic flags a strong-evidence high-severity blocker; 5 other critics approve
+        // unrelated low-severity items — majority "approval" must not silently downgrade this.
+        $r = $this->reduce(
+            [$this->finding('security_gap', 'high', 'unauthenticated endpoint added', '', false, false, 0.90, 'neutral')],
+            [$this->finding('style', 'low', 'ok')],
+            [$this->finding('naming', 'low', 'ok')],
+            [$this->finding('docs', 'low', 'ok')],
+            [$this->finding('formatting', 'low', 'ok')],
+            [$this->finding('comments', 'low', 'ok')],
+        );
+
+        $this->assertNotSame('approve', $r['decision']);
+        $this->assertContains($r['decision'], ['reject', 'escalate']);
+        $types = array_column($r['blocking_findings'], 'type');
+        $this->assertContains('security_gap', $types);
+    }
+
+    public function test_minority_strong_evidence_blocker_escalates_when_not_safety_class(): void
+    {
+        $r = $this->reduce([
+            $this->finding('proxy_risk', 'high', 'confirmed proxy pattern', '', false, false, 0.90, 'neutral'),
+        ]);
+
+        $this->assertSame('escalate', $r['decision']);
+        $this->assertSame('minority_high_severity_blocker_with_strong_evidence_cannot_be_overruled', $r['decision_reason']);
+    }
+
+    // ── AC2: unevidenced opinion separated from evidence-backed findings ───────
+
+    public function test_high_severity_finding_with_no_evidence_at_all_is_unevidenced_opinion_not_blocking(): void
+    {
+        $r = $this->reduce([
+            $this->finding('vibes', 'high'),
+        ]);
+
+        $this->assertNotContains('vibes', array_column($r['blocking_findings'], 'type'));
+        $this->assertContains('vibes', array_column($r['unevidenced_opinions'], 'type'));
+    }
+
+    public function test_blocking_findings_are_marked_evidence_backed(): void
+    {
+        $r = $this->reduce([
+            $this->finding('proxy_risk', 'high', 'objective contains cleanup keyword'),
+        ]);
+
+        $bf = array_values(array_filter($r['blocking_findings'], static fn ($f) => $f['type'] === 'proxy_risk'))[0];
+        $this->assertTrue($bf['evidence_backed']);
+    }
+
+    public function test_decision_reason_present_for_conflicting_evidence_escalation(): void
+    {
+        $r = $this->reduce(
+            [$this->finding('proxy_risk', 'high', 'strong signal', '', false, false, 0.90)],
+            [$this->finding('proxy_risk', 'high', 'weak signal', '', false, false, 0.20)],
+        );
+
+        $this->assertSame('escalate', $r['decision']);
+        $this->assertNotEmpty($r['decision_reason']);
+    }
+
+    public function test_clean_approval_has_no_unevidenced_opinions(): void
+    {
+        $r = $this->reduce([
+            $this->finding('style', 'low', 'minor nit'),
+        ]);
+
+        $this->assertSame('approve', $r['decision']);
+        $this->assertSame([], $r['unevidenced_opinions']);
+    }
+
     // ── helper ────────────────────────────────────────────────────────────────
 
     private function assertStringContains(string $needle, string $haystack): void
