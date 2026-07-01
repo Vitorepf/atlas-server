@@ -34,17 +34,29 @@ final class AtlasMaestroTierMismatchLedgerTest extends TestCase
         parent::tearDown();
     }
 
-    private function refusal(string $clientId = 'sonnet-1'): array
+    private function refusal(string $clientId = 'sonnet-1', string $tier = 'hardest'): array
     {
         return [
             'schema' => 'atlas.maestro.tier_routing.v1',
             'verdict' => AtlasMaestroTieredRoutingPolicy::VERDICT_REFUSE,
-            'packet_tier' => 'hardest',
+            'packet_tier' => $tier,
             'packet_fact_basis' => ['allowed_files includes cross-cutting marker: Constitution'],
             'worker_declared_max_tier' => 'easy',
             'client_id' => $clientId,
             'reason' => 'packet tier "hardest" exceeds worker declared max tier "easy"',
         ];
+    }
+
+    public function test_recommend_emits_sorted_unique_avoid_tiers_with_mismatch_count(): void
+    {
+        $this->ledger->record($this->refusal('learner', 'hardest'), ['packet_id' => 'p1']);
+        $this->ledger->record($this->refusal('learner', 'medium'), ['packet_id' => 'p2']);
+        $this->ledger->record($this->refusal('learner', 'hardest'), ['packet_id' => 'p3']);
+
+        $rec = $this->ledger->recommend('learner');
+
+        $this->assertSame(['hardest', 'medium'], $rec['avoid_tiers']);
+        $this->assertSame(3, $rec['mismatch_count']);
     }
 
     public function test_refusal_verdict_appends_one_row_with_canonical_schema_and_both_tiers(): void
