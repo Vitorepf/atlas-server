@@ -144,7 +144,28 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             $packetsWithRepeatedTemplate / $total,
             $packetsWithRepeatedMechanismHash / $total,
         ), 3);
-        $blocking = $score >= self::BLOCKING_THRESHOLD;
+
+        // CORROBORATION FLOOR: a single repeated signal class must never conote farm on its own.
+        // The canonical runnable proof phrase ("php artisan test --filter=... passes green") is
+        // REQUIRED by AtlasTaskPacketQualityInspector, so in pairwise admission (total=2) every
+        // healthy packet pair shares it and any single-signal ratio saturates to 1.0 — which
+        // poisoned live enqueue (every legitimate packet blocked as template_farm_similarity).
+        // A real farm repeats structure across independent signal classes (stem + fragments +
+        // file shape + template signature); boilerplate proof wording alone is compliance, not
+        // farming. Blocking therefore requires the score AND >= 2 repeated signal families.
+        // A proof-path fragment normalizes to the same string in BOTH the generic fragment
+        // family and the proof-path family — that is one underlying signal, not two.
+        $fragmentsBeyondProofPaths = array_values(array_diff($repeatedFragments, $repeatedProofPaths));
+        $repeatedSignalFamilies = count(array_filter([
+            $repeatedStems !== [],
+            $fragmentsBeyondProofPaths !== [],
+            $repeatedShapes !== [],
+            $repeatedProofPaths !== [],
+            $repeatedVerbs !== [],
+            $repeatedTemplates !== [],
+            $repeatedMechanismHashes !== [],
+        ]));
+        $blocking = $score >= self::BLOCKING_THRESHOLD && $repeatedSignalFamilies >= 2;
 
         return [
             'schema_version' => self::SCHEMA,
@@ -156,6 +177,7 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             'repeated_acceptance_verbs' => $repeatedVerbs,
             'repeated_noun_substitution_templates' => $repeatedTemplates,
             'repeated_mechanism_hashes' => $repeatedMechanismHashes,
+            'corroborating_signal_families' => $repeatedSignalFamilies,
             'replacement_hint' => $blocking ? $this->replacementHint($repeatedMechanismHashes) : null,
             'blocking' => $blocking,
             'packet_count' => $total,

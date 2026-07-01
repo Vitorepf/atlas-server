@@ -391,4 +391,47 @@ final class AtlasTaskFabricTemplateFarmSimilarityGateTest extends TestCase
 
         $this->assertFalse($r['blocking']);
     }
+
+    // ── corroboration floor: canonical proof phrase alone is compliance, not farming ──
+
+    public function test_pairwise_packets_sharing_only_canonical_proof_phrase_not_blocked(): void
+    {
+        // Pairwise admission shape (candidate vs one queued packet): distinct objectives,
+        // distinct allowed-files shapes, distinct acceptance semantics — sharing ONLY the
+        // canonical runnable proof phrase the quality inspector REQUIRES from every packet.
+        $r = $this->svc()->assess([
+            $this->packet(
+                'Extend AtlasDeltaResolver so lease reaping honors canonical path prefixes before pruning.',
+                ['php artisan test --filter=AtlasDeltaResolverTest passes green', 'a stale lease under a canonical prefix is pruned exactly once'],
+                ['app/Services/Ai/SelfConstruction/AtlasDeltaResolver.php', 'tests/Unit/Ai/SelfConstruction/AtlasDeltaResolverTest.php'],
+            ),
+            $this->packet(
+                'Teach AtlasEpsilonForecast to weigh giveback pressure when projecting queue drain windows.',
+                ['php artisan test --filter=AtlasEpsilonForecastTest passes green', 'repeated giveback facts raise the projected drain window monotonically'],
+                ['app/Services/Ai/SelfConstruction/Maestro/AtlasEpsilonForecast.php'],
+            ),
+        ]);
+
+        $this->assertSame(1, $r['corroborating_signal_families']);
+        $this->assertFalse($r['blocking']);
+    }
+
+    public function test_pairwise_true_clone_still_blocked_with_corroboration(): void
+    {
+        $r = $this->svc()->assess([
+            $this->packet(
+                'Implement AtlasZetaGate as a proof-backed invariant gate that changes admission when signals repeat.',
+                ['php artisan test --filter=AtlasZetaGateTest passes green'],
+                ['app/Services/Ai/SelfConstruction/TaskFabric/AtlasZetaGate.php'],
+            ),
+            $this->packet(
+                'Implement AtlasEtaGate as a proof-backed invariant gate that changes admission when signals repeat.',
+                ['php artisan test --filter=AtlasEtaGateTest passes green'],
+                ['app/Services/Ai/SelfConstruction/TaskFabric/AtlasEtaGate.php'],
+            ),
+        ]);
+
+        $this->assertGreaterThanOrEqual(2, $r['corroborating_signal_families']);
+        $this->assertTrue($r['blocking']);
+    }
 }
