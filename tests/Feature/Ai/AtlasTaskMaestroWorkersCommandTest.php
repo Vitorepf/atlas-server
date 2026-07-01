@@ -208,4 +208,53 @@ final class AtlasTaskMaestroWorkersCommandTest extends TestCase
         }
         $this->assertSame(0, $this->writeCount, 'CLI must trigger zero queue mutations across list/probe/checkpoint');
     }
+
+    public function test_probe_flags_overload_client_with_more_than_one_in_flight_task(): void
+    {
+        // beta has 2 open leases (in_flight_count=2) from setUp's fixture.
+        [$exit, $out] = $this->runCmd(['action' => 'probe', '--json' => true]);
+        $this->assertSame(AtlasTaskMaestroWorkersCommand::EXIT_OK, $exit, $out);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertArrayHasKey('overload_clients', $decoded);
+        $overloadIds = array_column($decoded['overload_clients'], 'client_id');
+        $this->assertContains('beta', $overloadIds);
+        $this->assertNotContains('alpha', $overloadIds);
+        $this->assertArrayHasKey('fair_share_pressure', $decoded);
+        $this->assertArrayHasKey('overload_recommendation', $decoded);
+    }
+
+    public function test_probe_recommends_wait_when_pressure_is_healthy(): void
+    {
+        // 1 of 2 workers overloaded => fair_share_pressure=0.5, at the threshold => start_new_worker.
+        // Add a third healthy worker to push pressure below the threshold.
+        $leases = [
+            ['client_id' => 'alpha', 'opened_at' => 200, 'released_at' => null],
+            ['client_id' => 'beta',  'opened_at' => 170, 'released_at' => null],
+            ['client_id' => 'beta',  'opened_at' => 180, 'released_at' => null],
+            ['client_id' => 'gamma', 'opened_at' => 190, 'released_at' => null],
+        ];
+        $probe = new AtlasMaestroWorkerFleetProbe(static function () use ($leases): iterable {
+            foreach ($leases as $row) {
+                yield $row;
+            }
+        });
+        $this->app->instance(AtlasMaestroWorkerFleetProbe::class, $probe);
+        $this->app->instance(AtlasMaestroWorkerFairnessAuditor::class, new AtlasMaestroWorkerFairnessAuditor($probe));
+
+        [$exit, $out] = $this->runCmd(['action' => 'probe', '--json' => true]);
+        $this->assertSame(AtlasTaskMaestroWorkersCommand::EXIT_OK, $exit, $out);
+
+        $decoded = json_decode(trim($out), true);
+        $this->assertSame(3, $decoded['workers']);
+        $this->assertLessThan(0.5, $decoded['fair_share_pressure']);
+        $this->assertSame('wait', $decoded['overload_recommendation']);
+    }
+
+    public function test_probe_never_touches_leases_or_rebalances(): void
+    {
+        [$exit] = $this->runCmd(['action' => 'probe', '--json' => true]);
+        $this->assertSame(AtlasTaskMaestroWorkersCommand::EXIT_OK, $exit);
+        $this->assertSame(0, $this->writeCount, 'overload advisor must never mutate leases');
+    }
 }

@@ -38,11 +38,14 @@ final class AtlasTaskMaestroWorkersCommand extends Command
 
         return match ($action) {
             'list' => $this->list($probe),
-            'probe' => $this->probeAction($auditor),
+            'probe' => $this->probeAction($auditor, $probe),
             'checkpoint' => $this->checkpoint($ledger, $probe),
             default => $this->usage('unknown action: '.$action),
         };
     }
+
+    /** clients whose fair_share_pressure ratio at/above this are advised to start a new worker. */
+    private const OVERLOAD_PRESSURE_THRESHOLD = 0.5;
 
     private function list(AtlasMaestroWorkerFleetProbe $probe): int
     {
@@ -71,9 +74,10 @@ final class AtlasTaskMaestroWorkersCommand extends Command
         return self::EXIT_OK;
     }
 
-    private function probeAction(AtlasMaestroWorkerFairnessAuditor $auditor): int
+    private function probeAction(AtlasMaestroWorkerFairnessAuditor $auditor, AtlasMaestroWorkerFleetProbe $probe): int
     {
         $report = $auditor->audit();
+        $report = array_merge($report, $this->overloadAdvisor($probe->probe(), (int) ($report['workers'] ?? 0)));
         if ($this->option('json')) {
             $this->line((string) json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
 
@@ -132,6 +136,48 @@ final class AtlasTaskMaestroWorkersCommand extends Command
         }
 
         return self::EXIT_OK;
+    }
+
+    /**
+     * Read-only overload advisor: flags clients with more than one in-flight task, reports
+     * fair_share_pressure (share of active workers that are overloaded), and recommends
+     * no_action|wait|start_new_worker. Never enqueues, releases, checkpoints, or rebalances —
+     * it only reads the already-probed fleet rows and returns a recommendation string.
+     *
+     * @param  list<array<string,mixed>>  $rows
+     * @return array<string,mixed>
+     */
+    private function overloadAdvisor(array $rows, int $workers): array
+    {
+        $overloadClients = [];
+        foreach ($rows as $row) {
+            $inFlight = (int) ($row['in_flight_count'] ?? 0);
+            if ($inFlight > 1) {
+                $overloadClients[] = [
+                    'client_id' => (string) ($row['client_id'] ?? ''),
+                    'in_flight_count' => $inFlight,
+                ];
+            }
+        }
+
+        $fairSharePressure = $workers > 0 ? round(count($overloadClients) / $workers, 4) : 0.0;
+
+        $recommendation = match (true) {
+            $workers === 0 => 'no_action',
+            $fairSharePressure >= self::OVERLOAD_PRESSURE_THRESHOLD => 'start_new_worker',
+            default => 'wait',
+        };
+
+        $advisor = [
+            'fair_share_pressure' => $fairSharePressure,
+            'overload_recommendation' => $recommendation,
+        ];
+
+        if ($overloadClients !== []) {
+            $advisor['overload_clients'] = $overloadClients;
+        }
+
+        return $advisor;
     }
 
     private function usage(string $message): int
