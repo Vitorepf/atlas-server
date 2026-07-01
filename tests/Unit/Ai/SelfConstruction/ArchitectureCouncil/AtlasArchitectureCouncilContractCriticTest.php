@@ -27,6 +27,9 @@ final class AtlasArchitectureCouncilContractCriticTest extends TestCase
             'invariants' => ['no scoring', 'no scheduling'],
             'forbidden_side_effects' => ['execute commands', 'invoke shell', 'merge to main', 'call external provider'],
             'evidence_refs' => ['docs/x.md'],
+            'runtime_proof_hooks' => ['phpunit tests/Feature/TaskFabricCompileTest.php'],
+            'outcome_learning_hooks' => ['feeds AtlasVerificationCourtVerdictLedger'],
+            'worker_feed_effects' => ['emits packet_spec_drafts into task queue'],
             'verifies' => ['organ' => 'Verification Court'],
         ];
     }
@@ -142,6 +145,40 @@ final class AtlasArchitectureCouncilContractCriticTest extends TestCase
         $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
         $this->assertFalse($r['accepted']);
         $this->assertContains('non_atlas_steady_state_runtime', $r['findings']);
+    }
+
+    public function test_missing_runtime_proof_hook_is_flagged_as_proxy_contract(): void
+    {
+        $c = $this->goodContract();
+        $c['runtime_proof_hooks'] = [];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('proxy_contract', $r['findings']);
+    }
+
+    public function test_missing_outcome_learning_hook_is_flagged_as_proxy_contract(): void
+    {
+        $c = $this->goodContract();
+        $c['outcome_learning_hooks'] = [];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('proxy_contract', $r['findings']);
+    }
+
+    public function test_missing_worker_feed_effect_is_flagged_as_proxy_contract(): void
+    {
+        $c = $this->goodContract();
+        $c['worker_feed_effects'] = [];
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($c);
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('proxy_contract', $r['findings']);
+    }
+
+    public function test_contract_binding_proof_and_learning_surfaces_is_accepted(): void
+    {
+        $r = (new AtlasArchitectureCouncilContractCritic)->critique($this->goodContract());
+        $this->assertTrue($r['accepted']);
+        $this->assertNotContains('proxy_contract', $r['findings']);
     }
 
     public function test_compact_simple_contract_with_evidence_invariants_non_authority_passes(): void

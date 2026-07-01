@@ -65,6 +65,9 @@ final class AtlasArchitectureCouncilContractCritic
      *     invariants?:list<string>,
      *     forbidden_side_effects?:list<string>,
      *     evidence_refs?:list<string>,
+     *     runtime_proof_hooks?:list<string>,
+     *     outcome_learning_hooks?:list<string>,
+     *     worker_feed_effects?:list<string>,
      *     verifies?:array{organ?:string}|list<array{organ?:string}>
      * }  $contract
      * @return array{schema:string, accepted:bool, findings:list<string>}
@@ -78,9 +81,19 @@ final class AtlasArchitectureCouncilContractCritic
         $invariants = is_array($contract['invariants'] ?? null) ? array_values(array_map('strval', $contract['invariants'])) : [];
         $evidence = is_array($contract['evidence_refs'] ?? null) ? array_values(array_map('strval', $contract['evidence_refs'])) : [];
         $forbiddenSE = is_array($contract['forbidden_side_effects'] ?? null) ? array_values(array_map('strval', $contract['forbidden_side_effects'])) : [];
+        $runtimeProofHooks = is_array($contract['runtime_proof_hooks'] ?? null) ? array_values(array_filter(array_map('strval', $contract['runtime_proof_hooks']))) : [];
+        $outcomeLearningHooks = is_array($contract['outcome_learning_hooks'] ?? null) ? array_values(array_filter(array_map('strval', $contract['outcome_learning_hooks']))) : [];
+        $workerFeedEffects = is_array($contract['worker_feed_effects'] ?? null) ? array_values(array_filter(array_map('strval', $contract['worker_feed_effects']))) : [];
 
         if ($nonAuth === []) {
             $findings[] = 'missing_non_authority';
+        }
+
+        // A contract can look complete (non_authority, invariants, evidence_refs all present) while
+        // never actually forcing runtime proof, outcome learning, or worker-feed effects — a proxy
+        // that certifies nothing real. Any one of the three missing is enough to flag it.
+        if ($runtimeProofHooks === [] || $outcomeLearningHooks === [] || $workerFeedEffects === []) {
+            $findings[] = 'proxy_contract';
         }
 
         // Mixed-powers check: 'verifies' may be a single organ or a list of organs.
