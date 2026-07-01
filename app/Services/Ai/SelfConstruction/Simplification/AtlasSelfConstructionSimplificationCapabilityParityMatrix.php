@@ -30,9 +30,10 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
     /** @var list<string> */
     private const DIMENSIONS = [
         'behavior_claims',
+        'consumer_contracts',
+        'failure_modes',
         'input_contract',
         'output_fields',
-        'failure_modes',
         'proof_refs',
     ];
 
@@ -40,8 +41,10 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
      * @param  array{
      *   old_organ?: array<string, list<string>>,
      *   new_organ?: array<string, list<string>>,
+     *   old_helper_count?: int,
+     *   new_helper_count?: int,
      * }  $organs
-     * @return array{schema:string, replacement_allowed:bool, rows:list<array<string,mixed>>}
+     * @return array{schema:string, replacement_allowed:bool, parity:bool, rows:list<array<string,mixed>>, missing_capabilities:list<string>, simplification_gain:int}
      */
     public function compare(array $organs): array
     {
@@ -50,8 +53,13 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
 
         $rows = [];
         $replacementAllowed = true;
+        $missingCapabilities = [];
 
-        foreach (self::DIMENSIONS as $dimension) {
+        // AC4: capability rows are sorted deterministically by capability id.
+        $dimensions = self::DIMENSIONS;
+        sort($dimensions, SORT_STRING);
+
+        foreach ($dimensions as $dimension) {
             $required = array_values(array_unique((array) ($oldOrgan[$dimension] ?? [])));
             $present = array_values(array_unique((array) ($newOrgan[$dimension] ?? [])));
             $missing = array_values(array_diff($required, $present));
@@ -69,22 +77,31 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrix
 
             if ($missing !== []) {
                 $replacementAllowed = false;
+                $missingCapabilities[] = $dimension;
             }
 
             $rows[] = [
                 'capability' => $dimension,
                 'status' => $status,
                 'missing_fields' => $missing,
+                'missing_capability' => $missing !== [],
                 'recommended_fix' => $missing === []
                     ? null
                     : sprintf('add missing %s to the new organ: %s', $dimension, implode(', ', $missing)),
             ];
         }
 
+        $oldHelperCount = max(0, (int) ($organs['old_helper_count'] ?? 0));
+        $newHelperCount = max(0, (int) ($organs['new_helper_count'] ?? 0));
+        $simplificationGain = $replacementAllowed ? max(0, $oldHelperCount - $newHelperCount) : 0;
+
         return [
             'schema' => self::SCHEMA,
             'replacement_allowed' => $replacementAllowed,
+            'parity' => $replacementAllowed,
             'rows' => $rows,
+            'missing_capabilities' => $missingCapabilities,
+            'simplification_gain' => $simplificationGain,
         ];
     }
 }

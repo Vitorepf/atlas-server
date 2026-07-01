@@ -17,6 +17,7 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrixTest extend
             'output_fields' => ['result'],
             'failure_modes' => ['timeout'],
             'proof_refs' => ['test_run_1'],
+            'consumer_contracts' => ['ConsumerA'],
         ];
     }
 
@@ -99,5 +100,50 @@ final class AtlasSelfConstructionSimplificationCapabilityParityMatrixTest extend
         $row = collect($result['rows'])->firstWhere('capability', 'behavior_claims');
         self::assertSame(AtlasSelfConstructionSimplificationCapabilityParityMatrix::STATUS_PARTIAL_PARITY, $row['status']);
         self::assertSame(['claim_b'], $row['missing_fields']);
+    }
+
+    public function test_replacement_missing_one_old_capability_reports_missing_capability_and_parity_false(): void
+    {
+        $newOrgan = $this->fullOrgan();
+        $newOrgan['output_fields'] = [];
+
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $newOrgan,
+        ]);
+
+        self::assertFalse($result['parity']);
+        self::assertContains('output_fields', $result['missing_capabilities']);
+
+        $outputRow = collect($result['rows'])->firstWhere('capability', 'output_fields');
+        self::assertTrue($outputRow['missing_capability']);
+    }
+
+    public function test_full_parity_with_fewer_helpers_reports_parity_true_and_simplification_gain(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+            'old_helper_count' => 5,
+            'new_helper_count' => 2,
+        ]);
+
+        self::assertTrue($result['parity']);
+        self::assertSame([], $result['missing_capabilities']);
+        self::assertSame(3, $result['simplification_gain']);
+    }
+
+    public function test_rows_are_sorted_deterministically_by_capability_id(): void
+    {
+        $result = (new AtlasSelfConstructionSimplificationCapabilityParityMatrix)->compare([
+            'old_organ' => $this->fullOrgan(),
+            'new_organ' => $this->fullOrgan(),
+        ]);
+
+        $capabilities = array_column($result['rows'], 'capability');
+        $sorted = $capabilities;
+        sort($sorted, SORT_STRING);
+
+        self::assertSame($sorted, $capabilities);
     }
 }
