@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
+use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use Illuminate\Support\Str;
 
@@ -13,6 +14,7 @@ class AtlasMemoryContextComposer
         private readonly MemoryRecallInput $input,
         private readonly AtlasMemoryRecallRelevanceScorer $scorer,
         private readonly ContextParetoDominanceFilter $paretoFilter = new ContextParetoDominanceFilter,
+        private readonly MemoryInjectionBudgetAllocator $budgetAllocator = new MemoryInjectionBudgetAllocator,
     ) {}
 
     /**
@@ -48,6 +50,8 @@ class AtlasMemoryContextComposer
         usort($candidates, fn (array $left, array $right): int => ($right['score'] <=> $left['score'])
             ?: strcmp((string) $left['source'], (string) $right['source'])
             ?: strcmp((string) $left['title'], (string) $right['title']));
+
+        $totalBudget = $budget;
 
         $items = [];
         foreach ($candidates as $candidate) {
@@ -86,6 +90,43 @@ class AtlasMemoryContextComposer
 
             $budget -= Str::length($excerpt);
         }
+
+        return $this->attachBudgetAllocationDiagnostics($items, $totalBudget, $itemChars);
+    }
+
+    /**
+     * Runs the admitted items back through MemoryInjectionBudgetAllocator so
+     * each item's audit trail carries an independent knapsack-packing view of
+     * how it was funded (allocated_chars, capped, rank) — a diagnostic cross-
+     * check, never a second admission decision: the composer's own greedy
+     * loop above remains the sole authority over which items are selected.
+     *
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array<int,array<string,mixed>>
+     */
+    private function attachBudgetAllocationDiagnostics(array $items, int $totalBudget, int $itemChars): array
+    {
+        if ($items === []) {
+            return $items;
+        }
+
+        $rankedItems = array_map(fn (array $item): array => [
+            'ref' => (string) $item['rank'],
+            'priority' => $item['score'],
+            'estimated_chars' => $item['estimated_chars'],
+        ], $items);
+
+        $allocation = $this->budgetAllocator->allocate($rankedItems, $totalBudget, $itemChars);
+
+        $byRef = [];
+        foreach ($allocation['admitted'] as $entry) {
+            $byRef[$entry['ref']] = $entry;
+        }
+
+        foreach ($items as &$item) {
+            $item['audit']['budget_allocation'] = $byRef[(string) $item['rank']] ?? null;
+        }
+        unset($item);
 
         return $items;
     }
