@@ -31,6 +31,32 @@ final class AtlasExternalBrainBreakthroughPlanner
     public const SCHEMA = 'atlas.external_brain.breakthrough_planner.v1';
 
     /**
+     * Escalation ladder surfaced whenever wave yield drops (low wave_yield or an unresolved
+     * stall gap) — the concrete menu of breakthrough moves, in priority order:
+     *   design_path_rotation — try a different design/architecture angle on the same target
+     *   research_to_task     — turn external research into a task-ready candidate
+     *   refactor_first        — unblock leverage by refactoring the critical path before adding new work
+     *   proposal_arena        — pit multiple independent proposals against each other, keep the winner
+     */
+    public const BREAKTHROUGH_PATH_OPTIONS = [
+        'design_path_rotation',
+        'research_to_task',
+        'refactor_first',
+        'proposal_arena',
+    ];
+
+    private const LOW_YIELD_THRESHOLD = 0.5;
+
+    /** Strategy names that farm quota via volume instead of real leverage — never a valid breakthrough. */
+    private const PADDING_STRATEGY_SIGNALS = [
+        'quota_farming',
+        'padding',
+        'duplicate_filler',
+        'filler',
+        'template_stuffing',
+    ];
+
+    /**
      * Fixed second-pass strategies the brain must exhaust (with evidence or denial) before
      * honest_exhausted is allowed. Each entry is keyed by strategy_id.
      */
@@ -90,6 +116,15 @@ final class AtlasExternalBrainBreakthroughPlanner
 
         $gap = max(0, $target - $verified);
 
+        $waveYield = isset($escalationState['wave_yield']) ? (float) $escalationState['wave_yield'] : 1.0;
+        $yieldDropped = $gap > 0 && $waveYield < self::LOW_YIELD_THRESHOLD;
+        $breakthroughPath = $yieldDropped ? self::BREAKTHROUGH_PATH_OPTIONS : [];
+
+        // AC: any caller-proposed strategy that farms quota via volume is refused outright — it
+        // never becomes an investigation, regardless of stall severity.
+        $candidateStrategy = trim((string) ($stallState['candidate_strategy'] ?? ''));
+        $paddingRejected = $candidateStrategy !== '' && self::isPaddingStrategy($candidateStrategy);
+
         $escalation = $this->escalationPolicy->decide($escalationState);
 
         // AC2: second-pass guard — refuse honest_exhausted until every strategy has evidence or denial.
@@ -128,6 +163,8 @@ final class AtlasExternalBrainBreakthroughPlanner
                 'stall_gap'            => $gap,
                 'modes_with_evidence'  => $escalation['modes_with_evidence'],
                 'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
+                'breakthrough_path'    => [],
+                'padding_rejected'     => $paddingRejected,
             ];
         }
 
@@ -148,6 +185,8 @@ final class AtlasExternalBrainBreakthroughPlanner
                 'modes_remaining'      => $escalation['modes_remaining'],
                 'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
                 'backlog_freshness_stop_go' => $backlogFreshness,
+                'breakthrough_path'    => $breakthroughPath,
+                'padding_rejected'     => $paddingRejected,
             ];
         }
 
@@ -176,7 +215,22 @@ final class AtlasExternalBrainBreakthroughPlanner
             'modes_remaining'      => $escalation['modes_remaining'],
             'second_pass_strategies' => self::SECOND_PASS_STRATEGIES,
             'backlog_freshness_stop_go' => $backlogFreshness,
+            'breakthrough_path'    => $breakthroughPath,
+            'padding_rejected'     => $paddingRejected,
         ];
+    }
+
+    /** AC: a padding/quota-farming strategy name never counts as a valid breakthrough. */
+    private static function isPaddingStrategy(string $strategy): bool
+    {
+        $lower = strtolower($strategy);
+        foreach (self::PADDING_STRATEGY_SIGNALS as $signal) {
+            if (str_contains($lower, $signal)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function modeIdea(string $mode, int $gap): string

@@ -379,4 +379,84 @@ final class AtlasExternalBrainBreakthroughPlannerTest extends TestCase
 
         $this->assertFalse($r['honest_exhausted'], 'proxy evidence (queue/test/quota counters) must never count as real second-pass proof');
     }
+
+    // ── AC1/AC3: breakthrough_path uses the 4 canonical options when yield drops ──
+
+    public function test_normal_progress_no_gap_yields_empty_breakthrough_path(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 100,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.1],
+        ]);
+
+        $this->assertSame(0, $r['stall_gap']);
+        $this->assertSame([], $r['breakthrough_path']);
+    }
+
+    public function test_low_yield_stall_emits_breakthrough_path_with_all_four_options(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.1],
+        ]);
+
+        $this->assertContains('design_path_rotation', $r['breakthrough_path']);
+        $this->assertContains('research_to_task', $r['breakthrough_path']);
+        $this->assertContains('refactor_first', $r['breakthrough_path']);
+        $this->assertContains('proposal_arena', $r['breakthrough_path']);
+    }
+
+    public function test_high_yield_stall_does_not_emit_breakthrough_path(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => ['wave_yield' => 0.9],
+        ]);
+
+        $this->assertSame([], $r['breakthrough_path']);
+    }
+
+    // ── AC2: padding/quota-farming strategies are rejected ─────────────────────
+
+    public function test_quota_farming_candidate_strategy_is_rejected(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => [],
+            'candidate_strategy' => 'quota_farming',
+        ]);
+
+        $this->assertTrue($r['padding_rejected']);
+    }
+
+    public function test_padding_candidate_strategy_never_becomes_an_investigation(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => [],
+            'candidate_strategy' => 'template_stuffing',
+        ]);
+
+        $this->assertTrue($r['padding_rejected']);
+        foreach ($r['investigations'] as $inv) {
+            $this->assertNotSame('template_stuffing', $inv['mode']);
+        }
+    }
+
+    public function test_real_candidate_strategy_is_not_rejected_as_padding(): void
+    {
+        $r = $this->planner->plan([
+            'verified_count' => 10,
+            'requested_target' => 100,
+            'escalation_state' => [],
+            'candidate_strategy' => 'refactor_critical_path',
+        ]);
+
+        $this->assertFalse($r['padding_rejected']);
+    }
 }
