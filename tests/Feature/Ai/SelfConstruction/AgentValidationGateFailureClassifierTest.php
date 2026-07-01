@@ -177,6 +177,46 @@ final class AgentValidationGateFailureClassifierTest extends TestCase
         $this->assertSame(2, $out['total_count']);
     }
 
+    // ── supply-impact classification (AC) ─────────────────────────────────────
+
+    public function test_supply_blocking_gate_id_labels_queue_supply_blocker(): void
+    {
+        $out = (new AgentValidationGateFailureClassifier)->classify($this->fixture('enqueue_gate', 'fail', 'medium'));
+
+        $this->assertSame('queue_supply_blocker', $out['supply_impact']);
+    }
+
+    public function test_ordinary_test_failure_labels_isolated_implementation_failure(): void
+    {
+        $out = (new AgentValidationGateFailureClassifier)->classify($this->fixture('unit_tests', 'fail'));
+
+        $this->assertSame('isolated_implementation_failure', $out['supply_impact']);
+    }
+
+    public function test_explicit_blocks_supply_flag_overrides_gate_id_lookup(): void
+    {
+        $out = (new AgentValidationGateFailureClassifier)->classify(array_merge(
+            $this->fixture('unit_tests', 'fail'),
+            ['blocks_supply' => true],
+        ));
+
+        $this->assertSame('queue_supply_blocker', $out['supply_impact']);
+    }
+
+    public function test_supply_blocker_severity_is_escalated_above_medium(): void
+    {
+        $out = (new AgentValidationGateFailureClassifier)->classify($this->fixture('claimability_gate', 'fail', 'medium'));
+
+        $this->assertSame('high', $out['severity']);
+    }
+
+    public function test_non_failure_status_has_not_applicable_supply_impact(): void
+    {
+        $out = (new AgentValidationGateFailureClassifier)->classify($this->fixture('enqueue_gate', 'pass'));
+
+        $this->assertSame('not_applicable', $out['supply_impact']);
+    }
+
     /** @return array<string,mixed> */
     private function fixture(string $gateId, string $status, string $severity = 'high', bool $blocking = true): array
     {

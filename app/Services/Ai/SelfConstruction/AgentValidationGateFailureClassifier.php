@@ -37,6 +37,21 @@ final class AgentValidationGateFailureClassifier
         'unknown',
     ];
 
+    public const SUPPLY_IMPACT_BLOCKER = 'queue_supply_blocker';
+
+    public const SUPPLY_IMPACT_ISOLATED = 'isolated_implementation_failure';
+
+    public const SUPPLY_IMPACT_NOT_APPLICABLE = 'not_applicable';
+
+    /** gate_ids whose failure blocks packet admission, enqueue, or worker claimability. */
+    public const SUPPLY_BLOCKING_GATE_IDS = [
+        'packet_admission_gate',
+        'enqueue_gate',
+        'claimability_gate',
+        'task_serving_gate',
+        'queue_admission_check',
+    ];
+
     /**
      * @param  array<string, mixed>  $gateResult  one element from $evaluation['evaluations']
      * @return array<string, mixed>
@@ -155,6 +170,19 @@ final class AgentValidationGateFailureClassifier
     ): array {
         $isFailureClass = ! in_array($category, ['non_failure'], true);
 
+        $supplyImpact = self::SUPPLY_IMPACT_NOT_APPLICABLE;
+        if ($isFailureClass) {
+            $gateId = (string) ($gateResult['gate_id'] ?? '');
+            $blocksSupply = array_key_exists('blocks_supply', $gateResult)
+                ? (bool) $gateResult['blocks_supply']
+                : in_array($gateId, self::SUPPLY_BLOCKING_GATE_IDS, true);
+
+            $supplyImpact = $blocksSupply ? self::SUPPLY_IMPACT_BLOCKER : self::SUPPLY_IMPACT_ISOLATED;
+            if ($blocksSupply && ! in_array($severity, ['high', 'critical'], true)) {
+                $severity = $this->bumpSeverity($severity);
+            }
+        }
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'mode' => self::MODE,
@@ -171,6 +199,7 @@ final class AgentValidationGateFailureClassifier
             'is_failure_classification' => $isFailureClass,
             'is_terminal' => $category === 'unknown',
             'runtime_safety_all_false' => true,
+            'supply_impact' => $supplyImpact,
         ];
     }
 
