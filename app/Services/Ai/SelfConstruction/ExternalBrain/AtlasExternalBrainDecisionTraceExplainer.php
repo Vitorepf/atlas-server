@@ -20,6 +20,11 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *   uncertainty           — 'low' | 'medium' | 'high' (confidence in decision)
  *   evidence_to_reconsider — facts that, if true, would change the outcome
  *   provider_safe         — always true (assertion on output contract)
+ *   blocking_condition / next_safe_action (new) — for hold/retire decisions: what is blocking
+ *     progress and the smallest safe next step. Free-text inputs, so scrubbed for secret-like
+ *     key=value patterns the same way stripPrivate() removes private KEYS.
+ *   anti_goodhart_checks (new) — provider-safe check names (e.g. anti_goodhart_verdict:pass from
+ *     scoring_facts, plus any caller-declared checks) with secret-shaped values redacted.
  *
  * Pure: no I/O, no side effects.
  */
@@ -32,6 +37,11 @@ final class AtlasExternalBrainDecisionTraceExplainer
         'prompt', 'raw_prompt', 'system_message', 'model_response',
         'provider_response', 'api_key', 'token', 'secret', 'credential',
     ];
+
+    // Redacts secret-shaped key=value substrings inside free-text fields (blocking_condition,
+    // next_safe_action, declared anti_goodhart_checks) that stripPrivate()'s key-based removal
+    // cannot catch since the whole field is a single string value, not a keyed array.
+    private const SECRET_VALUE_PATTERN = '/\b(SECRET|TOKEN|API_KEY|PASSWORD|CREDENTIAL)([A-Z0-9_]*)\s*[:=]\s*\S+/i';
 
     /**
      * @param  array{
@@ -59,6 +69,15 @@ final class AtlasExternalBrainDecisionTraceExplainer
         $uncertainty     = $this->computeUncertainty($selected, $rejected, $scoringFacts);
         $evidenceToReconsider = $this->extractEvidenceToReconsider($rejected, $scoringFacts);
 
+        // AC3 new: hold/retire traces carry the blocking condition and the smallest safe next
+        // step. Free text, so scrubbed for secret-shaped key=value substrings.
+        $decisionType = trim((string) ($decisionRecord['decision_type'] ?? 'enqueue'));
+        $blockingCondition = $this->scrubSecretText(trim((string) ($decisionRecord['blocking_condition'] ?? '')));
+        $nextSafeAction = $this->scrubSecretText(trim((string) ($decisionRecord['next_safe_action'] ?? '')));
+
+        // AC4 new: provider-safe anti-Goodhart check names, never exposing raw provider data.
+        $antiGoodhartChecks = $this->extractAntiGoodhartChecks($scoringFacts, $decisionRecord);
+
         $traceId = 'trace_'.substr(hash('sha256', (string) json_encode([
             'selected_ids'  => array_column($selected, 'task_packet_id'),
             'rejected_ids'  => array_column($rejected, 'task_packet_id'),
@@ -68,6 +87,7 @@ final class AtlasExternalBrainDecisionTraceExplainer
         return [
             'schema'                 => self::SCHEMA,
             'trace_id'               => $traceId,
+            'decision_type'          => $decisionType,
             'selected_tasks'         => $this->safeSelectedTasks($selected),
             'top_signals'            => $topSignals,
             'chosen_reasons'         => $chosenReasons,
@@ -75,8 +95,43 @@ final class AtlasExternalBrainDecisionTraceExplainer
             'uncertainty'            => $uncertainty,
             'uncertainty_level'      => $uncertainty,
             'evidence_to_reconsider' => $evidenceToReconsider,
+            'blocking_condition'     => $blockingCondition,
+            'next_safe_action'       => $nextSafeAction,
+            'anti_goodhart_checks'   => $antiGoodhartChecks,
             'provider_safe'          => true,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $scoringFacts
+     * @param  array<string,mixed>  $decisionRecord
+     * @return list<string>
+     */
+    private function extractAntiGoodhartChecks(array $scoringFacts, array $decisionRecord): array
+    {
+        $checks = [];
+        $safe   = $this->stripPrivate($scoringFacts);
+
+        if (isset($safe['anti_goodhart_verdict'])) {
+            $checks[] = 'anti_goodhart_verdict:'.(string) $safe['anti_goodhart_verdict'];
+        }
+
+        $declared = array_values(array_map('strval', (array) ($decisionRecord['anti_goodhart_checks'] ?? [])));
+        foreach ($declared as $check) {
+            $checks[] = $this->scrubSecretText($check);
+        }
+
+        return array_values(array_unique($checks));
+    }
+
+    /** Redacts secret-shaped "KEY=value" / "KEY: value" substrings inside a free-text field. */
+    private function scrubSecretText(string $text): string
+    {
+        if ($text === '') {
+            return $text;
+        }
+
+        return (string) preg_replace(self::SECRET_VALUE_PATTERN, '$1$2=[REDACTED]', $text);
     }
 
     /** Return the selected tasks stripped of private fields. */

@@ -241,4 +241,111 @@ final class AtlasExternalBrainDecisionTraceExplainerTest extends TestCase
             $this->explainer->explain($input)['trace_id'],
         );
     }
+
+    // ── AC2: enqueue traces include evidence, leverage reason, rejected alternatives ──
+
+    public function test_enqueue_trace_includes_evidence_leverage_reason_and_rejected_alternatives(): void
+    {
+        $result = $this->explainer->explain([
+            'decision_type'         => 'enqueue',
+            'selected_tasks'        => [$this->task('winner', ['arena_score' => 0.9, 'top_dimension' => 'leverage'])],
+            'rejected_alternatives' => [$this->rejected('loser', 'outscored_by_winner')],
+            'scoring_facts'         => ['top_dimension' => 'leverage', 'evidence_strength' => 0.85],
+        ]);
+
+        $this->assertSame('enqueue', $result['decision_type']);
+        $this->assertStringContainsString('leverage', implode(' ', $result['top_signals']));
+        $this->assertStringContainsString('winner', $result['chosen_reasons'][0]);
+        $this->assertStringContainsString('top_dim:leverage', $result['chosen_reasons'][0]);
+        $this->assertSame('loser', $result['rejected_reasons'][0]['task_packet_id']);
+    }
+
+    // ── AC3: hold/retire traces include blocking condition and next safe action ──
+
+    public function test_hold_trace_includes_blocking_condition_and_next_safe_action(): void
+    {
+        $result = $this->explainer->explain([
+            'decision_type'      => 'hold',
+            'blocking_condition' => 'verification_court_verdict is not server_side_green',
+            'next_safe_action'   => 'rerun_verification_and_await_green',
+        ]);
+
+        $this->assertSame('hold', $result['decision_type']);
+        $this->assertSame('verification_court_verdict is not server_side_green', $result['blocking_condition']);
+        $this->assertSame('rerun_verification_and_await_green', $result['next_safe_action']);
+    }
+
+    public function test_retire_trace_includes_blocking_condition_and_next_safe_action(): void
+    {
+        $result = $this->explainer->explain([
+            'decision_type'      => 'retire',
+            'blocking_condition' => 'capability superseded with no active consumers',
+            'next_safe_action'   => 'confirm_replacement_tested_then_remove_from_queue',
+        ]);
+
+        $this->assertSame('retire', $result['decision_type']);
+        $this->assertSame('capability superseded with no active consumers', $result['blocking_condition']);
+        $this->assertSame('confirm_replacement_tested_then_remove_from_queue', $result['next_safe_action']);
+    }
+
+    public function test_blocking_condition_with_embedded_secret_is_redacted(): void
+    {
+        $result = $this->explainer->explain([
+            'decision_type'      => 'hold',
+            'blocking_condition' => 'blocked because API_KEY=sk-live-abc123 is required',
+        ]);
+
+        $this->assertStringNotContainsString('sk-live-abc123', $result['blocking_condition']);
+        $this->assertStringContainsString('[REDACTED]', $result['blocking_condition']);
+    }
+
+    public function test_enqueue_trace_has_empty_blocking_fields_by_default(): void
+    {
+        $result = $this->explainer->explain(['selected_tasks' => [$this->task('t1')]]);
+
+        $this->assertSame('', $result['blocking_condition']);
+        $this->assertSame('', $result['next_safe_action']);
+    }
+
+    // ── AC4: anti_goodhart_checks present without exposing provider-sensitive data ──
+
+    public function test_anti_goodhart_checks_includes_verdict_from_scoring_facts(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks' => [$this->task('t1')],
+            'scoring_facts'  => ['anti_goodhart_verdict' => 'pass'],
+        ]);
+
+        $this->assertContains('anti_goodhart_verdict:pass', $result['anti_goodhart_checks']);
+    }
+
+    public function test_anti_goodhart_checks_includes_declared_checks(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks'        => [$this->task('t1')],
+            'anti_goodhart_checks'  => ['proxy_gaming_check:pass', 'template_farm_check:pass'],
+        ]);
+
+        $this->assertContains('proxy_gaming_check:pass', $result['anti_goodhart_checks']);
+        $this->assertContains('template_farm_check:pass', $result['anti_goodhart_checks']);
+    }
+
+    public function test_anti_goodhart_checks_redacts_provider_sensitive_content(): void
+    {
+        $result = $this->explainer->explain([
+            'selected_tasks'       => [$this->task('t1')],
+            'anti_goodhart_checks' => ['verified_with TOKEN=ghp_secretvalue123'],
+        ]);
+
+        $encoded = (string) json_encode($result['anti_goodhart_checks']);
+        $this->assertStringNotContainsString('ghp_secretvalue123', $encoded);
+        $this->assertStringContainsString('[REDACTED]', $encoded);
+    }
+
+    public function test_anti_goodhart_checks_empty_when_no_signal_present(): void
+    {
+        $result = $this->explainer->explain(['selected_tasks' => [$this->task('t1')]]);
+
+        $this->assertSame([], $result['anti_goodhart_checks']);
+    }
 }
