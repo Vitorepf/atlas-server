@@ -67,6 +67,32 @@ final class AtlasMaestroProviderBidArbiterTest extends TestCase
         $this->assertSame(1, $verdict->reasonCodes['locality_violation']);
     }
 
+    public function test_no_eligible_verdict_includes_repair_hints_for_named_reasons(): void
+    {
+        $a = $this->bid(['providerId' => 'A', 'eligibilityBool' => false, 'ineligibilityReasons' => ['capability_missing']]);
+        $b = $this->bid(['providerId' => 'B', 'eligibilityBool' => false, 'ineligibilityReasons' => ['locality_violation']]);
+        $c = $this->bid(['providerId' => 'C', 'eligibilityBool' => false, 'ineligibilityReasons' => ['sensitivity_violation']]);
+        $d = $this->bid(['providerId' => 'D', 'eligibilityBool' => false, 'ineligibilityReasons' => ['evidence_burden_exceeded']]);
+
+        $verdict = (new AtlasMaestroProviderBidArbiter())->arbitrate(new BidSet([$a, $b, $c, $d]), 'task-1');
+
+        $this->assertInstanceOf(NoEligibleProviderVerdict::class, $verdict);
+        foreach (['capability_missing', 'locality_violation', 'sensitivity_violation', 'evidence_burden_exceeded'] as $reason) {
+            $this->assertArrayHasKey($reason, $verdict->repairHints);
+            $this->assertNotEmpty($verdict->repairHints[$reason]);
+        }
+    }
+
+    public function test_repair_hints_are_sorted_deterministically_by_reason_key(): void
+    {
+        $a = $this->bid(['providerId' => 'A', 'eligibilityBool' => false, 'ineligibilityReasons' => ['sensitivity_violation']]);
+        $b = $this->bid(['providerId' => 'B', 'eligibilityBool' => false, 'ineligibilityReasons' => ['capability_missing']]);
+
+        $verdict = (new AtlasMaestroProviderBidArbiter())->arbitrate(new BidSet([$a, $b]), 'task-1');
+
+        $this->assertSame(['capability_missing', 'sensitivity_violation'], array_keys($verdict->repairHints));
+    }
+
     public function test_verdict_is_replayable_byte_identical(): void
     {
         $set = new BidSet([
