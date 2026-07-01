@@ -115,17 +115,9 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
 
         foreach ($layers as $layer) {
             // Sort: adjusted-ROI DESC (penalised by family risk, give_back_risk, blocked_prerequisite_risk), task_id ASC for determinism.
-            usort($layer, static function (string $a, string $b) use ($taskMap, $familyRisk): int {
-                $rawA = $taskMap[$a]['expected_impact'] * $taskMap[$a]['unlock_value'] / ($taskMap[$a]['cost_risk'] + 0.01);
-                $rawB = $taskMap[$b]['expected_impact'] * $taskMap[$b]['unlock_value'] / ($taskMap[$b]['cost_risk'] + 0.01);
-                $ra = $rawA
-                    * (1.0 - ($familyRisk[$taskMap[$a]['task_family']] ?? 0.0) * 0.5)
-                    * (1.0 - $taskMap[$a]['give_back_risk'])
-                    * (1.0 - $taskMap[$a]['blocked_prerequisite_risk']);
-                $rb = $rawB
-                    * (1.0 - ($familyRisk[$taskMap[$b]['task_family']] ?? 0.0) * 0.5)
-                    * (1.0 - $taskMap[$b]['give_back_risk'])
-                    * (1.0 - $taskMap[$b]['blocked_prerequisite_risk']);
+            usort($layer, function (string $a, string $b) use ($taskMap, $familyRisk): int {
+                $ra = $this->computeTaskScore($taskMap[$a], $familyRisk)['adjusted_roi'];
+                $rb = $this->computeTaskScore($taskMap[$b], $familyRisk)['adjusted_roi'];
 
                 return $ra !== $rb ? ($rb <=> $ra) : strcmp($a, $b);
             });
@@ -338,8 +330,8 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
 
         foreach ($firstWave as $id) {
             $task        = $taskMap[$id];
-            $roi         = $task['expected_impact'] * $task['unlock_value'] / ($task['cost_risk'] + 0.01);
-            $taskReasons = [sprintf('roi_score:%.3f', round($roi, 3))];
+            $score       = $this->computeTaskScore($task, $familyRisk);
+            $taskReasons = [sprintf('roi_score:%.3f', round($score['raw_roi'], 3))];
 
             $reach = $downstreamReach[$id] ?? 0;
             if ($reach > 0) {
@@ -351,9 +343,8 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
             }
 
             $family = $task['task_family'];
-            $risk   = $familyRisk[$family] ?? 0.0;
-            if ($risk > 0.0 && $family !== '') {
-                $taskReasons[] = sprintf('risk_penalty:family=%s:penalty=%.2f', $family, $risk);
+            if ($score['family_risk'] > 0.0 && $family !== '') {
+                $taskReasons[] = sprintf('risk_penalty:family=%s:penalty=%.2f', $family, $score['family_risk']);
             }
 
             if ($task['give_back_risk'] > 0.0) {
@@ -367,6 +358,32 @@ final class AtlasExternalBrainTaskGraphRoiScheduler
         }
 
         return $reasons;
+    }
+
+    /**
+     * Single task-score circuit: computes raw ROI and the family/give_back/
+     * blocked-prerequisite-adjusted ROI from one place, so wave ordering and
+     * next_wave_candidate_reasons can never disagree about a task's score.
+     *
+     * @param  array<string, mixed>  $task
+     * @param  array<string, float>  $familyRisk
+     * @return array{raw_roi:float, adjusted_roi:float, family_risk:float}
+     */
+    private function computeTaskScore(array $task, array $familyRisk): array
+    {
+        $rawRoi = $task['expected_impact'] * $task['unlock_value'] / ($task['cost_risk'] + 0.01);
+        $risk   = $familyRisk[$task['task_family']] ?? 0.0;
+
+        $adjustedRoi = $rawRoi
+            * (1.0 - $risk * 0.5)
+            * (1.0 - $task['give_back_risk'])
+            * (1.0 - $task['blocked_prerequisite_risk']);
+
+        return [
+            'raw_roi'      => $rawRoi,
+            'adjusted_roi' => $adjustedRoi,
+            'family_risk'  => $risk,
+        ];
     }
 
     /**
