@@ -428,4 +428,65 @@ class AtlasSelfConstructionTerminalLoopCertifierTest extends TestCase
         self::assertFalse($result['certified']);
         self::assertSame(AtlasSelfConstructionTerminalLoopCertifier::CYCLE_EDGES, $result['open_cycle_edges']);
     }
+
+    public function test_worker_feed_continuity_fails_when_metrics_entirely_missing(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyWorkerFeedContinuity([]);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('claimable_buffer_metric_missing', $result['violations']);
+        self::assertContains('active_worker_count_metric_missing', $result['violations']);
+        self::assertContains('no_claimable_task_metric_missing', $result['violations']);
+    }
+
+    public function test_worker_feed_continuity_fails_when_claimable_buffer_is_empty(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyWorkerFeedContinuity([
+            'claimable_buffer_count' => 0,
+            'active_worker_count' => 3,
+            'unrepaired_no_claimable_task_count' => 0,
+        ]);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('claimable_buffer_empty', $result['violations']);
+    }
+
+    public function test_worker_feed_continuity_fails_when_no_active_workers(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyWorkerFeedContinuity([
+            'claimable_buffer_count' => 5,
+            'active_worker_count' => 0,
+            'unrepaired_no_claimable_task_count' => 0,
+        ]);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('active_worker_count_zero', $result['violations']);
+    }
+
+    public function test_worker_feed_continuity_fails_when_no_claimable_task_outcomes_unrepaired(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyWorkerFeedContinuity([
+            'claimable_buffer_count' => 5,
+            'active_worker_count' => 3,
+            'unrepaired_no_claimable_task_count' => 2,
+        ]);
+
+        self::assertFalse($result['certified']);
+        self::assertContains('unrepaired_no_claimable_task_outcomes_present', $result['violations']);
+    }
+
+    public function test_worker_feed_continuity_passes_with_fresh_buffer_active_workers_and_no_unrepaired_outcomes(): void
+    {
+        $result = AtlasSelfConstructionTerminalLoopCertifier::certifyWorkerFeedContinuity([
+            'claimable_buffer_count' => 5,
+            'active_worker_count' => 3,
+            'unrepaired_no_claimable_task_count' => 0,
+        ]);
+
+        self::assertTrue($result['certified']);
+        self::assertSame([], $result['violations']);
+        self::assertSame(5, $result['claimable_buffer_count']);
+        self::assertSame(3, $result['active_worker_count']);
+        self::assertSame(0, $result['unrepaired_no_claimable_task_count']);
+    }
 }

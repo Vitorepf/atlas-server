@@ -581,6 +581,57 @@ final class AtlasSelfConstructionTerminalLoopCertifier
         ];
     }
 
+    public const WORKER_FEED_CONTINUITY_SCHEMA = 'atlas.self_construction.terminal_loop_certifier.worker_feed_continuity.v1';
+
+    /**
+     * Certify that the wired loop (Brain -> Task Fabric -> Maestro -> Muscle) proves
+     * it can SUSTAIN a claimable buffer for active workers — not merely that a
+     * dry-run loop completed once. A completed cycle with zero claimable work
+     * left behind, or with starvation incidents never repaired, is not proof
+     * of sustained continuity.
+     *
+     * @param  array<string,mixed>  $proof  {claimable_buffer_count?:int,
+     *   active_worker_count?:int, unrepaired_no_claimable_task_count?:int}
+     * @return array<string,mixed>
+     */
+    public static function certifyWorkerFeedContinuity(array $proof): array
+    {
+        $violations = [];
+
+        if (! array_key_exists('claimable_buffer_count', $proof)) {
+            $violations[] = 'claimable_buffer_metric_missing';
+        }
+        if (! array_key_exists('active_worker_count', $proof)) {
+            $violations[] = 'active_worker_count_metric_missing';
+        }
+        if (! array_key_exists('unrepaired_no_claimable_task_count', $proof)) {
+            $violations[] = 'no_claimable_task_metric_missing';
+        }
+
+        $claimableBufferCount = (int) ($proof['claimable_buffer_count'] ?? 0);
+        $activeWorkerCount = (int) ($proof['active_worker_count'] ?? 0);
+        $unrepairedNoClaimableTaskCount = (int) ($proof['unrepaired_no_claimable_task_count'] ?? 0);
+
+        if (array_key_exists('claimable_buffer_count', $proof) && $claimableBufferCount <= 0) {
+            $violations[] = 'claimable_buffer_empty';
+        }
+        if (array_key_exists('active_worker_count', $proof) && $activeWorkerCount <= 0) {
+            $violations[] = 'active_worker_count_zero';
+        }
+        if (array_key_exists('unrepaired_no_claimable_task_count', $proof) && $unrepairedNoClaimableTaskCount > 0) {
+            $violations[] = 'unrepaired_no_claimable_task_outcomes_present';
+        }
+
+        return [
+            'schema_version' => self::WORKER_FEED_CONTINUITY_SCHEMA,
+            'certified' => $violations === [],
+            'violations' => $violations,
+            'claimable_buffer_count' => $claimableBufferCount,
+            'active_worker_count' => $activeWorkerCount,
+            'unrepaired_no_claimable_task_count' => $unrepairedNoClaimableTaskCount,
+        ];
+    }
+
     /**
      * @param  list<string>  $paths
      */
