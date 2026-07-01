@@ -27,6 +27,12 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
         'lease_expired',
     ];
 
+    /** A task's declared proof must mention one of these to count as a runnable test/gate. */
+    private const RUNNABLE_PROOF_MARKERS = ['phpunit', 'artisan test', 'pytest', 'jest', 'rspec'];
+
+    /** poison_risk_score at/above this threshold marks a task packet as poisoned (never worker-eligible). */
+    private const POISONED_STATUS_THRESHOLD = 0.70;
+
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $readiness,
         private readonly AgentControlPlaneTaskPacketQueueRepository $queue,
@@ -60,9 +66,13 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             static fn (array $record): bool => in_array((string) ($record['status'] ?? ''), self::WORKER_CANDIDATE_STATUSES, true),
         ));
 
+        // Opt-in: requiring a literal runnable-proof marker in acceptance_criteria/required_evidence
+        // is too strict for legacy/free-form production packets; only enforced when explicitly requested.
+        $requireRunnableProof = (bool) ($options['require_runnable_proof'] ?? false);
+
         $violations = [];
         foreach ($activeWorkerRecords as $record) {
-            $recordViolations = $this->recordViolations($record);
+            $recordViolations = $this->recordViolations($record, $requireRunnableProof);
             foreach ($recordViolations as $violation) {
                 $violations[] = $violation;
             }
@@ -102,6 +112,8 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'claimable_tasks_do_not_require_operator_handoff' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_requires_operator_handoff'),
             'claimable_tasks_do_not_reference_operator_only_completion_blockers' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_references_operator_only_completion_blocker'),
             'claimable_task_runtime_flags_false' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_runtime_flag_true'),
+            'claimable_tasks_have_runnable_proof' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_missing_runnable_proof'),
+            'claimable_tasks_are_not_poisoned' => ! $this->anyViolationWithCode($violations, 'claimable_or_claimed_task_poisoned_status'),
             'operator_only_completion_blockers_surface_as_handoff' => $missingOperatorHandoffs === [],
             'auto_replenishment_did_not_create_tasks_during_certification' => (int) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.generated_task_count', 0) === 0,
             'worker_feed_floor_breach' => ! $workerFeedFloorBreached,
@@ -110,6 +122,16 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
 
         $violationSummaryByCode = $this->violationSummaryByCode($violations);
         $operatorHandoffSeedCount = (int) data_get($autoReplenishment, 'agent_control_plane_task_auto_replenishment_status.operator_handoff_seed_count', 0);
+
+        $violatingTaskPacketIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $violation): string => (string) ($violation['task_packet_id'] ?? ''),
+            $violations,
+        ))));
+        $eligibleClaimableTaskCount = count(array_values(array_filter(
+            $claimableRecords,
+            static fn (array $record): bool => ! in_array((string) ($record['task_packet_id'] ?? ''), $violatingTaskPacketIds, true),
+        )));
+        $feedFloorStatus = $workerFeedFloorBreached ? 'breached' : 'ok';
 
         // Stable, deterministic union of failed check ids and violation codes — so a caller
         // sees status=blocked and a non-empty, actionable reason in the same payload.
@@ -128,12 +150,14 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
             'checked_record_count' => count($records),
             'worker_candidate_statuses' => self::WORKER_CANDIDATE_STATUSES,
             'claimable_task_count' => count($claimableRecords),
+            'eligible_claimable_task_count' => $eligibleClaimableTaskCount,
             'active_worker_task_count' => count($activeWorkerRecords),
             'active_worker_count' => $activeWorkerCount,
             'minimum_claimable_per_worker' => $minimumClaimablePerWorker,
             'claimable_per_active_worker' => round($claimablePerActiveWorker, 4),
             'worker_feed_floor_required' => $workerFeedFloorRequired,
             'worker_feed_floor_breached' => $workerFeedFloorBreached,
+            'feed_floor_status' => $feedFloorStatus,
             'refill_recommendation' => [
                 'target_new_task_count' => max(0, $workerFeedFloorRequired - count($claimableRecords)),
                 'reason' => $workerFeedFloorBreached ? 'worker_feed_floor_breached' : 'worker_feed_floor_not_breached',
@@ -214,7 +238,7 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
      * @param  array<string, mixed>  $record
      * @return list<array<string, mixed>>
      */
-    private function recordViolations(array $record): array
+    private function recordViolations(array $record, bool $requireRunnableProof = false): array
     {
         $violations = [];
         $taskPacketId = (string) ($record['task_packet_id'] ?? '');
@@ -231,6 +255,26 @@ final class AgentControlPlaneWorkerTaskEligibilityCertificationService
                 'task_packet_id' => $taskPacketId,
                 'reference' => $reference,
             ];
+        }
+        if ($requireRunnableProof) {
+            $proofText = strtolower(implode(' ', array_map(
+                'strval',
+                array_merge(
+                    (array) data_get($record, 'task_packet.acceptance_criteria', []),
+                    (array) data_get($record, 'task_packet.required_evidence', []),
+                ),
+            )));
+            $hasRunnableProof = $proofText !== '' && array_any(
+                self::RUNNABLE_PROOF_MARKERS,
+                static fn (string $marker): bool => str_contains($proofText, $marker),
+            );
+            if (! $hasRunnableProof) {
+                $violations[] = ['code' => 'claimable_or_claimed_task_missing_runnable_proof', 'task_packet_id' => $taskPacketId];
+            }
+        }
+        $poisonRiskScore = (float) data_get($record, 'task_packet.poison_risk_score', 0.0);
+        if ($poisonRiskScore >= self::POISONED_STATUS_THRESHOLD) {
+            $violations[] = ['code' => 'claimable_or_claimed_task_poisoned_status', 'task_packet_id' => $taskPacketId, 'poison_risk_score' => $poisonRiskScore];
         }
         foreach ([
             'dispatch_allowed',
