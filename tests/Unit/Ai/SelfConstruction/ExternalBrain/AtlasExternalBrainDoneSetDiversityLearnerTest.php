@@ -248,4 +248,52 @@ final class AtlasExternalBrainDoneSetDiversityLearnerTest extends TestCase
             }
         }
     }
+
+    // ── AC1/AC2: recommendation driven by naming vs capability impact ────────
+
+    public function test_concentrated_naming_with_diverse_capability_impact_recommends_continue(): void
+    {
+        $tasks = [
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-a']),
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-b']),
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-c']),
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-d']),
+        ];
+
+        $r = $this->svc()->learn($tasks);
+
+        $this->assertLessThan(0.5, $r['diversity_score']);
+        $this->assertGreaterThanOrEqual(0.5, $r['capability_impact_score']);
+        $this->assertSame('continue_or_compound', $r['recommendation']);
+    }
+
+    public function test_concentrated_naming_with_concentrated_capability_impact_recommends_shift(): void
+    {
+        $tasks = [
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-a']),
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-a']),
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-a']),
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-a']),
+        ];
+
+        $r = $this->svc()->learn($tasks);
+
+        $this->assertLessThan(0.5, $r['diversity_score']);
+        $this->assertLessThan(0.5, $r['capability_impact_score']);
+        $this->assertSame('shift_pattern', $r['recommendation']);
+    }
+
+    public function test_diverse_naming_recommends_continue_regardless_of_capability_impact(): void
+    {
+        $tasks = [
+            array_merge($this->task('gate-impl'), ['capability_family' => 'cap-a']),
+            array_merge($this->task('research'), ['capability_family' => 'cap-a']),
+            array_merge($this->task('discovery'), ['capability_family' => 'cap-a']),
+        ];
+
+        $r = $this->svc()->learn($tasks);
+
+        $this->assertGreaterThanOrEqual(0.5, $r['diversity_score']);
+        $this->assertSame('continue_or_compound', $r['recommendation']);
+    }
 }
