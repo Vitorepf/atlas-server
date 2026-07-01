@@ -381,6 +381,39 @@ final class AtlasSelfConstructionOsGapAuditService
         ];
     }
 
+    /**
+     * Maturity gap index: summarizes the three Section 3/4 buckets — observed, contract/
+     * certification/dry-run, and not-yet-runtime — into one deterministic next_unblock_target so a
+     * reader gets a single actionable slice instead of re-deriving it from three separate lists.
+     * PURE — no I/O, no DB, never releases a forbidden claim.
+     *
+     * @return array{
+     *   schema_version:string,
+     *   observed_capability_count:int,
+     *   not_yet_runtime_capable_count:int,
+     *   not_yet_runtime_capable:array<int,string>,
+     *   contract_certification_dry_run_count:int,
+     *   contract_certification_dry_run_surfaces:array<int,string>,
+     *   next_unblock_target:string,
+     *   next_build_slice:string
+     * }
+     */
+    public function maturityGapIndex(): array
+    {
+        return [
+            'schema_version' => self::SCHEMA_VERSION,
+            'observed_capability_count' => (int) self::OBSERVED_EVIDENCE['agent_control_plane_capability_count'],
+            'not_yet_runtime_capable_count' => count(self::NOT_YET_RUNTIME_CAPABLE),
+            'not_yet_runtime_capable' => self::NOT_YET_RUNTIME_CAPABLE,
+            'contract_certification_dry_run_count' => count(self::CONTRACT_CERT_DRYRUN_SURFACES),
+            'contract_certification_dry_run_surfaces' => self::CONTRACT_CERT_DRYRUN_SURFACES,
+            // Section 4's single confirmed next_build_slice is the most actionable, deterministic
+            // unblock target — never derived from claim proof gaps, which are informational only.
+            'next_unblock_target' => self::NEXT_BUILD_SLICE,
+            'next_build_slice' => self::NEXT_BUILD_SLICE,
+        ];
+    }
+
     private function isEmpty(mixed $value): bool
     {
         if ($value === null || $value === false) {
