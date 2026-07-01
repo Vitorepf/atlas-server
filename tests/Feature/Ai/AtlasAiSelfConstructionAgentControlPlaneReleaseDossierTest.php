@@ -329,6 +329,47 @@ final class AtlasAiSelfConstructionAgentControlPlaneReleaseDossierTest extends T
         $this->assertSame($beforePointer, $afterPointer);
     }
 
+    public function test_decision_summary_next_action_matches_status(): void
+    {
+        $dossier = $this->dossier();
+        $summary = $dossier['decision_summary'];
+
+        $this->assertSame($dossier['status'], $summary['status']);
+        $this->assertSame($dossier['blockers'], $summary['blockers']);
+        $this->assertSame($dossier['warnings'], $summary['warnings']);
+
+        $expectedNextAction = match ($dossier['status']) {
+            'blocked' => 'repair_blockers_before_release',
+            'warning' => 'review_warnings_before_release',
+            default => 'release_available_pending_operator_promotion',
+        };
+        $this->assertSame($expectedNextAction, $summary['next_action']);
+
+        if ($dossier['status'] === 'blocked') {
+            $this->assertNotEmpty($summary['blockers']);
+        }
+    }
+
+    public function test_decision_summary_never_allows_runtime_execution(): void
+    {
+        $summary = $this->dossier()['decision_summary'];
+
+        $this->assertFalse($summary['completion_claim_allowed']);
+        $this->assertFalse($summary['execution_allowed']);
+        $this->assertFalse($summary['dispatch_allowed']);
+        $this->assertFalse($summary['runtime_execution_allowed']);
+        $this->assertFalse($summary['provider_call_allowed']);
+    }
+
+    public function test_decision_summary_includes_proof_hash_fields(): void
+    {
+        $summary = $this->dossier()['decision_summary'];
+
+        foreach (['baseline_hash', 'replay_hash', 'diff_hash', 'gate_hash', 'scenario_matrix_hash', 'mutation_guard_hash', 'chain_integrity_hash'] as $key) {
+            $this->assertArrayHasKey($key, $summary['proof_hashes']);
+        }
+    }
+
     public function test_dossier_quartet_cli_works(): void
     {
         foreach (['contract', 'preflight', 'implementation-packet'] as $stage) {

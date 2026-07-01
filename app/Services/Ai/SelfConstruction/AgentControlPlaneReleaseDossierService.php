@@ -239,9 +239,47 @@ final class AgentControlPlaneReleaseDossierService
             },
         ];
 
+        $payload['decision_summary'] = $this->buildDecisionSummary($status, $blockers, $warnings, $payload);
+
         $payload['release_dossier_hash'] = $this->stableHash($this->normalizeForDossierHash($payload));
 
         return $payload;
+    }
+
+    /**
+     * @param  list<string>  $blockers
+     * @param  list<string>  $warnings
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function buildDecisionSummary(string $status, array $blockers, array $warnings, array $payload): array
+    {
+        $nextAction = match ($status) {
+            'blocked' => 'repair_blockers_before_release',
+            'warning' => 'review_warnings_before_release',
+            default => 'release_available_pending_operator_promotion',
+        };
+
+        return [
+            'status' => $status,
+            'next_action' => $nextAction,
+            'blockers' => array_values(array_unique($blockers)),
+            'warnings' => array_values(array_unique($warnings)),
+            'proof_hashes' => [
+                'baseline_hash' => (string) data_get($payload, 'baseline_hash'),
+                'replay_hash' => (string) data_get($payload, 'replay_hash'),
+                'diff_hash' => (string) data_get($payload, 'diff_hash'),
+                'gate_hash' => (string) data_get($payload, 'gate_hash'),
+                'scenario_matrix_hash' => (string) data_get($payload, 'scenario_matrix_hash'),
+                'mutation_guard_hash' => (string) data_get($payload, 'mutation_guard_hash'),
+                'chain_integrity_hash' => (string) data_get($payload, 'chain_integrity_hash'),
+            ],
+            'completion_claim_allowed' => false,
+            'execution_allowed' => false,
+            'dispatch_allowed' => false,
+            'runtime_execution_allowed' => false,
+            'provider_call_allowed' => false,
+        ];
     }
 
     /**
@@ -579,6 +617,13 @@ final class AgentControlPlaneReleaseDossierService
                 $clone['machine_summary']['replay_hash'],
                 $clone['machine_summary']['gate_hash'],
                 $clone['machine_summary']['mutation_guard_hash'],
+            );
+        }
+        if (isset($clone['decision_summary']['proof_hashes'])) {
+            unset(
+                $clone['decision_summary']['proof_hashes']['replay_hash'],
+                $clone['decision_summary']['proof_hashes']['gate_hash'],
+                $clone['decision_summary']['proof_hashes']['mutation_guard_hash'],
             );
         }
         if (isset($clone['baseline_capture_readiness']['assessed_at'])) {
