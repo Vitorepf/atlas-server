@@ -62,6 +62,15 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
     /** Dominant-class share at/above this ratio triggers a "replace" recommendation. */
     private const DOMINANT_SHARE_REPLACE_THRESHOLD = 0.60;
 
+    private const LEVERAGE_HIGH_FLOOR = 0.7;
+
+    private const LEVERAGE_MEDIUM_FLOOR = 0.4;
+
+    /** AC4: minimum batch size before a low-diversity, low-leverage batch is flagged as volume-only. */
+    private const VOLUME_ONLY_MIN_BATCH_SIZE = 5;
+
+    private const VOLUME_ONLY_MAX_DIVERSITY_SCORE = 0.25;
+
     /** keyword => impact class, checked in this priority order (first match wins). */
     private const KEYWORD_MAP = [
         // evidence_integrity (checked early — "proof"/"evidence" appear in many other classes' text)
@@ -140,21 +149,50 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
             ? array_values(array_intersect(self::IMPACT_CLASSES, array_map('strval', $facts['high_priority_classes'])))
             : self::IMPACT_CLASSES;
 
+        $validTasks = array_values(array_filter($tasks, 'is_array'));
+
+        // AC2: repeated-template risk is structural, not self-reported — a task sharing its
+        // impact class and objective prefix with siblings in the SAME batch is a template farm,
+        // regardless of what any individual task claims about itself.
+        $templateKeyCounts = [];
+        foreach ($validTasks as $task) {
+            [$class] = $this->classify($task);
+            $templateKeyCounts[$this->templateKey($task, $class)] ??= 0;
+            $templateKeyCounts[$this->templateKey($task, $class)]++;
+        }
+
         $classifiedTasks = [];
         $classCounts = array_fill_keys(array_merge(self::IMPACT_CLASSES, [self::CLASS_UNCLASSIFIED]), 0);
+        $familyCounts = [];
+        $proofDemandSummary = ['low' => 0, 'medium' => 0, 'high' => 0];
+        $structuralLeverageSummary = ['low' => 0, 'medium' => 0, 'high' => 0];
+        $repeatedTemplateRiskSummary = ['low' => 0, 'medium' => 0, 'high' => 0];
 
-        foreach ($tasks as $task) {
-            if (! is_array($task)) {
-                continue;
-            }
-
+        foreach ($validTasks as $task) {
             [$class, $source] = $this->classify($task);
             $classCounts[$class]++;
+
+            $family = trim((string) ($task['task_family'] ?? ''));
+            if ($family !== '') {
+                $familyCounts[$family] = ($familyCounts[$family] ?? 0) + 1;
+            }
+
+            $proofDemand = $this->leverageBucket((float) ($task['proof_demand_score'] ?? 0.0));
+            $structuralLeverage = $this->leverageBucket((float) ($task['structural_leverage_score'] ?? 0.0));
+            $templateKey = $this->templateKey($task, $class);
+            $templateRisk = $this->templateRiskBucket($templateKeyCounts[$templateKey]);
+
+            $proofDemandSummary[$proofDemand]++;
+            $structuralLeverageSummary[$structuralLeverage]++;
+            $repeatedTemplateRiskSummary[$templateRisk]++;
 
             $classifiedTasks[] = [
                 'task_packet_id' => (string) ($task['task_packet_id'] ?? ''),
                 'impact_class' => $class,
                 'classification_source' => $source,
+                'proof_demand' => $proofDemand,
+                'structural_leverage' => $structuralLeverage,
+                'repeated_template_risk' => $templateRisk,
             ];
         }
 
@@ -173,17 +211,40 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
 
         $advancesMoreThanOne = count($presentStructuralClasses) > 1;
 
+        // AC3: over-served families — a task_family, not just an impact_class, that dominates
+        // the batch is a separate (finer-grained) sign of narrow, repetitive origination.
+        $overServedFamilies = [];
+        foreach ($familyCounts as $family => $count) {
+            $share = $totalTasks > 0 ? round($count / $totalTasks, 4) : 0.0;
+            if ($share >= self::DOMINANT_SHARE_REPLACE_THRESHOLD && $totalTasks > 1) {
+                $overServedFamilies[] = ['family' => $family, 'count' => $count, 'share' => $share];
+            }
+        }
+
+        // AC4: volume-only discount — many tasks, almost no distinct capability advanced, and
+        // no high-structural-leverage task among them. Raw task count never substitutes for it.
+        $isVolumeOnlyBatch = $totalTasks >= self::VOLUME_ONLY_MIN_BATCH_SIZE
+            && $impactDiversityScore <= self::VOLUME_ONLY_MAX_DIVERSITY_SCORE
+            && $structuralLeverageSummary['high'] === 0;
+
         [$recommendation, $recommendedActions] = $this->recommend(
             $totalTasks,
             $classCounts,
             $dominantClass,
             $missingHighPriorityClasses,
             $advancesMoreThanOne,
+            $overServedFamilies,
+            $isVolumeOnlyBatch,
         );
 
         return [
             'schema' => self::SCHEMA,
             'classified_tasks' => $classifiedTasks,
+            'proof_demand_summary' => $proofDemandSummary,
+            'structural_leverage_summary' => $structuralLeverageSummary,
+            'repeated_template_risk_summary' => $repeatedTemplateRiskSummary,
+            'over_served_families' => $overServedFamilies,
+            'is_volume_only_batch' => $isVolumeOnlyBatch,
             'class_counts' => $classCounts,
             'impact_diversity_score' => $impactDiversityScore,
             'missing_high_priority_classes' => $missingHighPriorityClasses,
@@ -242,6 +303,7 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
     /**
      * @param  array<string,int>  $classCounts
      * @param  list<string>  $missingHighPriorityClasses
+     * @param  list<array{family:string,count:int,share:float}>  $overServedFamilies
      * @return array{array{action:string,reasons:list<string>}, list<array<string,string>>}
      */
     private function recommend(
@@ -250,6 +312,8 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
         string $dominantClass,
         array $missingHighPriorityClasses,
         bool $advancesMoreThanOne,
+        array $overServedFamilies = [],
+        bool $isVolumeOnlyBatch = false,
     ): array {
         $recommendedActions = [];
         foreach ($missingHighPriorityClasses as $missingClass) {
@@ -276,15 +340,33 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
             ];
         }
 
+        foreach ($overServedFamilies as $overServed) {
+            $recommendedActions[] = [
+                'action' => 'replace',
+                'target_family' => $overServed['family'],
+                'reason' => sprintf(
+                    "task_family='%s' accounts for %.0f%% of the batch; replace surplus tasks with a different family",
+                    $overServed['family'],
+                    $overServed['share'] * 100,
+                ),
+            ];
+        }
+
         if ($totalTasks === 0) {
             $action = 'add';
             $reasons = ['batch is empty; add tasks covering the missing high-priority classes'];
+        } elseif ($isVolumeOnlyBatch) {
+            $action = 'replace';
+            $reasons = ["batch is volume-only: {$totalTasks} tasks but almost no distinct capability, autonomy or simplification expansion; replace with fewer, higher-leverage tasks"];
         } elseif (! $advancesMoreThanOne) {
             $action = 'replace';
             $reasons = ["batch only advances a single structural capability ({$dominantClass}); replace some {$dominantClass} tasks with tasks from a different impact class"];
         } elseif ($dominantOverloaded) {
             $action = 'replace';
             $reasons = [sprintf('dominant_class=%s is overrepresented at %.0f%% of the batch', $dominantClass, $dominantShare * 100)];
+        } elseif ($overServedFamilies !== []) {
+            $action = 'replace';
+            $reasons = ['over_served_families present; replace surplus tasks from those families with a different family'];
         } elseif ($missingHighPriorityClasses !== []) {
             $action = 'add';
             $reasons = ['missing_high_priority_classes present; add tasks to cover them'];
@@ -294,5 +376,38 @@ final class AtlasExternalBrainOriginatorImpactDiversityReport
         }
 
         return [['action' => $action, 'reasons' => $reasons], $recommendedActions];
+    }
+
+    /**
+     * AC2: repeated-template risk grouping key — class plus a normalized objective prefix, so
+     * tasks that just swap a target name inside an otherwise-identical objective still collide.
+     *
+     * @param  array<string,mixed>  $task
+     */
+    private function templateKey(array $task, string $class): string
+    {
+        $objective = strtolower(trim((string) ($task['objective'] ?? '')));
+
+        return $class.'|'.substr($objective, 0, 40);
+    }
+
+    private function templateRiskBucket(int $siblingCount): string
+    {
+        return match (true) {
+            $siblingCount >= 3 => 'high',
+            $siblingCount === 2 => 'medium',
+            default => 'low',
+        };
+    }
+
+    private function leverageBucket(float $score): string
+    {
+        $score = max(0.0, min(1.0, $score));
+
+        return match (true) {
+            $score >= self::LEVERAGE_HIGH_FLOOR => 'high',
+            $score >= self::LEVERAGE_MEDIUM_FLOOR => 'medium',
+            default => 'low',
+        };
     }
 }
