@@ -12,6 +12,7 @@ final class AtlasSelfConstructionScaffoldRetirementPolicyTest extends TestCase
     private function fullEvidence(): array
     {
         return [
+            'canonical_owner' => 'AtlasCanonicalOrgan',
             'consumers_mapped' => true,
             'replacement_capability' => true,
             'replay_proof' => true,
@@ -78,8 +79,48 @@ final class AtlasSelfConstructionScaffoldRetirementPolicyTest extends TestCase
 
         $this->assertSame('needs_evidence', $decision['decision']);
         $this->assertSame(
-            ['consumers_mapped', 'replacement_capability', 'replay_proof', 'rollback_receipt', 'docs_sync'],
+            ['canonical_owner', 'consumers_mapped', 'replacement_capability', 'replay_proof', 'rollback_receipt', 'docs_sync'],
             $decision['missing_evidence'],
         );
+    }
+
+    public function test_wrapper_scaffold_with_no_canonical_owner_is_blocked(): void
+    {
+        $evidence = $this->fullEvidence();
+        $evidence['canonical_owner'] = '';
+
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide($evidence);
+
+        $this->assertSame('needs_evidence', $decision['decision']);
+        $this->assertContains('canonical_owner', $decision['missing_evidence']);
+        $this->assertFalse($decision['retire_now']);
+    }
+
+    public function test_scaffold_with_owner_parity_rewrite_plan_and_replay_gates_emits_retire_now_and_deletion_evidence(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide($this->fullEvidence());
+
+        $this->assertSame('retire', $decision['decision']);
+        $this->assertTrue($decision['retire_now']);
+        $this->assertNotEmpty($decision['deletion_evidence']);
+    }
+
+    public function test_dormant_organ_without_runtime_proof_is_marked_review_not_auto_delete(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide(
+            $this->fullEvidence() + ['dormant' => true, 'runtime_proof' => false],
+        );
+
+        $this->assertSame('review', $decision['decision']);
+        $this->assertFalse($decision['retire_now']);
+    }
+
+    public function test_dormant_organ_with_runtime_proof_follows_normal_evidence_path(): void
+    {
+        $decision = (new AtlasSelfConstructionScaffoldRetirementPolicy)->decide(
+            $this->fullEvidence() + ['dormant' => true, 'runtime_proof' => true],
+        );
+
+        $this->assertSame('retire', $decision['decision']);
     }
 }
